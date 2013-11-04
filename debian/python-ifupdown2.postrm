@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+  purge)
+    # Note: We don't remove /etc/network/interfaces
+    rm -f /etc/network/run/ifstate
+
+    if [ -L /etc/network/run ] ; then
+      rm -f /etc/network/run
+    elif [ -d /etc/network/run ] ; then
+      rmdir --ignore-fail-on-non-empty /etc/network/run
+    fi
+    ;;
+esac
+
+if [ "$1" = "purge" ] ; then
+    update-rc.d networking remove >/dev/null
+fi

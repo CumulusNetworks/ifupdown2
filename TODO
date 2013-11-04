@@ -1,0 +1,19 @@
+TODO:
+====
+- support for /etc/networking.defaults
+- Implement the ifupdown interface mapping feature
+- Fix parallel implementation
+- Test all original ifupdown options for compatibility
+- Test scale
+- Test with ifupdown-extra, ifmetric, ifupdown-scripts-zg2
+- export other environment variables to scripts:
+	IFACE  physical name of the interface being processed
+        LOGICAL logical name of the interface being processed
+        ADDRFAM address family of the interface
+        METHOD method of the interface (e.g., static)
+        MODE   start if run from ifup, stop if run from ifdown
+        PHASE  as per MODE, but with finer granularity, distinguishing the pre-
+               up, post-up, pre-down and post-down phases.
+        VERBOSITY indicates  whether --verbose was used; set to 1 if so, 0 if not.
+        PATH   the  command   search   path:   /usr/local/sbin:/usr/local/bin:‐
+               /usr/sbin:/usr/bin:/sbin:/bin

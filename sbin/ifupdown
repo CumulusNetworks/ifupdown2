@@ -1,0 +1,184 @@
+#!/usr/bin/python
+
+import sys
+import os
+import re
+import argparse
+from ifupdown.ifupdown_main import *
+
+import logging
+
+lockfile="/run/network/.lock"
+logger = None
+
+def run(args, op):
+
+    logger.debug('args = %s' %str(args))
+
+    try:
+        logger.debug('creating ifupdown object ..')
+        ifupdown_handle = ifupdown_main()
+
+        if op == 'up' or op == 'down':
+            if args.force == True:
+                ifupdown_handle.set_force(args.force)
+
+            if args.jobs > 0:
+                ifupdown_handle.set_njobs(args.jobs)
+
+        if args.dryrun == True:
+            ifupdown_handle.set_dryrun(args.dryrun)
+
+        if args.nodepends == True:
+            ifupdown_handle.set_nodepends(args.nodepends)
+
+        iflist = args.iflist
+        if len(args.iflist) == 0:
+            iflist = None
+
+        logger.debug('calling %s' %op + ' for all interfaces ..')
+        if op == 'up':
+            ifupdown_handle.up(args.all, args.allow, iflist)
+        elif op == 'down':
+            ifupdown_handle.down(args.all, args.allow, iflist)
+        elif op == 'query':
+            if args.curstate == True:
+                qstate='curr'
+            elif args.presumedstate == True:
+                qstate='presumed'
+            elif args.presumedstatedetailed == True:
+                qstate='presumeddetailed'
+            else:
+                qstate=None
+            ifupdown_handle.query(args.all, args.allow, iflist,
+                                  query_state=qstate)
+    except:
+        raise
+
+
+def init(args):
+    global logger
+
+    log_level = logging.WARNING
+
+    if args.verbose == True:
+        log_level = logging.INFO
+
+    if args.debug == True:
+        log_level = logging.DEBUG
+
+    try:
+        logging.basicConfig(level=log_level,
+            format='%(message)s')
+        logger = logging.getLogger('ifupdown')
+    except:
+        raise
+
+
+def deinit():
+    print 'deinit called'
+
+def update_argparser(argparser):
+
+    argparser.add_argument('iflist', metavar='IFACE',
+                nargs='*', help='interfaces list')
+    argparser.add_argument('-a', '--all', action='store_true',
+                help='operate on all interfaces')
+    argparser.add_argument('-n', '--dry-run', dest='dryrun',
+                action='store_true', help='dry run')
+    argparser.add_argument('-v', '--verbose', dest='verbose',
+                action='store_true', help='verbose')
+    argparser.add_argument('-d', '--debug', dest='debug',
+                action='store_true',
+                help='output debug info')
+    argparser.add_argument('-q', '--quiet', dest='quiet',
+                action='store_true',
+                help=argparse.SUPPRESS)
+    argparser.add_argument('--allow', dest='allow', 
+                help='allow class')
+    argparser.add_argument('--nodepends', dest='nodepends',
+                action='store_true', help='dont follow dependents')
+
+
+def update_ifupdown_argparser(argparser):
+    argparser.add_argument('-f', '--force', dest='force',
+                action='store_true',
+                help='force run all operations')
+    argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
+                default=-1, choices=range(1,12), help=argparse.SUPPRESS)
+
+def update_ifup_argparser(argparser):
+    update_ifupdown_argparser(argparser)
+
+def update_ifdown_argparser(argparser):
+    update_ifupdown_argparser(argparser)
+
+def update_ifquery_argparser(argparser):
+    group = argparser.add_mutually_exclusive_group(required=False)
+    group.add_argument('-s', '--query-state', dest='curstate',
+                       action='store_true', help=argparse.SUPPRESS)
+    group.add_argument('--presumed-state', dest='presumedstate',
+                       action='store_true', help=argparse.SUPPRESS)
+    group.add_argument('--presumed-state-detailed',
+                       dest='presumedstatedetailed',
+                       action='store_true', help=argparse.SUPPRESS)
+
+def parse_args(argsv, op):
+    descr = 'interface management'
+
+    argparser = argparse.ArgumentParser(description=descr)
+    update_argparser(argparser)
+    if op == 'up':
+        update_ifup_argparser(argparser)
+    elif op == 'down':
+        update_ifdown_argparser(argparser)
+    elif op == 'query':
+        update_ifquery_argparser(argparser)
+
+    return argparser.parse_args(argsv)
+
+def main(argv):
+    """ main function """
+    try:
+        op = None
+        if re.search(r'ifup', argv[0]) != None:
+            op = 'up'
+        elif re.search(r'ifdown', argv[0]) != None:
+            op = 'down'
+        elif re.search(r'ifquery', argv[0]) != None:
+            op = 'query'
+        else:
+            print ('Unexpected executable.' +
+                   ' Should be \'ifup\' or \'ifdown\' or \'ifquery\'')
+            exit(1)
+
+        # Command line arg parser
+        args = parse_args(argv[1:], op)
+        if len(args.iflist) > 0 and args.all is True:
+            print 'iflist and all are mutually exclusive'
+            exit(1)
+
+        init(args)
+        run(args, op)
+    except Exception, e:
+        if args.debug == True:
+            raise
+        else:
+            logger.error(str(e))
+    finally:
+        deinit()
+
+
+if __name__ == "__main__":
+
+    if not os.geteuid() == 0:
+        print 'Error: Must be root to run this command'
+        exit(1)
+
+    """
+    if not utilities.lockFile(lockfile):
+        print 'Another instance of this program is already running.'
+        exit(0)
+    """
+
+    main(sys.argv)
