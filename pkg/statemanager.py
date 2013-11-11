@@ -223,26 +223,27 @@ class stateManager():
             return True
 
     def print_state(self, ifaceobj, prefix, indent):
-        print ('%s' %indent + '%s' %prefix +
-               '%s' %firstifaceobj.get_state_str(),
-               ', %s' %firstifaceobj.get_status_str())
-
+        print (indent + '%s' %prefix +
+               '%s' %ifaceobj.get_state_str() +
+               ', %s' %ifaceobj.get_status_str())
 
     def print_state_pretty(self, ifacenames, logger):
         for ifacename in ifacenames:
             old_ifaceobjs = self.ifaceobjdict.get(ifacename)
             if old_ifaceobjs is not None:
                 firstifaceobj = old_ifaceobjs[0]
-                self.print_state(self, firstifaceobj,
-                        '%s: ' %firstifaceobj.get_name(), indent)
+                self.print_state(firstifaceobj,
+                        '%s: ' %firstifaceobj.get_name(), '')
 
     def print_state_detailed_pretty(self, ifacenames, logger):
+        indent = '\t'
         for ifacename in ifacenames:
             old_ifaceobjs = self.ifaceobjdict.get(ifacename)
             if old_ifaceobjs is not None:
                 for i in old_ifaceobjs:
                     i.dump_pretty(logger)
-                    self.print_state(self, firstifaceobj, '', indent)
+                    self.print_state(i, '', indent)
+            print '\n'
 
     def dump(self, ifacenames=None):
         print 'iface state:'

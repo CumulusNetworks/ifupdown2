@@ -12,5 +12,8 @@ setup(name='ifupdown2',
       data_files=[('share/man/man8/',
                       ['man/ifup.8', 'man/ifdown.8', 'man/ifquery.8']),
                   ('/etc/init.d/',
-                      ['init.d/networking'])]
+                      ['init.d/networking']),
+                  ('/sbin/ifupdown', ['sbin/ifupdown']),
+                  ('/usr/share/doc/ifupdown/examples/',
+                      ['docs/examples/interfaces'])]
       )
