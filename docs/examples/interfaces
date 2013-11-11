@@ -1,0 +1,54 @@
+
+# The loopback network interface
+auto lo
+iface lo
+   address 10.0.18.3/24
+   address6 2002::2/128
+
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+
+auto bond3
+iface bond3 inet static
+    address 100.0.0.4/24
+    bond-slaves swp2 swp3
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier 1
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit_hash_policy layer3+4
+
+auto br1000
+iface br1000 inet static
+     address 14.0.0.1/24
+     mstpctl_ports glob swp1-4.1000
+     mstpctl_stp on
+     mstpctl_treeprio 32768
+     mstpctl_ageing 200
+
+auto swp5
+iface swp5 inet static
+     address 15.0.0.2/24
+
+auto swp6
+iface swp6
+    address 11.0.3.2/24
+    post-up ip route add 11.0.0.0/8 via 11.0.3.1
+    post-up ip route add 12.0.0.0/8 via 11.0.3.1
+    post-up ip route add 13.0.0.0/8 via 11.0.3.1
+    post-up ip route add 60.0.0.0/8 via 11.0.3.1
+    pre-down ip route del 11.0.0.0/8 via 11.0.3.1
+    pre-down ip route del 12.0.0.0/8 via 11.0.3.1
+    pre-down ip route del 13.0.0.0/8 via 11.0.3.1
+    pre-down ip route del 60.0.0.0/8 via 11.0.3.1
+
+auto br1001
+iface br1001 inet static
+     address 14.0.0.2/24
+     bridge_ports glob swp7-8.1000
+     bridge_stp on
+     bridge_ageing 200
+     bridge_pathcosts swp5.1000=100
+     bridge_portprios swp5.1000=10

@@ -58,10 +58,13 @@ class networkInterfaces():
 
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
+        self.logger.debug('process_source ..%s' %lines[cur_idx])
         sourced_file = lines[cur_idx].split(' ', 2)[1]
         if sourced_file is not None:
+            self.logger.debug('process_source ..%s' %sourced_file)
             for f in glob.glob(sourced_file):
-                self.read_file(self, sourced_file)
+                self.logger.info('Reading sourced file %s' %f)
+                self.read_file(f)
         else:
             self.logger.warn('unable to read source line at %d', lineno)
 
@@ -95,18 +98,21 @@ class networkInterfaces():
             if self.ignore_line(l) == 1:
                 continue
 
-            ifaceobj.raw_lines.append(l)
-
             if self.is_keyword(l.split()[0]) == True:
                 line_idx -= 1
                 break
 
-            (attr_name, attrs) = l.split(' ', 1)
+            ifaceobj.raw_lines.append(l)
 
-            if iface_config.get(attr_name) == None:
-                iface_config[attr_name] = [attrs.strip(' ')]
+            attrs = l.split(' ', 1)
+            if len(attrs) < 2:
+                self.logger.warn('invalid syntax at line %d' %(line_idx + 1))
+                continue
+
+            if iface_config.get(attrs[0]) == None:
+                iface_config[attrs[0]] = [attrs[1].strip(' ')]
             else:
-                iface_config[attr_name].append(attrs.strip(' '))
+                iface_config[attrs[0]].append(attrs[1].strip(' '))
 
         lines_consumed = line_idx - cur_idx
 
@@ -175,7 +181,8 @@ class networkInterfaces():
         self.logger.debug('reading ifaces_file %s' %ifaces_file)
 
         with open(ifaces_file) as f:
-            lines = f.readlines()
+            raw_lines = f.readlines()
+            lines = [l.strip(' \n') for l in raw_lines]
 
             while (line_idx < len(lines)):
                 lineno = lineno + 1
@@ -184,8 +191,7 @@ class networkInterfaces():
                     line_idx += 1
                     continue
         
-                l = lines[line_idx].strip('\n ')
-                words = l.split()
+                words = lines[line_idx].split()
 
                 # Check if first element is a supported keyword
                 if self.is_keyword(words[0]):

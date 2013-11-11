@@ -17,12 +17,9 @@ import sys, traceback
 class ifupdown_main():
 
     # Flags
-    FORCE = False
-    NOWAIT = False
-    DRYRUN = False
     NODEPENDS = False
     ALL = False
-    STATE_CHECK = True
+    STATE_CHECK = False
 
     modules_dir='/etc/network'
     builtin_modules_dir='/usr/share/ifupdownaddons'
@@ -54,11 +51,18 @@ class ifupdown_main():
                                  ('post-down' , OrderedDict({}))])}
 
 
-    def __init__(self):
+    def __init__(self, force=False, dryrun=False, nowait=False,
+                 perfmode=False, nodepends=False, njobs=1):
         self.logger = logging.getLogger('ifupdown')
 
+        self.FORCE = force
+        self.DRYRUN = dryrun
+        self.NOWAIT = nowait
+        self.PERFMODE = perfmode
+        self.NODEPENDS = nodepends
+
         self.ifaces = OrderedDict()
-        self.njobs = 1
+        self.njobs = njobs
         self.pp = pprint.PrettyPrinter(indent=4)
         self.load_modules_builtin(self.builtin_modules_dir)
         self.load_modules(self.modules_dir)
@@ -101,6 +105,14 @@ class ifupdown_main():
 
     def get_dryrun(self):
         return self.DRYRUN
+
+    def set_perfmode(self, perfmode):
+        if perfmode == True:
+            self.logger.debug('setting perfmode to true')
+        self.PERFMODE = perfmode
+
+    def get_perfmode(self):
+        return self.PERFMODE
 
     def set_nowait(self, nowait):
         if nowait == True:
@@ -326,7 +338,7 @@ class ifupdown_main():
             self.logger.debug('saved module %s' %mkind +
                              ' %s' %mname + ' %s' %mftype)
         else:
-            self.logger.warn('ignoring module %s' %mkind + ' %s' %msubkind +
+            self.logger.info('ignoring module %s' %mkind + ' %s' %msubkind +
                         ' %s' %mname + ' of type %s' %mftype)
 
 
@@ -355,10 +367,11 @@ class ifupdown_main():
                         mclass = getattr(m, mname)
                     except:
                         raise
-                        
+
                     minstance = mclass(force=self.get_force(),
                                        dryrun=self.get_dryrun(),
-                                       nowait=self.get_nowait())
+                                       nowait=self.get_nowait(),
+                                       perfmode=self.get_perfmode())
                     ops = minstance.get_ops()
                     for op in ops:
                         if re.search('up', op) is not None:
@@ -480,7 +493,7 @@ class ifupdown_main():
                 err_iface += ' ' + i
 
         if len(err_iface) != 0:
-            self.logger.error('cound not find ifaces: %s' %err_iface)
+            self.logger.error('did not find interfaces: %s' %err_iface)
             return -1
 
         return 0
@@ -579,7 +592,7 @@ class ifupdown_main():
         if ifacenames is not None:
             # If iface list is given, always check if iface is present
            if self.validate_ifaces(ifacenames) != 0:
-               raise Exception('all or some ifaces not found')
+               raise Exception('all or some interfaces not found')
 
         # if iface list not given by user, assume all from config file
         if ifacenames is None: ifacenames = self.ifaceobjdict.keys()
@@ -609,7 +622,11 @@ class ifupdown_main():
 
         if op == 'query':
             if query_state == 'curr':
-                return self.print_ifaceobjscurr_pretty(filtered_ifacenames)
+                # print curr state of all interfaces
+                ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames)
+                if ret != 0:
+                    # if any of the object has an error, signal that silently
+                    raise Exception('')
             return
 
         # Update persistant iface states
@@ -652,11 +669,24 @@ class ifupdown_main():
             ifaceobjs = self.get_iface_objs(i)
             for io in ifaceobjs:
                 io.dump_raw(self.logger)
+                print '\n'
 
     def print_ifaceobjscurr_pretty(self, ifacenames):
+        """ Dumps current running state of interfaces.
+
+        returns 1 if any of the interface has an error,
+        else returns 0
+
+        """
+
+        ret = 0
         for i in ifacenames:
             ifaceobj = self.get_ifaceobjcurr(i)
             ifaceobj.dump_pretty(self.logger)
+            if ifaceobj.get_status() == ifaceStatus.ERROR:
+                ret = 1
+
+        return ret
 
     def print_ifaceobjs_saved_state_pretty(self, ifacenames):
         self.statemanager.print_state_pretty(ifacenames, self.logger)

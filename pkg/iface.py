@@ -297,18 +297,29 @@ class iface():
         if len(env) > 0:
             self.set_env(env)
 
-    def update_config(self, attr_name, attr_value, attr_status=None):
+    def update_config(self, attr_name, attr_value, attr_status=0):
         if attr_value is None:
             attr_value = ''
 
-        if attr_status == None:
+        if attr_status != 0:
+            self.set_status(ifaceStatus.ERROR)
+        else:
+            if self.get_status() != ifaceStatus.ERROR:
+                self.set_status(ifaceStatus.SUCCESS)
+        if self.config.get(attr_name) is not None:
+            self.config[attr_name].append(attr_value)
+        else:
+            self.config[attr_name] = [attr_value]
+
+        """ XXX: If status needs to be encoded in the query string
+        if attr_status == 0:
+            self.set_status(attr
             attr_status_str = ''
         elif attr_status == 0:
             attr_status_str = ' (success)'
         elif attr_status != 0:
             attr_status_str = ' (error)'
-
-        self.config[attr_name] = attr_value + attr_status_str
+        self.config[attr_name] = attr_value + attr_status_str """
 
     def dump_raw(self, logger):
         indent = '  '
@@ -316,12 +327,6 @@ class iface():
         for i in range(1, len(self.raw_lines)):
             print (indent + self.raw_lines[i])
         
-    def dump_state_pretty(self, logger):
-        indent = '  '
-        logger.info('iface %s' %self.get_name())
-        for attr_name, attr_value in self.get_config_current().items():
-            print (indent + '%s' %attr_name + ' %s' %attr_value)
-
     def dump(self, logger):
         indent = '\t'
         logger.info(self.get_name() + ' : {')
@@ -357,8 +362,9 @@ class iface():
 
         config = self.get_config()
         if config is not None:
-            for cname, cvalue in config.items():
-                outbuf += indent + '%s' %cname + ' %s\n' %cvalue
+            for cname, cvaluelist in config.items():
+                for cv in cvaluelist:
+                    outbuf += indent + '%s' %cname + ' %s\n' %cv
 
         #outbuf += ('%s' %indent + '%s' %self.get_state_str() +
         #                ' %s' %self.get_status_str())

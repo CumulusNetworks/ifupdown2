@@ -1,7 +1,13 @@
 TODO:
 ====
 - support for /etc/networking.defaults
-- Implement the ifupdown interface mapping feature
+- implement legacy ifupdown mapping feature
+- support for the following ifupdown options:
+    -o OPTION=VALUE     set OPTION to VALUE as though it were in
+                        /etc/network/interfaces
+    --no-mappings       don't run any mappings
+    --no-scripts        don't run any hook scripts
+
 - Fix parallel implementation
 - Test all original ifupdown options for compatibility
 - Test scale
@@ -17,3 +23,8 @@ TODO:
         VERBOSITY indicates  whether --verbose was used; set to 1 if so, 0 if not.
         PATH   the  command   search   path:   /usr/local/sbin:/usr/local/bin:‐
                /usr/sbin:/usr/bin:/sbin:/bin
+
+- option to pretty print dependency graph. Also an option to output in dot format
+
+- make inet, inet6 address handling smarter: query for existing addresses and
+  decide

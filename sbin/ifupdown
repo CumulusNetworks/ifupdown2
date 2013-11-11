@@ -12,25 +12,20 @@ lockfile="/run/network/.lock"
 logger = None
 
 def run(args, op):
-
     logger.debug('args = %s' %str(args))
 
     try:
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdown_main()
-
         if op == 'up' or op == 'down':
-            if args.force == True:
-                ifupdown_handle.set_force(args.force)
-
-            if args.jobs > 0:
-                ifupdown_handle.set_njobs(args.jobs)
-
-        if args.dryrun == True:
-            ifupdown_handle.set_dryrun(args.dryrun)
-
-        if args.nodepends == True:
-            ifupdown_handle.set_nodepends(args.nodepends)
+            ifupdown_handle = ifupdown_main(force=args.force,
+                                            dryrun=args.noact,
+                                            nodepends=args.nodepends,
+                                            perfmode=args.perfmode,
+                                            njobs=args.jobs)
+        elif op == 'query':
+            ifupdown_handle = ifupdown_main(dryrun=args.noact,
+                                            nodepends=args.nodepends,
+                                            perfmode=args.perfmode)
 
         iflist = args.iflist
         if len(args.iflist) == 0:
@@ -38,9 +33,9 @@ def run(args, op):
 
         logger.debug('calling %s' %op + ' for all interfaces ..')
         if op == 'up':
-            ifupdown_handle.up(args.all, args.allow, iflist)
+            ifupdown_handle.up(args.all, args.CLASS, iflist)
         elif op == 'down':
-            ifupdown_handle.down(args.all, args.allow, iflist)
+            ifupdown_handle.down(args.all, args.CLASS, iflist)
         elif op == 'query':
             if args.curstate == True:
                 qstate='curr'
@@ -50,11 +45,10 @@ def run(args, op):
                 qstate='presumeddetailed'
             else:
                 qstate=None
-            ifupdown_handle.query(args.all, args.allow, iflist,
+            ifupdown_handle.query(args.all, args.CLASS, iflist,
                                   query_state=qstate)
     except:
         raise
-
 
 def init(args):
     global logger
@@ -69,23 +63,24 @@ def init(args):
 
     try:
         logging.basicConfig(level=log_level,
-            format='%(message)s')
+            format='%(levelname)s: %(message)s')
         logger = logging.getLogger('ifupdown')
     except:
         raise
 
 
 def deinit():
-    print 'deinit called'
+    {}
 
 def update_argparser(argparser):
 
     argparser.add_argument('iflist', metavar='IFACE',
                 nargs='*', help='interfaces list')
     argparser.add_argument('-a', '--all', action='store_true',
-                help='operate on all interfaces')
-    argparser.add_argument('-n', '--dry-run', dest='dryrun',
-                action='store_true', help='dry run')
+                help='process all interfaces marked \"auto\"')
+    argparser.add_argument('-n', '--no-act', dest='noact',
+                action='store_true', help='print out what would happen,' +
+                'but don\'t do it')
     argparser.add_argument('-v', '--verbose', dest='verbose',
                 action='store_true', help='verbose')
     argparser.add_argument('-d', '--debug', dest='debug',
@@ -94,10 +89,12 @@ def update_argparser(argparser):
     argparser.add_argument('-q', '--quiet', dest='quiet',
                 action='store_true',
                 help=argparse.SUPPRESS)
-    argparser.add_argument('--allow', dest='allow', 
-                help='allow class')
+    argparser.add_argument('--allow', dest='CLASS', 
+                help='ignore non-\"allow-CLASS\" interfaces')
     argparser.add_argument('--nodepends', dest='nodepends',
-                action='store_true', help='dont follow dependents')
+                action='store_true', help=argparse.SUPPRESS)
+    argparser.add_argument('--performance-mode', dest='perfmode',
+                action='store_true', help=argparse.SUPPRESS)
 
 
 def update_ifupdown_argparser(argparser):
@@ -115,10 +112,16 @@ def update_ifdown_argparser(argparser):
 
 def update_ifquery_argparser(argparser):
     group = argparser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-s', '--query-state', dest='curstate',
-                       action='store_true', help=argparse.SUPPRESS)
+    group.add_argument('-r', '--running-state', dest='curstate',
+                       action='store_true',
+                       help='query running state of an interface')
+
+    # presumed-state is state maintained by ifupdown
     group.add_argument('--presumed-state', dest='presumedstate',
                        action='store_true', help=argparse.SUPPRESS)
+
+    # presumed-state-detailed prints all details about the object stored
+    # by ifupdown
     group.add_argument('--presumed-state-detailed',
                        dest='presumedstatedetailed',
                        action='store_true', help=argparse.SUPPRESS)
@@ -161,13 +164,16 @@ def main(argv):
         init(args)
         run(args, op)
     except Exception, e:
+        if str(e) == '':
+            exit(1)
+
         if args.debug == True:
             raise
         else:
             logger.error(str(e))
+        exit(1)
     finally:
         deinit()
-
 
 if __name__ == "__main__":
 
@@ -176,6 +182,7 @@ if __name__ == "__main__":
         exit(1)
 
     """
+    XXX: Cannot use this. A spawned dhclient process can hold the lock
     if not utilities.lockFile(lockfile):
         print 'Another instance of this program is already running.'
         exit(0)

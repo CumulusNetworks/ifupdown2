@@ -37,3 +37,20 @@ It expects a few things from the pluggable modules:
 	- get_dependent_ifacenames() : must return a list of interfaces the
 	  interface is dependent on. This is used to build the dependency list
 	  for sorting and executing interfaces in parallel.
+
+install instructions
+====================
+- remove existing ifupdown package
+    dpkg -r ifupdown
+
+- download python-ifupdown2*.deb's and install
+
+- or apt-get from testing repo
+    apt-get install python-ifupdown2
+    apt-get install python-ifupdown2-addons
+
+- or install from deb
+    dpkg -i python-ifupdown2-<ver>.deb
+    dpkg -i python-ifupdown2-addons-<ver>.deb
+
+
