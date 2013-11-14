@@ -1,4 +1,11 @@
 #!/usr/bin/python
+#
+# Copyright 2013.  Cumulus Networks, Inc.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# graph --
+#    graph helper module for ifupdown
+#
 
 import logging
 from collections import deque
@@ -38,6 +45,7 @@ class graph():
         # If some indegrees are non zero, we have a cycle
         for ifname,indegree in indegrees.items():
             if indegree != 0:
-                raise Exception('cycle found involving iface %s' %ifname)
+                raise Exception('cycle found involving iface %s' %ifname +
+                                ' (indegree %d)' %indegree)
 
         return S

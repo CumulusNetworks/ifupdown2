@@ -1,20 +1,28 @@
 #!/usr/bin/python
+#
+# Copyright 2013.  Cumulus Networks, Inc.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# ifupdownMain --
+#    ifupdown main module
+#
 
 import os
 import re
+import imp
+import pprint
+import logging
+import sys, traceback
 from statemanager import *
 from networkinterfaces import *
 from iface import *
 from scheduler import *
 from collections import deque
 from collections import OrderedDict
-import imp
-import pprint
-import logging
 from graph import *
-import sys, traceback
+from sets import Set
 
-class ifupdown_main():
+class ifupdownMain():
 
     # Flags
     NODEPENDS = False
@@ -128,12 +136,6 @@ class ifupdown_main():
 
     def get_njobs(self):
         return self.njobs
-
-    def ignore_error(self, errmsg):
-        if (self.FORCE == True or re.search(r'exists', errmsg,
-            re.IGNORECASE | re.MULTILINE) is not None):
-            return True
-        return False
 
     def get_nodepends(self):
         return self.NODEPENDS
@@ -281,18 +283,17 @@ class ifupdown_main():
             dlist = ifaceobj.get_dependents()
             if dlist is None:
                 dlist = self.get_dependents(ifaceobj, op)
+            else:
+                # we already have dependency info for this interface
+                continue
 
-            if dlist is not None:
-                self.preprocess_dependency_list(dlist, op)
-                ifaceobj.set_dependents(dlist)
+            self.preprocess_dependency_list(dlist, op)
+            ifaceobj.set_dependents(dlist)
 
             if dependency_graph.get(i) is None:
                 dependency_graph[i] = dlist
 
-            if dlist is not None:
-                self.generate_dependency_info(dlist,
-                         dependency_graph, op)
-
+            self.generate_dependency_info(dlist, dependency_graph, op)
 
     def is_valid_state_transition(self, ifname, to_be_state):
         return self.statemanager.is_valid_state_transition(ifname,
@@ -440,7 +441,7 @@ class ifupdown_main():
 
 
     def run_without_dependents(self, op, ifacenames):
-        ifaceSched = ifaceScheduler()
+        ifaceSched = ifaceScheduler(force=self.FORCE)
 
         self.logger.debug('run_without_dependents for op %s' %op +
                 ' for %s' %str(ifacenames))
@@ -499,7 +500,7 @@ class ifupdown_main():
         return 0
 
 
-    def iface_whitelisted(self, auto, allow_classes, ifacename):
+    def iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
         """ Checks if interface is whitelisted depending on set of parameters.
 
 
@@ -507,8 +508,11 @@ class ifupdown_main():
 
         """
 
-        self.logger.debug('checking if iface %s' %ifacename +
-                ' is whitelisted')
+        # If the interface matches
+        if excludepats is not None and len(excludepats) > 0:
+            for e in excludepats:
+                if re.search(e, ifacename) is not None:
+                    return False
 
         ifaceobjs = self.get_iface_objs(ifacename)
         if ifaceobjs is None:
@@ -519,7 +523,7 @@ class ifupdown_main():
         if allow_classes is not None and len(allow_classes) > 0:
             for i in ifaceobjs:
                 if (len(i.get_classes()) > 0):
-                    common = Set(allow_classes).intersection(
+                    common = Set([allow_classes]).intersection(
                                 Set(i.get_classes()))
                     if len(common) > 0:
                         return True
@@ -555,7 +559,7 @@ class ifupdown_main():
 
 
     def run(self, op, auto=False, allow_classes=None,
-            ifacenames=None, query_state=None):
+            ifacenames=None, query_state=None, excludepats=None):
         """ main ifupdown run method """
 
         if auto == True:
@@ -599,7 +603,8 @@ class ifupdown_main():
 
         # filter interfaces based on auto and allow classes
         filtered_ifacenames = [i for i in ifacenames
-             if self.iface_whitelisted(auto, allow_classes, i) == True]
+             if self.iface_whitelisted(auto, allow_classes, excludepats,
+                                       i) == True]
 
         if len(filtered_ifacenames) == 0:
                 raise Exception('no ifaces found matching ' +
@@ -642,16 +647,17 @@ class ifupdown_main():
             self.logger.warning('error saving state (%s)' %str(e))
 
 
-    def up(self, auto=False, allow=None, ifacenames=None):
-        return self.run('up', auto, allow, ifacenames)
+    def up(self, auto=False, allow=None, ifacenames=None, excludepats=None):
+        return self.run('up', auto, allow, ifacenames, excludepats=excludepats)
 
-    def down(self, auto=False, allow=None, ifacenames=None):
-        return self.run('down', auto, allow, ifacenames);
+    def down(self, auto=False, allow=None, ifacenames=None, excludepats=None):
+        return self.run('down', auto, allow, ifacenames,
+                        excludepats=excludepats);
 
     def query(self, auto=False, allow=None, ifacenames=None,
-              query_state=False):
+              query_state=False, excludepats=None):
         return self.run('query', auto, allow, ifacenames,
-                        query_state=query_state);
+                        query_state=query_state, excludepats=excludepats);
 
     def dump(self):
         """ all state dump """

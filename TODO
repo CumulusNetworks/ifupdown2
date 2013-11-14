@@ -1,5 +1,9 @@
 TODO:
 ====
+- update man-pages with new options. Convert them to rst
+- ifup hotplug support (basically needs some testing and fixing broken things)
+- syslog support
+- -q quiet option
 - support for /etc/networking.defaults
 - implement legacy ifupdown mapping feature
 - support for the following ifupdown options:

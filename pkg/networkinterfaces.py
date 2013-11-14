@@ -1,10 +1,16 @@
 #!/usr/bin/python
+#
+# Copyright 2013.  Cumulus Networks, Inc.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# networkInterfaces --
+#    ifupdown network interfaces file parser
+#
 
 import collections
-from iface import *
 import logging
 import glob
-
+from iface import *
 
 class networkInterfaces():
 
@@ -38,7 +44,7 @@ class networkInterfaces():
         return 0
 
     def process_allow(self, lines, cur_idx, lineno):
-        allow_line = self.lines[cur_idx]
+        allow_line = lines[cur_idx]
 
         words = allow_line.split()
         if len(words) <= 1:

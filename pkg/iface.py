@@ -1,4 +1,11 @@
 #!/usr/bin/python
+#
+# Copyright 2013.  Cumulus Networks, Inc.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# iface --
+#    interface object
+#
 
 import logging
 
@@ -158,7 +165,12 @@ class iface():
     def get_classes(self):
         return self.classes
 
-    def set_classes(self, classname):
+    def set_classes(self, classes):
+        """ sets interface class list to the one passed as arg """
+        self.classes = classes
+
+    def set_class(self, classname):
+        """ Appends a class to the list """
         self.classes.append(classname)
 
     def belongs_to_class(self, intfclass):
@@ -208,49 +220,6 @@ class iface():
 
     def get_linkstate(self):
         return self.linkstate
-
-    def run_children(self, stage, module_list, force=0):
-
-        if (self.is_flag_on(ifaceFlags.FOLLOW_DEPENDENTS)
-                == False):
-            return
-
-        for c in self.children:
-            self.set_flag(
-                ifaceFlags.FOLLOW_DEPENDENTS)
-            ret = c.run(stage, module_list, force)
-            self.clear_flag(
-                ifaceFlags.FOLLOW_DEPENDENTS)
-
-            if ret != 0:
-                self.set_state(stage, ret)
-                if force == 0:
-                    break
-
-        return ret
-
-    def run(self, stage, module_list, force=0):
-        ret = 0
-        err = 0
-
-        ret = self.run_children()
-
-        if ret != 0 and force == 0:
-            return ret
-            
-        for m in module_list:
-            ret = m.run(self, stage, force)
-            if ret != 0:
-                self.set_state(stage, ret)
-
-                # If no force, return!
-                if force == 0:
-                    return -1
-                err += 1
-            else:
-                self.set_state(stage, ret)
-
-        return ret
 
     def get_attr_value(self, attr_name):
         config = self.get_config()

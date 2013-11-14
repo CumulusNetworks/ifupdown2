@@ -13,7 +13,7 @@ setup(name='ifupdown2',
                       ['man/ifup.8', 'man/ifdown.8', 'man/ifquery.8']),
                   ('/etc/init.d/',
                       ['init.d/networking']),
-                  ('/sbin/ifupdown', ['sbin/ifupdown']),
+                  ('/sbin/', ['sbin/ifupdown']),
                   ('/usr/share/doc/ifupdown/examples/',
                       ['docs/examples/interfaces'])]
       )
