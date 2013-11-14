@@ -284,16 +284,17 @@ class ifupdownMain():
             if dlist is None:
                 dlist = self.get_dependents(ifaceobj, op)
             else:
-                # we already have dependency info for this interface
                 continue
 
-            self.preprocess_dependency_list(dlist, op)
-            ifaceobj.set_dependents(dlist)
+            if dlist is not None:
+                self.preprocess_dependency_list(dlist, op)
+                ifaceobj.set_dependents(dlist)
 
             if dependency_graph.get(i) is None:
                 dependency_graph[i] = dlist
 
-            self.generate_dependency_info(dlist, dependency_graph, op)
+            if dlist is not None:
+                self.generate_dependency_info(dlist, dependency_graph, op)
 
     def is_valid_state_transition(self, ifname, to_be_state):
         return self.statemanager.is_valid_state_transition(ifname,
@@ -688,9 +689,13 @@ class ifupdownMain():
         ret = 0
         for i in ifacenames:
             ifaceobj = self.get_ifaceobjcurr(i)
-            ifaceobj.dump_pretty(self.logger)
-            if ifaceobj.get_status() == ifaceStatus.ERROR:
+            if ifaceobj.get_status() == ifaceStatus.NOTFOUND:
+                print 'iface %s' %ifaceobj.get_name() + ' (not found)'
                 ret = 1
+                continue
+            elif ifaceobj.get_status() == ifaceStatus.ERROR:
+                ret = 1
+            ifaceobj.dump_pretty(self.logger)
 
         return ret
 

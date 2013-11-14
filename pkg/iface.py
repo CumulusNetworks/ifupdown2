@@ -20,6 +20,7 @@ class ifaceStatus():
     UNKNOWN = 0x1
     SUCCESS = 0x2
     ERROR = 0x3
+    NOTFOUND = 0x4
 
     @classmethod
     def to_str(cls, state):

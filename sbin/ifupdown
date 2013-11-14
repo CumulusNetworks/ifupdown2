@@ -95,8 +95,9 @@ def update_argparser(argparser):
     argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
                 default=-1, choices=range(1,12), help=argparse.SUPPRESS)
     argparser.add_argument('-X', '--exclude', dest='excludepats',
-                action='append', help='print out what would happen,' +
-                ' but don\'t do it')
+                action='append', help='exclude interfaces from the list of '
+                + 'interfaces to operate on by a PATTERN '
+                + '(note that this option doesn\'t disable mappings)')
 
 
 def update_ifupdown_argparser(argparser):
