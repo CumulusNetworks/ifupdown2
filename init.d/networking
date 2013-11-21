@@ -96,7 +96,7 @@ check_network_swap() {
 ifup_hotplug () {
     if [ -d /sys/class/net ]
     then
-	    ifaces=$(for iface in $(ifquery --list --allow=hotplug)
+	    ifaces=$(for iface in $(ifquery --list --allow=hotplug 2>/dev/null)
 			    do
 				    link=${iface##:*}
 				    link=${link##.*}
@@ -170,7 +170,7 @@ force-reload|restart)
 	fi
 	process_options
 
-	log_warning_msg "Running $0 $1 is deprecated because it may not re-enable some interfaces"
+	#log_warning_msg "Running $0 $1 is deprecated because it may not re-enable some interfaces"
 	log_action_begin_msg "Reconfiguring network interfaces"
 	ifdown -a --exclude=lo $verbose || true
 	set -f

@@ -1,4 +1,4 @@
-- Some state issues if multiple interfaces for the same interface config blocks are present for the same interface
+- There is a state issue if multiple configuration blocks are present for the same interface in the interfaces file
 - `ifquery -r` can give wrong result if dhclient is running + static addresses are configured
 - `ifquery -r` status is success for success case and also for cases where there
 is no support for query yet

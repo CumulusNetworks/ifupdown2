@@ -2,6 +2,8 @@
 
 set -e
 
+rm -f /sbin/ifup /sbin/ifdown /sbin/ifquery
+
 case "$1" in
   purge)
     # Note: We don't remove /etc/network/interfaces

@@ -1,4 +1,11 @@
 #!/usr/bin/python
+#
+# Copyright 2013.  Cumulus Networks, Inc.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# ifaceScheduler --
+#    interface scheduler
+#
 
 import os
 import re
@@ -23,9 +30,10 @@ class ifaceScheduler(ifupdownBase):
     or dependency graph format.
     """
 
-    def __init__(self):
+    def __init__(self, force=False):
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
+        self.FORCE = force
 
     def run_iface_subop(self, ifupdownobj, ifaceobj, op, subop, mdict, cenv):
         """ Runs sub operation on an interface """
@@ -55,10 +63,7 @@ class ifaceScheduler(ifupdownBase):
                     self.exec_command(m, cmdenv=cenv)
             except Exception, e:
                 err = 1
-                if ifupdownobj.ignore_error(str(e)) == True:
-                    pass
-                else:
-                    raise
+                self.log_error(str(e))
             finally:
                 if op != 'query':
                     if err == 1:
@@ -123,11 +128,7 @@ class ifaceScheduler(ifupdownBase):
             try:
                 self.run_iface(ifupdownobj, ifacename, operation)
             except Exception, e:
-                if (ifupdownobj.ignore_error(str(e)) == True):
-                    pass
-                else:
-                    raise
-
+                self.log_error(str(e))
 
     def run_iface_list_subop(self, ifupdownobj, ifacenames, op, subop, mdict,
                              sorted_by_dependency=False):
@@ -164,11 +165,7 @@ class ifaceScheduler(ifupdownBase):
                     self.run_iface_subop(ifupdownobj, ifaceobj, op, subop,
                                          mdict, cenv)
             except Exception, e:
-                if (ifupdownobj.ignore_error(str(e)) == True):
-                    pass
-                else:
-                    raise
-
+                self.log_error(str(e))
 
     def run_iface_list_stages(self, ifupdownobj, ifacenames, op,
                               sorted_by_dependency=False):
@@ -261,7 +258,7 @@ class ifaceScheduler(ifupdownBase):
                                                  dlist, op)
                     self.accquire_token(ifacename)
                 except Exception, e:
-                    if (ifupdownobj.ignore_error(str(e)) == True):
+                    if (self.ignore_error(str(e)) == True):
                         pass
                     else:
                         # Dont bring the iface up if children did not come up

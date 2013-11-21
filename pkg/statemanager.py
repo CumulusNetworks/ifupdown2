@@ -1,5 +1,11 @@
 #!/usr/bin/python
-
+#
+# Copyright 2013.  Cumulus Networks, Inc.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# stateManager --
+#    interface state manager
+#
 import cPickle
 from collections import OrderedDict
 from exceptions import *
@@ -65,6 +71,7 @@ class stateManager():
         for ifaceobj in pickling.load(pickle_filename):
             self.save_ifaceobj(ifaceobj)
             ifaceobj.set_refcnt(0)
+            ifaceobj.set_dependents(None)
 
         return 0
 
