@@ -202,7 +202,6 @@ class ifupdownMain():
         # XXX: Ideally this should be a call-back into the vlan module.
         vlan_iface_obj = iface()
         vlan_iface_obj.set_name(vlan_ifname)
-        vlan_iface_obj.set_dependents(self.get_dependents(vlan_iface_obj, op))
 
         return vlan_iface_obj
 
@@ -267,13 +266,15 @@ class ifupdownMain():
 
         return dlist
 
-    
     def generate_dependency_info(self, ifacenames, dependency_graph, op):
         """ recursive function to generate iface dependency info """
 
         self.logger.debug('generating dependency info for %s' %str(ifacenames))
 
-        for i in ifacenames:
+        iqueue = deque(ifacenames)
+        while iqueue:
+            i = iqueue.popleft()
+
             # Go through all modules and find dependent ifaces
             dlist = None
             ifaceobj = self.get_iface_obj_first(i)
@@ -289,12 +290,11 @@ class ifupdownMain():
             if dlist is not None:
                 self.preprocess_dependency_list(dlist, op)
                 ifaceobj.set_dependents(dlist)
+                for d in dlist:
+                    iqueue.append(d)
 
             if dependency_graph.get(i) is None:
                 dependency_graph[i] = dlist
-
-            if dlist is not None:
-                self.generate_dependency_info(dlist, dependency_graph, op)
 
     def is_valid_state_transition(self, ifname, to_be_state):
         return self.statemanager.is_valid_state_transition(ifname,
@@ -560,7 +560,8 @@ class ifupdownMain():
 
 
     def run(self, op, auto=False, allow_classes=None,
-            ifacenames=None, query_state=None, excludepats=None):
+            ifacenames=None, query_state=None, excludepats=None,
+            format=None):
         """ main ifupdown run method """
 
         if auto == True:
@@ -678,7 +679,7 @@ class ifupdownMain():
                 io.dump_raw(self.logger)
                 print '\n'
 
-    def print_ifaceobjscurr_pretty(self, ifacenames):
+    def print_ifaceobjscurr_pretty(self, ifacenames, format):
         """ Dumps current running state of interfaces.
 
         returns 1 if any of the interface has an error,
@@ -695,7 +696,10 @@ class ifupdownMain():
                 continue
             elif ifaceobj.get_status() == ifaceStatus.ERROR:
                 ret = 1
-            ifaceobj.dump_pretty(self.logger)
+            if format is None or format == 'nwifaces':
+                ifaceobj.dump_pretty(self.logger)
+            else:
+                ifaceobj.dump_json(self.logger)
 
         return ret
 

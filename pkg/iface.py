@@ -8,6 +8,7 @@
 #
 
 import logging
+import json
 
 class ifaceFlags():
 
@@ -340,3 +341,7 @@ class iface():
         #                ' %s' %self.get_status_str())
 
         print outbuf
+
+
+    def dump_json(self, logger):
+        json.dumps(self)

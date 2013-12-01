@@ -13,7 +13,9 @@ case "$1" in
         [ -d /run/network ] || mkdir -p /run/network
 
         # for backward compatibility
-        ln -sf /run/network /etc/network/run
+        if [ ! -f /etc/network/run ]; then
+            ln -sf /run/network /etc/network/run
+        fi
 
         [ -d /etc/network/if-pre-up.d ] || mkdir -p /etc/network/if-pre-up.d
         [ -d /etc/network/if-up.d ] || mkdir -p /etc/network/if-up.d
