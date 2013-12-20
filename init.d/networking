@@ -22,6 +22,8 @@ CONFIGURE_INTERFACES=yes
 EXCLUDE_INTERFACES=
 VERBOSE=no
 
+verbose=
+
 [ -f /etc/default/networking ] && . /etc/default/networking
 
 [ "$VERBOSE" = yes ] && verbose=-v
@@ -128,7 +130,7 @@ start)
 	set -f
 	exclusions=$(process_exclusions)
 	log_action_begin_msg "Configuring network interfaces"
-	if ifup -a $exclusions $verbose && ifup_hotplug $exclusions $verbose
+	if ifup -a $verbose --perfmode
 	then
 	    log_action_end_msg $?
 	else
@@ -144,7 +146,7 @@ stop)
 	check_network_swap
 
 	log_action_begin_msg "Deconfiguring network interfaces"
-	if ifdown -a --exclude=lo $verbose; then
+	if ifdown -a --exclude=lo $verbose --perfmode --force; then
 	    log_action_end_msg $?
 	else
 	    log_action_end_msg $?
@@ -156,7 +158,7 @@ reload)
 
 	log_action_begin_msg "Reloading network interfaces configuration"
 	state=$(cat /run/network/ifstate)
-	ifdown -a --exclude=lo $verbose || true
+	ifdown -a --exclude=lo $verbose  --perfmode --force || true
 	if ifup --exclude=lo $state $verbose ; then
 	    log_action_end_msg $?
 	else
@@ -172,10 +174,10 @@ force-reload|restart)
 
 	#log_warning_msg "Running $0 $1 is deprecated because it may not re-enable some interfaces"
 	log_action_begin_msg "Reconfiguring network interfaces"
-	ifdown -a --exclude=lo $verbose || true
+	ifdown -a --exclude=lo $verbose --perfmode --force || true
 	set -f
 	exclusions=$(process_exclusions)
-	if ifup -a --exclude=lo $exclusions $verbose && ifup_hotplug $exclusions $verbose
+	if ifup -a --exclude=lo $verbose --perfmode
 	then
 	    log_action_end_msg $?
 	else

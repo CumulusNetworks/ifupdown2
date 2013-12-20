@@ -259,7 +259,7 @@ class ifupdownMain():
                         continue
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                     self.ifaceobjdict.keys())
-                    if dlist:
+                    if dlist is not None:
                         self.logger.debug('%s: ' %ifaceobj.get_name() +
                                 'got dependency list: %s' %str(dlist))
                         break
