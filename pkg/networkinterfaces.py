@@ -89,6 +89,7 @@ class networkInterfaces():
 
     def process_iface(self, lines, cur_idx, lineno):
         lines_consumed = 0
+        line_idx = cur_idx
 
         ifaceobj = iface()
 
@@ -174,47 +175,64 @@ class networkInterfaces():
 
         return classes
 
-
-    def read_file(self, filename=None):
+    def process_filedata(self, filedata):
         lineno = 0
         line_idx = 0
         lines_consumed = 0
 
+        raw_lines = filedata.split('\n')
+        lines = [l.strip(' \n') for l in raw_lines]
+
+        while (line_idx < len(lines)):
+            lineno = lineno + 1
+
+            if self.ignore_line(lines[line_idx]):
+                line_idx += 1
+                continue
+        
+            words = lines[line_idx].split()
+
+            # Check if first element is a supported keyword
+            if self.is_keyword(words[0]):
+                keyword_func = self.get_keyword_func(words[0])
+                lines_consumed = keyword_func(self, lines, line_idx, lineno)
+                line_idx += lines_consumed
+            else:
+                self.logger.warning('could not process line %s' %l + ' at' +
+                    ' lineno %d' %lineno)
+
+            line_idx += 1
+
+        return 0
+
+    def run_template_engine(self, textdata):
+        try:
+            from mako.template import Template
+        except:
+            self.logger.warning('template engine mako not found ' +
+                                'skipping template parsing');
+            return textdata
+
+        t = Template(text=textdata, output_encoding='utf-8')
+        return t.render()
+
+    def read_file(self, filename=None):
         ifaces_file = filename
         if ifaces_file == None:
             ifaces_file=self.ifaces_file
 
         self.logger.debug('reading ifaces_file %s' %ifaces_file)
+        f = open(ifaces_file)
+        filedata = f.read()
+        f.close()
 
-        with open(ifaces_file) as f:
-            raw_lines = f.readlines()
-            lines = [l.strip(' \n') for l in raw_lines]
+        # process line continuations
+        filedata = ' '.join(d.strip() for d in filedata.split('\\'))
 
-            while (line_idx < len(lines)):
-                lineno = lineno + 1
+        # run through template engine
+        filedata = self.run_template_engine(filedata)
 
-                if self.ignore_line(lines[line_idx]):
-                    line_idx += 1
-                    continue
-        
-                words = lines[line_idx].split()
-
-                # Check if first element is a supported keyword
-                if self.is_keyword(words[0]):
-                    keyword_func = self.get_keyword_func(
-                                words[0])
-                    lines_consumed = keyword_func(self,
-                                        lines, line_idx, lineno)
-
-                    line_idx += lines_consumed
-                else:
-                    self.logger.warning('could not ' +
-                        'process line %s' %l + ' at' +
-                        ' lineno %d' %lineno)
-
-                line_idx += 1
-
-        return 0
+        self.process_filedata(filedata)
 
 
     def load(self, filename=None):

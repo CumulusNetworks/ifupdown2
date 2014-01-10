@@ -25,7 +25,8 @@ def run(args, op):
         elif op == 'query':
             ifupdown_handle = ifupdownMain(nodepends=args.nodepends,
                                             perfmode=args.perfmode,
-                                            njobs=args.jobs)
+                                            njobs=args.jobs,
+                                            format=args.format)
 
         iflist = args.iflist
         if len(args.iflist) == 0:
@@ -133,6 +134,9 @@ def update_ifquery_argparser(argparser):
     group.add_argument('--presumed-state-detailed',
                        dest='presumedstatedetailed',
                        action='store_true', help=argparse.SUPPRESS)
+
+    group.add_argument('--format', dest='format', default='nwifaces',
+                       choices=['nwifaces', 'json'], help=argparse.SUPPRESS)
 
 
 def parse_args(argsv, op):
