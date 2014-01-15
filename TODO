@@ -1,8 +1,13 @@
 TODO:
 ====
+- fix service networking reload to use ifreload
+- Ifquery does not report link status, mainly because it reports only in terms of /etc/network/interfaces attributes. Plan to fix that
 - update man-pages with new options. Convert them to rst
-- ifup hotplug support (basically needs some testing and fixing broken things)
+- Documentation
+- Priorities for addon modules
 - syslog support
+- have ability to also run uninstall on interfaces that dont have any config
+- ifup hotplug support (basically needs some testing and fixing broken things)
 - -q quiet option
 - support for /etc/networking.defaults
 - implement legacy ifupdown mapping feature
@@ -11,12 +16,10 @@ TODO:
                         /etc/network/interfaces
     --no-mappings       don't run any mappings
     --no-scripts        don't run any hook scripts
-
 - Fix parallel implementation
 - Test all original ifupdown options for compatibility
-- Test scale
 - Test with ifupdown-extra, ifmetric, ifupdown-scripts-zg2
-- export other environment variables to scripts:
+- export other environment variables to bash scripts (for backward compatibility):
 	IFACE  physical name of the interface being processed
         LOGICAL logical name of the interface being processed
         ADDRFAM address family of the interface
@@ -28,7 +31,3 @@ TODO:
         PATH   the  command   search   path:   /usr/local/sbin:/usr/local/bin:‐
                /usr/sbin:/usr/bin:/sbin:/bin
 
-- option to pretty print dependency graph. Also an option to output in dot format
-
-- make inet, inet6 address handling smarter: query for existing addresses and
-  decide
