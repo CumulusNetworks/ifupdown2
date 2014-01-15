@@ -1,6 +1,7 @@
 TODO:
 ====
 - fix service networking reload to use ifreload
+- the --print-dependency=dot option currently assumes gvgen module is installed.
 - Ifquery does not report link status, mainly because it reports only in terms of /etc/network/interfaces attributes. Plan to fix that
 - update man-pages with new options. Convert them to rst
 - Documentation
