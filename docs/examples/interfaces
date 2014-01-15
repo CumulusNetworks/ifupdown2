@@ -1,18 +1,20 @@
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
 
 # The loopback network interface
 auto lo
-iface lo
-   address 10.0.18.3/24
-   address6 2002::2/128
+iface lo inet loopback
 
 # The primary network interface
 auto eth0
 iface eth0 inet dhcp
 
+#source /etc/network/interfaces.d/template.bridges
+
 auto bond3
 iface bond3 inet static
-    address 100.0.0.4/24
-    bond-slaves swp2 swp3
+    address 100.0.0.4/16
+    bond-slaves swp1 swp2
     bond-mode 802.3ad
     bond-miimon 100
     bond-use-carrier 1
@@ -20,35 +22,36 @@ iface bond3 inet static
     bond-min-links 1
     bond-xmit_hash_policy layer3+4
 
-auto br1000
-iface br1000 inet static
-     address 14.0.0.1/24
-     mstpctl_ports glob swp1-4.1000
-     mstpctl_stp on
-     mstpctl_treeprio 32768
-     mstpctl_ageing 200
+auto bond4
+iface bond4 inet static
+    address 100.0.0.6/16
+    bond-slaves swp3 swp4
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier 1
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit_hash_policy layer3+4
 
-auto swp5
-iface swp5 inet static
-     address 15.0.0.2/24
+auto br0
+iface br0
+    address 12.0.0.4/24
+    address 12.0.0.6/24
+    address6 2000:1000:1000:1000:3::5/128
+    mstpctl_ports bond3 bond4 swp5 swp8
+    mstpctl_stp on
 
-auto swp6
-iface swp6
-    address 11.0.3.2/24
-    post-up ip route add 11.0.0.0/8 via 11.0.3.1
-    post-up ip route add 12.0.0.0/8 via 11.0.3.1
-    post-up ip route add 13.0.0.0/8 via 11.0.3.1
-    post-up ip route add 60.0.0.0/8 via 11.0.3.1
-    pre-down ip route del 11.0.0.0/8 via 11.0.3.1
-    pre-down ip route del 12.0.0.0/8 via 11.0.3.1
-    pre-down ip route del 13.0.0.0/8 via 11.0.3.1
-    pre-down ip route del 60.0.0.0/8 via 11.0.3.1
+auto bond3.2000
+iface bond3.2000 inet static
+    address 100.1.0.4/16
 
-auto br1001
-iface br1001 inet static
-     address 14.0.0.2/24
-     bridge_ports glob swp7-8.1000
-     bridge_stp on
-     bridge_ageing 200
-     bridge_pathcosts swp5.1000=100
-     bridge_portprios swp5.1000=10
+auto bond4.2000
+iface bond4.2000 inet static
+    address 100.1.0.6/16
+
+auto br2000
+iface br2000 inet6 static
+    address6 2001:dad:beef::4/64
+    mstpctl_ports bond3.2000 bond4.2000 swp5.2000
+    mstpctl_treeprio 61440
+    mstpctl_stp on
