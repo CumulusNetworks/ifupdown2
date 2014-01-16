@@ -10,6 +10,7 @@
 import collections
 import logging
 import glob
+import re
 from iface import *
 
 class networkInterfaces():
@@ -95,6 +96,7 @@ class networkInterfaces():
 
         iface_line = lines[cur_idx].strip('\n ')
         iface_attrs = iface_line.split()
+        ifacename = iface_attrs[1]
 
         ifaceobj.raw_lines.append(iface_line)
     
@@ -111,6 +113,9 @@ class networkInterfaces():
 
             ifaceobj.raw_lines.append(l)
 
+            # preprocess vars (XXX: only preprocesses $IFACE for now)
+            l = re.sub(r'\$IFACE', ifacename, l)
+
             attrs = l.split(' ', 1)
             if len(attrs) < 2:
                 self.logger.warn('invalid syntax at line %d' %(line_idx + 1))
@@ -124,7 +129,7 @@ class networkInterfaces():
         lines_consumed = line_idx - cur_idx
 
         # Create iface object
-        ifaceobj.set_name(iface_attrs[1])
+        ifaceobj.set_name(ifacename)
         ifaceobj.set_config(iface_config)
         ifaceobj.generate_env()
         if len(iface_attrs) > 2:

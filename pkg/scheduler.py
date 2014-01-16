@@ -50,10 +50,10 @@ class ifaceScheduler(ifupdownBase):
                     self.logger.debug('%s: ' %ifaceobj.get_name() +
                                       'running module %s' %mname +
                                       ' op %s' %op + ' subop %s' %subop)
-                    if op == 'query':
-                        m.run(ifaceobj, subop, query=True,
+                    if op == 'query-checkcurr':
+                        m.run(ifaceobj, subop, query_check=True,
                               query_ifaceobj=ifupdownobj.create_ifaceobjcurr(
-                                                    ifaceobj.get_name()))
+                                                                ifaceobj))
                     else:
                         m.run(ifaceobj, subop)
                 else:
@@ -65,7 +65,7 @@ class ifaceScheduler(ifupdownBase):
                 err = 1
                 self.log_error(str(e))
             finally:
-                if op != 'query':
+                if op[:5] != 'query':
                     if err == 1:
                         ifupdownobj.set_iface_state(ifaceobj,
                                 ifaceState.from_str(subop),
@@ -135,7 +135,6 @@ class ifaceScheduler(ifupdownBase):
         """ Runs interface list through sub operation handler. """
 
         self.logger.debug('running sub operation %s on all given interfaces' %op)
-
         iface_run_queue = deque(ifacenames)
         for i in range(0, len(iface_run_queue)):
             if op == 'up':

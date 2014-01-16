@@ -31,6 +31,8 @@ class ifaceStatus():
             return 'success'
         elif state == cls.ERROR:
             return 'error'
+        elif state == cls.NOTFOUND:
+            return 'not found'
     
     @classmethod
     def from_str(cls, state_str):
@@ -104,7 +106,12 @@ class iface():
         self.status = ifaceStatus.UNKNOWN
         self.flags = 0x0
         self.refcnt = 0
+        # dependents that are listed as in the
+        # config file
         self.dependents = None
+        # All dependents (includes dependents that
+        # are not listed in the config file)
+        self.realdev_dependents = None
         self.auto = False
         self.classes = []
         self.env = None
@@ -113,7 +120,6 @@ class iface():
         self.linkstate = None
 
     def inc_refcnt(self):
-        #print 'inside inc_refcnt = %d' %self.refcnt
         self.refcnt += 1
 
     def dec_refcnt(self):
@@ -217,6 +223,12 @@ class iface():
     def get_dependents(self):
         return self.dependents
 
+    def set_realdev_dependents(self, dlist):
+        self.realdev_dependents = dlist
+
+    def get_realdev_dependents(self):
+        return self.realdev_dependents
+
     def set_linkstate(self, l):
         self.linkstate = l
 
@@ -268,7 +280,16 @@ class iface():
         if len(env) > 0:
             self.set_env(env)
 
-    def update_config(self, attr_name, attr_value, attr_status=0):
+    def update_config(self, attr_name, attr_value):
+        if self.config.get(attr_name) is None:
+            self.config[attr_name] = [attr_value]
+        else:
+            self.config[attr_name].append(attr_value)
+
+    def update_config_dict(self, attrdict):
+        self.config.update(attrdict)
+
+    def update_config_with_status(self, attr_name, attr_value, attr_status=0):
         if attr_value is None:
             attr_value = ''
 
@@ -313,6 +334,10 @@ class iface():
             logger.info(indent + 'dependents: %s' %str(d))
         else:
             logger.info(indent + 'dependents: None')
+
+        logger.info(indent + 'realdev dependents: %s'
+                    %str(self.get_realdev_dependents()))
+
 
         logger.info(indent + 'config: ')
         config = self.get_config()

@@ -54,3 +54,12 @@ install instructions
     dpkg -i python-ifupdown2-addons-<ver>.deb
 
 
+extra packages to use addional packages:
+======================================
+
+To use templates install python-mako (from wheezy):
+    apt-get install python-mako
+
+To generate dot files install python-gvgen (from wheezy):
+    apt-get install python-gvgen
+

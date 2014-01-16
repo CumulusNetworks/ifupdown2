@@ -53,6 +53,12 @@ class ifupdownMain():
                     OrderedDict([('pre-up', OrderedDict({})),
                                  ('up' , OrderedDict({})),
                                  ('post-up' , OrderedDict({}))]),
+                   'query-checkcurr' :
+                    OrderedDict([('query-checkcurr', OrderedDict({}))]),
+
+                   'query-running' :
+                    OrderedDict([('query-running', OrderedDict({}))]),
+
                    'down' :
                     OrderedDict([('pre-down', OrderedDict({})),
                                  ('down' , OrderedDict({})),
@@ -60,7 +66,8 @@ class ifupdownMain():
 
 
     def __init__(self, force=False, dryrun=False, nowait=False,
-                 perfmode=False, nodepends=False, njobs=1):
+                 perfmode=False, nodepends=False, njobs=1,
+                 format='nwifaces', cache=False):
         self.logger = logging.getLogger('ifupdown')
 
         self.FORCE = force
@@ -68,6 +75,8 @@ class ifupdownMain():
         self.NOWAIT = nowait
         self.PERFMODE = perfmode
         self.NODEPENDS = nodepends
+        self.CACHE = cache
+        self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = True
 
         self.ifaces = OrderedDict()
         self.njobs = njobs
@@ -113,6 +122,16 @@ class ifupdownMain():
 
     def get_dryrun(self):
         return self.DRYRUN
+
+    def get_cache(self):
+        return self.CACHE
+
+    def get_ifaceobjdict(self):
+        return self.ifaceobjdict
+
+    def set_ifaceobjdict(self, ifaceobjdict):
+        del self.ifaceobjdict
+        self.ifaceobjdict = ifaceobjdict
 
     def set_perfmode(self, perfmode):
         if perfmode == True:
@@ -161,19 +180,25 @@ class ifupdownMain():
     def get_iface_obj_last(self, ifacename):
         return self.ifaceobjdict.get(ifacename)[-1]
 
-    def create_ifaceobjcurr(self, ifacename):
-        ifaceobj = self.get_ifaceobjcurr(ifacename)
-        if ifaceobj is not None:
-            return ifaceobj
+    def create_ifaceobjcurr(self, ifaceobj):
+        ifacename = ifaceobj.get_name()
+        ifaceobjcurr = self.get_ifaceobjcurr(ifacename)
+        if ifaceobjcurr is not None:
+            return ifaceobjcurr
 
-        ifaceobj = iface()
-        ifaceobj.set_name(ifacename)
-        self.ifaceobjcurrdict[ifacename] = ifaceobj
+        ifaceobjcurr = iface()
+        ifaceobjcurr.set_name(ifacename)
+        ifaceobjcurr.set_dependents(ifaceobj.get_dependents())
+        self.ifaceobjcurrdict[ifacename] = ifaceobjcurr
 
         return ifaceobj
 
     def get_ifaceobjcurr(self, ifacename):
         return self.ifaceobjcurrdict.get(ifacename)
+
+
+    def get_ifaceobjrunning(self, ifacename):
+        return self.ifaceobjrunningdict.get(ifacename)
 
     def get_iface_status(self, ifacename):
         ifaceobjs = self.get_iface_objs(ifacename)
@@ -191,19 +216,16 @@ class ifupdownMain():
                 max = i.get_refcnt()
         return max
 
-    def create_fake_vlan_iface(self, vlan_ifname, op):
+    def create_n_save_ifaceobj(self, ifacename, increfcnt=False):
         """ creates and returns a fake vlan iface object.
-
-        This was added to support creation of simple vlan devices without any
-        user specified configuration.
-
+        This was added to support creation of simple vlan
+        devices without any user specified configuration.
         """
-
-        # XXX: Ideally this should be a call-back into the vlan module.
-        vlan_iface_obj = iface()
-        vlan_iface_obj.set_name(vlan_ifname)
-
-        return vlan_iface_obj
+        ifaceobj = iface()
+        ifaceobj.set_name(ifacename)
+        if increfcnt == True:
+            ifaceobj.inc_refcnt()
+        self.ifaceobjdict[ifacename] = [ifaceobj]
 
     def is_vlan_device(self, ifacename):
         """ Returns true if iface name is a vlan interface.
@@ -216,20 +238,31 @@ class ifupdownMain():
         return False
 
     def preprocess_dependency_list(self, dlist, op):
+        """ We go through the dependency list and
+            delete or add interfaces from the interfaces dict by
+            applying the following rules:
+                if flag _DELETE_DEPENDENT_IFACES_WITH_NOCONFIG is True:
+                    we only consider devices whose configuration was
+                    specified in the network interfaces file. We delete
+                    any interface whose config was not specified except
+                    for vlan devices. vlan devices get special treatment.
+                    Even if they are not present they are created and added
+                    to the ifacesdict
+                elif flag _DELETE_DEPENDENT_IFACES_WITH_NOCONFIG is False:
+                    we create objects for all dependent devices that are not
+                    present in the ifacesdict
+        """
         del_list = []
+        create_list = []
 
         self.logger.debug('pre-processing dependency list: %s' %list(dlist))
         for d in dlist:
             dilist = self.get_iface_objs(d)
             if dilist == None:
-                if self.is_vlan_device(d) == True:
-                    vlan_iface_obj = self.create_fake_vlan_iface(d, op)
-
-                    # Add face vlan device to ifaceobjdict dict
-                    vlan_iface_obj.inc_refcnt()
-                    self.save_iface(vlan_iface_obj)
+                if (self.is_vlan_device(d) == True or
+                        self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG == False):
+                    create_list.append(d)
                 else:
-                    # Remove the device from the list
                     del_list.append(d)
             else:
                 for di in dilist:
@@ -238,9 +271,12 @@ class ifupdownMain():
         for d in del_list:
             dlist.remove(d)
 
+        # create fake devices to all dependents that dont have config
+        map(lambda i: self.create_n_save_ifaceobj(i, increfcnt=True),
+                create_list)
+
         self.logger.debug('After Processing dependency list: %s'
             %list(dlist))
-
 
     def get_dependents(self, ifaceobj, op):
         """ Gets iface dependents by calling into respective modules """
@@ -254,16 +290,23 @@ class ifupdownMain():
             for mname, mdata  in mdict.items():
                 if mdata.get('ftype') == 'pmodule':
                     module = mdata.get('module')
-                    if (hasattr(module,
-                        'get_dependent_ifacenames') == False):
-                        continue
-                    dlist = module.get_dependent_ifacenames(ifaceobj,
-                                    self.ifaceobjdict.keys())
+                    if op == 'query-running':
+                        if (hasattr(module,
+                            'get_dependent_ifacenames_running') == False):
+                            continue
+                        dlist = module.get_dependent_ifacenames_running(
+                                    ifaceobj)
+                    else:
+                        if (hasattr(module,
+                            'get_dependent_ifacenames') == False):
+                            continue
+                        dlist = module.get_dependent_ifacenames(ifaceobj,
+                                        self.ifaceobjdict.keys())
                     if dlist is not None:
+                        ifaceobj.set_realdev_dependents(dlist[:])
                         self.logger.debug('%s: ' %ifaceobj.get_name() +
                                 'got dependency list: %s' %str(dlist))
                         break
-
         return dlist
 
     def generate_dependency_info(self, ifacenames, dependency_graph, op):
@@ -290,8 +333,7 @@ class ifupdownMain():
             if dlist is not None:
                 self.preprocess_dependency_list(dlist, op)
                 ifaceobj.set_dependents(dlist)
-                for d in dlist:
-                    iqueue.append(d)
+                [iqueue.append(d) for d in dlist]
 
             if dependency_graph.get(i) is None:
                 dependency_graph[i] = dlist
@@ -330,7 +372,12 @@ class ifupdownMain():
         
         """
 
-        mmetadata = self.operations[mkind][msubkind].get(mname)
+        try:
+            mmetadata = self.operations[mkind][msubkind].get(mname)
+        except KeyError:
+            self.logger.warn('unsupported module type %s' %mname)
+            return
+
         if mmetadata is None or mmetadata.get('ftype') != 'pmodule':
             mmetadata = {}
             mmetadata['ftype'] = mftype
@@ -373,15 +420,20 @@ class ifupdownMain():
                     minstance = mclass(force=self.get_force(),
                                        dryrun=self.get_dryrun(),
                                        nowait=self.get_nowait(),
-                                       perfmode=self.get_perfmode())
+                                       perfmode=self.get_perfmode(),
+                                       cache=self.get_cache())
                     ops = minstance.get_ops()
                     for op in ops:
-                        if re.search('up', op) is not None:
+                        if re.search('query', op) is not None:
+                            self.save_module(op, op, mname, 'pmodule',
+                                             minstance)
+                        elif re.search('up', op) is not None:
                             self.save_module('up', op, mname, 'pmodule',
                                              minstance)
                         else:
-                            self.save_module('down', op, mname, 'pmodule',
-                                             minstance)
+                            self.save_module('down', op, mname,
+                                             'pmodule', minstance)
+
         except: 
             raise
 
@@ -396,6 +448,9 @@ class ifupdownMain():
 
         self.logger.info('loading user modules from %s' %modules_dir)
         for op, subops in self.operations.items():
+            if re.search('query', op) is not None:
+                continue
+
             for subop in subops.keys():
                 msubdir = modules_dir + '/if-%s.d' %subop
                 self.logger.info('loading modules under %s ...' %msubdir)
@@ -475,11 +530,27 @@ class ifupdownMain():
             ret = ifaceSched.run_iface_dependency_graph_parallel(self,
                         dependency_graph, op)
         else:
-            ret = ifaceSched.run_iface_dependency_graph(self, dependency_graph,
-                        op)
-
+            ret = ifaceSched.run_iface_dependency_graph(self,
+                        dependency_graph, op)
         return ret
 
+    def print_dependency(self, op, ifacenames, format):
+        dependency_graph = {}
+        if ifacenames is None:
+            ifacenames = self.ifaceobjdict.keys()
+
+        # generate dependency graph of interfaces
+        self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
+        self.generate_dependency_info(ifacenames, dependency_graph, op)
+
+        if format == 'list':
+            self.pp.pprint(dependency_graph)
+        elif format == 'dot':
+            indegrees = {}
+            map(lambda i: indegrees.update({i :
+                self.get_iface_refcnt(i)}),
+                dependency_graph.keys())
+            graph.generate_dots(dependency_graph, indegrees)
 
     def validate_ifaces(self, ifacenames):
         """ validates interface list for config existance.
@@ -539,10 +610,8 @@ class ifupdownMain():
         return True
 
     def generate_running_env(self, ifaceobj, op):
-        """ Generates a dictionary with env variables required for an interface.
-
-        Used to support script execution for interfaces.
-
+        """ Generates a dictionary with env variables required for
+        an interface. Used to support script execution for interfaces.
         """
 
         cenv = None
@@ -560,8 +629,8 @@ class ifupdownMain():
 
 
     def run(self, op, auto=False, allow_classes=None,
-            ifacenames=None, query_state=None, excludepats=None,
-            format=None):
+            ifacenames=None, excludepats=None,
+            format=None, printdependency=None):
         """ main ifupdown run method """
 
         if auto == True:
@@ -571,12 +640,15 @@ class ifupdownMain():
         # Only read new iface config for 'up'
         # operations. For 'downs' we only rely on
         # old state
-        if op == 'up' or op == 'query':
+        if op == 'query-running':
+            # create fake devices to all dependents that dont have config
+            map(lambda i: self.create_n_save_ifaceobj(i), ifacenames)
+        elif op == 'up' or op[:5] == 'query':
             try:
                 self.read_iface_config()
             except Exception, e:
                 raise
-        else:
+        elif op == 'down':
             # for down we need to look at old state
             self.logger.debug('down op, looking at old state ..')
 
@@ -584,18 +656,19 @@ class ifupdownMain():
                 self.read_old_iface_config()
             elif self.FORCE == True:
                 # If no old state available 
-                self.logger.info('old state not available. Force option ' +
-                        'set. Loading new iface config file')
+                self.logger.info('old state not available. ' +
+                     'Force option set. Loading new iface config file')
                 try:
                     self.read_iface_config()
                 except Exception, e:
-                    raise Exception('error reading iface config (%s)' %str(e))
+                    raise Exception('error reading iface config (%s)'
+                                    %str(e))
             else:
                 raise Exception('old state not available...aborting.' +
                         ' try running with --force option')
 
 
-        if ifacenames is not None:
+        if ifacenames is not None and op != 'query-running':
             # If iface list is given, always check if iface is present
            if self.validate_ifaces(ifacenames) != 0:
                raise Exception('all or some interfaces not found')
@@ -604,36 +677,45 @@ class ifupdownMain():
         if ifacenames is None: ifacenames = self.ifaceobjdict.keys()
 
         # filter interfaces based on auto and allow classes
-        filtered_ifacenames = [i for i in ifacenames
-             if self.iface_whitelisted(auto, allow_classes, excludepats,
-                                       i) == True]
+        if op == 'query-running':
+            filtered_ifacenames = ifacenames
+        else:
+            filtered_ifacenames = [i for i in ifacenames
+                if self.iface_whitelisted(auto, allow_classes,
+                        excludepats, i) == True]
 
         if len(filtered_ifacenames) == 0:
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')
 
         if op == 'query':
-            if query_state == None:
-                return self.print_ifaceobjs_pretty(filtered_ifacenames)
-            elif query_state == 'presumed':
-                return self.print_ifaceobjs_saved_state_pretty(
+            return self.print_ifaceobjs_raw(filtered_ifacenames)
+        elif op == 'query-presumed':
+            return self.print_ifaceobjs_saved_state_pretty(
                                     filtered_ifacenames)
-            elif query_state == 'presumeddetailed':
-                return self.print_ifaceobjs_saved_state_detailed_pretty(
+        elif op == 'query-presumeddetailed':
+            return self.print_ifaceobjs_saved_state_detailed_pretty(
                                     filtered_ifacenames)
 
-        if op == 'query' or self.NODEPENDS == True:
+        if printdependency is not None:
+            self.print_dependency(op, filtered_ifacenames, printdependency)
+            return
+
+        #if op.split('-')[0] == 'query' or self.NODEPENDS == True:
+        if op.split('-')[0] == 'query' or self.NODEPENDS == True:
             self.run_without_dependents(op, filtered_ifacenames)
         else:
             self.run_with_dependents(op, filtered_ifacenames)
 
-        if op == 'query':
-            if query_state == 'curr':
-                # print curr state of all interfaces
-                ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames)
-                if ret != 0:
-                    # if any of the object has an error, signal that silently
-                    raise Exception('')
+        if op == 'query-checkcurr':
+            # print curr state of all interfaces
+            ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames)
+            if ret != 0:
+                # if any of the object has an error, signal that silently
+                raise Exception('')
+        elif op == 'query-running':
+            # print curr state of all interfaces
+            self.print_ifaceobjsrunning_pretty(filtered_ifacenames)
             return
 
         # Update persistant iface states
@@ -649,17 +731,162 @@ class ifupdownMain():
             self.logger.warning('error saving state (%s)' %str(e))
 
 
-    def up(self, auto=False, allow=None, ifacenames=None, excludepats=None):
-        return self.run('up', auto, allow, ifacenames, excludepats=excludepats)
+    def up(self, auto=False, allow=None, ifacenames=None,
+           excludepats=None, printdependency=None):
+        return self.run('up', auto, allow, ifacenames,
+                        excludepats=excludepats,
+                        printdependency=printdependency)
 
     def down(self, auto=False, allow=None, ifacenames=None, excludepats=None):
         return self.run('down', auto, allow, ifacenames,
                         excludepats=excludepats);
 
-    def query(self, auto=False, allow=None, ifacenames=None,
-              query_state=False, excludepats=None):
-        return self.run('query', auto, allow, ifacenames,
-                        query_state=query_state, excludepats=excludepats);
+    def query(self, op, auto=False, allow_classes=None, ifacenames=None,
+              excludepats=None, printdependency=None,
+              format=None):
+        """ main ifupdown run method """
+        if auto == True:
+            self.logger.debug('setting flag ALL')
+            self.ALL = True
+
+        if op == 'query-running':
+            self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
+            # create fake devices to all dependents that dont have config
+            map(lambda i: self.create_n_save_ifaceobj(i), ifacenames)
+        else:
+            try:
+                self.read_iface_config()
+            except Exception:
+                raise
+
+        if ifacenames is not None and op != 'query-running':
+            # If iface list is given, always check if iface is present
+           if self.validate_ifaces(ifacenames) != 0:
+               raise Exception('all or some interfaces not found')
+
+        # if iface list not given by user, assume all from config file
+        if ifacenames is None: ifacenames = self.ifaceobjdict.keys()
+
+        # filter interfaces based on auto and allow classes
+        if op == 'query-running':
+            filtered_ifacenames = ifacenames
+        else:
+            filtered_ifacenames = [i for i in ifacenames
+                if self.iface_whitelisted(auto, allow_classes,
+                        excludepats, i) == True]
+
+        if len(filtered_ifacenames) == 0:
+                raise Exception('no ifaces found matching ' +
+                        'given allow lists')
+
+        if op == 'query':
+            return self.print_ifaceobjs_raw(filtered_ifacenames)
+        elif op == 'query-presumed':
+            return self.print_ifaceobjs_saved_state_pretty(
+                                    filtered_ifacenames)
+        elif op == 'query-presumeddetailed':
+            return self.print_ifaceobjs_saved_state_detailed_pretty(
+                                    filtered_ifacenames)
+
+        if printdependency is not None:
+            self.print_dependency(op, filtered_ifacenames, printdependency)
+            return
+
+        if self.NODEPENDS == True:
+            self.run_without_dependents(op, filtered_ifacenames)
+        else:
+            self.run_with_dependents(op, filtered_ifacenames)
+
+        if op == 'query-checkcurr':
+            ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames)
+            if ret != 0:
+                # if any of the object has an error, signal that silently
+                raise Exception('')
+        elif op == 'query-running':
+            self.print_ifaceobjsrunning_pretty(filtered_ifacenames)
+            return
+
+    def reload(self, auto=False, allow=None,
+               ifacenames=None, excludepats=None):
+        """ main ifupdown run method """
+        allow_classes = []
+
+        self.logger.debug('reloading interface config ..')
+
+        if auto == True:
+            self.logger.debug('setting flag ALL')
+            self.ALL = True
+
+        try:
+            self.read_iface_config()
+        except Exception, e:
+            raise
+
+        # Save a copy of new iface objects
+        new_ifaceobjdict = self.get_ifaceobjdict()
+
+        if len(self.statemanager.get_ifaceobjdict()) > 0:
+            # if old state is present, read old state and mark op for 'down'
+            # followed by 'up' aka: reload
+            self.read_old_iface_config()
+            op = 'reload'
+        else:
+            # oldconfig not available, continue with 'up' with new config
+            op = 'up'
+
+        if ifacenames is None: ifacenames = self.ifaceobjdict.keys()
+        if (op == 'reload' and ifacenames is not None and
+                len(ifacenames) != 0):
+            filtered_ifacenames = [i for i in ifacenames
+                               if self.iface_whitelisted(auto, allow_classes,
+                               excludepats, i) == True]
+            ifacedownlist = Set(filtered_ifacenames).difference(
+                                Set(new_ifaceobjdict.keys()))
+            if ifacedownlist is not None and len(ifacedownlist) > 0:
+                self.logger.debug('bringing down interfaces: %s'
+                                  %str(ifacedownlist))
+                if self.NODEPENDS == True:
+                    self.run_without_dependents('down', ifacedownlist)
+                else:
+                    self.run_with_dependents('down', ifacedownlist)
+
+                # Update persistant iface states
+                try:
+                    if self.ALL == True:
+                        self.statemanager.flush_state(self.ifaceobjdict)
+                    else:
+                        self.statemanager.flush_state()
+                except Exception, e:
+                    if self.logger.isEnabledFor(logging.DEBUG):
+                        t = sys.exc_info()[2]
+                        traceback.print_tb(t)
+                    self.logger.warning('error saving state (%s)' %str(e))
+
+        # Now, run up with new dict
+        self.set_ifaceobjdict(new_ifaceobjdict)
+        ifacenames = self.ifaceobjdict.keys()
+        filtered_ifacenames = [i for i in ifacenames
+                               if self.iface_whitelisted(auto, allow_classes,
+                               excludepats, i) == True]
+
+        self.logger.debug('bringing up interfaces: %s'
+                          %str(filtered_ifacenames))
+        if self.NODEPENDS == True:
+            self.run_without_dependents('up', filtered_ifacenames)
+        else:
+            self.run_with_dependents('up', filtered_ifacenames)
+
+        # Update persistant iface states
+        try:
+            if self.ALL == True:
+                self.statemanager.flush_state(self.get_ifaceobjdict())
+            else:
+                self.statemanager.flush_state()
+        except Exception, e:
+            if self.logger.isEnabledFor(logging.DEBUG):
+                t = sys.exc_info()[2]
+                traceback.print_tb(t)
+                self.logger.warning('error saving state (%s)' %str(e))
 
     def dump(self):
         """ all state dump """
@@ -672,24 +899,37 @@ class ifupdownMain():
     def print_state(self, ifacenames=None):
         self.statemanager.dump(ifacenames)
 
+    def print_ifaceobjs_raw(self, ifacenames):
+        for i in ifacenames:
+            ifaceobjs = self.get_iface_objs(i)
+            for i in ifaceobjs:
+                i.dump_raw(self.logger)
+                print '\n'
+
     def print_ifaceobjs_pretty(self, ifacenames):
         for i in ifacenames:
             ifaceobjs = self.get_iface_objs(i)
-            for io in ifaceobjs:
-                io.dump_raw(self.logger)
+            for i in ifaceobjs:
+                i.dump_pretty(self.logger)
                 print '\n'
 
-    def print_ifaceobjscurr_pretty(self, ifacenames, format):
+    def dump_ifaceobjs(self, ifacenames):
+        for i in ifacenames:
+            ifaceobjs = self.get_iface_objs(i)
+            for i in ifaceobjs:
+                i.dump(self.logger)
+                print '\n'
+
+    def print_ifaceobjscurr_pretty(self, ifacenames, format=None):
         """ Dumps current running state of interfaces.
 
         returns 1 if any of the interface has an error,
         else returns 0
-
         """
-
         ret = 0
         for i in ifacenames:
             ifaceobj = self.get_ifaceobjcurr(i)
+            if ifaceobj is None: continue
             if ifaceobj.get_status() == ifaceStatus.NOTFOUND:
                 print 'iface %s' %ifaceobj.get_name() + ' (not found)'
                 ret = 1
@@ -701,7 +941,28 @@ class ifupdownMain():
             else:
                 ifaceobj.dump_json(self.logger)
 
+            dlist = ifaceobj.get_dependents()
+            if dlist is None or len(dlist) == 0: continue
+            self.print_ifaceobjscurr_pretty(dlist, format)
+
         return ret
+
+    def print_ifaceobjsrunning_pretty(self, ifacenames, format=None):
+        for i in ifacenames:
+            ifaceobj = self.get_iface_obj_first(i)
+            if ifaceobj.get_status() == ifaceStatus.NOTFOUND:
+                print 'iface %s' %ifaceobj.get_name() + ' (not found)'
+                continue
+
+            if format is None or format == 'nwifaces':
+                ifaceobj.dump_pretty(self.logger)
+            elif format == 'json':
+                ifaceobj.dump_json(self.logger)
+
+            dlist = ifaceobj.get_dependents()
+            if dlist is None or len(dlist) == 0: continue
+            self.print_ifaceobjsrunning_pretty(dlist, format)
+        return
 
     def print_ifaceobjs_saved_state_pretty(self, ifacenames):
         self.statemanager.print_state_pretty(ifacenames, self.logger)
