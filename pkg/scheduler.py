@@ -202,9 +202,9 @@ class ifaceScheduler(ifupdownBase):
 
         try:
             self.logger.debug('calling topological sort on the graph ...')
-            sorted_ifacenames = graph.topological_sort(dependency_graph,
-                                                       indegrees)
-        except Exception, e:
+            sorted_ifacenames = graph.topological_sort_graphs(
+                                            dependency_graph, indegrees)
+        except Exception:
             raise
 
         self.logger.debug('sorted iface list = %s' %sorted_ifacenames)

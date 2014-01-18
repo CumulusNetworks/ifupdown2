@@ -7,6 +7,7 @@
 #    interface object
 #
 
+from collections import OrderedDict
 import logging
 import json
 
@@ -100,7 +101,7 @@ class iface():
         self.name = None
         self.addr_family = None
         self.addr_method = None
-        self.config = {}
+        self.config = OrderedDict()
         self.children = []
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
@@ -154,6 +155,12 @@ class iface():
 
     def get_config(self):
         return self.config
+
+    def is_config_present(self):
+        if self.config is None:
+            return False
+
+        return (len(self.config) != 0)
 
     def set_config_current(self, config_current):
         self.config_current = config_current
@@ -338,7 +345,6 @@ class iface():
         logger.info(indent + 'realdev dependents: %s'
                     %str(self.get_realdev_dependents()))
 
-
         logger.info(indent + 'config: ')
         config = self.get_config()
         if config is not None:
@@ -347,7 +353,10 @@ class iface():
 
     def dump_pretty(self, logger):
         indent = '\t'
-        outbuf = 'iface %s' %self.get_name()
+        outbuf = ''
+        if self.get_auto():
+            outbuf += 'auto %s\n' %self.get_name()
+        outbuf += 'iface %s' %self.get_name()
         if self.get_addr_family() is not None:
             outbuf += ' %s' %self.get_addr_family()
 
@@ -366,7 +375,6 @@ class iface():
         #                ' %s' %self.get_status_str())
 
         print outbuf
-
 
     def dump_json(self, logger):
         json.dumps(self)
