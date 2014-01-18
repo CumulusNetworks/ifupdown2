@@ -23,13 +23,13 @@ def run(args, op):
         logger.debug('creating ifupdown object ..')
         if op == 'up' or op == 'down' or op == 'reload':
             ifupdown_handle = ifupdownMain(force=args.force,
-                                            nodepends=args.nodepends,
+                                            withdepends=args.withdepends,
                                             perfmode=args.perfmode,
                                             njobs=args.jobs,
                                             dryrun=args.noact,
                                             cache=cachearg)
         elif op == 'query':
-            ifupdown_handle = ifupdownMain(nodepends=args.nodepends,
+            ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
                                             perfmode=args.perfmode,
                                             njobs=args.jobs,
                                             format=args.format,
@@ -56,6 +56,8 @@ def run(args, op):
                               if os.path.isdir('/sys/class/net/%s' %i) == True]
                     print iflist
                 qtype='query-running'
+            elif args.pretty == True:
+                qtype='query-pretty'
             else:
                 qtype='query'
 
@@ -93,7 +95,9 @@ def deinit():
     {}
 
 def update_argparser(argparser):
-    """ base parser """
+    """ base parser, common to all commands """
+    argparser.add_argument('-a', '--all', action='store_true',
+                help='process all interfaces marked \"auto\"')
     argparser.add_argument('iflist', metavar='IFACE',
                 nargs='*', help='interfaces list')
     argparser.add_argument('-v', '--verbose', dest='verbose',
@@ -106,16 +110,13 @@ def update_argparser(argparser):
                 help=argparse.SUPPRESS)
     argparser.add_argument('--allow', dest='CLASS', 
                 help='ignore non-\"allow-CLASS\" interfaces')
-    argparser.add_argument('--nodepends', dest='nodepends',
-                action='store_true', help=argparse.SUPPRESS)
+    argparser.add_argument('--with-depends', dest='withdepends',
+                action='store_true', help='run with all dependencies')
     argparser.add_argument('--perfmode', dest='perfmode',
                 action='store_true', help=argparse.SUPPRESS)
     argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
                 default=-1, choices=range(1,12), help=argparse.SUPPRESS)
     argparser.add_argument('--nocache', dest='nocache', action='store_true',
-                help=argparse.SUPPRESS)
-    argparser.add_argument('--print-dependency',
-                dest='printdependency', choices=['list', 'dot'],
                 help=argparse.SUPPRESS)
     argparser.add_argument('-X', '--exclude', dest='excludepats',
                 action='append', help='exclude interfaces from the list of '
@@ -124,14 +125,16 @@ def update_argparser(argparser):
 
 
 def update_ifupdown_argparser(argparser):
-    argparser.add_argument('-a', '--all', action='store_true',
-                help='process all interfaces marked \"auto\"')
+    """ common arg parser for ifup and ifdown """
     argparser.add_argument('-f', '--force', dest='force',
                 action='store_true',
                 help='force run all operations')
     argparser.add_argument('-n', '--no-act', dest='noact',
                 action='store_true', help='print out what would happen,' +
                 'but don\'t do it')
+    argparser.add_argument('--print-dependency',
+                dest='printdependency', choices=['list', 'dot'],
+                help='print iface dependency')
 
 def update_ifup_argparser(argparser):
     update_ifupdown_argparser(argparser)
@@ -140,8 +143,11 @@ def update_ifdown_argparser(argparser):
     update_ifupdown_argparser(argparser)
 
 def update_ifquery_argparser(argparser):
+    """ arg parser for ifquery options """
+
+    # -l is same as '-a', only hear for backward compatibility
     argparser.add_argument('-l', '--list', action='store_true', dest='all',
-                help='process all interfaces marked \"auto\"')
+                help=argparse.SUPPRESS)
     group = argparser.add_mutually_exclusive_group(required=False)
     group.add_argument('-r', '--running-state', dest='runningstate',
                        action='store_true',
@@ -149,7 +155,7 @@ def update_ifquery_argparser(argparser):
 
     group.add_argument('-c', '--check-state', dest='checkcurstate',
                        action='store_true',
-                       help='check running state of an interface')
+                       help='check running against config of an interface')
 
     # presumed-state is state maintained by ifupdown
     group.add_argument('--presumed-state', dest='presumedstate',
@@ -164,11 +170,17 @@ def update_ifquery_argparser(argparser):
     group.add_argument('--format', dest='format', default='nwifaces',
                        choices=['nwifaces', 'json'], help=argparse.SUPPRESS)
 
+    group.add_argument('--pretty', action='store_true', dest='pretty',
+                       help='pretty print config file entries')
+
 def update_ifreload_argparser(argparser):
     update_ifupdown_argparser(argparser)
 
 def parse_args(argsv, op):
-    descr = 'interface management'
+    if op == 'query':
+        descr = 'interface query'
+    else:
+        descr = 'interface management'
 
     argparser = argparse.ArgumentParser(description=descr)
     update_argparser(argparser)
