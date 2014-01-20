@@ -38,26 +38,6 @@ process_exclusions() {
     echo $exclusions
 }
 
-process_options() {
-    [ -e /etc/network/options ] || return 0
-    log_warning_msg "/etc/network/options still exists and it will be IGNORED! Please use /etc/sysctl.conf instead."
-}
-
-check_ifstate() {
-    if [ ! -d "$RUN_DIR" ] ; then
-	if ! mkdir -p "$RUN_DIR" ; then
-	    log_failure_msg "can't create $RUN_DIR"
-	    exit 1
-	fi
-    fi
-    if [ ! -r "$IFSTATE" ] ; then
-	if ! :> "$IFSTATE" ; then
-	    log_failure_msg "can't initialise $IFSTATE"
-	    exit 1
-	fi
-    fi
-}
-
 check_network_file_systems() {
     [ -e /proc/mounts ] || return 0
 
@@ -119,8 +99,6 @@ start)
 	if init_is_upstart; then
 		exit 1
 	fi
-	process_options
-	check_ifstate
 
 	if [ "$CONFIGURE_INTERFACES" = no ]
 	then
@@ -154,7 +132,6 @@ stop)
 	;;
 
 reload)
-	process_options
 
 	log_action_begin_msg "Reloading network interfaces configuration"
 	state=$(cat /run/network/ifstate)
@@ -170,7 +147,6 @@ force-reload|restart)
 	if init_is_upstart; then
 		exit 1
 	fi
-	process_options
 
 	#log_warning_msg "Running $0 $1 is deprecated because it may not re-enable some interfaces"
 	log_action_begin_msg "Reconfiguring network interfaces"
