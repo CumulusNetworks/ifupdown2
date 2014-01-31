@@ -19,7 +19,11 @@ def run(args, op):
         if len(args.iflist) == 0:
             iflist = None
 
-        cachearg=False if iflist is not None or args.nocache == True else True
+        cachearg=(False if (iflist is not None or
+                            args.nocache == True or
+                            args.perfmode == True)
+                            else True)
+
         logger.debug('creating ifupdown object ..')
         if op == 'up' or op == 'down' or op == 'reload':
             ifupdown_handle = ifupdownMain(force=args.force,
@@ -35,7 +39,7 @@ def run(args, op):
                                             format=args.format,
                                             cache=cachearg)
 
-        logger.debug('calling %s' %op + ' for all interfaces ..')
+        logger.debug('calling \'%s\'' %op + ' for all interfaces ..')
         if op == 'up':
             ifupdown_handle.up(args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
@@ -54,7 +58,6 @@ def run(args, op):
                 if iflist is None:
                     iflist = [i for i in os.listdir('/sys/class/net/')
                               if os.path.isdir('/sys/class/net/%s' %i) == True]
-                    print iflist
                 qtype='query-running'
             elif args.pretty == True:
                 qtype='query-pretty'
@@ -62,13 +65,14 @@ def run(args, op):
                 qtype='query'
 
             ifupdown_handle.query(qtype, args.all, args.CLASS, iflist,
-                                  excludepats=args.excludepats)
+                                  excludepats=args.excludepats,
+                                  printdependency=args.printdependency)
         elif op == 'reload':
             if iflist is not None:
                 raise Exception('iflist is currently not supported with reload')
-
             ifupdown_handle.reload(args.all, args.CLASS, iflist,
-                               excludepats=args.excludepats)
+                                   excludepats=args.excludepats,
+                                   downchangediface=args.downchangediface)
     except:
         raise
 
@@ -96,10 +100,12 @@ def deinit():
 
 def update_argparser(argparser):
     """ base parser, common to all commands """
-    argparser.add_argument('-a', '--all', action='store_true',
+
+    argparser.add_argument('-a', '--all', action='store_true', required=False,
                 help='process all interfaces marked \"auto\"')
     argparser.add_argument('iflist', metavar='IFACE',
-                nargs='*', help='interfaces list')
+                nargs='*', help='interface list separated by spaces')
+
     argparser.add_argument('-v', '--verbose', dest='verbose',
                 action='store_true', help='verbose')
     argparser.add_argument('-d', '--debug', dest='debug',
@@ -111,7 +117,7 @@ def update_argparser(argparser):
     argparser.add_argument('--allow', dest='CLASS', 
                 help='ignore non-\"allow-CLASS\" interfaces')
     argparser.add_argument('--with-depends', dest='withdepends',
-                action='store_true', help='run with all dependencies')
+                action='store_true', help='run with all dependent interfaces')
     argparser.add_argument('--perfmode', dest='perfmode',
                 action='store_true', help=argparse.SUPPRESS)
     argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
@@ -119,10 +125,9 @@ def update_argparser(argparser):
     argparser.add_argument('--nocache', dest='nocache', action='store_true',
                 help=argparse.SUPPRESS)
     argparser.add_argument('-X', '--exclude', dest='excludepats',
-                action='append', help='exclude interfaces from the list of '
-                + 'interfaces to operate on by a PATTERN '
-                + '(note that this option doesn\'t disable mappings)')
-
+                action='append',
+                help='Exclude interfaces from the list of interfaces' +
+                ' to operate on')
 
 def update_ifupdown_argparser(argparser):
     """ common arg parser for ifup and ifdown """
@@ -145,7 +150,7 @@ def update_ifdown_argparser(argparser):
 def update_ifquery_argparser(argparser):
     """ arg parser for ifquery options """
 
-    # -l is same as '-a', only hear for backward compatibility
+    # -l is same as '-a', only here for backward compatibility
     argparser.add_argument('-l', '--list', action='store_true', dest='all',
                 help=argparse.SUPPRESS)
     group = argparser.add_mutually_exclusive_group(required=False)
@@ -173,12 +178,20 @@ def update_ifquery_argparser(argparser):
     group.add_argument('--pretty', action='store_true', dest='pretty',
                        help='pretty print config file entries')
 
+    argparser.add_argument('--print-dependency',
+                dest='printdependency', choices=['list', 'dot'],
+                help=argparse.SUPPRESS)
+
 def update_ifreload_argparser(argparser):
     update_ifupdown_argparser(argparser)
 
+    argparser.add_argument('--down-changediface', dest='downchangediface',
+                action='store_true',
+                help='down interfaces that have changed before bringing them up')
+
 def parse_args(argsv, op):
     if op == 'query':
-        descr = 'interface query'
+        descr = 'query interfaces (all or interface list)'
     else:
         descr = 'interface management'
 
@@ -214,8 +227,12 @@ def main(argv):
 
         # Command line arg parser
         args = parse_args(argv[1:], op)
+        if len(args.iflist) == 0 and args.all == False:
+            print '\'-a\' option or interface list are required'
+            exit(1)
+
         if len(args.iflist) > 0 and args.all is True:
-            print 'interface list cannot be specified with all option'
+            print '\'-a\' option and interface list are mutually exclusive'
             exit(1)
 
         init(args)

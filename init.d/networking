@@ -28,6 +28,7 @@ verbose=
 
 [ "$VERBOSE" = yes ] && verbose=-v
 
+
 process_exclusions() {
     set -- $EXCLUDE_INTERFACES
     exclusions=""
@@ -94,11 +95,19 @@ ifup_hotplug () {
     fi
 }
 
+ifupdown_init() {
+	[ ! -e /run/network ] && mkdir -p /run/network &>/dev/null
+	[ ! -e /etc/network/run ] && \
+		ln -sf /run/network /etc/network/run &>/dev/null
+}
+
 case "$1" in
 start)
 	if init_is_upstart; then
 		exit 1
 	fi
+
+	ifupdown_init
 
 	if [ "$CONFIGURE_INTERFACES" = no ]
 	then
@@ -108,7 +117,7 @@ start)
 	set -f
 	exclusions=$(process_exclusions)
 	log_action_begin_msg "Configuring network interfaces"
-	if ifup -a $verbose --perfmode
+	if ifup -a $verbose --perfmode --force
 	then
 	    log_action_end_msg $?
 	else
@@ -120,6 +129,8 @@ stop)
 	if init_is_upstart; then
 		exit 0
 	fi
+
+	ifupdown_init
 	check_network_file_systems
 	check_network_swap
 
@@ -133,22 +144,37 @@ stop)
 
 reload)
 
+	ifupdown_init
 	log_action_begin_msg "Reloading network interfaces configuration"
-	state=$(cat /run/network/ifstate)
-	ifdown -a --exclude=lo $verbose  --perfmode --force || true
-	if ifup --exclude=lo $state $verbose ; then
+
+	if ifreload -a
+	then
 	    log_action_end_msg $?
 	else
 	    log_action_end_msg $?
 	fi
 	;;
 
-force-reload|restart)
+force-reload)
+
+	ifupdown_init
+
+	log_action_begin_msg "Reloading network interfaces configuration"
+	if ifreload -a --force
+	then
+	    log_action_end_msg $?
+	else
+	    log_action_end_msg $?
+	fi
+	;;
+
+restart)
 	if init_is_upstart; then
 		exit 1
 	fi
 
-	#log_warning_msg "Running $0 $1 is deprecated because it may not re-enable some interfaces"
+	ifupdown_init
+
 	log_action_begin_msg "Reconfiguring network interfaces"
 	ifdown -a --exclude=lo $verbose --perfmode --force || true
 	set -f

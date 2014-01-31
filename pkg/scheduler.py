@@ -35,32 +35,30 @@ class ifaceScheduler(ifupdownBase):
                     self.__class__.__name__)
         self.FORCE = force
 
-    def run_iface_subop(self, ifupdownobj, ifaceobj, op, subop, mdict, cenv):
+    def run_iface_subop(self, ifupdownobj, ifaceobj, op, subop, mlist, cenv):
         """ Runs sub operation on an interface """
 
         self.logger.debug('%s: ' %ifaceobj.get_name() + 'op %s' %op +
                           ' subop = %s' %subop)
 
-        for mname, mdata in mdict.items():
-            m = mdata.get('module')
+        for mname in mlist:
+            m = ifupdownobj.modules.get(mname)
             err = 0
             try:
-                if (mdata.get('ftype') == 'pmodule' and
-                    hasattr(m, 'run') == True):
-                    self.logger.debug('%s: ' %ifaceobj.get_name() +
-                                      'running module %s' %mname +
-                                      ' op %s' %op + ' subop %s' %subop)
+                if hasattr(m, 'run') == True:
+                    self.logger.debug('%s: %s : running module %s'
+                            %(ifaceobj.get_name(), subop, mname))
                     if op == 'query-checkcurr':
-                        m.run(ifaceobj, subop, query_check=True,
+                        # Dont check state if the interface object was 
+                        # auto generated
+                        if ((ifaceobj.priv_flags & ifupdownobj.BUILTIN) != 0 or
+                             (ifaceobj.priv_flags & ifupdownobj.NOCONFIG) != 0):
+                            continue
+                        m.run(ifaceobj, subop,
                               query_ifaceobj=ifupdownobj.create_ifaceobjcurr(
                                                                 ifaceobj))
                     else:
                         m.run(ifaceobj, subop)
-                else:
-                    self.logger.debug('%s: ' %ifaceobj.get_name() +
-                                      'running script %s' %mname +
-                                      ' op %s' %op + ' subop %s' %subop)
-                    self.exec_command(m, cmdenv=cenv)
             except Exception, e:
                 err = 1
                 self.log_error(str(e))
@@ -75,6 +73,18 @@ class ifaceScheduler(ifupdownBase):
                                 ifaceState.from_str(subop),
                                 ifaceStatus.SUCCESS)
 
+        # execute /etc/network/ scripts 
+        subop_dict = ifupdownobj.operations_compat.get(op)
+        if subop_dict is None: return
+        for mname in subop_dict.get(subop):
+            self.logger.debug('%s: %s : running script %s'
+                    %(ifaceobj.get_name(), subop, mname))
+            try:
+                self.exec_command(mname, cmdenv=cenv)
+            except Exception, e:
+                err = 1
+                self.log_error(str(e))
+
     def run_iface_subops(self, ifupdownobj, ifaceobj, op):
         """ Runs all sub operations on an interface """
 
@@ -84,8 +94,8 @@ class ifaceScheduler(ifupdownBase):
 
         # Each sub operation has a module list
         subopdict = ifupdownobj.operations.get(op)
-        for subop, mdict in subopdict.items():
-            self.run_iface_subop(ifupdownobj, ifaceobj, op, subop, mdict, cenv)
+        for subop, mlist in subopdict.items():
+            self.run_iface_subop(ifupdownobj, ifaceobj, op, subop, mlist, cenv)
 
 
     def run_iface(self, ifupdownobj, ifacename, op):
@@ -134,7 +144,8 @@ class ifaceScheduler(ifupdownBase):
                              sorted_by_dependency=False):
         """ Runs interface list through sub operation handler. """
 
-        self.logger.debug('running sub operation %s on all given interfaces' %op)
+        self.logger.debug('running sub operation %s on all given interfaces'
+                          %subop)
         iface_run_queue = deque(ifacenames)
         for i in range(0, len(iface_run_queue)):
             if op == 'up':
@@ -176,9 +187,6 @@ class ifaceScheduler(ifupdownBase):
         'up'
         """
 
-        self.logger.debug('run_iface_list_stages: running interface list for %s'
-                          %op)
-
         # Each sub operation has a module list
         subopdict = ifupdownobj.operations.get(op)
         for subop, mdict in subopdict.items():
@@ -186,24 +194,29 @@ class ifaceScheduler(ifupdownBase):
                     sorted_by_dependency)
 
 
-    def run_iface_dependency_graph(self, ifupdownobj, dependency_graph,
-                                   operation):
+    def run_iface_dependency_graph(self, ifupdownobj, dependency_graphs,
+                                   operation, indegrees=None,
+                                   graphsortall=False):
         """ runs interface dependency graph """
 
-        indegrees = OrderedDict()
 
-        self.logger.debug('creating indegree array ...')
-        for ifacename in dependency_graph.keys():
-            indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
+        if indegrees is None:
+            indegrees = OrderedDict()
+            for ifacename in dependency_graphs.keys():
+                indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
         if self.logger.isEnabledFor(logging.DEBUG) == True:
             self.logger.debug('indegree array :')
-            ifupdownobj.pp.pprint(indegrees)
+            self.logger.debug(ifupdownobj.pp.pformat(indegrees))
 
         try:
             self.logger.debug('calling topological sort on the graph ...')
-            sorted_ifacenames = graph.topological_sort_graphs(
-                                            dependency_graph, indegrees)
+            if graphsortall == True:
+                sorted_ifacenames = graph.topological_sort_graphs_all(
+                                            dependency_graphs, indegrees)
+            else:
+                sorted_ifacenames = graph.topological_sort_graphs(
+                                            dependency_graphs, indegrees)
         except Exception:
             raise
 

@@ -96,6 +96,8 @@ class iface():
     AUTO = 0x1
     HOT_PLUG = 0x2
 
+    version = '0.1'
+
     
     def __init__(self):
         self.name = None
@@ -106,6 +108,7 @@ class iface():
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
         self.flags = 0x0
+        self.priv_flags = 0x0
         self.refcnt = 0
         # dependents that are listed as in the
         # config file
@@ -157,6 +160,12 @@ class iface():
         return self.config
 
     def is_config_present(self):
+        addr_method = self.get_addr_method()
+        if addr_method is not None:
+            if (addr_method.find('dhcp') != -1 or
+                    addr_method.find('dhcp6') != -1):
+                return True
+
         if self.config is None:
             return False
 
@@ -320,6 +329,22 @@ class iface():
             attr_status_str = ' (error)'
         self.config[attr_name] = attr_value + attr_status_str """
 
+    def is_different(self, dstiface):
+        if self.name != dstiface.name: return True
+        if self.addr_family != dstiface.addr_family: return True
+        if self.addr_method != dstiface.addr_method: return True
+        if self.auto != dstiface.auto: return True
+        if self.classes != dstiface.classes: return True
+
+        if any(True for k in self.config if k not in dstiface.config):
+            return True
+
+        if any(True for k,v in self.config.items()
+                    if v != dstiface.config.get(k)): return True
+
+
+        return False
+        
     def dump_raw(self, logger):
         indent = '  '
         print (self.raw_lines[0])

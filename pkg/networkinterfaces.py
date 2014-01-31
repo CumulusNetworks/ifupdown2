@@ -65,12 +65,10 @@ class networkInterfaces():
 
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
-        self.logger.debug('process_source ..%s' %lines[cur_idx])
+        self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
         sourced_file = lines[cur_idx].split(' ', 2)[1]
         if sourced_file is not None:
-            self.logger.debug('process_source ..%s' %sourced_file)
             for f in glob.glob(sourced_file):
-                self.logger.info('Reading sourced file %s' %f)
                 self.read_file(f)
         else:
             self.logger.warn('unable to read source line at %d', lineno)
@@ -129,7 +127,11 @@ class networkInterfaces():
         lines_consumed = line_idx - cur_idx
 
         # Create iface object
-        ifaceobj.set_name(ifacename)
+        if ifacename.find(':') != -1:
+            ifaceobj.set_name(ifacename.split(':')[0])
+        else:
+            ifaceobj.set_name(ifacename)
+
         ifaceobj.set_config(iface_config)
         ifaceobj.generate_env()
         if len(iface_attrs) > 2:
@@ -146,7 +148,7 @@ class networkInterfaces():
                 ifaceobj.set_class(c)
 
         # Call iface found callback
-        self.logger.debug('saving interface %s' %ifaceobj.get_name())
+        #self.logger.debug('saving interface %s' %ifaceobj.get_name())
         self.callbacks.get('iface_found')(ifaceobj)
 
         return lines_consumed       # Return next index
@@ -214,8 +216,8 @@ class networkInterfaces():
         try:
             from mako.template import Template
         except:
-            self.logger.warning('template engine mako not found ' +
-                                'skipping template parsing');
+            self.logger.warning('template engine mako not found. ' +
+                                'skip template parsing ..');
             return textdata
 
         t = Template(text=textdata, output_encoding='utf-8')
@@ -226,7 +228,7 @@ class networkInterfaces():
         if ifaces_file == None:
             ifaces_file=self.ifaces_file
 
-        self.logger.debug('reading ifaces_file %s' %ifaces_file)
+        self.logger.debug('reading interfaces file %s' %ifaces_file)
         f = open(ifaces_file)
         filedata = f.read()
         f.close()
@@ -241,5 +243,4 @@ class networkInterfaces():
 
 
     def load(self, filename=None):
-        self.logger.debug('loading ifaces file ..')
         return self.read_file(filename)
