@@ -139,6 +139,5 @@ class graph():
         roots = [k for k, v in indegrees.items() if v == 0]
         if roots is None:
             return
-        print roots
         map(lambda r: cls.generate_dot(dependency_graph, r), roots)
 

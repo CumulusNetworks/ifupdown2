@@ -6,18 +6,19 @@
 # iface --
 #    interface object
 #
-
 from collections import OrderedDict
-import logging
+#from json import *
 import json
+import logging
+
+tickmark = ' (' + u'\u2713'.encode('utf8') + ')'
+crossmark = ' (' + u'\u2717'.encode('utf8') + ')'
 
 class ifaceFlags():
-
     NONE = 0x1
     FOLLOW_DEPENDENTS = 0x2
 
 class ifaceStatus():
-
     """iface status """
     UNKNOWN = 0x1
     SUCCESS = 0x2
@@ -56,6 +57,10 @@ class ifaceState():
     DOWN = 0x7
     POST_DOWN = 0x8
 
+    # Pseudo states
+    QUERY_CHECKCURR = 0x9
+    QUERY_RUNNING = 0xa
+
     @classmethod
     def to_str(cls, state):
         if state == cls.UNKNOWN:
@@ -70,8 +75,14 @@ class ifaceState():
             return 'post-up'
         elif state == cls.PRE_DOWN:
             return 'pre-down'
+        elif state == cls.DOWN:
+            return 'down'
         elif state == cls.POST_DOWN:
             return 'post-down'
+        elif state == cls.QUERY_CHECKCURR:
+            return 'query-checkcurr'
+        elif state == cls.QUERY_RUNNING:
+            return 'query-running'
 
     @classmethod
     def from_str(cls, state_str):
@@ -87,9 +98,22 @@ class ifaceState():
             return cls.POST_UP
         elif state_str == 'pre-down':
             return cls.PRE_DOWN
+        elif state_str == 'down':
+            return cls.DOWN
         elif state_str == 'post-down':
             return cls.POST_DOWN
+        elif state_str == 'query-checkcurr':
+            return cls.QUERY_CHECKCURR
+        elif state_str == 'query-running':
+            return cls.QUERY_RUNNING
 
+
+class ifaceJsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        return {'addr_method' : o.addr_method,
+                'addr_family' : o.addr_family,
+                'auto' : o.auto,
+                'config' : o.config}
 
 class iface():
     """ config flags """
@@ -98,15 +122,14 @@ class iface():
 
     version = '0.1'
 
-    
     def __init__(self):
         self.name = None
         self.addr_family = None
         self.addr_method = None
         self.config = OrderedDict()
-        self.children = []
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
+        self.errstr = ''
         self.flags = 0x0
         self.priv_flags = 0x0
         self.refcnt = 0
@@ -203,9 +226,6 @@ class iface():
 
         return False
 
-    def add_child(self, child_iface_obj):
-        self.children.append(child_iface_obj)
-
     def get_state(self):
         return self.state
 
@@ -258,11 +278,9 @@ class iface():
     
     def get_attr_value_first(self, attr_name):
         config = self.get_config()
-
         attr_value_list = config.get(attr_name)
         if attr_value_list is not None:
             return attr_value_list[0]
-
         return None
 
     def get_attr_value_n(self, attr_name, attr_index):
@@ -308,26 +326,17 @@ class iface():
     def update_config_with_status(self, attr_name, attr_value, attr_status=0):
         if attr_value is None:
             attr_value = ''
-
-        if attr_status != 0:
+        if attr_status:
             self.set_status(ifaceStatus.ERROR)
+            new_attr_value = '%s (%s)' %(attr_value, crossmark)
         else:
+            new_attr_value = '%s (%s)' %(attr_value, tickmark)
             if self.get_status() != ifaceStatus.ERROR:
                 self.set_status(ifaceStatus.SUCCESS)
         if self.config.get(attr_name) is not None:
-            self.config[attr_name].append(attr_value)
+            self.config[attr_name].append(new_attr_value)
         else:
-            self.config[attr_name] = [attr_value]
-
-        """ XXX: If status needs to be encoded in the query string
-        if attr_status == 0:
-            self.set_status(attr
-            attr_status_str = ''
-        elif attr_status == 0:
-            attr_status_str = ' (success)'
-        elif attr_status != 0:
-            attr_status_str = ' (error)'
-        self.config[attr_name] = attr_value + attr_status_str """
+            self.config[attr_name] = [new_attr_value]
 
     def is_different(self, dstiface):
         if self.name != dstiface.name: return True
@@ -342,8 +351,26 @@ class iface():
         if any(True for k,v in self.config.items()
                     if v != dstiface.config.get(k)): return True
 
-
         return False
+
+    def __getstate__(self):
+        odict = self.__dict__.copy()
+        del odict['state']
+        del odict['status']
+        del odict['dependents']
+        del odict['realdev_dependents']
+        del odict['refcnt']
+
+        return odict
+
+    def __setstate__(self, dict):
+        self.__dict__.update(dict)
+        self.state = ifaceState.NEW
+        self.status = ifaceStatus.UNKNOWN
+        self.refcnt = 0
+        self.dependents = None
+        self.realdev_dependents = None
+        self.linkstate = None
         
     def dump_raw(self, logger):
         indent = '  '
@@ -376,7 +403,7 @@ class iface():
             logger.info(indent + indent + str(config))
         logger.info('}')
 
-    def dump_pretty(self, logger):
+    def dump_pretty(self):
         indent = '\t'
         outbuf = ''
         if self.get_auto():
@@ -396,10 +423,7 @@ class iface():
                 for cv in cvaluelist:
                     outbuf += indent + '%s' %cname + ' %s\n' %cv
 
-        #outbuf += ('%s' %indent + '%s' %self.get_state_str() +
-        #                ' %s' %self.get_status_str())
-
         print outbuf
 
-    def dump_json(self, logger):
-        json.dumps(self)
+    def dump_json(self):
+        print json.dumps(self, cls=ifaceJsonEncoder)

@@ -24,7 +24,8 @@ class networkInterfaces():
     def __init__(self):
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
-        self.callbacks = {'iface_found' : None}
+        self.callbacks = {'iface_found' : None,
+                          'validate' : None}
         self.allow_classes = {}
 
 
@@ -118,11 +119,18 @@ class networkInterfaces():
             if len(attrs) < 2:
                 self.logger.warn('invalid syntax at line %d' %(line_idx + 1))
                 continue
-
-            if iface_config.get(attrs[0]) == None:
-                iface_config[attrs[0]] = [attrs[1].strip(' ')]
+            attrname = attrs[0]
+            attrval = attrs[1].strip(' ')
+            try:
+                if not self.callbacks.get('validate')(attrname, attrval):
+                    self.logger.warn('unsupported keyword (%s) at line %d'
+                                    %(l, line_idx + 1))
+            except:
+                pass
+            if not iface_config.get(attrname):
+                iface_config[attrname] = [attrval]
             else:
-                iface_config[attrs[0]].append(attrs[1].strip(' '))
+                iface_config[attrname].append(attrval)
 
         lines_consumed = line_idx - cur_idx
 
@@ -148,7 +156,6 @@ class networkInterfaces():
                 ifaceobj.set_class(c)
 
         # Call iface found callback
-        #self.logger.debug('saving interface %s' %ifaceobj.get_name())
         self.callbacks.get('iface_found')(ifaceobj)
 
         return lines_consumed       # Return next index

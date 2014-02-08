@@ -70,8 +70,8 @@ class stateManager():
         # Read all ifaces from file
         for ifaceobj in pickling.load(pickle_filename):
             self.save_ifaceobj(ifaceobj)
-            ifaceobj.set_refcnt(0)
-            ifaceobj.set_dependents(None)
+            #ifaceobj.set_refcnt(0)
+            #ifaceobj.set_dependents(None)
 
         return 0
 

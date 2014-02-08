@@ -1,7 +1,9 @@
 TODO:
 ====
-- fix service networking reload to use ifreload
-- the --print-dependency=dot option currently assumes gvgen module is installed.
+- dry-run improvement: It skips the cache completely. Which means It tells you the commands it would execute if the system is clean. Its not smart enought to say what it will really execute given the state of the system
+
+- included gvgen in the package. Need to check if there are any license issues
+- bash completion for options
 - Ifquery does not report link status, mainly because it reports only in terms of /etc/network/interfaces attributes. Plan to fix that
 - update man-pages with new options. Convert them to rst
 - Documentation

@@ -7,20 +7,21 @@
 #    interface scheduler
 #
 
-import os
-import re
 from statemanager import *
 from iface import *
 from graph import *
 from collections import deque
 from collections import OrderedDict
-import imp
-import pprint
 import logging
+import traceback
 from graph import *
 from collections import deque
 from threading import *
 from ifupdownbase import *
+
+class ifaceSchedulerFlags():
+    INORDER = 1
+    POSTORDER = 2
 
 class ifaceScheduler(ifupdownBase):
     """ scheduler to schedule configuration of interfaces.
@@ -30,132 +31,206 @@ class ifaceScheduler(ifupdownBase):
     or dependency graph format.
     """
 
+
     def __init__(self, force=False):
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
         self.FORCE = force
 
-    def run_iface_subop(self, ifupdownobj, ifaceobj, op, subop, mlist, cenv):
+    def run_iface_op(self, ifupdownobj, ifaceobj, op, cenv):
         """ Runs sub operation on an interface """
+        ifacename = ifaceobj.get_name()
 
-        self.logger.debug('%s: ' %ifaceobj.get_name() + 'op %s' %op +
-                          ' subop = %s' %subop)
+        if (ifaceobj.get_state() >= ifaceState.from_str(op) and
+           ifaceobj.get_status() == ifaceStatus.SUCCESS):
+            self.logger.debug('%s: already in state %s' %(ifacename, op))
+            return
 
-        for mname in mlist:
+        for mname in ifupdownobj.operations.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0
             try:
-                if hasattr(m, 'run') == True:
+                if hasattr(m, 'run'):
                     self.logger.debug('%s: %s : running module %s'
-                            %(ifaceobj.get_name(), subop, mname))
+                            %(ifacename, op, mname))
                     if op == 'query-checkcurr':
-                        # Dont check state if the interface object was 
+                        # Dont check curr if the interface object was 
                         # auto generated
-                        if ((ifaceobj.priv_flags & ifupdownobj.BUILTIN) != 0 or
-                             (ifaceobj.priv_flags & ifupdownobj.NOCONFIG) != 0):
+                        if (ifaceobj.priv_flags & ifupdownobj.NOCONFIG):
                             continue
-                        m.run(ifaceobj, subop,
-                              query_ifaceobj=ifupdownobj.create_ifaceobjcurr(
-                                                                ifaceobj))
+                        m.run(ifaceobj, op,
+                              query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(ifaceobj))
                     else:
-                        m.run(ifaceobj, subop)
+                        m.run(ifaceobj, op)
             except Exception, e:
                 err = 1
                 self.log_error(str(e))
             finally:
-                if op[:5] != 'query':
-                    if err == 1:
-                        ifupdownobj.set_iface_state(ifaceobj,
-                                ifaceState.from_str(subop),
+                if err == 1:
+                    ifupdownobj.set_iface_state(ifaceobj,
+                                ifaceState.from_str(op),
                                 ifaceStatus.ERROR)
-                    else:
-                        ifupdownobj.set_iface_state(ifaceobj,
-                                ifaceState.from_str(subop),
+                else:
+                    ifupdownobj.set_iface_state(ifaceobj,
+                                ifaceState.from_str(op),
                                 ifaceStatus.SUCCESS)
 
         # execute /etc/network/ scripts 
-        subop_dict = ifupdownobj.operations_compat.get(op)
-        if subop_dict is None: return
-        for mname in subop_dict.get(subop):
+        mlist = ifupdownobj.operations_compat.get(op)
+        if not mlist:
+            return
+        for mname in mlist:
             self.logger.debug('%s: %s : running script %s'
-                    %(ifaceobj.get_name(), subop, mname))
+                    %(ifacename, op, mname))
             try:
                 self.exec_command(mname, cmdenv=cenv)
             except Exception, e:
                 err = 1
                 self.log_error(str(e))
 
-    def run_iface_subops(self, ifupdownobj, ifaceobj, op):
+
+    def run_iface_ops(self, ifupdownobj, ifaceobj, ops):
         """ Runs all sub operations on an interface """
 
         # For backward compatibility execute scripts with
         # environent set
-        cenv = ifupdownobj.generate_running_env(ifaceobj, op)
+        cenv = ifupdownobj.generate_running_env(ifaceobj, ops[0])
 
         # Each sub operation has a module list
-        subopdict = ifupdownobj.operations.get(op)
-        for subop, mlist in subopdict.items():
-            self.run_iface_subop(ifupdownobj, ifaceobj, op, subop, mlist, cenv)
+        [self.run_iface_op(ifupdownobj, ifaceobj, op, cenv)
+                        for op in ops]
+
+    def run_iface_graph(self, ifupdownobj, ifacename, ops,
+                        order=ifaceSchedulerFlags.POSTORDER,
+                        followdependents=True):
+        """ runs interface by traversing its dependents first """
+
+        # Each ifacename can have a list of iface objects
+        ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
+        if ifaceobjs is None:
+            raise Exception('%s: not found' %ifacename)
 
 
-    def run_iface(self, ifupdownobj, ifacename, op):
+        for ifaceobj in ifaceobjs:
+            if order == ifaceSchedulerFlags.INORDER:
+                # Run all sub operations sequentially
+                try:
+                    self.run_iface_ops(ifupdownobj, ifaceobj, ops)
+                except Exception, e:
+                    raise Exception(str(e))
+            # Run dependents
+            dlist = ifaceobj.get_dependents()
+            if dlist and len(dlist):
+                self.logger.debug('%s:' %ifacename +
+                    ' found dependents: %s' %str(dlist))
+                try:
+                    if not followdependents:
+                        # XXX: this is yet another extra step,
+                        # but is needed for interfaces that are
+                        # implicit dependents
+                        # up without dependents, but 
+                        new_dlist = [d for d in dlist
+                                     if ifupdownobj.is_iface_noconfig(d)]
+                        if not new_dlist: continue
+                        self.run_iface_list(ifupdownobj, new_dlist, ops,
+                                            order, followdependents)
+                    else:
+                        self.run_iface_list(ifupdownobj, dlist, ops,
+                                            order, followdependents)
+                except Exception, e:
+                    if (self.ignore_error(str(e))):
+                        pass
+                    else:
+                        # Dont bring the iface up if children did not come up
+                        ifaceobj.set_state(ifaceState.NEW)
+                        ifaceobj.set_status(ifaceStatus.ERROR)
+                        raise
+
+            if order == ifaceSchedulerFlags.POSTORDER:
+                try:
+                    self.run_iface_ops(ifupdownobj, ifaceobj, ops)
+                except Exception, e:
+                    raise Exception(str(e))
+
+    def run_iface_list(self, ifupdownobj, ifacenames,
+                       ops, order=ifaceSchedulerFlags.POSTORDER,
+                       followdependents=True):
+        """ Runs interface list """
+
+        for ifacename in ifacenames:
+            try:
+              self.run_iface_graph(ifupdownobj, ifacename, ops,
+                      order, followdependents)
+            except Exception, e:
+                if (self.ignore_error(str(e))):
+                    pass
+                else:
+                    traceback.print_stack()
+                    raise Exception('error running iface %s (%s)'
+                            %(ifacename, str(e)))
+
+    def run_iface_dependency_graphs(self, ifupdownobj,
+                dependency_graph, ops, indegrees=None,
+                order=ifaceSchedulerFlags.POSTORDER,
+                followdependents=True):
+        """ Runs iface dependeny graph by visiting all the nodes
+        
+        Parameters:
+        -----------
+        ifupdownobj : ifupdown object (used for getting and updating iface
+                                        object state)
+        dependency_graph : dependency graph in adjacency list
+                            format (contains more than one dependency graph)
+        ops : list of operations to perform eg ['pre-up', 'up', 'post-up']
+
+        indegrees : indegree array if present is used to determine roots
+                    of the graphs in the dependency_graph
+        """
+
+        self.logger.debug('running dependency graph serially ..')
+
+        run_queue = []
+        # Build a list of ifaces that dont have any dependencies
+        if indegrees:
+            # use indegrees array if specified
+            for ifacename, degree in indegrees.items():
+                if not indegrees.get(ifacename):
+                    run_queue.append(ifacename)
+        else:
+            for ifacename in dependency_graph.keys():
+                if not ifupdownobj.get_iface_refcnt(ifacename):
+                    run_queue.append(ifacename)
+
+        self.logger.debug('graph roots (interfaces that dont have '
+                    'dependents):' + ' %s' %str(run_queue))
+
+        return self.run_iface_list(ifupdownobj, run_queue, ops, order,
+                                   followdependents)
+
+
+    def run_iface(self, ifupdownobj, ifacename, ops):
         """ Runs operation on an interface """
 
         ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
         for i in ifaceobjs:
-            if (op != 'query' and ifupdownobj.STATE_CHECK == True and
-                ifupdownobj.is_valid_state_transition(i, op) == False and
-                ifupdownobj.FORCE == False):
-                self.logger.warning('%s' %ifacename +
-                        ' already %s' %op)
-                continue
+            self.run_iface_ops(ifupdownobj, i, ops)
 
-            self.run_iface_subops(ifupdownobj, i, op)
-
-
-    def run_iface_list(self, ifupdownobj, ifacenames, operation,
-                      sorted_by_dependency=False):
-        """ Runs interface list serially executing all sub operations on
-        each interface at a time. """
-
-        self.logger.debug('run_iface_list: running interface list for ' +
-                          'operation %s' %operation)
-
-        iface_run_queue = deque(ifacenames)
-        for i in range(0, len(iface_run_queue)):
-            if operation == 'up':
-                # XXX: simplify this
-                if sorted_by_dependency == True:
-                    ifacename = iface_run_queue.pop()
-                else:
-                    ifacename = iface_run_queue.popleft()
-            else:
-                if sorted_by_dependency == True:
-                    ifacename = iface_run_queue.popleft()
-                else:
-                    ifacename = iface_run_queue.pop()
-
-            try:
-                self.run_iface(ifupdownobj, ifacename, operation)
-            except Exception, e:
-                self.log_error(str(e))
-
-    def run_iface_list_subop(self, ifupdownobj, ifacenames, op, subop, mdict,
+    def run_iface_list_op(self, ifupdownobj, ifacenames, op,
                              sorted_by_dependency=False):
         """ Runs interface list through sub operation handler. """
 
-        self.logger.debug('running sub operation %s on all given interfaces'
-                          %subop)
+        self.logger.debug('running operation %s on all given interfaces'
+                          %op)
         iface_run_queue = deque(ifacenames)
         for i in range(0, len(iface_run_queue)):
-            if op == 'up':
+            if op.endswith('up'):
                 # XXX: simplify this
-                if sorted_by_dependency == True:
+                if sorted_by_dependency:
                     ifacename = iface_run_queue.pop()
                 else:
                     ifacename = iface_run_queue.popleft()
             else:
-                if sorted_by_dependency == True:
+                if sorted_by_dependency:
                     ifacename = iface_run_queue.popleft()
                 else:
                     ifacename = iface_run_queue.pop()
@@ -163,21 +238,12 @@ class ifaceScheduler(ifupdownBase):
             try:
                 ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
                 for ifaceobj in ifaceobjs:
-                    if (op != 'query' and ifupdownobj.STATE_CHECK == True and
-                        ifupdownobj.is_valid_state_transition(ifaceobj,
-                        op) == False and ifupdownobj.FORCE == False):
-                        if subop == 'post-down' or subop == 'post-up':
-                            self.logger.warning('%s: ' %ifacename +
-                                                ' already %s' %op)
-                        continue
-
                     cenv = ifupdownobj.generate_running_env(ifaceobj, op)
-                    self.run_iface_subop(ifupdownobj, ifaceobj, op, subop,
-                                         mdict, cenv)
+                    self.run_iface_op(ifupdownobj, ifaceobj, op, cenv)
             except Exception, e:
                 self.log_error(str(e))
 
-    def run_iface_list_stages(self, ifupdownobj, ifacenames, op,
+    def run_iface_list_ops(self, ifupdownobj, ifacenames, ops,
                               sorted_by_dependency=False):
         """ Runs interface list through sub operations handler
 
@@ -188,30 +254,27 @@ class ifaceScheduler(ifupdownBase):
         """
 
         # Each sub operation has a module list
-        subopdict = ifupdownobj.operations.get(op)
-        for subop, mdict in subopdict.items():
-            self.run_iface_list_subop(ifupdownobj, ifacenames, op, subop, mdict,
-                    sorted_by_dependency)
+        [self.run_iface_list_op(ifupdownobj, ifacenames, op,
+                sorted_by_dependency) for op in ops]
 
-
-    def run_iface_dependency_graph(self, ifupdownobj, dependency_graphs,
-                                   operation, indegrees=None,
+    def run_iface_dependency_graphs_sorted(self, ifupdownobj,
+                                   dependency_graphs,
+                                   ops, indegrees=None,
                                    graphsortall=False):
-        """ runs interface dependency graph """
-
+        """ runs interface dependency graph by topologically sorting the interfaces """
 
         if indegrees is None:
             indegrees = OrderedDict()
             for ifacename in dependency_graphs.keys():
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
-        if self.logger.isEnabledFor(logging.DEBUG) == True:
+        if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug('indegree array :')
             self.logger.debug(ifupdownobj.pp.pformat(indegrees))
 
         try:
             self.logger.debug('calling topological sort on the graph ...')
-            if graphsortall == True:
+            if graphsortall:
                 sorted_ifacenames = graph.topological_sort_graphs_all(
                                             dependency_graphs, indegrees)
             else:
@@ -221,14 +284,11 @@ class ifaceScheduler(ifupdownBase):
             raise
 
         self.logger.debug('sorted iface list = %s' %sorted_ifacenames)
-
-        #self.run_iface_list(ifupdownobj, sorted_ifacenames, operation,
-        #                    sorted_by_dependency=True)
-
-        self.run_iface_list_stages(ifupdownobj, sorted_ifacenames, operation,
-                                   sorted_by_dependency=True)
+        self.run_iface_list_ops(ifupdownobj, sorted_ifacenames, ops,
+                                sorted_by_dependency=True)
 
 
+    """ Methods to execute interfaces in parallel """
     def init_tokens(self, count):
         self.token_pool = BoundedSemaphore(count)
         self.logger.debug('initialized bounded semaphore with %d' %count)
@@ -270,7 +330,7 @@ class ifaceScheduler(ifupdownBase):
                                                  dlist, op)
                     self.accquire_token(ifacename)
                 except Exception, e:
-                    if (self.ignore_error(str(e)) == True):
+                    if self.ignore_error(str(e)):
                         pass
                     else:
                         # Dont bring the iface up if children did not come up
@@ -278,22 +338,14 @@ class ifaceScheduler(ifupdownBase):
                             ' there was an error bringing %s' %op +
                             ' dependents (%s)', str(e))
                         ifupdownobj.set_iface_state(ifaceobj,
-                            ifaceState.from_str(
-                                    ifupdownobj.get_subops(op)[0]),
+                            ifaceState.from_str(ops[0]),
                             ifaceStatus.ERROR)
                         return -1
-
-            if (op != 'query' and ifupdownobj.STATE_CHECK == True and
-                ifupdownobj.is_valid_state_transition(ifaceobj,
-                    op) == False and ifupdownobj.FORCE == False):
-                self.logger.warning('%s:' %ifacename + ' already %s' %op)
-                continue
-
 
             # Run all sub operations sequentially
             try:
                 self.logger.debug('%s:' %ifacename + ' running sub-operations')
-                self.run_iface_subops(ifupdownobj, ifaceobj, op)
+                self.run_iface_ops(ifupdownobj, ifaceobj, op)
             except Exception, e:
                 self.logger.error('%s:' %ifacename +
                     ' error running sub operations (%s)' %str(e))
@@ -317,7 +369,7 @@ class ifaceScheduler(ifupdownBase):
                 self.release_token(parent)
             except Exception, e:
                 self.release_token(parent)
-                if (ifupdownobj.ignore_error(str(e)) == True):
+                if ifupdownobj.ignore_error(str(e)):
                     pass
                 else:
                     raise Exception('error starting thread for iface %s'
@@ -348,7 +400,7 @@ class ifaceScheduler(ifupdownBase):
                 self.release_graph_token(parent)
             except Exception, e:
                 self.release_graph_token(parent)
-                if (ifupdownobj.ignore_error(str(e)) == True):
+                if ifupdownobj.ignore_error(str(e)):
                     pass
                 else:
                     raise Exception('error starting thread for iface %s'
@@ -385,8 +437,8 @@ class ifaceScheduler(ifupdownBase):
             if ifupdownobj.get_iface_refcnt(ifacename) == 0:
                 run_queue.append(ifacename)
 
-        self.logger.debug('graph roots (interfaces that dont have dependents):' +
-                          ' %s' %str(run_queue))
+        self.logger.debug('graph roots (interfaces that dont'
+                    ' have dependents):' + ' %s' %str(run_queue))
 
         self.init_tokens(ifupdownobj.get_njobs())
 
