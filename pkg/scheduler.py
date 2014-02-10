@@ -103,13 +103,18 @@ class ifaceScheduler(ifupdownBase):
     def run_iface_graph(self, ifupdownobj, ifacename, ops,
                         order=ifaceSchedulerFlags.POSTORDER,
                         followdependents=True):
-        """ runs interface by traversing its dependents first """
+        """ runs interface by traversing all nodes rooted at itself """
+
+        # minor optimization. If operation is 'down', proceed only
+        # if interface exists in the system
+        if ('down' in ops[0] and
+                not os.path.exists('/sys/class/net/%s' %ifacename)):
+            return 
 
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
         if ifaceobjs is None:
             raise Exception('%s: not found' %ifacename)
-
 
         for ifaceobj in ifaceobjs:
             if order == ifaceSchedulerFlags.INORDER:
@@ -121,7 +126,7 @@ class ifaceScheduler(ifupdownBase):
             # Run dependents
             dlist = ifaceobj.get_dependents()
             if dlist and len(dlist):
-                self.logger.debug('%s:' %ifacename +
+                self.logger.info('%s:' %ifacename +
                     ' found dependents: %s' %str(dlist))
                 try:
                     if not followdependents:
@@ -131,12 +136,14 @@ class ifaceScheduler(ifupdownBase):
                         # up without dependents, but 
                         new_dlist = [d for d in dlist
                                      if ifupdownobj.is_iface_noconfig(d)]
-                        if not new_dlist: continue
-                        self.run_iface_list(ifupdownobj, new_dlist, ops,
-                                            order, followdependents)
+                        if new_dlist:
+                            self.run_iface_list(ifupdownobj, new_dlist, ops,
+                                                order, followdependents,
+                                                continueonfailure=False)
                     else:
                         self.run_iface_list(ifupdownobj, dlist, ops,
-                                            order, followdependents)
+                                            order, followdependents,
+                                            continueonfailure=False)
                 except Exception, e:
                     if (self.ignore_error(str(e))):
                         pass
@@ -154,7 +161,7 @@ class ifaceScheduler(ifupdownBase):
 
     def run_iface_list(self, ifupdownobj, ifacenames,
                        ops, order=ifaceSchedulerFlags.POSTORDER,
-                       followdependents=True):
+                       followdependents=True, continueonfailure=True):
         """ Runs interface list """
 
         for ifacename in ifacenames:
@@ -162,12 +169,15 @@ class ifaceScheduler(ifupdownBase):
               self.run_iface_graph(ifupdownobj, ifacename, ops,
                       order, followdependents)
             except Exception, e:
-                if (self.ignore_error(str(e))):
+                if continueonfailure:
+                    self.logger.error('%s : %s' %(ifacename, str(e)))
                     pass
                 else:
-                    traceback.print_stack()
-                    raise Exception('error running iface %s (%s)'
-                            %(ifacename, str(e)))
+                    if (self.ignore_error(str(e))):
+                        pass
+                    else:
+                        raise Exception('error running iface %s (%s)'
+                                %(ifacename, str(e)))
 
     def run_iface_dependency_graphs(self, ifupdownobj,
                 dependency_graph, ops, indegrees=None,
@@ -186,8 +196,6 @@ class ifaceScheduler(ifupdownBase):
         indegrees : indegree array if present is used to determine roots
                     of the graphs in the dependency_graph
         """
-
-        self.logger.debug('running dependency graph serially ..')
 
         run_queue = []
         # Build a list of ifaces that dont have any dependencies

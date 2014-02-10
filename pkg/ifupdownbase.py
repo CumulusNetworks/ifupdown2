@@ -60,4 +60,3 @@ class ifupdownBase(object):
             #raise Exception(str)
         else:
             pass
-

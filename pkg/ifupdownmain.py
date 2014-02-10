@@ -91,7 +91,6 @@ class ifupdownMain():
         self.pp = pprint.PrettyPrinter(indent=4)
         self.modules = OrderedDict({})
         self.module_attrs = {}
-        self.load_addon_modules_config()
         self.load_addon_modules(self.addon_modules_dir)
         self.load_scripts(self.scripts_dir)
         self.dependency_graph = OrderedDict({})
@@ -412,7 +411,7 @@ class ifupdownMain():
 
         """
         self.logger.info('loading builtin modules from %s' %modules_dir)
-
+        self.load_addon_modules_config()
         if not modules_dir in sys.path:
             sys.path.append(modules_dir)
         try:

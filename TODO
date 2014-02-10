@@ -1,5 +1,9 @@
 TODO:
 ====
+- support for debian ifupdown methods: tunnel, v4tunnel, 6to4, ppp, wvdial, ipv4ll
+- support for debian ifupdown ipv6 auto method
+- support for debian ifupdown CAN address family
+- Compat : support for LOGICAL interfaces
 - dry-run improvement: It skips the cache completely. Which means It tells you the commands it would execute if the system is clean. Its not smart enought to say what it will really execute given the state of the system
 
 - included gvgen in the package. Need to check if there are any license issues
