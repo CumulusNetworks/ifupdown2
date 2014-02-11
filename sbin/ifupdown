@@ -49,9 +49,9 @@ def run(args, op):
                                  excludepats=args.excludepats,
                                  printdependency=args.printdependency)
         elif op == 'query':
-            if args.checkcurstate:
+            if args.checkcurr:
                 qop='query-checkcurr'
-            elif args.runningstate:
+            elif args.running:
                 if iflist is None:
                     iflist = [i for i in os.listdir('/sys/class/net/')
                               if os.path.isdir('/sys/class/net/%s' %i)]
@@ -156,12 +156,13 @@ def update_ifquery_argparser(argparser):
     argparser.add_argument('-l', '--list', action='store_true', dest='all',
                 help=argparse.SUPPRESS)
     group = argparser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-r', '--running-state', dest='runningstate',
+    group.add_argument('-r', '--running', dest='running',
                        action='store_true',
                        help='query running state of an interface')
-    group.add_argument('-c', '--check-state', dest='checkcurstate',
+    group.add_argument('-c', '--check', dest='checkcurr',
                        action='store_true',
-                       help='check running against config of an interface')
+                       help='check interface file contents against ' +
+                       'running state of an interface')
     group.add_argument('--raw', action='store_true', dest='raw',
                        help='print raw config file entries')
     argparser.add_argument('--format', dest='format', default='native',
