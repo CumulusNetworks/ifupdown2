@@ -60,6 +60,8 @@ class ifupdownMain():
                               ('query-checkcurr', []),
                               ('query-running', []),
                               ('query-dependency', []),
+                              ('query', []),
+                              ('query-raw', []),
                               ('pre-down', []),
                               ('down' , []),
                               ('post-down' , [])])
@@ -441,6 +443,8 @@ class ifupdownMain():
         self.operations['query-checkcurr'] = self.modules.keys()
         self.operations['query-running'] = self.modules.keys()
         self.operations['query-dependency'] = self.modules.keys()
+        self.operations['query'] = self.modules.keys()
+        self.operations['query-raw'] = self.modules.keys()
 
     def modules_help(self):
         indent = '  '
@@ -796,15 +800,16 @@ class ifupdownMain():
         if len(filtered_ifacenames) == 0:
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')
-        if ops[0] == 'query':
-            return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
-        elif ops[0] == 'query-raw':
-            return self.print_ifaceobjs_raw(filtered_ifacenames)
 
         self.populate_dependency_info(filtered_ifacenames, ops)
         if ops[0] == 'query-dependency' and printdependency:
             self.print_dependency(filtered_ifacenames, printdependency)
             return
+
+        if ops[0] == 'query':
+            return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
+        elif ops[0] == 'query-raw':
+            return self.print_ifaceobjs_raw(filtered_ifacenames)
 
         if self.WITH_DEPENDS:
             self.run_with_dependents(ops, filtered_ifacenames)
@@ -969,19 +974,32 @@ class ifupdownMain():
 
     def print_ifaceobjs_raw(self, ifacenames):
         for i in ifacenames:
-            ifaceobjs = self.get_iface_objs(i)
-            for i in ifaceobjs:
-                i.dump_raw(self.logger)
+            for ifaceobj in self.get_iface_objs(i):
+                if (self.is_ifaceobj_builtin(ifaceobj) or 
+                    not ifaceobj.is_config_present()):
+                    continue
+                ifaceobj.dump_raw(self.logger)
                 print '\n'
+                if self.WITH_DEPENDS:
+                    dlist = ifaceobj.get_dependents()
+                    if not dlist or not len(dlist): continue
+                    self.print_ifaceobjs_pretty(dlist, format)
 
     def print_ifaceobjs_pretty(self, ifacenames, format='native'):
         for i in ifacenames:
-            if format == 'json':
-                [ j.dump_json()
-                    for j in self.get_iface_objs(i)]
-            else:
-                [ j.dump_pretty()
-                    for j in self.get_iface_objs(i)]
+            for ifaceobj in self.get_iface_objs(i):
+                if (self.is_ifaceobj_builtin(ifaceobj) or 
+                    not ifaceobj.is_config_present()):
+                    continue
+                if format == 'json':
+                    ifaceobj.dump_json()
+                else:
+                    ifaceobj.dump_pretty()
+
+                if self.WITH_DEPENDS:
+                    dlist = ifaceobj.get_dependents()
+                    if not dlist or not len(dlist): continue
+                    self.print_ifaceobjs_pretty(dlist, format)
 
     def dump_ifaceobjs(self, ifacenames):
         for i in ifacenames:
@@ -1016,7 +1034,7 @@ class ifupdownMain():
             else:
                 ifaceobj.dump_pretty()
 
-            if self.ALL == False or self.WITH_DEPENDS:
+            if self.WITH_DEPENDS:
                 dlist = ifaceobj.get_dependents()
                 if not dlist or not len(dlist): continue
                 self.print_ifaceobjscurr_pretty(dlist, format)
@@ -1038,7 +1056,7 @@ class ifupdownMain():
             else:
                 ifaceobj.dump_pretty()
 
-            if self.ALL == False or self.WITH_DEPENDS:
+            if self.WITH_DEPENDS:
                 dlist = ifaceobj.get_dependents()
                 if dlist is None or len(dlist) == 0: continue
                 self.print_ifaceobjsrunning_pretty(dlist, format)

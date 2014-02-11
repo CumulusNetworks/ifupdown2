@@ -110,10 +110,11 @@ class ifaceState():
 
 class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
-        return {'addr_method' : o.addr_method,
-                'addr_family' : o.addr_family,
-                'auto' : o.auto,
-                'config' : o.config}
+        return OrderedDict({'name' : o.name,
+                            'addr_method' : o.addr_method,
+                            'addr_family' : o.addr_family,
+                            'auto' : o.auto,
+                            'config' : o.config})
 
 class iface():
     """ config flags """
@@ -426,4 +427,4 @@ class iface():
         print outbuf
 
     def dump_json(self):
-        print json.dumps(self, cls=ifaceJsonEncoder)
+        print json.dumps(self, cls=ifaceJsonEncoder, indent=4)
