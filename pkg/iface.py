@@ -134,12 +134,8 @@ class iface():
         self.flags = 0x0
         self.priv_flags = 0x0
         self.refcnt = 0
-        # dependents that are listed as in the
-        # config file
-        self.dependents = None
-        # All dependents (includes dependents that
-        # are not listed in the config file)
-        self.realdev_dependents = None
+        self.lowerifaces = None
+        self.upperifaces = None
         self.auto = False
         self.classes = []
         self.env = None
@@ -254,17 +250,24 @@ class iface():
     def clear_flag(self, flag):
         self.flags &= ~flag
 
-    def set_dependents(self, dlist):
-        self.dependents = dlist
+    def set_lowerifaces(self, dlist):
+        self.lowerifaces = dlist
 
-    def get_dependents(self):
-        return self.dependents
+    def get_lowerifaces(self):
+        return self.lowerifaces
 
-    def set_realdev_dependents(self, dlist):
-        self.realdev_dependents = dlist
+    def set_upperifaces(self, dlist):
+        self.upperifaces = dlist
 
-    def get_realdev_dependents(self):
-        return self.realdev_dependents
+    def add_to_upperifaces(self, upperifacename):
+        if self.upperifaces:
+            if upperifacename not in self.upperifaces:
+                self.upperifaces.append(upperifacename)
+        else:
+            self.upperifaces = [upperifacename]
+
+    def get_upperifaces(self):
+        return self.upperifaces
 
     def set_linkstate(self, l):
         self.linkstate = l
@@ -358,8 +361,7 @@ class iface():
         odict = self.__dict__.copy()
         del odict['state']
         del odict['status']
-        del odict['dependents']
-        del odict['realdev_dependents']
+        del odict['lowerifaces']
         del odict['refcnt']
 
         return odict
@@ -369,8 +371,7 @@ class iface():
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
         self.refcnt = 0
-        self.dependents = None
-        self.realdev_dependents = None
+        self.lowerifaces = None
         self.linkstate = None
         
     def dump_raw(self, logger):
@@ -389,14 +390,11 @@ class iface():
         logger.info(indent + 'status: %s'
                 %ifaceStatus.to_str(self.get_status()))
         logger.info(indent + 'refcnt: %d' %self.get_refcnt())
-        d = self.get_dependents()
+        d = self.get_lowerdevs()
         if d is not None:
-            logger.info(indent + 'dependents: %s' %str(d))
+            logger.info(indent + 'lowerdevs: %s' %str(d))
         else:
-            logger.info(indent + 'dependents: None')
-
-        logger.info(indent + 'realdev dependents: %s'
-                    %str(self.get_realdev_dependents()))
+            logger.info(indent + 'lowerdevs: None')
 
         logger.info(indent + 'config: ')
         config = self.get_config()

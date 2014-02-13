@@ -199,7 +199,7 @@ class ifupdownMain():
 
         ifaceobjcurr = iface()
         ifaceobjcurr.set_name(ifacename)
-        ifaceobjcurr.set_dependents(ifaceobj.get_dependents())
+        ifaceobjcurr.set_lowerifaces(ifaceobj.get_lowerifaces())
         self.ifaceobjcurrdict[ifacename] = ifaceobjcurr
 
         return ifaceobjcurr
@@ -240,6 +240,8 @@ class ifupdownMain():
             ifaceobj.inc_refcnt()
         self.ifaceobjdict[ifacename] = [ifaceobj]
 
+        return ifaceobj
+
     def is_iface_builtin_byname(self, ifacename):
         """ Returns true if iface name is a builtin interface.
         
@@ -274,7 +276,7 @@ class ifupdownMain():
 
         return self.is_ifaceobj_noconfig(ifaceobj)
 
-    def preprocess_dependency_list(self, dlist, ops):
+    def preprocess_dependency_list(self, upperifacename, dlist, ops):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
             applying the following rules:
@@ -295,17 +297,17 @@ class ifupdownMain():
             dilist = self.get_iface_objs(d)
             if not dilist:
                 if self.is_iface_builtin_byname(d):
-                    self.create_n_save_ifaceobj(d,
-                                self.BUILTIN | self.NOCONFIG, True),
-                elif self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG == False:
-                    # create fake devices to all dependents that dont
-                    # have config
-                    self.create_n_save_ifaceobj(d, self.NOCONFIG, True),
+                    self.create_n_save_ifaceobj(d, self.BUILTIN | self.NOCONFIG,
+                            True).add_to_upperifaces(upperifacename)
+                elif not self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG:
+                    self.create_n_save_ifaceobj(d, self.NOCONFIG,
+                            True).add_to_upperifaces(upperifacename)
                 else:
                     del_list.append(d)
             else:
                 for di in dilist:
                     di.inc_refcnt()
+                    di.add_to_upperifaces(upperifacename)
 
         for d in del_list:
             dlist.remove(d)
@@ -329,9 +331,8 @@ class ifupdownMain():
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                         self.ifaceobjdict.keys())
                 if dlist and len(dlist):
-                    ifaceobj.set_realdev_dependents(dlist[:])
                     self.logger.debug('%s: ' %ifaceobj.get_name() +
-                                'got dependency list: %s' %str(dlist))
+                                'got lowerifaces/dependents: %s' %str(dlist))
                     break
         return dlist
 
@@ -353,17 +354,18 @@ class ifupdownMain():
             if ifaceobj is None: 
                 continue
 
-            dlist = ifaceobj.get_dependents()
+            dlist = ifaceobj.get_lowerifaces()
             if dlist is None:
                 dlist = self.query_dependents(ifaceobj, ops)
             else:
                 continue
 
             if dlist is not None:
-                self.preprocess_dependency_list(dlist, ops)
-                self.logger.debug('%s: dependency list after processing: %s'
+                self.preprocess_dependency_list(ifaceobj.get_name(),
+                                                dlist, ops)
+                self.logger.debug('%s: lowerifaces/dependents after processing: %s'
                                   %(i, str(dlist)))
-                ifaceobj.set_dependents(dlist)
+                ifaceobj.set_lowerifaces(dlist)
                 [iqueue.append(d) for d in dlist]
 
             if self.dependency_graph.get(i) is None:
@@ -529,7 +531,7 @@ class ifupdownMain():
                 %(str(ops), str(ifacenames)))
 
         ifaceSched = ifaceScheduler(force=self.FORCE)
-        ifaceSched.run_iface_list(self, ifacenames, ops,
+        ifaceSched.run_iface_list(self, ifacenames, ops, parent=None,
                                   order=ifaceSchedulerFlags.INORDER
                                     if 'down' in ops[0]
                                         else ifaceSchedulerFlags.POSTORDER,
@@ -544,9 +546,8 @@ class ifupdownMain():
         if ifacenames is None:
             ifacenames = self.ifaceobjdict.keys()
 
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug('dependency graph:')
-            self.logger.debug(self.pp.pformat(self.dependency_graph))
+        self.logger.info('dependency graph:')
+        self.logger.info(self.pp.pformat(self.dependency_graph))
 
         if self.njobs > 1:
             ret = ifaceSched.run_iface_dependency_graph_parallel(self,
@@ -981,7 +982,7 @@ class ifupdownMain():
                 ifaceobj.dump_raw(self.logger)
                 print '\n'
                 if self.WITH_DEPENDS:
-                    dlist = ifaceobj.get_dependents()
+                    dlist = ifaceobj.get_lowerifaces()
                     if not dlist or not len(dlist): continue
                     self.print_ifaceobjs_pretty(dlist, format)
 
@@ -997,7 +998,7 @@ class ifupdownMain():
                     ifaceobj.dump_pretty()
 
                 if self.WITH_DEPENDS:
-                    dlist = ifaceobj.get_dependents()
+                    dlist = ifaceobj.get_lowerifaces()
                     if not dlist or not len(dlist): continue
                     self.print_ifaceobjs_pretty(dlist, format)
 
@@ -1035,7 +1036,7 @@ class ifupdownMain():
                 ifaceobj.dump_pretty()
 
             if self.WITH_DEPENDS:
-                dlist = ifaceobj.get_dependents()
+                dlist = ifaceobj.get_lowerifaces()
                 if not dlist or not len(dlist): continue
                 self.print_ifaceobjscurr_pretty(dlist, format)
 
@@ -1057,7 +1058,7 @@ class ifupdownMain():
                 ifaceobj.dump_pretty()
 
             if self.WITH_DEPENDS:
-                dlist = ifaceobj.get_dependents()
+                dlist = ifaceobj.get_lowerifaces()
                 if dlist is None or len(dlist) == 0: continue
                 self.print_ifaceobjsrunning_pretty(dlist, format)
         return

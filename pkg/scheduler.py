@@ -100,15 +100,15 @@ class ifaceScheduler(ifupdownBase):
         [self.run_iface_op(ifupdownobj, ifaceobj, op, cenv)
                         for op in ops]
 
-    def run_iface_graph(self, ifupdownobj, ifacename, ops,
+    def run_iface_graph(self, ifupdownobj, ifacename, ops, parent=None,
                         order=ifaceSchedulerFlags.POSTORDER,
                         followdependents=True):
         """ runs interface by traversing all nodes rooted at itself """
 
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
-        if ('down' in ops[0] and
-                not os.path.exists('/sys/class/net/%s' %ifacename)):
+        if 'down' in ops[0] and not self.link_exists(ifacename):
+            self.logger.info('%s: does not exist' %ifacename)
             return 
 
         # Each ifacename can have a list of iface objects
@@ -117,32 +117,62 @@ class ifaceScheduler(ifupdownBase):
             raise Exception('%s: not found' %ifacename)
 
         for ifaceobj in ifaceobjs:
+            # Deal with upperdevs first
+            ulist = ifaceobj.get_upperifaces()
+            if ulist:
+                self.logger.debug('%s: parent = %s, ulist = %s'
+                                  %(ifacename, parent, ulist))
+                tmpulist = ([u for u in ulist if u != parent] if parent
+                            else ulist)
+                if tmpulist:
+                    self.logger.debug('%s: parent = %s, tmpulist = %s'
+                                      %(ifacename, parent, tmpulist))
+                    if 'down' in ops[0]:
+                        # XXX: This is expensive. Find a cheaper way to do this 
+                        # if any of the upperdevs are present,
+                        # dont down this interface
+                        for u in tmpulist:
+                            if self.link_exists(u):
+                                if not ifupdownobj.ALL:
+                                    self.logger.warn('%s: skip interface '
+                                            'down upperiface %s still around'
+                                            %(ifacename, u))
+                                return
+                    elif 'up' in ops[0] and not ifupdownobj.ALL:
+                        # For 'up', just warn that there is an upperdev which is
+                        # probably not up
+                        for u in tmpulist:
+                            if not self.link_exists(u):
+                                self.logger.warn('%s: upper iface %s does not'
+                                        ' exist' %(ifacename, u))
+
             if order == ifaceSchedulerFlags.INORDER:
-                # Run all sub operations sequentially
-                try:
-                    self.run_iface_ops(ifupdownobj, ifaceobj, ops)
-                except Exception, e:
-                    raise Exception(str(e))
-            # Run dependents
-            dlist = ifaceobj.get_dependents()
-            if dlist and len(dlist):
+                # If inorder, run the iface first and then its dependents
+                self.run_iface_ops(ifupdownobj, ifaceobj, ops)
+
+            # Run lowerifaces or dependents
+            dlist = ifaceobj.get_lowerifaces()
+            if dlist:
                 self.logger.info('%s:' %ifacename +
                     ' found dependents: %s' %str(dlist))
                 try:
                     if not followdependents:
                         # XXX: this is yet another extra step,
                         # but is needed for interfaces that are
-                        # implicit dependents
-                        # up without dependents, but 
+                        # implicit dependents. even though we are asked to
+                        # not follow dependents, we must follow the ones
+                        # that dont have user given config. Because we own them
                         new_dlist = [d for d in dlist
                                      if ifupdownobj.is_iface_noconfig(d)]
                         if new_dlist:
                             self.run_iface_list(ifupdownobj, new_dlist, ops,
-                                                order, followdependents,
+                                                ifacename, order,
+                                                followdependents,
                                                 continueonfailure=False)
                     else:
                         self.run_iface_list(ifupdownobj, dlist, ops,
-                                            order, followdependents,
+                                            ifacename, order,
+                                            followdependents,
                                             continueonfailure=False)
                 except Exception, e:
                     if (self.ignore_error(str(e))):
@@ -152,21 +182,18 @@ class ifaceScheduler(ifupdownBase):
                         ifaceobj.set_state(ifaceState.NEW)
                         ifaceobj.set_status(ifaceStatus.ERROR)
                         raise
-
             if order == ifaceSchedulerFlags.POSTORDER:
-                try:
-                    self.run_iface_ops(ifupdownobj, ifaceobj, ops)
-                except Exception, e:
-                    raise Exception(str(e))
+                self.run_iface_ops(ifupdownobj, ifaceobj, ops)
+
 
     def run_iface_list(self, ifupdownobj, ifacenames,
-                       ops, order=ifaceSchedulerFlags.POSTORDER,
+                       ops, parent=None, order=ifaceSchedulerFlags.POSTORDER,
                        followdependents=True, continueonfailure=True):
         """ Runs interface list """
 
         for ifacename in ifacenames:
             try:
-              self.run_iface_graph(ifupdownobj, ifacename, ops,
+              self.run_iface_graph(ifupdownobj, ifacename, ops, parent,
                       order, followdependents)
             except Exception, e:
                 if continueonfailure:
@@ -196,24 +223,28 @@ class ifaceScheduler(ifupdownBase):
         indegrees : indegree array if present is used to determine roots
                     of the graphs in the dependency_graph
         """
-
         run_queue = []
-        # Build a list of ifaces that dont have any dependencies
-        if indegrees:
-            # use indegrees array if specified
-            for ifacename, degree in indegrees.items():
-                if not indegrees.get(ifacename):
-                    run_queue.append(ifacename)
-        else:
-            for ifacename in dependency_graph.keys():
-                if not ifupdownobj.get_iface_refcnt(ifacename):
-                    run_queue.append(ifacename)
 
-        self.logger.debug('graph roots (interfaces that dont have '
+        if indegrees is None:
+            indegrees = OrderedDict()
+            for ifacename in dependency_graph.keys():
+                indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
+
+        sorted_ifacenames = graph.topological_sort_graphs_all(dependency_graph,
+                                                          dict(indegrees))
+        self.logger.debug('sorted ifacenames %s : ' %str(sorted_ifacenames))
+
+        # Build a list of ifaces that dont have any dependencies
+        for ifacename in sorted_ifacenames:
+            if not indegrees.get(ifacename):
+                run_queue.append(ifacename)
+
+        self.logger.info('graph roots (interfaces that dont have '
                     'dependents):' + ' %s' %str(run_queue))
 
-        return self.run_iface_list(ifupdownobj, run_queue, ops, order,
-                                   followdependents)
+        return self.run_iface_list(ifupdownobj, run_queue, ops,
+                                   parent=None,order=order,
+                                   followdependents=followdependents)
 
 
     def run_iface(self, ifupdownobj, ifacename, ops):
@@ -328,7 +359,7 @@ class ifaceScheduler(ifupdownBase):
 
         for ifaceobj in ifaceobjs:
             # Run dependents
-            dlist = ifaceobj.get_dependents()
+            dlist = ifaceobj.get_lowerifaces()
             if dlist is not None and len(dlist) > 0:
                 self.logger.debug('%s:' %ifacename +
                     ' found dependents: %s' %str(dlist))

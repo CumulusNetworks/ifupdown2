@@ -10,6 +10,7 @@
 import logging
 import subprocess
 import re
+import os
 from ifupdown.iface import *
 
 class ifupdownBase(object):
@@ -60,3 +61,6 @@ class ifupdownBase(object):
             #raise Exception(str)
         else:
             pass
+
+    def link_exists(self, ifacename):
+        return os.path.exists('/sys/class/net/%s' %ifacename)
