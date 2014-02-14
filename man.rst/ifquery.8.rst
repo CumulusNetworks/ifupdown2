@@ -1,0 +1,94 @@
+=======
+ifquery
+=======
+
+-------------------------------------
+query network interface configuration
+-------------------------------------
+
+:Author: roopa@cumulusnetworks.com
+:Date:   2014-02-05
+:Copyright: Copyright 2014 Cumulus Networks, Inc.  All rights reserved.
+:Version: 0.1
+:Manual section: 8
+
+SYNOPSIS
+========
+    ifquery [-h] [-a] [-v] [-d] [--allow CLASS] [--with-depends]
+            [-X EXCLUDEPATS] [-r | -c | --raw]
+            [--print-dependency {list,dot}] [--syntax-help]
+            [IFACE [IFACE ...]]
+
+DESCRIPTION
+===========
+    ifquery can be used to parse interface configuration file, dump
+    running state or check running state of the interface with configuration
+    in /etc/network/interfaces file.
+
+    ifquery always works on the current interfaces(5) file
+    /etc/network/interfaces.
+
+OPTIONS
+=======
+    positional arguments:
+    IFACE                 interface list separated by spaces. IFACE list and '-a' argument are mutually exclusive.
+
+    optional arguments:
+    -h, --help            show this help message and exit
+
+    -a, --all             process all interfaces marked "auto"
+
+    -v, --verbose         verbose
+
+    -d, --debug           output debug info
+
+    --allow CLASS         ignore non-"allow-CLASS" interfaces
+
+    --with-depends        run with all dependent interfaces. This option
+                          is redundant when -a is specified. When '-a' is
+                          specified, interfaces are always executed in
+                          dependency order.
+
+    -X EXCLUDEPATS, --exclude EXCLUDEPATS
+                          Exclude interfaces from the list of interfaces to
+                          operate on. Can be specified multiple times
+
+    -r, --running         print raw interfaces file entries
+
+    -c, --check           check interface file contents against running state
+                          of an interface. Returns exit code 0 on success and
+                          1 on error
+
+    --print-dependency {list,dot} print iface dependency in list or dot format.
+
+    --syntax-help         print supported interface config syntax. Scans all
+                          addon modules and dumps supported syntax from them
+                          if provided by the module.
+
+EXAMPLES
+========
+    # dump all or some interfaces config file entries
+    # (pretty prints user provided entries)
+    ifquery -a
+    ifquery br0 
+
+    # Same as above but dump with dependencies
+    ifquery br0 --with-depends
+
+    # Check running state with the config in /etc/network/interfaces
+    ifquery --check br0
+    ifquery --check --with-depends br0 
+    ifquery --check -a         
+
+    # dump running state of all interfaces in /etc/network/interfaces format
+    ifquery --running br0
+    ifquery --running --with-depends br0
+    ifquery --running -a
+
+SEE ALSO
+========
+    ifup(8)
+    ifdown(8)
+    ifreload(8)
+    interfaces(5)
+    interfaces-addons(5)

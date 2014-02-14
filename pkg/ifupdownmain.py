@@ -686,6 +686,9 @@ class ifupdownMain():
         else:
             self.run_without_dependents(ops, filtered_ifacenames)
 
+        if self.DRYRUN:
+            return
+
         # Update persistant iface states
         try:
             if self.ALL:
@@ -748,6 +751,9 @@ class ifupdownMain():
             self.run_with_dependents(ops, filtered_ifacenames)
         else:
             self.run_without_dependents(ops, filtered_ifacenames)
+
+        if self.DRYRUN:
+            return
 
         if loaded_newconfig:
             # Update persistant iface states
@@ -943,6 +949,9 @@ class ifupdownMain():
             self.run_with_dependents(upops, filtered_ifacenames)
         else:
             self.run_without_dependents(upops, filtered_ifacenames)
+
+        if self.DRYRUN:
+            return
 
         # Update persistant iface states
         try:
