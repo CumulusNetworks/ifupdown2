@@ -139,7 +139,6 @@ class ifupdownMain():
         return self.ifaceobjdict
 
     def set_ifaceobjdict(self, ifaceobjdict):
-        del self.ifaceobjdict
         self.ifaceobjdict = ifaceobjdict
 
     def set_dependency_graph(self, dependency_graph):
@@ -511,7 +510,8 @@ class ifupdownMain():
                     self.operations_compat[op].append(
                                     msubdir + '/' + module)
             except: 
-                raise
+                # continue reading
+                pass
 
     def conv_iface_namelist_to_objlist(self, intf_list):
         for intf in intf_list:
@@ -912,14 +912,8 @@ class ifupdownMain():
                                   %str(ifacedownlist))
                 # Generate dependency info for old config
                 self.populate_dependency_info(ifacedownlist, downops)
-                if len(ifacedownlist) == len(self.ifaceobjdict):
-                    # if you are downing all interfaces, its better run
-                    # with dependents
-                    self.run_with_dependents(downops, ifacedownlist)
-                else:
-                    # if not, down only the interfaces that we have in the
-                    # down list
-                    self.run_without_dependents(downops, ifacedownlist)
+                self.run_with_dependents(downops, ifacedownlist)
+
                 # Update persistant iface states
                 try:
                     if self.ALL:
