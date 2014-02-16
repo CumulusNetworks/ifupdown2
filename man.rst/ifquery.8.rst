@@ -85,6 +85,19 @@ EXAMPLES
     ifquery --running --with-depends br0
     ifquery --running -a
 
+    # print dependency info in list format
+    ifquery --print-dependency=list -a
+    ifquery --print-dependency=list  br2000
+
+    # print dependency info in dot format
+    ifquery --print-dependency=dot -a
+    ifquery --print-dependency=dot br2000
+
+    # Create an image (png) from the dot format.
+    ifquery --print-dependency=dot -a > interfaces.dot
+    dot -Tpng interfaces.dot > interfaces.png
+
+
 SEE ALSO
 ========
     ifup(8)

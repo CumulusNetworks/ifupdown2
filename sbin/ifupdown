@@ -68,13 +68,6 @@ def run_query(args):
         iflist = args.iflist
         if len(args.iflist) == 0:
             iflist = None
-        logger.debug('creating ifupdown object ..')
-        cachearg=(False if (iflist or args.nocache or
-                            args.perfmode or args.syntaxhelp) else True)
-        ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
-                                       perfmode=args.perfmode,
-                                       njobs=args.jobs,
-                                       cache=cachearg)
         if args.checkcurr:
             qop='query-checkcurr'
         elif args.running:
@@ -90,6 +83,16 @@ def run_query(args):
             qop = 'query-dependency'
         else:
             qop='query'
+
+        cachearg=(False if (iflist or args.nocache or
+                            args.perfmode or args.syntaxhelp or
+                            (qop != 'query-checkcurr' and
+                            qop != 'query-running')) else True)
+        logger.debug('creating ifupdown object ..')
+        ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
+                                       perfmode=args.perfmode,
+                                       njobs=args.jobs,
+                                       cache=cachearg)
 
         ifupdown_handle.query([qop], args.all, args.CLASS, iflist,
                               excludepats=args.excludepats,

@@ -99,45 +99,16 @@ class graph():
         return sorted_graphs_list
 
     @classmethod
-    def add_to_dot_old(cls, dependency_graph, gvgraph, v, parentgvitem):
-        dependents = dependency_graph.get(v, [])
-        if dependents is None:
-            return
-        if len(dependents) > 1:
-            # if more than one dependents .., add them to a box
-            box = gvgraph.newItem(v)
-            for d in dependents:
-                dnode = gvgraph.newItem(d, box)
-                cls.add_to_dot(dependency_graph, gvgraph, d, dnode)
-                if parentgvitem is not None: gvgraph.newLink(parentgvitem,
-                                                             dnode)
-        else:
-            for d in dependents:
-                dnode = gvgraph.newItem(d)
-                cls.add_to_dot(dependency_graph, gvgraph, d, dnode)
-                if parentgvitem is not None: gvgraph.newLink(parentgvitem,
-                                                             dnode)
-
-    @classmethod
-    def add_to_dot(cls, dependency_graph, gvgraph, v, parentgvitem):
-        vnode = gvgraph.newItem(v)
-        if parentgvitem is not None: gvgraph.newLink(parentgvitem, vnode)
-        dependents = dependency_graph.get(v, [])
-        if dependents is None:
-            return
-        for d in dependents:
-            cls.add_to_dot(dependency_graph, gvgraph, d, vnode)
-
-    @classmethod
-    def generate_dot(cls, dependency_graph, v):
-        gvgraph = GvGen()
-        cls.add_to_dot(dependency_graph, gvgraph, v, None)
-        gvgraph.dot(name=v)
-
-    @classmethod
     def generate_dots(cls, dependency_graph, indegrees):
-        roots = [k for k, v in indegrees.items() if v == 0]
-        if roots is None:
-            return
-        map(lambda r: cls.generate_dot(dependency_graph, r), roots)
+        gvgraph = GvGen()
+        graphnodes = {}
+        for v in dependency_graph.keys():
+            graphnodes[v] = gvgraph.newItem(v)
 
+        for i, v in graphnodes.items():
+            dlist = dependency_graph.get(i, [])
+            if not dlist:
+                continue
+            for d in dlist:
+                gvgraph.newLink(v, graphnodes.get(d))
+        gvgraph.dot()

@@ -1,6 +1,6 @@
 TODO:
 ====
-- support old ifupdown state file /run/network/ifstate. B
+- support old ifupdown state file /run/network/ifstate. Because some app's seem to use it
 - support -i interfaces file
 - support for debian ifupdown methods: tunnel, v4tunnel, 6to4, ppp, wvdial, ipv4ll
 - support for debian ifupdown ipv6 auto method

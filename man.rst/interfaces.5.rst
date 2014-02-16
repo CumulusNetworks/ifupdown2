@@ -76,6 +76,9 @@ DESCRIPTION
     These options come from addon modules. see interfaces-addons(5) for
     these options.
 
+    ifupdown2 supports python-mako style templates in the interfaces file.
+    See examples section for details.
+
 METHODS
 =======
     Both inet and inet6 address family interfaces can use the following
@@ -119,8 +122,14 @@ EXAMPLES
     source /etc/network/interfaces.d/*
 
 
-    For more examples with addon config
+    # Using mako style templates
+    % for v in [11,12]:
+    auto vlan${v}
+    iface vlan${v} inet static
+    address 10.20.${v}.3/24
+    % endfor
 
+    For more examples see interfaces-addons(5)
 
 FILES
 =====

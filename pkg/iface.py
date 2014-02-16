@@ -110,11 +110,19 @@ class ifaceState():
 
 class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
+        retconfig = {}
+        if o.config:
+            for k, v in o.config.items():
+                if len(v) == 1:
+                    retconfig[k] = v[0]
+                else:
+                    retconfig[k] = v
+
         return OrderedDict({'name' : o.name,
                             'addr_method' : o.addr_method,
                             'addr_family' : o.addr_family,
                             'auto' : o.auto,
-                            'config' : o.config})
+                            'config' : retconfig})
 
 class iface():
     """ config flags """
