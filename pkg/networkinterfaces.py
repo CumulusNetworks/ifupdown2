@@ -50,7 +50,8 @@ class networkInterfaces():
 
         words = allow_line.split()
         if len(words) <= 1:
-            raise Exception('invalid allow line \'%s\'' %allow_line)
+            raise Exception('invalid allow line \'%s\' at line %d'
+                            %(allow_line, lineno))
 
         allow_class = words[0].split('-')[1]
         ifacenames = words[1:]
@@ -60,9 +61,7 @@ class networkInterfaces():
                 self.allow_classes[allow_class].append(i)
         else:
                 self.allow_classes[allow_class] = ifacenames
-
         return 0
-
 
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
@@ -77,15 +76,33 @@ class networkInterfaces():
         return 0
 
     def process_auto(self, lines, cur_idx, lineno):
-        # XXX: Need to do more
-        attrs = lines[cur_idx].split()
-        if len(attrs) != 2:
-            raise Exception('line%d: ' %lineno + 'incomplete \'auto\' line')
-
-        self.auto_ifaces.append(lines[cur_idx].split()[1])
-
+        for a in lines[cur_idx].split()[1:]:
+            self.auto_ifaces.append(a)
         return 0
 
+    def _add_to_iface_config(self, iface_config, attrname, attrval):
+        attrvallist = iface_config.get(attrname, [])
+        if attrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime']:
+            # For attributes that are related and that can have multiple
+            # entries, store them at the same index as their parent attribute.
+            # The example of such attributes is 'address' and its related
+            # attributes. since the related attributes can be optional, 
+            # we add null string '' in places where they are optional.
+            # XXX: this introduces awareness of attribute names in
+            # this class which is a violation.
+
+            # get the index corresponding to the 'address'
+            addrlist = iface_config.get('address')
+            if addrlist:
+                # find the index of last address element
+                for i in range(0, len(addrlist) - len(attrvallist) -1):
+                    attrvallist.append('')
+                attrvallist.append(attrval)
+                iface_config[attrname] = attrvallist
+        elif not attrvallist:
+            iface_config[attrname] = [attrval]
+        else:
+            iface_config[attrname].append(attrval)
 
     def process_iface(self, lines, cur_idx, lineno):
         lines_consumed = 0
@@ -117,7 +134,8 @@ class networkInterfaces():
 
             attrs = l.split(' ', 1)
             if len(attrs) < 2:
-                self.logger.warn('invalid syntax at line %d' %(line_idx + 1))
+                self.logger.warn('%s: invalid syntax at line %d'
+                                 %(ifacename, line_idx + 1))
                 continue
             attrname = attrs[0]
             attrval = attrs[1].strip(' ')
@@ -127,10 +145,7 @@ class networkInterfaces():
                                     %(l, line_idx + 1))
             except:
                 pass
-            if not iface_config.get(attrname):
-                iface_config[attrname] = [attrval]
-            else:
-                iface_config[attrname].append(attrval)
+            self._add_to_iface_config(iface_config, attrname, attrval)
 
         lines_consumed = line_idx - cur_idx
 

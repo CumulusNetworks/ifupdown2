@@ -22,7 +22,7 @@ from collections import OrderedDict
 from graph import *
 from sets import Set
 
-class ifupdownMain():
+class ifupdownMain(ifupdownBase):
 
     # Flags
     WITH_DEPENDS = False
@@ -52,9 +52,9 @@ class ifupdownMain():
     # {'<ifacename>' : <ifaceobject>}
     ifaceobjcurrdict = OrderedDict()
 
-    # Dictionary representing operation, sub operation and modules
-    # for every sub operation
-    operations = OrderedDict([('pre-up', []),
+    # Dictionary representing operation and modules
+    # for every operation
+    module_ops = OrderedDict([('pre-up', []),
                               ('up' , []),
                               ('post-up' , []),
                               ('query-checkcurr', []),
@@ -67,13 +67,26 @@ class ifupdownMain():
                               ('post-down' , [])])
 
     # For old style /etc/network/ bash scripts
-    operations_compat = OrderedDict([('pre-up', []),
+    script_ops = OrderedDict([('pre-up', []),
                                     ('up' , []),
                                     ('post-up' , []),
                                     ('pre-down', []),
                                     ('down' , []),
                                     ('post-down' , [])])
 
+    # Handlers for ops that ifupdown2 owns
+    def run_up(self, ifaceobj):
+        ifacename = ifaceobj.get_name()
+        if self.link_exists(ifacename):
+            self.link_up(ifacename)
+
+    def run_down(self, ifaceobj):
+        ifacename = ifaceobj.get_name()
+        if self.link_exists(ifacename):
+            self.link_down(ifacename)
+
+    ops_handlers = OrderedDict([('up', run_up),
+                                ('down', run_down)])
 
     def __init__(self, force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
@@ -107,7 +120,7 @@ class ifupdownMain():
 
     def get_subops(self, op):
         """ Returns sub-operation list """
-        return self.operations.get(op).keys()
+        return self.module_ops.get(op).keys()
 
     def compat_conv_op_to_mode(self, op):
         """ Returns old op name to work with existing scripts """
@@ -317,7 +330,7 @@ class ifupdownMain():
 
         # Get dependents for interface by querying respective modules
         for op in ops:
-            for mname in self.operations.get(op):
+            for mname in self.module_ops.get(op):
                 module = self.modules.get(mname)
                 if op == 'query-running':
                     if (hasattr(module,
@@ -405,7 +418,7 @@ class ifupdownMain():
                 litems = l.rstrip(' \n').split(',')
                 operation = litems[0]
                 mname = litems[1]
-                self.operations[operation].append(mname)
+                self.module_ops[operation].append(mname)
 
     def load_addon_modules(self, modules_dir):
         """ load python modules from modules_dir
@@ -418,7 +431,7 @@ class ifupdownMain():
         if not modules_dir in sys.path:
             sys.path.append(modules_dir)
         try:
-            for op, mlist in self.operations.items():
+            for op, mlist in self.module_ops.items():
                 for mname in mlist:
                     if self.modules.get(mname) is not None:
                         continue
@@ -441,11 +454,11 @@ class ifupdownMain():
             raise
 
         # Assign all modules to query operations
-        self.operations['query-checkcurr'] = self.modules.keys()
-        self.operations['query-running'] = self.modules.keys()
-        self.operations['query-dependency'] = self.modules.keys()
-        self.operations['query'] = self.modules.keys()
-        self.operations['query-raw'] = self.modules.keys()
+        self.module_ops['query-checkcurr'] = self.modules.keys()
+        self.module_ops['query-running'] = self.modules.keys()
+        self.module_ops['query-dependency'] = self.modules.keys()
+        self.module_ops['query'] = self.modules.keys()
+        self.module_ops['query-raw'] = self.modules.keys()
 
     def modules_help(self):
         indent = '  '
@@ -499,7 +512,7 @@ class ifupdownMain():
         """
 
         self.logger.info('looking for user scripts under %s' %modules_dir)
-        for op, mlist in self.operations_compat.items():
+        for op, mlist in self.script_ops.items():
             msubdir = modules_dir + '/if-%s.d' %op
             self.logger.info('loading scripts under %s ...' %msubdir)
             try:
@@ -507,7 +520,7 @@ class ifupdownMain():
                 for module in module_list:
                     if  self.modules.get(module) is not None:
                         continue
-                    self.operations_compat[op].append(
+                    self.script_ops[op].append(
                                     msubdir + '/' + module)
             except: 
                 # continue reading
@@ -530,8 +543,7 @@ class ifupdownMain():
         self.logger.debug('run_without_dependents for ops %s for %s'
                 %(str(ops), str(ifacenames)))
 
-        ifaceSched = ifaceScheduler(force=self.FORCE)
-        ifaceSched.run_iface_list(self, ifacenames, ops, parent=None,
+        ifaceScheduler.run_iface_list(self, ifacenames, ops, parent=None,
                                   order=ifaceSchedulerFlags.INORDER
                                     if 'down' in ops[0]
                                         else ifaceSchedulerFlags.POSTORDER,
@@ -542,7 +554,6 @@ class ifupdownMain():
         self.logger.debug('running \'%s\' with dependents for %s'
                           %(str(ops), str(ifacenames)))
 
-        ifaceSched = ifaceScheduler()
         if ifacenames is None:
             ifacenames = self.ifaceobjdict.keys()
 
@@ -550,10 +561,10 @@ class ifupdownMain():
         self.logger.info(self.pp.pformat(self.dependency_graph))
 
         if self.njobs > 1:
-            ret = ifaceSched.run_iface_dependency_graph_parallel(self,
+            ret = ifaceScheduler.run_iface_dependency_graph_parallel(self,
                         self.dependency_graph, ops)
         else:
-            ret = ifaceSched.run_iface_dependency_graphs(self,
+            ret = ifaceScheduler.run_iface_dependency_graphs(self,
                         self.dependency_graph, ops,
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
@@ -992,8 +1003,7 @@ class ifupdownMain():
     def print_ifaceobjs_pretty(self, ifacenames, format='native'):
         for i in ifacenames:
             for ifaceobj in self.get_iface_objs(i):
-                if (self.is_ifaceobj_builtin(ifaceobj) or 
-                    not ifaceobj.is_config_present()):
+                if (self.is_ifaceobj_noconfig(ifaceobj)):
                     continue
                 if format == 'json':
                     ifaceobj.dump_json()
@@ -1029,8 +1039,7 @@ class ifupdownMain():
             elif ifaceobj.get_status() == ifaceStatus.ERROR:
                 ret = 1
 
-            if (self.is_ifaceobj_builtin(ifaceobj) or 
-                    ifaceobj.is_config_present() == False):
+            if (self.is_ifaceobj_noconfig(ifaceobj)):
                 continue
 
             if format == 'json':
@@ -1065,9 +1074,3 @@ class ifupdownMain():
                 if dlist is None or len(dlist) == 0: continue
                 self.print_ifaceobjsrunning_pretty(dlist, format)
         return
-
-    def print_ifaceobjs_saved_state_pretty(self, ifacenames):
-        self.statemanager.print_state_pretty(ifacenames, self.logger)
-
-    def print_ifaceobjs_saved_state_detailed_pretty(self, ifacenames):
-        self.statemanager.print_state_detailed_pretty(ifacenames, self.logger)

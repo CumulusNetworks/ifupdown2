@@ -64,3 +64,9 @@ class ifupdownBase(object):
 
     def link_exists(self, ifacename):
         return os.path.exists('/sys/class/net/%s' %ifacename)
+
+    def link_up(self, ifacename):
+        self.exec_command('ip link set dev %s up' %ifacename)
+
+    def link_down(self, ifacename):
+        self.exec_command('ip link set dev %s down' %ifacename)
