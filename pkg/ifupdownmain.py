@@ -206,12 +206,13 @@ class ifupdownMain(ifupdownBase):
     def create_n_save_ifaceobjcurr(self, ifaceobj):
         ifacename = ifaceobj.get_name()
         ifaceobjcurr = self.get_ifaceobjcurr(ifacename)
-        if ifaceobjcurr is not None:
+        if ifaceobjcurr:
             return ifaceobjcurr
 
         ifaceobjcurr = iface()
         ifaceobjcurr.set_name(ifacename)
         ifaceobjcurr.set_lowerifaces(ifaceobj.get_lowerifaces())
+        ifaceobjcurr.set_priv_flags(ifaceobj.get_priv_flags())
         self.ifaceobjcurrdict[ifacename] = ifaceobjcurr
 
         return ifaceobjcurr
@@ -1033,7 +1034,8 @@ class ifupdownMain(ifupdownBase):
             ifaceobj = self.get_ifaceobjcurr(i)
             if not ifaceobj: continue
             if ifaceobj.get_status() == ifaceStatus.NOTFOUND:
-                print 'iface %s' %ifaceobj.get_name() + ' (not found)\n'
+                print 'iface %s %s\n' %(ifaceobj.get_name(),
+                            ifaceStatus.to_str(ifaceStatus.NOTFOUND))
                 ret = 1
                 continue
             elif ifaceobj.get_status() == ifaceStatus.ERROR:
@@ -1043,15 +1045,14 @@ class ifupdownMain(ifupdownBase):
                 continue
 
             if format == 'json':
-                ifaceobj.dump_json()
+                ifaceobj.dump_json(with_status=True)
             else:
-                ifaceobj.dump_pretty()
+                ifaceobj.dump_pretty(with_status=True)
 
             if self.WITH_DEPENDS:
                 dlist = ifaceobj.get_lowerifaces()
                 if not dlist or not len(dlist): continue
                 self.print_ifaceobjscurr_pretty(dlist, format)
-
         return ret
 
     def print_ifaceobjsrunning_pretty(self, ifacenames, format='native'):

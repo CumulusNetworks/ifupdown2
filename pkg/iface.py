@@ -34,7 +34,7 @@ class ifaceStatus():
         elif state == cls.ERROR:
             return 'error'
         elif state == cls.NOTFOUND:
-            return 'not found'
+            return 'notfound'
     
     @classmethod
     def from_str(cls, state_str):
@@ -136,6 +136,7 @@ class iface():
         self.addr_family = None
         self.addr_method = None
         self.config = OrderedDict()
+        self.config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
         self.errstr = ''
@@ -230,6 +231,12 @@ class iface():
             return True
 
         return False
+
+    def set_priv_flags(self, priv_flags):
+        self.priv_flags = priv_flags
+
+    def get_priv_flags(self):
+        return self.priv_flags
 
     def get_state(self):
         return self.state
@@ -336,19 +343,32 @@ class iface():
         self.config.update(attrdict)
 
     def update_config_with_status(self, attr_name, attr_value, attr_status=0):
-        if attr_value is None:
+        if not attr_value:
             attr_value = ''
+
+        if self.config.get(attr_name):
+            self.config[attr_name].append(attr_value)
+            self.config_status[attr_name].append(attr_status)
+        else:
+            self.config[attr_name] = [attr_value]
+            self.config_status[attr_name] = [attr_status]
+
+        # set global iface state
         if attr_status:
             self.set_status(ifaceStatus.ERROR)
-            new_attr_value = '%s (%s)' %(attr_value, crossmark)
+        elif self.get_status() != ifaceStatus.ERROR:
+            # Not already error, mark success
+            self.set_status(ifaceStatus.SUCCESS)
+
+    def get_config_attr_status(self, attr_name, idx=0):
+        self.config_status.get(attr_name, [])[idx]
+
+    def get_config_attr_status_str(self, attr_name, idx=0):
+        ret = self.config_status.get(attr_name, [])[idx]
+        if ret:
+            return crossmark
         else:
-            new_attr_value = '%s (%s)' %(attr_value, tickmark)
-            if self.get_status() != ifaceStatus.ERROR:
-                self.set_status(ifaceStatus.SUCCESS)
-        if self.config.get(attr_name) is not None:
-            self.config[attr_name].append(new_attr_value)
-        else:
-            self.config[attr_name] = [new_attr_value]
+            return tickmark
 
     def is_different(self, dstiface):
         if self.name != dstiface.name: return True
@@ -410,7 +430,7 @@ class iface():
             logger.info(indent + indent + str(config))
         logger.info('}')
 
-    def dump_pretty(self):
+    def dump_pretty(self, with_status=False):
         indent = '\t'
         outbuf = ''
         if self.get_auto():
@@ -427,10 +447,16 @@ class iface():
         config = self.get_config()
         if config is not None:
             for cname, cvaluelist in config.items():
+                idx = 0
                 for cv in cvaluelist:
-                    outbuf += indent + '%s' %cname + ' %s\n' %cv
+                    if with_status:
+                        outbuf += indent + '%s %s %s\n' %(cname, cv,
+                                    self.get_config_attr_status_str(cname, idx))
+                    else:
+                        outbuf += indent + '%s %s\n' %(cname, cv)
+                    idx += 1
 
         print outbuf
 
-    def dump_json(self):
+    def dump_json(self, with_status=False):
         print json.dumps(self, cls=ifaceJsonEncoder, indent=4)

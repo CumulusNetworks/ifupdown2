@@ -14,6 +14,7 @@ from collections import deque
 from collections import OrderedDict
 import logging
 import traceback
+import sys
 from graph import *
 from collections import deque
 from threading import *
@@ -198,6 +199,8 @@ class ifaceScheduler():
                       order, followdependents)
             except Exception, e:
                 if continueonfailure:
+                    if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
+                        traceback.print_tb(sys.exc_info()[2])
                     ifupdownobj.logger.error('%s : %s' %(ifacename, str(e)))
                     pass
                 else:
