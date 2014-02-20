@@ -108,7 +108,8 @@ class ifupdownMain(ifupdownBase):
         self.modules = OrderedDict({})
         self.module_attrs = {}
         self.load_addon_modules(self.addon_modules_dir)
-        self.load_scripts(self.scripts_dir)
+        if self.COMPAT_EXEC_SCRIPTS:
+            self.load_scripts(self.scripts_dir)
         self.dependency_graph = OrderedDict({})
 
         try:

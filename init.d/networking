@@ -28,6 +28,13 @@ verbose=
 
 [ "$VERBOSE" = yes ] && verbose=-v
 
+perf_options() {
+    # At bootup lets set perfmode
+    [ -f /var/run/network/ifstatenew ] && echo -n "" && return
+
+    echo -n "--perfmode"
+}
+
 
 process_exclusions() {
     set -- $EXCLUDE_INTERFACES
@@ -116,8 +123,9 @@ start)
 	fi
 	set -f
 	exclusions=$(process_exclusions)
+	perfoptions=$(perf_options)
 	log_action_begin_msg "Configuring network interfaces"
-	if ifup -a $verbose --perfmode
+	if ifup -a $verbose $perfoptions
 	then
 	    log_action_end_msg $?
 	else
