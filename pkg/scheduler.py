@@ -80,30 +80,29 @@ class ifaceScheduler():
                                 ifaceState.from_str(op),
                                 ifaceStatus.SUCCESS)
 
-        # execute /etc/network/ scripts 
-        mlist = ifupdownobj.script_ops.get(op)
-        if not mlist:
-            return
-        for mname in mlist:
-            ifupdownobj.logger.debug('%s: %s : running script %s'
+
+        if ifupdownobj.COMPAT_EXEC_SCRIPTS:
+            # execute /etc/network/ scripts 
+            for mname in ifupdownobj.script_ops.get(op, []):
+                ifupdownobj.logger.debug('%s: %s : running script %s'
                     %(ifacename, op, mname))
-            try:
-                ifupdownobj.exec_command(mname, cmdenv=cenv)
-            except Exception, e:
-                err = 1
-                ifupdownobj.log_error(str(e))
+                try:
+                    ifupdownobj.exec_command(mname, cmdenv=cenv)
+                except Exception, e:
+                    ifupdownobj.log_error(str(e))
 
     @classmethod
     def run_iface_ops(cls, ifupdownobj, ifaceobj, ops):
         """ Runs all sub operations on an interface """
+        cenv=None
 
-        # For backward compatibility execute scripts with
-        # environent set
-        cenv = ifupdownobj.generate_running_env(ifaceobj, ops[0])
+        if ifupdownobj.COMPAT_EXEC_SCRIPTS:
+            # For backward compatibility generate env variables
+            # for attributes
+            cenv = ifupdownobj.generate_running_env(ifaceobj, ops[0])
 
         # Each sub operation has a module list
-        [cls.run_iface_op(ifupdownobj, ifaceobj, op, cenv)
-                        for op in ops]
+        map(lambda op: cls.run_iface_op(ifupdownobj, ifaceobj, op, cenv), ops)
 
     @classmethod
     def run_iface_graph(cls, ifupdownobj, ifacename, ops, parent=None,

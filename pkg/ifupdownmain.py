@@ -28,6 +28,7 @@ class ifupdownMain(ifupdownBase):
     WITH_DEPENDS = False
     ALL = False
     STATE_CHECK = False
+    COMPAT_EXEC_SCRIPTS = False
 
     # priv flags to mark iface objects
     BUILTIN = 0x1
