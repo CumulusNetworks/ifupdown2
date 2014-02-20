@@ -190,15 +190,14 @@ class iface():
 
     def is_config_present(self):
         addr_method = self.get_addr_method()
-        if addr_method is not None:
+        if addr_method:
             if (addr_method.find('dhcp') != -1 or
                     addr_method.find('dhcp6') != -1):
                 return True
-
-        if self.config is None:
+        if not self.config:
             return False
-
-        return (len(self.config) != 0)
+        else:
+            return True
 
     def set_config_current(self, config_current):
         self.config_current = config_current
@@ -298,7 +297,7 @@ class iface():
     def get_attr_value_first(self, attr_name):
         config = self.get_config()
         attr_value_list = config.get(attr_name)
-        if attr_value_list is not None:
+        if attr_value_list:
             return attr_value_list[0]
         return None
 
@@ -306,16 +305,15 @@ class iface():
         config = self.get_config()
 
         attr_value_list = config.get(attr_name)
-        if attr_value_list is not None:
+        if attr_value_list:
             try:
                 return attr_value_list[attr_index]
             except:
                 return None
-
         return None
 
     def get_env(self):
-        if self.env is None or len(self.env) == 0:
+        if not self.env:
             self.generate_env()
         return self.env
 
@@ -330,11 +328,11 @@ class iface():
             attr_env_name = 'IF_%s' %attr.upper()
             env[attr_env_name] = attr_value[0]
 
-        if len(env) > 0:
+        if env:
             self.set_env(env)
 
     def update_config(self, attr_name, attr_value):
-        if self.config.get(attr_name) is None:
+        if not self.config.get(attr_name):
             self.config[attr_name] = [attr_value]
         else:
             self.config[attr_name].append(attr_value)
@@ -419,14 +417,14 @@ class iface():
                 %ifaceStatus.to_str(self.get_status()))
         logger.info(indent + 'refcnt: %d' %self.get_refcnt())
         d = self.get_lowerdevs()
-        if d is not None:
+        if d:
             logger.info(indent + 'lowerdevs: %s' %str(d))
         else:
             logger.info(indent + 'lowerdevs: None')
 
         logger.info(indent + 'config: ')
         config = self.get_config()
-        if config is not None:
+        if config:
             logger.info(indent + indent + str(config))
         logger.info('}')
 
@@ -436,16 +434,13 @@ class iface():
         if self.get_auto():
             outbuf += 'auto %s\n' %self.get_name()
         outbuf += 'iface %s' %self.get_name()
-        if self.get_addr_family() is not None:
+        if self.get_addr_family():
             outbuf += ' %s' %self.get_addr_family()
-
-        if self.get_addr_method() is not None:
+        if self.get_addr_method():
             outbuf += ' %s' %self.get_addr_method()
-
         outbuf += '\n'
-
         config = self.get_config()
-        if config is not None:
+        if config:
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:

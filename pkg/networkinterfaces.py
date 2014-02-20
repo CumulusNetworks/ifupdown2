@@ -39,10 +39,8 @@ class networkInterfaces():
 
     def ignore_line(self, line):
         l = line.strip('\n ')
-
-        if len(l) == 0 or l[0] == '#':
+        if not l or l[0] == '#':
             return 1
-
         return 0
 
     def process_allow(self, lines, cur_idx, lineno):
@@ -166,7 +164,7 @@ class networkInterfaces():
 
         classes = ifaceobj.set_classes(
                     self.get_allow_classes_for_iface(ifaceobj.get_name()))
-        if classes is not None and len(classes) > 0:
+        if classes:
             for c in classes:
                 ifaceobj.set_class(c)
 
@@ -247,7 +245,7 @@ class networkInterfaces():
 
     def read_file(self, filename=None):
         ifaces_file = filename
-        if ifaces_file == None:
+        if not ifaces_file:
             ifaces_file=self.ifaces_file
 
         self.logger.debug('reading interfaces file %s' %ifaces_file)
@@ -260,9 +258,7 @@ class networkInterfaces():
 
         # run through template engine
         filedata = self.run_template_engine(filedata)
-
         self.process_filedata(filedata)
-
 
     def load(self, filename=None):
         return self.read_file(filename)

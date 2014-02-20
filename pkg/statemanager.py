@@ -8,9 +8,7 @@
 #
 import cPickle
 from collections import OrderedDict
-from exceptions import *
 import logging
-import pprint
 import os
 from iface import *
 
@@ -61,7 +59,7 @@ class stateManager():
 
     def read_saved_state(self, filename=None):
         pickle_filename = filename
-        if pickle_filename == None:
+        if not pickle_filename:
             pickle_filename = self.state_file
 
         if not os.path.exists(pickle_filename):
@@ -80,11 +78,9 @@ class stateManager():
 
     def save_state(self, ifaceobjs, filename=None):
         pickle_filename = filename
-        if pickle_filename == None:
+        if not pickle_filename:
             pickle_filename = self.state_file
-
         pickling.save(pickle_filename, ifaceobjs)
-
 
     def compare_iface_state(ifaceobj1, ifaceobj2):
         ifaceobj1_state = ifaceobj1.get_state()
@@ -110,7 +106,7 @@ class stateManager():
 
         # compare config items
         unmatched_item = set(ifaceobj.items()) ^ set(old_ifaceobj.items())
-        if len(unmatched_item) != 0:
+        if unmatched_item:
             return -1
 
         return 0
@@ -254,7 +250,7 @@ class stateManager():
 
     def dump(self, ifacenames=None):
         print 'iface state:'
-        if ifacenames is not None and len(ifacenames) > 0:
+        if ifacenames:
             for i in ifacenames:
                 ifaceobj = self.ifaces.get(i)
                 if ifaceobj is None:

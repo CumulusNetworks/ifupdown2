@@ -2,7 +2,6 @@
 
 import sys
 import os
-import re
 import argparse
 from ifupdown.ifupdownmain import *
 
@@ -41,8 +40,6 @@ def run_down(args):
 
     try:
         iflist = args.iflist
-        if len(args.iflist) == 0:
-            iflist = None
         logger.debug('creating ifupdown object ..')
         cachearg=(False if (iflist or args.nocache or
                             args.perfmode or args.noact)
@@ -66,12 +63,10 @@ def run_query(args):
 
     try:
         iflist = args.iflist
-        if len(args.iflist) == 0:
-            iflist = None
         if args.checkcurr:
             qop='query-checkcurr'
         elif args.running:
-            if iflist is None:
+            if not iflist:
                 iflist = [i for i in os.listdir('/sys/class/net/')
                                     if os.path.isdir('/sys/class/net/%s' %i)]
             qop='query-running'
@@ -123,11 +118,9 @@ def init(args):
     global logger
 
     log_level = logging.WARNING
-
-    if args.verbose == True:
+    if args.verbose:
         log_level = logging.INFO
-
-    if args.debug == True:
+    if args.debug:
         log_level = logging.DEBUG
 
     try:
@@ -264,7 +257,6 @@ def parse_args(argsv, op):
             update_ifquery_argparser(argparser)
         elif op == 'reload':
             update_ifreload_argparser(argparser)
-
     return argparser.parse_args(argsv)
 
 handlers = {'up' : run_up,
@@ -277,13 +269,13 @@ def main(argv):
     args = None
     try:
         op = None
-        if re.search(r'ifup', argv[0]) != None:
+        if argv[0].endswith('ifup'):
             op = 'up'
-        elif re.search(r'ifdown', argv[0]) != None:
+        elif argv[0].endswith('ifdown'):
             op = 'down'
-        elif re.search(r'ifquery', argv[0]) != None:
+        elif argv[0].endswith('ifquery'):
             op = 'query'
-        elif re.search(r'ifreload', argv[0]) != None:
+        elif argv[0].endswith('ifreload'):
             op = 'reload'
         else:
             print ('Unexpected executable.' +
@@ -291,18 +283,18 @@ def main(argv):
             exit(1)
         # Command line arg parser
         args = parse_args(argv[1:], op)
-        if not len(args.iflist) and not args.all:
+        if not args.iflist and not args.all:
             if op != 'query' or not args.syntaxhelp:
                 print '\'-a\' option or interface list are required'
                 exit(1)
 
-        if len(args.iflist) and args.all:
+        if args.iflist and args.all:
             print '\'-a\' option and interface list are mutually exclusive'
             exit(1)
         init(args)
         handlers.get(op)(args)
     except Exception, e:
-        if str(e) == '':
+        if not str(e):
             exit(1)
         if args and args.debug:
             raise

@@ -343,7 +343,7 @@ class ifupdownMain(ifupdownBase):
                         continue
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                         self.ifaceobjdict.keys())
-                if dlist and len(dlist):
+                if dlist:
                     self.logger.debug('%s: ' %ifaceobj.get_name() +
                                 'got lowerifaces/dependents: %s' %str(dlist))
                     break
@@ -599,7 +599,7 @@ class ifupdownMain(ifupdownBase):
             if ifaceobjs is None:
                 err_iface += ' ' + i
 
-        if len(err_iface):
+        if err_iface:
             self.logger.error('could not find interfaces: %s' %err_iface)
             return -1
 
@@ -614,7 +614,7 @@ class ifupdownMain(ifupdownBase):
 
         """
         # If the interface matches
-        if excludepats and len(excludepats):
+        if excludepats:
             for e in excludepats:
                 if re.search(e, ifacename):
                     return False
@@ -625,12 +625,12 @@ class ifupdownMain(ifupdownBase):
             return False
 
         # We check classes first
-        if allow_classes and len(allow_classes):
+        if allow_classes:
             for i in ifaceobjs:
-                if len(i.get_classes()):
+                if i.get_classes():
                     common = Set([allow_classes]).intersection(
                                 Set(i.get_classes()))
-                    if len(common):
+                    if common:
                         return True
             return False
 
@@ -684,7 +684,7 @@ class ifupdownMain(ifupdownBase):
         filtered_ifacenames = [i for i in ifacenames
                                if self.iface_whitelisted(auto, allow_classes,
                                                 excludepats, i)]
-        if not len(filtered_ifacenames):
+        if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
 
         self.populate_dependency_info(filtered_ifacenames, ops)
@@ -723,20 +723,17 @@ class ifupdownMain(ifupdownBase):
         # for down we need to look at old state
         self.logger.debug('Looking at old state ..')
 
-        if len(self.statemanager.get_ifaceobjdict()):
+        if self.statemanager.get_ifaceobjdict():
             self.read_old_iface_config()
-        elif self.FORCE:
+        else:
             # If no old state available 
             self.logger.info('old state not available. ' +
-                'Force option set. Loading new iface config file')
+                'Loading new iface config file')
             try:
                 self.read_iface_config()
             except Exception, e:
                 raise Exception('error reading iface config (%s)' %str(e))
             loaded_newconfig = True
-        else:
-            raise Exception('old state not available...aborting.' +
-                            ' try running with --force option')
 
         if ifacenames:
             # If iface list is given by the caller, always check if iface
@@ -745,13 +742,13 @@ class ifupdownMain(ifupdownBase):
                raise Exception('all or some interfaces not found')
 
         # if iface list not given by user, assume all from config file
-        if ifacenames is None: ifacenames = self.ifaceobjdict.keys()
+        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
 
         # filter interfaces based on auto and allow classes
         filtered_ifacenames = [i for i in ifacenames
                                if self.iface_whitelisted(auto, allow_classes,
                                                 excludepats, i)]
-        if not len(filtered_ifacenames):
+        if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
 
         self.populate_dependency_info(filtered_ifacenames, ops)
@@ -816,7 +813,7 @@ class ifupdownMain(ifupdownBase):
             filtered_ifacenames = [i for i in ifacenames
                 if self.iface_whitelisted(auto, allow_classes,
                         excludepats, i)]
-        if len(filtered_ifacenames) == 0:
+        if not filtered_ifacenames:
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')
 
@@ -870,7 +867,7 @@ class ifupdownMain(ifupdownBase):
         new_ifaceobjdict = dict(self.get_ifaceobjdict())
         new_dependency_graph = dict(self.get_dependency_graph())
 
-        if len(self.statemanager.get_ifaceobjdict()) > 0:
+        if self.statemanager.get_ifaceobjdict():
             # if old state is present, read old state and mark op for 'down'
             # followed by 'up' aka: reload
             # old interface config is read into self.ifaceobjdict
@@ -883,8 +880,7 @@ class ifupdownMain(ifupdownBase):
 
         if ifacenames is None: ifacenames = self.ifaceobjdict.keys()
 
-        if (op == 'reload' and ifacenames is not None and
-                len(ifacenames) != 0):
+        if op == 'reload' and ifacenames:
             filtered_ifacenames = [i for i in ifacenames
                                if self.iface_whitelisted(auto, allow_classes,
                                excludepats, i)]
@@ -925,7 +921,7 @@ class ifupdownMain(ifupdownBase):
                         continue
 
 
-            if ifacedownlist is not None and len(ifacedownlist) > 0:
+            if ifacedownlist:
                 self.logger.info('Executing down on interfaces: %s'
                                   %str(ifacedownlist))
                 # Generate dependency info for old config
@@ -998,7 +994,7 @@ class ifupdownMain(ifupdownBase):
                 print '\n'
                 if self.WITH_DEPENDS:
                     dlist = ifaceobj.get_lowerifaces()
-                    if not dlist or not len(dlist): continue
+                    if not dlist: continue
                     self.print_ifaceobjs_pretty(dlist, format)
 
     def print_ifaceobjs_pretty(self, ifacenames, format='native'):
@@ -1013,7 +1009,7 @@ class ifupdownMain(ifupdownBase):
 
                 if self.WITH_DEPENDS:
                     dlist = ifaceobj.get_lowerifaces()
-                    if not dlist or not len(dlist): continue
+                    if not dlist: continue
                     self.print_ifaceobjs_pretty(dlist, format)
 
     def dump_ifaceobjs(self, ifacenames):
@@ -1051,7 +1047,7 @@ class ifupdownMain(ifupdownBase):
 
             if self.WITH_DEPENDS:
                 dlist = ifaceobj.get_lowerifaces()
-                if not dlist or not len(dlist): continue
+                if not dlist: continue
                 self.print_ifaceobjscurr_pretty(dlist, format)
         return ret
 
@@ -1072,6 +1068,6 @@ class ifupdownMain(ifupdownBase):
 
             if self.WITH_DEPENDS:
                 dlist = ifaceobj.get_lowerifaces()
-                if dlist is None or len(dlist) == 0: continue
+                if not dlist: continue
                 self.print_ifaceobjsrunning_pretty(dlist, format)
         return

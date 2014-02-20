@@ -29,13 +29,13 @@ class graph():
             if indegree == 0:
                 Q.append(ifname)
 
-        while len(Q) != 0:
+        while len(Q):
             # initialize queue
             x = Q.popleft()
 
             # Get dependents of x
             dlist = dependency_graphs.get(x)
-            if dlist == None or len(dlist) == 0:
+            if not dlist:
                 S.append(x)
                 continue
 
@@ -60,13 +60,13 @@ class graph():
 
         Q.append(rootifname)
 
-        while len(Q) != 0:
+        while len(Q):
             # initialize queue
             x = Q.popleft()
 
             # Get dependents of x
             dlist = dependency_graph.get(x)
-            if dlist == None or len(dlist) == 0:
+            if not dlist:
                 S.append(x)
                 continue
 
