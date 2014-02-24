@@ -11,6 +11,7 @@ from collections import OrderedDict
 import logging
 import os
 from iface import *
+import copy
 
 class pickling():
 
@@ -68,19 +69,11 @@ class stateManager():
         # Read all ifaces from file
         for ifaceobj in pickling.load(pickle_filename):
             self.save_ifaceobj(ifaceobj)
-            #ifaceobj.set_refcnt(0)
-            #ifaceobj.set_dependents(None)
 
         return 0
 
     def get_ifaceobjdict(self):
         return self.ifaceobjdict
-
-    def save_state(self, ifaceobjs, filename=None):
-        pickle_filename = filename
-        if not pickle_filename:
-            pickle_filename = self.state_file
-        pickling.save(pickle_filename, ifaceobjs)
 
     def compare_iface_state(ifaceobj1, ifaceobj2):
         ifaceobj1_state = ifaceobj1.get_state()
@@ -92,38 +85,6 @@ class stateManager():
             return 1
         elif ifaceobj1_state == ifaceobj2_state:
             return 0
-
-    def compare_iface_with_old(self, ifaceobj):
-        old_ifaceobj = self.ifaceobjdict.get(ifaceobj.get_name())
-        if old_ifaceobj == None:
-            raise ifacenotfound(ifaceobj.get_name())
-
-        if ifaceobj.get_addr_family() != old_ifaceobj.get_addr_family():
-            return -1
-
-        if ifaceobj.get_method() != old_ifaceobj.get_method():
-            return -1
-
-        # compare config items
-        unmatched_item = set(ifaceobj.items()) ^ set(old_ifaceobj.items())
-        if unmatched_item:
-            return -1
-
-        return 0
-
-    def get_iface_state_old(self, ifaceobj):
-        old_ifaceobj = self.ifaceobjdict.get(ifaceobj.get_name())
-        if old_ifaceobj == None:
-            raise ifacenotfound(ifaceobj.get_name())
-
-        return old_ifaceobj.get_state()
-
-    def get_iface_status_old(self, ifaceobj):
-        old_ifaceobj = self.ifaceobjdict.get(ifaceobj.get_name())
-        if old_ifaceobj == None:
-            raise ifacenotfound(ifaceobj.get_name())
-
-        return old_ifaceobj.get_status()
 
     def cmp_old_new_state(self, ifacename, operation):
         """ compares current operation with old state """
@@ -150,7 +111,7 @@ class stateManager():
 
         return 1
 
-    def iface_obj_compare(self, ifaceobj_a, ifaceobj_b):
+    def ifaceobj_compare(self, ifaceobj_a, ifaceobj_b):
         if ifaceobj_a.get_name() != ifaceobj_b.get_name():
             return False
 
@@ -171,59 +132,27 @@ class stateManager():
 
         return True
 
-
-    def update_iface_state(self, ifaceobj):
-        old_ifaceobjs = self.ifaceobjdict.get(ifaceobj.get_name())
-        if old_ifaceobjs is None:
-            self.ifaceobjdict[ifaceobj.get_name()] = [ifaceobj]
+    def ifaceobj_sync(self, ifaceobj):
+        ifacename = ifaceobj.get_name()
+        self.logger.debug('%s: statemanager sync state' %ifacename)
+        old_ifaceobjs = self.ifaceobjdict.get(ifacename)
+        if not old_ifaceobjs:
+            self.ifaceobjdict[ifacename] = [ifaceobj]
         else:
-            for oi in old_ifaceobjs:
-                if self.iface_obj_compare(ifaceobj, oi) == True:
-                    oi.set_state(ifaceobj.get_state())
-                    oi.set_status(ifaceobj.get_status())
-                    return
+            if old_ifaceobjs[0].flags & iface.PICKLED:
+                del self.ifaceobjdict[ifacename]
+                self.ifaceobjdict[ifacename] = [ifaceobj]
+            else:
+                self.ifaceobjdict[ifacename].append(ifaceobj)
 
-            self.ifaceobjdict[ifaceobj.get_name()].append(ifaceobj)
-
-    def flush_state(self, ifaceobjdict=None):
-        if ifaceobjdict is None:
-            ifaceobjdict = self.ifaceobjdict
-
+    def save_state(self):
         try:
             with open(self.state_file, 'w') as f:
-                for ifaceobjs in ifaceobjdict.values():
+                for ifaceobjs in self.ifaceobjdict.values():
                     for i in ifaceobjs:
                         pickling.save_obj(f, i)
         except:
             raise
-
-
-    def is_valid_state_transition(self, ifaceobj, tobe_state):
-        if self.ifaceobjdict is None:
-            return True
-
-        if tobe_state == 'up':
-            max_tobe_state = ifaceState.POST_UP
-        elif tobe_state == 'down':
-            max_tobe_state = ifaceState.POST_DOWN
-        else:
-            return True
-
-        old_ifaceobjs = self.ifaceobjdict.get(ifaceobj.get_name())
-        if old_ifaceobjs is not None:
-            for oi in old_ifaceobjs:
-                if self.iface_obj_compare(ifaceobj, oi) == True:
-                    if (oi.get_state() == max_tobe_state and
-                        oi.get_status() == ifaceStatus.SUCCESS):
-                        # if old state is greater than or equal to
-                        # tobe_state
-                        return False
-                    else:
-                        return True
-
-            return True
-        else:
-            return True
 
     def print_state(self, ifaceobj, prefix, indent):
         print (indent + '%s' %prefix +
@@ -249,7 +178,7 @@ class stateManager():
             print '\n'
 
     def dump(self, ifacenames=None):
-        print 'iface state:'
+        self.logger.debug('statemanager iface state:')
         if ifacenames:
             for i in ifacenames:
                 ifaceobj = self.ifaces.get(i)
@@ -258,5 +187,5 @@ class stateManager():
                         %i + ' not found')
                 ifaceobj.dump(self.logger)
         else:
-            for ifacename, ifaceobj in self.ifaceobjdict.items():
-                ifaceobj.dump(self.logger)
+            for ifacename, ifaceobjs in self.ifaceobjdict.items():
+                [i.dump(self.logger) for i in ifaceobjs]

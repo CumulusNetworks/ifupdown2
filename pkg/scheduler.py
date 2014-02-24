@@ -71,15 +71,12 @@ class ifaceScheduler():
                 err = 1
                 ifupdownobj.log_error(str(e))
             finally:
-                if err == 1:
-                    ifupdownobj.set_iface_state(ifaceobj,
-                                ifaceState.from_str(op),
-                                ifaceStatus.ERROR)
+                if err:
+                    ifaceobj.set_state_n_status(ifaceState.from_str(op),
+                                                ifaceStatus.ERROR)
                 else:
-                    ifupdownobj.set_iface_state(ifaceobj,
-                                ifaceState.from_str(op),
-                                ifaceStatus.SUCCESS)
-
+                    ifaceobj.set_state_n_status(ifaceState.from_str(op),
+                                                ifaceStatus.SUCCESS)
 
         if ifupdownobj.COMPAT_EXEC_SCRIPTS:
             # execute /etc/network/ scripts 
@@ -93,16 +90,16 @@ class ifaceScheduler():
 
     @classmethod
     def run_iface_ops(cls, ifupdownobj, ifaceobj, ops):
-        """ Runs all sub operations on an interface """
+        """ Runs all operations on an interface """
         cenv=None
-
         if ifupdownobj.COMPAT_EXEC_SCRIPTS:
             # For backward compatibility generate env variables
             # for attributes
             cenv = ifupdownobj.generate_running_env(ifaceobj, ops[0])
-
-        # Each sub operation has a module list
         map(lambda op: cls.run_iface_op(ifupdownobj, ifaceobj, op, cenv), ops)
+        posthookfunc = ifupdownobj.sched_hooks.get('posthook')
+        if posthookfunc:
+            posthookfunc(ifupdownobj, ifaceobj)
 
     @classmethod
     def run_iface_graph(cls, ifupdownobj, ifacename, ops, parent=None,
@@ -117,8 +114,8 @@ class ifaceScheduler():
             return 
 
         # Each ifacename can have a list of iface objects
-        ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
-        if ifaceobjs is None:
+        ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
+        if not ifaceobjs:
             raise Exception('%s: not found' %ifacename)
 
         for ifaceobj in ifaceobjs:
@@ -180,8 +177,8 @@ class ifaceScheduler():
                         pass
                     else:
                         # Dont bring the iface up if children did not come up
-                        ifaceobj.set_state(ifaceState.NEW)
-                        ifaceobj.set_status(ifaceStatus.ERROR)
+                        ifaceobj.set_state_n_sttaus(ifaceState.NEW,
+                                                    ifacestatus.ERROR)
                         raise
             if order == ifaceSchedulerFlags.POSTORDER:
                 cls.run_iface_ops(ifupdownobj, ifaceobj, ops)
@@ -255,7 +252,7 @@ class ifaceScheduler():
     def run_iface(cls, ifupdownobj, ifacename, ops):
         """ Runs operation on an interface """
 
-        ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
+        ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         for i in ifaceobjs:
             cls.run_iface_ops(ifupdownobj, i, ops)
 
@@ -281,7 +278,7 @@ class ifaceScheduler():
                     ifacename = iface_run_queue.pop()
 
             try:
-                ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
+                ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
                 for ifaceobj in ifaceobjs:
                     cenv = ifupdownobj.generate_running_env(ifaceobj, op)
                     cls.run_iface_op(ifupdownobj, ifaceobj, op, cenv)
@@ -359,7 +356,7 @@ class ifaceScheduler():
         cls.accquire_token(iface)
 
         # Each iface can have a list of objects
-        ifaceobjs = ifupdownobj.get_iface_objs(ifacename)
+        ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if ifaceobjs is None:
             ifupdownobj.logger.warning('%s: ' %ifacename + 'not found')
             cls.release_token(ifacename)

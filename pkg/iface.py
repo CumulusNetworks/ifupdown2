@@ -125,9 +125,9 @@ class ifaceJsonEncoder(json.JSONEncoder):
                             'config' : retconfig})
 
 class iface():
-    """ config flags """
-    AUTO = 0x1
-    HOT_PLUG = 0x2
+    """ flags """
+    # flag to indicate that the object was created from pickled state
+    PICKLED = 0x1
 
     version = '0.1'
 
@@ -253,6 +253,10 @@ class iface():
         return ifaceStatus.to_str(self.status)
 
     def set_status(self, status):
+        self.status = status
+
+    def set_state_n_status(self, state, status):
+        self.state = state
         self.status = status
 
     def state_str_to_hex(self, state_str):
@@ -389,7 +393,6 @@ class iface():
         del odict['status']
         del odict['lowerifaces']
         del odict['refcnt']
-
         return odict
 
     def __setstate__(self, dict):
@@ -399,6 +402,7 @@ class iface():
         self.refcnt = 0
         self.lowerifaces = None
         self.linkstate = None
+        self.flags |= self.PICKLED
         
     def dump_raw(self, logger):
         indent = '  '
@@ -411,12 +415,13 @@ class iface():
         logger.info(self.get_name() + ' : {')
         logger.info(indent + 'family: %s' %self.get_addr_family())
         logger.info(indent + 'method: %s' %self.get_addr_method())
+        logger.info(indent + 'flags: %x' %self.flags)
         logger.info(indent + 'state: %s'
                 %ifaceState.to_str(self.get_state()))
         logger.info(indent + 'status: %s'
                 %ifaceStatus.to_str(self.get_status()))
         logger.info(indent + 'refcnt: %d' %self.get_refcnt())
-        d = self.get_lowerdevs()
+        d = self.get_lowerifaces()
         if d:
             logger.info(indent + 'lowerdevs: %s' %str(d))
         else:
