@@ -125,7 +125,7 @@ start)
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
 	log_action_begin_msg "Configuring network interfaces"
-	if ifup -d -a $verbose $perfoptions
+	if ifup -a $verbose $perfoptions
 	then
 	    log_action_end_msg $?
 	else
