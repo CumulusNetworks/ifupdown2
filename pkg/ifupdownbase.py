@@ -24,7 +24,7 @@ class ifupdownBase(object):
         cmdout = ''
 
         try:
-            self.logger.debug('Executing ' + cmd)
+            self.logger.info('Executing ' + cmd)
             ch = subprocess.Popen(cmd.split(),
                     stdout=subprocess.PIPE,
                     shell=False, env=cmdenv,
@@ -66,7 +66,7 @@ class ifupdownBase(object):
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
     def link_up(self, ifacename):
-        self.exec_command('ip link set dev %s up' %ifacename)
+        self.exec_command('ifconfig %s up' %ifacename)
 
     def link_down(self, ifacename):
-        self.exec_command('ip link set dev %s down' %ifacename)
+        self.exec_command('ifconfig %s down' %ifacename)

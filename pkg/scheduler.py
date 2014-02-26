@@ -51,6 +51,8 @@ class ifaceScheduler():
             if not addr_method or (addr_method and addr_method != 'manual'):
                 handler(ifupdownobj, ifaceobj)
 
+        if not ifupdownobj.ADDONS_ENABLE: return
+
         for mname in ifupdownobj.module_ops.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0
@@ -151,7 +153,7 @@ class ifaceScheduler():
             # Run lowerifaces or dependents
             dlist = ifaceobj.get_lowerifaces()
             if dlist:
-                ifupdownobj.logger.info('%s:' %ifacename +
+                ifupdownobj.logger.debug('%s:' %ifacename +
                     ' found dependents: %s' %str(dlist))
                 try:
                     if not followdependents:
@@ -226,7 +228,7 @@ class ifaceScheduler():
         """
         run_queue = []
 
-        if indegrees is None:
+        if not indegrees:
             indegrees = OrderedDict()
             for ifacename in dependency_graph.keys():
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
@@ -241,8 +243,8 @@ class ifaceScheduler():
             if not indegrees.get(ifacename):
                 run_queue.append(ifacename)
 
-        ifupdownobj.logger.info('graph roots (interfaces that dont have '
-                                'dependents):' + ' %s' %str(run_queue))
+        ifupdownobj.logger.debug('graph roots (interfaces that dont have '
+                                 'dependents):' + ' %s' %str(run_queue))
 
         return cls.run_iface_list(ifupdownobj, run_queue, ops,
                                   parent=None,order=order,

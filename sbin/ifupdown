@@ -26,9 +26,16 @@ def run_up(args):
                                        perfmode=args.perfmode,
                                        njobs=args.jobs,
                                        dryrun=args.noact,
-                                       cache=cachearg)
+                                       cache=cachearg,
+                                       addons_enable=not args.noaddons,
+                                       statemanager_enable=not args.noaddons)
 
-        ifupdown_handle.up(['pre-up', 'up', 'post-up'],
+        if args.noaddons:
+            ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
+                               excludepats=args.excludepats,
+                               printdependency=args.printdependency)
+        else:
+            ifupdown_handle.up(['pre-up', 'up', 'post-up'],
                                args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency)
@@ -49,7 +56,9 @@ def run_down(args):
                                        perfmode=args.perfmode,
                                        njobs=args.jobs,
                                        dryrun=args.noact,
-                                       cache=cachearg)
+                                       cache=cachearg,
+                                       addons_enable=not args.noaddons,
+                                       statemanager_enable=not args.noaddons)
 
         ifupdown_handle.down(['pre-down', 'down', 'post-down'],
                              args.all, args.CLASS, iflist,
@@ -96,7 +105,6 @@ def run_query(args):
     except:
         raise
 
-
 def run_reload(args):
     logger.debug('args = %s' %str(args))
 
@@ -108,7 +116,9 @@ def run_reload(args):
                                             perfmode=args.perfmode,
                                             njobs=args.jobs,
                                             cache=cachearg)
-        ifupdown_handle.reload(args.all, None, None,
+        ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
+                               ['pre-down', 'down', 'post-down'],
+                               args.all, None, None,
                                excludepats=args.excludepats,
                                downchangediface=args.downchangediface)
     except:
@@ -178,6 +188,10 @@ def update_ifupdown_argparser(argparser):
     argparser.add_argument('--print-dependency',
                 dest='printdependency', choices=['list', 'dot'],
                 help='print iface dependency')
+    argparser.add_argument('--no-scripts', '--no-addons',
+                dest='noaddons',  action='store_true',
+                help='dont run any addon modules or scripts. Runs only link ' +
+                     'up/down')
 
 def update_ifup_argparser(argparser):
     update_ifupdown_argparser(argparser)
