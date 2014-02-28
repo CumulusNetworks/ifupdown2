@@ -30,7 +30,7 @@ verbose=
 
 perf_options() {
     # At bootup lets set perfmode
-    [ -f /var/run/network/ifstatenew ] && echo -n "" && return
+    [ -f /var/tmp/network/ifstatenew ] && echo -n "" && return
 
     echo -n "--perfmode"
 }

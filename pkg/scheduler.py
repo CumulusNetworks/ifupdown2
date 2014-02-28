@@ -27,7 +27,6 @@ class ifaceSchedulerFlags():
 class ifaceScheduler():
     """ scheduler functions to schedule configuration of interfaces.
 
-
     supports scheduling of interfaces serially in plain interface list
     or dependency graph format.
     """
@@ -58,16 +57,17 @@ class ifaceScheduler():
             err = 0
             try:
                 if hasattr(m, 'run'):
-                    ifupdownobj.logger.debug('%s: %s : running module %s'
-                            %(ifacename, op, mname))
+                    msg = ('%s: %s : running module %s' %(ifacename, op, mname))
                     if op == 'query-checkcurr':
                         # Dont check curr if the interface object was 
                         # auto generated
                         if (ifaceobj.priv_flags & ifupdownobj.NOCONFIG):
                             continue
+                        ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op,
                               query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(ifaceobj))
                     else:
+                        ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op)
             except Exception, e:
                 err = 1
@@ -93,6 +93,12 @@ class ifaceScheduler():
     @classmethod
     def run_iface_ops(cls, ifupdownobj, ifaceobj, ops):
         """ Runs all operations on an interface """
+        ifacename = ifaceobj.get_name()
+        # minor optimization. If operation is 'down', proceed only
+        # if interface exists in the system
+        if 'down' in ops[0] and not ifupdownobj.link_exists(ifacename):
+            ifupdownobj.logger.info('%s: does not exist' %ifacename)
+            return 
         cenv=None
         if ifupdownobj.COMPAT_EXEC_SCRIPTS:
             # For backward compatibility generate env variables
@@ -109,11 +115,6 @@ class ifaceScheduler():
                         followdependents=True):
         """ runs interface by traversing all nodes rooted at itself """
 
-        # minor optimization. If operation is 'down', proceed only
-        # if interface exists in the system
-        if 'down' in ops[0] and not ifupdownobj.link_exists(ifacename):
-            ifupdownobj.logger.info('%s: does not exist' %ifacename)
-            return 
 
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
@@ -179,8 +180,8 @@ class ifaceScheduler():
                         pass
                     else:
                         # Dont bring the iface up if children did not come up
-                        ifaceobj.set_state_n_sttaus(ifaceState.NEW,
-                                                    ifacestatus.ERROR)
+                        ifaceobj.set_state_n_status(ifaceState.NEW,
+                                                    ifaceStatus.ERROR)
                         raise
             if order == ifaceSchedulerFlags.POSTORDER:
                 cls.run_iface_ops(ifupdownobj, ifaceobj, ops)

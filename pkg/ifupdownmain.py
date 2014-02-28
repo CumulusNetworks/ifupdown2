@@ -111,6 +111,9 @@ class ifupdownMain(ifupdownBase):
         self.WITH_DEPENDS = withdepends
         self.STATEMANAGER_ENABLE = statemanager_enable
         self.CACHE = cache
+
+        # Can be used to provide hints for caching
+        self.CACHE_FLAGS = 0x0
         self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
         self.ADDONS_ENABLE = addons_enable
 
@@ -478,7 +481,8 @@ class ifupdownMain(ifupdownBase):
                                         dryrun=self.DRYRUN,
                                         nowait=self.NOWAIT,
                                         perfmode=self.PERFMODE,
-                                        cache=self.CACHE)
+                                        cache=self.CACHE,
+                                        cacheflags=self.CACHE_FLAGS)
                         self.modules[mname] = minstance
                         if hasattr(minstance, 'get_modinfo'):
                             self.module_attrs[mname] = minstance.get_modinfo()

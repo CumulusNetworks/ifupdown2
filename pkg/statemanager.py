@@ -31,7 +31,6 @@ class pickling():
         except:
             raise
 
-
     @classmethod
     def load(cls, filename):
         with open(filename, 'r') as f:
@@ -40,17 +39,18 @@ class pickling():
                 except EOFError: break
                 except: raise
 
-
-
 class stateManager():
 
-    state_file = '/run/network/ifstatenew'
-
+    state_dir = '/var/tmp/network/'
+    state_filename = 'ifstatenew'
 
     def __init__(self):
         self.ifaceobjdict = OrderedDict()
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
+        if not os.path.exists(self.state_dir):
+            os.mkdir(self.state_dir)
+        self.state_file = self.state_dir + self.state_filename
 
     def save_ifaceobj(self, ifaceobj):
         if self.ifaceobjdict.get(ifaceobj.get_name()) is None:
