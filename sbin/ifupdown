@@ -63,7 +63,8 @@ def run_down(args):
         ifupdown_handle.down(['pre-down', 'down', 'post-down'],
                              args.all, args.CLASS, iflist,
                              excludepats=args.excludepats,
-                             printdependency=args.printdependency)
+                             printdependency=args.printdependency,
+                             usecurrentconfig=args.usecurrentconfig)
     except:
         raise
 
@@ -85,9 +86,10 @@ def run_query(args):
             qop = 'query-syntax'
         elif args.printdependency:
             qop = 'query-dependency'
+        elif args.printsavedstate:
+            qop = 'query-savedstate'
         else:
             qop='query'
-
         cachearg=(False if (iflist or args.nocache or
                             args.perfmode or args.syntaxhelp or
                             (qop != 'query-checkcurr' and
@@ -182,13 +184,14 @@ def update_ifupdown_argparser(argparser):
     argparser.add_argument('-f', '--force', dest='force',
                 action='store_true',
                 help='force run all operations')
-    argparser.add_argument('-n', '--no-act', dest='noact',
+    group = argparser.add_mutually_exclusive_group(required=False)
+    group.add_argument('-n', '--no-act', dest='noact',
                 action='store_true', help='print out what would happen,' +
                 'but don\'t do it')
-    argparser.add_argument('--print-dependency',
+    group.add_argument('--print-dependency',
                 dest='printdependency', choices=['list', 'dot'],
                 help='print iface dependency')
-    argparser.add_argument('--no-scripts', '--no-addons',
+    group.add_argument('--no-scripts', '--no-addons',
                 dest='noaddons',  action='store_true',
                 help='dont run any addon modules or scripts. Runs only link ' +
                      'up/down')
@@ -198,6 +201,14 @@ def update_ifup_argparser(argparser):
 
 def update_ifdown_argparser(argparser):
     update_ifupdown_argparser(argparser)
+    argparser.add_argument('--use-current-config',
+                dest='usecurrentconfig',  action='store_true',
+                help=argparse.SUPPRESS)
+                #help='By default ifdown looks at the saved state for ' +
+                #'interfaces to bring down. This option allows ifdown to ' +
+                #'look at the current interfaces file. Useful when your ' +
+                #'state file is corrupted or you want down to use the latest '
+                #'from the interfaces file')
 
 def update_ifquery_argparser(argparser):
     """ arg parser for ifquery options """
@@ -215,6 +226,9 @@ def update_ifquery_argparser(argparser):
                        'running state of an interface')
     group.add_argument('--raw', action='store_true', dest='raw',
                        help='print raw config file entries')
+    group.add_argument('--print-savedstate', action='store_true',
+                       dest='printsavedstate',
+                       help=argparse.SUPPRESS)
     argparser.add_argument('--format', dest='format', default='native',
                        choices=['native', 'json'], help=argparse.SUPPRESS)
     argparser.add_argument('--print-dependency',

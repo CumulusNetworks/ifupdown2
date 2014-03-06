@@ -94,6 +94,9 @@ class ifupdownMain(ifupdownBase):
                                 ('down', run_down)])
 
     def run_sched_ifaceobj_posthook(self, ifaceobj):
+        if ((ifaceobj.priv_flags & self.BUILTIN) or
+            (ifaceobj.priv_flags & self.NOCONFIG)):
+            return
         if self.STATEMANAGER_UPDATE:
             self.statemanager.ifaceobj_sync(ifaceobj)
 
@@ -363,30 +366,6 @@ class ifupdownMain(ifupdownBase):
                 self.logger.debug('%s: ' %ifaceobj.get_name() +
                                   'got lowerifaces/dependents: %s' %str(dlist))
                 break
-        return dlist
-
-    def query_dependents_old(self, ifaceobj, ops):
-        """ Gets iface dependents by calling into respective modules """
-        dlist = None
-
-        # Get dependents for interface by querying respective modules
-        for op in ops:
-            for mname in self.module_ops.get(op):
-                module = self.modules.get(mname)
-                if op == 'query-running':
-                    if (hasattr(module,
-                        'get_dependent_ifacenames_running') == False):
-                        continue
-                    dlist = module.get_dependent_ifacenames_running(ifaceobj)
-                else:
-                    if (hasattr(module, 'get_dependent_ifacenames') == False):
-                        continue
-                    dlist = module.get_dependent_ifacenames(ifaceobj,
-                                        self.ifaceobjdict.keys())
-                if dlist:
-                    self.logger.debug('%s: ' %ifaceobj.get_name() +
-                                'got lowerifaces/dependents: %s' %str(dlist))
-                    break
         return dlist
 
     def populate_dependency_info(self, ifacenames, ops):
@@ -744,22 +723,23 @@ class ifupdownMain(ifupdownBase):
         self.save_state()
 
     def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
-             excludepats=None, printdependency=None):
+             excludepats=None, printdependency=None, usecurrentconfig=False):
         if self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-        # for down we need to look at old state
-        self.logger.debug('Looking at old state ..')
-        if self.STATEMANAGER_ENABLE and self.statemanager.get_ifaceobjdict():
+        # For down we need to look at old state, unless usecurrentconfig
+        # is set
+        if (not usecurrentconfig and self.STATEMANAGER_ENABLE and
+                    self.statemanager.get_ifaceobjdict()):
             # Since we are using state manager objects,
             # skip the updating of state manager objects
             self.STATEMANAGER_UPDATE = False
+            self.logger.debug('Looking at old state ..')
             self.read_old_iface_config()
         else:
             # If no old state available 
-            self.logger.info('old state not available. ' +
-                'Loading current iface config file')
+            self.logger.info('Loading current iface config file')
             try:
                 self.read_iface_config()
             except Exception, e:
@@ -796,6 +776,8 @@ class ifupdownMain(ifupdownBase):
     def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
               excludepats=None, printdependency=None,
               format='native'):
+        if self.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
+            return self.statemanager.dump_pretty(ifacenames)
 
         self.STATEMANAGER_UPDATE = False
         if auto:

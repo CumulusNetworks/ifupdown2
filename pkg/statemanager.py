@@ -12,6 +12,7 @@ import logging
 import os
 from iface import *
 import copy
+import marshal
 
 class pickling():
 
@@ -20,14 +21,14 @@ class pickling():
         try:
             with open(filename, 'w') as f:
                 for obj in list_of_objects:
-                    cPickle.dump(obj, f)
+                    cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
         except:
             raise
 
     @classmethod
     def save_obj(cls, f, obj):
         try:
-            cPickle.dump(obj, f)
+            cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
         except:
             raise
 
@@ -53,10 +54,8 @@ class stateManager():
         self.state_file = self.state_dir + self.state_filename
 
     def save_ifaceobj(self, ifaceobj):
-        if self.ifaceobjdict.get(ifaceobj.get_name()) is None:
-            self.ifaceobjdict[ifaceobj.get_name()] = [ifaceobj]
-        else:
-            self.ifaceobjdict[ifaceobj.get_name()].append(ifaceobj)
+        self.ifaceobjdict.setdefault(ifaceobj.get_name(),
+                            []).append(ifaceobj)
 
     def read_saved_state(self, filename=None):
         pickle_filename = filename
@@ -74,6 +73,9 @@ class stateManager():
 
     def get_ifaceobjdict(self):
         return self.ifaceobjdict
+
+    def get_ifaceobjs(self, ifacename):
+        return self.ifaceobjdict.get(ifacename)
 
     def compare_iface_state(ifaceobj1, ifaceobj2):
         ifaceobj1_state = ifaceobj1.get_state()
@@ -154,28 +156,18 @@ class stateManager():
         except:
             raise
 
-    def print_state(self, ifaceobj, prefix, indent):
-        print (indent + '%s' %prefix +
-               '%s' %ifaceobj.get_state_str() +
-               ', %s' %ifaceobj.get_status_str())
-
-    def print_state_pretty(self, ifacenames, logger):
-        for ifacename in ifacenames:
-            old_ifaceobjs = self.ifaceobjdict.get(ifacename)
-            if old_ifaceobjs is not None:
-                firstifaceobj = old_ifaceobjs[0]
-                self.print_state(firstifaceobj,
-                        '%s: ' %firstifaceobj.get_name(), '')
-
-    def print_state_detailed_pretty(self, ifacenames, logger):
-        indent = '\t'
-        for ifacename in ifacenames:
-            old_ifaceobjs = self.ifaceobjdict.get(ifacename)
-            if old_ifaceobjs is not None:
-                for i in old_ifaceobjs:
-                    i.dump_pretty(logger)
-                    self.print_state(i, '', indent)
-            print '\n'
+    def dump_pretty(self, ifacenames, format='native'):
+        if not ifacenames:
+            ifacenames = self.ifaceobjdict.keys()
+        for i in ifacenames:
+            ifaceobjs = self.get_ifaceobjs(i)
+            if not ifaceobjs:
+                continue
+            for ifaceobj in ifaceobjs:
+                if format == 'json':
+                    ifaceobj.dump_json()
+                else:
+                    ifaceobj.dump_pretty()
 
     def dump(self, ifacenames=None):
         self.logger.debug('statemanager iface state:')

@@ -107,7 +107,6 @@ class ifaceState():
         elif state_str == 'query-running':
             return cls.QUERY_RUNNING
 
-
 class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
         retconfig = {}
@@ -139,7 +138,6 @@ class iface():
         self.config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
-        self.errstr = ''
         self.flags = 0x0
         self.priv_flags = 0x0
         self.refcnt = 0
@@ -148,7 +146,6 @@ class iface():
         self.auto = False
         self.classes = []
         self.env = None
-        self.config_current = {}
         self.raw_lines = []
         self.linkstate = None
 
@@ -199,12 +196,6 @@ class iface():
         else:
             return True
 
-    def set_config_current(self, config_current):
-        self.config_current = config_current
-
-    def get_config_current(self):
-        return self.config_current
-
     def get_auto(self):
         return self.auto
 
@@ -228,7 +219,6 @@ class iface():
     def belongs_to_class(self, intfclass):
         if intfclass in self.classes:
             return True
-
         return False
 
     def set_priv_flags(self, priv_flags):
@@ -393,15 +383,28 @@ class iface():
         del odict['status']
         del odict['lowerifaces']
         del odict['refcnt']
+        del odict['config_status']
+        del odict['flags']
+        del odict['priv_flags']
+        del odict['upperifaces']
+        del odict['raw_lines']
+        del odict['linkstate']
+        del odict['env']
         return odict
 
     def __setstate__(self, dict):
         self.__dict__.update(dict)
+        self.config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
         self.refcnt = 0
+        self.flags = 0
         self.lowerifaces = None
+        self.upperifaces = None
         self.linkstate = None
+        self.env = None
+        self.priv_flags = 0
+        self.raw_lines = []
         self.flags |= self.PICKLED
         
     def dump_raw(self, logger):
