@@ -109,12 +109,47 @@ class ifaceScheduler():
         if posthookfunc:
             posthookfunc(ifupdownobj, ifaceobj)
 
+
+    @classmethod
+    def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent):
+        """ Check if conflicting upper ifaces are around and warn if required
+
+        Returns False if this interface needs to be skipped, else return True """
+
+        ifacename = ifaceobj.get_name()
+        # Deal with upperdevs first
+        ulist = ifaceobj.get_upperifaces()
+        if ulist:
+            tmpulist = ([u for u in ulist if u != parent] if parent
+                            else ulist)
+            if not tmpulist:
+                ifupdownobj.logger.info('Roopa: tmpulist = %s' %str(tmpulist))
+                return True
+            if 'down' in ops[0]:
+                # XXX: This is expensive. Find a cheaper way to do this 
+                # if any of the upperdevs are present,
+                # dont down this interface
+                for u in tmpulist:
+                    if ifupdownobj.link_exists(u):
+                        if not ifupdownobj.FORCE and not ifupdownobj.ALL:
+                            ifupdownobj.logger.warn('%s: ' %ifacename +
+                                    ' skip interface down,' +
+                                    ' upperiface %s still around' %u)
+                            return False
+            elif 'up' in ops[0] and not ifupdownobj.ALL:
+                # For 'up', just warn that there is an upperdev which is
+                # probably not up
+                for u in tmpulist:
+                    if not ifupdownobj.link_exists(u):
+                        ifupdownobj.logger.warn('%s: upper iface %s '
+                                %(ifacename, u) + 'does not exist')
+        return True
+
     @classmethod
     def run_iface_graph(cls, ifupdownobj, ifacename, ops, parent=None,
                         order=ifaceSchedulerFlags.POSTORDER,
                         followdependents=True):
         """ runs interface by traversing all nodes rooted at itself """
-
 
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
@@ -122,31 +157,8 @@ class ifaceScheduler():
             raise Exception('%s: not found' %ifacename)
 
         for ifaceobj in ifaceobjs:
-            # Deal with upperdevs first
-            ulist = ifaceobj.get_upperifaces()
-            if ulist:
-                tmpulist = ([u for u in ulist if u != parent] if parent
-                            else ulist)
-                if tmpulist:
-                    if 'down' in ops[0]:
-                        # XXX: This is expensive. Find a cheaper way to do this 
-                        # if any of the upperdevs are present,
-                        # dont down this interface
-                        for u in tmpulist:
-                            if ifupdownobj.link_exists(u):
-                                if not ifupdownobj.ALL:
-                                    ifupdownobj.logger.warn('%s: ' %ifacename +
-                                            ' skip interface down,' +
-                                            ' upperiface %s still around' %u)
-                                return
-                    elif 'up' in ops[0] and not ifupdownobj.ALL:
-                        # For 'up', just warn that there is an upperdev which is
-                        # probably not up
-                        for u in tmpulist:
-                            if not ifupdownobj.link_exists(u):
-                                ifupdownobj.logger.warn('%s: upper iface %s '
-                                         %(ifacename, u) + 'does not exist')
-
+            if not cls._check_upperifaces(ifupdownobj, ifaceobj, ops, parent):
+                return
             if order == ifaceSchedulerFlags.INORDER:
                 # If inorder, run the iface first and then its dependents
                 cls.run_iface_ops(ifupdownobj, ifaceobj, ops)
