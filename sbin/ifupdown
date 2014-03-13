@@ -1,7 +1,9 @@
 #!/usr/bin/python
+# PYTHON_ARGCOMPLETE_OK
 
 import sys
 import os
+import argcomplete
 import argparse
 from ifupdown.ifupdownmain import *
 
@@ -285,6 +287,9 @@ def parse_args(argsv, op):
             update_ifquery_argparser(argparser)
         elif op == 'reload':
             update_ifreload_argparser(argparser)
+
+    argcomplete.autocomplete(argparser)
+
     return argparser.parse_args(argsv)
 
 handlers = {'up' : run_up,
