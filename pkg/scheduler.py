@@ -123,7 +123,6 @@ class ifaceScheduler():
             tmpulist = ([u for u in ulist if u != parent] if parent
                             else ulist)
             if not tmpulist:
-                ifupdownobj.logger.info('Roopa: tmpulist = %s' %str(tmpulist))
                 return True
             if 'down' in ops[0]:
                 # XXX: This is expensive. Find a cheaper way to do this 
