@@ -78,9 +78,6 @@ def run_query(args):
         if args.checkcurr:
             qop='query-checkcurr'
         elif args.running:
-            if not iflist:
-                iflist = [i for i in os.listdir('/sys/class/net/')
-                                    if os.path.isdir('/sys/class/net/%s' %i)]
             qop='query-running'
         elif args.raw:
             qop='query-raw'
@@ -96,6 +93,9 @@ def run_query(args):
                             args.perfmode or args.syntaxhelp or
                             (qop != 'query-checkcurr' and
                             qop != 'query-running')) else True)
+        if not iflist and qop == 'query-running':
+            iflist = [i for i in os.listdir('/sys/class/net/')
+                        if os.path.isdir('/sys/class/net/%s' %i)]
         logger.debug('creating ifupdown object ..')
         ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
                                        perfmode=args.perfmode,

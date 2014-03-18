@@ -27,7 +27,6 @@ class ifupdownMain(ifupdownBase):
     # Flags
     WITH_DEPENDS = False
     ALL = False
-    STATE_CHECK = False
     COMPAT_EXEC_SCRIPTS = False
     STATEMANAGER_ENABLE = True
     STATEMANAGER_UPDATE = True
@@ -219,6 +218,9 @@ class ifupdownMain(ifupdownBase):
             return ifaceobjs[0]
         return None
 
+    def get_ifacenames(self):
+        return self.ifaceobjdict.keys()
+
     def get_iface_obj_last(self, ifacename):
         return self.ifaceobjdict.get(ifacename)[-1]
 
@@ -368,11 +370,12 @@ class ifupdownMain(ifupdownBase):
                 break
         return dlist
 
-    def populate_dependency_info(self, ifacenames, ops):
+    def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """
 
         if not ifacenames:
             ifacenames = self.ifaceobjdict.keys()
+
         self.logger.debug('populating dependency info for %s' %str(ifacenames))
         iqueue = deque(ifacenames)
         while iqueue:
@@ -549,49 +552,26 @@ class ifupdownMain(ifupdownBase):
             iface_objs.append(iface_obj)
         return iface_objs
 
-
-    def run_without_dependents(self, ops, ifacenames):
-        """ Run interface list without their dependents """
-        if not ifacenames:
-            raise ifupdownInvalidValue('no interfaces found')
-
-        self.logger.debug('run_without_dependents for ops %s for %s'
-                %(str(ops), str(ifacenames)))
-
-        ifaceScheduler.run_iface_list(self, ifacenames, ops, parent=None,
-                                  order=ifaceSchedulerFlags.INORDER
-                                    if 'down' in ops[0]
-                                        else ifaceSchedulerFlags.POSTORDER,
-                                                followdependents=False)
-
     def _pretty_print_ordered_dict(self, argdict):
         for k, vlist in argdict.items():
             self.logger.info('%s : %s' %(k, str(vlist)))
 
-    def run_with_dependents(self, ops, ifacenames):
-        ret = 0
-        self.logger.debug('running \'%s\' with dependents for %s'
+    def sched_ifaces(self, ifacenames, ops):
+        self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
-
-        if not ifacenames:
-            ifacenames = self.ifaceobjdict.keys()
 
         self.logger.info('dependency graph:')
         self._pretty_print_ordered_dict(self.dependency_graph)
 
-        if self.njobs > 1:
-            ret = ifaceScheduler.run_iface_dependency_graph_parallel(self,
-                        self.dependency_graph, ops)
-        else:
-            ret = ifaceScheduler.run_iface_dependency_graphs(self,
-                        self.dependency_graph, ops,
+        return ifaceScheduler.sched_ifaces(self, ifacenames, ops,
+                        dependency_graph=self.dependency_graph,
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
-                                else ifaceSchedulerFlags.POSTORDER)
-        return ret
+                                else ifaceSchedulerFlags.POSTORDER,
+                        followdependents=True if self.WITH_DEPENDS else False)
 
     def print_dependency(self, ifacenames, format):
-        if ifacenames is None:
+        if not ifacenames:
             ifacenames = self.ifaceobjdict.keys()
 
         if format == 'list':
@@ -706,16 +686,14 @@ class ifupdownMain(ifupdownBase):
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
 
-        self.populate_dependency_info(filtered_ifacenames, ops)
-
         if printdependency:
+            self.populate_dependency_info(ops, filtered_ifacenames)
             self.print_dependency(filtered_ifacenames, printdependency)
             return
-
-        if self.WITH_DEPENDS:
-            self.run_with_dependents(ops, filtered_ifacenames)
         else:
-            self.run_without_dependents(ops, filtered_ifacenames)
+            self.populate_dependency_info(ops)
+
+        self.sched_ifaces(filtered_ifacenames, ops)
 
         if self.DRYRUN and self.ADDONS_ENABLE:
             return
@@ -758,16 +736,14 @@ class ifupdownMain(ifupdownBase):
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
 
-        self.populate_dependency_info(filtered_ifacenames, ops)
         if printdependency:
+            self.populate_dependency_info(ops, filtered_ifacenames)
             self.print_dependency(filtered_ifacenames, printdependency)
             return
-
-        if self.WITH_DEPENDS:
-            self.run_with_dependents(ops, filtered_ifacenames)
         else:
-            self.run_without_dependents(ops, filtered_ifacenames)
+            self.populate_dependency_info(ops)
 
+        self.sched_ifaces(filtered_ifacenames, ops)
         if self.DRYRUN and self.ADDONS_ENABLE:
             return
 
@@ -817,20 +793,19 @@ class ifupdownMain(ifupdownBase):
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')
 
-        self.populate_dependency_info(filtered_ifacenames, ops)
         if ops[0] == 'query-dependency' and printdependency:
+            self.populate_dependency_info(ops, filtered_ifacenames)
             self.print_dependency(filtered_ifacenames, printdependency)
             return
+        else:
+            self.populate_dependency_info(ops)
 
         if ops[0] == 'query':
             return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
-        if self.WITH_DEPENDS:
-            self.run_with_dependents(ops, filtered_ifacenames)
-        else:
-            self.run_without_dependents(ops, filtered_ifacenames)
+        self.sched_ifaces(filtered_ifacenames, ops)
 
         if ops[0] == 'query-checkcurr':
             ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames, format)
@@ -858,7 +833,7 @@ class ifupdownMain(ifupdownBase):
             raise
 
         # generate dependency graph of interfaces
-        self.populate_dependency_info(ifacenames, upops)
+        self.populate_dependency_info(upops)
 
         # Save a copy of new iface objects and dependency_graph
         new_ifaceobjdict = dict(self.get_ifaceobjdict())
@@ -918,8 +893,8 @@ class ifupdownMain(ifupdownBase):
                 # reinitialize dependency graph 
                 self.dependency_graph = OrderedDict({})
                 # Generate dependency info for old config
-                self.populate_dependency_info(ifacedownlist, downops)
-                self.run_with_dependents(downops, ifacedownlist)
+                self.populate_dependency_info(downops)
+                self.sched_ifaces(ifacedownlist, downops)
             else:
                 self.logger.debug('no interfaces to down ..')
 
@@ -934,12 +909,11 @@ class ifupdownMain(ifupdownBase):
                                excludepats, i)]
         self.logger.info('Executing up on interfaces: %s'
                                   %str(filtered_ifacenames))
-        if self.WITH_DEPENDS:
-            self.run_with_dependents(upops, filtered_ifacenames)
-        else:
-            self.run_without_dependents(upops, filtered_ifacenames)
+
+        self.sched_ifaces(filtered_ifacenames, upops)
         if self.DRYRUN:
             return
+
         self.save_state()
 
     def dump(self):
@@ -947,8 +921,8 @@ class ifupdownMain(ifupdownBase):
 
         print 'ifupdown object dump'
         print self.pp.pprint(self.modules)
-        print self.pp.pprint(self.ifaces)
-        self.state_manager.dump()
+        print self.pp.pprint(self.ifaceobjdict)
+        #self.state_manager.dump()
 
     def print_state(self, ifacenames=None):
         self.statemanager.dump(ifacenames)

@@ -54,51 +54,6 @@ class graph():
         return S
 
     @classmethod
-    def topological_sort_graph(cls, dependency_graph, indegrees, rootifname):
-        S = []
-        Q = deque()
-
-        Q.append(rootifname)
-
-        while len(Q):
-            # initialize queue
-            x = Q.popleft()
-
-            # Get dependents of x
-            dlist = dependency_graph.get(x)
-            if not dlist:
-                S.append(x)
-                continue
-
-            for y in dlist:
-                indegrees[y] = indegrees.get(y) - 1
-                if indegrees.get(y) == 0:
-                    Q.append(y)
-
-            S.append(x)
-
-        return S
-
-    @classmethod
-    def topological_sort_graphs(cls, dependency_graphs, indegrees):
-        """ Sorts graph one at a time merges all the sorted graph
-        lists and returns a combined list
-       
-        """
-        sorted_graphs_list = []
-        for ifname,indegree in indegrees.items():
-            if indegree == 0:
-                sorted_graphs_list += cls.topological_sort_graph(
-                                        dependency_graphs, indegrees, ifname)
-        # If some indegrees are non zero, we have a cycle
-        for ifname,indegree in indegrees.items():
-            if indegree != 0:
-                raise Exception('cycle found involving iface %s' %ifname +
-                                ' (indegree %d)' %indegree)
-
-        return sorted_graphs_list
-
-    @classmethod
     def generate_dots(cls, dependency_graph, indegrees):
         gvgraph = GvGen()
         graphnodes = {}

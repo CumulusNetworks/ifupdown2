@@ -382,6 +382,7 @@ class iface():
         del odict['state']
         del odict['status']
         del odict['lowerifaces']
+        del odict['upperifaces']
         del odict['refcnt']
         del odict['config_status']
         del odict['flags']
@@ -399,6 +400,7 @@ class iface():
         self.refcnt = 0
         self.flags = 0
         self.lowerifaces = None
+        self.upperifaces = None
         self.linkstate = None
         self.env = None
         self.priv_flags = 0
