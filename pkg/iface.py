@@ -6,20 +6,35 @@
 # iface --
 #    interface object
 #
+
+"""ifupdown2 network interface object
+
+It closely resembles the 'iface' object in /etc/network/interfaces
+file. But can be extended to include any other network interface format
+
+
+The module contains the following public classes:
+
+    - ifaceState -- enumerates iface object state
+
+    - ifaceStatus -- enumerates iface object status (success/error)
+
+    - ifaceJsonEncoder -- Json encoder for the iface object
+
+    - iface -- network in terface object class
+
+"""
+
 from collections import OrderedDict
-#from json import *
 import json
 import logging
 
-tickmark = ' (' + u'\u2713'.encode('utf8') + ')'
-crossmark = ' (' + u'\u2717'.encode('utf8') + ')'
-
-class ifaceFlags():
-    NONE = 0x1
-    FOLLOW_DEPENDENTS = 0x2
+_tickmark = ' (' + u'\u2713'.encode('utf8') + ')'
+_crossmark = ' (' + u'\u2717'.encode('utf8') + ')'
 
 class ifaceStatus():
-    """iface status """
+    """Enumerates iface status """
+
     UNKNOWN = 0x1
     SUCCESS = 0x2
     ERROR = 0x3
@@ -46,8 +61,8 @@ class ifaceStatus():
             return cls.ERROR
 
 class ifaceState():
+    """Enumerates iface state """
 
-    """ iface states """
     UNKNOWN = 0x1
     NEW = 0x2
     PRE_UP = 0x3
@@ -124,9 +139,34 @@ class ifaceJsonEncoder(json.JSONEncoder):
                             'config' : retconfig})
 
 class iface():
-    """ flags """
+    """ ifupdown2 interface object class
+    
+    Attributes:
+        name            Name of the interface 
+        addr_family     Address family eg, inet, inet6. Can be None to indicate                         both address families
+        addr_method     Address method eg, static, manual or None for static
+                        address method
+        config          dictionary of config lines for this interface
+        state           Configuration state of an interface as defined by
+                        ifaceState
+        status          Configuration status of an interface as defined by
+                        ifaceStatus
+        flags           Internal flags used by iface processing
+        priv_flags      private flags owned by module using this class
+        refcnt          reference count, indicating number of interfaces
+                        dependent on this iface
+        lowerifaces     list of interface names lower to this interface or
+                        this interface depends on
+        upperifaces     list of interface names upper to this interface or
+                        the interfaces that depend on this interface 
+        auto            True if interface belongs to the auto class
+        classes         List of classes the interface belongs to
+        env             shell environment the interface needs during execution
+        raw_config       raw interface config from file
+    """
+
     # flag to indicate that the object was created from pickled state
-    PICKLED = 0x1
+    _PICKLED = 0x1
 
     version = '0.1'
 
@@ -135,7 +175,7 @@ class iface():
         self.addr_family = None
         self.addr_method = None
         self.config = OrderedDict()
-        self.config_status = {}
+        self._config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
         self.flags = 0x0
@@ -146,7 +186,7 @@ class iface():
         self.auto = False
         self.classes = []
         self.env = None
-        self.raw_lines = []
+        self.raw_config = []
         self.linkstate = None
 
     def inc_refcnt(self):
@@ -155,38 +195,8 @@ class iface():
     def dec_refcnt(self):
         self.refcnt -= 1
 
-    def get_refcnt(self):
-        return self.refcnt
-
-    def set_refcnt(self, cnt):
-        self.refcnt = 0
-
-    def set_name(self, name):
-        self.name = name
-
-    def get_name(self):
-        return self.name
-
-    def set_addr_family(self, family):
-        self.addr_family = family
-
-    def get_addr_family(self):
-        return self.addr_family
-
-    def set_addr_method(self, method):
-        self.addr_method = method
-
-    def get_addr_method(self):
-        return self.addr_method
-
-    def set_config(self, config_dict):
-        self.config = config_dict
-
-    def get_config(self):
-        return self.config
-
     def is_config_present(self):
-        addr_method = self.get_addr_method()
+        addr_method = self.addr_method
         if addr_method:
             if (addr_method.find('dhcp') != -1 or
                     addr_method.find('dhcp6') != -1):
@@ -196,76 +206,19 @@ class iface():
         else:
             return True
 
-    def get_auto(self):
-        return self.auto
-
-    def set_auto(self):
-        self.auto = True
-
-    def reset_auto(self):
-        self.auto = False
-
-    def get_classes(self):
-        return self.classes
-
-    def set_classes(self, classes):
-        """ sets interface class list to the one passed as arg """
-        self.classes = classes
-
     def set_class(self, classname):
         """ Appends a class to the list """
         self.classes.append(classname)
 
-    def belongs_to_class(self, intfclass):
-        if intfclass in self.classes:
-            return True
-        return False
-
-    def set_priv_flags(self, priv_flags):
-        self.priv_flags = priv_flags
-
-    def get_priv_flags(self):
-        return self.priv_flags
-
-    def get_state(self):
-        return self.state
-
-    def get_state_str(self):
-        return ifaceState.to_str(self.state)
-
-    def set_state(self, state):
-        self.state = state
-
-    def get_status(self):
-        return self.status
-
-    def get_status_str(self):
-        return ifaceStatus.to_str(self.status)
-
-    def set_status(self, status):
-        self.status = status
-
     def set_state_n_status(self, state, status):
         self.state = state
         self.status = status
-
-    def state_str_to_hex(self, state_str):
-        return self.state_str_map.get(state_str)
 
     def set_flag(self, flag):
         self.flags |= flag
 
     def clear_flag(self, flag):
         self.flags &= ~flag
-
-    def set_lowerifaces(self, dlist):
-        self.lowerifaces = dlist
-
-    def get_lowerifaces(self):
-        return self.lowerifaces
-
-    def set_upperifaces(self, dlist):
-        self.upperifaces = dlist
 
     def add_to_upperifaces(self, upperifacename):
         if self.upperifaces:
@@ -274,31 +227,17 @@ class iface():
         else:
             self.upperifaces = [upperifacename]
 
-    def get_upperifaces(self):
-        return self.upperifaces
-
-    def set_linkstate(self, l):
-        self.linkstate = l
-
-    def get_linkstate(self):
-        return self.linkstate
-
     def get_attr_value(self, attr_name):
-        config = self.get_config()
-
-        return config.get(attr_name)
+        return self.config.get(attr_name)
     
     def get_attr_value_first(self, attr_name):
-        config = self.get_config()
-        attr_value_list = config.get(attr_name)
+        attr_value_list = self.config.get(attr_name)
         if attr_value_list:
             return attr_value_list[0]
         return None
 
     def get_attr_value_n(self, attr_name, attr_index):
-        config = self.get_config()
-
-        attr_value_list = config.get(attr_name)
+        attr_value_list = self.config.get(attr_name)
         if attr_value_list:
             try:
                 return attr_value_list[attr_index]
@@ -306,30 +245,24 @@ class iface():
                 return None
         return None
 
+    @property
     def get_env(self):
         if not self.env:
             self.generate_env()
         return self.env
 
-    def set_env(self, env):
-        self.env = env
-
     def generate_env(self):
         env = {}
-        config = self.get_config()
-        env['IFACE'] = self.get_name()
+        config = self.config
+        env['IFACE'] = self.name
         for attr, attr_value in config.items():
             attr_env_name = 'IF_%s' %attr.upper()
             env[attr_env_name] = attr_value[0]
-
         if env:
-            self.set_env(env)
+            self.env = env
 
     def update_config(self, attr_name, attr_value):
-        if not self.config.get(attr_name):
-            self.config[attr_name] = [attr_value]
-        else:
-            self.config[attr_name].append(attr_value)
+        self.config.setdefault(attr_name, []).append(attr_value)
 
     def update_config_dict(self, attrdict):
         self.config.update(attrdict)
@@ -338,29 +271,25 @@ class iface():
         if not attr_value:
             attr_value = ''
 
-        if self.config.get(attr_name):
-            self.config[attr_name].append(attr_value)
-            self.config_status[attr_name].append(attr_status)
-        else:
-            self.config[attr_name] = [attr_value]
-            self.config_status[attr_name] = [attr_status]
+        self.config.setdefault(attr_name, []).append(attr_value)
+        self._config_status.setdefault(attr_name, []).append(attr_status)
 
         # set global iface state
         if attr_status:
-            self.set_status(ifaceStatus.ERROR)
-        elif self.get_status() != ifaceStatus.ERROR:
+            self.status = ifaceStatus.ERROR
+        elif self.status != ifaceStatus.ERROR:
             # Not already error, mark success
-            self.set_status(ifaceStatus.SUCCESS)
+            self.status = ifaceStatus.SUCCESS
 
     def get_config_attr_status(self, attr_name, idx=0):
-        self.config_status.get(attr_name, [])[idx]
+        return self._config_status.get(attr_name, [])[idx]
 
     def get_config_attr_status_str(self, attr_name, idx=0):
-        ret = self.config_status.get(attr_name, [])[idx]
+        ret = self.get_config_attr_status(attr_name, idx)
         if ret:
-            return crossmark
+            return _crossmark
         else:
-            return tickmark
+            return _tickmark
 
     def is_different(self, dstiface):
         if self.name != dstiface.name: return True
@@ -368,13 +297,10 @@ class iface():
         if self.addr_method != dstiface.addr_method: return True
         if self.auto != dstiface.auto: return True
         if self.classes != dstiface.classes: return True
-
         if any(True for k in self.config if k not in dstiface.config):
             return True
-
         if any(True for k,v in self.config.items()
                     if v != dstiface.config.get(k)): return True
-
         return False
 
     def __getstate__(self):
@@ -384,17 +310,17 @@ class iface():
         del odict['lowerifaces']
         del odict['upperifaces']
         del odict['refcnt']
-        del odict['config_status']
+        del odict['_config_status']
         del odict['flags']
         del odict['priv_flags']
-        del odict['raw_lines']
+        del odict['raw_config']
         del odict['linkstate']
         del odict['env']
         return odict
 
     def __setstate__(self, dict):
         self.__dict__.update(dict)
-        self.config_status = {}
+        self._config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
         self.refcnt = 0
@@ -404,34 +330,34 @@ class iface():
         self.linkstate = None
         self.env = None
         self.priv_flags = 0
-        self.raw_lines = []
-        self.flags |= self.PICKLED
+        self.raw_config = []
+        self.flags |= self._PICKLED
         
     def dump_raw(self, logger):
         indent = '  '
-        print (self.raw_lines[0])
-        for i in range(1, len(self.raw_lines)):
-            print (indent + self.raw_lines[i])
+        print (self.raw_config[0])
+        for i in range(1, len(self.raw_config)):
+            print (indent + self.raw_config[i])
         
     def dump(self, logger):
         indent = '\t'
-        logger.info(self.get_name() + ' : {')
-        logger.info(indent + 'family: %s' %self.get_addr_family())
-        logger.info(indent + 'method: %s' %self.get_addr_method())
+        logger.info(self.name + ' : {')
+        logger.info(indent + 'family: %s' %self.addr_family)
+        logger.info(indent + 'method: %s' %self.addr_method)
         logger.info(indent + 'flags: %x' %self.flags)
         logger.info(indent + 'state: %s'
-                %ifaceState.to_str(self.get_state()))
+                %ifaceState.to_str(self.state))
         logger.info(indent + 'status: %s'
-                %ifaceStatus.to_str(self.get_status()))
-        logger.info(indent + 'refcnt: %d' %self.get_refcnt())
-        d = self.get_lowerifaces()
+                %ifaceStatus.to_str(self.status))
+        logger.info(indent + 'refcnt: %d' %self.refcnt)
+        d = self.lowerifaces
         if d:
             logger.info(indent + 'lowerdevs: %s' %str(d))
         else:
             logger.info(indent + 'lowerdevs: None')
 
         logger.info(indent + 'config: ')
-        config = self.get_config()
+        config = self.config
         if config:
             logger.info(indent + indent + str(config))
         logger.info('}')
@@ -439,15 +365,15 @@ class iface():
     def dump_pretty(self, with_status=False):
         indent = '\t'
         outbuf = ''
-        if self.get_auto():
-            outbuf += 'auto %s\n' %self.get_name()
-        outbuf += 'iface %s' %self.get_name()
-        if self.get_addr_family():
-            outbuf += ' %s' %self.get_addr_family()
-        if self.get_addr_method():
-            outbuf += ' %s' %self.get_addr_method()
+        if self.auto:
+            outbuf += 'auto %s\n' %self.name
+        outbuf += 'iface %s' %self.name
+        if self.addr_family:
+            outbuf += ' %s' %self.addr_family
+        if self.addr_method:
+            outbuf += ' %s' %self.addr_method
         outbuf += '\n'
-        config = self.get_config()
+        config = self.config
         if config:
             for cname, cvaluelist in config.items():
                 idx = 0
@@ -458,7 +384,6 @@ class iface():
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1
-
         print outbuf
 
     def dump_json(self, with_status=False):

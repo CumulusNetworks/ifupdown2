@@ -38,19 +38,19 @@ class ifaceScheduler():
     @classmethod
     def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv):
         """ Runs sub operation on an interface """
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
 
         if (cls._STATE_CHECK and
-            (ifaceobj.get_state() >= ifaceState.from_str(op)) and
-            (ifaceobj.get_status() == ifaceStatus.SUCCESS)):
+            (ifaceobj.state >= ifaceState.from_str(op)) and
+            (ifaceobj.status == ifaceStatus.SUCCESS)):
             ifupdownobj.logger.debug('%s: already in state %s' %(ifacename, op))
             return
 
         # first run ifupdownobj handlers
         handler = ifupdownobj.ops_handlers.get(op)
         if handler:
-            addr_method = ifaceobj.get_addr_method()
-            if not addr_method or (addr_method and addr_method != 'manual'):
+            if not ifaceobj.addr_method or (ifaceobj.addr_method and
+                    ifaceobj.addr_method != 'manual'):
                 handler(ifupdownobj, ifaceobj)
 
         if not ifupdownobj.ADDONS_ENABLE: return
@@ -96,7 +96,7 @@ class ifaceScheduler():
     @classmethod
     def run_iface_ops(cls, ifupdownobj, ifaceobj, ops):
         """ Runs all operations on an interface """
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
         if 'down' in ops[0] and not ifupdownobj.link_exists(ifacename):
@@ -122,9 +122,9 @@ class ifaceScheduler():
         if 'up' in ops[0] and followdependents:
             return True
 
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
         # Deal with upperdevs first
-        ulist = ifaceobj.get_upperifaces()
+        ulist = ifaceobj.upperifaces
         if ulist:
             tmpulist = ([u for u in ulist if u != parent] if parent
                             else ulist)
@@ -170,7 +170,7 @@ class ifaceScheduler():
                 cls.run_iface_ops(ifupdownobj, ifaceobj, ops)
 
             # Run lowerifaces or dependents
-            dlist = ifaceobj.get_lowerifaces()
+            dlist = ifaceobj.lowerifaces
             if dlist:
                 ifupdownobj.logger.debug('%s:' %ifacename +
                     ' found dependents: %s' %str(dlist))
@@ -243,7 +243,7 @@ class ifaceScheduler():
                 cls.run_iface_ops(ifupdownobj, ifaceobj, ops)
 
             # Run upperifaces
-            ulist = ifaceobj.get_upperifaces()
+            ulist = ifaceobj.upperifaces
             if ulist:
                 ifupdownobj.logger.debug('%s:' %ifacename +
                     ' found upperifaces: %s' %str(ulist))
@@ -454,7 +454,7 @@ class ifaceScheduler():
 
         for ifaceobj in ifaceobjs:
             # Run dependents
-            dlist = ifaceobj.get_lowerifaces()
+            dlist = ifaceobj.lowerifaces
             if dlist:
                 ifupdownobj.logger.debug('%s:' %ifacename +
                     ' found dependents: %s' %str(dlist))

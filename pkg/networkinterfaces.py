@@ -54,7 +54,7 @@ class networkInterfaces():
         allow_class = words[0].split('-')[1]
         ifacenames = words[1:]
 
-        if self.allow_classes.get(allow_class) is not None:
+        if self.allow_classes.get(allow_class):
             for i in ifacenames:
                 self.allow_classes[allow_class].append(i)
         else:
@@ -65,7 +65,7 @@ class networkInterfaces():
         # Support regex
         self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
         sourced_file = lines[cur_idx].split(' ', 2)[1]
-        if sourced_file is not None:
+        if sourced_file:
             for f in glob.glob(sourced_file):
                 self.read_file(f)
         else:
@@ -112,7 +112,7 @@ class networkInterfaces():
         iface_attrs = iface_line.split()
         ifacename = iface_attrs[1]
 
-        ifaceobj.raw_lines.append(iface_line)
+        ifaceobj.raw_config.append(iface_line)
     
         iface_config = collections.OrderedDict()
         for line_idx in range(cur_idx + 1, len(lines)):
@@ -125,7 +125,7 @@ class networkInterfaces():
                 line_idx -= 1
                 break
 
-            ifaceobj.raw_lines.append(l)
+            ifaceobj.raw_config.append(l)
 
             # preprocess vars (XXX: only preprocesses $IFACE for now)
             l = re.sub(r'\$IFACE', ifacename, l)
@@ -149,24 +149,22 @@ class networkInterfaces():
 
         # Create iface object
         if ifacename.find(':') != -1:
-            ifaceobj.set_name(ifacename.split(':')[0])
+            ifaceobj.name = ifacename.split(':')[0]
         else:
-            ifaceobj.set_name(ifacename)
+            ifaceobj.name = ifacename
 
-        ifaceobj.set_config(iface_config)
+        ifaceobj.config = iface_config
         ifaceobj.generate_env()
         if len(iface_attrs) > 2:
-            ifaceobj.set_addr_family(iface_attrs[2])
-            ifaceobj.set_addr_method(iface_attrs[3])
+            ifaceobj.addr_family = iface_attrs[2]
+            ifaceobj.addr_method = iface_attrs[3]
 
-        if ifaceobj.get_name() in self.auto_ifaces:
-            ifaceobj.set_auto()
+        if ifaceobj.name in self.auto_ifaces:
+            ifaceobj.auto = True
 
-        classes = ifaceobj.set_classes(
-                    self.get_allow_classes_for_iface(ifaceobj.get_name()))
+        classes = self.get_allow_classes_for_iface(ifaceobj.name)
         if classes:
-            for c in classes:
-                ifaceobj.set_class(c)
+            [ifaceobj.set_class(c) for c in classes]
 
         # Call iface found callback
         self.callbacks.get('iface_found')(ifaceobj)
@@ -178,7 +176,6 @@ class networkInterfaces():
                       'allow'      : process_allow,
                       'auto'        : process_auto,
                       'iface'       : process_iface}
-
 
     def is_keyword(self, str):
 
@@ -207,8 +204,8 @@ class networkInterfaces():
         line_idx = 0
         lines_consumed = 0
 
-        raw_lines = filedata.split('\n')
-        lines = [l.strip(' \n') for l in raw_lines]
+        raw_config = filedata.split('\n')
+        lines = [l.strip(' \n') for l in raw_config]
 
         while (line_idx < len(lines)):
             lineno = lineno + 1

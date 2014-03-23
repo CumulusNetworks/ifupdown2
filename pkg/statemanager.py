@@ -54,7 +54,7 @@ class stateManager():
         self.state_file = self.state_dir + self.state_filename
 
     def save_ifaceobj(self, ifaceobj):
-        self.ifaceobjdict.setdefault(ifaceobj.get_name(),
+        self.ifaceobjdict.setdefault(ifaceobj.name,
                             []).append(ifaceobj)
 
     def read_saved_state(self, filename=None):
@@ -78,8 +78,8 @@ class stateManager():
         return self.ifaceobjdict.get(ifacename)
 
     def compare_iface_state(ifaceobj1, ifaceobj2):
-        ifaceobj1_state = ifaceobj1.get_state()
-        ifaceobj2_state = ifaceobj2.get_state()
+        ifaceobj1_state = ifaceobj1.state
+        ifaceobj2_state = ifaceobj2.state
 
         if ifaceobj1_state < ifaceobj2_state:
             return -1
@@ -94,54 +94,54 @@ class stateManager():
         state_arg = ifaceState.from_str(operation)
         if state_arg == ifaceState.UP:
             old_ifaceobj = self.ifaceobjdict.get(ifacename)
-            if old_ifaceobj != None:
+            if old_ifaceobj:
                 # found old state for iface
                 # Check its state
-                if (old_ifaceobj.get_state() == state_arg and
-                    old_ifaceobj.get_status() == ifaceStatus.SUCCESS):
+                if (old_ifaceobj.state == state_arg and
+                    old_ifaceobj.status == ifaceStatus.SUCCESS):
                     self.statemsg = 'iface already up'
                     return 0
         elif state_arg == ifaceState.DOWN:
             old_ifaceobj = self.ifaceobjdict.get(ifname)
-            if old_ifaceobj != None:
+            if old_ifaceobj:
                 # found old state for iface
                 # Check its state
-                if (old_ifaceobj.get_state() == state_arg and
-                    old_ifaceobj.get_status() == ifaceStatus.SUCCESS):
+                if (old_ifaceobj.state == state_arg and
+                    old_ifaceobj.status == ifaceStatus.SUCCESS):
                     self.statemsg = 'iface already down'
                     return 0
 
         return 1
 
     def ifaceobj_compare(self, ifaceobj_a, ifaceobj_b):
-        if ifaceobj_a.get_name() != ifaceobj_b.get_name():
+        if ifaceobj_a.name != ifaceobj_b.name:
             return False
 
-        if (ifaceobj_a.get_addr_family() is None and
-            ifaceobj_b.get_addr_family() is not None):
+        if (not ifaceobj_a.addr_family and
+            ifaceobj_b.addr_family):
                 return False
 
-        if (ifaceobj_a.get_addr_family() is not None and
-            ifaceobj_b.get_addr_family() is None):
+        if (ifaceobj_a.addr_family and
+            not ifaceobj_b.addr_family):
                 return False
 
-        if (ifaceobj_a.get_addr_family() is None and
-            ifaceobj_b.get_addr_family() is None):
+        if (not ifaceobj_a.addr_family and
+            not ifaceobj_b.addr_family):
                 return True
 
-        if ifaceobj_a.get_addr_family() != ifaceobj_b.get_addr_family():
+        if ifaceobj_a.addr_family != ifaceobj_b.addr_family:
            return False
 
         return True
 
     def ifaceobj_sync(self, ifaceobj):
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
         self.logger.debug('%s: statemanager sync state' %ifacename)
         old_ifaceobjs = self.ifaceobjdict.get(ifacename)
         if not old_ifaceobjs:
             self.ifaceobjdict[ifacename] = [ifaceobj]
         else:
-            if old_ifaceobjs[0].flags & iface.PICKLED:
+            if old_ifaceobjs[0].flags & iface._PICKLED:
                 del self.ifaceobjdict[ifacename]
                 self.ifaceobjdict[ifacename] = [ifaceobj]
             else:

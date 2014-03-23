@@ -79,12 +79,12 @@ class ifupdownMain(ifupdownBase):
 
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
         if self.link_exists(ifacename):
             self.link_up(ifacename)
 
     def run_down(self, ifaceobj):
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
         if self.link_exists(ifacename):
             self.link_down(ifacename)
 
@@ -225,15 +225,15 @@ class ifupdownMain(ifupdownBase):
         return self.ifaceobjdict.get(ifacename)[-1]
 
     def create_n_save_ifaceobjcurr(self, ifaceobj):
-        ifacename = ifaceobj.get_name()
+        ifacename = ifaceobj.name
         ifaceobjcurr = self.get_ifaceobjcurr(ifacename)
         if ifaceobjcurr:
             return ifaceobjcurr
 
         ifaceobjcurr = iface()
-        ifaceobjcurr.set_name(ifacename)
-        ifaceobjcurr.set_lowerifaces(ifaceobj.get_lowerifaces())
-        ifaceobjcurr.set_priv_flags(ifaceobj.get_priv_flags())
+        ifaceobjcurr.name = ifacename
+        ifaceobjcurr.lowerifaces = ifaceobj.lowerifaces
+        ifaceobjcurr.priv_flags = ifaceobj.priv_flags
         self.ifaceobjcurrdict[ifacename] = ifaceobjcurr
 
         return ifaceobjcurr
@@ -247,8 +247,8 @@ class ifupdownMain(ifupdownBase):
     def get_iface_status(self, ifacename):
         ifaceobjs = self.get_ifaceobjs(ifacename)
         for i in ifaceobjs:
-            if i.get_status() != ifaceStatus.SUCCESS:
-                return i.get_status()
+            if i.status != ifaceStatus.SUCCESS:
+                return i.status
         return ifaceStatus.SUCCESS
 
     def get_iface_refcnt(self, ifacename):
@@ -257,8 +257,8 @@ class ifupdownMain(ifupdownBase):
         if not ifaceobjs:
             return 0
         for i in ifaceobjs:
-            if i.get_refcnt() > max:
-                max = i.get_refcnt()
+            if i.refcnt > max:
+                max = i.refcnt
         return max
 
     def create_n_save_ifaceobj(self, ifacename, priv_flags=None,
@@ -268,9 +268,9 @@ class ifupdownMain(ifupdownBase):
         devices without any user specified configuration.
         """
         ifaceobj = iface()
-        ifaceobj.set_name(ifacename)
+        ifaceobj.name = ifacename
         ifaceobj.priv_flags = priv_flags
-        ifaceobj.set_auto()
+        ifaceobj.auto = True
         if increfcnt:
             ifaceobj.inc_refcnt()
         self.ifaceobjdict[ifacename] = [ifaceobj]
@@ -365,7 +365,7 @@ class ifupdownMain(ifupdownBase):
                 dlist = module.get_dependent_ifacenames(ifaceobj,
                                         self.ifaceobjdict.keys())
             if dlist:
-                self.logger.debug('%s: ' %ifaceobj.get_name() +
+                self.logger.debug('%s: ' %ifaceobj.name +
                                   'got lowerifaces/dependents: %s' %str(dlist))
                 break
         return dlist
@@ -385,26 +385,26 @@ class ifupdownMain(ifupdownBase):
             ifaceobj = self.get_ifaceobj_first(i)
             if not ifaceobj: 
                 continue
-            dlist = ifaceobj.get_lowerifaces()
+            dlist = ifaceobj.lowerifaces
             if not dlist:
                 dlist = self.query_dependents(ifaceobj, ops)
             else:
                 continue
             if dlist:
-                self.preprocess_dependency_list(ifaceobj.get_name(),
+                self.preprocess_dependency_list(ifaceobj.name,
                                                 dlist, ops)
                 self.logger.debug('%s: lowerifaces/dependents after processing: %s'
                                   %(i, str(dlist)))
-                ifaceobj.set_lowerifaces(dlist)
+                ifaceobj.lowerifaces = dlist
                 [iqueue.append(d) for d in dlist]
             if not self.dependency_graph.get(i):
                 self.dependency_graph[i] = dlist
 
     def _save_iface(self, ifaceobj):
-        if not self.ifaceobjdict.get(ifaceobj.get_name()):
-            self.ifaceobjdict[ifaceobj.get_name()] = [ifaceobj]
+        if not self.ifaceobjdict.get(ifaceobj.name):
+            self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
         else:
-            self.ifaceobjdict[ifaceobj.get_name()].append(ifaceobj)
+            self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _module_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
@@ -618,15 +618,15 @@ class ifupdownMain(ifupdownBase):
         # We check classes first
         if allow_classes:
             for i in ifaceobjs:
-                if i.get_classes():
+                if i.classes:
                     common = Set([allow_classes]).intersection(
-                                Set(i.get_classes()))
+                                Set(i.classes))
                     if common:
                         return True
             return False
         if auto:
             for i in ifaceobjs:
-                if i.get_auto():
+                if i.auto:
                     return True
             return False
         return True
@@ -637,8 +637,8 @@ class ifupdownMain(ifupdownBase):
         """
 
         cenv = None
-        iface_env = ifaceobj.get_env()
-        if iface_env is not None:
+        iface_env = ifaceobj.env
+        if iface_env:
             cenv = os.environ
             if cenv:
                 cenv.update(iface_env)
@@ -667,7 +667,7 @@ class ifupdownMain(ifupdownBase):
 
         try:
             self.read_iface_config()
-        except Exception, e:
+        except Exception:
             raise
 
         if ifacenames:
@@ -936,7 +936,7 @@ class ifupdownMain(ifupdownBase):
                 ifaceobj.dump_raw(self.logger)
                 print '\n'
                 if self.WITH_DEPENDS:
-                    dlist = ifaceobj.get_lowerifaces()
+                    dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     self.print_ifaceobjs_pretty(dlist, format)
 
@@ -950,7 +950,7 @@ class ifupdownMain(ifupdownBase):
                 else:
                     ifaceobj.dump_pretty()
                 if self.WITH_DEPENDS:
-                    dlist = ifaceobj.get_lowerifaces()
+                    dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     self.print_ifaceobjs_pretty(dlist, format)
 
@@ -971,12 +971,12 @@ class ifupdownMain(ifupdownBase):
         for i in ifacenames:
             ifaceobj = self.get_ifaceobjcurr(i)
             if not ifaceobj: continue
-            if ifaceobj.get_status() == ifaceStatus.NOTFOUND:
-                print 'iface %s %s\n' %(ifaceobj.get_name(),
+            if ifaceobj.status == ifaceStatus.NOTFOUND:
+                print 'iface %s (%s)\n' %(ifaceobj.name,
                             ifaceStatus.to_str(ifaceStatus.NOTFOUND))
                 ret = 1
                 continue
-            elif ifaceobj.get_status() == ifaceStatus.ERROR:
+            elif ifaceobj.status == ifaceStatus.ERROR:
                 ret = 1
 
             if (self.is_ifaceobj_noconfig(ifaceobj)):
@@ -988,7 +988,7 @@ class ifupdownMain(ifupdownBase):
                 ifaceobj.dump_pretty(with_status=True)
 
             if self.WITH_DEPENDS:
-                dlist = ifaceobj.get_lowerifaces()
+                dlist = ifaceobj.lowerifaces
                 if not dlist: continue
                 self.print_ifaceobjscurr_pretty(dlist, format)
         return ret
@@ -996,8 +996,8 @@ class ifupdownMain(ifupdownBase):
     def print_ifaceobjsrunning_pretty(self, ifacenames, format='native'):
         for i in ifacenames:
             ifaceobj = self.get_ifaceobj_first(i)
-            if ifaceobj.get_status() == ifaceStatus.NOTFOUND:
-                print 'iface %s' %ifaceobj.get_name() + ' (not found)\n'
+            if ifaceobj.status == ifaceStatus.NOTFOUND:
+                print 'iface %s' %ifaceobj.name + ' (not found)\n'
                 continue
             if not ifaceobj.is_config_present():
                 continue
@@ -1006,7 +1006,7 @@ class ifupdownMain(ifupdownBase):
             else:
                 ifaceobj.dump_pretty()
             if self.WITH_DEPENDS:
-                dlist = ifaceobj.get_lowerifaces()
+                dlist = ifaceobj.lowerifaces
                 if not dlist: continue
                 self.print_ifaceobjsrunning_pretty(dlist, format)
         return
