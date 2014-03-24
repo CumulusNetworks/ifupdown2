@@ -114,7 +114,8 @@ class ifaceScheduler():
 
 
     @classmethod
-    def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent, followdependents=False):
+    def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
+                           followdependents=False):
         """ Check if conflicting upper ifaces are around and warn if required
 
         Returns False if this interface needs to be skipped, else return True """
@@ -122,7 +123,6 @@ class ifaceScheduler():
         if 'up' in ops[0] and followdependents:
             return True
 
-        ifacename = ifaceobj.name
         # Deal with upperdevs first
         ulist = ifaceobj.upperifaces
         if ulist:
@@ -137,17 +137,16 @@ class ifaceScheduler():
                 for u in tmpulist:
                     if ifupdownobj.link_exists(u):
                         if not ifupdownobj.FORCE and not ifupdownobj.ALL:
-                            ifupdownobj.logger.warn('%s: ' %ifacename +
-                                    ' skip interface down,' +
-                                    ' upperiface %s still around' %u)
-                            return False
+                            ifupdownobj.logger.warn('%s: ' %ifaceobj.name +
+                                    'upperiface %s still around' %u)
+                            return True
             elif 'up' in ops[0] and not ifupdownobj.ALL:
                 # For 'up', just warn that there is an upperdev which is
                 # probably not up
                 for u in tmpulist:
                     if not ifupdownobj.link_exists(u):
-                        ifupdownobj.logger.warn('%s: upper iface %s '
-                                %(ifacename, u) + 'does not exist')
+                        ifupdownobj.logger.warn('%s: ' %ifaceobj.name +
+                                'upper iface %s does not exist' %u)
         return True
 
     @classmethod
@@ -172,8 +171,8 @@ class ifaceScheduler():
             # Run lowerifaces or dependents
             dlist = ifaceobj.lowerifaces
             if dlist:
-                ifupdownobj.logger.debug('%s:' %ifacename +
-                    ' found dependents: %s' %str(dlist))
+                ifupdownobj.logger.debug('%s: found dependents %s'
+                            %(ifacename, str(dlist)))
                 try:
                     if not followdependents:
                         # XXX: this is yet another extra step,
@@ -245,8 +244,8 @@ class ifaceScheduler():
             # Run upperifaces
             ulist = ifaceobj.upperifaces
             if ulist:
-                ifupdownobj.logger.debug('%s:' %ifacename +
-                    ' found upperifaces: %s' %str(ulist))
+                ifupdownobj.logger.debug('%s: found upperifaces %s'
+                                            %(ifacename, str(ulist)))
                 try:
                     cls.run_iface_list_upper(ifupdownobj, ulist, ops,
                                             ifacename,
@@ -442,7 +441,7 @@ class ifaceScheduler():
         
         """
 
-        ifupdownobj.logger.debug('%s:' %ifacename + ' %s' %op)
+        ifupdownobj.logger.debug('%s: %s' %(ifacename, op))
         cls.accquire_token(iface)
 
         # Each iface can have a list of objects
@@ -509,7 +508,6 @@ class ifaceScheduler():
                 else:
                     raise Exception('error starting thread for iface %s'
                             %ifacename)
-
 
         ifupdownobj.logger.debug('%s ' %parent +
                                  'waiting for all the threads ...')

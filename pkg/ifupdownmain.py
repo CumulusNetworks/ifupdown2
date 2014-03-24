@@ -726,7 +726,7 @@ class ifupdownMain(ifupdownBase):
             # If iface list is given by the caller, always check if iface
             # is present
            if self.validate_ifaces(ifacenames) != 0:
-               raise Exception('all or some interfaces not found')
+               raise Exception('all or some interfaces were never up')
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
         # filter interfaces based on auto and allow classes
