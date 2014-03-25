@@ -335,9 +335,11 @@ class iface():
         
     def dump_raw(self, logger):
         indent = '  '
+        if self.auto:
+            print 'auto %s' %self.name
         print (self.raw_config[0])
         for i in range(1, len(self.raw_config)):
-            print (indent + self.raw_config[i])
+            print(indent + self.raw_config[i])
         
     def dump(self, logger):
         indent = '\t'
