@@ -25,8 +25,6 @@ from sets import Set
 class ifupdownMain(ifupdownBase):
     """ ifupdown2 main class """
 
-
-
     # Flags
     WITH_DEPENDS = False
     ALL = False
@@ -736,7 +734,7 @@ class ifupdownMain(ifupdownBase):
             return
 
     def reload(self, upops, downops, auto=False, allow=None,
-               ifacenames=None, excludepats=None, downchangediface=False):
+            ifacenames=None, excludepats=None):
         """ reload interface config """
 
         allow_classes = []
@@ -791,8 +789,6 @@ class ifupdownMain(ifupdownBase):
                 newifaceobjlist = new_ifaceobjdict.get(ifname)
                 if not newifaceobjlist:
                     ifacedownlist.append(ifname)
-                    continue
-                if not downchangediface:
                     continue
                 # If interface has changed between the current file
                 # and the last installed append it to the down list

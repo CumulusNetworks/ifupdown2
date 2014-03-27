@@ -14,18 +14,19 @@ reload network interface configuration
 
 SYNOPSIS
 ========
-    ifreload [-h] [-a] [-v] [-d] [--allow CLASS] [--with-depends]
-             [-X EXCLUDEPATS] [-f] [-n] [--print-dependency {list,dot}]
-             [--down-changediface]
-             [IFACE [IFACE ...]]
+    ifreload [-h] [-a] [-v] [-d] [-f] [-n] 
 
 DESCRIPTION
 ===========
     reloads network interfaces(5) file /etc/network/interfaces.
 
-    runs ifdown on interfaces that were there previously but are no longer
-    in the interfaces file and ifup on all interfaces in the current
-    /etc/network/interfaces file.
+    runs ifdown on interfaces that changed in the interfaces file and
+    subsequently runs ifup on all interfaces.
+
+    ifreload is equivalent to ``ifdown -a`` followed by ``ifup -a``
+    but it skips ifdown for interfaces that did not change in the config
+    file.
+
 
 OPTIONS
 =======
@@ -39,14 +40,8 @@ OPTIONS
 
     -f, --force           force run all operations
 
-    --down-changediface   run down and then up on interfaces that changed from
-                          the last installed version of the interfaces file.
-                          Without this option, ifup is executed on all
-                          interfaces
-                          
-
-CHEATSHEET
-==========
+EXAMPLES
+========
     # reload /etc/network/interfaces file
     ifreload -a
 

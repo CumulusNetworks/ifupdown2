@@ -123,8 +123,7 @@ def run_reload(args):
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                ['pre-down', 'down', 'post-down'],
                                args.all, None, None,
-                               excludepats=args.excludepats,
-                               downchangediface=args.downchangediface)
+                               excludepats=args.excludepats)
     except:
         raise
 
@@ -264,14 +263,12 @@ def update_ifreload_argparser(argparser):
                 help=argparse.SUPPRESS)
     argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
                 default=-1, choices=range(1,12), help=argparse.SUPPRESS)
-    argparser.add_argument('--down-changediface', dest='downchangediface',
-                            action='store_true', help='down interfaces whose ' +
-                            'config have changed before bringing them up. By' +
-                            ' default all interfaces are brought up')
 
 def parse_args(argsv, op):
     if op == 'query':
         descr = 'query interfaces (all or interface list)'
+    elif op == 'reload':
+        descr = 'reload interface configuration.'
     else:
         descr = 'interface management'
     argparser = argparse.ArgumentParser(description=descr)
