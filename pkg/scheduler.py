@@ -118,7 +118,12 @@ class ifaceScheduler():
                            followdependents=False):
         """ Check if conflicting upper ifaces are around and warn if required
 
-        Returns False if this interface needs to be skipped, else return True """
+        Returns False if this interface needs to be skipped,
+        else return True """
+
+        # XXX: simply return for now, the warnings this function prints
+        # are very confusing. Get rid of this function soon
+        return True
 
         if 'up' in ops[0] and followdependents:
             return True
@@ -161,8 +166,8 @@ class ifaceScheduler():
             raise Exception('%s: not found' %ifacename)
 
         for ifaceobj in ifaceobjs:
-            if not cls._check_upperifaces(ifupdownobj, ifaceobj, ops, parent,
-                                          followdependents):
+            if not cls._check_upperifaces(ifupdownobj, ifaceobj,
+                                          ops, parent, followdependents):
                 return
             if order == ifaceSchedulerFlags.INORDER:
                 # If inorder, run the iface first and then its dependents
@@ -300,10 +305,17 @@ class ifaceScheduler():
         """
 
         if not ifupdownobj.ALL or not followdependents or len(ifacenames) == 1:
+            # If there is any interface that does exist, maybe it is a
+            # logical interface and we have to followupperifaces
+            followupperifaces = (True if
+                                    [i for i in ifacenames
+                                            if not ifupdownobj.link_exists(i)]
+                                    else False)
             cls.run_iface_list(ifupdownobj, ifacenames, ops,
                                   parent=None,order=order,
                                   followdependents=followdependents)
-            if not ifupdownobj.ALL and followdependents and 'up' in ops[0]:
+            if (not ifupdownobj.ALL and
+                    (followdependents or followupperifaces) and 'up' in ops[0]):
                 # If user had given a set of interfaces to bring up
                 # try and execute 'up' on the upperifaces
                 ifupdownobj.logger.info('running upperifaces if available')

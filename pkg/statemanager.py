@@ -75,6 +75,13 @@ class stateManager():
         if not old_ifaceobjs:
             self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
         else:
+            # If it matches any of the object, return
+            if any(o.compare(ifaceobj) for o in old_ifaceobjs):
+                return
+            # If it does not match any of the objects, and if
+            # all objs in the list came from the pickled file,
+            # then reset the list and add this object as a fresh one,
+            # else append to the list
             if old_ifaceobjs[0].flags & iface._PICKLED:
                 del self.ifaceobjdict[ifaceobj.name]
                 self.ifaceobjdict[ifaceobj.name] = [ifaceobj]

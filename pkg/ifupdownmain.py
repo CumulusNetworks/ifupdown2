@@ -803,7 +803,7 @@ class ifupdownMain(ifupdownBase):
                 for objidx in range(0, len(lastifaceobjlist)):
                     oldobj = lastifaceobjlist[objidx]
                     newobj = newifaceobjlist[objidx]
-                    if newobj.is_different(oldobj):
+                    if not newobj.compare(oldobj):
                         ifacedownlist.append(ifname)
                         continue
 

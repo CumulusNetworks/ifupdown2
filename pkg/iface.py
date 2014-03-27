@@ -291,17 +291,21 @@ class iface():
         else:
             return _tickmark
 
-    def is_different(self, dstiface):
-        if self.name != dstiface.name: return True
-        if self.addr_family != dstiface.addr_family: return True
-        if self.addr_method != dstiface.addr_method: return True
-        if self.auto != dstiface.auto: return True
-        if self.classes != dstiface.classes: return True
+    def compare(self, dstiface):
+        """ Compares two objects
+
+        Returns True if object self is same as dstiface and False otherwise """
+
+        if self.name != dstiface.name: return False
+        if self.addr_family != dstiface.addr_family: return False
+        if self.addr_method != dstiface.addr_method: return False
+        if self.auto != dstiface.auto: return False
+        if self.classes != dstiface.classes: return False
         if any(True for k in self.config if k not in dstiface.config):
-            return True
+            return False
         if any(True for k,v in self.config.items()
-                    if v != dstiface.config.get(k)): return True
-        return False
+                    if v != dstiface.config.get(k)): return False
+        return True
 
     def __getstate__(self):
         odict = self.__dict__.copy()
