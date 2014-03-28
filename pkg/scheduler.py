@@ -228,8 +228,7 @@ class ifaceScheduler():
                     if (ifupdownobj.ignore_error(str(e))):
                         pass
                     else:
-                        raise Exception('error running iface %s (%s)'
-                                %(ifacename, str(e)))
+                        raise Exception('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
     def run_iface_graph_upper(cls, ifupdownobj, ifacename, ops, parent=None,
@@ -282,8 +281,7 @@ class ifaceScheduler():
                     if (ifupdownobj.ignore_error(str(e))):
                         pass
                     else:
-                        raise Exception('error running iface %s (%s)'
-                                %(ifacename, str(e)))
+                        raise Exception('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,

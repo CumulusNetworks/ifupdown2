@@ -570,7 +570,7 @@ class ifupdownMain(ifupdownBase):
                 self.logger.warning('error saving state (%s)' %str(e))
 
     def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
-           excludepats=None, printdependency=None):
+           excludepats=None, printdependency=None, syntaxcheck=False):
         """ up an interface """
 
         if auto:
@@ -581,6 +581,10 @@ class ifupdownMain(ifupdownBase):
             self.read_iface_config()
         except Exception:
             raise
+
+        # If only syntax check was requested, return here
+        if syntaxcheck:
+            return
 
         if ifacenames:
             # If iface list is given by the caller, always check if iface

@@ -27,7 +27,20 @@ class networkInterfaces():
         self.callbacks = {'iface_found' : None,
                           'validate' : None}
         self.allow_classes = {}
+        self._filestack = [self.ifaces_file]
 
+    @property
+    def _currentfile(self):
+        try:
+            return self._filestack[-1]
+        except:
+            return self.ifaces_file
+
+    def _parse_error(self, filename, lineno, msg):
+        if lineno == -1:
+            self.logger.error('%s: %s' %(filename, msg))
+        else:
+            self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
 
     def subscribe(self, callback_name, callback_func):
         if callback_name not in self.callbacks.keys():
@@ -69,13 +82,17 @@ class networkInterfaces():
             for f in glob.glob(sourced_file):
                 self.read_file(f)
         else:
-            self.logger.warn('unable to read source line at %d', lineno)
-
+            self._parse_error(self._currentfile, lineno,
+                    'unable to read source line')
         return 0
 
     def process_auto(self, lines, cur_idx, lineno):
-        for a in lines[cur_idx].split()[1:]:
-            self.auto_ifaces.append(a)
+        auto_ifaces = lines[cur_idx].split()[1:]
+        if not auto_ifaces:
+            self._parse_error(self._currentfile, lineno + 1,
+                    'invalid auto line \'%s\''%lines[cur_idx])
+            return 0
+        [self.auto_ifaces.append(a) for a in auto_ifaces]
         return 0
 
     def _add_to_iface_config(self, iface_config, attrname, attrval):
@@ -117,34 +134,28 @@ class networkInterfaces():
         iface_config = collections.OrderedDict()
         for line_idx in range(cur_idx + 1, len(lines)):
             l = lines[line_idx].strip('\n\t ')
-
             if self.ignore_line(l) == 1:
                 continue
-
-            if self.is_keyword(l.split()[0]) == True:
+            if self._is_keyword(l.split()[0]):
                 line_idx -= 1
                 break
-
             ifaceobj.raw_config.append(l)
-
             # preprocess vars (XXX: only preprocesses $IFACE for now)
             l = re.sub(r'\$IFACE', ifacename, l)
-
             attrs = l.split(' ', 1)
             if len(attrs) < 2:
-                self.logger.warn('%s: invalid syntax at line %d'
-                                 %(ifacename, line_idx + 1))
+                self._parse_error(self._currentfile, line_idx,
+                        'invalid syntax \'%s\'' %ifacename)
                 continue
             attrname = attrs[0]
             attrval = attrs[1].strip(' ')
             try:
                 if not self.callbacks.get('validate')(attrname, attrval):
-                    self.logger.warn('unsupported keyword (%s) at line %d'
-                                    %(l, line_idx + 1))
+                    self._parse_error(self._currentfile, line_idx + 1,
+                            'unsupported keyword (%s)' %l)
             except:
                 pass
             self._add_to_iface_config(iface_config, attrname, attrval)
-
         lines_consumed = line_idx - cur_idx
 
         # Create iface object
@@ -168,7 +179,6 @@ class networkInterfaces():
 
         # Call iface found callback
         self.callbacks.get('iface_found')(ifaceobj)
-
         return lines_consumed       # Return next index
 
 
@@ -177,18 +187,15 @@ class networkInterfaces():
                       'auto'        : process_auto,
                       'iface'       : process_iface}
 
-    def is_keyword(self, str):
-
+    def _is_keyword(self, str):
         # The additional split here is for allow- keyword
         tmp_str = str.split('-')[0]
         if tmp_str in self.network_elems.keys():
             return 1
-
         return 0
 
-    def get_keyword_func(self, str):
+    def _get_keyword_func(self, str):
         tmp_str = str.split('-')[0]
-
         return self.network_elems.get(tmp_str)
 
     def get_allow_classes_for_iface(self, ifacename):
@@ -196,37 +203,27 @@ class networkInterfaces():
         for class_name, ifacenames in self.allow_classes.items():
             if ifacename in ifacenames:
                 classes.append(class_name)
-
         return classes
 
     def process_filedata(self, filedata):
-        lineno = 0
         line_idx = 0
         lines_consumed = 0
-
         raw_config = filedata.split('\n')
         lines = [l.strip(' \n') for l in raw_config]
-
         while (line_idx < len(lines)):
-            lineno = lineno + 1
-
             if self.ignore_line(lines[line_idx]):
                 line_idx += 1
                 continue
-        
             words = lines[line_idx].split()
-
             # Check if first element is a supported keyword
-            if self.is_keyword(words[0]):
-                keyword_func = self.get_keyword_func(words[0])
-                lines_consumed = keyword_func(self, lines, line_idx, lineno)
+            if self._is_keyword(words[0]):
+                keyword_func = self._get_keyword_func(words[0])
+                lines_consumed = keyword_func(self, lines, line_idx, line_idx)
                 line_idx += lines_consumed
             else:
-                self.logger.warning('could not process line %s' %l + ' at' +
-                    ' lineno %d' %lineno)
-
+                self._parse_error(self._currentfile, line_idx + 1,
+                        'error processing line \'%s\'' %lines[line_idx])
             line_idx += 1
-
         return 0
 
     def run_template_engine(self, textdata):
@@ -236,7 +233,6 @@ class networkInterfaces():
             self.logger.warning('template engine mako not found. ' +
                                 'skip template parsing ..');
             return textdata
-
         t = Template(text=textdata, output_encoding='utf-8')
         return t.render()
 
@@ -244,18 +240,30 @@ class networkInterfaces():
         ifaces_file = filename
         if not ifaces_file:
             ifaces_file=self.ifaces_file
-
-        self.logger.debug('reading interfaces file %s' %ifaces_file)
+        self._filestack.append(ifaces_file)
+        self.logger.info('reading interfaces file %s' %ifaces_file)
         f = open(ifaces_file)
         filedata = f.read()
         f.close()
-
         # process line continuations
         filedata = ' '.join(d.strip() for d in filedata.split('\\'))
-
         # run through template engine
-        filedata = self.run_template_engine(filedata)
-        self.process_filedata(filedata)
+        try:
+            self.logger.info('template processing on interfaces file %s ...'
+                    %ifaces_file)
+            rendered_filedata = self.run_template_engine(filedata)
+        except Exception, e:
+            self._parse_error(self._currentfile, -1,
+                    'failed to render template (%s).' %str(e) +
+                    'Continue without template rendering ...')
+            rendered_filedata = None
+            pass
+        self.logger.info('parsing interfaces file %s ...' %ifaces_file)
+        if rendered_filedata:
+            self.process_filedata(rendered_filedata)
+        else:
+            self.process_filedata(filedata)
+        self._filestack.pop()
 
     def load(self, filename=None):
         return self.read_file(filename)

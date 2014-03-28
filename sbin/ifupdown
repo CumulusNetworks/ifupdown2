@@ -35,12 +35,14 @@ def run_up(args):
         if args.noaddons:
             ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
-                               printdependency=args.printdependency)
+                               printdependency=args.printdependency,
+                               syntaxcheck=args.syntaxcheck)
         else:
             ifupdown_handle.up(['pre-up', 'up', 'post-up'],
                                args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
-                               printdependency=args.printdependency)
+                               printdependency=args.printdependency,
+                               syntaxcheck=args.syntaxcheck)
     except:
         raise
 
@@ -198,6 +200,9 @@ def update_ifupdown_argparser(argparser):
                      'up/down')
 
 def update_ifup_argparser(argparser):
+    argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
+                action='store_true',
+                help='Only run the interfaces file parser')
     update_ifupdown_argparser(argparser)
 
 def update_ifdown_argparser(argparser):
@@ -294,6 +299,21 @@ handlers = {'up' : run_up,
             'query' : run_query,
             'reload' : run_reload }
 
+def validate_args(op, args):
+    if op == 'up' and args.syntaxcheck:
+        if args.iflist or args.all:
+            print 'ignoring interface options ..'
+        return True
+    if op == 'query' and args.syntaxhelp:
+        return True
+    if not args.iflist and not args.all:
+        print '\'-a\' option or interface list are required'
+        return False
+    if args.iflist and args.all:
+        print '\'-a\' option and interface list are mutually exclusive'
+        return False
+    return True
+
 def main(argv):
     """ main function """
     args = None
@@ -313,13 +333,7 @@ def main(argv):
             exit(1)
         # Command line arg parser
         args = parse_args(argv[1:], op)
-        if not args.iflist and not args.all:
-            if op != 'query' or not args.syntaxhelp:
-                print '\'-a\' option or interface list are required'
-                exit(1)
-
-        if args.iflist and args.all:
-            print '\'-a\' option and interface list are mutually exclusive'
+        if not validate_args(op, args):
             exit(1)
         init(args)
         handlers.get(op)(args)
