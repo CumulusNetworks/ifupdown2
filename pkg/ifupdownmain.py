@@ -865,7 +865,7 @@ class ifupdownMain(ifupdownBase):
                     continue
                 ifaceobj.dump_raw(self.logger)
                 print '\n'
-                if self.WITH_DEPENDS:
+                if self.WITH_DEPENDS and not self.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     self.print_ifaceobjs_raw(dlist)
@@ -881,7 +881,7 @@ class ifupdownMain(ifupdownBase):
                     ifaceobj.dump_json()
                 else:
                     ifaceobj.dump_pretty()
-                if self.WITH_DEPENDS:
+                if self.WITH_DEPENDS and not self.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     self.print_ifaceobjs_pretty(dlist, format)
@@ -910,7 +910,7 @@ class ifupdownMain(ifupdownBase):
                 ifaceobj.dump_json(with_status=True)
             else:
                 ifaceobj.dump_pretty(with_status=True)
-            if self.WITH_DEPENDS:
+            if self.WITH_DEPENDS and not self.ALL:
                 dlist = ifaceobj.lowerifaces
                 if not dlist: continue
                 self.print_ifaceobjscurr_pretty(dlist, format)
@@ -930,7 +930,7 @@ class ifupdownMain(ifupdownBase):
                 ifaceobj.dump_json()
             else:
                 ifaceobj.dump_pretty()
-            if self.WITH_DEPENDS:
+            if self.WITH_DEPENDS and not self.ALL:
                 dlist = ifaceobj.lowerifaces
                 if not dlist: continue
                 self.print_ifaceobjsrunning_pretty(dlist, format)
