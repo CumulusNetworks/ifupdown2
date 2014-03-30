@@ -325,8 +325,16 @@ class ifupdownMain(ifupdownBase):
                 self.dependency_graph[i] = dlist
 
     def _save_iface(self, ifaceobj):
-        self.ifaceobjdict.setdefault(ifaceobj.name,
-                        []).append(ifaceobj)
+        currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
+        if not currentifaceobjlist:
+           self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
+           return
+
+        if ifaceobj.compare(currentifaceobjlist[0]):
+            self.logger.warn('duplicate interface %s found' %ifaceobj.name)
+            return
+
+        self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _module_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
