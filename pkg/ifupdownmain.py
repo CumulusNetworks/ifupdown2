@@ -13,6 +13,7 @@ import imp
 import pprint
 import logging
 import sys, traceback
+import copy
 from statemanager import *
 from networkinterfaces import *
 from iface import *
@@ -95,12 +96,12 @@ class ifupdownMain(ifupdownBase):
     ops_handlers = OrderedDict([('up', run_up),
                                 ('down', run_down)])
 
-    def run_sched_ifaceobj_posthook(self, ifaceobj):
+    def run_sched_ifaceobj_posthook(self, ifaceobj, op):
         if ((ifaceobj.priv_flags & self.BUILTIN) or
             (ifaceobj.priv_flags & self.NOCONFIG)):
             return
         if self.STATEMANAGER_UPDATE:
-            self.statemanager.ifaceobj_sync(ifaceobj)
+            self.statemanager.ifaceobj_sync(ifaceobj, op)
 
     # ifupdown object interface scheduler pre and posthooks
     sched_hooks = {'posthook' : run_sched_ifaceobj_posthook}
@@ -143,7 +144,6 @@ class ifupdownMain(ifupdownBase):
                 raise
         else:
             self.STATEMANAGER_UPDATE = False
-
 
     def get_ifaceobjs(self, ifacename):
         return self.ifaceobjdict.get(ifacename)
@@ -329,11 +329,9 @@ class ifupdownMain(ifupdownBase):
         if not currentifaceobjlist:
            self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
            return
-
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
-
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _module_syntax_checker(self, attrname, attrval):
@@ -355,7 +353,7 @@ class ifupdownMain(ifupdownBase):
 
     def read_old_iface_config(self):
         """ Reads the saved iface config instead of default iface config. """
-        self.ifaceobjdict = self.statemanager.ifaceobjdict
+        self.ifaceobjdict = copy.deepcopy(self.statemanager.ifaceobjdict)
 
     def _load_addon_modules_config(self):
         """ Load addon modules config file """
@@ -505,9 +503,9 @@ class ifupdownMain(ifupdownBase):
             if not ifaceobjs:
                 err_iface += ' ' + i
         if err_iface:
-            self.logger.error('could not find interfaces: %s' %err_iface)
-            return -1
-        return 0
+            self.logger.error('cannot find interfaces: %s' %err_iface)
+            return False
+        return True
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
         """ Checks if interface is whitelisted depending on set of parameters.
@@ -581,10 +579,10 @@ class ifupdownMain(ifupdownBase):
            excludepats=None, printdependency=None, syntaxcheck=False):
         """ up an interface """
 
+        if self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-
         try:
             self.read_iface_config()
         except Exception:
@@ -597,7 +595,7 @@ class ifupdownMain(ifupdownBase):
         if ifacenames:
             # If iface list is given by the caller, always check if iface
             # is present
-           if self._validate_ifaces(ifacenames) != 0:
+           if not self._validate_ifaces(ifacenames):
                raise Exception('all or some interfaces not found')
 
         # if iface list not given by user, assume all from config file
@@ -638,7 +636,6 @@ class ifupdownMain(ifupdownBase):
                     self.statemanager.ifaceobjdict):
             # Since we are using state manager objects,
             # skip the updating of state manager objects
-            self.STATEMANAGER_UPDATE = False
             self.logger.debug('Looking at old state ..')
             self.read_old_iface_config()
         else:
@@ -651,8 +648,8 @@ class ifupdownMain(ifupdownBase):
         if ifacenames:
             # If iface list is given by the caller, always check if iface
             # is present
-           if self._validate_ifaces(ifacenames) != 0:
-               raise Exception('all or some interfaces were never up')
+           if not self._validate_ifaces(ifacenames):
+               raise Exception('interface(s) was probably never up')
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
 
@@ -662,18 +659,15 @@ class ifupdownMain(ifupdownBase):
                                                 excludepats, i)]
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
-
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
             self.print_dependency(filtered_ifacenames, printdependency)
             return
         else:
             self.populate_dependency_info(ops)
-
         self._sched_ifaces(filtered_ifacenames, ops)
         if self.DRYRUN and self.ADDONS_ENABLE:
             return
-
         self._save_state()
 
     def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
@@ -705,7 +699,7 @@ class ifupdownMain(ifupdownBase):
 
         if ifacenames and ops[0] != 'query-running':
             # If iface list is given, always check if iface is present
-           if self._validate_ifaces(ifacenames) != 0:
+           if not self._validate_ifaces(ifacenames):
                raise Exception('all or some interfaces not found')
 
         # if iface list not given by user, assume all from config file
@@ -774,7 +768,6 @@ class ifupdownMain(ifupdownBase):
             # followed by 'up' aka: reload
             # old interface config is read into self.ifaceobjdict
             #
-            self.STATEMANAGER_UPDATE = False
             self.read_old_iface_config()
             op = 'reload'
         else:
@@ -828,7 +821,6 @@ class ifupdownMain(ifupdownBase):
 
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
-        self.STATEMANAGER_UPDATE = True
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
         ifacenames = self.ifaceobjdict.keys()
@@ -841,7 +833,6 @@ class ifupdownMain(ifupdownBase):
         self._sched_ifaces(filtered_ifacenames, upops)
         if self.DRYRUN:
             return
-
         self._save_state()
 
     def _pretty_print_ordered_dict(self, argdict):

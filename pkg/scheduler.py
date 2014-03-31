@@ -110,8 +110,7 @@ class ifaceScheduler():
         map(lambda op: cls.run_iface_op(ifupdownobj, ifaceobj, op, cenv), ops)
         posthookfunc = ifupdownobj.sched_hooks.get('posthook')
         if posthookfunc:
-            posthookfunc(ifupdownobj, ifaceobj)
-
+            posthookfunc(ifupdownobj, ifaceobj, ops[0])
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,

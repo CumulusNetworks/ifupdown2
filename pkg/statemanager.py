@@ -69,28 +69,47 @@ class stateManager():
     def get_ifaceobjs(self, ifacename):
         return self.ifaceobjdict.get(ifacename)
 
-    def ifaceobj_sync(self, ifaceobj):
+    def ifaceobj_sync(self, ifaceobj, op):
         self.logger.debug('%s: statemanager sync state' %ifaceobj.name)
         old_ifaceobjs = self.ifaceobjdict.get(ifaceobj.name)
-        if not old_ifaceobjs:
-            self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
-        else:
-            # If it matches any of the object, return
-            if any(o.compare(ifaceobj) for o in old_ifaceobjs):
-                return
-            # If it does not match any of the objects, and if
-            # all objs in the list came from the pickled file,
-            # then reset the list and add this object as a fresh one,
-            # else append to the list
-            if old_ifaceobjs[0].flags & iface._PICKLED:
-                del self.ifaceobjdict[ifaceobj.name]
+        if 'up' in op:
+            if not old_ifaceobjs:
                 self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
             else:
-                self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
+                # If it matches any of the object, return
+                if any(o.compare(ifaceobj) for o in old_ifaceobjs):
+                    return
+                # If it does not match any of the objects, and if
+                # all objs in the list came from the pickled file,
+                # then reset the list and add this object as a fresh one,
+                # else append to the list
+                if old_ifaceobjs[0].flags & iface._PICKLED:
+                    del self.ifaceobjdict[ifaceobj.name]
+                    self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
+                else:
+                    self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
+        elif 'down' in op:
+            # If down of object successfull, delete object from state manager
+            if not old_ifaceobjs:
+                return
+            if ifaceobj.status != ifaceStatus.SUCCESS:
+                return
+            # If it matches any of the object, return
+            oidx = 0
+            for o in old_ifaceobjs:
+                if o.compare(ifaceobj):
+                    old_ifaceobjs.pop(oidx)
+                    if not len(old_ifaceobjs):
+                        del self.ifaceobjdict[ifaceobj.name]
+                    return
+                oidx += 1
 
     def save_state(self):
         try:
             with open(self.state_file, 'w') as f:
+                if not len(self.ifaceobjdict):
+                    os.remove(self.state_file)
+                    return
                 for ifaceobjs in self.ifaceobjdict.values():
                     [pickling.save_obj(f, i) for i in ifaceobjs]
         except:
