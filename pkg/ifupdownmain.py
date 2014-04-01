@@ -481,9 +481,8 @@ class ifupdownMain(ifupdownBase):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
 
-        self.logger.debug('dependency graph:')
-        self._pretty_print_ordered_dict(self.dependency_graph)
-
+        self._pretty_print_ordered_dict('dependency graph',
+                    self.dependency_graph)
         return ifaceScheduler.sched_ifaces(self, ifacenames, ops,
                         dependency_graph=self.dependency_graph,
                         order=ifaceSchedulerFlags.INORDER
@@ -579,7 +578,7 @@ class ifupdownMain(ifupdownBase):
            excludepats=None, printdependency=None, syntaxcheck=False):
         """ up an interface """
 
-        if self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
+        if not self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
@@ -626,7 +625,7 @@ class ifupdownMain(ifupdownBase):
              excludepats=None, printdependency=None, usecurrentconfig=False):
         """ down an interface """
 
-        if self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
+        if not self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
@@ -835,9 +834,11 @@ class ifupdownMain(ifupdownBase):
             return
         self._save_state()
 
-    def _pretty_print_ordered_dict(self, argdict):
+    def _pretty_print_ordered_dict(self, prefix, argdict):
+        outbuf = prefix + ' {'
         for k, vlist in argdict.items():
-            self.logger.debug('%s : %s' %(k, str(vlist)))
+            outbuf += '%s : %s\n' %(k, str(vlist))
+        self.logger.debug(outbuf + '}')
 
     def print_dependency(self, ifacenames, format):
         """ prints iface dependency information """
