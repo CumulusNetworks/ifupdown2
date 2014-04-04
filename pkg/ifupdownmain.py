@@ -118,6 +118,8 @@ class ifupdownMain(ifupdownBase):
         self.STATEMANAGER_ENABLE = statemanager_enable
         self.CACHE = cache
 
+        self.logger.debug("Roopa: DRYRUN = %s" %self.DRYRUN)
+
         # Can be used to provide hints for caching
         self.CACHE_FLAGS = 0x0
         self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
@@ -290,7 +292,7 @@ class ifupdownMain(ifupdownBase):
                                         self.ifaceobjdict.keys())
             if dlist:
                 self.logger.debug('%s: ' %ifaceobj.name +
-                                  'got lowerifaces/dependents: %s' %str(dlist))
+                                  'lowerifaces/dependents: %s' %str(dlist))
                 break
         return dlist
 
@@ -614,12 +616,11 @@ class ifupdownMain(ifupdownBase):
         else:
             self.populate_dependency_info(ops)
 
-        self._sched_ifaces(filtered_ifacenames, ops)
-
-        if self.DRYRUN and self.ADDONS_ENABLE:
-            return
-
-        self._save_state()
+        try:
+            self._sched_ifaces(filtered_ifacenames, ops)
+        finally:
+            if not self.DRYRUN and self.ADDONS_ENABLE:
+                self._save_state()
 
     def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
              excludepats=None, printdependency=None, usecurrentconfig=False):
@@ -664,10 +665,12 @@ class ifupdownMain(ifupdownBase):
             return
         else:
             self.populate_dependency_info(ops)
-        self._sched_ifaces(filtered_ifacenames, ops)
-        if self.DRYRUN and self.ADDONS_ENABLE:
-            return
-        self._save_state()
+
+        try:
+            self._sched_ifaces(filtered_ifacenames, ops)
+        finally:
+            if not self.DRYRUN and self.ADDONS_ENABLE:
+                self._save_state()
 
     def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
               excludepats=None, printdependency=None,
@@ -835,9 +838,9 @@ class ifupdownMain(ifupdownBase):
         self._save_state()
 
     def _pretty_print_ordered_dict(self, prefix, argdict):
-        outbuf = prefix + ' {'
+        outbuf = prefix + ' {\n'
         for k, vlist in argdict.items():
-            outbuf += '%s : %s\n' %(k, str(vlist))
+            outbuf += '\t%s : %s\n' %(k, str(vlist))
         self.logger.debug(outbuf + '}')
 
     def print_dependency(self, ifacenames, format):

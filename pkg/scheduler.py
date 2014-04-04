@@ -100,7 +100,7 @@ class ifaceScheduler():
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
         if 'down' in ops[0] and not ifupdownobj.link_exists(ifacename):
-            ifupdownobj.logger.info('%s: does not exist' %ifacename)
+            ifupdownobj.logger.debug('%s: does not exist' %ifacename)
             return 
         cenv=None
         if ifupdownobj.COMPAT_EXEC_SCRIPTS:

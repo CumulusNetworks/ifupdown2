@@ -52,15 +52,11 @@ def run_down(args):
     try:
         iflist = args.iflist
         logger.debug('creating ifupdown object ..')
-        cachearg=(False if (iflist or args.nocache or
-                            args.perfmode or args.noact)
-                            else True)
         ifupdown_handle = ifupdownMain(force=args.force,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
                                        njobs=args.jobs,
                                        dryrun=args.noact,
-                                       cache=cachearg,
                                        addons_enable=not args.noaddons,
                                        statemanager_enable=not args.noaddons)
 
@@ -116,12 +112,9 @@ def run_reload(args):
 
     try:
         logger.debug('creating ifupdown object ..')
-        cachearg=(False if (args.nocache or
-                            args.perfmode or args.noact) else True)
         ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
                                             perfmode=args.perfmode,
-                                            njobs=args.jobs,
-                                            cache=cachearg)
+                                            njobs=args.jobs)
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                ['pre-down', 'down', 'post-down'],
                                args.all, None, None,

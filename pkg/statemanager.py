@@ -108,8 +108,9 @@ class stateManager():
         try:
             with open(self.state_file, 'w') as f:
                 if not len(self.ifaceobjdict):
-                    os.remove(self.state_file)
+                    f.truncate(0)
                     return
+                self.logger.debug('saving state ..')
                 for ifaceobjs in self.ifaceobjdict.values():
                     [pickling.save_obj(f, i) for i in ifaceobjs]
         except:

@@ -22,24 +22,22 @@ class ifupdownBase(object):
     def exec_command(self, cmd, cmdenv=None, nowait=False):
         cmd_returncode = 0
         cmdout = ''
-
         try:
             self.logger.info('Executing ' + cmd)
+            if self.DRYRUN:
+                return cmdout
             ch = subprocess.Popen(cmd.split(),
                     stdout=subprocess.PIPE,
                     shell=False, env=cmdenv,
                     stderr=subprocess.STDOUT)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
-
         except OSError, e:
             raise Exception('could not execute ' + cmd +
                     '(' + str(e) + ')')
-
         if cmd_returncode != 0:
             raise Exception('error executing cmd \'%s\'' %cmd +
                 '\n(' + cmdout.strip('\n ') + ')')
-
         return cmdout
 
     def ignore_error(self, errmsg):
