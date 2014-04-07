@@ -118,8 +118,6 @@ class ifupdownMain(ifupdownBase):
         self.STATEMANAGER_ENABLE = statemanager_enable
         self.CACHE = cache
 
-        self.logger.debug("Roopa: DRYRUN = %s" %self.DRYRUN)
-
         # Can be used to provide hints for caching
         self.CACHE_FLAGS = 0x0
         self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False

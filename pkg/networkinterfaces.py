@@ -96,8 +96,9 @@ class networkInterfaces():
         return 0
 
     def _add_to_iface_config(self, iface_config, attrname, attrval):
-        attrvallist = iface_config.get(attrname, [])
-        if attrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime']:
+        newattrname = attrname.replace("_", "-")
+        attrvallist = iface_config.get(newattrname, [])
+        if newattrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime']:
             # For attributes that are related and that can have multiple
             # entries, store them at the same index as their parent attribute.
             # The example of such attributes is 'address' and its related
@@ -113,18 +114,17 @@ class networkInterfaces():
                 for i in range(0, len(addrlist) - len(attrvallist) -1):
                     attrvallist.append('')
                 attrvallist.append(attrval)
-                iface_config[attrname] = attrvallist
+                iface_config[newattrname] = attrvallist
         elif not attrvallist:
-            iface_config[attrname] = [attrval]
+            iface_config[newattrname] = [attrval]
         else:
-            iface_config[attrname].append(attrval)
+            iface_config[newattrname].append(attrval)
 
     def process_iface(self, lines, cur_idx, lineno):
         lines_consumed = 0
         line_idx = cur_idx
 
         ifaceobj = iface()
-
         iface_line = lines[cur_idx].strip('\n ')
         iface_attrs = iface_line.split()
         ifacename = iface_attrs[1]
