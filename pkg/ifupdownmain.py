@@ -278,16 +278,22 @@ class ifupdownMain(ifupdownBase):
         # Get dependents for interface by querying respective modules
         for mname, module in self.modules.items():
             module = self.modules.get(mname)
-            if ops[0] == 'query-running':
-                if (not hasattr(module,
-                    'get_dependent_ifacenames_running')):
-                    continue
-                dlist = module.get_dependent_ifacenames_running(ifaceobj)
-            else:
-                if (not hasattr(module, 'get_dependent_ifacenames')):
-                    continue
-                dlist = module.get_dependent_ifacenames(ifaceobj,
+            try:
+                if ops[0] == 'query-running':
+                    if (not hasattr(module,
+                        'get_dependent_ifacenames_running')):
+                        continue
+                    dlist = module.get_dependent_ifacenames_running(ifaceobj)
+                else:
+                    if (not hasattr(module, 'get_dependent_ifacenames')):
+                        continue
+                    dlist = module.get_dependent_ifacenames(ifaceobj,
                                         self.ifaceobjdict.keys())
+            except Exception, e:
+                self.logger.warn('%s: error getting dependent interfaces (%s)'
+                        %(ifaceobj.name, str(e)))
+                dlist = None
+                pass
             if dlist:
                 self.logger.debug('%s: ' %ifaceobj.name +
                                   'lowerifaces/dependents: %s' %str(dlist))
@@ -336,9 +342,14 @@ class ifupdownMain(ifupdownBase):
 
     def _module_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
+            if not mdict:
+                continue
             attrsdict = mdict.get('attrs')
-            if attrsdict and attrname in attrsdict.keys():
-                return True
+            try:
+                if attrsdict.get(attrname):
+                    return True
+            except AttributeError:
+                pass
         return False
 
     def read_default_iface_config(self):
@@ -435,8 +446,8 @@ class ifupdownMain(ifupdownBase):
 
                     validrange = attrvaldict.get('validrange')
                     if validrange:
-                        print('%svalidrange: %s'
-                              %(indent + '  ', '-'.join(validrange)))
+                        print('%svalidrange: %d-%d'
+                              %(indent + '  ', validrange[0], validrange[1]))
 
                     validvals = attrvaldict.get('validvals')
                     if validvals:

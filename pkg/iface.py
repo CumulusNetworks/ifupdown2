@@ -131,7 +131,6 @@ class ifaceJsonEncoder(json.JSONEncoder):
                     retconfig[k] = v[0]
                 else:
                     retconfig[k] = v
-
         return OrderedDict({'name' : o.name,
                             'addr_method' : o.addr_method,
                             'addr_family' : o.addr_family,

@@ -95,8 +95,15 @@ class networkInterfaces():
         [self.auto_ifaces.append(a) for a in auto_ifaces]
         return 0
 
-    def _add_to_iface_config(self, iface_config, attrname, attrval):
+    def _add_to_iface_config(self, iface_config, attrname, attrval, lineno):
         newattrname = attrname.replace("_", "-")
+        try:
+            if not self.callbacks.get('validate')(newattrname, attrval):
+                self._parse_error(self._currentfile, lineno,
+                        'unsupported keyword (%s)' %attrname)
+                return
+        except:
+            pass
         attrvallist = iface_config.get(newattrname, [])
         if newattrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime']:
             # For attributes that are related and that can have multiple
@@ -149,13 +156,8 @@ class networkInterfaces():
                 continue
             attrname = attrs[0]
             attrval = attrs[1].strip(' ')
-            try:
-                if not self.callbacks.get('validate')(attrname, attrval):
-                    self._parse_error(self._currentfile, line_idx + 1,
-                            'unsupported keyword (%s)' %l)
-            except:
-                pass
-            self._add_to_iface_config(iface_config, attrname, attrval)
+            self._add_to_iface_config(iface_config, attrname, attrval,
+                                      line_idx+1)
         lines_consumed = line_idx - cur_idx
 
         # Create iface object
