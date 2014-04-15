@@ -11,6 +11,7 @@ import logging
 
 lockfile="/run/network/.lock"
 logger = None
+ENVPATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 def run_up(args):
     logger.debug('args = %s' %str(args))
@@ -358,5 +359,6 @@ if __name__ == "__main__":
         print 'Another instance of this program is already running.'
         exit(0)
     """
-
+    # required during boot
+    os.putenv('PATH', ENVPATH)
     main(sys.argv)
