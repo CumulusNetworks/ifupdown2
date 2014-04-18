@@ -16,6 +16,8 @@ setup(name='ifupdown2',
                   ('/etc/init.d/',
                       ['init.d/networking']),
                   ('/sbin/', ['sbin/ifupdown']),
+                  ('/etc/network/ifupdown2/',
+                      ['config/ifupdown2.conf', 'config/templates']),
                   ('/usr/share/doc/ifupdown/examples/',
                       ['docs/examples/interfaces'])]
       )

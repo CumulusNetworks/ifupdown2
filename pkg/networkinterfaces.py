@@ -11,7 +11,9 @@ import collections
 import logging
 import glob
 import re
+import os
 from iface import *
+from template import templateEngine
 
 class networkInterfaces():
 
@@ -19,22 +21,24 @@ class networkInterfaces():
     auto_ifaces = []
     callbacks = {}
 
-    ifaces_file = "/etc/network/interfaces"
-
-    def __init__(self):
+    def __init__(self, interfacesfile='/etc/network/interfaces',
+            template_engine=None, template_lookuppath=None):
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
         self.callbacks = {'iface_found' : None,
                           'validate' : None}
         self.allow_classes = {}
-        self._filestack = [self.ifaces_file]
+        self.interfacesfile = interfacesfile
+        self._filestack = [self.interfacesfile]
+        self._template_engine = templateEngine(template_engine,
+                                    template_lookuppath)
 
     @property
     def _currentfile(self):
         try:
             return self._filestack[-1]
         except:
-            return self.ifaces_file
+            return self.interfacesfile
 
     def _parse_error(self, filename, lineno, msg):
         if lineno == -1:
@@ -95,12 +99,14 @@ class networkInterfaces():
         [self.auto_ifaces.append(a) for a in auto_ifaces]
         return 0
 
-    def _add_to_iface_config(self, iface_config, attrname, attrval, lineno):
+    def _add_to_iface_config(self, ifacename, iface_config, attrname,
+                             attrval, lineno):
         newattrname = attrname.replace("_", "-")
         try:
             if not self.callbacks.get('validate')(newattrname, attrval):
                 self._parse_error(self._currentfile, lineno,
-                        'unsupported keyword (%s)' %attrname)
+                        'iface %s: unsupported keyword (%s)'
+                        %(ifacename, attrname))
                 return
         except:
             pass
@@ -152,12 +158,12 @@ class networkInterfaces():
             attrs = l.split(' ', 1)
             if len(attrs) < 2:
                 self._parse_error(self._currentfile, line_idx,
-                        'invalid syntax \'%s\'' %ifacename)
+                        'iface %s: invalid syntax \'%s\'' %(ifacename, l))
                 continue
             attrname = attrs[0]
             attrval = attrs[1].strip(' ')
-            self._add_to_iface_config(iface_config, attrname, attrval,
-                                      line_idx+1)
+            self._add_to_iface_config(ifacename, iface_config, attrname,
+                                      attrval, line_idx+1)
         lines_consumed = line_idx - cur_idx
 
         # Create iface object
@@ -228,39 +234,27 @@ class networkInterfaces():
             line_idx += 1
         return 0
 
-    def run_template_engine(self, textdata):
-        try:
-            from mako.template import Template
-        except:
-            self.logger.warning('template engine mako not found. ' +
-                                'skip template parsing ..');
-            return textdata
-        t = Template(text=textdata, output_encoding='utf-8')
-        return t.render()
-
     def read_file(self, filename=None):
-        ifaces_file = filename
-        if not ifaces_file:
-            ifaces_file=self.ifaces_file
-        self._filestack.append(ifaces_file)
-        self.logger.info('reading interfaces file %s' %ifaces_file)
-        f = open(ifaces_file)
+        interfacesfile = filename
+        if not interfacesfile:
+            interfacesfile=self.interfacesfile
+        self._filestack.append(interfacesfile)
+        self.logger.info('reading interfaces file %s' %interfacesfile)
+        f = open(interfacesfile)
         filedata = f.read()
         f.close()
         # process line continuations
         filedata = ' '.join(d.strip() for d in filedata.split('\\'))
         # run through template engine
         try:
-            self.logger.info('template processing on interfaces file %s ...'
-                    %ifaces_file)
-            rendered_filedata = self.run_template_engine(filedata)
+            rendered_filedata = self._template_engine.render(filedata)
         except Exception, e:
             self._parse_error(self._currentfile, -1,
-                    'failed to render template (%s).' %str(e) +
+                    'failed to render template (%s). ' %str(e) +
                     'Continue without template rendering ...')
             rendered_filedata = None
             pass
-        self.logger.info('parsing interfaces file %s ...' %ifaces_file)
+        self.logger.info('parsing interfaces file %s ...' %interfacesfile)
         if rendered_filedata:
             self.process_filedata(rendered_filedata)
         else:

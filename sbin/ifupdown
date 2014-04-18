@@ -5,11 +5,15 @@ import sys
 import os
 import argcomplete
 import argparse
+import ConfigParser
+import StringIO
 from ifupdown.ifupdownmain import *
 
 import logging
 
 lockfile="/run/network/.lock"
+configfile="/etc/network/ifupdown2/ifupdown2.conf"
+configmap_g=None
 logger = None
 ENVPATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -24,15 +28,15 @@ def run_up(args):
         cachearg=(False if (iflist or args.nocache or
                             args.perfmode or args.noact)
                             else True)
-        ifupdown_handle = ifupdownMain(force=args.force,
+        ifupdown_handle = ifupdownMain(config=configmap_g,
+                                       force=args.force,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
-                                       njobs=args.jobs,
                                        dryrun=args.noact,
                                        cache=cachearg,
                                        addons_enable=not args.noaddons,
-                                       statemanager_enable=not args.noaddons)
-
+                                       statemanager_enable=not args.noaddons,
+                                       interfacesfile=args.interfacesfile)
         if args.noaddons:
             ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
@@ -53,13 +57,13 @@ def run_down(args):
     try:
         iflist = args.iflist
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdownMain(force=args.force,
+        ifupdown_handle = ifupdownMain(config=configmap_g, force=args.force,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
-                                       njobs=args.jobs,
                                        dryrun=args.noact,
                                        addons_enable=not args.noaddons,
-                                       statemanager_enable=not args.noaddons)
+                                       statemanager_enable=not args.noaddons,
+                                       interfacesfile=args.interfacesfile)
 
         ifupdown_handle.down(['pre-down', 'down', 'post-down'],
                              args.all, args.CLASS, iflist,
@@ -96,10 +100,11 @@ def run_query(args):
             iflist = [i for i in os.listdir('/sys/class/net/')
                         if os.path.isdir('/sys/class/net/%s' %i)]
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
+        ifupdown_handle = ifupdownMain(config=configmap_g,
+                                       withdepends=args.withdepends,
                                        perfmode=args.perfmode,
-                                       njobs=args.jobs,
-                                       cache=cachearg)
+                                       cache=cachearg,
+                                       interfacesfile=args.interfacesfile)
 
         ifupdown_handle.query([qop], args.all, args.CLASS, iflist,
                               excludepats=args.excludepats,
@@ -113,13 +118,14 @@ def run_reload(args):
 
     try:
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdownMain(withdepends=args.withdepends,
-                                            perfmode=args.perfmode,
-                                            njobs=args.jobs)
+        ifupdown_handle = ifupdownMain(config=configmap_g,
+                                       withdepends=args.withdepends,
+                                       perfmode=args.perfmode)
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                ['pre-down', 'down', 'post-down'],
                                args.all, None, None,
-                               excludepats=args.excludepats)
+                               excludepats=args.excludepats,
+                               usecurrentconfig=args.usecurrentconfig)
     except:
         raise
 
@@ -161,20 +167,24 @@ def update_argparser(argparser):
                 help=argparse.SUPPRESS)
     argparser.add_argument('--allow', dest='CLASS', 
                 help='ignore non-\"allow-CLASS\" interfaces')
-    argparser.add_argument('--with-depends', dest='withdepends',
+    argparser.add_argument('-w', '--with-depends', dest='withdepends',
                 action='store_true', help='run with all dependent interfaces.'+
                 ' This option is redundant when \'-a\' is specified. With ' +
                 '\'-a\' interfaces are always executed in dependency order')
     argparser.add_argument('--perfmode', dest='perfmode',
                 action='store_true', help=argparse.SUPPRESS)
-    argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
-                default=-1, choices=range(1,12), help=argparse.SUPPRESS)
+    #argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
+    #            default=-1, choices=range(1,12), help=argparse.SUPPRESS)
     argparser.add_argument('--nocache', dest='nocache', action='store_true',
                 help=argparse.SUPPRESS)
     argparser.add_argument('-X', '--exclude', dest='excludepats',
                 action='append',
                 help='Exclude interfaces from the list of interfaces' +
                 ' to operate on. Can be specified multiple times.')
+    argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
+                default='/etc/network/interfaces',
+                help='use interfaces file instead of default ' +
+                '/etc/network/interfaces')
 
 def update_ifupdown_argparser(argparser):
     """ common arg parser for ifup and ifdown """
@@ -185,13 +195,13 @@ def update_ifupdown_argparser(argparser):
     group.add_argument('-n', '--no-act', dest='noact',
                 action='store_true', help='print out what would happen,' +
                 'but don\'t do it')
-    group.add_argument('--print-dependency',
+    group.add_argument('-p', '--print-dependency',
                 dest='printdependency', choices=['list', 'dot'],
                 help='print iface dependency')
     group.add_argument('--no-scripts', '--no-addons',
                 dest='noaddons',  action='store_true',
-                help='dont run any addon modules or scripts. Runs only link ' +
-                     'up/down')
+                help='dont run any addon modules/scripts. Only bring the ' +
+                    'interface administratively up/down')
 
 def update_ifup_argparser(argparser):
     argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
@@ -203,12 +213,11 @@ def update_ifdown_argparser(argparser):
     update_ifupdown_argparser(argparser)
     argparser.add_argument('--use-current-config',
                 dest='usecurrentconfig',  action='store_true',
-                help=argparse.SUPPRESS)
-                #help='By default ifdown looks at the saved state for ' +
-                #'interfaces to bring down. This option allows ifdown to ' +
-                #'look at the current interfaces file. Useful when your ' +
-                #'state file is corrupted or you want down to use the latest '
-                #'from the interfaces file')
+                help='By default ifdown looks at the saved state for ' +
+                'interfaces to bring down. This option allows ifdown to ' +
+                'look at the current interfaces file. Useful when your ' +
+                'state file is corrupted or you want down to use the latest '
+                'from the interfaces file')
 
 def update_ifquery_argparser(argparser):
     """ arg parser for ifquery options """
@@ -229,12 +238,13 @@ def update_ifquery_argparser(argparser):
     group.add_argument('--print-savedstate', action='store_true',
                        dest='printsavedstate',
                        help=argparse.SUPPRESS)
-    argparser.add_argument('--format', dest='format', default='native',
-                       choices=['native', 'json'], help=argparse.SUPPRESS)
-    argparser.add_argument('--print-dependency',
+    argparser.add_argument('-m', '--format', dest='format', default='native',
+                           choices=['native', 'json'],
+                           help='interface display format')
+    argparser.add_argument('-p', '--print-dependency',
                            dest='printdependency', choices=['list', 'dot'],
                            help='print interface dependency')
-    argparser.add_argument('--syntax-help', action='store_true',
+    argparser.add_argument('-s', '--syntax-help', action='store_true',
                            dest='syntaxhelp',
                            help='print supported interface config syntax')
 
@@ -251,7 +261,7 @@ def update_ifreload_argparser(argparser):
     argparser.add_argument('-d', '--debug', dest='debug',
                 action='store_true',
                 help='output debug info')
-    argparser.add_argument('--with-depends', dest='withdepends',
+    argparser.add_argument('-w', '--with-depends', dest='withdepends',
                 action='store_true', help=argparse.SUPPRESS)
     argparser.add_argument('--perfmode', dest='perfmode',
                 action='store_true', help=argparse.SUPPRESS)
@@ -260,8 +270,19 @@ def update_ifreload_argparser(argparser):
     argparser.add_argument('-X', '--exclude', dest='excludepats',
                 action='append',
                 help=argparse.SUPPRESS)
-    argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
-                default=-1, choices=range(1,12), help=argparse.SUPPRESS)
+    #argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
+    #            default=-1, choices=range(1,12), help=argparse.SUPPRESS)
+    argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
+                default='/etc/network/interfaces',
+                help='use interfaces file instead of default ' +
+                '/etc/network/interfaces')
+    argparser.add_argument('--use-current-config',
+                dest='usecurrentconfig',  action='store_true',
+                help='By default ifreload looks at saved state for ' +
+                'interfaces to bring down. With this option ifreload will'
+                ' only look at the current interfaces file. Useful when your ' +
+                'state file is corrupted or you want down to use the latest '
+                'from the interfaces file')
 
 def parse_args(argsv, op):
     if op == 'query':
@@ -283,9 +304,7 @@ def parse_args(argsv, op):
             update_ifquery_argparser(argparser)
         elif op == 'reload':
             update_ifreload_argparser(argparser)
-
     argcomplete.autocomplete(argparser)
-
     return argparser.parse_args(argsv)
 
 handlers = {'up' : run_up,
@@ -308,6 +327,16 @@ def validate_args(op, args):
         return False
     return True
 
+def read_config():
+    global configmap_g
+
+    config = open(configfile, 'r').read()
+    configStr = '[ifupdown2]\n' + config
+    configFP =  StringIO.StringIO(configStr)
+    parser = ConfigParser.RawConfigParser()
+    parser.readfp(configFP)
+    configmap_g = dict(parser.items('ifupdown2'))
+
 def main(argv):
     """ main function """
     args = None
@@ -329,6 +358,7 @@ def main(argv):
         args = parse_args(argv[1:], op)
         if not validate_args(op, args):
             exit(1)
+        read_config()
         init(args)
         handlers.get(op)(args)
     except Exception, e:

@@ -40,3 +40,11 @@ TODO:
         PATH   the  command   search   path:   /usr/local/sbin:/usr/local/bin:‐
                /usr/sbin:/usr/bin:/sbin:/bin
 
+- ifquery -r shows bridge-pathcosts
+    auto bridge100
+    iface bridge100
+        bridge-ports swp13.100 swp14.100
+        bridge-pathcosts  swp13.100=2 swp14.100=2
+
+- Does not purge old addresses
+

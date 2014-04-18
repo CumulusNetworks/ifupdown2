@@ -383,6 +383,7 @@ class iface():
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:
+                    if not cv: continue
                     if with_status:
                         outbuf += indent + '%s %s %s\n' %(cname, cv,
                                     self.get_config_attr_status_str(cname, idx))
