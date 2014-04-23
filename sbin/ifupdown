@@ -141,6 +141,10 @@ def init(args):
     try:
         logging.basicConfig(level=log_level,
             format='%(levelname)s: %(message)s')
+        logging.addLevelName(logging.ERROR, 'error')
+        logging.addLevelName(logging.WARNING, 'warning')
+        logging.addLevelName(logging.DEBUG, 'debug')
+        logging.addLevelName(logging.INFO, 'info')
         logger = logging.getLogger('ifupdown')
     except:
         raise
