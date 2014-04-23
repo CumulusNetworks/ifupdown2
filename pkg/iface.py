@@ -26,11 +26,13 @@ The module contains the following public classes:
 """
 
 from collections import OrderedDict
-import json
 import logging
+import json
 
 _tickmark = ' (' + u'\u2713'.encode('utf8') + ')'
 _crossmark = ' (' + u'\u2717'.encode('utf8') + ')'
+_success_sym = _tickmark
+_error_sym = _crossmark
 
 class ifaceStatus():
     """Enumerates iface status """
@@ -126,11 +128,8 @@ class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
         retconfig = {}
         if o.config:
-            for k, v in o.config.items():
-                if len(v) == 1:
-                    retconfig[k] = v[0]
-                else:
-                    retconfig[k] = v
+            retconfig = {k: (v[0] if len(v) == 1 else v)
+                            for k,v in o.config.items()}
         return OrderedDict({'name' : o.name,
                             'addr_method' : o.addr_method,
                             'addr_family' : o.addr_family,
@@ -196,10 +195,8 @@ class iface():
 
     def is_config_present(self):
         addr_method = self.addr_method
-        if addr_method:
-            if (addr_method.find('dhcp') != -1 or
-                    addr_method.find('dhcp6') != -1):
-                return True
+        if addr_method and addr_method in ['dhcp', 'dhcp6', 'loopback']:
+            return True
         if not self.config:
             return False
         else:
@@ -286,9 +283,9 @@ class iface():
     def get_config_attr_status_str(self, attr_name, idx=0):
         ret = self.get_config_attr_status(attr_name, idx)
         if ret:
-            return _crossmark
+            return _error_sym
         else:
-            return _tickmark
+            return _success_sym
 
     def compare(self, dstiface):
         """ Compares two objects
@@ -377,6 +374,15 @@ class iface():
             outbuf += ' %s' %self.addr_family
         if self.addr_method:
             outbuf += ' %s' %self.addr_method
+        if with_status:
+            if (self.status == ifaceStatus.NOTFOUND or 
+                self.status == ifaceStatus.ERROR):
+                outbuf += ' %s' %_error_sym
+            else:
+                outbuf += ' %s' %_success_sym
+            if self.status == ifaceStatus.NOTFOUND:
+                print outbuf + '\n'
+                return
         outbuf += '\n'
         config = self.config
         if config:
@@ -391,6 +397,3 @@ class iface():
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1
         print outbuf
-
-    def dump_json(self, with_status=False):
-        print json.dumps(self, cls=ifaceJsonEncoder, indent=4)

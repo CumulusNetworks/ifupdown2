@@ -14,6 +14,7 @@ import pprint
 import logging
 import sys, traceback
 import copy
+import json
 from statemanager import *
 from networkinterfaces import *
 from iface import *
@@ -187,6 +188,7 @@ class ifupdownMain(ifupdownBase):
         ifaceobjcurr.name = ifaceobj.name
         ifaceobjcurr.lowerifaces = ifaceobj.lowerifaces
         ifaceobjcurr.priv_flags = ifaceobj.priv_flags
+        ifaceobjcurr.auto = ifaceobj.auto
         self.ifaceobjcurrdict[ifaceobj.name] = ifaceobjcurr
         return ifaceobjcurr
 
@@ -309,7 +311,6 @@ class ifupdownMain(ifupdownBase):
         if not ifacenames:
             ifacenames = self.ifaceobjdict.keys()
 
-        self.logger.debug('populating dependency info for %s' %str(ifacenames))
         iqueue = deque(ifacenames)
         while iqueue:
             i = iqueue.popleft()
@@ -326,8 +327,6 @@ class ifupdownMain(ifupdownBase):
             if dlist:
                 self.preprocess_dependency_list(ifaceobj.name,
                                                 dlist, ops)
-                self.logger.debug('%s: lowerifaces/dependents: %s'
-                                  %(i, str(dlist)))
                 ifaceobj.lowerifaces = dlist
                 [iqueue.append(d) for d in dlist]
             if not self.dependency_graph.get(i):
@@ -881,21 +880,49 @@ class ifupdownMain(ifupdownBase):
                     if not dlist: continue
                     self.print_ifaceobjs_raw(dlist)
 
-    def print_ifaceobjs_pretty(self, ifacenames, format='native'):
-        """ pretty prints iface in format given by keyword arg format """
+    def _get_ifaceobjs_pretty(self, ifacenames, ifaceobjs, running=False):
+        """ returns iface obj list """
 
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
-                if (self.is_ifaceobj_noconfig(ifaceobj)):
+                if ((not running and self.is_ifaceobj_noconfig(ifaceobj)) or
+                    (running and not ifaceobj.is_config_present())):
                     continue
-                if format == 'json':
-                    ifaceobj.dump_json()
-                else:
-                    ifaceobj.dump_pretty()
+                ifaceobjs.append(ifaceobj)
                 if self.WITH_DEPENDS and not self.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
-                    self.print_ifaceobjs_pretty(dlist, format)
+                    self._get_ifaceobjs_pretty(dlist, ifaceobjs, running)
+
+    def print_ifaceobjs_pretty(self, ifacenames, format='native'):
+        """ pretty prints iface in format given by keyword arg format """
+
+        ifaceobjs = []
+        self._get_ifaceobjs_pretty(ifacenames, ifaceobjs)
+        if not ifaceobjs: return
+        if format == 'json':
+            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=4,
+                             separators=(',', ': '))
+        else:
+            map(lambda i: i.dump_pretty(), ifaceobjs)
+
+    def _get_ifaceobjscurr_pretty(self, ifacenames, ifaceobjs):
+        ret = 0
+        for i in ifacenames:
+            ifaceobj = self.get_ifaceobjcurr(i)
+            if not ifaceobj: continue
+            if (ifaceobj.status == ifaceStatus.NOTFOUND or
+                ifaceobj.status == ifaceStatus.ERROR):
+                ret = 1
+            if self.is_ifaceobj_noconfig(ifaceobj):
+                continue
+            ifaceobjs.append(ifaceobj)
+            if self.WITH_DEPENDS and not self.ALL:
+                dlist = ifaceobj.lowerifaces
+                if not dlist: continue
+                dret = self._get_ifaceobjscurr_pretty(dlist, ifaceobjs)
+                if dret: ret = 1
+        return ret
 
     def print_ifaceobjscurr_pretty(self, ifacenames, format='native'):
         """ pretty prints current running state of interfaces with status.
@@ -904,48 +931,28 @@ class ifupdownMain(ifupdownBase):
         else returns 0
         """
 
-        ret = 0
-        for i in ifacenames:
-            ifaceobj = self.get_ifaceobjcurr(i)
-            if not ifaceobj: continue
-            if ifaceobj.status == ifaceStatus.NOTFOUND:
-                print 'iface %s (%s)\n' %(ifaceobj.name,
-                            ifaceStatus.to_str(ifaceStatus.NOTFOUND))
-                ret = 1
-                continue
-            elif ifaceobj.status == ifaceStatus.ERROR:
-                ret = 1
-            if (self.is_ifaceobj_noconfig(ifaceobj)):
-                continue
-            if format == 'json':
-                ifaceobj.dump_json(with_status=True)
-            else:
-                ifaceobj.dump_pretty(with_status=True)
-            if self.WITH_DEPENDS and not self.ALL:
-                dlist = ifaceobj.lowerifaces
-                if not dlist: continue
-                self.print_ifaceobjscurr_pretty(dlist, format)
+        ifaceobjs = []
+        ret = self._get_ifaceobjscurr_pretty(ifacenames, ifaceobjs)
+        if not ifaceobjs: return
+        self.logger.debug(ifaceobjs)
+        if format == 'json':
+            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
+                       separators=(',', ': '))
+        else:
+            map(lambda i: i.dump_pretty(with_status=True), ifaceobjs)
         return ret
 
     def print_ifaceobjsrunning_pretty(self, ifacenames, format='native'):
         """ pretty prints iface running state """
 
-        for i in ifacenames:
-            ifaceobj = self.get_ifaceobj_first(i)
-            if ifaceobj.status == ifaceStatus.NOTFOUND:
-                print 'iface %s' %ifaceobj.name + ' (not found)\n'
-                continue
-            if not ifaceobj.is_config_present():
-                continue
-            if format == 'json':
-                ifaceobj.dump_json()
-            else:
-                ifaceobj.dump_pretty()
-            if self.WITH_DEPENDS and not self.ALL:
-                dlist = ifaceobj.lowerifaces
-                if not dlist: continue
-                self.print_ifaceobjsrunning_pretty(dlist, format)
-        return
+        ifaceobjs = []
+        self._get_ifaceobjs_pretty(ifacenames, ifaceobjs, running=True)
+        if not ifaceobjs: return
+        if format == 'json':
+            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
+                       separators=(',', ': '))
+        else:
+            map(lambda i: i.dump_pretty(), ifaceobjs)
 
     def _dump(self):
         print 'ifupdown main object dump'
