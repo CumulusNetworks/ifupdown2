@@ -21,6 +21,9 @@ class networkInterfaces():
     auto_ifaces = []
     callbacks = {}
 
+    _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6'],
+                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
+
     def __init__(self, interfacesfile='/etc/network/interfaces',
             template_engine=None, template_lookuppath=None):
         self.logger = logging.getLogger('ifupdown.' +
@@ -46,13 +49,30 @@ class networkInterfaces():
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
 
+    def _validate_addr_family(self, ifaceobj, lineno):
+        if ifaceobj.addr_family:
+            if not self._addrfams.get(ifaceobj.addr_family):
+                self._parse_error(self._currentfile, lineno,
+                    'iface %s: unsupported address family \'%s\''
+                    %(ifaceobj.name, ifaceobj.addr_family))
+                ifaceobj.addr_family = None
+                ifaceobj.addr_method = None
+                return
+            if ifaceobj.addr_method:
+                if (ifaceobj.addr_method not in
+                        self._addrfams.get(ifaceobj.addr_family)):
+                    self._parse_error(self._currentfile, lineno,
+                        'iface %s: unsupported address method \'%s\''
+                        %(ifaceobj.name, ifaceobj.addr_method))
+            else:
+                ifaceobj.addr_method = 'static'
+
     def subscribe(self, callback_name, callback_func):
         if callback_name not in self.callbacks.keys():
             print 'warning: invalid callback ' + callback_name
             return -1
 
         self.callbacks[callback_name] = callback_func
-
 
     def ignore_line(self, line):
         l = line.strip('\n ')
@@ -93,7 +113,7 @@ class networkInterfaces():
     def process_auto(self, lines, cur_idx, lineno):
         auto_ifaces = lines[cur_idx].split()[1:]
         if not auto_ifaces:
-            self._parse_error(self._currentfile, lineno + 1,
+            self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
             return 0
         [self.auto_ifaces.append(a) for a in auto_ifaces]
@@ -174,9 +194,14 @@ class networkInterfaces():
 
         ifaceobj.config = iface_config
         ifaceobj.generate_env()
-        if len(iface_attrs) > 2:
+
+        try:
             ifaceobj.addr_family = iface_attrs[2]
             ifaceobj.addr_method = iface_attrs[3]
+        except IndexError:
+            # ignore
+            pass
+        self._validate_addr_family(ifaceobj, lineno)
 
         if ifaceobj.name in self.auto_ifaces:
             ifaceobj.auto = True
@@ -226,7 +251,7 @@ class networkInterfaces():
             # Check if first element is a supported keyword
             if self._is_keyword(words[0]):
                 keyword_func = self._get_keyword_func(words[0])
-                lines_consumed = keyword_func(self, lines, line_idx, line_idx)
+                lines_consumed = keyword_func(self, lines, line_idx, line_idx+1)
                 line_idx += lines_consumed
             else:
                 self._parse_error(self._currentfile, line_idx + 1,
