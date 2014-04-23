@@ -128,8 +128,7 @@ class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
         retconfig = {}
         if o.config:
-            retconfig = {k: (v[0] if len(v) == 1 else v)
-                            for k,v in o.config.items()}
+            retconfig = dict((k, (v[0] if len(v) == 1 else v)) for k,v in o.config.items())
         return OrderedDict({'name' : o.name,
                             'addr_method' : o.addr_method,
                             'addr_family' : o.addr_family,
