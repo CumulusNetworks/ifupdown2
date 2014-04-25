@@ -55,6 +55,7 @@ case "$1" in
 
         (cd /usr/share/man/man8/ && ln -sf /usr/share/man/man8/ifup.8.gz ifdown.8.gz)
 
+        mkdir -p /etc/network/interfaces.d/
         ;;
 
   purge)

@@ -14,8 +14,8 @@ network interface configuration for ifupdown
 
 DESCRIPTION
 ===========
-    /etc/network/interfaces contains network interface configuration
-    information for the ifup(8), ifdown(8) and ifquery(8) commands.
+    **/etc/network/interfaces** contains network interface configuration
+    information for the **ifup(8)**, **ifdown(8)** and **ifquery(8)** commands.
 
     This is where you configure how your system is connected to the network.
 
@@ -26,22 +26,22 @@ DESCRIPTION
     a backslash.
 
     The file consists of zero or more "iface", "auto",  "allow-"
-    and "source" stanzas. Here is an example.
+    and "source" stanzas. Here is an example::
 
-    auto lo eth0
-    allow-hotplug eth1
+        auto lo eth0
+        allow-hotplug eth1
 
-    iface lo inet loopback
+        iface lo inet loopback
 
-    source /etc/network/interfaces.d/machine-dependent
+        source /etc/network/interfaces.d/machine-dependent
 
-    iface eth0-home inet static
-        address 192.168.1.1/24
-        up flush-mail
+        iface eth0-home inet static
+            address 192.168.1.1/24
+            up flush-mail
 
-    iface eth0-work inet dhcp
-
-    iface eth1 inet dhcp
+        iface eth0-work inet dhcp
+    
+        iface eth1 inet dhcp
 
     Lines beginning with the word "auto" are used to identify the physical
     interfaces to be brought up when ifup is run with the -a option.
@@ -104,32 +104,32 @@ BUILTIN INTERFACES
 
 EXAMPLES
 ========
-    auto lo
-    iface lo
-    address 192.168.2.0/24
-    address 2001:dee:eeee:1::4/128
+    Sample /etc/network/interfaces file::
 
-    auto eth0
-    iface eth0 inet dhcp
+        auto lo
+        iface lo
+            address 192.168.2.0/24
+            address 2001:dee:eeee:1::4/128
 
-    auto eth1
-    iface eth1 inet manual
-    address 192.168.2.0/24
-    address 2001:dee:eeee:1::4/128
+        auto eth0
+        iface eth0 inet dhcp
 
-    # source files from a directory /etc/network/interfaces.d
-    # /etc/network/interfaces.d/bridge0  /etc/network/interfaces.d/bridge1
-    source /etc/network/interfaces.d/*
+        auto eth1
+        iface eth1 inet manual
+            address 192.168.2.0/24
+            address 2001:dee:eeee:1::4/128
 
+        # source files from a directory /etc/network/interfaces.d
+        source /etc/network/interfaces.d/*
 
-    # Using mako style templates
-    % for v in [11,12]:
-    auto vlan${v}
-    iface vlan${v} inet static
-    address 10.20.${v}.3/24
-    % endfor
+        # Using mako style templates
+        % for v in [11,12]:
+            auto vlan${v}
+            iface vlan${v} inet static
+                address 10.20.${v}.3/24
+        % endfor
 
-    For more examples see interfaces-addons(5)
+    For additional syntax and examples see **ifupdownaddons-interfaces(5)**
 
 FILES
 =====
@@ -137,7 +137,7 @@ FILES
 
 SEE ALSO
 ========
-    interfaces-addons(5)
-    ifup(8)
-    ifquery(8)
+    ifupdownaddons-interfaces(5),
+    ifup(8),
+    ifquery(8),
     ifreload(8)

@@ -35,6 +35,7 @@ class networkInterfaces():
         self._filestack = [self.interfacesfile]
         self._template_engine = templateEngine(template_engine,
                                     template_lookuppath)
+        self._currentfile_has_template = False
 
     @property
     def _currentfile(self):
@@ -44,7 +45,7 @@ class networkInterfaces():
             return self.interfacesfile
 
     def _parse_error(self, filename, lineno, msg):
-        if lineno == -1:
+        if lineno == -1 or self._currentfile_has_template:
             self.logger.error('%s: %s' %(filename, msg))
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
@@ -268,11 +269,16 @@ class networkInterfaces():
         f = open(interfacesfile)
         filedata = f.read()
         f.close()
+        self._currentfile_has_template = False
         # process line continuations
         filedata = ' '.join(d.strip() for d in filedata.split('\\'))
         # run through template engine
         try:
             rendered_filedata = self._template_engine.render(filedata)
+            if rendered_filedata is filedata:
+                self._currentfile_has_template = True
+            else:
+                self._currentfile_has_template = False
         except Exception, e:
             self._parse_error(self._currentfile, -1,
                     'failed to render template (%s). ' %str(e) +

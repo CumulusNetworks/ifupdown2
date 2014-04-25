@@ -18,12 +18,12 @@ SYNOPSIS
 
 DESCRIPTION
 ===========
-    reloads network interfaces(5) file /etc/network/interfaces.
+    reloads network **interfaces(5)** file **/etc/network/interfaces**.
 
     runs ifdown on interfaces that changed in the interfaces file and
     subsequently runs ifup on all interfaces.
 
-    ifreload is equivalent to ``ifdown -a`` followed by ``ifup -a``
+    ifreload is equivalent to **ifdown -a** followed by **ifup -a**
     but it skips ifdown for interfaces that did not change in the config
     file.
 
@@ -42,16 +42,18 @@ OPTIONS
 
 EXAMPLES
 ========
-    # reload /etc/network/interfaces file
-    ifreload -a
+    # reload all auto interfaces in **interfaces(5)** file
+
+    **ifreload -a**
 
     # reload all interfaces using service command
-    service networking reload
+
+    **service networking reload**
 
 SEE ALSO
 ========
-    ifup(8)
-    ifdown(8)
-    ifquery(8)
-    interfaces(5)
-    interfaces-addons(5)
+    ifup(8),
+    ifdown(8),
+    ifquery(8),
+    interfaces(5),
+    ifupdownaddons-interfaces(5)
