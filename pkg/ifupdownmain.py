@@ -111,7 +111,9 @@ class ifupdownMain(ifupdownBase):
                  force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
                  cache=False, addons_enable=True, statemanager_enable=True,
-                 interfacesfile='/etc/network/interfaces'):
+                 interfacesfile='/etc/network/interfaces',
+                 interfacesfileiobuf=None,
+                 interfacesfileformat='native'):
         self.logger = logging.getLogger('ifupdown')
         self.FORCE = force
         self.DRYRUN = dryrun
@@ -121,6 +123,8 @@ class ifupdownMain(ifupdownBase):
         self.STATEMANAGER_ENABLE = statemanager_enable
         self.CACHE = cache
         self.interfacesfile = interfacesfile
+        self.interfacesfileiobuf = interfacesfileiobuf
+        self.interfacesfileformat = interfacesfileformat
         self.config = config
         self.logger.debug(self.config)
 
@@ -342,7 +346,7 @@ class ifupdownMain(ifupdownBase):
             return
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
-    def _module_syntax_checker(self, attrname, attrval):
+    def _iface_configattr_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
             if not mdict:
                 continue
@@ -354,13 +358,31 @@ class ifupdownMain(ifupdownBase):
                 pass
         return False
 
+    def _ifaceobj_syntax_checker(self, ifaceobj):
+        err = False
+        for attrname in ifaceobj.config:
+            found = False
+            for k, v in self.module_attrs.items():
+                if v and v.get('attrs', {}).get(attrname):
+                    found = True
+                    break
+            if not found:
+                err = True
+                self.logger.warn('%s: unsupported attribute \'%s\'' %attrname) 
+                continue
+        return err
+
     def read_iface_config(self):
         """ Reads default network interface config /etc/network/interfaces. """
         nifaces = networkInterfaces(self.interfacesfile,
+                        self.interfacesfileiobuf,
+                        self.interfacesfileformat,
                         template_engine=self.config.get('template_engine'),
                 template_lookuppath=self.config.get('template_lookuppath'))
         nifaces.subscribe('iface_found', self._save_iface)
-        nifaces.subscribe('validate', self._module_syntax_checker)
+        nifaces.subscribe('validateifaceattr',
+                          self._iface_configattr_syntax_checker)
+        nifaces.subscribe('validateifaceobj', self._ifaceobj_syntax_checker)
         nifaces.load()
 
     def read_old_iface_config(self):
@@ -901,8 +923,8 @@ class ifupdownMain(ifupdownBase):
         self._get_ifaceobjs_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=4,
-                             separators=(',', ': '))
+            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
+                             indent=4, separators=(',', ': '))
         else:
             map(lambda i: i.dump_pretty(), ifaceobjs)
 

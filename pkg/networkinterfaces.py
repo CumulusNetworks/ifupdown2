@@ -25,13 +25,17 @@ class networkInterfaces():
                  'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
-            template_engine=None, template_lookuppath=None):
+                 interfacesfileiobuf=None, interfacesfileformat='native',
+                 template_engine=None, template_lookuppath=None):
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
         self.callbacks = {'iface_found' : None,
-                          'validate' : None}
+                          'validateifaceattr' : None,
+                          'validateifaceobj' : None}
         self.allow_classes = {}
         self.interfacesfile = interfacesfile
+        self.interfacesfileiobuf = interfacesfileiobuf
+        self.interfacesfileformat = interfacesfileformat
         self._filestack = [self.interfacesfile]
         self._template_engine = templateEngine(template_engine,
                                     template_lookuppath)
@@ -50,7 +54,7 @@ class networkInterfaces():
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
 
-    def _validate_addr_family(self, ifaceobj, lineno):
+    def _validate_addr_family(self, ifaceobj, lineno=-1):
         if ifaceobj.addr_family:
             if not self._addrfams.get(ifaceobj.addr_family):
                 self._parse_error(self._currentfile, lineno,
@@ -124,7 +128,7 @@ class networkInterfaces():
                              attrval, lineno):
         newattrname = attrname.replace("_", "-")
         try:
-            if not self.callbacks.get('validate')(newattrname, attrval):
+            if not self.callbacks.get('validateifaceattr')(newattrname, attrval):
                 self._parse_error(self._currentfile, lineno,
                         'iface %s: unsupported keyword (%s)'
                         %(ifacename, attrname))
@@ -239,7 +243,7 @@ class networkInterfaces():
                 classes.append(class_name)
         return classes
 
-    def process_filedata(self, filedata):
+    def process_interfaces(self, filedata):
         line_idx = 0
         lines_consumed = 0
         raw_config = filedata.split('\n')
@@ -260,15 +264,7 @@ class networkInterfaces():
             line_idx += 1
         return 0
 
-    def read_file(self, filename=None):
-        interfacesfile = filename
-        if not interfacesfile:
-            interfacesfile=self.interfacesfile
-        self._filestack.append(interfacesfile)
-        self.logger.info('reading interfaces file %s' %interfacesfile)
-        f = open(interfacesfile)
-        filedata = f.read()
-        f.close()
+    def read_filedata(self, filedata):
         self._currentfile_has_template = False
         # process line continuations
         filedata = ' '.join(d.strip() for d in filedata.split('\\'))
@@ -285,12 +281,42 @@ class networkInterfaces():
                     'Continue without template rendering ...')
             rendered_filedata = None
             pass
-        self.logger.info('parsing interfaces file %s ...' %interfacesfile)
         if rendered_filedata:
-            self.process_filedata(rendered_filedata)
+            self.process_interfaces(rendered_filedata)
         else:
-            self.process_filedata(filedata)
+            self.process_interfaces(filedata)
+
+    def read_file(self, filename, fileiobuf=None):
+        if fileiobuf:
+            self.read_filedata(fileiobuf)
+            return
+        self._filestack.append(filename)
+        self.logger.info('processing interfaces file %s' %filename)
+        f = open(filename)
+        filedata = f.read()
+        f.close()
+        self.read_filedata(filedata)
         self._filestack.pop()
 
-    def load(self, filename=None):
-        return self.read_file(filename)
+    def read_file_json(self, filename, fileiobuf=None):
+        if fileiobuf:
+            ifacedicts = json.loads(fileiobuf, encoding="utf-8")
+                              #object_hook=ifaceJsonDecoder.json_object_hook)
+        elif filename:
+            self.logger.info('processing interfaces file %s' %filename)
+            fp = open(filename)
+            ifacedicts = json.load(fp)
+                            #object_hook=ifaceJsonDecoder.json_object_hook)
+        for ifacedict in ifacedicts:
+            ifaceobj = ifaceJsonDecoder.json_to_ifaceobj(ifacedict)
+            if ifaceobj:
+                self._validate_addr_family(ifaceobj)
+                self.callbacks.get('validateifaceobj')(ifaceobj)
+                self.callbacks.get('iface_found')(ifaceobj)
+        
+    def load(self):
+        if self.interfacesfileformat == 'json':
+            return self.read_file_json(self.interfacesfile,
+                                       self.interfacesfileiobuf)
+        return self.read_file(self.interfacesfile,
+                              self.interfacesfileiobuf)

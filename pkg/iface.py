@@ -29,8 +29,8 @@ from collections import OrderedDict
 import logging
 import json
 
-_tickmark = ' (' + u'\u2713'.encode('utf8') + ')'
-_crossmark = ' (' + u'\u2717'.encode('utf8') + ')'
+_tickmark = ' (' + u'\u2713' + ')'
+_crossmark = ' (' + u'\u2717' + ')'
 _success_sym = _tickmark
 _error_sym = _crossmark
 
@@ -128,12 +128,22 @@ class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
         retconfig = {}
         if o.config:
-            retconfig = dict((k, (v[0] if len(v) == 1 else v)) for k,v in o.config.items())
+            retconfig = dict((k, (v[0] if len(v) == 1 else v))
+                             for k,v in o.config.items())
         return OrderedDict({'name' : o.name,
                             'addr_method' : o.addr_method,
                             'addr_family' : o.addr_family,
                             'auto' : o.auto,
                             'config' : retconfig})
+
+class ifaceJsonDecoder():
+    @classmethod
+    def json_to_ifaceobj(cls, ifaceattrdict):
+        ifaceattrdict['config'] = OrderedDict([(k, (v if isinstance(v, list)
+                                                else [v]))
+                                for k,v in ifaceattrdict.get('config',
+                                            OrderedDict()).items()])
+        return iface(attrsdict=ifaceattrdict)
 
 class iface():
     """ ifupdown2 interface object class
@@ -167,11 +177,8 @@ class iface():
 
     version = '0.1'
 
-    def __init__(self):
-        self.name = None
-        self.addr_family = None
-        self.addr_method = None
-        self.config = OrderedDict()
+    def __init__(self, attrsdict={}):
+        self._set_attrs_from_dict(attrsdict)
         self._config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
@@ -180,11 +187,17 @@ class iface():
         self.refcnt = 0
         self.lowerifaces = None
         self.upperifaces = None
-        self.auto = False
         self.classes = []
         self.env = None
         self.raw_config = []
         self.linkstate = None
+
+    def _set_attrs_from_dict(self, attrdict):
+        self.auto = attrdict.get('auto', False)
+        self.name = attrdict.get('name')
+        self.addr_family = attrdict.get('addr_family')
+        self.addr_method = attrdict.get('addr_method')
+        self.config = attrdict.get('config', OrderedDict())
 
     def inc_refcnt(self):
         self.refcnt += 1
@@ -331,7 +344,7 @@ class iface():
         self.priv_flags = 0
         self.raw_config = []
         self.flags |= self._PICKLED
-        
+
     def dump_raw(self, logger):
         indent = '  '
         if self.auto:
@@ -380,6 +393,9 @@ class iface():
             else:
                 outbuf += ' %s' %_success_sym
             if self.status == ifaceStatus.NOTFOUND:
+                if with_status:
+                    outbuf = (outbuf.encode('utf8')
+                        if isinstance(outbuf, unicode) else outbuf)
                 print outbuf + '\n'
                 return
         outbuf += '\n'
@@ -395,4 +411,7 @@ class iface():
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1
+        if with_status:
+            outbuf = (outbuf.encode('utf8')
+                        if isinstance(outbuf, unicode) else outbuf)
         print outbuf

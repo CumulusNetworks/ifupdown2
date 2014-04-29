@@ -15,6 +15,7 @@ lockfile="/run/network/.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
 configmap_g=None
 logger = None
+interfacesfileiobuf=None
 ENVPATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 def run_up(args):
@@ -36,7 +37,9 @@ def run_up(args):
                                        cache=cachearg,
                                        addons_enable=not args.noaddons,
                                        statemanager_enable=not args.noaddons,
-                                       interfacesfile=args.interfacesfile)
+                                       interfacesfile=args.interfacesfile,
+                                       interfacesfileiobuf=interfacesfileiobuf,
+                                       interfacesfileformat=args.interfacesfileformat)
         if args.noaddons:
             ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
@@ -63,7 +66,9 @@ def run_down(args):
                                        dryrun=args.noact,
                                        addons_enable=not args.noaddons,
                                        statemanager_enable=not args.noaddons,
-                                       interfacesfile=args.interfacesfile)
+                                       interfacesfile=args.interfacesfile,
+                                       interfacesfileiobuf=interfacesfileiobuf,
+                                       interfacesfileformat=args.interfacesfileformat)
 
         ifupdown_handle.down(['pre-down', 'down', 'post-down'],
                              args.all, args.CLASS, iflist,
@@ -104,7 +109,9 @@ def run_query(args):
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
                                        cache=cachearg,
-                                       interfacesfile=args.interfacesfile)
+                                       interfacesfile=args.interfacesfile,
+                                       interfacesfileiobuf=interfacesfileiobuf,
+                                       interfacesfileformat=args.interfacesfileformat)
 
         ifupdown_handle.query([qop], args.all, args.CLASS, iflist,
                               excludepats=args.excludepats,
@@ -131,6 +138,7 @@ def run_reload(args):
 
 def init(args):
     global logger
+    global interfacesfileiobuf
 
     log_level = logging.WARNING
     if args.verbose:
@@ -149,6 +157,9 @@ def init(args):
     except:
         raise
 
+    # If interfaces file is stdin, read
+    if hasattr(args, 'interfacesfile') and args.interfacesfile == '-':
+        interfacesfileiobuf = sys.stdin.read()
 
 def deinit():
     {}
@@ -189,6 +200,11 @@ def update_argparser(argparser):
                 default='/etc/network/interfaces',
                 help='use interfaces file instead of default ' +
                 '/etc/network/interfaces')
+    argparser.add_argument('-t', '--interfaces-format',
+                dest='interfacesfileformat',
+                default='native',
+                choices=['native', 'json'],
+                help='interfaces file format')
 
 def update_ifupdown_argparser(argparser):
     """ common arg parser for ifup and ifdown """
@@ -276,10 +292,10 @@ def update_ifreload_argparser(argparser):
                 help=argparse.SUPPRESS)
     #argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
     #            default=-1, choices=range(1,12), help=argparse.SUPPRESS)
-    argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
-                default='/etc/network/interfaces',
-                help='use interfaces file instead of default ' +
-                '/etc/network/interfaces')
+    #argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
+    #            default='/etc/network/interfaces',
+    #            help='use interfaces file instead of default ' +
+    #            '/etc/network/interfaces')
     argparser.add_argument('--use-current-config',
                 dest='usecurrentconfig',  action='store_true',
                 help='By default ifreload looks at saved state for ' +
@@ -317,10 +333,10 @@ handlers = {'up' : run_up,
             'reload' : run_reload }
 
 def validate_args(op, args):
-    if op == 'up' and args.syntaxcheck:
-        if args.iflist or args.all:
-            print 'ignoring interface options ..'
-        return True
+    #if op == 'up' and args.syntaxcheck:
+    #    if args.iflist or args.all:
+    #        print 'ignoring interface options ..'
+    #    return True
     if op == 'query' and args.syntaxhelp:
         return True
     if not args.iflist and not args.all:
@@ -387,12 +403,9 @@ if __name__ == "__main__":
         print 'error: must be root to run this command'
         exit(1)
 
-    """
-    #XXX: Cannot use this. A spawned dhclient process can hold the lock
     if not utils.lockFile(lockfile):
         print 'Another instance of this program is already running.'
         exit(0)
-    """
 
     # required during boot
     os.putenv('PATH', ENVPATH)
