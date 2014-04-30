@@ -29,11 +29,24 @@ class ifaceScheduler():
 
     supports scheduling of interfaces serially in plain interface list
     or dependency graph format.
+
+    Algo:
+        - run topological sort on the iface objects
+        - In the sorted iface object list, pick up interfaces with no parents
+        and run ops on them and their children. 
+        - If operation is up and user gave interface list (ie not all)
+        option, also see if there were upper-devices and run ops on them. 
+        - if operation is down, dont down the interface if it still
+        has upperifaces present. The down operation is executed when the
+        last upperiface goes away. If force option is set, this rule does not
+        apply.
+        - run ops calls addon modules run operation passing the iface
+        object and op to each module.
+        - ops are [pre-up, up, post-up, pre-down, down,
+                   post-down, query-running, query-check]
     """
 
     _STATE_CHECK = True
-
-    token_pool = None
 
     @classmethod
     def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv):
@@ -115,42 +128,35 @@ class ifaceScheduler():
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
                            followdependents=False):
-        """ Check if conflicting upper ifaces are around and warn if required
+        """ Check if upperifaces are hanging off us and help caller decide
+        if he can proceed with the ops on this device
 
-        Returns False if this interface needs to be skipped,
-        else return True """
-
-        # XXX: simply return for now, the warnings this function prints
-        # are very confusing. Get rid of this function soon
-        return True
-
-        if 'up' in ops[0] and followdependents:
+        Returns True or False indicating the caller to proceed with the
+        operation.
+        """
+        if ifupdownobj.FORCE:
             return True
-
-        # Deal with upperdevs first
+        # proceed only for down operation
+        if 'down' not in ops[0]:
+            return True
         ulist = ifaceobj.upperifaces
-        if ulist:
-            tmpulist = ([u for u in ulist if u != parent] if parent
-                            else ulist)
-            if not tmpulist:
-                return True
-            if 'down' in ops[0]:
-                # XXX: This is expensive. Find a cheaper way to do this 
-                # if any of the upperdevs are present,
-                # dont down this interface
-                for u in tmpulist:
-                    if ifupdownobj.link_exists(u):
-                        if not ifupdownobj.FORCE and not ifupdownobj.ALL:
-                            ifupdownobj.logger.warn('%s: ' %ifaceobj.name +
-                                    'upperiface %s still around' %u)
-                            return True
-            elif 'up' in ops[0] and not ifupdownobj.ALL:
-                # For 'up', just warn that there is an upperdev which is
-                # probably not up
-                for u in tmpulist:
-                    if not ifupdownobj.link_exists(u):
-                        ifupdownobj.logger.warn('%s: ' %ifaceobj.name +
-                                'upper iface %s does not exist' %u)
+        if not ulist:
+            return True
+        # Get the list of upper ifaces other than the parent
+        tmpulist = ([u for u in ulist if u != parent] if parent
+                    else ulist)
+        if not tmpulist:
+            return True
+        # XXX: This is expensive. Find a cheaper way to do this.
+        # if any of the upperdevs are present,
+        # return false to the caller to skip this interface
+        for u in tmpulist:
+            if ifupdownobj.link_exists(u):
+                if not ifupdownobj.ALL:
+                    ifupdownobj.logger.info('%s: skip interface down,'
+                        %ifaceobj.name + ' upperiface %s still around ' %u +
+                        '(use --force to override)')
+                return False
         return True
 
     @classmethod

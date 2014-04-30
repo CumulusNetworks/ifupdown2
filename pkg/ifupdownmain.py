@@ -694,10 +694,12 @@ class ifupdownMain(ifupdownBase):
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
 
-        self.populate_dependency_info(ops, filtered_ifacenames)
         if printdependency:
+            self.populate_dependency_info(ops, filtered_ifacenames)
             self.print_dependency(filtered_ifacenames, printdependency)
             return
+        else:
+            self.populate_dependency_info(ops)
 
         try:
             self._sched_ifaces(filtered_ifacenames, ops)
