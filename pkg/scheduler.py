@@ -134,8 +134,11 @@ class ifaceScheduler():
         Returns True or False indicating the caller to proceed with the
         operation.
         """
-        if ifupdownobj.FORCE:
+        if (ifupdownobj.FORCE or
+                not ifupdownobj.ADDONS_ENABLE or
+                not ifupdownobj.is_ifaceobj_noconfig(ifaceobj)):
             return True
+
         # proceed only for down operation
         if 'down' not in ops[0]:
             return True
@@ -153,9 +156,8 @@ class ifaceScheduler():
         for u in tmpulist:
             if ifupdownobj.link_exists(u):
                 if not ifupdownobj.ALL:
-                    ifupdownobj.logger.info('%s: skip interface down,'
-                        %ifaceobj.name + ' upperiface %s still around ' %u +
-                        '(use --force to override)')
+                    ifupdownobj.logger.info('%s: skipping interface down,'
+                        %ifaceobj.name + ' upperiface %s still around ' %u)
                 return False
         return True
 
