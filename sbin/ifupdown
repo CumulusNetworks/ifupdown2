@@ -392,7 +392,7 @@ def main(argv):
             else:
                 print str(e)
             if args and not args.debug:
-                print '\nRerun the command with \'-d\' for a detailed errormsg'
+                print '\nrerun the command with \'-d\' for a detailed errormsg'
         exit(1)
     finally:
         deinit()

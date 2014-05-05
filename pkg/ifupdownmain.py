@@ -538,8 +538,7 @@ class ifupdownMain(ifupdownBase):
             if not ifaceobjs:
                 err_iface += ' ' + i
         if err_iface:
-            self.logger.error('cannot find interfaces: %s' %err_iface)
-            return False
+            raise Exception('cannot find interfaces:%s' %err_iface)
         return True
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
@@ -630,8 +629,7 @@ class ifupdownMain(ifupdownBase):
         if ifacenames:
             # If iface list is given by the caller, always check if iface
             # is present
-           if not self._validate_ifaces(ifacenames):
-               raise Exception('all or some interfaces not found')
+            self._validate_ifaces(ifacenames)
 
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
@@ -674,7 +672,6 @@ class ifupdownMain(ifupdownBase):
             self.read_old_iface_config()
         else:
             # If no old state available 
-            self.logger.info('Loading current iface config file')
             try:
                 self.read_iface_config()
             except Exception, e:
@@ -682,8 +679,12 @@ class ifupdownMain(ifupdownBase):
         if ifacenames:
             # If iface list is given by the caller, always check if iface
             # is present
-           if not self._validate_ifaces(ifacenames):
-               raise Exception('interface(s) was probably never up')
+            try:
+               self._validate_ifaces(ifacenames)
+            except Exception, e:
+               raise Exception('%s' %str(e) +
+                       ' (interface was probably never up ?)')
+
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
 
@@ -736,8 +737,7 @@ class ifupdownMain(ifupdownBase):
 
         if ifacenames and ops[0] != 'query-running':
             # If iface list is given, always check if iface is present
-           if not self._validate_ifaces(ifacenames):
-               raise Exception('all or some interfaces not found')
+           self._validate_ifaces(ifacenames)
 
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
