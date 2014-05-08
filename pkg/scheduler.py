@@ -337,7 +337,7 @@ class ifaceScheduler():
             for ifacename in dependency_graph.keys():
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
         sorted_ifacenames = graph.topological_sort_graphs_all(dependency_graph,
-                                                          dict(indegrees))
+                                                          indegrees)
         ifupdownobj.logger.debug('sorted ifacenames %s : '
                                  %str(sorted_ifacenames))
 
