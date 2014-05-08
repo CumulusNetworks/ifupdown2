@@ -8,6 +8,7 @@
 #
 
 import logging
+import copy
 from collections import deque
 try:
     from gvgen import *
@@ -21,10 +22,11 @@ class graph():
                     self.__class__.__name__)
 
     @classmethod
-    def topological_sort_graphs_all(cls, dependency_graphs, indegrees):
+    def topological_sort_graphs_all(cls, dependency_graphs, indegrees_arg):
         S = []
         Q = deque()
 
+        indegrees = copy.deepcopy(indegrees_arg)
         for ifname,indegree in indegrees.items():
             if indegree == 0:
                 Q.append(ifname)
