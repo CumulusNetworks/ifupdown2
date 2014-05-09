@@ -29,11 +29,6 @@ from collections import OrderedDict
 import logging
 import json
 
-_tickmark = ' (' + u'\u2713' + ')'
-_crossmark = ' (' + u'\u2717' + ')'
-_success_sym = _tickmark
-_error_sym = _crossmark
-
 class ifaceStatus():
     """Enumerates iface status """
 
@@ -292,13 +287,6 @@ class iface():
     def get_config_attr_status(self, attr_name, idx=0):
         return self._config_status.get(attr_name, [])[idx]
 
-    def get_config_attr_status_str(self, attr_name, idx=0):
-        ret = self.get_config_attr_status(attr_name, idx)
-        if ret:
-            return _error_sym
-        else:
-            return _success_sym
-
     def compare(self, dstiface):
         """ Compares two objects
 
@@ -376,7 +364,8 @@ class iface():
             logger.info(indent + indent + str(config))
         logger.info('}')
 
-    def dump_pretty(self, with_status=False):
+    def dump_pretty(self, with_status=False,
+                    successstr='success', errorstr='error'):
         indent = '\t'
         outbuf = ''
         if self.auto:
@@ -389,9 +378,9 @@ class iface():
         if with_status:
             if (self.status == ifaceStatus.NOTFOUND or 
                 self.status == ifaceStatus.ERROR):
-                outbuf += ' %s' %_error_sym
-            else:
-                outbuf += ' %s' %_success_sym
+                outbuf += ' (%s)' %errorstr
+            elif self.status == ifaceStatus.SUCCESS:
+                outbuf += ' (%s)' %successstr
             if self.status == ifaceStatus.NOTFOUND:
                 if with_status:
                     outbuf = (outbuf.encode('utf8')
@@ -406,8 +395,13 @@ class iface():
                 for cv in cvaluelist:
                     if not cv: continue
                     if with_status:
-                        outbuf += indent + '%s %s %s\n' %(cname, cv,
-                                    self.get_config_attr_status_str(cname, idx))
+                        s = self.get_config_attr_status(cname, idx)
+                        if s:
+                            outbuf += (indent + '%s %s (%s)\n'
+                                        %(cname, cv, errorstr))
+                        elif s == 0:
+                            outbuf += (indent + '%s %s (%s)\n'
+                                        %(cname, cv, successstr))
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1

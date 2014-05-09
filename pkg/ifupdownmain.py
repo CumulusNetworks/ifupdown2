@@ -24,6 +24,11 @@ from collections import OrderedDict
 from graph import *
 from sets import Set
 
+_tickmark = u'\u2713'
+_crossmark = u'\u2717'
+_success_sym = _tickmark
+_error_sym = _crossmark
+
 class ifupdownMain(ifupdownBase):
     """ ifupdown2 main class """
 
@@ -963,7 +968,11 @@ class ifupdownMain(ifupdownBase):
             print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
                        separators=(',', ': '))
         else:
-            map(lambda i: i.dump_pretty(with_status=True), ifaceobjs)
+            map(lambda i: i.dump_pretty(with_status=True,
+                    successstr=self.config.get('check_success_str',
+                                               _success_sym),
+                    errorstr=self.config.get('check_error_str', _error_sym)),
+                                ifaceobjs)
         return ret
 
     def print_ifaceobjsrunning_pretty(self, ifacenames, format='native'):
