@@ -1,0 +1,33 @@
+#
+# mako template function to create a bridge
+#
+# mako defs provide the advantage of declaring predefined functions in
+# separate files.
+#
+# Below is an example that illustrates how to define such functions and use
+# them in the /etc/network/interfaces file to create bridges
+#
+# This file defines a function makebr to create a bridge. The arguments to the
+# function are vlan and ip address of the bridge.
+#
+# The default directory for template functions is
+# /etc/network/ifupdown2/templates/. Copy this file under the template
+# dir (create the directory if does not exist)
+#
+# To use this template function in /etc/network/interfaces, add the following
+# to the /etc/network/interfaces file:
+#
+# <%namespace name="bridge" file="/bridge_template"/>
+#
+# ${bridge.makebr(1096, "10.0.23.2/24")}
+# ${bridge.makebr(1097, "10.0.23.3/24")}
+#
+#
+
+<%def name="makebr(vlan, addr)">
+auto br${vlan}
+iface br${vlan} inet static
+    address ${addr}
+    bridge-ports swp1.${vlan} swp2.${vlan}
+    bridge-stp on
+</%def>
