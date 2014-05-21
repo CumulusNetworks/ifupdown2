@@ -153,4 +153,4 @@ SEE ALSO
     ifquery(8),
     ifreload(8),
     interfaces(5),
-    interfaces-addons(5)
+    ifupdownaddons-interfaces(5)
