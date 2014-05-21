@@ -19,9 +19,10 @@ setup(name='ifupdown2',
                   ('/sbin/', ['sbin/ifupdown']),
                   ('/etc/network/ifupdown2/',
                       ['config/ifupdown2.conf']),
+                  ('/usr/share/python-ifupdown2/',
+                      ['docs/examples/generate_interfaces.py']),
                   ('/usr/share/doc/python-ifupdown2/examples/',
-                      ['docs/examples/generate_interfaces.py',
-                       'docs/examples/interfaces',
+                      ['docs/examples/interfaces',
                        'docs/examples/interfaces_bridge_template_func',
                        'docs/examples/interfaces_with_template'])]
       )
