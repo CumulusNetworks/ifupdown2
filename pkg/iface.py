@@ -169,6 +169,7 @@ class iface():
 
     # flag to indicate that the object was created from pickled state
     _PICKLED = 0x1
+    HAS_SIBLINGS = 0x2
 
     version = '0.1'
 

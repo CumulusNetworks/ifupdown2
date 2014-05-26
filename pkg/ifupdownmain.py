@@ -188,21 +188,26 @@ class ifupdownMain(ifupdownBase):
         return ifaceobj
 
     def create_n_save_ifaceobjcurr(self, ifaceobj):
-        """ creates a copy of iface object and adds it to the iface dict containing current iface objects 
+        """ creates a copy of iface object and adds it to the iface
+            dict containing current iface objects 
         """
-        ifaceobjcurr = self.get_ifaceobjcurr(ifaceobj.name)
-        if ifaceobjcurr:
-            return ifaceobjcurr
         ifaceobjcurr = iface()
         ifaceobjcurr.name = ifaceobj.name
         ifaceobjcurr.lowerifaces = ifaceobj.lowerifaces
         ifaceobjcurr.priv_flags = ifaceobj.priv_flags
         ifaceobjcurr.auto = ifaceobj.auto
-        self.ifaceobjcurrdict[ifaceobj.name] = ifaceobjcurr
+        self.ifaceobjcurrdict.setdefault(ifaceobj.name,
+                                     []).append(ifaceobjcurr)
         return ifaceobjcurr
 
-    def get_ifaceobjcurr(self, ifacename):
-        return self.ifaceobjcurrdict.get(ifacename)
+    def get_ifaceobjcurr(self, ifacename, idx=0):
+        ifaceobjlist = self.ifaceobjcurrdict.get(ifacename)
+        if not ifaceobjlist:
+            return None
+        if not idx:
+            return ifaceobjlist
+        else:
+            return ifaceobjlist[idx]
 
     def get_ifaceobjrunning(self, ifacename):
         return self.ifaceobjrunningdict.get(ifacename)
@@ -349,6 +354,8 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
+        currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
+        ifaceobj.flags |= iface.HAS_SIBLINGS
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
@@ -938,19 +945,20 @@ class ifupdownMain(ifupdownBase):
     def _get_ifaceobjscurr_pretty(self, ifacenames, ifaceobjs):
         ret = 0
         for i in ifacenames:
-            ifaceobj = self.get_ifaceobjcurr(i)
-            if not ifaceobj: continue
-            if (ifaceobj.status == ifaceStatus.NOTFOUND or
-                ifaceobj.status == ifaceStatus.ERROR):
-                ret = 1
-            if self.is_ifaceobj_noconfig(ifaceobj):
-                continue
-            ifaceobjs.append(ifaceobj)
-            if self.WITH_DEPENDS and not self.ALL:
-                dlist = ifaceobj.lowerifaces
-                if not dlist: continue
-                dret = self._get_ifaceobjscurr_pretty(dlist, ifaceobjs)
-                if dret: ret = 1
+            ifaceobjscurr = self.get_ifaceobjcurr(i)
+            if not ifaceobjscurr: continue
+            for ifaceobj in ifaceobjscurr:
+                if (ifaceobj.status == ifaceStatus.NOTFOUND or
+                    ifaceobj.status == ifaceStatus.ERROR):
+                    ret = 1
+                if self.is_ifaceobj_noconfig(ifaceobj):
+                    continue
+                ifaceobjs.append(ifaceobj)
+                if self.WITH_DEPENDS and not self.ALL:
+                    dlist = ifaceobj.lowerifaces
+                    if not dlist: continue
+                    dret = self._get_ifaceobjscurr_pretty(dlist, ifaceobjs)
+                    if dret: ret = 1
         return ret
 
     def print_ifaceobjscurr_pretty(self, ifacenames, format='native'):
