@@ -118,11 +118,13 @@ EXAMPLES
 
         **ifquery --print-dependency=dot br2000**
 
-    # Create an image (png) from the dot format.
+    # Create an image (png) from the dot format
 
         **ifquery --print-dependency=dot -a > interfaces.dot**
 
         **dot -Tpng interfaces.dot > interfaces.png**
+
+        (The above command only works on a system with dot installed)
 
 
 SEE ALSO
@@ -131,4 +133,4 @@ SEE ALSO
     ifdown(8),
     ifreload(8),
     interfaces(5),
-    ifupdownaddons-interfaces(5)
+    ifupdown-addons-interfaces(5)

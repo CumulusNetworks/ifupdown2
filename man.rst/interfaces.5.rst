@@ -33,7 +33,7 @@ DESCRIPTION
 
         iface lo inet loopback
 
-        source /etc/network/interfaces.d/machine-dependent
+        source /etc/network/interfaces.d/bridges
 
         iface eth0-home inet static
             address 192.168.1.1/24
@@ -69,14 +69,14 @@ DESCRIPTION
     ipv6. Following that is the name of the method used to configure the
     interface.
 
-    ifupdown2 supports iface stanzas without a family or a method. This enables
+    ifupdown supports iface stanzas without a family or a method. This enables
     using the same stanza for inet and inet6 family addresses.
 
     Interface options can be given on subsequent lines in the iface stanza.
-    These options come from addon modules. see interfaces-addons(5) for
+    These options come from addon modules. see ifupdown-addons-interfaces(5) for
     these options.
 
-    ifupdown2 supports python-mako style templates in the interfaces file.
+    ifupdown supports python-mako style templates in the interfaces file.
     See examples section for details.
 
 METHODS
@@ -97,10 +97,10 @@ METHODS
 BUILTIN INTERFACES
 ==================
     iface sections for some interfaces like physical interfaces or vlan
-    interfaces in dot notation (like eth1.100) are understood by ifupdown2.
-    These kind of interfaces do not need an entry in the interfaces file.
-    However, if these interfaces need extra configuration like addresses, they
-    will need to be specified.
+    interfaces in dot notation (like eth1.100) are understood by ifupdown.
+    These interfaces do not need an entry in the interfaces file if
+    they are dependents of other interfaces and dont need any specific
+    configurations like addresses etc.
 
 EXAMPLES
 ========
@@ -129,7 +129,7 @@ EXAMPLES
                 address 10.20.${v}.3/24
         % endfor
 
-    For additional syntax and examples see **ifupdownaddons-interfaces(5)**
+    For additional syntax and examples see **ifupdown-addons-interfaces(5)**
 
 FILES
 =====
@@ -137,7 +137,7 @@ FILES
 
 SEE ALSO
 ========
-    ifupdownaddons-interfaces(5),
+    ifupdown-addons-interfaces(5),
     ifup(8),
     ifquery(8),
     ifreload(8)
