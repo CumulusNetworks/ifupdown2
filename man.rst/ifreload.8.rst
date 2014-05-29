@@ -56,4 +56,4 @@ SEE ALSO
     ifdown(8),
     ifquery(8),
     interfaces(5),
-    ifupdownaddons-interfaces(5)
+    ifupdown-addons-interfaces(5)
