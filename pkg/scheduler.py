@@ -49,8 +49,7 @@ class ifaceScheduler():
     _STATE_CHECK = True
 
     @classmethod
-    def run_iface_op(cls, ifupdownobj, ifaceobj, op, query_ifaceobj=None,
-                     cenv=None):
+    def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv=None):
         """ Runs sub operation on an interface """
         ifacename = ifaceobj.name
 
@@ -60,6 +59,8 @@ class ifaceScheduler():
             ifupdownobj.logger.debug('%s: already in state %s' %(ifacename, op))
             return
         if not ifupdownobj.ADDONS_ENABLE: return
+        if op == 'query-checkcurr':
+            query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(ifaceobj)
         for mname in ifupdownobj.module_ops.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0
@@ -72,8 +73,7 @@ class ifaceScheduler():
                         if (ifaceobj.priv_flags & ifupdownobj.NOCONFIG):
                             continue
                         ifupdownobj.logger.debug(msg)
-                        m.run(ifaceobj, op,
-                              query_ifaceobj)
+                        m.run(ifaceobj, op, query_ifaceobj)
                     else:
                         ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op)
@@ -128,8 +128,6 @@ class ifaceScheduler():
                     handler(ifupdownobj, ifaceobjs[0])
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
-                    query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(
-                        ifaceobj) if op == 'query-checkcurr' else None,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
                         if ifupdownobj.COMPAT_EXEC_SCRIPTS else None) 
                 posthookfunc = ifupdownobj.sched_hooks.get('posthook')
@@ -347,8 +345,15 @@ class ifaceScheduler():
                                          skip_root=True)
                 cls._STATE_CHECK = True
             return
-        run_queue = []
 
+        if ifupdownobj.config.get('skip_ifacesort', '0') == '1':
+            # This is a backdoor to skip sorting of interfaces, if required
+            cls.run_iface_list(ifupdownobj, ifacenames, ops,
+                                  parent=None,order=order,
+                                  followdependents=followdependents)
+            return
+
+        run_queue = []
         # Get a sorted list of all interfaces
         if not indegrees:
             indegrees = OrderedDict()
