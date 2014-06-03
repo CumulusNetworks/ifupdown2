@@ -29,7 +29,8 @@ class ifupdownBase(object):
             ch = subprocess.Popen(cmd.split(),
                     stdout=subprocess.PIPE,
                     shell=False, env=cmdenv,
-                    stderr=subprocess.STDOUT)
+                    stderr=subprocess.STDOUT,
+                    close_fds=True)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
         except OSError, e:
