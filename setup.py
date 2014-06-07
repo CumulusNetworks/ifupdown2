@@ -24,5 +24,6 @@ setup(name='ifupdown2',
                   ('/usr/share/doc/python-ifupdown2/examples/',
                       ['docs/examples/interfaces',
                        'docs/examples/interfaces_bridge_template_func',
-                       'docs/examples/interfaces_with_template'])]
+                       'docs/examples/interfaces_with_template']),
+                  ('/etc/bash_completion.d/', ['completion/ifup'])]
       )

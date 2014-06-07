@@ -6,7 +6,7 @@ ifup
 network interface management commands 
 -------------------------------------
 
-:Author: roopa@cumulusnetworks.com
+:Author: Roopa Prabhu <roopa@cumulusnetworks.com>
 :Date:   2014-02-05
 :Copyright: Copyright 2014 Cumulus Networks, Inc.  All rights reserved.
 :Version: 0.1
@@ -85,10 +85,19 @@ OPTIONS
 
     -n, --no-act          print out what would happen,but don't do it
 
-    -p, --print-dependency {list,dot} print iface dependency in list or dot format.
+    -p, --print-dependency {list,dot}
+                          print iface dependency in list or dot format
 
-    --no-scripts, --no-addons dont run any addon modules/scripts. Only bring
-                              the interface administratively up/down
+    -m, --admin-state, --no-scripts
+                          dont run any addon modules/scripts. Only bring
+                          the interface administratively up/down
+
+    -u, --use-current-config
+                          By default ifdown looks at the saved state for
+                          interfaces to bring down. This option allows ifdown
+                          to look at the current interfaces file. Useful when
+                          your state file is corrupted or you want down to use
+                          the latest from the interfaces file
 
 EXAMPLES
 ========

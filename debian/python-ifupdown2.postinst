@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 MYNAME="${0##*/}"
@@ -69,6 +69,20 @@ case "$1" in
     rm -f /usr/share/doc/python-ifupdown2/generate_interfaces.py
     ;;
 esac
+
+# override default udev bridge and hotplug rules because they interfere with
+# networking init script
+udev_user_rulesdir=/etc/udev/rules.d/
+udev_sys_rulesdir=/lib/udev/rules.d/
+if [ -e $udev_user_rulesdir ]; then
+    udev_ifupdown2_overrides=("80-networking.rules" "60-bridge-network-interface.rules")
+    for u in ${udev_ifupdown2_overrides[*]}
+    do
+        if [ -e ${udev_sys_rulesdir}/$u -a ! -e ${udev_user_rulesdir}/$u ]; then
+            (cd ${udev_user_rulesdir} && ln -sf /dev/null $u)
+        fi
+    done
+fi
 
 if [ -x "/etc/init.d/networking" ]; then
     update-rc.d networking start 40 S . start 35 0 6 . >/dev/null || exit $?

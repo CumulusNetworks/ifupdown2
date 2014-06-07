@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# PYTHON_ARGCOMPLETE_OK
 
 import sys
 import os
@@ -231,7 +230,7 @@ def update_ifup_argparser(argparser):
 
 def update_ifdown_argparser(argparser):
     update_ifupdown_argparser(argparser)
-    argparser.add_argument('--use-current-config',
+    argparser.add_argument('-u', '--use-current-config',
                 dest='usecurrentconfig',  action='store_true',
                 help='By default ifdown looks at the saved state for ' +
                 'interfaces to bring down. This option allows ifdown to ' +
@@ -253,12 +252,12 @@ def update_ifquery_argparser(argparser):
                        action='store_true',
                        help='check interface file contents against ' +
                        'running state of an interface')
-    group.add_argument('--raw', action='store_true', dest='raw',
+    group.add_argument(-x', '--raw', action='store_true', dest='raw',
                        help='print raw config file entries')
     group.add_argument('--print-savedstate', action='store_true',
                        dest='printsavedstate',
                        help=argparse.SUPPRESS)
-    argparser.add_argument('-m', '--format', dest='format', default='native',
+    argparser.add_argument('-o', '--format', dest='format', default='native',
                            choices=['native', 'json'],
                            help='interface display format')
     argparser.add_argument('-p', '--print-dependency',
@@ -296,7 +295,7 @@ def update_ifreload_argparser(argparser):
     #            default='/etc/network/interfaces',
     #            help='use interfaces file instead of default ' +
     #            '/etc/network/interfaces')
-    argparser.add_argument('--use-current-config',
+    argparser.add_argument('-u', '--use-current-config',
                 dest='usecurrentconfig',  action='store_true',
                 help='By default ifreload looks at saved state for ' +
                 'interfaces to bring down. With this option ifreload will'
@@ -378,6 +377,15 @@ def main(argv):
         args = parse_args(argv[1:], op)
         if not validate_args(op, args):
             exit(1)
+
+        if not sys.argv[0].endswith('ifquery') and not os.geteuid() == 0:
+            print 'error: must be root to run this command'
+            exit(1)
+
+        if not sys.argv[0].endswith('ifquery') and not utils.lockFile(lockfile):
+            print 'Another instance of this program is already running.'
+            exit(0)
+
         read_config()
         init(args)
         handlers.get(op)(args)
@@ -399,13 +407,6 @@ def main(argv):
 
 if __name__ == "__main__":
 
-    if  not sys.argv[0].endswith('ifquery') and not os.geteuid() == 0:
-        print 'error: must be root to run this command'
-        exit(1)
-
-    if not utils.lockFile(lockfile):
-        print 'Another instance of this program is already running.'
-        exit(0)
 
     # required during boot
     os.putenv('PATH', ENVPATH)

@@ -6,15 +6,11 @@ ifquery
 query network interface configuration
 -------------------------------------
 
-:Author: roopa@cumulusnetworks.com
+:Author: Roopa Prabhu <roopa@cumulusnetworks.com>
 :Date:   2014-02-05
 :Copyright: Copyright 2014 Cumulus Networks, Inc.  All rights reserved.
 :Version: 0.1
 :Manual section: 8
-
-NAME
-====
-    **ifquery** - query interface configuration
 
 SYNOPSIS
 ========
@@ -36,7 +32,8 @@ DESCRIPTION
     in **/etc/network/interfaces** file.
 
     **ifquery** always works on the current **interfaces(5)** file
-    **/etc/network/interfaces**.
+    **/etc/network/interfaces** unless an alternate interfaces file is
+    provided with the **-i** option.
 
 OPTIONS
 =======
@@ -65,13 +62,24 @@ OPTIONS
                           Exclude interfaces from the list of interfaces to
                           operate on. Can be specified multiple times
 
+    -i INTERFACESFILE, --interfaces INTERFACESFILE
+                          Use interfaces file instead of default
+                          /etc/network/interfaces
+
     -r, --running         print raw interfaces file entries
 
     -c, --check           check interface file contents against running state
                           of an interface. Returns exit code 0 on success and
                           1 on error
 
-    -p, --print-dependency {list,dot} print iface dependency in list or dot format
+    -x, --raw             print raw config file entries
+
+
+    -o {native,json}, --format {native,json}
+                          interface display format
+
+    -p, --print-dependency {list,dot}
+                          print iface dependency in list or dot format
 
     -s, --syntax-help     print supported interface config syntax. Scans all
                           addon modules and dumps supported syntax from them
