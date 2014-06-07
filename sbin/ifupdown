@@ -252,7 +252,7 @@ def update_ifquery_argparser(argparser):
                        action='store_true',
                        help='check interface file contents against ' +
                        'running state of an interface')
-    group.add_argument(-x', '--raw', action='store_true', dest='raw',
+    group.add_argument('-x', '--raw', action='store_true', dest='raw',
                        help='print raw config file entries')
     group.add_argument('--print-savedstate', action='store_true',
                        dest='printsavedstate',
