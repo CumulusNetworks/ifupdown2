@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -7,7 +7,7 @@ rm -f /sbin/ifup /sbin/ifdown /sbin/ifquery
 case "$1" in
   purge)
     # Note: We don't remove /etc/network/interfaces
-    rm -f /etc/network/run/ifstate
+    rm -f /var/tmp/network/ifstatenew 
 
     if [ -L /etc/network/run ] ; then
       rm -f /etc/network/run
@@ -16,6 +16,11 @@ case "$1" in
     fi
     ;;
 esac
+
+udevlink=$(readlink /etc/udev/rules.d/80-networking.rules 2>/dev/null)
+[ -n "$udevlink" -a "$udevlink" == "/dev/null" ] && rm -f /etc/udev/rules.d/80-networking.rules
+udevlink=$(readlink /etc/udev/rules.d/60-bridge-network-interface.rules 2>/dev/null)
+[ -n "$udevlink" -a "$udevlink" == "/dev/null" ] && rm -f /etc/udev/rules.d/60-bridge-network-interface.rules
 
 if [ "$1" = "purge" ] ; then
     update-rc.d networking remove >/dev/null
