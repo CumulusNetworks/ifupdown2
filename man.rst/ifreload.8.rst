@@ -6,7 +6,7 @@ ifreload
 reload network interface configuration
 --------------------------------------
 
-:Author: roopa@cumulusnetworks.com
+:Author: Roopa Prabhu <roopa@cumulusnetworks.com>
 :Date:   2014-02-05
 :Copyright: Copyright 2014 Cumulus Networks, Inc.  All rights reserved.
 :Version: 0.1
@@ -20,11 +20,11 @@ DESCRIPTION
 ===========
     reloads network **interfaces(5)** file **/etc/network/interfaces**.
 
-    runs ifdown on interfaces that changed in the interfaces file and
-    subsequently runs ifup on all interfaces.
+    Runs **ifdown** on interfaces that changed in the interfaces file and
+    subsequently runs **ifup** on all interfaces.
 
-    ifreload is equivalent to **ifdown -a** followed by **ifup -a**
-    but it skips ifdown for interfaces that did not change in the config
+    **ifreload** is equivalent to **ifdown -a** followed by **ifup -a**
+    but it skips **ifdown** for interfaces that did not change in the config
     file.
 
 
