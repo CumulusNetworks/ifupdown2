@@ -134,6 +134,12 @@ EXAMPLES
 
         (The above command only works on a system with dot installed)
 
+KNOWN_ISSUES
+============
+    **ifquery --check** is currently experimental
+
+    **ifquery --check** cannot validate usercommands given under pre-up, post-up etc
+    There is currently no support to check/validate ethtool iface attributes
 
 SEE ALSO
 ========
