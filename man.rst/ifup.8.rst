@@ -49,9 +49,12 @@ DESCRIPTION
 
     **ifup** and **ifdown** understands interface dependency order.
 
-    For logical devices like vlans, bridges, bonds **ifup** creates the
-    interface and **ifdown** deletes the interface. Use **--no-scripts**
+    For logical interfaces like vlans, bridges, bonds, **ifup** creates the
+    interface and **ifdown** deletes the interface. Use **--admin-state**
     option if you only want to administratively bring the interface up/down.
+
+    When **ifup** and **ifdown** are used with interfaces on command line,
+    they must be have a **iface** section in the **interfaces(5)** file.
 
 OPTIONS
 =======
@@ -83,7 +86,7 @@ OPTIONS
 
     -f, --force           force run all operations
 
-    -n, --no-act          print out what would happen,but don't do it
+    -n, --no-act          print out what would happen, but don't do it
 
     -p, --print-dependency {list,dot}
                           print iface dependency in list or dot format
@@ -143,11 +146,11 @@ EXAMPLES
 
         **ifdown -a -f**
 
-    # ifdown and ifup on all interfaces using service command/init script
+    # run ifdown and ifup on all interfaces using service command/init script
 
         **service networking restart**
 
-    # ifup on all interfaces using service command/init script
+    # run ifup on all interfaces using service command/init script
 
         **service networking start**
 
@@ -155,7 +158,7 @@ EXAMPLES
 
         **service networking stop**
 
-    # Also see **ifreload(8)**
+    # To run ifup/ifdown on only interfaces that changed see **ifreload(8)**
 
 SEE ALSO
 ========

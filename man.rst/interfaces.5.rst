@@ -6,7 +6,7 @@ interfaces
 network interface configuration for ifupdown
 --------------------------------------------
 
-:Author: roopa@cumulusnetworks.com
+:Author: Roopa Prabhu <roopa@cumulusnetworks.com>
 :Date:   2014-02-05
 :Copyright: Copyright 2014 Cumulus Networks, Inc.  All rights reserved.
 :Version: 0.1
@@ -35,12 +35,10 @@ DESCRIPTION
 
         source /etc/network/interfaces.d/bridges
 
-        iface eth0-home inet static
+        iface eth0 inet static
             address 192.168.1.1/24
             up flush-mail
 
-        iface eth0-work inet dhcp
-    
         iface eth1 inet dhcp
 
     Lines beginning with the word "auto" are used to identify the physical
@@ -58,10 +56,10 @@ DESCRIPTION
     Lines beginning with "source" are used to include  stanzas  from  other
     files, so configuration can be split into many files. The word "source"
     is followed by the path of file to be sourced. Shell wildcards  can  be
-    used.  (See wordexp(3) for details.). Currently only supports absolute
+    used. Currently only supports absolute
     path names.
 
-    ifup is normally given a physical interface name as its first non-option
+    iface is normally given a interface name as its first non-option
     argument. 
 
     The interface name is followed by the name of the address family that the
@@ -70,18 +68,32 @@ DESCRIPTION
     interface.
 
     ifupdown supports iface stanzas without a family or a method. This enables
-    using the same stanza for inet and inet6 family addresses.
+    using the same stanza for inet and inet6 family addresses. And the method
+    defaults to "static"
 
-    Interface options can be given on subsequent lines in the iface stanza.
-    These options come from addon modules. see ifupdown-addons-interfaces(5) for
-    these options.
+    Additional interface options/attributes can be given on subsequent lines
+    in the iface stanza. These options come from addon modules. see
+    **ifupdown-addons-interfaces(5)** for these options.
+
+    example bridge interface with additional attributes listed in the
+    **ifupdown-addons-interfaces(5)** man page::
+
+        auto br0
+        iface br0
+            address 12.0.0.4/24
+            address 2000:1000:1000:1000:3::5/128
+            bridge-ports swp1 swp2 swp3
+            bridge-stp on
 
     ifupdown supports python-mako style templates in the interfaces file.
     See examples section for details.
 
+    See **/usr/share/doc/python-ifupdown2/examples/** for **interfaces(5)**
+    file examples and interfaces file generation scripts.
+
 METHODS
 =======
-    Both inet and inet6 address family interfaces can use the following
+    Both **inet** and **inet6** address family interfaces can use the following
     methods (However they are not required):
 
     The loopback Method
@@ -96,7 +108,7 @@ METHODS
 
 BUILTIN INTERFACES
 ==================
-    iface sections for some interfaces like physical interfaces or vlan
+    **iface** sections for some interfaces like physical interfaces or vlan
     interfaces in dot notation (like eth1.100) are understood by ifupdown.
     These interfaces do not need an entry in the interfaces file if
     they are dependents of other interfaces and dont need any specific

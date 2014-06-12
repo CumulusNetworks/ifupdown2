@@ -19,9 +19,9 @@ iface swp30
     address 2000:1000:1000:1000:3::5/128
     mtu 1600
     alias "test network"
-    duplex full
-    autoneg on
-    speed 1000
+    link-duplex full
+    link-speed 1000
+    link-autoneg off
 
 # bond interface
 auto bond3

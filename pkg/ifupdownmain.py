@@ -483,7 +483,7 @@ class ifupdownMain(ifupdownBase):
 
                     validrange = attrvaldict.get('validrange')
                     if validrange:
-                        print('%svalidrange: %d-%d'
+                        print('%svalidrange: %s-%s'
                               %(indent + '  ', validrange[0], validrange[1]))
 
                     validvals = attrvaldict.get('validvals')
