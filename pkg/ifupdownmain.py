@@ -408,7 +408,7 @@ class ifupdownMain(ifupdownBase):
         with open(self.addon_modules_configfile, 'r') as f:
             lines = f.readlines()
             for l in lines:
-                litems = l.rstrip(' \n').split(',')
+                litems = l.rstrip(' \n\t\r').split(',')
                 operation = litems[0]
                 mname = litems[1]
                 self.module_ops[operation].append(mname)
@@ -705,7 +705,8 @@ class ifupdownMain(ifupdownBase):
                                if self._iface_whitelisted(auto, allow_classes,
                                                 excludepats, i)]
         if not filtered_ifacenames:
-            raise Exception('no ifaces found matching given allow lists')
+            raise Exception('no ifaces found matching given allow lists ' +
+                    '(interfaces were probably never up)')
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
@@ -791,6 +792,7 @@ class ifupdownMain(ifupdownBase):
         """ reload interface config """
 
         allow_classes = []
+        new_ifaceobjdict = {}
 
         self.logger.debug('reloading interface config ..')
         if auto:
@@ -801,6 +803,10 @@ class ifupdownMain(ifupdownBase):
             self.read_iface_config()
         except:
             raise
+
+        if not self.ifaceobjdict:
+            self.logger.warn("nothing to reload ..exiting.")
+            return
 
         # generate dependency graph of interfaces
         self.populate_dependency_info(upops)
@@ -866,6 +872,8 @@ class ifupdownMain(ifupdownBase):
 
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
+        if not new_ifaceobjdict:
+            return
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
         ifacenames = self.ifaceobjdict.keys()
