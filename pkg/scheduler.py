@@ -150,12 +150,14 @@ class ifaceScheduler():
         if (ifupdownobj.FORCE or
                 not ifupdownobj.ADDONS_ENABLE or
                 (not ifupdownobj.is_ifaceobj_noconfig(ifaceobj) and
-                ifupdownobj.config.get('warn_on_ifdown', '0') == '0')):
+                ifupdownobj.config.get('warn_on_ifdown', '0') == '0' and
+                not ifupdownobj.ALL)):
             return True
 
         ulist = ifaceobj.upperifaces
         if not ulist:
             return True
+
         # Get the list of upper ifaces other than the parent
         tmpulist = ([u for u in ulist if u != parent] if parent
                     else ulist)
