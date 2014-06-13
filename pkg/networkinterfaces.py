@@ -15,6 +15,8 @@ import os
 from iface import *
 from template import templateEngine
 
+whitespaces = '\n\t\r '
+
 class networkInterfaces():
 
     hotplugs = {}
@@ -80,7 +82,7 @@ class networkInterfaces():
         self.callbacks[callback_name] = callback_func
 
     def ignore_line(self, line):
-        l = line.strip('\n ')
+        l = line.strip(whitespaces)
         if not l or l[0] == '#':
             return 1
         return 0
@@ -163,7 +165,7 @@ class networkInterfaces():
         line_idx = cur_idx
 
         ifaceobj = iface()
-        iface_line = lines[cur_idx].strip('\n ')
+        iface_line = lines[cur_idx].strip(whitespaces)
         iface_attrs = iface_line.split()
         ifacename = iface_attrs[1]
 
@@ -171,7 +173,7 @@ class networkInterfaces():
     
         iface_config = collections.OrderedDict()
         for line_idx in range(cur_idx + 1, len(lines)):
-            l = lines[line_idx].strip('\n\t ')
+            l = lines[line_idx].strip(whitespaces)
             if self.ignore_line(l) == 1:
                 continue
             if self._is_keyword(l.split()[0]):
@@ -247,12 +249,15 @@ class networkInterfaces():
         line_idx = 0
         lines_consumed = 0
         raw_config = filedata.split('\n')
-        lines = [l.strip(' \n') for l in raw_config]
+        lines = [l.strip(whitespaces) for l in raw_config]
         while (line_idx < len(lines)):
             if self.ignore_line(lines[line_idx]):
                 line_idx += 1
                 continue
             words = lines[line_idx].split()
+            if not words:
+                line_idx += 1
+                continue
             # Check if first element is a supported keyword
             if self._is_keyword(words[0]):
                 keyword_func = self._get_keyword_func(words[0])
