@@ -375,6 +375,11 @@ class ifaceScheduler():
 
         ifupdownobj.logger.debug('graph roots (interfaces that dont have '
                                  'dependents):' + ' %s' %str(run_queue))
-        cls.run_iface_list(ifupdownobj, run_queue, ops,
+        if run_queue:
+            cls.run_iface_list(ifupdownobj, run_queue, ops,
+                                  parent=None,order=order,
+                                  followdependents=followdependents)
+        else:
+            cls.run_iface_list(ifupdownobj, ifacenames, ops,
                                   parent=None,order=order,
                                   followdependents=followdependents)
