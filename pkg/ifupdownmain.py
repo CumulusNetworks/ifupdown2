@@ -35,6 +35,7 @@ class ifupdownMain(ifupdownBase):
     # Flags
     WITH_DEPENDS = False
     ALL = False
+    IFACE_CLASS = False
     COMPAT_EXEC_SCRIPTS = False
     STATEMANAGER_ENABLE = True
     STATEMANAGER_UPDATE = True
@@ -625,6 +626,8 @@ class ifupdownMain(ifupdownBase):
            excludepats=None, printdependency=None, syntaxcheck=False):
         """ up an interface """
 
+        if allow_classes:
+            self.IFACE_CLASS = True
         if not self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
         if auto:
             self.ALL = True
@@ -670,6 +673,8 @@ class ifupdownMain(ifupdownBase):
              excludepats=None, printdependency=None, usecurrentconfig=False):
         """ down an interface """
 
+        if allow_classes:
+            self.IFACE_CLASS = True
         if not self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
         if auto:
             self.ALL = True
@@ -726,9 +731,10 @@ class ifupdownMain(ifupdownBase):
               format='native'):
         """ query an interface """
 
+        if allow_classes:
+            self.IFACE_CLASS = True
         if self.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
-
         self.STATEMANAGER_UPDATE = False
         if auto:
             self.logger.debug('setting flag ALL')
@@ -790,7 +796,6 @@ class ifupdownMain(ifupdownBase):
     def reload(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False):
         """ reload interface config """
-
         allow_classes = []
         new_ifaceobjdict = {}
 
