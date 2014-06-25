@@ -338,11 +338,15 @@ def validate_args(op, args):
     #    return True
     if op == 'query' and args.syntaxhelp:
         return True
-    if not args.iflist and not args.all:
+    if not args.iflist and not args.all and not args.CLASS:
         print '\'-a\' option or interface list are required'
         return False
     if args.iflist and args.all:
         print '\'-a\' option and interface list are mutually exclusive'
+        return False
+    if args.CLASS and (args.all or args.iflist):
+        print ('\'--allow\' option is mutually exclusive ' +
+               'with interface list and \'-a\'')
         return False
     return True
 
