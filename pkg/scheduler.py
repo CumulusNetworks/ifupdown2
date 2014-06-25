@@ -308,6 +308,29 @@ class ifaceScheduler():
                         raise Exception('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
+    def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
+                              dependency_graph, indegrees=None):
+        if len(ifacenames) == 1:
+            return ifacenames
+        # Get a sorted list of all interfaces
+        if not indegrees:
+            indegrees = OrderedDict()
+            for ifacename in dependency_graph.keys():
+                indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
+        ifacenames_all_sorted = graph.topological_sort_graphs_all(
+                                        dependency_graph, indegrees)
+        # if ALL was set, return all interfaces
+        if ifupdownobj.ALL:
+            return ifacenames_all_sorted
+
+        # else return ifacenames passed as argument in sorted order
+        ifacenames_sorted = []
+        [ifacenames_sorted.append(ifacename)
+                        for ifacename in ifacenames_all_sorted
+                            if ifacename in ifacenames]
+        return ifacenames_sorted
+
+    @classmethod
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
@@ -322,64 +345,81 @@ class ifaceScheduler():
                             format (contains more than one dependency graph)
         ops : list of operations to perform eg ['pre-up', 'up', 'post-up']
 
-        indegrees : indegree array if present is used to determine roots
-                    of the graphs in the dependency_graph
+        indegrees : indegree array if present is used to topologically sort
+                    the graphs in the dependency_graph
         """
+        #
+        # Algo:
+        # if ALL/auto interfaces are specified,
+        #   - walk the dependency tree in postorder or inorder depending
+        #     on the operation.
+        #     (This is to run interfaces correctly in order)
+        # else:
+        #   - sort iface list if the ifaces belong to a "class"
+        #   - else just run iface list in the order they were specified
+        #
+        # Run any upperifaces if available
+        #
+        followupperifaces = []
+        run_queue = []
+        skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
+        if not skip_ifacesort and not indegrees:
+            indegrees = OrderedDict()
+            for ifacename in dependency_graph.keys():
+                indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
-        if not ifupdownobj.ALL or not followdependents or len(ifacenames) == 1:
+        if not ifupdownobj.ALL:
             # If there is any interface that does exist, maybe it is a
-            # logical interface and we have to followupperifaces
+            # logical interface and we have to followupperifaces when it
+            # comes up, so get that list.
             followupperifaces = (True if
                                     [i for i in ifacenames
                                         if not ifupdownobj.link_exists(i)]
                                         else False)
-            cls.run_iface_list(ifupdownobj, ifacenames, ops,
-                                  parent=None,order=order,
-                                  followdependents=followdependents)
-            if (not ifupdownobj.ALL and
-                    (followdependents or followupperifaces) and
-                    'up' in ops[0]):
-                # If user had given a set of interfaces to bring up
-                # try and execute 'up' on the upperifaces
-                ifupdownobj.logger.info('running upperifaces if available')
-                cls._STATE_CHECK = False
-                cls.run_iface_list_upper(ifupdownobj, ifacenames, ops,
-                                         skip_root=True)
-                cls._STATE_CHECK = True
-            return
-
-        if ifupdownobj.config.get('skip_ifacesort', '0') == '1':
-            # This is a backdoor to skip sorting of interfaces, if required
-            cls.run_iface_list(ifupdownobj, ifacenames, ops,
-                                  parent=None,order=order,
-                                  followdependents=followdependents)
-            return
-
-        run_queue = []
-        # Get a sorted list of all interfaces
-        if not indegrees:
-            indegrees = OrderedDict()
-            for ifacename in dependency_graph.keys():
-                indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
-        sorted_ifacenames = graph.topological_sort_graphs_all(dependency_graph,
-                                                          indegrees)
-        ifupdownobj.logger.debug('sorted ifacenames %s : '
-                                 %str(sorted_ifacenames))
-
-        # From the sorted list, pick interfaces that user asked
-        # and those that dont have any dependents first
-        [run_queue.append(ifacename)
-                    for ifacename in sorted_ifacenames
-                        if ifacename in ifacenames and
-                        not indegrees.get(ifacename)]
-
-        ifupdownobj.logger.debug('graph roots (interfaces that dont have '
-                                 'dependents):' + ' %s' %str(run_queue))
-        if run_queue:
-            cls.run_iface_list(ifupdownobj, run_queue, ops,
-                                  parent=None,order=order,
-                                  followdependents=followdependents)
+            if not skip_ifacesort and ifupdownobj.IFACE_CLASS:
+                # sort interfaces only if allow class was specified and
+                # not skip_ifacesort
+                run_queue = cls.get_sorted_iface_list(ifupdownobj, ifacenames,
+                                    ops, dependency_graph, indegrees)
+                if run_queue and 'up' in ops[0]:
+                    run_queue.reverse()
         else:
-            cls.run_iface_list(ifupdownobj, ifacenames, ops,
-                                  parent=None,order=order,
-                                  followdependents=followdependents)
+            # if -a is set, we dont really have to sort. We pick the interfaces
+            # that have no parents and 
+            if not skip_ifacesort:
+                sorted_ifacenames = cls.get_sorted_iface_list(ifupdownobj,
+                                            ifacenames, ops, dependency_graph,
+                                            indegrees)
+                if sorted_ifacenames:
+                    # pick interfaces that user asked
+                    # and those that dont have any dependents first
+                    [run_queue.append(ifacename)
+                        for ifacename in sorted_ifacenames
+                            if ifacename in ifacenames and
+                            not indegrees.get(ifacename)]
+                    ifupdownobj.logger.debug('graph roots (interfaces that ' +
+                            'dont have dependents):' + ' %s' %str(run_queue))
+                else:
+                    ifupdownobj.logger.warn('interface sort returned None')
+
+        # If queue not present, just run interfaces that were asked by the user
+        if not run_queue:
+            run_queue = list(ifacenames)
+            if 'down' in ops[0]:
+                run_queue.reverse()
+
+        # run interface list
+        ifupdownobj.logger.info('running interfaces: %s' %str(run_queue))
+        cls.run_iface_list(ifupdownobj, run_queue, ops,
+                           parent=None, order=order,
+                           followdependents=followdependents)
+        if (((not ifupdownobj.ALL and followdependents) or
+                followupperifaces) and
+                'up' in ops[0]):
+            # If user had given a set of interfaces to bring up
+            # try and execute 'up' on the upperifaces
+            ifupdownobj.logger.info('running upperifaces if available ..')
+            cls._STATE_CHECK = False
+            cls.run_iface_list_upper(ifupdownobj, ifacenames, ops,
+                                     skip_root=True)
+            cls._STATE_CHECK = True
