@@ -17,10 +17,8 @@ auto vlan-${v}
 iface vlan-${v} inet static
     bridge-ports glob swp1-6.${v}
     bridge-stp on
-    bridge-treeprio 32768
     bridge-ageing 200
-    bridge-maxhops 10
     bridge-maxage 10
-    bridge-fdelay 10
+    bridge-fd 10
 %endfor
 
