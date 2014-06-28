@@ -42,6 +42,7 @@ class networkInterfaces():
         self._template_engine = templateEngine(template_engine,
                                     template_lookuppath)
         self._currentfile_has_template = False
+        self._ws_split_regex = re.compile(r'[\s\t]\s*')
 
     @property
     def _currentfile(self):
@@ -90,7 +91,7 @@ class networkInterfaces():
     def process_allow(self, lines, cur_idx, lineno):
         allow_line = lines[cur_idx]
 
-        words = allow_line.split()
+        words = re.split(self._ws_split_regex, allow_line)
         if len(words) <= 1:
             raise Exception('invalid allow line \'%s\' at line %d'
                             %(allow_line, lineno))
@@ -108,7 +109,7 @@ class networkInterfaces():
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
         self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
-        sourced_file = lines[cur_idx].split(' ', 2)[1]
+        sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
         if sourced_file:
             for f in glob.glob(sourced_file):
                 self.read_file(f)
@@ -118,7 +119,7 @@ class networkInterfaces():
         return 0
 
     def process_auto(self, lines, cur_idx, lineno):
-        auto_ifaces = lines[cur_idx].split()[1:]
+        auto_ifaces = re.split(self._ws_split_regex, lines[cur_idx])[1:]
         if not auto_ifaces:
             self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
@@ -166,7 +167,7 @@ class networkInterfaces():
 
         ifaceobj = iface()
         iface_line = lines[cur_idx].strip(whitespaces)
-        iface_attrs = iface_line.split()
+        iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
 
         ifaceobj.raw_config.append(iface_line)
@@ -176,19 +177,19 @@ class networkInterfaces():
             l = lines[line_idx].strip(whitespaces)
             if self.ignore_line(l) == 1:
                 continue
-            if self._is_keyword(l.split()[0]):
+            attrs = re.split(self._ws_split_regex, l, 1)
+            if self._is_keyword(attrs[0]):
                 line_idx -= 1
                 break
-            ifaceobj.raw_config.append(l)
-            # preprocess vars (XXX: only preprocesses $IFACE for now)
-            l = re.sub(r'\$IFACE', ifacename, l)
-            attrs = l.split(' ', 1)
+            # if not a keyword, every line must have at least a key and value
             if len(attrs) < 2:
                 self._parse_error(self._currentfile, line_idx,
                         'iface %s: invalid syntax \'%s\'' %(ifacename, l))
                 continue
+            ifaceobj.raw_config.append(l)
             attrname = attrs[0]
-            attrval = attrs[1].strip(' ')
+            # preprocess vars (XXX: only preprocesses $IFACE for now)
+            attrval = re.sub(r'\$IFACE', ifacename, attrs[1])
             self._add_to_iface_config(ifacename, iface_config, attrname,
                                       attrval, line_idx+1)
         lines_consumed = line_idx - cur_idx
@@ -254,7 +255,7 @@ class networkInterfaces():
             if self.ignore_line(lines[line_idx]):
                 line_idx += 1
                 continue
-            words = lines[line_idx].split()
+            words = re.split(self._ws_split_regex, lines[line_idx])
             if not words:
                 line_idx += 1
                 continue
