@@ -48,14 +48,15 @@ class ifaceScheduler():
 
     _STATE_CHECK = True
 
+    _SCHED_RETVAL = True
+
     @classmethod
     def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv=None):
         """ Runs sub operation on an interface """
         ifacename = ifaceobj.name
 
         if (cls._STATE_CHECK and
-            (ifaceobj.state >= ifaceState.from_str(op)) and
-            (ifaceobj.status == ifaceStatus.SUCCESS)):
+            (ifaceobj.state >= ifaceState.from_str(op))):
             ifupdownobj.logger.debug('%s: already in state %s' %(ifacename, op))
             return
         if not ifupdownobj.ADDONS_ENABLE: return
@@ -84,6 +85,8 @@ class ifaceScheduler():
                 if err:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                 ifaceStatus.ERROR)
+                    if 'up' in  op or 'down' in op:
+                        cls._SCHED_RETVAL = False
                 else:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                 ifaceStatus.SUCCESS)
@@ -423,3 +426,6 @@ class ifaceScheduler():
             cls.run_iface_list_upper(ifupdownobj, ifacenames, ops,
                                      skip_root=True)
             cls._STATE_CHECK = True
+
+        if not cls._SCHED_RETVAL:
+            raise Exception()
