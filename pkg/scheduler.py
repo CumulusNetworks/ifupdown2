@@ -81,6 +81,8 @@ class ifaceScheduler():
             except Exception, e:
                 err = 1
                 ifupdownobj.log_error(str(e))
+                err = 0  # error can be ignored by log_error, in which case
+                         # reset err flag
             finally:
                 if err:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
