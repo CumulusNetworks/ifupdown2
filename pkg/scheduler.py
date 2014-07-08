@@ -84,7 +84,7 @@ class ifaceScheduler():
                 err = 0  # error can be ignored by log_error, in which case
                          # reset err flag
             finally:
-                if err:
+                if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                 ifaceStatus.ERROR)
                     if 'up' in  op or 'down' in op:
