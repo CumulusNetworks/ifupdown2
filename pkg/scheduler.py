@@ -301,16 +301,10 @@ class ifaceScheduler():
               cls.run_iface_graph_upper(ifupdownobj, ifacename, ops, parent,
                       followdependents, skip_root)
             except Exception, e:
-                if continueonfailure:
-                    if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
-                        traceback.print_tb(sys.exc_info()[2])
-                    ifupdownobj.logger.error('%s : %s' %(ifacename, str(e)))
-                    pass
-                else:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
-                        raise Exception('%s : (%s)' %(ifacename, str(e)))
+                if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
+                    traceback.print_tb(sys.exc_info()[2])
+                ifupdownobj.logger.warn('%s : %s' %(ifacename, str(e)))
+                pass
 
     @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
@@ -418,16 +412,18 @@ class ifaceScheduler():
         cls.run_iface_list(ifupdownobj, run_queue, ops,
                            parent=None, order=order,
                            followdependents=followdependents)
-        if (((not ifupdownobj.ALL and followdependents) or
+        if not cls._SCHED_RETVAL:
+            raise Exception()
+
+        if (ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
+                ((not ifupdownobj.ALL and followdependents) or
                 followupperifaces) and
                 'up' in ops[0]):
             # If user had given a set of interfaces to bring up
             # try and execute 'up' on the upperifaces
-            ifupdownobj.logger.info('running upperifaces if available ..')
+            ifupdownobj.logger.info('running upperifaces (parent interfaces) ' +
+                                    'if available ..')
             cls._STATE_CHECK = False
             cls.run_iface_list_upper(ifupdownobj, ifacenames, ops,
                                      skip_root=True)
             cls._STATE_CHECK = True
-
-        if not cls._SCHED_RETVAL:
-            raise Exception()
