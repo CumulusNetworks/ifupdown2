@@ -1,0 +1,55 @@
+Introduction
+============
+ifupdown2 is a replacement for the debian network interface
+management package ifupdown. It is ifupdown re-written in python. It
+maintains the original ifupdown pluggable architecture and extends it further.
+
+It comes as two packages:
+    * python-ifupdown2
+    * python-ifupdown2-addons
+
+(Packaging may change in the future)
+
+python-ifupdown2
+----------------
+
+The python-ifupdown2 package provides the infrastructure for
+parsing /etc/network/interfaces file, loading, scheduling, template parsing,
+state management and interface dependency generation of interfaces.
+
+It dynamically loads python modules from /usr/share/ifupdownmodules (provided
+ by the python-ifupdown2-addons package). To remain compatible with other
+packages that depend on ifupdown, it also executes scripts under /etc/network/.
+To make the transition smoother, a python module under
+/usr/share/ifupdownmodules will override a script by the same name under
+/etc/network/.
+
+It publishes an interface object which is passed to all loadble python
+modules. For more details on adding a addon module, see the section on
+adding python modules.
+
+ifupdown2 module calls all modules for every interface declared in the
+/etc/network/interfaces file.
+
+
+python-ifupdown2-addons
+-----------------------
+
+The python-ifupdown2-addons package contains ifupdown2 addon modules.
+
+addon modules are responsible for applying interface configuration.
+The modules are installed under /usr/share/ifupdownmodules.
+
+Each module can declare its own set of supported attributes. Each module
+is passed the iface object (which is a representation of /etc/network/interfaces
+iface entry). Each module is also passed the operation to be performed.
+
+Example modules are /usr/share/ifupdownmodules/address.py,
+/usr/share/ifupdownmodules/bridge.py etc
+
+The order in which these modules are invoked is listed in 
+/var/lib/ifupdownaddons/addons.conf. There is a ifaddon utility in the works
+to better manage the module ordering.
+
+For details on how to add a module, see the api reference and development
+documentation.

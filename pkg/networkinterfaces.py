@@ -18,6 +18,7 @@ from template import templateEngine
 whitespaces = '\n\t\r '
 
 class networkInterfaces():
+    """ debian ifupdown /etc/network/interfaces file parser """
 
     hotplugs = {}
     auto_ifaces = []
@@ -29,6 +30,18 @@ class networkInterfaces():
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
                  template_engine=None, template_lookuppath=None):
+        """This member function initializes the networkinterfaces parser object.
+
+        Kwargs:
+            interfacesfile (str):  path to the interfaces file (default is /etc/network/interfaces)
+            interfacesfileiobuf (object): interfaces file io stream
+            interfacesfileformat (str): format of interfaces file (choices are 'native' and 'json'. 'native' being the default)
+            template_engine (str): template engine name
+            template_lookuppath (str): template lookup path
+
+        Raises:
+            AttributeError, KeyError """
+
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
         self.callbacks = {'iface_found' : None,
@@ -76,6 +89,15 @@ class networkInterfaces():
                 ifaceobj.addr_method = 'static'
 
     def subscribe(self, callback_name, callback_func):
+        """This member function registers callback functions
+
+        Args:
+            callback_name (str): callback function name (supported names: 'iface_found', 'validateifaceattr', 'validateifaceobj')
+            callback_func (function pointer): callback function pointer
+
+        Warns on error
+        """
+
         if callback_name not in self.callbacks.keys():
             print 'warning: invalid callback ' + callback_name
             return -1
@@ -321,6 +343,11 @@ class networkInterfaces():
                 self.callbacks.get('iface_found')(ifaceobj)
         
     def load(self):
+        """ This member function loads the networkinterfaces file.
+
+        Assumes networkinterfaces parser object is initialized with the
+        parser arguments
+        """
         if self.interfacesfileformat == 'json':
             return self.read_file_json(self.interfacesfile,
                                        self.interfacesfileiobuf)

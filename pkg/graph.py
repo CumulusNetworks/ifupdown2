@@ -16,6 +16,7 @@ except ImportError, e:
     pass
 
 class graph():
+    """ graph functions to sort and print interface graph """
 
     def __init__(self):
         self.logger = logging.getLogger('ifupdown.' +
@@ -23,6 +24,12 @@ class graph():
 
     @classmethod
     def topological_sort_graphs_all(cls, dependency_graphs, indegrees_arg):
+        """ runs topological sort on interface list passed as dependency graph
+
+        Args:
+            dependency_graphs (dict): dependency graph with dependency lists for interfaces 
+            indegrees_arg (dict): indegrees array for all interfaces
+        """
         S = []
         Q = deque()
 
@@ -57,6 +64,13 @@ class graph():
 
     @classmethod
     def generate_dots(cls, dependency_graph, indegrees):
+        """ spits out interface dependency graph in dot format
+
+        Args:
+            dependency_graphs (dict): dependency graph with dependency lists for interfaces 
+            indegrees_arg (dict): indegrees array for all interfaces
+        """
+
         gvgraph = GvGen()
         graphnodes = {}
         for v in dependency_graph.keys():

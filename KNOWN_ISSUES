@@ -3,6 +3,4 @@
 - `ifquery -r` status is success for success case and also for cases where there
 is no support for query yet
 - setup.py has ifupdown listed in data section instead of scripts: This is because default location for scripts is /usr/bin/. And ifupdown default location is /sbin. With newer versions we can specify --install-scripts directory. This needs to be fixed then.
-
-
-- 
+- and more :)

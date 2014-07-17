@@ -30,20 +30,6 @@ class ifaceScheduler():
     supports scheduling of interfaces serially in plain interface list
     or dependency graph format.
 
-    Algo:
-        - run topological sort on the iface objects
-        - In the sorted iface object list, pick up interfaces with no parents
-        and run ops on them and their children. 
-        - If operation is up and user gave interface list (ie not all)
-        option, also see if there were upper-devices and run ops on them. 
-        - if operation is down, dont down the interface if it still
-        has upperifaces present. The down operation is executed when the
-        last upperiface goes away. If force option is set, this rule does not
-        apply.
-        - run ops calls addon modules run operation passing the iface
-        object and op to each module.
-        - ops are [pre-up, up, post-up, pre-down, down,
-                   post-down, query-running, query-check]
     """
 
     _STATE_CHECK = True
@@ -334,18 +320,20 @@ class ifaceScheduler():
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
                 followdependents=True):
-        """ Runs iface dependeny graph by visiting all the nodes
-        
-        Parameters:
-        -----------
-        ifupdownobj : ifupdown object (used for getting and updating iface
-                                        object state)
-        dependency_graph : dependency graph in adjacency list
-                            format (contains more than one dependency graph)
-        ops : list of operations to perform eg ['pre-up', 'up', 'post-up']
+        """ runs interface configuration modules on interfaces passed as
+            argument. Runs topological sort on interface dependency graph.
 
-        indegrees : indegree array if present is used to topologically sort
-                    the graphs in the dependency_graph
+        Args:
+            ifupdownobj (object): ifupdownMain object 
+            ifacenames (list): list of interface names
+            ops : list of operations to perform eg ['pre-up', 'up', 'post-up']
+            dependency_graph (dict): dependency graph in adjacency list format
+
+        Kwargs:
+            indegrees (dict): indegree array of the dependency graph
+            order (int): ifaceSchedulerFlags (POSTORDER, INORDER)
+            followdependents (bool): follow dependent interfaces if true
+
         """
         #
         # Algo:

@@ -24,6 +24,14 @@ from collections import OrderedDict
 from graph import *
 from sets import Set
 
+"""
+.. module:: ifupdownmain
+:synopsis: main module for ifupdown package
+
+.. moduleauthor:: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+"""
+
 _tickmark = u'\u2713'
 _crossmark = u'\u2717'
 _success_sym = _tickmark
@@ -120,6 +128,19 @@ class ifupdownMain(ifupdownBase):
                  interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None,
                  interfacesfileformat='native'):
+        """This member function initializes the ifupdownmain object.
+
+        Kwargs:
+            config (dict):  config dict from /etc/network/ifupdown2/ifupdown2.conf
+            force (bool): force interface configuration
+            dryrun (bool): dryrun interface configuration
+            withdepends (bool): apply interface configuration on all depends
+            interfacesfile (str): interfaces file. default is /etc/network/interfaces
+            interfacesfileformat (str): default is 'native'. Other choices are 'json'
+
+        Raises:
+            AttributeError, KeyError """
+
         self.logger = logging.getLogger('ifupdown')
         self.FORCE = force
         self.DRYRUN = dryrun
@@ -624,7 +645,18 @@ class ifupdownMain(ifupdownBase):
 
     def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
            excludepats=None, printdependency=None, syntaxcheck=False):
-        """ up an interface """
+        """This brings the interface(s) up
+        
+        Args:
+            ops (list): list of ops to perform on the interface(s). Eg: ['pre-up', 'up', 'post-up'
+
+        Kwargs:
+            auto (bool): act on interfaces marked auto
+            allow_classes (list): act on interfaces belonging to classes in the list
+            ifacenames (list): act on interfaces specified in this list
+            excludepats (list): list of patterns of interfaces to exclude
+            syntaxcheck (bool): only perform syntax check
+        """
 
         if allow_classes:
             self.IFACE_CLASS = True

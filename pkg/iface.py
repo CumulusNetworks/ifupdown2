@@ -11,18 +11,6 @@
 
 It closely resembles the 'iface' object in /etc/network/interfaces
 file. But can be extended to include any other network interface format
-
-
-The module contains the following public classes:
-
-    - ifaceState -- enumerates iface object state
-
-    - ifaceStatus -- enumerates iface object status (success/error)
-
-    - ifaceJsonEncoder -- Json encoder for the iface object
-
-    - iface -- network in terface object class
-
 """
 
 from collections import OrderedDict
@@ -176,17 +164,29 @@ class iface():
     def __init__(self, attrsdict={}):
         self._set_attrs_from_dict(attrsdict)
         self._config_status = {}
+        """dict with config status of iface attributes"""
         self.state = ifaceState.NEW
+        """iface state (of type ifaceState) """
         self.status = ifaceStatus.UNKNOWN
+        """iface status (of type ifaceStatus) """
         self.flags = 0x0
+        """iface flags """
         self.priv_flags = 0x0
+        """iface priv flags. can be used by the external object manager """
         self.refcnt = 0
+        """iface refcnt (incremented for each dependent this interface has) """
         self.lowerifaces = None
+        """lower iface list (in other words: slaves of this interface """
         self.upperifaces = None
+        """upper iface list (in other words: master of this interface """
         self.classes = []
+        """interface classes this iface belongs to """
         self.env = None
+        """environment variable dict required for this interface to run"""
         self.raw_config = []
+        """interface config/attributes in raw format (eg: as it appeared in the interfaces file)"""
         self.linkstate = None
+        """linkstate of the interface"""
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -196,12 +196,18 @@ class iface():
         self.config = attrdict.get('config', OrderedDict())
 
     def inc_refcnt(self):
+        """ increment refcnt of the interface. Usually used to indicate that
+        it has dependents """
         self.refcnt += 1
 
     def dec_refcnt(self):
+        """ decrement refcnt of the interface. Usually used to indicate that
+        it has lost its dependent """
         self.refcnt -= 1
 
     def is_config_present(self):
+        """ returns true if the interface has user provided config,
+        false otherwise """
         addr_method = self.addr_method
         if addr_method and addr_method in ['dhcp', 'dhcp6', 'loopback']:
             return True
@@ -211,10 +217,11 @@ class iface():
             return True
 
     def set_class(self, classname):
-        """ Appends a class to the list """
+        """ appends class to the interfaces class list """
         self.classes.append(classname)
 
     def set_state_n_status(self, state, status):
+        """ sets state and status of an interface """
         self.state = state
         self.status = status
 
@@ -225,6 +232,7 @@ class iface():
         self.flags &= ~flag
 
     def add_to_upperifaces(self, upperifacename):
+        """ add to the list of upperifaces """
         if self.upperifaces:
             if upperifacename not in self.upperifaces:
                 self.upperifaces.append(upperifacename)
@@ -232,15 +240,18 @@ class iface():
             self.upperifaces = [upperifacename]
 
     def get_attr_value(self, attr_name):
+        """ add to the list of upperifaces """
         return self.config.get(attr_name)
     
     def get_attr_value_first(self, attr_name):
+        """ get first value of the specified attr name """
         attr_value_list = self.config.get(attr_name)
         if attr_value_list:
             return attr_value_list[0]
         return None
 
     def get_attr_value_n(self, attr_name, attr_index):
+        """ get n'th value of the specified attr name """
         attr_value_list = self.config.get(attr_name)
         if attr_value_list:
             try:
@@ -251,11 +262,15 @@ class iface():
 
     @property
     def get_env(self):
+        """ get shell environment variables the interface must execute in """
         if not self.env:
             self.generate_env()
         return self.env
 
     def generate_env(self):
+        """ generate shell environment variables dict interface must execute
+        in. This is used to support legacy ifupdown scripts
+        """
         env = {}
         config = self.config
         env['IFACE'] = self.name
@@ -266,15 +281,17 @@ class iface():
             self.env = env
 
     def update_config(self, attr_name, attr_value):
+        """ add attribute name and value to the interface config """
         self.config.setdefault(attr_name, []).append(attr_value)
 
     def update_config_dict(self, attrdict):
         self.config.update(attrdict)
 
     def update_config_with_status(self, attr_name, attr_value, attr_status=0):
+        """ add attribute name and value to the interface config and also
+        update the config_status dict with status of this attribute config """
         if not attr_value:
             attr_value = ''
-
         self.config.setdefault(attr_name, []).append(attr_value)
         self._config_status.setdefault(attr_name, []).append(attr_status)
 
@@ -286,10 +303,13 @@ class iface():
             self.status = ifaceStatus.SUCCESS
 
     def get_config_attr_status(self, attr_name, idx=0):
+        """ get status of a attribute config on this interface.
+        
+        Looks at the iface _config_status dict"""
         return self._config_status.get(attr_name, [])[idx]
 
     def compare(self, dstiface):
-        """ Compares two objects
+        """ compares iface object with iface object passed as argument
 
         Returns True if object self is same as dstiface and False otherwise """
 

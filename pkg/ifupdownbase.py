@@ -11,7 +11,7 @@ import logging
 import subprocess
 import re
 import os
-from ifupdown.iface import *
+from iface import *
 
 class ifupdownBase(object):
 

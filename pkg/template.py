@@ -5,6 +5,7 @@ import traceback
 from utils import *
 
 class templateEngine():
+    """ has template rendering methods """
 
     def __init__(self, template_engine, template_lookuppath=None):
         self.logger = logging.getLogger('ifupdown.' +

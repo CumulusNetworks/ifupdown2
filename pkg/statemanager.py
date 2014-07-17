@@ -17,6 +17,7 @@ class pickling():
 
     @classmethod
     def save(cls, filename, list_of_objects):
+        """ pickle a list of iface objects """
         try:
             with open(filename, 'w') as f:
                 for obj in list_of_objects:
@@ -26,6 +27,7 @@ class pickling():
 
     @classmethod
     def save_obj(cls, f, obj):
+        """ pickle iface object """
         try:
             cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
         except:
@@ -33,6 +35,7 @@ class pickling():
 
     @classmethod
     def load(cls, filename):
+        """ load picked iface object """
         with open(filename, 'r') as f:
             while True:
                 try: yield cPickle.load(f)
@@ -40,12 +43,26 @@ class pickling():
                 except: raise
 
 class stateManager():
-    """ state manager for managing ifupdown iface obj state """
+    """ state manager for managing ifupdown iface obj state
+
+    ifupdown2 has to maitain old objects for down operation on
+    interfaces. ie to down or delete old configuration.
+
+    This class uses pickle to store iface objects.
+
+    """
 
     state_dir = '/var/tmp/network/'
+    """directory where the state file is stored """
+
     state_filename = 'ifstatenew'
+    """name of the satefile """
 
     def __init__(self):
+        """ Initializes statemanager internal state
+
+        which includes a dictionary of last pickled iface objects
+        """
         self.ifaceobjdict = OrderedDict()
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
@@ -58,6 +75,12 @@ class stateManager():
                             []).append(ifaceobj)
 
     def read_saved_state(self, filename=None):
+        """This member function reads saved iface objects
+
+        Kwargs:
+            filename (str): name of the state file
+        """
+
         pickle_filename = filename
         if not pickle_filename:
             pickle_filename = self.state_file
@@ -70,6 +93,13 @@ class stateManager():
         return self.ifaceobjdict.get(ifacename)
 
     def ifaceobj_sync(self, ifaceobj, op):
+        """This member function sync's new obj state to old statemanager state
+
+        Args:
+            ifaceobj (object): new iface object
+            op (str): ifupdown operation
+        """
+
         self.logger.debug('%s: statemanager sync state' %ifaceobj.name)
         old_ifaceobjs = self.ifaceobjdict.get(ifaceobj.name)
         if 'up' in op:
@@ -105,6 +135,8 @@ class stateManager():
                 oidx += 1
 
     def save_state(self):
+        """ saves state (ifaceobjects) to persistent state file """
+
         try:
             with open(self.state_file, 'w') as f:
                 if not len(self.ifaceobjdict):
