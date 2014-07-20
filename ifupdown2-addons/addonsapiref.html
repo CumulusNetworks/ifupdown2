@@ -1,0 +1,272 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Documentation for the ifupdownaddons default addons modules &mdash; ifupdown2-addons 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="ifupdown2-addons 0.1 documentation" href="index.html" />
+    <link rel="up" title="Development Corner" href="developmentcorner.html" />
+    <link rel="next" title="Documentation for the ifupdownaddons package helper modules" href="addonshelperapiref.html" />
+    <link rel="prev" title="Development Corner" href="developmentcorner.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="addonshelperapiref.html" title="Documentation for the ifupdownaddons package helper modules"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="developmentcorner.html" title="Development Corner"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">ifupdown2-addons 0.1 documentation</a> &raquo;</li>
+          <li><a href="developmentcorner.html" accesskey="U">Development Corner</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="documentation-for-the-ifupdownaddons-default-addons-modules">
+<h1>Documentation for the ifupdownaddons default addons modules<a class="headerlink" href="#documentation-for-the-ifupdownaddons-default-addons-modules" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-address">
+<span id="address"></span><h2>address<a class="headerlink" href="#module-address" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="address.address">
+<em class="property">class </em><tt class="descclassname">address.</tt><tt class="descname">address</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#address.address" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure address, mtu, hwaddress, alias
+(description) on an interface</p>
+<dl class="method">
+<dt id="address.address.run">
+<tt class="descname">run</tt><big>(</big><em>ifaceobj</em>, <em>operation</em>, <em>query_ifaceobj=None</em><big>)</big><a class="headerlink" href="#address.address.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>run address configuration on the interface object passed as argument</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first"><strong>ifaceobj</strong> (object): iface object</p>
+<dl class="last docutils">
+<dt><strong>operation</strong> (str): any of &#8216;up&#8217;, &#8216;down&#8217;, &#8216;query-checkcurr&#8217;,</dt>
+<dd>&#8216;query-running&#8217;</dd>
+</dl>
+</dd>
+<dt>Kwargs:</dt>
+<dd><dl class="first last docutils">
+<dt>query_ifaceobj (object): query check ifaceobject. This is only</dt>
+<dd>valid when op is &#8216;query-checkcurr&#8217;. It is an object same as
+ifaceobj, but contains running attribute values and its config
+status. The modules can use it to return queried running state
+of interfaces. status is success if the running state is same
+as user required state in ifaceobj. error otherwise.</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="address.address.get_ops">
+<tt class="descname">get_ops</tt><big>(</big><big>)</big><a class="headerlink" href="#address.address.get_ops" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns list of ops supported by this module</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-bridge">
+<span id="bridge"></span><h2>bridge<a class="headerlink" href="#module-bridge" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bridge.bridge">
+<em class="property">class </em><tt class="descclassname">bridge.</tt><tt class="descname">bridge</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#bridge.bridge" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure linux bridges</p>
+<dl class="method">
+<dt id="bridge.bridge.run">
+<tt class="descname">run</tt><big>(</big><em>ifaceobj</em>, <em>operation</em>, <em>query_ifaceobj=None</em><big>)</big><a class="headerlink" href="#bridge.bridge.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>run bridge configuration on the interface object passed as
+argument. Can create bridge interfaces if they dont exist already</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first"><strong>ifaceobj</strong> (object): iface object</p>
+<dl class="last docutils">
+<dt><strong>operation</strong> (str): any of &#8216;pre-up&#8217;, &#8216;post-down&#8217;, &#8216;query-checkcurr&#8217;,</dt>
+<dd>&#8216;query-running&#8217;</dd>
+</dl>
+</dd>
+<dt>Kwargs:</dt>
+<dd><dl class="first last docutils">
+<dt><strong>query_ifaceobj</strong> (object): query check ifaceobject. This is only</dt>
+<dd>valid when op is &#8216;query-checkcurr&#8217;. It is an object same as
+ifaceobj, but contains running attribute values and its config
+status. The modules can use it to return queried running state
+of interfaces. status is success if the running state is same
+as user required state in ifaceobj. error otherwise.</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="bridge.bridge.get_ops">
+<tt class="descname">get_ops</tt><big>(</big><big>)</big><a class="headerlink" href="#bridge.bridge.get_ops" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns list of ops supported by this module</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-dhcp">
+<span id="dhcp"></span><h2>dhcp<a class="headerlink" href="#module-dhcp" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="dhcp.dhcp">
+<em class="property">class </em><tt class="descclassname">dhcp.</tt><tt class="descname">dhcp</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#dhcp.dhcp" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure dhcp on interface</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-ethtool">
+<span id="ethtool"></span><h2>ethtool<a class="headerlink" href="#module-ethtool" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ethtool.ethtool">
+<em class="property">class </em><tt class="descclassname">ethtool.</tt><tt class="descname">ethtool</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#ethtool.ethtool" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure ethtool attributes</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-ifenslave">
+<span id="ifenslave"></span><h2>ifenslave<a class="headerlink" href="#module-ifenslave" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ifenslave.ifenslave">
+<em class="property">class </em><tt class="descclassname">ifenslave.</tt><tt class="descname">ifenslave</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#ifenslave.ifenslave" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure bond interfaces</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-mstpctl">
+<span id="mstpctl"></span><h2>mstpctl<a class="headerlink" href="#module-mstpctl" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="mstpctl.mstpctl">
+<em class="property">class </em><tt class="descclassname">mstpctl.</tt><tt class="descname">mstpctl</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#mstpctl.mstpctl" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure mstp attributes</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-usercmds">
+<span id="usercmds"></span><h2>usercmds<a class="headerlink" href="#module-usercmds" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="usercmds.usercmds">
+<em class="property">class </em><tt class="descclassname">usercmds.</tt><tt class="descname">usercmds</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#usercmds.usercmds" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure user specified commands</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-vlan">
+<span id="vlan"></span><h2>vlan<a class="headerlink" href="#module-vlan" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="vlan.vlan">
+<em class="property">class </em><tt class="descclassname">vlan.</tt><tt class="descname">vlan</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#vlan.vlan" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 addon module to configure vlans</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Documentation for the ifupdownaddons default addons modules</a><ul>
+<li><a class="reference internal" href="#module-address">address</a></li>
+<li><a class="reference internal" href="#module-bridge">bridge</a></li>
+<li><a class="reference internal" href="#module-dhcp">dhcp</a></li>
+<li><a class="reference internal" href="#module-ethtool">ethtool</a></li>
+<li><a class="reference internal" href="#module-ifenslave">ifenslave</a></li>
+<li><a class="reference internal" href="#module-mstpctl">mstpctl</a></li>
+<li><a class="reference internal" href="#module-usercmds">usercmds</a></li>
+<li><a class="reference internal" href="#module-vlan">vlan</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="developmentcorner.html"
+                        title="previous chapter">Development Corner</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="addonshelperapiref.html"
+                        title="next chapter">Documentation for the ifupdownaddons package helper modules</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/addonsapiref.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="addonshelperapiref.html" title="Documentation for the ifupdownaddons package helper modules"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="developmentcorner.html" title="Development Corner"
+             >previous</a> |</li>
+        <li><a href="index.html">ifupdown2-addons 0.1 documentation</a> &raquo;</li>
+          <li><a href="developmentcorner.html" >Development Corner</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Roopa Prabhu.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

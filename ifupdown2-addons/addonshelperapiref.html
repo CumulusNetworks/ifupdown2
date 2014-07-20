@@ -1,0 +1,170 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Documentation for the ifupdownaddons package helper modules &mdash; ifupdown2-addons 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="ifupdown2-addons 0.1 documentation" href="index.html" />
+    <link rel="up" title="Development Corner" href="developmentcorner.html" />
+    <link rel="prev" title="Documentation for the ifupdownaddons default addons modules" href="addonsapiref.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="addonsapiref.html" title="Documentation for the ifupdownaddons default addons modules"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">ifupdown2-addons 0.1 documentation</a> &raquo;</li>
+          <li><a href="developmentcorner.html" accesskey="U">Development Corner</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="documentation-for-the-ifupdownaddons-package-helper-modules">
+<h1>Documentation for the ifupdownaddons package helper modules<a class="headerlink" href="#documentation-for-the-ifupdownaddons-package-helper-modules" title="Permalink to this headline">¶</a></h1>
+<p>This package contains modules that provide helper methods
+for ifupdown2 addon modules to interact directly with tools
+like iproute2, brctl etc.</p>
+<div class="section" id="bridgeutils-py">
+<h2>bridgeutils.py<a class="headerlink" href="#bridgeutils-py" title="Permalink to this headline">¶</a></h2>
+<p>Helper module to work with bridgeutil commands</p>
+<span class="target" id="module-bridgeutils"></span><dl class="class">
+<dt id="bridgeutils.brctl">
+<em class="property">class </em><tt class="descclassname">bridgeutils.</tt><tt class="descname">brctl</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#bridgeutils.brctl" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class contains helper functions to interact with the bridgeutils
+commands</p>
+</dd></dl>
+
+</div>
+<div class="section" id="ifenslaveutil-py">
+<h2>ifenslaveutil.py<a class="headerlink" href="#ifenslaveutil-py" title="Permalink to this headline">¶</a></h2>
+<p>Helper module to interact with linux api to create bonds.
+Currently this is via sysfs.</p>
+<span class="target" id="module-ifenslaveutil"></span><dl class="class">
+<dt id="ifenslaveutil.ifenslaveutil">
+<em class="property">class </em><tt class="descclassname">ifenslaveutil.</tt><tt class="descname">ifenslaveutil</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#ifenslaveutil.ifenslaveutil" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class contains methods to interact with linux kernel bond
+related interfaces</p>
+</dd></dl>
+
+</div>
+<div class="section" id="dhclient-py">
+<h2>dhclient.py<a class="headerlink" href="#dhclient-py" title="Permalink to this headline">¶</a></h2>
+<p>Helper module to interact with dhclient tools.</p>
+<span class="target" id="module-dhclient"></span><dl class="class">
+<dt id="dhclient.dhclient">
+<em class="property">class </em><tt class="descclassname">dhclient.</tt><tt class="descname">dhclient</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#dhclient.dhclient" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class contains helper methods to interact with the dhclient
+utility</p>
+</dd></dl>
+
+</div>
+<div class="section" id="iproute2-py">
+<h2>iproute2.py<a class="headerlink" href="#iproute2-py" title="Permalink to this headline">¶</a></h2>
+<p>Helper module to interact with iproute2 tools.</p>
+<span class="target" id="module-iproute2"></span><dl class="class">
+<dt id="iproute2.iproute2">
+<em class="property">class </em><tt class="descclassname">iproute2.</tt><tt class="descname">iproute2</tt><big>(</big><em>*args</em>, <em>**kargs</em><big>)</big><a class="headerlink" href="#iproute2.iproute2" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class contains helper methods to cache and interact with the
+commands in the iproute2 package</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Documentation for the ifupdownaddons package helper modules</a><ul>
+<li><a class="reference internal" href="#bridgeutils-py">bridgeutils.py</a></li>
+<li><a class="reference internal" href="#ifenslaveutil-py">ifenslaveutil.py</a></li>
+<li><a class="reference internal" href="#dhclient-py">dhclient.py</a></li>
+<li><a class="reference internal" href="#iproute2-py">iproute2.py</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="addonsapiref.html"
+                        title="previous chapter">Documentation for the ifupdownaddons default addons modules</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/addonshelperapiref.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="addonsapiref.html" title="Documentation for the ifupdownaddons default addons modules"
+             >previous</a> |</li>
+        <li><a href="index.html">ifupdown2-addons 0.1 documentation</a> &raquo;</li>
+          <li><a href="developmentcorner.html" >Development Corner</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Roopa Prabhu.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

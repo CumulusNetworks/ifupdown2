@@ -1,0 +1,523 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>User Guide &mdash; ifupdown2 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="ifupdown2 0.1 documentation" href="index.html" />
+    <link rel="next" title="Development Corner" href="developmentcorner.html" />
+    <link rel="prev" title="Getting Started" href="gettingstarted.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="developmentcorner.html" title="Development Corner"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="gettingstarted.html" title="Getting Started"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="user-guide">
+<span id="ifupdown"></span><span id="index-0"></span><h1>User Guide<a class="headerlink" href="#user-guide" title="Permalink to this headline">¶</a></h1>
+<p>Keep the following points in mind before you start configuring interfaces using
+<tt class="docutils literal"><span class="pre">ifupdown2</span></tt>:</p>
+<ul class="simple">
+<li>IPv4 and IPv6 addresses for an interface can be listed in the same <tt class="docutils literal"><span class="pre">iface</span></tt>
+section. For examples, see <tt class="docutils literal"><span class="pre">/usr/share/doc/python-ifupdown2/examples/</span></tt>.</li>
+<li>Do not use a legacy interface alias. They are only supported for backward
+compatibility with <tt class="docutils literal"><span class="pre">ifupdown</span></tt>. They do get configured, but <tt class="docutils literal"><span class="pre">ifquery</span></tt> has
+problems recognizing them.</li>
+<li><tt class="docutils literal"><span class="pre">ifupdown</span></tt> only understands interfaces that were configured using
+<tt class="docutils literal"><span class="pre">ifupdown</span></tt>. Any interfaces created with a command other than <tt class="docutils literal"><span class="pre">ifupdown</span></tt>
+(like <tt class="docutils literal"><span class="pre">brctl</span></tt>) must be de-configured in the same manner.</li>
+<li>Use globs for port lists wherever applicable. Regular expressions work as well,
+however regular expressions require all matching interfaces to be present in
+the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file. And declaring all interfaces in the <tt class="docutils literal"><span class="pre">interfaces</span></tt>
+file leads to losing all the advantages that built-in interfaces provide.</li>
+<li>Extensions to <tt class="docutils literal"><span class="pre">ifquery</span></tt> help with validation and debugging.</li>
+<li>By default, <tt class="docutils literal"><span class="pre">ifupdown</span></tt> is quiet; use the verbose option <tt class="docutils literal"><span class="pre">-v</span></tt> when you want
+to know what is going on when bringing an interface down or up.</li>
+</ul>
+<div class="section" id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><a class="reference internal" href="#commands">Commands</a></li>
+<li><a class="reference internal" href="#man-pages">Man Pages</a></li>
+<li><a class="reference internal" href="#configuration-files">Configuration Files</a></li>
+<li><a class="reference internal" href="#ifupdown-built-in-interfaces">ifupdown Built-in Interfaces</a></li>
+<li><a class="reference internal" href="#ifupdown-interface-dependencies">ifupdown Interface Dependencies</a></li>
+<li><a class="reference internal" href="#configuring-ip-addresses">Configuring IP Addresses</a></li>
+<li><a class="reference internal" href="#specifying-user-commands">Specifying User Commands</a></li>
+<li><a class="reference internal" href="#sourcing-interface-file-snippets">Sourcing Interface File Snippets</a></li>
+<li><a class="reference internal" href="#using-globs-for-port-lists">Using Globs for Port Lists</a></li>
+<li><a class="reference internal" href="#using-templates">Using Templates</a></li>
+<li><a class="reference internal" href="#using-ifquery-to-validate-and-debug-interface-configurations">Using ifquery to Validate and Debug Interface Configurations</a></li>
+<li><a class="reference internal" href="#useful-links">Useful Links</a></li>
+</ul>
+</div>
+<div class="section" id="commands">
+<h2>Commands<a class="headerlink" href="#commands" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>ifdown</li>
+<li>ifquery</li>
+<li>ifreload</li>
+<li>ifup</li>
+</ul>
+</div>
+<div class="section" id="man-pages">
+<h2>Man Pages<a class="headerlink" href="#man-pages" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>man ifdown(8)</li>
+<li>man ifquery(8)</li>
+<li>man ifreload</li>
+<li>man ifup(8)</li>
+<li>man ifupdown-addons-interfaces(5)</li>
+<li>man interfaces(5)</li>
+</ul>
+</div>
+<div class="section" id="configuration-files">
+<h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>/etc/network/interfaces</li>
+</ul>
+</div>
+<div class="section" id="ifupdown-built-in-interfaces">
+<h2>ifupdown Built-in Interfaces<a class="headerlink" href="#ifupdown-built-in-interfaces" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">ifupdown</span></tt> understands VLAN interfaces and physical interfaces that may appear
+as dependents. There is no need to list them unless they need the specific
+configuration or they need to match a regular expression used in the
+<tt class="docutils literal"><span class="pre">interfaces</span></tt> file. Use globs to avoid limitations with regular expressions.</p>
+<p>For example, swp1.100 and swp2.100 below do not need an entry in the
+<tt class="docutils literal"><span class="pre">interfaces</span></tt> file:</p>
+<div class="highlight-python"><pre>auto br-100
+iface br-100
+    address 10.0.12.2/24
+    address 2001:dad:beef::3/64
+    bridge-ports swp1.100 swp2.100
+    bridge-stp on</pre>
+</div>
+</div>
+<div class="section" id="ifupdown-interface-dependencies">
+<h2>ifupdown Interface Dependencies<a class="headerlink" href="#ifupdown-interface-dependencies" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">ifupdown</span></tt> understands interface dependency relationships. When <tt class="docutils literal"><span class="pre">ifup</span></tt> and
+<tt class="docutils literal"><span class="pre">ifdown</span></tt> are run with all interfaces, they always run with all interfaces
+in dependency order. When run with the interface list on the command line, the
+default behavior is to not run with dependents. But if there are any built-in
+dependents, they will be brought up or down.</p>
+<p>To run with dependents when you specify the interface list, use the
+<tt class="docutils literal"><span class="pre">--with-depends</span></tt> option. <tt class="docutils literal"><span class="pre">--with-depends</span></tt> walks through all dependents
+in the dependency tree rooted at the interface you specify. Consider the
+following example configuration:</p>
+<div class="highlight-python"><pre>auto bond1
+iface bond1
+    address 100.0.0.2/16
+    bond-slaves swp29 swp30
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier 1
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+
+auto bond2
+iface bond2
+    address 100.0.0.5/16
+    bond-slaves swp31 swp32
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier 1
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+
+auto br2001
+iface br2001
+    address 12.0.1.3/24
+    bridge-ports bond1.2001 bond2.2001
+    bridge-stp on</pre>
+</div>
+<p>Specifying <tt class="docutils literal"><span class="pre">ifup</span> <span class="pre">--with-depends</span> <span class="pre">br2001</span></tt> brings up all dependents: bond1.2001,
+bond2.2001, bond1, bond2, bond1.2001, bond2.2001, swp29, swp30, swp31, swp32.</p>
+<p>Similarly, specifying <tt class="docutils literal"><span class="pre">ifdown</span> <span class="pre">--with-depends</span> <span class="pre">br2001</span></tt> brings down all
+dependents: bond1.2001, bond2.2001, bond1, bond2, bond1.2001, bond2.2001, swp29,
+swp30, swp31, swp32.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last"><tt class="docutils literal"><span class="pre">ifdown</span></tt> always deletes logical interfaces after bringing them
+down. Use the <tt class="docutils literal"><span class="pre">--admin-state</span></tt> option if you only want to administratively
+bring the interface up or down. In terms of the above example,
+<tt class="docutils literal"><span class="pre">ifdown</span> <span class="pre">br2001</span></tt> deletes <tt class="docutils literal"><span class="pre">br2001</span></tt>.</p>
+</div>
+<p>To guide you through which interfaces will be brought down and up, use the
+<tt class="docutils literal"><span class="pre">--print-dependency</span></tt> option to get the list of dependents.</p>
+<p>Use <tt class="docutils literal"><span class="pre">ifup</span> <span class="pre">--print-dependency=list</span> <span class="pre">-a</span></tt> to get the dependency list of all
+interfaces:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifup --print-dependency=list -a
+lo : None
+eth0 : None
+bond0 : ['swp25', 'swp26']
+bond1 : ['swp29', 'swp30']
+bond2 : ['swp31', 'swp32']
+br0 : ['bond1', 'bond2']
+bond1.2000 : ['bond1']
+bond2.2000 : ['bond2']
+br2000 : ['bond1.2000', 'bond2.2000']
+bond1.2001 : ['bond1']
+bond2.2001 : ['bond2']
+br2001 : ['bond1.2001', 'bond2.2001']
+swp40 : None
+swp25 : None
+swp26 : None
+swp29 : None
+swp30 : None
+swp31 : None
+swp32 : None</pre>
+</div>
+<p>To print the dependency list of a single interface, use:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifup --print-dependency=list br2001
+br2001 : ['bond1.2001', 'bond2.2001']
+bond1.2001 : ['bond1']
+bond2.2001 : ['bond2']
+bond1 : ['swp29', 'swp30']
+bond2 : ['swp31', 'swp32']
+swp29 : None
+swp30 : None
+swp31 : None
+swp32 : None</pre>
+</div>
+<p>To print the dependency information of an interface in <tt class="docutils literal"><span class="pre">dot</span></tt> format:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifup --print-dependency=dot br2001
+/* Generated by GvGen v.0.9 (http://software.inl.fr/trac/wiki/GvGen) */
+digraph G {
+    compound=true;
+    node1 [label="br2001"];
+    node2 [label="bond1.2001"];
+    node3 [label="bond2.2001"];
+    node4 [label="bond1"];
+    node5 [label="bond2"];
+    node6 [label="swp29"];
+    node7 [label="swp30"];
+    node8 [label="swp31"];
+    node9 [label="swp32"];
+    node1-&gt;node2;
+    node1-&gt;node3;
+    node2-&gt;node4;
+    node3-&gt;node5;
+    node4-&gt;node6;
+    node4-&gt;node7;
+    node5-&gt;node8;
+    node5-&gt;node9;
+}</pre>
+</div>
+<p>You can use <tt class="docutils literal"><span class="pre">dot</span></tt> to render the graph on an external system where <tt class="docutils literal"><span class="pre">dot</span></tt> is
+installed.</p>
+<img alt="_images/interfaces.png" src="_images/interfaces.png" />
+<p>To print the dependency information of the entire <tt class="docutils literal"><span class="pre">interfaces</span></tt> file:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifup --print-dependency=dot -a &gt;interfaces_all.dot</pre>
+</div>
+<img alt="_images/interfaces_all.png" src="_images/interfaces_all.png" style="width: 800px;" />
+</div>
+<div class="section" id="configuring-ip-addresses">
+<h2>Configuring IP Addresses<a class="headerlink" href="#configuring-ip-addresses" title="Permalink to this headline">¶</a></h2>
+<p>In <tt class="docutils literal"><span class="pre">/etc/network/interfaces</span></tt>, list all IP addresses as shown below under the
+<tt class="docutils literal"><span class="pre">iface</span></tt> section (see <tt class="docutils literal"><span class="pre">man</span> <span class="pre">interfaces</span></tt> for more information):</p>
+<div class="highlight-python"><pre>auto swp1
+iface swp1
+    address 12.0.0.1/30
+    address 12.0.0.2/30</pre>
+</div>
+<p>The address method and address family are not mandatory. They default to
+<tt class="docutils literal"><span class="pre">inet</span></tt>/<tt class="docutils literal"><span class="pre">inet6</span></tt> and <tt class="docutils literal"><span class="pre">static</span></tt> by default, but <tt class="docutils literal"><span class="pre">inet</span></tt>/<tt class="docutils literal"><span class="pre">inet6</span></tt> <strong>must</strong> be
+specified if you need to specify <tt class="docutils literal"><span class="pre">dhcp</span></tt> or <tt class="docutils literal"><span class="pre">loopback</span></tt>.</p>
+<p>You can specify both IPv4 and IPv6 addresses under the same <tt class="docutils literal"><span class="pre">iface</span></tt> section:</p>
+<div class="highlight-python"><pre>auto swp1
+iface swp1
+    address 12.0.0.1/30
+    address 12.0.0.2/30
+    address 2001:dee:eeef:2::1/64</pre>
+</div>
+</div>
+<div class="section" id="specifying-user-commands">
+<h2>Specifying User Commands<a class="headerlink" href="#specifying-user-commands" title="Permalink to this headline">¶</a></h2>
+<p>You can specify additional user commands in the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file. As shown in
+the example below, the interface stanzas in <tt class="docutils literal"><span class="pre">/etc/network/interfaces</span></tt> can have
+a command that runs at pre-up, up, post-up, pre-down, down, and post-down:</p>
+<div class="highlight-python"><pre>auto swp1
+iface swp1
+    address 12.0.0.1/30
+    up /sbin/foo bar</pre>
+</div>
+<p>Any valid command can be hooked in the sequencing of bringing an interface up or
+down, although commands should be limited in scope to network-related commands
+associated with the particular interface.</p>
+<p>For example, it wouldn&#8217;t make sense to install some Debian package on <tt class="docutils literal"><span class="pre">ifup</span></tt>
+of swp1, even though that is technically possible. See <tt class="docutils literal"><span class="pre">man</span> <span class="pre">interfaces</span></tt> for
+more details.</p>
+</div>
+<div class="section" id="sourcing-interface-file-snippets">
+<h2>Sourcing Interface File Snippets<a class="headerlink" href="#sourcing-interface-file-snippets" title="Permalink to this headline">¶</a></h2>
+<p>Sourcing interface files helps organize and manage the <tt class="docutils literal"><span class="pre">interfaces(5)</span></tt> file.
+For example:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ cat /etc/network/interfaces
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+
+source /etc/network/interfaces.d/bond0</pre>
+</div>
+<p>The contents of the sourced file used above are:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ cat /etc/network/interfaces.d/bond0
+auto bond0
+iface bond0
+    address 14.0.0.9/30
+    address 2001:ded:beef:2::1/64
+    bond-slaves swp25 swp26
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier 1
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4</pre>
+</div>
+</div>
+<div class="section" id="using-globs-for-port-lists">
+<h2>Using Globs for Port Lists<a class="headerlink" href="#using-globs-for-port-lists" title="Permalink to this headline">¶</a></h2>
+<p>Some modules support globs to describe port lists. You can use globs to specify
+bridge ports and bond slaves:</p>
+<div class="highlight-python"><pre>auto br0
+iface br0
+    bridge-ports glob swp1-6.100
+
+auto br1
+iface br1
+    bridge-ports glob swp7-9.100  swp11.100 glob swp15-18.100</pre>
+</div>
+</div>
+<div class="section" id="using-templates">
+<h2>Using Templates<a class="headerlink" href="#using-templates" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">ifupdown2</span></tt> supports Mako-style templates. For more information see
+<a class="reference external" href="http://www.makotemplates.org/">www.makotemplates.org</a>. The Mako template
+engine is run over the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file before parsing.</p>
+<p>Use the template to declare cookie-cutter bridges in the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file:</p>
+<div class="highlight-python"><pre>%for v in [11,12]:
+auto vlan${v}
+iface vlan${v}
+    address 10.20.${v}.3/24
+    bridge-ports glob swp19-20.${v}
+    bridge-stp on
+%endfor</pre>
+</div>
+<p>And use it to declare addresses in the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file:</p>
+<div class="highlight-python"><pre>%for i in [1,12]:
+auto swp${i}
+iface swp${i}
+    address 10.20.${i}.3/24</pre>
+</div>
+</div>
+<div class="section" id="using-ifquery-to-validate-and-debug-interface-configurations">
+<h2>Using ifquery to Validate and Debug Interface Configurations<a class="headerlink" href="#using-ifquery-to-validate-and-debug-interface-configurations" title="Permalink to this headline">¶</a></h2>
+<p>You use <tt class="docutils literal"><span class="pre">ifquery</span></tt> to print parsed <tt class="docutils literal"><span class="pre">interfaces</span></tt> file entries.</p>
+<p>To use <tt class="docutils literal"><span class="pre">ifquery</span></tt> to pretty print <tt class="docutils literal"><span class="pre">iface</span></tt> entries from the <tt class="docutils literal"><span class="pre">interfaces</span></tt>
+file, run:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifquery bond0
+auto bond0
+iface bond0
+    address 14.0.0.9/30
+    address 2001:ded:beef:2::1/64
+    bond-slaves swp25 swp26
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier 1
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4</pre>
+</div>
+<p>Use <tt class="docutils literal"><span class="pre">ifquery</span> <span class="pre">--check</span></tt> to check the current running state of an interface within
+the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file. It returns exit code <tt class="docutils literal"><span class="pre">0</span></tt> or <tt class="docutils literal"><span class="pre">1</span></tt> if the configuration
+does not match:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifquery --check bond0
+iface bond0
+        bond-mode 802.3ad  (✓)
+        bond-miimon 100  (✓)
+        bond-use-carrier 1  (✓)
+        bond-lacp-rate 1  (✓)
+        bond-min-links 1  (✓)
+        bond-xmit-hash-policy layer3+4  (✓)
+        bond-slaves swp25 swp26  (✓)
+        address 14.0.0.9/30  (✓)
+        address 2001:ded:beef:2::1/64  (✓)</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><tt class="docutils literal"><span class="pre">ifquery</span> <span class="pre">--check</span></tt> is an experimental feature.</p>
+</div>
+<p>Use <tt class="docutils literal"><span class="pre">ifquery</span> <span class="pre">--running</span></tt> to print the running state of interfaces in the
+<tt class="docutils literal"><span class="pre">interfaces</span></tt> file format:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifquery --running bond0
+auto bond0
+iface bond0
+    bond-xmit-hash-policy layer3+4
+    bond-miimon 100
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-slaves swp25 swp26
+    bond-mode 802.3ad
+    address 14.0.0.9/30
+    address 2001:ded:beef:2::1/64</pre>
+</div>
+<p><tt class="docutils literal"><span class="pre">ifquery</span> <span class="pre">--syntax-help</span></tt> provides help on all possible attributes supported in
+the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file. For complete syntax on the <tt class="docutils literal"><span class="pre">interfaces</span></tt> file, see
+<tt class="docutils literal"><span class="pre">man</span> <span class="pre">interfaces</span></tt> and <tt class="docutils literal"><span class="pre">man</span> <span class="pre">ifupdown-addons-interfaces</span></tt>.</p>
+<p><tt class="docutils literal"><span class="pre">ifquery</span></tt> can dump information in JSON format:</p>
+<div class="highlight-python"><pre>cumulus@switch:~$ sudo ifquery --format=json bond0
+{
+    "auto": true,
+    "config": {
+        "bond-use-carrier": "1",
+        "bond-xmit-hash-policy": "layer3+4",
+        "bond-miimon": "100",
+        "bond-lacp-rate": "1",
+        "bond-min-links": "1",
+        "bond-slaves": "swp25 swp26",
+        "bond-mode": "802.3ad",
+        "address": [
+            "14.0.0.9/30",
+            "2001:ded:beef:2::1/64"
+        ]
+    },
+    "addr_method": null,
+    "name": "bond0",
+    "addr_family": null
+}</pre>
+</div>
+</div>
+<div class="section" id="useful-links">
+<h2>Useful Links<a class="headerlink" href="#useful-links" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><a class="reference external" href="http://wiki.debian.org/NetworkConfiguration">http://wiki.debian.org/NetworkConfiguration</a></li>
+<li><a class="reference external" href="http://www.linuxfoundation.org/collaborate/workgroups/networking/bonding">http://www.linuxfoundation.org/collaborate/workgroups/networking/bonding</a></li>
+<li><a class="reference external" href="http://www.linuxfoundation.org/collaborate/workgroups/networking/bridge">http://www.linuxfoundation.org/collaborate/workgroups/networking/bridge</a></li>
+<li><a class="reference external" href="http://www.linuxfoundation.org/collaborate/workgroups/networking/vlan">http://www.linuxfoundation.org/collaborate/workgroups/networking/vlan</a></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">User Guide</a><ul>
+<li><a class="reference internal" href="#contents">Contents</a></li>
+<li><a class="reference internal" href="#commands">Commands</a></li>
+<li><a class="reference internal" href="#man-pages">Man Pages</a></li>
+<li><a class="reference internal" href="#configuration-files">Configuration Files</a></li>
+<li><a class="reference internal" href="#ifupdown-built-in-interfaces">ifupdown Built-in Interfaces</a></li>
+<li><a class="reference internal" href="#ifupdown-interface-dependencies">ifupdown Interface Dependencies</a></li>
+<li><a class="reference internal" href="#configuring-ip-addresses">Configuring IP Addresses</a></li>
+<li><a class="reference internal" href="#specifying-user-commands">Specifying User Commands</a></li>
+<li><a class="reference internal" href="#sourcing-interface-file-snippets">Sourcing Interface File Snippets</a></li>
+<li><a class="reference internal" href="#using-globs-for-port-lists">Using Globs for Port Lists</a></li>
+<li><a class="reference internal" href="#using-templates">Using Templates</a></li>
+<li><a class="reference internal" href="#using-ifquery-to-validate-and-debug-interface-configurations">Using ifquery to Validate and Debug Interface Configurations</a></li>
+<li><a class="reference internal" href="#useful-links">Useful Links</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="gettingstarted.html"
+                        title="previous chapter">Getting Started</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="developmentcorner.html"
+                        title="next chapter">Development Corner</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/userguide.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="developmentcorner.html" title="Development Corner"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="gettingstarted.html" title="Getting Started"
+             >previous</a> |</li>
+        <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Roopa Prabhu.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

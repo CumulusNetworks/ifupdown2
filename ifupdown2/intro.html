@@ -1,0 +1,174 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Introduction &mdash; ifupdown2 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="ifupdown2 0.1 documentation" href="index.html" />
+    <link rel="next" title="Getting Started" href="gettingstarted.html" />
+    <link rel="prev" title="Welcome to ifupdown2’s documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="gettingstarted.html" title="Getting Started"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to ifupdown2’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>ifupdown2 is a replacement for the debian network interface
+management package ifupdown. It is ifupdown re-written in python. It
+maintains the original ifupdown pluggable architecture and extends it further.</p>
+<dl class="docutils">
+<dt>It comes as two packages:</dt>
+<dd><ul class="first last simple">
+<li>python-ifupdown2</li>
+<li>python-ifupdown2-addons</li>
+</ul>
+</dd>
+</dl>
+<p>(Packaging may change in the future)</p>
+<div class="section" id="python-ifupdown2">
+<h2>python-ifupdown2<a class="headerlink" href="#python-ifupdown2" title="Permalink to this headline">¶</a></h2>
+<p>The python-ifupdown2 package provides the infrastructure for
+parsing /etc/network/interfaces file, loading, scheduling, template parsing,
+state management and interface dependency generation of interfaces.</p>
+<p>It dynamically loads python modules from /usr/share/ifupdownmodules (provided
+by the python-ifupdown2-addons package). To remain compatible with other
+packages that depend on ifupdown, it also executes scripts under /etc/network/.
+To make the transition smoother, a python module under
+/usr/share/ifupdownmodules will override a script by the same name under
+/etc/network/.</p>
+<p>It publishes an interface object which is passed to all loadble python
+modules. For more details on adding a addon module, see the section on
+adding python modules.</p>
+<p>ifupdown2 module calls all modules for every interface declared in the
+/etc/network/interfaces file.</p>
+</div>
+<div class="section" id="python-ifupdown2-addons">
+<h2>python-ifupdown2-addons<a class="headerlink" href="#python-ifupdown2-addons" title="Permalink to this headline">¶</a></h2>
+<p>The python-ifupdown2-addons package contains ifupdown2 addon modules.
+All addon modules must be python modules.</p>
+<p>addon modules are responsible for applying interface configuration.
+The modules are installed under /usr/share/ifupdownmodules.</p>
+<p>Each module can declare its own set of supported attributes. Each module
+is passed the iface object. An iface object represents an iface entry in
+/etc/network/interfaces. Each module is also passed the operation to be
+performed.</p>
+<p>Example modules are /usr/share/ifupdownmodules/address.py,
+/usr/share/ifupdownmodules/bridge.py etc</p>
+<p>The order in which these modules are invoked is listed in
+/var/lib/ifupdownaddons/addons.conf. There is a ifaddon utility in the works
+to better manage the module ordering.</p>
+<p>For details on how to add a module, see the api reference and development
+documentation.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Introduction</a><ul>
+<li><a class="reference internal" href="#python-ifupdown2">python-ifupdown2</a></li>
+<li><a class="reference internal" href="#python-ifupdown2-addons">python-ifupdown2-addons</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to ifupdown2&#8217;s documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="gettingstarted.html"
+                        title="next chapter">Getting Started</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/intro.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="gettingstarted.html" title="Getting Started"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to ifupdown2’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Roopa Prabhu.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

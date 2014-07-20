@@ -1,0 +1,441 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Documentation for the Code &mdash; ifupdown2 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="ifupdown2 0.1 documentation" href="index.html" />
+    <link rel="up" title="Development Corner" href="developmentcorner.html" />
+    <link rel="prev" title="Development Corner" href="developmentcorner.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="developmentcorner.html" title="Development Corner"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li>
+          <li><a href="developmentcorner.html" accesskey="U">Development Corner</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="documentation-for-the-code">
+<h1>Documentation for the Code<a class="headerlink" href="#documentation-for-the-code" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="ifupdownmain">
+<h2>ifupdownmain<a class="headerlink" href="#ifupdownmain" title="Permalink to this headline">¶</a></h2>
+<p>ifupdownmain is the main ifupdown module.</p>
+<span class="target" id="module-ifupdownmain"></span><dl class="class">
+<dt id="ifupdownmain.ifupdownMain">
+<em class="property">class </em><tt class="descclassname">ifupdownmain.</tt><tt class="descname">ifupdownMain</tt><big>(</big><em>config={}</em>, <em>force=False</em>, <em>dryrun=False</em>, <em>nowait=False</em>, <em>perfmode=False</em>, <em>withdepends=False</em>, <em>njobs=1</em>, <em>cache=False</em>, <em>addons_enable=True</em>, <em>statemanager_enable=True</em>, <em>interfacesfile='/etc/network/interfaces'</em>, <em>interfacesfileiobuf=None</em>, <em>interfacesfileformat='native'</em><big>)</big><a class="headerlink" href="#ifupdownmain.ifupdownMain" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 main class</p>
+<dl class="method">
+<dt id="ifupdownmain.ifupdownMain.up">
+<tt class="descname">up</tt><big>(</big><em>ops</em>, <em>auto=False</em>, <em>allow_classes=None</em>, <em>ifacenames=None</em>, <em>excludepats=None</em>, <em>printdependency=None</em>, <em>syntaxcheck=False</em><big>)</big><a class="headerlink" href="#ifupdownmain.ifupdownMain.up" title="Permalink to this definition">¶</a></dt>
+<dd><p>This brings the interface(s) up</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>ops (list): list of ops to perform on the interface(s). Eg: [&#8216;pre-up&#8217;, &#8216;up&#8217;, &#8216;post-up&#8217;</dd>
+<dt>Kwargs:</dt>
+<dd>auto (bool): act on interfaces marked auto
+allow_classes (list): act on interfaces belonging to classes in the list
+ifacenames (list): act on interfaces specified in this list
+excludepats (list): list of patterns of interfaces to exclude
+syntaxcheck (bool): only perform syntax check</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ifupdownmain.ifupdownMain.down">
+<tt class="descname">down</tt><big>(</big><em>ops</em>, <em>auto=False</em>, <em>allow_classes=None</em>, <em>ifacenames=None</em>, <em>excludepats=None</em>, <em>printdependency=None</em>, <em>usecurrentconfig=False</em><big>)</big><a class="headerlink" href="#ifupdownmain.ifupdownMain.down" title="Permalink to this definition">¶</a></dt>
+<dd><p>down an interface</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ifupdownmain.ifupdownMain.reload">
+<tt class="descname">reload</tt><big>(</big><em>upops</em>, <em>downops</em>, <em>auto=False</em>, <em>allow=None</em>, <em>ifacenames=None</em>, <em>excludepats=None</em>, <em>usecurrentconfig=False</em><big>)</big><a class="headerlink" href="#ifupdownmain.ifupdownMain.reload" title="Permalink to this definition">¶</a></dt>
+<dd><p>reload interface config</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ifupdownmain.ifupdownMain.query">
+<tt class="descname">query</tt><big>(</big><em>ops</em>, <em>auto=False</em>, <em>allow_classes=None</em>, <em>ifacenames=None</em>, <em>excludepats=None</em>, <em>printdependency=None</em>, <em>format='native'</em><big>)</big><a class="headerlink" href="#ifupdownmain.ifupdownMain.query" title="Permalink to this definition">¶</a></dt>
+<dd><p>query an interface</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-iface">
+<span id="iface"></span><h2>iface<a class="headerlink" href="#module-iface" title="Permalink to this headline">¶</a></h2>
+<p>ifupdown2 network interface object</p>
+<p>It is modeled based on the &#8216;iface&#8217; section in /etc/network/interfaces
+file. But can be extended to include any other network interface format</p>
+<dl class="class">
+<dt id="iface.iface">
+<em class="property">class </em><tt class="descclassname">iface.</tt><tt class="descname">iface</tt><big>(</big><em>attrsdict={}</em><big>)</big><a class="headerlink" href="#iface.iface" title="Permalink to this definition">¶</a></dt>
+<dd><p>ifupdown2 iface object class</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd><p class="first"><strong>name</strong>      Name of the interface</p>
+<dl class="docutils">
+<dt><strong>addr_family</strong>     Address family eg, inet, inet6. Can be None to</dt>
+<dd>indicate both address families</dd>
+<dt><strong>addr_method</strong>     Address method eg, static, manual or None for</dt>
+<dd>static address method</dd>
+</dl>
+<p><strong>config</strong>          dictionary of config lines for this interface</p>
+<dl class="docutils">
+<dt><strong>state</strong>           Configuration state of an interface as defined by</dt>
+<dd>ifaceState</dd>
+<dt><strong>status</strong>          Configuration status of an interface as defined by</dt>
+<dd>ifaceStatus</dd>
+</dl>
+<p><strong>flags</strong>           Internal flags used by iface processing</p>
+<p><strong>priv_flags</strong>      private flags owned by module using this class</p>
+<dl class="docutils">
+<dt><strong>refcnt</strong>          reference count, indicating number of interfaces</dt>
+<dd>dependent on this iface</dd>
+<dt><strong>lowerifaces</strong>     list of interface names lower to this interface or</dt>
+<dd>this interface depends on</dd>
+<dt><strong>upperifaces</strong>     list of interface names upper to this interface or</dt>
+<dd>the interfaces that depend on this interface</dd>
+</dl>
+<p><strong>auto</strong>            True if interface belongs to the auto class</p>
+<p><strong>classes</strong>         List of classes the interface belongs to</p>
+<dl class="docutils">
+<dt><strong>env</strong>             shell environment the interface needs during</dt>
+<dd>execution</dd>
+</dl>
+<p class="last"><strong>raw_config</strong>      raw interface config from file</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="iface.iface.add_to_upperifaces">
+<tt class="descname">add_to_upperifaces</tt><big>(</big><em>upperifacename</em><big>)</big><a class="headerlink" href="#iface.iface.add_to_upperifaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>add to the list of upperifaces</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.get_attr_value">
+<tt class="descname">get_attr_value</tt><big>(</big><em>attr_name</em><big>)</big><a class="headerlink" href="#iface.iface.get_attr_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>add to the list of upperifaces</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.get_attr_value_first">
+<tt class="descname">get_attr_value_first</tt><big>(</big><em>attr_name</em><big>)</big><a class="headerlink" href="#iface.iface.get_attr_value_first" title="Permalink to this definition">¶</a></dt>
+<dd><p>get first value of the specified attr name</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.get_attr_value_n">
+<tt class="descname">get_attr_value_n</tt><big>(</big><em>attr_name</em>, <em>attr_index</em><big>)</big><a class="headerlink" href="#iface.iface.get_attr_value_n" title="Permalink to this definition">¶</a></dt>
+<dd><p>get n&#8217;th value of the specified attr name</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.update_config">
+<tt class="descname">update_config</tt><big>(</big><em>attr_name</em>, <em>attr_value</em><big>)</big><a class="headerlink" href="#iface.iface.update_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>add attribute name and value to the interface config</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.update_config_with_status">
+<tt class="descname">update_config_with_status</tt><big>(</big><em>attr_name</em>, <em>attr_value</em>, <em>attr_status=0</em><big>)</big><a class="headerlink" href="#iface.iface.update_config_with_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>add attribute name and value to the interface config and also
+update the config_status dict with status of this attribute config</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.get_config_attr_status">
+<tt class="descname">get_config_attr_status</tt><big>(</big><em>attr_name</em>, <em>idx=0</em><big>)</big><a class="headerlink" href="#iface.iface.get_config_attr_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>get status of a attribute config on this interface.</p>
+<p>Looks at the iface _config_status dict</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="iface.iface.compare">
+<tt class="descname">compare</tt><big>(</big><em>dstiface</em><big>)</big><a class="headerlink" href="#iface.iface.compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>compares iface object with iface object passed as argument</p>
+<p>Returns True if object self is same as dstiface and False otherwise</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="iface.ifaceState">
+<em class="property">class </em><tt class="descclassname">iface.</tt><tt class="descname">ifaceState</tt><a class="headerlink" href="#iface.ifaceState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enumerates iface state</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="iface.ifaceStatus">
+<em class="property">class </em><tt class="descclassname">iface.</tt><tt class="descname">ifaceStatus</tt><a class="headerlink" href="#iface.ifaceStatus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enumerates iface status</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="iface.ifaceJsonEncoder">
+<em class="property">class </em><tt class="descclassname">iface.</tt><tt class="descname">ifaceJsonEncoder</tt><big>(</big><em>skipkeys=False</em>, <em>ensure_ascii=True</em>, <em>check_circular=True</em>, <em>allow_nan=True</em>, <em>sort_keys=False</em>, <em>indent=None</em>, <em>separators=None</em>, <em>encoding='utf-8'</em>, <em>default=None</em><big>)</big><a class="headerlink" href="#iface.ifaceJsonEncoder" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-scheduler">
+<span id="scheduler"></span><h2>scheduler<a class="headerlink" href="#module-scheduler" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="scheduler.ifaceScheduler">
+<em class="property">class </em><tt class="descclassname">scheduler.</tt><tt class="descname">ifaceScheduler</tt><a class="headerlink" href="#scheduler.ifaceScheduler" title="Permalink to this definition">¶</a></dt>
+<dd><p>scheduler functions to schedule configuration of interfaces.</p>
+<p>supports scheduling of interfaces serially in plain interface list
+or dependency graph format.</p>
+<dl class="classmethod">
+<dt id="scheduler.ifaceScheduler.sched_ifaces">
+<em class="property">classmethod </em><tt class="descname">sched_ifaces</tt><big>(</big><em>ifupdownobj</em>, <em>ifacenames</em>, <em>ops</em>, <em>dependency_graph=None</em>, <em>indegrees=None</em>, <em>order=2</em>, <em>followdependents=True</em><big>)</big><a class="headerlink" href="#scheduler.ifaceScheduler.sched_ifaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>runs interface configuration modules on interfaces passed as
+argument. Runs topological sort on interface dependency graph.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first"><strong>ifupdownobj</strong> (object): ifupdownMain object</p>
+<p><strong>ifacenames</strong> (list): list of interface names</p>
+<p><strong>ops</strong> : list of operations to perform eg [&#8216;pre-up&#8217;, &#8216;up&#8217;, &#8216;post-up&#8217;]</p>
+<p class="last"><strong>dependency_graph</strong> (dict): dependency graph in adjacency list format</p>
+</dd>
+<dt>Kwargs:</dt>
+<dd><p class="first"><strong>indegrees</strong> (dict): indegree array of the dependency graph</p>
+<p><strong>order</strong> (int): ifaceSchedulerFlags (POSTORDER, INORDER)</p>
+<p class="last"><strong>followdependents</strong> (bool): follow dependent interfaces if true</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="scheduler.ifaceSchedulerFlags">
+<em class="property">class </em><tt class="descclassname">scheduler.</tt><tt class="descname">ifaceSchedulerFlags</tt><a class="headerlink" href="#scheduler.ifaceSchedulerFlags" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enumerates scheduler flags</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-networkinterfaces">
+<span id="networkinterfaces"></span><h2>networkinterfaces<a class="headerlink" href="#module-networkinterfaces" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="networkinterfaces.networkInterfaces">
+<em class="property">class </em><tt class="descclassname">networkinterfaces.</tt><tt class="descname">networkInterfaces</tt><big>(</big><em>interfacesfile='/etc/network/interfaces'</em>, <em>interfacesfileiobuf=None</em>, <em>interfacesfileformat='native'</em>, <em>template_engine=None</em>, <em>template_lookuppath=None</em><big>)</big><a class="headerlink" href="#networkinterfaces.networkInterfaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>debian ifupdown /etc/network/interfaces file parser</p>
+<dl class="method">
+<dt id="networkinterfaces.networkInterfaces.load">
+<tt class="descname">load</tt><big>(</big><big>)</big><a class="headerlink" href="#networkinterfaces.networkInterfaces.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>This member function loads the networkinterfaces file.</p>
+<p>Assumes networkinterfaces parser object is initialized with the
+parser arguments</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="networkinterfaces.networkInterfaces.subscribe">
+<tt class="descname">subscribe</tt><big>(</big><em>callback_name</em>, <em>callback_func</em><big>)</big><a class="headerlink" href="#networkinterfaces.networkInterfaces.subscribe" title="Permalink to this definition">¶</a></dt>
+<dd><p>This member function registers callback functions.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first"><strong>callback_name</strong> (str): callback function name (supported names: &#8216;iface_found&#8217;, &#8216;validateifaceattr&#8217;, &#8216;validateifaceobj&#8217;)</p>
+<p class="last"><strong>callback_func</strong> (function pointer): callback function pointer</p>
+</dd>
+</dl>
+<p>Warns on error</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-statemanager">
+<span id="statemanager"></span><h2>statemanager<a class="headerlink" href="#module-statemanager" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="statemanager.pickling">
+<em class="property">class </em><tt class="descclassname">statemanager.</tt><tt class="descname">pickling</tt><a class="headerlink" href="#statemanager.pickling" title="Permalink to this definition">¶</a></dt>
+<dd><p>class with helper methods for pickling/unpickling iface objects</p>
+<dl class="classmethod">
+<dt id="statemanager.pickling.save">
+<em class="property">classmethod </em><tt class="descname">save</tt><big>(</big><em>filename</em>, <em>list_of_objects</em><big>)</big><a class="headerlink" href="#statemanager.pickling.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>pickle a list of iface objects</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="statemanager.pickling.save_obj">
+<em class="property">classmethod </em><tt class="descname">save_obj</tt><big>(</big><em>f</em>, <em>obj</em><big>)</big><a class="headerlink" href="#statemanager.pickling.save_obj" title="Permalink to this definition">¶</a></dt>
+<dd><p>pickle iface object</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="statemanager.pickling.load">
+<em class="property">classmethod </em><tt class="descname">load</tt><big>(</big><em>filename</em><big>)</big><a class="headerlink" href="#statemanager.pickling.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>load picked iface object</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="statemanager.stateManager">
+<em class="property">class </em><tt class="descclassname">statemanager.</tt><tt class="descname">stateManager</tt><a class="headerlink" href="#statemanager.stateManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>state manager for managing ifupdown iface obj state</p>
+<p>ifupdown2 has to maitain old objects for down operation on
+interfaces. ie to down or delete old configuration.</p>
+<p>This class uses pickle to store iface objects.</p>
+<dl class="method">
+<dt id="statemanager.stateManager.read_saved_state">
+<tt class="descname">read_saved_state</tt><big>(</big><em>filename=None</em><big>)</big><a class="headerlink" href="#statemanager.stateManager.read_saved_state" title="Permalink to this definition">¶</a></dt>
+<dd><p>This member function reads saved iface objects</p>
+<dl class="docutils">
+<dt>Kwargs:</dt>
+<dd>filename (str): name of the state file</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="statemanager.stateManager.save_state">
+<tt class="descname">save_state</tt><big>(</big><big>)</big><a class="headerlink" href="#statemanager.stateManager.save_state" title="Permalink to this definition">¶</a></dt>
+<dd><p>saves state (ifaceobjects) to persistent state file</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-graph">
+<span id="graph"></span><h2>graph<a class="headerlink" href="#module-graph" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="graph.graph">
+<em class="property">class </em><tt class="descclassname">graph.</tt><tt class="descname">graph</tt><a class="headerlink" href="#graph.graph" title="Permalink to this definition">¶</a></dt>
+<dd><p>graph functions to sort and print interface graph</p>
+<dl class="classmethod">
+<dt id="graph.graph.topological_sort_graphs_all">
+<em class="property">classmethod </em><tt class="descname">topological_sort_graphs_all</tt><big>(</big><em>dependency_graphs</em>, <em>indegrees_arg</em><big>)</big><a class="headerlink" href="#graph.graph.topological_sort_graphs_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>runs topological sort on interface list passed as dependency graph</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><dl class="first docutils">
+<dt><strong>dependency_graphs</strong> (dict): dependency graph with dependency</dt>
+<dd>lists for interfaces</dd>
+</dl>
+<p class="last"><strong>indegrees_arg</strong> (dict): indegrees array for all interfaces</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="graph.graph.generate_dots">
+<em class="property">classmethod </em><tt class="descname">generate_dots</tt><big>(</big><em>dependency_graph</em>, <em>indegrees</em><big>)</big><a class="headerlink" href="#graph.graph.generate_dots" title="Permalink to this definition">¶</a></dt>
+<dd><p>spits out interface dependency graph in dot format</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><dl class="first docutils">
+<dt><strong>dependency_graphs</strong> (dict): dependency graph with dependency</dt>
+<dd>lists for interfaces</dd>
+</dl>
+<p class="last"><strong>indegrees_arg</strong> (dict): indegrees array for all interfaces</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Documentation for the Code</a><ul>
+<li><a class="reference internal" href="#ifupdownmain">ifupdownmain</a></li>
+<li><a class="reference internal" href="#module-iface">iface</a></li>
+<li><a class="reference internal" href="#module-scheduler">scheduler</a></li>
+<li><a class="reference internal" href="#module-networkinterfaces">networkinterfaces</a></li>
+<li><a class="reference internal" href="#module-statemanager">statemanager</a></li>
+<li><a class="reference internal" href="#module-graph">graph</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="developmentcorner.html"
+                        title="previous chapter">Development Corner</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/apiref.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="developmentcorner.html" title="Development Corner"
+             >previous</a> |</li>
+        <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li>
+          <li><a href="developmentcorner.html" >Development Corner</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Roopa Prabhu.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
