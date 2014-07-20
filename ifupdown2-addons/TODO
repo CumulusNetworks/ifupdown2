@@ -1,0 +1,13 @@
+TODO:
+====
+- run python code guideline checker
+- more code documentation
+- move all cache handling to decorators in ifupdownaddons package
+- input validation (present in some cases not all)
+- support the vlan0004 style vlans
+- ifquery coverage. currently it is at 80%.
+- vxlan module
+- fix and release ifaddon utility to manage module priorities
+- Deep compare in query for address module (does not compare address attributes like scope)
+- Maybe a pure netlink backend 
+- improve caching

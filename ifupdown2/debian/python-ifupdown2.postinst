@@ -1,0 +1,91 @@
+#!/bin/bash
+set -e
+
+MYNAME="${0##*/}"
+
+report() { echo "${MYNAME}: $*" ; }
+report_warn() { report "Warning: $*" >&2 ; }
+report_err() { report "Error: $*" >&2 ; }
+
+case "$1" in
+    configure)
+        # Create /etc/network/run 
+        [ -d /run/network ] || mkdir -p /run/network
+
+        # for backward compatibility
+        if [ ! -f /etc/network/run ]; then
+            ln -sf /run/network /etc/network/run
+        fi
+
+        ln -sf /usr/share/python-ifupdown2/generate_interfaces.py /usr/share/doc/python-ifupdown2/examples/generate_interfaces.py
+
+        [ -d /etc/network/if-pre-up.d ] || mkdir -p /etc/network/if-pre-up.d
+        [ -d /etc/network/if-up.d ] || mkdir -p /etc/network/if-up.d
+        [ -d /etc/network/if-post-up.d ] || mkdir -p /etc/network/if-post-up.d
+
+        [ -d /etc/network/if-pre-down.d ] || mkdir -p /etc/network/if-pre-down.d
+        [ -d /etc/network/if-down.d ] || mkdir -p /etc/network/if-down.d
+        [ -d /etc/network/if-post-down.d ] || mkdir -p /etc/network/if-post-down.d
+
+
+        # Generic stuff done on all configurations
+        if [ -f /etc/network/interfaces ] ; then
+            # TODO: This should be handled with debconf and the script
+            # could introduce the line there directly
+            if ! grep -q "^[[:space:]]*iface[[:space:]]\+lo0\?[[:space:]]\+inet[[:space:]]\+loopback\>" /etc/network/interfaces ; then
+                report_warn "No 'iface lo' definition found in /etc/network/interfaces"
+            fi
+
+            if ! grep -q "^[[:space:]]*\(allow-\|\)auto[[:space:]]\+\(.*[[:space:]]\+\|\)lo0\?\([[:space:]]\+\|$\)" /etc/network/interfaces ; then
+                report_warn "No 'auto lo' statement found in /etc/network/interfaces"
+            fi
+        else  # ! -f /etc/network/interfaces
+            if [ -z "$2" ]; then
+                echo "Creating /etc/network/interfaces."
+                echo "# interfaces(5) file used by ifup(8) and ifdown(8)" > /etc/network/interfaces
+                echo "auto lo" >> /etc/network/interfaces
+                    echo "iface lo inet loopback" >> /etc/network/interfaces
+            else
+                    report_warn "/etc/network/interfaces does not exist"
+            fi
+        fi
+
+        [ -e /sbin/ifup ] || ln -s /sbin/ifupdown /sbin/ifup
+        [ -e /sbin/ifdown ] || ln -s /sbin/ifupdown /sbin/ifdown
+        [ -e /sbin/ifquery ] || ln -s /sbin/ifupdown /sbin/ifquery
+        [ -e /sbin/ifreload ] || ln -s /sbin/ifupdown /sbin/ifreload
+
+        (cd /usr/share/man/man8/ && ln -sf /usr/share/man/man8/ifup.8.gz ifdown.8.gz)
+
+        mkdir -p /etc/network/interfaces.d/
+        ;;
+
+  purge)
+    # Note: We don't remove /etc/network/interfaces
+    rm -f /run/network/ifstate
+    rm -f /sbin/ifquery
+    rm -f /sbin/ifup
+    rm -f /sbin/ifdown
+    rm -f /usr/share/doc/python-ifupdown2/generate_interfaces.py
+    ;;
+esac
+
+# override default udev bridge and hotplug rules because they interfere with
+# networking init script
+udev_user_rulesdir=/etc/udev/rules.d/
+udev_sys_rulesdir=/lib/udev/rules.d/
+if [ -e $udev_user_rulesdir ]; then
+    udev_ifupdown2_overrides=("80-networking.rules" "60-bridge-network-interface.rules")
+    for u in ${udev_ifupdown2_overrides[*]}
+    do
+        if [ -e ${udev_sys_rulesdir}/$u -a ! -e ${udev_user_rulesdir}/$u ]; then
+            (cd ${udev_user_rulesdir} && ln -sf /dev/null $u)
+        fi
+    done
+fi
+
+if [ -x "/etc/init.d/networking" ]; then
+    update-rc.d networking start 40 S . start 35 0 6 . >/dev/null || exit $?
+fi
+
+#DEBHELPER#
