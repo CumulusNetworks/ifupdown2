@@ -167,7 +167,7 @@ stop)
 	check_network_swap
 
 	log_action_begin_msg "Deconfiguring network interfaces"
-	if ifdown -a --exclude=lo $verbose; then
+	if ifdown -a $verbose; then
 	    log_action_end_msg $?
 	else
 	    log_action_end_msg $?
@@ -204,10 +204,10 @@ restart)
 	ifupdown_init
 
 	log_action_begin_msg "Reconfiguring network interfaces"
-	ifdown -a --exclude=lo $verbose || true
+	ifdown -a $verbose || true
 	set -f
 	exclusions=$(process_exclusions)
-	if ifup -a --exclude=lo $verbose
+	if ifup -a $verbose
 	then
 	    log_action_end_msg $?
 	else
