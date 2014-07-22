@@ -6,8 +6,8 @@ for ifupdown2 addon modules to interact directly with tools
 like iproute2, brctl etc.
 
 
-bridgeutils.py
-==============
+bridgeutils
+===========
 
 Helper module to work with bridgeutil commands
 
@@ -15,8 +15,8 @@ Helper module to work with bridgeutil commands
 
 .. autoclass:: brctl
 
-ifenslaveutil.py
-================
+ifenslaveutil
+=============
 
 Helper module to interact with linux api to create bonds.
 Currently this is via sysfs.
@@ -25,8 +25,8 @@ Currently this is via sysfs.
 
 .. autoclass:: ifenslaveutil
 
-dhclient.py
-===========
+dhclient
+========
 
 Helper module to interact with dhclient tools.
 
@@ -34,8 +34,8 @@ Helper module to interact with dhclient tools.
 
 .. autoclass:: dhclient
 
-iproute2.py
-===========
+iproute2
+========
 
 Helper module to interact with iproute2 tools.
 

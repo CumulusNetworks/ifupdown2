@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# ifupdown2 documentation build configuration file, created by
-# sphinx-quickstart on Sun Jul  6 23:49:20 2014.
+# ifupdown2-addons documentation build configuration file, created by
+# sphinx-quickstart on Mon Jul 21 11:17:17 2014.
 #
 # This file is execfile()d with the current directory set to its containing dir.
 #
@@ -16,14 +16,12 @@ import sys, os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
+#sys.path.insert(0, os.path.abspath('.'))
+
 sys.path.insert(0, os.path.abspath('../../addons'))
 sys.path.append(os.path.abspath('../../'))
 sys.path.append(os.path.abspath('../../ifupdownaddons'))
 sys.path.append(os.path.abspath('../../../ifupdown2'))
-
-#sys.path.insert(0, os.path.abspath('/work/monster-03/roopa/cumulus-2.1-multimac/packages/ifupdown2-addons/pkg'))
-#sys.path.append(os.path.abspath('/work/monster-03/roopa/cumulus-2.1-multimac/packages/ifupdown2/pkg'))
-#sys.path.append(os.path.abspath('/work/monster-03/roopa/cumulus-2.1-multimac/packages/ifupdown2/'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -32,7 +30,7 @@ sys.path.append(os.path.abspath('../../../ifupdown2'))
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinx.ext.todo']
+extensions = ['sphinx.ext.autodoc']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -171,7 +169,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'ifupdown2doc'
+htmlhelp_basename = 'ifupdown2-addonsdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -190,7 +188,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'ifupdown2.tex', u'ifupdown2 Documentation',
+  ('index', 'ifupdown2-addons.tex', u'ifupdown2-addons Documentation',
    u'Roopa Prabhu', 'manual'),
 ]
 
@@ -220,7 +218,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'ifupdown2', u'ifupdown2 Documentation',
+    ('index', 'ifupdown2-addons', u'ifupdown2-addons Documentation',
      [u'Roopa Prabhu'], 1)
 ]
 
@@ -234,8 +232,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'ifupdown2', u'ifupdown2 Documentation',
-   u'Roopa Prabhu', 'ifupdown2', 'One line description of project.',
+  ('index', 'ifupdown2-addons', u'ifupdown2-addons Documentation',
+   u'Roopa Prabhu', 'ifupdown2-addons', 'One line description of project.',
    'Miscellaneous'),
 ]
 
@@ -247,7 +245,3 @@ texinfo_documents = [
 
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
-
-
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'http://docs.python.org/': None}
