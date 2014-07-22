@@ -1,5 +1,5 @@
 python-ifupdown2
-----------------
+================
 
 The python-ifupdown2 package provides the infrastructure for
 parsing /etc/network/interfaces file, loading, scheduling, template parsing,

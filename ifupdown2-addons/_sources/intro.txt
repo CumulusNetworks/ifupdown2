@@ -1,5 +1,5 @@
 python-ifupdown2-addons
------------------------
+=======================
 
 The python-ifupdown2-addons package contains ifupdown2 addon modules.
 
