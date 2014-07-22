@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2013.  Cumulus Networks, Inc.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # iface --
@@ -9,7 +9,7 @@
 
 """ifupdown2 network interface object
 
-It closely resembles the 'iface' object in /etc/network/interfaces
+It is modeled based on the 'iface' section in /etc/network/interfaces
 file. But can be extended to include any other network interface format
 """
 
@@ -129,30 +129,46 @@ class ifaceJsonDecoder():
         return iface(attrsdict=ifaceattrdict)
 
 class iface():
-    """ ifupdown2 interface object class
+    """ ifupdown2 iface object class
     
     Attributes:
-        name            Name of the interface 
-        addr_family     Address family eg, inet, inet6. Can be None to indicate                         both address families
-        addr_method     Address method eg, static, manual or None for static
-                        address method
-        config          dictionary of config lines for this interface
-        state           Configuration state of an interface as defined by
-                        ifaceState
-        status          Configuration status of an interface as defined by
-                        ifaceStatus
-        flags           Internal flags used by iface processing
-        priv_flags      private flags owned by module using this class
-        refcnt          reference count, indicating number of interfaces
-                        dependent on this iface
-        lowerifaces     list of interface names lower to this interface or
-                        this interface depends on
-        upperifaces     list of interface names upper to this interface or
-                        the interfaces that depend on this interface 
-        auto            True if interface belongs to the auto class
-        classes         List of classes the interface belongs to
-        env             shell environment the interface needs during execution
-        raw_config       raw interface config from file
+        **name**      Name of the interface 
+
+        **addr_family**     Address family eg, inet, inet6. Can be None to
+                            indicate both address families
+
+        **addr_method**     Address method eg, static, manual or None for
+                            static address method
+
+        **config**          dictionary of config lines for this interface
+
+        **state**           Configuration state of an interface as defined by
+                            ifaceState
+
+        **status**          Configuration status of an interface as defined by
+                            ifaceStatus
+
+        **flags**           Internal flags used by iface processing
+
+        **priv_flags**      private flags owned by module using this class
+
+        **refcnt**          reference count, indicating number of interfaces
+                            dependent on this iface
+
+        **lowerifaces**     list of interface names lower to this interface or
+                            this interface depends on
+
+        **upperifaces**     list of interface names upper to this interface or
+                            the interfaces that depend on this interface 
+
+        **auto**            True if interface belongs to the auto class
+
+        **classes**         List of classes the interface belongs to
+
+        **env**             shell environment the interface needs during
+                            execution
+
+        **raw_config**      raw interface config from file
     """
 
     # flag to indicate that the object was created from pickled state

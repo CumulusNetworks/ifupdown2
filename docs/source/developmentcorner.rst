@@ -11,8 +11,11 @@ python modules. That includes inet, inet6 and dhcp configurations.
   for python-ifupdown2
 
 * if you are looking at developing a new module, pls look at writing a addon
-  module in the python-ifupdown2 documentation
+  module in the python-ifupdown2-addons documentation
 
 Apiref
 ------
-    :doc:`apiref.rst`
+.. toctree::
+   :maxdepth: 2
+
+   apiref.rst

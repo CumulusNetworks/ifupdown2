@@ -1,5 +1,11 @@
 #!/usr/bin/python
-
+#
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# utils --
+#    helper class
+#
 import os
 import fcntl
 

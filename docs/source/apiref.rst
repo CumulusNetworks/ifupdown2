@@ -2,8 +2,8 @@ Documentation for the Code
 **************************
 
 
-ifupdownmain -- explicit members
-================================
+ifupdownmain
+============
 
 ifupdownmain is the main ifupdown module.
 
@@ -12,10 +12,8 @@ ifupdownmain is the main ifupdown module.
 .. autoclass:: ifupdownMain
    :members: up, down, reload, query
 
-iface -- explicit members
-=========================
-
-iface is the class that represents an ifupdown iface object.
+iface
+=====
 
 .. automodule:: iface
 
@@ -28,8 +26,8 @@ iface is the class that represents an ifupdown iface object.
 
 .. autoclass:: ifaceJsonEncoder
 
-scheduler -- explicit members
-=============================
+scheduler
+=========
 
 .. automodule:: scheduler
 
@@ -39,16 +37,16 @@ scheduler -- explicit members
 .. autoclass:: ifaceSchedulerFlags
 
 
-networkinterfaces -- explicit members
-=====================================
+networkinterfaces
+=================
 
 .. automodule:: networkinterfaces
 
 .. autoclass:: networkInterfaces
    :members: load, subscribe
 
-statemanager -- explicit members
-================================
+statemanager
+============
 
 .. automodule:: statemanager
 
@@ -58,11 +56,10 @@ statemanager -- explicit members
 .. autoclass:: stateManager
    :members: read_saved_state, save_state
 
-graph -- explicit members
-=========================
+graph
+=====
 
 .. automodule:: graph
 
 .. autoclass:: graph
    :members: topological_sort_graphs_all, generate_dots
-

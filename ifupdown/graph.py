@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2013.  Cumulus Networks, Inc.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # graph --
@@ -27,8 +27,10 @@ class graph():
         """ runs topological sort on interface list passed as dependency graph
 
         Args:
-            dependency_graphs (dict): dependency graph with dependency lists for interfaces 
-            indegrees_arg (dict): indegrees array for all interfaces
+            **dependency_graphs** (dict): dependency graph with dependency
+                                          lists for interfaces 
+
+            **indegrees_arg** (dict): indegrees array for all interfaces
         """
         S = []
         Q = deque()
@@ -67,8 +69,10 @@ class graph():
         """ spits out interface dependency graph in dot format
 
         Args:
-            dependency_graphs (dict): dependency graph with dependency lists for interfaces 
-            indegrees_arg (dict): indegrees array for all interfaces
+            **dependency_graphs** (dict): dependency graph with dependency
+                                          lists for interfaces 
+
+            **indegrees_arg** (dict): indegrees array for all interfaces
         """
 
         gvgraph = GvGen()

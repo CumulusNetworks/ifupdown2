@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2013.  Cumulus Networks, Inc.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # networkInterfaces --
@@ -33,11 +33,15 @@ class networkInterfaces():
         """This member function initializes the networkinterfaces parser object.
 
         Kwargs:
-            interfacesfile (str):  path to the interfaces file (default is /etc/network/interfaces)
-            interfacesfileiobuf (object): interfaces file io stream
-            interfacesfileformat (str): format of interfaces file (choices are 'native' and 'json'. 'native' being the default)
-            template_engine (str): template engine name
-            template_lookuppath (str): template lookup path
+            **interfacesfile** (str):  path to the interfaces file (default is /etc/network/interfaces)
+
+            **interfacesfileiobuf** (object): interfaces file io stream
+
+            **interfacesfileformat** (str): format of interfaces file (choices are 'native' and 'json'. 'native' being the default)
+
+            **template_engine** (str): template engine name
+
+            **template_lookuppath** (str): template lookup path
 
         Raises:
             AttributeError, KeyError """
@@ -89,11 +93,12 @@ class networkInterfaces():
                 ifaceobj.addr_method = 'static'
 
     def subscribe(self, callback_name, callback_func):
-        """This member function registers callback functions
+        """This member function registers callback functions.
 
         Args:
-            callback_name (str): callback function name (supported names: 'iface_found', 'validateifaceattr', 'validateifaceobj')
-            callback_func (function pointer): callback function pointer
+            **callback_name** (str): callback function name (supported names: 'iface_found', 'validateifaceattr', 'validateifaceobj')
+
+            **callback_func** (function pointer): callback function pointer
 
         Warns on error
         """

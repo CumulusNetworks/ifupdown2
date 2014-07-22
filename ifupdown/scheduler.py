@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2013.  Cumulus Networks, Inc.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # ifaceScheduler --
@@ -21,6 +21,8 @@ from threading import *
 from ifupdownbase import *
 
 class ifaceSchedulerFlags():
+    """ Enumerates scheduler flags """
+
     INORDER = 0x1
     POSTORDER = 0x2
 
@@ -324,15 +326,20 @@ class ifaceScheduler():
             argument. Runs topological sort on interface dependency graph.
 
         Args:
-            ifupdownobj (object): ifupdownMain object 
-            ifacenames (list): list of interface names
-            ops : list of operations to perform eg ['pre-up', 'up', 'post-up']
-            dependency_graph (dict): dependency graph in adjacency list format
+            **ifupdownobj** (object): ifupdownMain object 
+
+            **ifacenames** (list): list of interface names
+
+            **ops** : list of operations to perform eg ['pre-up', 'up', 'post-up']
+
+            **dependency_graph** (dict): dependency graph in adjacency list format
 
         Kwargs:
-            indegrees (dict): indegree array of the dependency graph
-            order (int): ifaceSchedulerFlags (POSTORDER, INORDER)
-            followdependents (bool): follow dependent interfaces if true
+            **indegrees** (dict): indegree array of the dependency graph
+
+            **order** (int): ifaceSchedulerFlags (POSTORDER, INORDER)
+
+            **followdependents** (bool): follow dependent interfaces if true
 
         """
         #

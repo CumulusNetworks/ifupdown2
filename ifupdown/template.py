@@ -1,11 +1,18 @@
 #!/usr/bin/python
+#
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
+# template --
+#    helper class to render templates
+#
 
 import logging
 import traceback
 from utils import *
 
 class templateEngine():
-    """ has template rendering methods """
+    """ provides template rendering methods """
 
     def __init__(self, template_engine, template_lookuppath=None):
         self.logger = logging.getLogger('ifupdown.' +
