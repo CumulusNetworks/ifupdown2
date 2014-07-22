@@ -27,7 +27,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="ifupdown2 0.1 documentation" href="index.html" />
     <link rel="next" title="User Guide" href="userguide.html" />
-    <link rel="prev" title="Introduction" href="intro.html" /> 
+    <link rel="prev" title="python-ifupdown2" href="intro.html" /> 
   </head>
   <body>
     <div class="related">
@@ -43,7 +43,7 @@
           <a href="userguide.html" title="User Guide"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="intro.html" title="Introduction"
+          <a href="intro.html" title="python-ifupdown2"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li> 
       </ul>
@@ -59,22 +59,24 @@
 <div class="section" id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li>python-ifupdown2 is current only tested on a debian release wheezy or greater</li>
+<li>python-ifupdown2 is currently only tested on debian wheezy</li>
 <li>python-ifupdown2 needs python version 2.6 or greater</li>
 <li>build depends on: python-stdeb (for deb builds), python-docutils (for rst2man)</li>
-<li>depends on python-gvgen package for printing interface graphs (this will be made optional soon)</li>
+<li>depends on python-gvgen package for printing interface graphs (this will be made optional in the future)</li>
 <li>optional dependency for template engine: python-mako</li>
+<li>python-ifupdown2 needs python-ifupdown2-addons to function correctly</li>
 </ul>
 </div>
 <div class="section" id="building">
 <h2>Building<a class="headerlink" href="#building" title="Permalink to this headline">¶</a></h2>
-<p>git clone &lt;ifupdown2 git url&gt;
-cd ifupdown2
-./build.sh</p>
+<p>$git clone &lt;ifupdown2 git url&gt; ifupdown2</p>
+<p>$cd ifupdown2/ifupdown2</p>
+<p>$./build.sh</p>
 </div>
 <div class="section" id="installing">
 <h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
 <p>install generated python-ifupdown2-&lt;ver&gt;.deb</p>
+<p>$dpkg -i &lt;python-ifupdown2-addons-&lt;ver&gt;.deb</p>
 </div>
 </div>
 
@@ -96,7 +98,7 @@ cd ifupdown2
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="intro.html"
-                        title="previous chapter">Introduction</a></p>
+                        title="previous chapter">python-ifupdown2</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="userguide.html"
                         title="next chapter">User Guide</a></p>
@@ -135,7 +137,7 @@ cd ifupdown2
           <a href="userguide.html" title="User Guide"
              >next</a> |</li>
         <li class="right" >
-          <a href="intro.html" title="Introduction"
+          <a href="intro.html" title="python-ifupdown2"
              >previous</a> |</li>
         <li><a href="index.html">ifupdown2 0.1 documentation</a> &raquo;</li> 
       </ul>

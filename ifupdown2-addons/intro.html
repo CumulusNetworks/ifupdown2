@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Introduction &mdash; ifupdown2-addons 0.1 documentation</title>
+    <title>python-ifupdown2-addons &mdash; ifupdown2-addons 0.1 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -27,7 +27,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="ifupdown2-addons 0.1 documentation" href="index.html" />
     <link rel="next" title="Getting Started" href="gettingstarted.html" />
-    <link rel="prev" title="Welcome to ifupdown2’s documentation!" href="index.html" /> 
+    <link rel="prev" title="Welcome to ifupdown2-addons documentation!" href="index.html" /> 
   </head>
   <body>
     <div class="related">
@@ -43,7 +43,7 @@
           <a href="gettingstarted.html" title="Getting Started"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="index.html" title="Welcome to ifupdown2’s documentation!"
+          <a href="index.html" title="Welcome to ifupdown2-addons documentation!"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">ifupdown2-addons 0.1 documentation</a> &raquo;</li> 
       </ul>
@@ -54,41 +54,8 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="introduction">
-<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
-<p>ifupdown2 is a replacement for the debian network interface
-management package ifupdown. It is ifupdown re-written in python. It
-maintains the original ifupdown pluggable architecture and extends it further.</p>
-<dl class="docutils">
-<dt>It comes as two packages:</dt>
-<dd><ul class="first last simple">
-<li>python-ifupdown2</li>
-<li>python-ifupdown2-addons</li>
-</ul>
-</dd>
-</dl>
-<p>(Packaging may change in the future)</p>
-<div class="section" id="python-ifupdown2">
-<h2>python-ifupdown2<a class="headerlink" href="#python-ifupdown2" title="Permalink to this headline">¶</a></h2>
-<p>The python-ifupdown2 package provides the infrastructure for
-parsing /etc/network/interfaces file, loading, scheduling, template parsing,
-state management and interface dependency generation of interfaces.</p>
-<dl class="docutils">
-<dt>It dynamically loads python modules from /usr/share/ifupdownmodules (provided</dt>
-<dd>by the python-ifupdown2-addons package). To remain compatible with other</dd>
-</dl>
-<p>packages that depend on ifupdown, it also executes scripts under /etc/network/.
-To make the transition smoother, a python module under
-/usr/share/ifupdownmodules will override a script by the same name under
-/etc/network/.</p>
-<p>It publishes an interface object which is passed to all loadble python
-modules. For more details on adding a addon module, see the section on
-adding python modules.</p>
-<p>ifupdown2 module calls all modules for every interface declared in the
-/etc/network/interfaces file.</p>
-</div>
-<div class="section" id="python-ifupdown2-addons">
-<h2>python-ifupdown2-addons<a class="headerlink" href="#python-ifupdown2-addons" title="Permalink to this headline">¶</a></h2>
+  <div class="section" id="python-ifupdown2-addons">
+<h1>python-ifupdown2-addons<a class="headerlink" href="#python-ifupdown2-addons" title="Permalink to this headline">¶</a></h1>
 <p>The python-ifupdown2-addons package contains ifupdown2 addon modules.</p>
 <p>addon modules are responsible for applying interface configuration.
 The modules are installed under /usr/share/ifupdownmodules.</p>
@@ -103,7 +70,6 @@ to better manage the module ordering.</p>
 <p>For details on how to add a module, see the api reference and development
 documentation.</p>
 </div>
-</div>
 
 
           </div>
@@ -111,18 +77,9 @@ documentation.</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="index.html">Table Of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">Introduction</a><ul>
-<li><a class="reference internal" href="#python-ifupdown2">python-ifupdown2</a></li>
-<li><a class="reference internal" href="#python-ifupdown2-addons">python-ifupdown2-addons</a></li>
-</ul>
-</li>
-</ul>
-
   <h4>Previous topic</h4>
   <p class="topless"><a href="index.html"
-                        title="previous chapter">Welcome to ifupdown2&#8217;s documentation!</a></p>
+                        title="previous chapter">Welcome to ifupdown2-addons documentation!</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="gettingstarted.html"
                         title="next chapter">Getting Started</a></p>
@@ -161,7 +118,7 @@ documentation.</p>
           <a href="gettingstarted.html" title="Getting Started"
              >next</a> |</li>
         <li class="right" >
-          <a href="index.html" title="Welcome to ifupdown2’s documentation!"
+          <a href="index.html" title="Welcome to ifupdown2-addons documentation!"
              >previous</a> |</li>
         <li><a href="index.html">ifupdown2-addons 0.1 documentation</a> &raquo;</li> 
       </ul>

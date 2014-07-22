@@ -1,0 +1,39 @@
+.. ifupdown2 documentation master file, created by
+   sphinx-quickstart on Mon Jul 21 10:52:31 2014.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to ifupdown2's documentation!
+=====================================
+
+ifupdown2 is a new implementation of debian's network interface manager
+ifupdown. It understands interface dependency relationships, simplifies
+interface configuration, extends ifquery to support interface config
+validation, supports JSON and more.
+
+ifupdown2 comprises of two packages: ifupdown2 and ifupdown2-addons.
+
+The ifupdown2 package provides the required infrastructure to parse, schedule
+and manage interface configuration.
+
+The ifupdown2-addons package provides python addon modules to extend ifupdown2
+functionality. The default python addon modules include the bridge, vlan, bond,
+mstp, address modules and more.
+
+For more details see:
+
+.. raw:: html
+
+    <a href="./ifupdown2/index.html">ifupdown2</a>
+    </br>
+    <a href="./ifupdown2-addons/index.html">ifupdown2-addons</a>
+    </br>
+    </br>
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+

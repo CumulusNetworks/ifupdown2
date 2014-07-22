@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Introduction &mdash; ifupdown2 0.1 documentation</title>
+    <title>python-ifupdown2 &mdash; ifupdown2 0.1 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -54,22 +54,8 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="introduction">
-<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
-<p>ifupdown2 is a replacement for the debian network interface
-management package ifupdown. It is ifupdown re-written in python. It
-maintains the original ifupdown pluggable architecture and extends it further.</p>
-<dl class="docutils">
-<dt>It comes as two packages:</dt>
-<dd><ul class="first last simple">
-<li>python-ifupdown2</li>
-<li>python-ifupdown2-addons</li>
-</ul>
-</dd>
-</dl>
-<p>(Packaging may change in the future)</p>
-<div class="section" id="python-ifupdown2">
-<h2>python-ifupdown2<a class="headerlink" href="#python-ifupdown2" title="Permalink to this headline">¶</a></h2>
+  <div class="section" id="python-ifupdown2">
+<h1>python-ifupdown2<a class="headerlink" href="#python-ifupdown2" title="Permalink to this headline">¶</a></h1>
 <p>The python-ifupdown2 package provides the infrastructure for
 parsing /etc/network/interfaces file, loading, scheduling, template parsing,
 state management and interface dependency generation of interfaces.</p>
@@ -85,25 +71,6 @@ adding python modules.</p>
 <p>ifupdown2 module calls all modules for every interface declared in the
 /etc/network/interfaces file.</p>
 </div>
-<div class="section" id="python-ifupdown2-addons">
-<h2>python-ifupdown2-addons<a class="headerlink" href="#python-ifupdown2-addons" title="Permalink to this headline">¶</a></h2>
-<p>The python-ifupdown2-addons package contains ifupdown2 addon modules.
-All addon modules must be python modules.</p>
-<p>addon modules are responsible for applying interface configuration.
-The modules are installed under /usr/share/ifupdownmodules.</p>
-<p>Each module can declare its own set of supported attributes. Each module
-is passed the iface object. An iface object represents an iface entry in
-/etc/network/interfaces. Each module is also passed the operation to be
-performed.</p>
-<p>Example modules are /usr/share/ifupdownmodules/address.py,
-/usr/share/ifupdownmodules/bridge.py etc</p>
-<p>The order in which these modules are invoked is listed in
-/var/lib/ifupdownaddons/addons.conf. There is a ifaddon utility in the works
-to better manage the module ordering.</p>
-<p>For details on how to add a module, see the api reference and development
-documentation.</p>
-</div>
-</div>
 
 
           </div>
@@ -111,15 +78,6 @@ documentation.</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="index.html">Table Of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">Introduction</a><ul>
-<li><a class="reference internal" href="#python-ifupdown2">python-ifupdown2</a></li>
-<li><a class="reference internal" href="#python-ifupdown2-addons">python-ifupdown2-addons</a></li>
-</ul>
-</li>
-</ul>
-
   <h4>Previous topic</h4>
   <p class="topless"><a href="index.html"
                         title="previous chapter">Welcome to ifupdown2&#8217;s documentation!</a></p>

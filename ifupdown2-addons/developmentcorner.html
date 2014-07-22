@@ -58,33 +58,38 @@
 <h1>Development Corner<a class="headerlink" href="#development-corner" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="writing-a-ifupdown2-addon-module">
 <h2>Writing a ifupdown2 addon module<a class="headerlink" href="#writing-a-ifupdown2-addon-module" title="Permalink to this headline">¶</a></h2>
-<p>ifupdown2 addon modules are part of the python-ifupdown2 package.
-They are installed under /usr/share/ifupdownaddons directory on the target box.</p>
+<p>ifupdown2 addon modules are part of the python-ifupdown2-addons package.
+They are installed under /usr/share/ifupdownaddons directory on the target
+system.</p>
 <p>The center of the universe for an addon module is the &#8216;class iface&#8217; object
 exported by the python-ifupdown2 package.</p>
-<p>The iface object contains all config the user wanted. For more details see
-the api refernce for the iface class.</p>
-<p>ifupdown2 invokes the addon module by invoking a few methods. And hence
-it expects a few interfaces from the addon modules.</p>
+<p>The iface object is modeled after an iface entry in the user provided network
+configuration file (eg. /etc/network/interfaces). For more details see
+the api reference for the iface class.</p>
+<p>ifupdown2 dynamically loads a python addon module. It expects the addon module
+to implement a few methods.</p>
 <ul>
-<li><p class="first">all modules must inherit from moduleBase class</p>
+<li><p class="first">all addon modules must inherit from moduleBase class</p>
 </li>
-<li><p class="first">the module should implement a class by the same name</p>
+<li><p class="first">the module must implement a class by the same name</p>
 </li>
-<li><p class="first">the interface object (class iface) and the operation to be performed is
-passed to the modules. In cases when the operation is query-check, where
-the module has to compare between the given and running state, the module
-also takes an addional queryobjcur iface object</p>
+<li><p class="first">the network interface object (class iface) and the operation to be performed
+is passed to the modules. Operation can be any of &#8216;pre-up&#8217;, &#8216;up&#8217;, &#8216;post-up&#8217;,
+&#8216;pre-down&#8217;, &#8216;down&#8217;, &#8216;post-down&#8217;, &#8216;query-check&#8217;, &#8216;query-running&#8217;.
+The module can choose to support a subset or all operations.
+In cases when the operation is query-check, the module must compare between
+the given and running state and return the checked state of the object in
+queryobjcur passed as argument to the run menthod.</p>
 </li>
 <li><dl class="first docutils">
-<dt>the python addon class should provide a few methods:</dt>
+<dt>the python addon class must provide a few methods:</dt>
 <dd><ul class="first last simple">
 <li>run() : method to configure the interface.</li>
 <li>get_ops() : must return a list of operations it supports.
 eg: &#8216;pre-up&#8217;, &#8216;post-down&#8217;</li>
 <li>get_dependent_ifacenames() : must return a list of interfaces the
-interface is dependent on. This is used to build the dependency list
-for sorting and executing interfaces in dependency order.</li>
+supported interface is dependent on. This is used to build the
+dependency list for sorting and executing interfaces in dependency order.</li>
 <li>if the module supports -r option to ifquery, ie ability to construct the
 ifaceobj from running state, it can optionally implement the
 get_dependent_ifacenames_running() method, to return the list of
@@ -99,12 +104,13 @@ attribute. This is useful for syntax help and man page generation.</li>
 </dl>
 </li>
 </ul>
-<p>python-ifupdown2 package also installs a ifupdownaddons python package that
-contains helper modules for all addon modules.</p>
+<p>python-ifupdown2-addons package also installs ifupdownaddons python package
+that contains helper modules for all addon modules. Its optional for the addon
+module to use this package.</p>
 <p>see example address handling module /usr/share/ifupdownaddons/address.py</p>
 </div>
-<div class="section" id="apiref">
-<h2>apiref<a class="headerlink" href="#apiref" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="api-reference">
+<h2>API reference<a class="headerlink" href="#api-reference" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="addonsapiref.html">Documentation for the ifupdownaddons default addons modules</a><ul>
@@ -119,10 +125,10 @@ contains helper modules for all addon modules.</p>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="addonshelperapiref.html">Documentation for the ifupdownaddons package helper modules</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#bridgeutils-py">bridgeutils.py</a></li>
-<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#ifenslaveutil-py">ifenslaveutil.py</a></li>
-<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#dhclient-py">dhclient.py</a></li>
-<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#iproute2-py">iproute2.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#bridgeutils">bridgeutils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#ifenslaveutil">ifenslaveutil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#dhclient">dhclient</a></li>
+<li class="toctree-l2"><a class="reference internal" href="addonshelperapiref.html#iproute2">iproute2</a></li>
 </ul>
 </li>
 </ul>
@@ -140,7 +146,7 @@ contains helper modules for all addon modules.</p>
   <ul>
 <li><a class="reference internal" href="#">Development Corner</a><ul>
 <li><a class="reference internal" href="#writing-a-ifupdown2-addon-module">Writing a ifupdown2 addon module</a></li>
-<li><a class="reference internal" href="#apiref">apiref</a><ul>
+<li><a class="reference internal" href="#api-reference">API reference</a><ul>
 </ul>
 </li>
 </ul>
