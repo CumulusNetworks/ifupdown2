@@ -449,7 +449,7 @@ class mstpctl(moduleBase):
                 # special case ports because it can contain regex or glob
                 # XXX: We get all info from mstputils, which means if
                 # mstpd is down, we will not be returning any bridge bridgeports
-                running_port_list = rv.keys() if rv else []
+                running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 bridge_port_list = self._get_bridge_port_list(ifaceobj)
                 if not running_port_list and not bridge_port_list:
                     continue
