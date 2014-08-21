@@ -60,7 +60,14 @@ class ifaceState():
     # Pseudo states
     QUERY_CHECKCURR = 0x9
     QUERY_RUNNING = 0xa
-
+## Since the comparable values are static for the below two methods to_str & from_str, can we not reduce the code by using dictionary.
+## Dictionary will comprise of key as cls.UNKNOWN, cls.NEW etc while value will be what you are returning below. 
+## Therefore is arg state is a valid key in dict, then we can just return its value.. That we can get rid of this 
+## lengthy lines of if & elif
+# dict = {cls.UNKNOWN:'unknown', cls.NEW:'new', cls.PRE_UP:'pre_up', cls.UP:'up', cls.POST_UP:'post-up',
+#         cls.PRE_DOWN:'pre-down', cls.DOWN:'down', cls.POST_DOWN:'post-down', cls.QUERY_RUNNING:'query-running'}
+#if state in dict:
+#   return dict[state]
     @classmethod
     def to_str(cls, state):
         if state == cls.UNKNOWN:
