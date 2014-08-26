@@ -50,8 +50,7 @@ OPTIONS
     -v, --verbose         verbose
 
     -d, --debug           output debug info
-
-    -l, --allow CLASS     ignore non-"allow-CLASS" interfaces
+    --allow CLASS         ignore non-"allow-CLASS" interfaces
 
     -w, --with-depends    run with all dependent interfaces. This option
                           is redundant when -a is specified. When '-a' is
@@ -66,6 +65,9 @@ OPTIONS
                           Use interfaces file instead of default
                           /etc/network/interfaces
 
+    -t {native,json}, --interfaces-format {native,json}
+                          interfaces file format
+
     -r, --running         print raw interfaces file entries
 
     -c, --check           check interface file contents against running state
@@ -73,7 +75,6 @@ OPTIONS
                           1 on error
 
     -x, --raw             print raw config file entries
-
 
     -o {native,json}, --format {native,json}
                           interface display format
