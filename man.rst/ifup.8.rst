@@ -72,8 +72,7 @@ OPTIONS
     -v, --verbose         verbose
 
     -d, --debug           output debug info
-
-    -l, --allow CLASS         ignore non-"allow-CLASS" interfaces
+    --allow CLASS         ignore non-"allow-CLASS" interfaces
 
     -w, --with-depends        run with all dependent interfaces. This option
                           is redundant when -a is specified. When '-a' is
@@ -83,6 +82,13 @@ OPTIONS
     -X EXCLUDEPATS, --exclude EXCLUDEPATS
                           Exclude interfaces from the list of interfaces to
                           operate on. Can be specified multiple times
+
+    -i INTERFACESFILE, --interfaces INTERFACESFILE
+                          Use interfaces file instead of default
+                          /etc/network/interfaces
+
+    -t {native,json}, --interfaces-format {native,json}
+                          interfaces file format
 
     -f, --force           force run all operations
 

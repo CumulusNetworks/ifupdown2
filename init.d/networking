@@ -143,12 +143,7 @@ start)
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
 	log_action_begin_msg "Configuring network interfaces"
-	if is_bootup ; then
-	    ifup -a $verbose $perfoptions 2>&1 | /usr/bin/logger \
-			$REMOTE_SYSLOG_SERVER -s -i -t $SCRIPTNAME
-	else
-	    ifup -a $verbose $perfoptions
-	fi
+	ifup -a $verbose $perfoptions
 	log_action_end_msg $?
 	;;
 
@@ -158,11 +153,8 @@ stop)
 	check_network_swap
 
 	log_action_begin_msg "Deconfiguring network interfaces"
-	if ifdown -a $verbose; then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifdown -a $verbose
+	log_action_end_msg $?
 	;;
 
 reload)
@@ -170,12 +162,8 @@ reload)
 	ifupdown_init
 	log_action_begin_msg "Reloading network interfaces configuration"
 
-	if ifreload -a
-	then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifreload -a
+	log_action_end_msg $?
 	;;
 
 force-reload)
@@ -183,12 +171,8 @@ force-reload)
 	ifupdown_init
 
 	log_action_begin_msg "Reloading network interfaces configuration"
-	if ifreload -a
-	then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifreload -a
+	log_action_end_msg $?
 	;;
 
 restart)
@@ -198,12 +182,8 @@ restart)
 	ifdown -a $verbose || true
 	set -f
 	exclusions=$(process_exclusions)
-	if ifup -a $verbose
-	then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifup -a $verbose
+	log_action_end_msg $?
 	;;
 
 *)
