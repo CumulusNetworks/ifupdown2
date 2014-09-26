@@ -81,7 +81,7 @@ class ifaceScheduler():
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                 ifaceStatus.SUCCESS)
 
-        if ifupdownobj.COMPAT_EXEC_SCRIPTS:
+        if ifupdownobj.config.get('addon_scripts_support', '0') == '1':
             # execute /etc/network/ scripts 
             for mname in ifupdownobj.script_ops.get(op, []):
                 ifupdownobj.logger.debug('%s: %s : running script %s'
@@ -122,10 +122,12 @@ class ifaceScheduler():
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
-                        if ifupdownobj.COMPAT_EXEC_SCRIPTS else None) 
-                posthookfunc = ifupdownobj.sched_hooks.get('posthook')
-                if posthookfunc:
-                    posthookfunc(ifupdownobj, ifaceobj, op)
+                        if ifupdownobj.config.get('addon_scripts_support',
+                            '0') == '1' else None)
+        posthookfunc = ifupdownobj.sched_hooks.get('posthook')
+        if posthookfunc:
+            [posthookfunc(ifupdownobj, ifaceobj, ops[0])
+                for ifaceobj in ifaceobjs]
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,

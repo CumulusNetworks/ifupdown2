@@ -314,13 +314,12 @@ class ifupdownMain(ifupdownBase):
         for d in del_list:
             dlist.remove(d)
 
-    def query_dependents(self, ifaceobj, ops):
+    def query_dependents(self, ifaceobj, ops, ifacenames):
         """ Gets iface dependents by calling into respective modules """
         dlist = None
 
         # Get dependents for interface by querying respective modules
-        for mname, module in self.modules.items():
-            module = self.modules.get(mname)
+        for module in self.modules.values():
             try:
                 if ops[0] == 'query-running':
                     if (not hasattr(module,
@@ -331,7 +330,7 @@ class ifupdownMain(ifupdownBase):
                     if (not hasattr(module, 'get_dependent_ifacenames')):
                         continue
                     dlist = module.get_dependent_ifacenames(ifaceobj,
-                                        self.ifaceobjdict.keys())
+                                        ifacenames)
             except Exception, e:
                 self.logger.warn('%s: error getting dependent interfaces (%s)'
                         %(ifaceobj.name, str(e)))
@@ -357,7 +356,7 @@ class ifupdownMain(ifupdownBase):
                 continue
             dlist = ifaceobj.lowerifaces
             if not dlist:
-                dlist = self.query_dependents(ifaceobj, ops)
+                dlist = self.query_dependents(ifaceobj, ops, ifacenames)
             else:
                 continue
             if dlist:

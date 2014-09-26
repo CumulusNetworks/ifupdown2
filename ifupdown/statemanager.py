@@ -100,7 +100,8 @@ class stateManager():
             op (str): ifupdown operation
         """
 
-        self.logger.debug('%s: statemanager sync state' %ifaceobj.name)
+        self.logger.debug('%s: statemanager sync state %s'
+                          %(ifaceobj.name, op))
         old_ifaceobjs = self.ifaceobjdict.get(ifaceobj.name)
         if 'up' in op:
             if not old_ifaceobjs:
