@@ -99,7 +99,7 @@ class ifaceScheduler():
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
-        if ('down' in ops[0] and
+        if ('down' in ops[0] and ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
                 not ifupdownobj.link_exists(ifacename)):
             ifupdownobj.logger.debug('%s: does not exist' %ifacename)
             # run posthook before you get out of here, so that
@@ -383,6 +383,7 @@ class ifaceScheduler():
             # if -a is set, we dont really have to sort. We pick the interfaces
             # that have no parents and 
             if not skip_ifacesort:
+                ifupdownobj.logger.info(indegrees)
                 sorted_ifacenames = cls.get_sorted_iface_list(ifupdownobj,
                                             ifacenames, ops, dependency_graph,
                                             indegrees)

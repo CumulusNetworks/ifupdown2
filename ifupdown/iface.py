@@ -17,6 +17,11 @@ from collections import OrderedDict
 import logging
 import json
 
+class ifaceType():
+    UNKNOWN = 0x1
+    BRIDGE = 0x2
+    BRIDGE_VLAN = 0x3
+
 class ifaceStatus():
     """Enumerates iface status """
 
@@ -191,7 +196,7 @@ class iface():
         """iface priv flags. can be used by the external object manager """
         self.refcnt = 0
         """iface refcnt (incremented for each dependent this interface has) """
-        self.lowerifaces = None
+        self.lowerifaces = None 
         """lower iface list (in other words: slaves of this interface """
         self.upperifaces = None
         """upper iface list (in other words: master of this interface """
@@ -203,6 +208,10 @@ class iface():
         """interface config/attributes in raw format (eg: as it appeared in the interfaces file)"""
         self.linkstate = None
         """linkstate of the interface"""
+        self.type = ifaceType.UNKNOWN
+        """interface type"""
+        self.priv_data = None
+        self.real_name = None
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)

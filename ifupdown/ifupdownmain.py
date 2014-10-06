@@ -316,7 +316,7 @@ class ifupdownMain(ifupdownBase):
 
     def query_dependents(self, ifaceobj, ops, ifacenames):
         """ Gets iface dependents by calling into respective modules """
-        dlist = None
+        ret_dlist = []
 
         # Get dependents for interface by querying respective modules
         for module in self.modules.values():
@@ -336,9 +336,8 @@ class ifupdownMain(ifupdownBase):
                         %(ifaceobj.name, str(e)))
                 dlist = None
                 pass
-            if dlist:
-                break
-        return dlist
+            if dlist: ret_dlist.extend(dlist)
+        return ret_dlist
 
     def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """
@@ -354,20 +353,17 @@ class ifupdownMain(ifupdownBase):
             ifaceobj = self.get_ifaceobj_first(i)
             if not ifaceobj: 
                 continue
-            dlist = ifaceobj.lowerifaces
-            if not dlist:
-                dlist = self.query_dependents(ifaceobj, ops, ifacenames)
-            else:
-                continue
-            if dlist:
+            dlist = self.query_dependents(ifaceobj, ops, ifacenames)
+            if dlist and dlist != ifaceobj.lowerifaces:
                 self.preprocess_dependency_list(ifaceobj.name,
                                                 dlist, ops)
-                ifaceobj.lowerifaces = dlist
                 [iqueue.append(d) for d in dlist]
-            if not self.dependency_graph.get(i):
+                self.dependency_graph.setdefault(i, []).extend(dlist)
+                ifaceobj.lowerifaces = self.dependency_graph.get(i)
+            else:
                 self.dependency_graph[i] = dlist
 
-    def _save_iface(self, ifaceobj):
+    def _add_ifaceobj(self, ifaceobj):
         currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
         if not currentifaceobjlist:
            self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
@@ -378,6 +374,31 @@ class ifupdownMain(ifupdownBase):
         currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
         ifaceobj.flags |= iface.HAS_SIBLINGS
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
+
+    def _save_iface(self, ifaceobj):
+        #
+        # Special 'iface vlan-' interface handling.
+        # If `iface vlan-` and belongs to a bridge
+        # mark interface type.
+        #
+        if ifaceobj.get_attr_value_first('bridge'):
+            vlan_match = re.match("^vlan-([\d]+)-([\d]+)|^vlan-([\d]+)",
+                                   ifaceobj.name)
+            if vlan_match:
+                vlan_groups = vlan_match.groups()
+                if vlan_groups[0] and vlan_groups[1]:
+                    for v in range(int(vlan_groups[0]), int(vlan_groups[1])+1):
+                        ifaceobj_vlan = copy.deepcopy(ifaceobj)
+                        ifaceobj_vlan.real_name = ifaceobj.name
+                        ifaceobj_vlan.name = "vlan-%d" %v
+                        ifaceobj_vlan.priv_data = v
+                        ifaceobj_vlan.type = ifaceType.BRIDGE_VLAN
+                        self._add_ifaceobj(ifaceobj_vlan)
+                    return
+                elif vlan_groups[2]:
+                    ifaceobj.priv_data = int(vlan_groups[2])
+                    ifaceobj.type = ifaceType.BRIDGE_VLAN
+        self._add_ifaceobj(ifaceobj)
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
@@ -559,20 +580,44 @@ class ifupdownMain(ifupdownBase):
                                 else ifaceSchedulerFlags.POSTORDER,
                         followdependents=True if self.WITH_DEPENDS else False)
 
-    def _validate_ifaces(self, ifacenames):
+    def _render_ifacename(self, ifacename):
+        new_ifacenames = []
+        vlan_match = re.match("^vlan-([\d]+)-([\d]+)", ifacename)
+        if vlan_match:
+            vlan_groups = vlan_match.groups()
+            if vlan_groups[0] and vlan_groups[1]:
+                [new_ifacenames.append('vlan-%d' %v)
+                    for v in range(int(vlan_groups[0]),
+                            int(vlan_groups[1])+1)]
+        return new_ifacenames
+
+    def _preprocess_ifacenames(self, ifacenames):
         """ validates interface list for config existance.
        
         returns -1 if one or more interface not found. else, returns 0
 
         """
+        new_ifacenames = []
         err_iface = ''
         for i in ifacenames:
             ifaceobjs = self.get_ifaceobjs(i)
             if not ifaceobjs:
-                err_iface += ' ' + i
+                # if name not available, render interface name and check again
+                rendered_ifacenames = self._render_ifacename(i)
+                if rendered_ifacenames:
+                    for ri in rendered_ifacenames:
+                        ifaceobjs = self.get_ifaceobjs(ri)
+                        if not ifaceobjs:
+                            err_iface += ' ' + ri
+                        else:
+                            new_ifacenames.append(ri)
+                else:
+                    err_iface += ' ' + i
+            else:
+                new_ifacenames.append(i)
         if err_iface:
             raise Exception('cannot find interfaces:%s' %err_iface)
-        return True
+        return new_ifacenames 
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
         """ Checks if interface is whitelisted depending on set of parameters.
@@ -647,7 +692,8 @@ class ifupdownMain(ifupdownBase):
         """This brings the interface(s) up
         
         Args:
-            ops (list): list of ops to perform on the interface(s). Eg: ['pre-up', 'up', 'post-up'
+            ops (list): list of ops to perform on the interface(s).
+            Eg: ['pre-up', 'up', 'post-up'
 
         Kwargs:
             auto (bool): act on interfaces marked auto
@@ -673,9 +719,7 @@ class ifupdownMain(ifupdownBase):
             return
 
         if ifacenames:
-            # If iface list is given by the caller, always check if iface
-            # is present
-            self._validate_ifaces(ifacenames)
+            ifacenames = self._preprocess_ifacenames(ifacenames)
 
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
@@ -728,7 +772,7 @@ class ifupdownMain(ifupdownBase):
             # If iface list is given by the caller, always check if iface
             # is present
             try:
-               self._validate_ifaces(ifacenames)
+               ifacenames = self._preprocess_ifacenames(ifacenames)
             except Exception, e:
                raise Exception('%s' %str(e) +
                        ' (interface was probably never up ?)')
@@ -742,7 +786,7 @@ class ifupdownMain(ifupdownBase):
                                                 excludepats, i)]
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists ' +
-                    '(interfaces were probably never up)')
+                    '(or interfaces were probably never up ?)')
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
@@ -786,8 +830,8 @@ class ifupdownMain(ifupdownBase):
                 raise
 
         if ifacenames and ops[0] != 'query-running':
-            # If iface list is given, always check if iface is present
-           self._validate_ifaces(ifacenames)
+           # If iface list is given, always check if iface is present
+           ifacenames = self._preprocess_ifacenames(ifacenames)
 
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
