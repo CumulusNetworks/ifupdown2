@@ -12,6 +12,8 @@ import logging
 import glob
 import re
 import os
+import copy
+from utils import utils
 from iface import *
 from template import templateEngine
 
@@ -23,6 +25,7 @@ class networkInterfaces():
     hotplugs = {}
     auto_ifaces = []
     callbacks = {}
+    auto_all = False
 
     _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6'],
                  'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
@@ -151,7 +154,15 @@ class networkInterfaces():
             self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
             return 0
-        [self.auto_ifaces.append(a) for a in auto_ifaces]
+        for a in auto_ifaces:
+            if a == 'all':
+                self.auto_all = True
+                break
+            r = utils.parse_iface_range(a)
+            if r:
+                for i in range(r[1], r[2]):
+                   self.auto_ifaces.append('%s-%d' %(r[0], i))
+            self.auto_ifaces.append(a)
         return 0
 
     def _add_to_iface_config(self, ifacename, iface_config, attrname,
@@ -188,11 +199,10 @@ class networkInterfaces():
         else:
             iface_config[newattrname].append(attrval)
 
-    def process_iface(self, lines, cur_idx, lineno):
+    def parse_iface(self, lines, cur_idx, lineno, ifaceobj):
         lines_consumed = 0
         line_idx = cur_idx
 
-        ifaceobj = iface()
         iface_line = lines[cur_idx].strip(whitespaces)
         iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
@@ -238,17 +248,30 @@ class networkInterfaces():
             pass
         self._validate_addr_family(ifaceobj, lineno)
 
-        if ifaceobj.name in self.auto_ifaces:
+        if self.auto_all or (ifaceobj.name in self.auto_ifaces):
             ifaceobj.auto = True
 
         classes = self.get_allow_classes_for_iface(ifaceobj.name)
         if classes:
             [ifaceobj.set_class(c) for c in classes]
-
-        # Call iface found callback
-        self.callbacks.get('iface_found')(ifaceobj)
+        
         return lines_consumed       # Return next index
 
+    def process_iface(self, lines, cur_idx, lineno):
+        ifaceobj = iface()
+        lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+
+        range_val = utils.parse_iface_range(ifaceobj.name)
+        if range_val:
+           for v in range(range_val[1], range_val[2]):
+                ifaceobj_new = copy.deepcopy(ifaceobj)
+                ifaceobj_new.real_name = ifaceobj.name
+                ifaceobj_new.name = "%s-%d" %(range_val[0], v)
+                self.callbacks.get('iface_found')(ifaceobj_new)
+        else:
+            self.callbacks.get('iface_found')(ifaceobj)
+
+        return lines_consumed       # Return next index
 
     network_elems = { 'source'      : process_source,
                       'allow'      : process_allow,

@@ -376,29 +376,16 @@ class ifupdownMain(ifupdownBase):
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _save_iface(self, ifaceobj):
-        #
-        # Special 'iface vlan-' interface handling.
-        # If `iface vlan-` and belongs to a bridge
-        # mark interface type.
-        #
-        if ifaceobj.get_attr_value_first('bridge'):
-            vlan_match = re.match("^vlan-([\d]+)-([\d]+)|^vlan-([\d]+)",
-                                   ifaceobj.name)
-            if vlan_match:
-                vlan_groups = vlan_match.groups()
-                if vlan_groups[0] and vlan_groups[1]:
-                    for v in range(int(vlan_groups[0]), int(vlan_groups[1])+1):
-                        ifaceobj_vlan = copy.deepcopy(ifaceobj)
-                        ifaceobj_vlan.real_name = ifaceobj.name
-                        ifaceobj_vlan.name = "vlan-%d" %v
-                        ifaceobj_vlan.priv_data = v
-                        ifaceobj_vlan.type = ifaceType.BRIDGE_VLAN
-                        self._add_ifaceobj(ifaceobj_vlan)
-                    return
-                elif vlan_groups[2]:
-                    ifaceobj.priv_data = int(vlan_groups[2])
-                    ifaceobj.type = ifaceType.BRIDGE_VLAN
-        self._add_ifaceobj(ifaceobj)
+        currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
+        if not currentifaceobjlist:
+           self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
+           return
+        if ifaceobj.compare(currentifaceobjlist[0]):
+            self.logger.warn('duplicate interface %s found' %ifaceobj.name)
+            return
+        currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
+        ifaceobj.flags |= iface.HAS_SIBLINGS
+        self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
@@ -582,11 +569,11 @@ class ifupdownMain(ifupdownBase):
 
     def _render_ifacename(self, ifacename):
         new_ifacenames = []
-        vlan_match = re.match("^vlan-([\d]+)-([\d]+)", ifacename)
+        vlan_match = re.match("^([\d]+)-([\d]+)", ifacename)
         if vlan_match:
             vlan_groups = vlan_match.groups()
             if vlan_groups[0] and vlan_groups[1]:
-                [new_ifacenames.append('vlan-%d' %v)
+                [new_ifacenames.append('%d' %v)
                     for v in range(int(vlan_groups[0]),
                             int(vlan_groups[1])+1)]
         return new_ifacenames
@@ -603,7 +590,7 @@ class ifupdownMain(ifupdownBase):
             ifaceobjs = self.get_ifaceobjs(i)
             if not ifaceobjs:
                 # if name not available, render interface name and check again
-                rendered_ifacenames = self._render_ifacename(i)
+                rendered_ifacenames = utils.expand_iface_range(i)
                 if rendered_ifacenames:
                     for ri in rendered_ifacenames:
                         ifaceobjs = self.get_ifaceobjs(ri)
@@ -625,7 +612,6 @@ class ifupdownMain(ifupdownBase):
         interfaces are checked against the allow_classes and auto lists.
 
         """
-
         if excludepats:
             for e in excludepats:
                 if re.search(e, ifacename):

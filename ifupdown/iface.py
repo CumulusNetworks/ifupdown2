@@ -19,7 +19,7 @@ import json
 
 class ifaceType():
     UNKNOWN = 0x1
-    BRIDGE = 0x2
+    GENERIC = 0x2
     BRIDGE_VLAN = 0x3
 
 class ifaceStatus():
@@ -273,6 +273,17 @@ class iface():
         attr_value_list = self.config.get(attr_name)
         if attr_value_list:
             return attr_value_list[0]
+        return None
+
+    def get_attrs_value_first(self, attrs):
+        """ get first value of the first attr in the list.
+            Useful when you have multiple attrs representing the
+            same thing.
+        """
+        for attr in attrs:
+            attr_value_list = self.config.get(attr)
+            if attr_value_list:
+                return attr_value_list[0]
         return None
 
     def get_attr_value_n(self, attr_name, attr_index):
