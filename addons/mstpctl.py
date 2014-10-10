@@ -223,7 +223,8 @@ class mstpctl(moduleBase):
 
     def _is_bridge(self, ifaceobj):
         if (ifaceobj.get_attr_value_first('mstpctl-ports') or
-                ifaceobj.get_attr_value_first('bridge-ports')):
+                ifaceobj.get_attr_value_first('bridge-ports') or
+                ifaceobj.type == ifaceType.BRIDGE):
             return True
         return False
 
@@ -379,6 +380,9 @@ class mstpctl(moduleBase):
         if bridge:
             if self.mstpctlcmd.is_mstpd_running():
                 self._apply_bridge_port_settings(ifaceobj, bridge)
+            return
+
+        if not self._is_bridge(ifaceobj):
             return
 
         stp = None
@@ -701,8 +705,6 @@ class mstpctl(moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
            return
-        if operation != 'query-running' and not self._is_bridge(ifaceobj):
-            return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)

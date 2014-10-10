@@ -174,7 +174,7 @@ class bridgevlanaware(moduleBase):
         return False
 
     def _is_bridge(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('type') == 'bridge':
+        if ifaceobj.type == ifaceType.BRIDGE:
             return True
         return False
 
@@ -192,7 +192,8 @@ class bridgevlanaware(moduleBase):
                 # XXX: mark this iface as a bridge_vlan iface
                 ifaceobj.type = ifaceType.BRIDGE_VLAN
             return [bridge]
-
+        elif ifaceobj.get_attr_value_first('type') == 'bridge':
+            ifaceobj.type = ifaceType.BRIDGE
         return None
 
     def get_dependent_ifacenames_running(self, ifaceobj):
@@ -396,7 +397,6 @@ class bridgevlanaware(moduleBase):
                     if running_pvid != pvid:
                         self.ipcmd.bridge_port_pvid_del(ifaceobj.name,
                                                         running_pvid)
-                    else:
                         self.ipcmd.bridge_port_pvid_add(ifaceobj.name, pvid)
                 else:
                     self.ipcmd.bridge_port_pvid_add(ifaceobj.name, pvid)

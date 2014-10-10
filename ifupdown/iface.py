@@ -20,7 +20,8 @@ import json
 class ifaceType():
     UNKNOWN = 0x1
     GENERIC = 0x2
-    BRIDGE_VLAN = 0x3
+    BRIDGE = 0x3
+    BRIDGE_VLAN = 0x4
 
 class ifaceStatus():
     """Enumerates iface status """
