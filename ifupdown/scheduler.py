@@ -99,6 +99,7 @@ class ifaceScheduler():
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
+        ifupdownobj.logger.info('%s: running ops ...' %ifacename)
         if ('down' in ops[0] and ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
                 not ifupdownobj.link_exists(ifacename)):
             ifupdownobj.logger.debug('%s: does not exist' %ifacename)
@@ -356,7 +357,7 @@ class ifaceScheduler():
         #
         # Run any upperifaces if available
         #
-        followupperifaces = []
+        followupperifaces = False
         run_queue = []
         skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
         if not skip_ifacesort and not indegrees:
@@ -368,7 +369,9 @@ class ifaceScheduler():
             # If there is any interface that does exist, maybe it is a
             # logical interface and we have to followupperifaces when it
             # comes up, so get that list.
-            followupperifaces = (True if
+            if any([True for i in ifacenames
+                    if ifupdownobj.must_follow_upperifaces(i)]):
+                followupperifaces = (True if
                                     [i for i in ifacenames
                                         if not ifupdownobj.link_exists(i)]
                                         else False)

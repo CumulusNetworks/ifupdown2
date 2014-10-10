@@ -197,6 +197,20 @@ class ifupdownMain(ifupdownBase):
     def get_iface_obj_last(self, ifacename):
         return self.ifaceobjdict.get(ifacename)[-1]
 
+    def must_follow_upperifaces(self, ifacename):
+        #
+        # XXX: This bleeds the knowledge of iface
+        # types in the infrastructure module.
+        # Cant think of a better fix at the moment.
+        # In future maybe the module can set a flag
+        # to indicate if we should follow upperifaces
+        #
+        ifaceobj = self.get_ifaceobj_first(ifacename)
+        if (ifaceobj.type == ifaceType.BRIDGE or 
+                ifaceobj.type == ifaceType.BRIDGE_VLAN):
+            return False
+        return True
+
     def create_n_save_ifaceobj(self, ifacename, priv_flags=None,
                                increfcnt=False):
         """ creates a iface object and adds it to the iface dictionary """
