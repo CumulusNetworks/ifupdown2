@@ -798,105 +798,26 @@ class bridgevlanaware(moduleBase):
                 ifaceobjcurr.update_config_with_status('bridge-vids', attrval,
                                                        1)
 
+    def _query_check_bridge(self, ifaceobj, ifaceobjcurr):
+        return
+
+    def _query_check_bridge_port(self, ifaceobj, bridge, ifaceobjcurr):
+        return
+
+    def _query_check_bridge_vlan(self, ifaceobj, bridge, ifaceobjcurr):
+        return
+
     def _query_check(self, ifaceobj, ifaceobjcurr):
-            if not self.brctlcmd.bridge_exists(ifaceobj.name):
-                self.logger.info('%s: bridge: does not exist' %(ifaceobj.name))
-                ifaceobjcurr.status = ifaceStatus.NOTFOUND
-                return
-            ifaceattrs = self.dict_key_subset(ifaceobj.config,
-                                              self.get_mod_attrs())
-            if not ifaceattrs:
-                return
-            try:
-                runningattrs = self.brctlcmd.get_bridge_attrs(ifaceobj.name)
-                if not runningattrs:
-                    self.logger.debug('%s: bridge: unable to get bridge attrs'
-                                     %ifaceobj.name)
-                    runningattrs = {}
-            except Exception, e:
-                self.logger.warn(str(e))
-                runningattrs = {}
-            filterattrs = ['bridge-vids', 'bridge-port-vids',
-                           'bridge-port-pvids']
-            for k in Set(ifaceattrs).difference(filterattrs):
-                # get the corresponding ifaceobj attr
-                v = ifaceobj.get_attr_value_first(k)
-                if not v:
-                    continue
-                rv = runningattrs.get(k[7:])
-                if k == 'bridge-mcqv4src':
-                    continue
-                if k == 'bridge-stp':
-                    # special case stp compare because it may
-                    # contain more than one valid values
-                    stp_on_vals = ['on', 'yes']
-                    stp_off_vals = ['off']
-                    if ((v in stp_on_vals and rv in stp_on_vals) or
-                        (v in stp_off_vals and rv in stp_off_vals)):
-                        ifaceobjcurr.update_config_with_status('bridge-stp',
-                                v, 0)
-                    else:
-                        ifaceobjcurr.update_config_with_status('bridge-stp',
-                                v, 1)
-                elif k == 'bridge-ports':
-                    # special case ports because it can contain regex or glob
-                    running_port_list = rv.keys() if rv else []
-                    bridge_port_list = self._get_bridge_port_list(ifaceobj)
-                    if not running_port_list and not bridge_port_list:
-                       continue
-                    portliststatus = 1
-                    if running_port_list and bridge_port_list:
-                       difference = set(running_port_list
-                                        ).symmetric_difference(bridge_port_list)
-                       if not difference:
-                           portliststatus = 0
-                    ifaceobjcurr.update_config_with_status('bridge-ports',
-                                ' '.join(running_port_list)
-                                if running_port_list else '', portliststatus)
-                elif (k == 'bridge-pathcosts' or
-                      k == 'bridge-portprios' or k == 'bridge-portmcrouter'
-                      or k == 'bridge-portmcfl'):
-                    brctlcmdattrname = k[11:].rstrip('s')
-                    # for port attributes, the attributes are in a list
-                    # <portname>=<portattrvalue>
-                    status = 0
-                    currstr = ''
-                    vlist = self.parse_port_list(v)
-                    if not vlist:
-                        continue
-                    for vlistitem in vlist:
-                        try:
-                            (p, v) = vlistitem.split('=')
-                            currv = self.brctlcmd.get_bridgeport_attr(
-                                                        ifaceobj.name, p,
-                                                        brctlcmdattrname)
-                            if currv:
-                                currstr += ' %s=%s' %(p, currv)
-                            else:
-                                currstr += ' %s=%s' %(p, 'None')
-                            if currv != v:
-                                status = 1
-                        except Exception, e:
-                            self.log_warn(str(e))
-                            pass
-                    ifaceobjcurr.update_config_with_status(k, currstr, status)
-                elif not rv:
-                  ifaceobjcurr.update_config_with_status(k, 'notfound', 1)
-                  continue
-                elif v != rv:
-                  ifaceobjcurr.update_config_with_status(k, rv, 1)
-                else:
-                  ifaceobjcurr.update_config_with_status(k, rv, 0)
-
-            self._query_check_vidinfo(ifaceobj, ifaceobjcurr)
-
-            self._query_check_mcqv4src(ifaceobj, ifaceobjcurr)
+        bridge = ifaceobj.get_attr_value_first('bridge')
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+            self._query_check_bridge_vlan(ifaceobj, bridge, ifaceobjcurr)
+        elif bridge:
+            self._query_check_bridge_port(ifaceobj, bridge, ifaceobjcurr)
+        elif self._is_bridge(ifaceobj):
+            self._query_check_bridge(ifaceobj, ifaceobjcurr)
 
     def _query_running(self, ifaceobjrunning):
-        if not self.brctlcmd.bridge_exists(ifaceobjrunning.name):
-            return
-        ifaceobjrunning.update_config_dict(self._query_running_attrs(
-                                           ifaceobjrunning))
+        return
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,

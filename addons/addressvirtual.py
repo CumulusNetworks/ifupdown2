@@ -50,7 +50,8 @@ class addressvirtual(moduleBase):
             # router mac and ip on it
             macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
             self.ipcmd.link_create_macvlan(macvlan_ifacename, realifacename)
-            self.ipcmd.link_set_hwaddress(macvlan_ifacename, av_attrs[0])
+            if av_attrs[0] != 'None':
+                self.ipcmd.link_set_hwaddress(macvlan_ifacename, av_attrs[0])
             self.ipcmd.addr_add_multiple(macvlan_ifacename, av_attrs[1:],
                                          purge_existing)
             av_idx += 1
