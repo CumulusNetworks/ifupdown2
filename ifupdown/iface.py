@@ -436,9 +436,9 @@ class iface():
         if with_status:
             if (self.status == ifaceStatus.NOTFOUND or 
                 self.status == ifaceStatus.ERROR):
-                outbuf += ' (%s)' %errorstr
+                outbuf += ' %s' %errorstr
             elif self.status == ifaceStatus.SUCCESS:
-                outbuf += ' (%s)' %successstr
+                outbuf += ' %s' %successstr
             if self.status == ifaceStatus.NOTFOUND:
                 if with_status:
                     outbuf = (outbuf.encode('utf8')
@@ -455,10 +455,10 @@ class iface():
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
                         if s:
-                            outbuf += (indent + '%s %s (%s)\n'
+                            outbuf += (indent + '%s %s %s\n'
                                         %(cname, cv, errorstr))
                         elif s == 0:
-                            outbuf += (indent + '%s %s (%s)\n'
+                            outbuf += (indent + '%s %s %s\n'
                                         %(cname, cv, successstr))
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
