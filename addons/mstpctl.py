@@ -65,12 +65,6 @@ class mstpctl(moduleBase):
                           'default' : '0',
                           'required' : False,
                           'example' : ['mstpctl-portpathcost swp1=0 swp2=1']},
-                    'mstpctl-portadminage' :
-                        { 'help' : 'bridge port admin age',
-                          'default' : 'no',
-                          'validvals' : ['yes', 'no'],
-                          'required' : False,
-                          'example' : ['mstpctl-portadminage swp1=no swp2=no']},
                     'mstpctl-portp2p' :
                         { 'help' : 'bridge port p2p detection mode',
                           'default' : 'no',
@@ -142,12 +136,6 @@ class mstpctl(moduleBase):
                           'default' : '0',
                           'required' : False,
                           'example' : ['mstpctl-pathcost 1']},
-                    'mstpctl-adminage' :
-                        { 'help' : 'bridge port admin age',
-                          'default' : 'no',
-                          'validvals' : ['yes', 'no'],
-                          'required' : False,
-                          'example' : ['mstpctl-adminage no']},
                     'mstpctl-p2p' :
                         { 'help' : 'bridge port p2p detection mode',
                           'default' : 'no',
