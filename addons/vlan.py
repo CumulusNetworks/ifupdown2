@@ -7,6 +7,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
 
 class vlan(moduleBase):
@@ -97,8 +98,9 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
-        self.ipcmd.link_create_vlan(ifaceobj.name,
-                                 vlanrawdevice, vlanid)
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
+                    ifaceobj.name, vlanid)
 
     def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)

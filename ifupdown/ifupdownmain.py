@@ -34,8 +34,8 @@ from sets import Set
 
 _tickmark = u'\u2713'
 _crossmark = u'\u2717'
-_success_sym = ''
-_error_sym = '(x)'
+_success_sym = '(%s)' %_tickmark
+_error_sym = '(%s)' %_crossmark
 
 class ifupdownMain(ifupdownBase):
     """ ifupdown2 main class """

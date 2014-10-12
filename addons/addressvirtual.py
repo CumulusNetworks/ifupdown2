@@ -7,6 +7,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
 import os
 import glob
@@ -49,7 +50,9 @@ class addressvirtual(moduleBase):
             # Create a macvlan device on this device and set the virtual
             # router mac and ip on it
             macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
-            self.ipcmd.link_create_macvlan(macvlan_ifacename, realifacename)
+            if not self.ipcmd.link_exists(macvlan_ifacename):
+                rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
+                                                      realifacename)
             if av_attrs[0] != 'None':
                 self.ipcmd.link_set_hwaddress(macvlan_ifacename, av_attrs[0])
             self.ipcmd.addr_add_multiple(macvlan_ifacename, av_attrs[1:],

@@ -386,7 +386,6 @@ class ifaceScheduler():
             # if -a is set, we dont really have to sort. We pick the interfaces
             # that have no parents and 
             if not skip_ifacesort:
-                ifupdownobj.logger.info(indegrees)
                 sorted_ifacenames = cls.get_sorted_iface_list(ifupdownobj,
                                             ifacenames, ops, dependency_graph,
                                             indegrees)
@@ -409,7 +408,6 @@ class ifaceScheduler():
                 run_queue.reverse()
 
         # run interface list
-        ifupdownobj.logger.info('running interfaces: %s' %str(run_queue))
         cls.run_iface_list(ifupdownobj, run_queue, ops,
                            parent=None, order=order,
                            followdependents=followdependents)

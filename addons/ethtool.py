@@ -58,6 +58,37 @@ class ethtool(moduleBase):
                 self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
+        """
+        Advertised auto-negotiation: No
+        Speed: 1000Mb/s
+        Duplex: Full"""
+        ethtool_attrs = self.dict_key_subset(ifaceobj.config,
+                                          self.get_mod_attrs())
+        if not ethtool_attrs:
+            return
+        try:
+            speed = ifaceobj.get_attr_value_first('link-speed')
+            if speed:
+                running_speed = self.read_file_oneline(
+                                    '/sys/class/net/%s/speed' %ifaceobj.name)
+                if running_speed and running_speed != speed:
+                     ifaceobjcurr.update_config_with_status('link-speed',
+                             running_speed, 1)
+                else:
+                     ifaceobjcurr.update_config_with_status('link-speed',
+                             running_speed, 0)
+            duplex = ifaceobj.get_attr_value_first('link-duplex')
+            if duplex:
+                running_duplex = self.read_file_oneline(
+                                    '/sys/class/net/%s/duplex' %ifaceobj.name)
+                if running_duplex and running_duplex != duplex:
+                     ifaceobjcurr.update_config_with_status('link-duplex',
+                             running_duplex, 1)
+                else:
+                     ifaceobjcurr.update_config_with_status('link-duplex',
+                             running_duplex, 0)
+        except Exception, e:
+            pass
         return
 
     def _query_running(self, ifaceobjrunning):
