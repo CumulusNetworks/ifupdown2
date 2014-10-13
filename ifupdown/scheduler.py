@@ -150,6 +150,27 @@ class ifaceScheduler():
                 not ifupdownobj.ALL)):
             return True
 
+        if ifaceobj.type == ifaceType.BRIDGE:
+            #
+            # XXX: This function's job is to return True for
+            # logical devices when any of the upperifaces are still around.
+            # In the new model, where bridge is represented as a dependency
+            # for a bridge port, bridge becomes a lowerdevice of a bridge port,
+            # which is not really true. To handle this case, add a special
+            # check for bridge device. Will figure out a better way to handle
+            # this.
+            # Long term this function should be replaced by
+            # walking the sysfs links to upper and lower device available in
+            # latest kernels.
+            try:
+                if os.listdir('/sys/class/net/%s/brif' %ifaceobj.name):
+                    return False
+                else:
+                    return True
+            except Exception:
+                pass
+                return True
+
         ulist = ifaceobj.upperifaces
         if not ulist:
             return True
