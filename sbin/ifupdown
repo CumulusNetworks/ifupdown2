@@ -13,6 +13,7 @@ import argparse
 import ConfigParser
 import StringIO
 import logging
+import resource
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
@@ -422,7 +423,7 @@ def main(argv):
 
 if __name__ == "__main__":
 
-
     # required during boot
     os.putenv('PATH', ENVPATH)
+    resource.setrlimit(resource.RLIMIT_CORE, (0,0))
     main(sys.argv)
