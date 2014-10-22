@@ -11,6 +11,7 @@ from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 import itertools
 import re
+import time
 
 class bridge(moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
