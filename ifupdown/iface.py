@@ -351,6 +351,7 @@ class iface():
         Returns True if object self is same as dstiface and False otherwise """
 
         if self.name != dstiface.name: return False
+        if self.type != dstiface.type: return False
         if self.addr_family != dstiface.addr_family: return False
         if self.addr_method != dstiface.addr_method: return False
         if self.auto != dstiface.auto: return False

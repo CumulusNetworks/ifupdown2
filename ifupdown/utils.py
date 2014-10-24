@@ -32,7 +32,7 @@ class utils():
 
     @classmethod
     def parse_iface_range(cls, name):
-        range_match = re.match("^([\w]+)-\[([\d]+)-([\d]+)\]", name)
+        range_match = re.match("^([\w\.]+)\[([\d]+)-([\d]+)\]", name)
         if range_match:
             range_groups = range_match.groups()
             if range_groups[1] and range_groups[2]:

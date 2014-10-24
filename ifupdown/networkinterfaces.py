@@ -266,9 +266,27 @@ class networkInterfaces():
            for v in range(range_val[1], range_val[2]):
                 ifaceobj_new = copy.deepcopy(ifaceobj)
                 ifaceobj_new.real_name = ifaceobj.name
-                ifaceobj_new.name = "%s-%d" %(range_val[0], v)
+                ifaceobj_new.name = "%s%d" %(range_val[0], v)
                 self.callbacks.get('iface_found')(ifaceobj_new)
         else:
+            self.callbacks.get('iface_found')(ifaceobj)
+
+        return lines_consumed       # Return next index
+
+    def process_vlan(self, lines, cur_idx, lineno):
+        ifaceobj = iface()
+        lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+
+        range_val = utils.parse_iface_range(ifaceobj.name)
+        if range_val:
+           for v in range(range_val[1], range_val[2]):
+                ifaceobj_new = copy.deepcopy(ifaceobj)
+                ifaceobj_new.real_name = ifaceobj.name
+                ifaceobj_new.name = "%s%d" %(range_val[0], v)
+                ifaceobj_new.type = ifaceType.BRIDGE_VLAN
+                self.callbacks.get('iface_found')(ifaceobj_new)
+        else:
+            ifaceobj.type = ifaceType.BRIDGE_VLAN
             self.callbacks.get('iface_found')(ifaceobj)
 
         return lines_consumed       # Return next index
@@ -276,7 +294,8 @@ class networkInterfaces():
     network_elems = { 'source'      : process_source,
                       'allow'      : process_allow,
                       'auto'        : process_auto,
-                      'iface'       : process_iface}
+                      'iface'       : process_iface,
+                      'vlan'       : process_vlan}
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword

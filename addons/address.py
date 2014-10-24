@@ -265,7 +265,7 @@ class address(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2(**self.get_flags())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run address configuration on the interface object passed as argument
 
         Args:

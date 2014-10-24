@@ -65,7 +65,7 @@ class ifaceScheduler():
                         m.run(ifaceobj, op, query_ifaceobj)
                     else:
                         ifupdownobj.logger.debug(msg)
-                        m.run(ifaceobj, op)
+                        m.run(ifaceobj, op, ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
             except Exception, e:
                 err = 1
                 ifupdownobj.log_error(str(e))

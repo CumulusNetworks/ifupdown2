@@ -147,7 +147,7 @@ class addressvirtual(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2(**self.get_flags())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
         Args:
@@ -163,6 +163,8 @@ class addressvirtual(moduleBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+            return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return

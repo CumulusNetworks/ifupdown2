@@ -73,7 +73,7 @@ class vxlan(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2(**self.get_flags())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return

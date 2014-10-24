@@ -98,8 +98,12 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
-        if not self.ipcmd.link_exists(ifaceobj.name):
-            rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
+        if not self.PERFMODE:
+            if not self.ipcmd.link_exists(vlanrawdevice):
+                raise Exception('rawdevice %s not present' %vlanrawdevice)
+            if self.ipcmd.link_exists(ifaceobj.name):
+                return
+        rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
                     ifaceobj.name, vlanid)
 
     def _down(self, ifaceobj):
@@ -164,7 +168,7 @@ class vlan(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2(**self.get_flags())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
         Args:
@@ -180,6 +184,8 @@ class vlan(moduleBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+            return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return

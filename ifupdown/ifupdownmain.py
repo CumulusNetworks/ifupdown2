@@ -37,6 +37,16 @@ _crossmark = u'\u2717'
 _success_sym = '(%s)' %_tickmark
 _error_sym = '(%s)' %_crossmark
 
+class ifupdownFlags():
+    FORCE = False
+    DRYRUN = False
+    NOWAIT = False
+    PERFMODE = False
+    CACHE = False
+
+    # Flags
+    CACHE_FLAGS = 0x0
+
 class ifupdownMain(ifupdownBase):
     """ ifupdown2 main class """
 
@@ -159,6 +169,14 @@ class ifupdownMain(ifupdownBase):
         self.CACHE_FLAGS = 0x0
         self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
         self.ADDONS_ENABLE = addons_enable
+
+        # Copy flags into ifupdownFlags
+        # XXX: before we transition fully to ifupdownFlags
+        ifupdownFlags.FORCE = force
+        ifupdownFlags.DRYRUN = dryrun
+        ifupdownFlags.NOWAIT = nowait
+        ifupdownFlags.PERFMODE = perfmode
+        ifupdownFlags.CACHE = cache
 
         self.ifaces = OrderedDict()
         self.njobs = njobs
@@ -351,7 +369,7 @@ class ifupdownMain(ifupdownBase):
                 dlist = None
                 pass
             if dlist: ret_dlist.extend(dlist)
-        return ret_dlist
+        return list(set(ret_dlist))
 
     def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """

@@ -484,6 +484,9 @@ class brctl(utilsBase):
     def bridge_exists(self, bridge):
         return os.path.exists('/sys/class/net/%s/bridge' %bridge)
 
+    def is_bridge_port(self, ifacename):
+        return os.path.exists('/sys/class/net/%s/brport' %ifacename)
+
     def bridge_port_exists(self, bridge, bridgeportname):
         try:
             return bridgeportname in os.listdir('/sys/class/net/%s/brif'

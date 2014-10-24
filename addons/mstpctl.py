@@ -211,8 +211,12 @@ class mstpctl(moduleBase):
 
     def _is_bridge(self, ifaceobj):
         if (ifaceobj.get_attr_value_first('mstpctl-ports') or
-                ifaceobj.get_attr_value_first('bridge-ports') or
-                ifaceobj.type == ifaceType.BRIDGE):
+                ifaceobj.get_attr_value_first('bridge-ports')):
+            return True
+        return False
+
+    def _is_bridge_port(self, ifaceobj):
+        if self.brctlcmd.is_bridge_port(ifaceobj.name):
             return True
         return False
 
@@ -344,35 +348,63 @@ class mstpctl(moduleBase):
             self.log_warn(str(e))
             pass
 
-    def _apply_bridge_port_settings(self, ifaceobj, bridge):
+    def _apply_bridge_port_settings(self, ifaceobj, bridgename=None,
+                                    bridgeifaceobj=None):
         check = False if self.PERFMODE else True
-        try:
-            # set bridge port attributes
-            for attrname, dstattrname in self._port_attrs_map.items():
-                attrval = ifaceobj.get_attr_value_first(attrname)
-                if not attrval:
-                    continue
+        if not bridgename and bridgeifaceobj:
+            bridgename = bridgeifaceobj.name
+        # set bridge port attributes
+        for attrname, dstattrname in self._port_attrs_map.items():
+            attrval = ifaceobj.get_attr_value_first(attrname)
+            if not attrval:
+               if bridgeifaceobj:
+                  # If bridge object available, check if the bridge
+                  # has the attribute set, in which case,
+                  # inherit it from the bridge
+                  attrval = bridgeifaceobj.get_attr_value_first(attrname)
+                  if not attrval:
+                     continue
+               else:
+                  continue
+            try:
+               self.mstpctlcmd.set_bridgeport_attr(bridgename,
+                           ifaceobj.name, dstattrname, attrval, check)
+            except Exception, e:
+               self.log_warn('%s: error setting %s (%s)'
+                             %(ifaceobj.name, attrname, str(e)))
+
+    def _apply_bridge_port_settings_all(self, ifaceobj,
+                                        ifaceobj_getfunc=None):
+        self.logger.info('%s: applying bridge configuration '
+                          %ifaceobj.name + 'specific to ports')
+
+        bridgeports = self._get_bridge_port_list(ifaceobj)
+        for bport in bridgeports:
+            self.logger.info('%s: processing bridge config for port %s'
+                             %(ifaceobj.name, bport))
+            bportifaceobjlist = ifaceobj_getfunc(bport)
+            if not bportifaceobjlist:
+               continue
+            for bportifaceobj in bportifaceobjlist:
                 try:
-                    self.mstpctlcmd.set_bridgeport_attr(bridge,
-                                ifaceobj.name, dstattrname, attrval, check)
+                    self._apply_bridge_port_settings(bportifaceobj, 
+                                            ifaceobj.name, ifaceobj)
                 except Exception, e:
-                    self.log_warn('%s: error setting %s (%s)'
-                                %(ifaceobj.name, attrname, str(e)))
-        except Exception, e:
-            self.log_warn(str(e))
-            pass
+                    self.log_warn(str(e))
 
-    def _up(self, ifaceobj):
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
-        bridge = ifaceobj.get_attr_value_first('bridge')
-        if bridge:
+        if self._is_bridge_port(ifaceobj):
             if self.mstpctlcmd.is_mstpd_running():
-                self._apply_bridge_port_settings(ifaceobj, bridge)
+                bridgename = ifaceobj.upperifaces[0]
+                if not bridgename:
+                    self.logger.warn('%s: unable to determine bridge name'
+                                %ifaceobj.name)
+                    return
+                self._apply_bridge_port_settings(ifaceobj, bridgename)
             return
-
         if not self._is_bridge(ifaceobj):
             return
-
         stp = None
         try:
             porterr = False
@@ -403,12 +435,16 @@ class mstpctl(moduleBase):
             if (self.mstpctlcmd.is_mstpd_running() and
                     (stp == 'yes' or stp == 'on')):
                 self._apply_bridge_settings(ifaceobj)
+                self._apply_bridge_port_settings_all(ifaceobj,
+                            ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
             self.log_error(str(e))
         if porterr:
             raise Exception(porterrstr)
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
+        if not self._is_bridge(ifaceobj):
+            return
         try:
             if ifaceobj.get_attr_value_first('mstpctl-ports'):
                 # If bridge ports specified with mstpctl attr, delete the
@@ -599,7 +635,8 @@ class mstpctl(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status(k, rv, 0)
 
-    def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr, bridge):
+    def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
+        bridge = ifaceobj.upperifaces[0]
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-pathcost',
                 'mstpctl-treeprio', 'mstpctl-treecost']
@@ -633,15 +670,14 @@ class mstpctl(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status(k, None, 1)
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         # Check if bridge port
-        bridge = ifaceobj.get_attr_value_first('bridge')
-        if bridge:
-            self._query_check_bridge_port(ifaceobj, ifaceobjcurr, bridge)
-            return
-        self._query_check_bridge(ifaceobj, ifaceobjcurr)
+        if self._is_bridge_port(ifaceobj):
+            self._query_check_bridge_port(ifaceobj, ifaceobjcurr)
+        elif self._is_bridge(ifaceobj):
+            self._query_check_bridge(ifaceobj, ifaceobjcurr)
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         if not self.brctlcmd.bridge_exists(ifaceobjrunning.name):
                 return
         if self.brctlcmd.get_stp(ifaceobjrunning.name) == 'no':
@@ -674,7 +710,8 @@ class mstpctl(moduleBase):
         if not self.mstpctlcmd:
             self.mstpctlcmd = mstpctlutil(**flags)
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None,
+            ifaceobj_getfunc=None, **extra_args):
         """ run mstp configuration on the interface object passed as argument
 
         Args:
@@ -695,6 +732,7 @@ class mstpctl(moduleBase):
            return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj,
+                       ifaceobj_getfunc=ifaceobj_getfunc)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)

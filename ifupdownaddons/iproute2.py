@@ -486,6 +486,8 @@ class iproute2(utilsBase):
         self._cache_update([name], {})
 
     def link_exists(self, ifacename):
+        if self.DRYRUN:
+            return True
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
     def is_vlan_device_by_name(self, ifacename):

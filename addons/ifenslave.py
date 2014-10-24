@@ -351,7 +351,7 @@ class ifenslave(moduleBase):
         if not self.ifenslavecmd:
             self.ifenslavecmd = ifenslaveutil(**flags)
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run bond configuration on the interface object passed as argument
 
         Args:

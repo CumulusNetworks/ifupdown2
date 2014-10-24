@@ -180,7 +180,11 @@ class moduleBase(object):
         if not port_expr:
             return None
         for expr in re.split(r'[\s\t]\s*', port_expr):
-            if expr == 'regex':
+            if expr == 'noregex':
+                regex = 0
+            elif expr == 'noglob':
+                glob = 0
+            elif expr == 'regex':
                 regex = 1
             elif expr == 'glob':
                 glob = 1

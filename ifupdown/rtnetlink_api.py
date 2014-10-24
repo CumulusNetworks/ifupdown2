@@ -11,6 +11,7 @@ from socket import AF_UNSPEC
 from iff import IFF_UP
 from rtnetlink import *
 import os
+import ifupdownmain
 
 class rtnetlinkApi(RtNetlink):
 
@@ -39,13 +40,15 @@ class rtnetlinkApi(RtNetlink):
         return ifindex
 
     def create_vlan(self, link, ifname, vlanid):
-
+        self.logger.info('rtnetlink: creating vlan %s' %ifname)
+        if ifupdownmain.ifupdownFlags.DRYRUN:
+            return
         try:
             ifindex = self.get_ifindex(link)
         except Exception, e:
-            raise Exception('cannot determine ifindex for link %s (%s)' %(link, str(e)))
+            raise Exception('cannot determine ifindex for link %s (%s)'
+                            %(link, str(e)))
 
-        self.logger.info('rtnetlink: creating vlan %s' %ifname)
         ifm = Ifinfomsg(AF_UNSPEC)
         rtas = {IFLA_IFNAME: ifname,
                     IFLA_LINK : ifindex,
@@ -56,17 +59,19 @@ class rtnetlinkApi(RtNetlink):
                         }
                     }
                }
-        token = self.request(RTM_NEWLINK, NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK, ifm, rtas)
+        token = self.request(RTM_NEWLINK,
+                        NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK, ifm, rtas)
         self.process_wait([token])
 
     def create_macvlan(self, ifname, link, mode='private'):
-
+        self.logger.info('rtnetlink: creating macvlan %s' %ifname)
+        if ifupdownmain.ifupdownFlags.DRYRUN:
+            return
         try:
             ifindex = self.get_ifindex(link)
         except Exception, e:
-            raise Exception('cannot determine ifindex for link %s (%s)' %(link, str(e)))
-
-        self.logger.info('rtnetlink: creating macvlan %s' %ifname)
+            raise Exception('cannot determine ifindex for link %s (%s)'
+                            %(link, str(e)))
 
         ifm = Ifinfomsg(AF_UNSPEC)
         rtas = {IFLA_IFNAME: ifname,
@@ -78,14 +83,15 @@ class rtnetlinkApi(RtNetlink):
                         }
                     }
                }
-        token = self.request(RTM_NEWLINK, NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK,
-                             ifm, rtas)
+        token = self.request(RTM_NEWLINK, NLM_F_CREATE | NLM_F_REQUEST |
+                             NLM_F_ACK, ifm, rtas)
         self.process_wait([token])
 
     def link_set(self, ifname, state):
         flags = 0
-
         self.logger.info('rtnetlink: setting link %s %s' %(ifname, state))
+        if ifupdownmain.ifupdownFlags.DRYRUN:
+            return
 
         if state == "up":
             flags |= IFF_UP
