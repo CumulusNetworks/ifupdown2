@@ -357,15 +357,15 @@ class mstpctl(moduleBase):
         for attrname, dstattrname in self._port_attrs_map.items():
             attrval = ifaceobj.get_attr_value_first(attrname)
             if not attrval:
-               if bridgeifaceobj:
-                  # If bridge object available, check if the bridge
-                  # has the attribute set, in which case,
-                  # inherit it from the bridge
-                  attrval = bridgeifaceobj.get_attr_value_first(attrname)
-                  if not attrval:
-                     continue
-               else:
-                  continue
+               #if bridgeifaceobj:
+               #   # If bridge object available, check if the bridge
+               #   # has the attribute set, in which case,
+               #   # inherit it from the bridge
+               #   attrval = bridgeifaceobj.get_attr_value_first(attrname)
+               #   if not attrval:
+               #      continue
+               #else:
+               continue
             try:
                self.mstpctlcmd.set_bridgeport_attr(bridgename,
                            ifaceobj.name, dstattrname, attrval, check)

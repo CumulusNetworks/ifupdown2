@@ -640,16 +640,17 @@ class bridge(moduleBase):
             'bridge-priority' : 'portprio',
             'bridge-mcrouter' : 'portmcrouter',
             'bridge-multicast-router' : 'portmcrouter',
+            'bridge-mcfl' : 'portmcfl',
             'bridge-multicast-fast-leave' : 'portmcfl'}.items():
             attrval = bportifaceobj.get_attr_value_first(attrname)
             if not attrval:
                 # Check if bridge has that attribute
-                if bridgeifaceobj:
-                    attrval = bridgeifaceobj.get_attr_value_first(attrname)
-                    if not attrval:
-                        continue
-                else:
-                    continue
+                #if bridgeifaceobj:
+                #    attrval = bridgeifaceobj.get_attr_value_first(attrname)
+                #    if not attrval:
+                #        continue
+                #else:
+                continue
             portattrs[dstattrname] = attrval
         try:
             self.brctlcmd.set_bridgeport_attrs(bridgename,
