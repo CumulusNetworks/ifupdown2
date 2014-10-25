@@ -143,8 +143,8 @@ class moduleBase(object):
         start_index = 0
         end_index = 0
         try:
-            regexs = [re.compile(r"([A-Za-z0-9]+[A-Za-z])(\d+)\-(\d+)(.*)"),
-                      re.compile(r"([A-Za-z0-9]+)\[(\d+)\-(\d+)\](.*)")]
+            regexs = [re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
+                      re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
             for r in regexs:
                 m = r.match(expr)
                 if not m:
