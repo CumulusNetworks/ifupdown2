@@ -593,7 +593,7 @@ class bridge(moduleBase):
                           %(bportifaceobj.name, pvid, str(e)))
 
     def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj,
-                                                   bridge_vids):
+                                                   bridge_vids=None):
         running_vidinfo = self._get_running_vidinfo()
         vids = None
         pvids = None
@@ -706,6 +706,9 @@ class bridge(moduleBase):
                self.logger.warn('%s: unable to determine bridge name'
                                 %ifaceobj.name)
                return
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                self._apply_bridge_vlan_aware_port_settings_all(
+                                ifaceobj)
             self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
             return
 
