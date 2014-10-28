@@ -48,7 +48,7 @@ class ifenslave(moduleBase):
                           'default' : 'balance-rr',
                           'example' : ['bond-mode 802.3ad']},
                      'bond-lacp-rate':
-                         {'help' : 'bond use carrier',
+                         {'help' : 'bond lacp rate',
                           'validvals' : ['0', '1'],
                           'default' : '0',
                           'example' : ['bond-lacp-rate 0']},
@@ -268,7 +268,8 @@ class ifenslave(moduleBase):
             if not v:
                 continue
             if k == 'bond-slaves':
-                slaves = v.split()
+                slaves = self._get_slave_list(ifaceobj)
+                #slaves = v.split()
                 continue
             rv = runningattrs.get(k)
             if not rv:

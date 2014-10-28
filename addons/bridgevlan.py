@@ -60,8 +60,8 @@ class bridgevlan(moduleBase):
             raise
 
         if not self.ipcmd.link_exists(bridgename):
-            self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
-                             bridgename))
+            #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
+            #                 bridgename))
             return
 
         running_mcqv4src = {}
@@ -93,8 +93,8 @@ class bridgevlan(moduleBase):
             raise
 
         if not self.ipcmd.link_exists(bridgename):
-            self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
-                             bridgename))
+            #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
+            #                 bridgename))
             return
 
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')

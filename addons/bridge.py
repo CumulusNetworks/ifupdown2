@@ -167,22 +167,10 @@ class bridge(moduleBase):
                     'bridge-port-pvids' :
                         { 'help' : 'bridge port vlans',
                           'example' : ['bridge-port-pvids bond0=100 bond1=200']},
-                    'bridge-pathcost' :
-                        { 'help' : 'bridge port path cost',
-                          'example' : ['bridge-pathcost 10']},
-                    'bridge-priority' :
-                        { 'help' : 'bridge port priority',
-                          'example' : ['bridge-priority 10']},
-                    'bridge-multicast-router' :
-                        { 'help' : 'bridge multicast router',
-                          'example' : ['bridge-multicast-router 1']},
-                    'bridge-multicast-fast-leave' :
-                        { 'help' : 'bridge multicast fast leave',
-                          'example' : ['bridge-multicast-fast-leave 1']},
                     'bridge-igmp-querier-src' :
                         { 'help' : 'bridge igmp querier src',
                           'example' : ['bridge-igmp-querier-src 172.16.101.1']},
-                        }}
+                     }}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -455,23 +443,25 @@ class bridge(moduleBase):
                         %(ifaceobj.name, p, str(e)))
 
         # install vids
-        attrval = ifaceobj.get_attr_value_first('bridge-vids')
-        if attrval:
-            vids = re.split(r'[\s\t]\s*', attrval)
-            if running_vidinfo.get(ifaceobj.name):
-                (vids_to_del, vids_to_add) = \
-                        self._diff_vids(vids,
-                            running_vidinfo.get(ifaceobj.name).get('vlan'))
-                if vids_to_del:
-                    self.ipcmd.bridge_vids_del(ifaceobj.name, vids_to_del)
-                if vids_to_add:
-                    self.ipcmd.bridge_vids_add(ifaceobj.name, vids_to_add)
-            else:
-                self.ipcmd.bridge_vids_add(ifaceobj.name, vids)
-        else:
-            running_vids = running_vidinfo.get(ifaceobj.name)
-            if running_vids:
-                self.ipcmd.bridge_vids_del(ifaceobj.name, running_vids)
+        # XXX: Commenting out this code for now because it was decided
+        # that this is not needed
+        #attrval = ifaceobj.get_attr_value_first('bridge-vids')
+        #if attrval:
+        #    vids = re.split(r'[\s\t]\s*', attrval)
+        #    if running_vidinfo.get(ifaceobj.name):
+        #        (vids_to_del, vids_to_add) = \
+        #                self._diff_vids(vids,
+        #                    running_vidinfo.get(ifaceobj.name).get('vlan'))
+        #        if vids_to_del:
+        #            self.ipcmd.bridge_vids_del(ifaceobj.name, vids_to_del)
+        #        if vids_to_add:
+        #            self.ipcmd.bridge_vids_add(ifaceobj.name, vids_to_add)
+        #    else:
+        #        self.ipcmd.bridge_vids_add(ifaceobj.name, vids)
+        #else:
+        #    running_vids = running_vidinfo.get(ifaceobj.name)
+        #    if running_vids:
+        #        self.ipcmd.bridge_vids_del(ifaceobj.name, running_vids)
 
     def _apply_bridge_settings(self, ifaceobj):
         try:
@@ -587,7 +577,9 @@ class bridge(moduleBase):
                 if running_pvid != pvid:
                     self.ipcmd.bridge_port_pvid_del(bportifaceobj.name,
                                                     running_pvid)
-                    self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid)
+                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid)
+            else:
+                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid)
         except Exception, e:
             self.log_warn('%s: failed to set pvid `%s` (%s)'
                           %(bportifaceobj.name, pvid, str(e)))
@@ -635,13 +627,10 @@ class bridge(moduleBase):
         # Set other stp and igmp attributes
         portattrs = {}
         for attrname, dstattrname in {
-            'bridge-pathcost' : 'pathcost',
-            'bridge-prio' : 'portprio',
-            'bridge-priority' : 'portprio',
-            'bridge-mcrouter' : 'portmcrouter',
-            'bridge-multicast-router' : 'portmcrouter',
-            'bridge-mcfl' : 'portmcfl',
-            'bridge-multicast-fast-leave' : 'portmcfl'}.items():
+            'bridge-pathcosts' : 'pathcost',
+            'bridge-portprios' : 'portprio',
+            'bridge-portmcrouter' : 'portmcrouter',
+            'bridge-portmcfl' : 'portmcfl'}.items():
             attrval = bportifaceobj.get_attr_value_first(attrname)
             if not attrval:
                 # Check if bridge has that attribute
@@ -685,6 +674,10 @@ class bridge(moduleBase):
         for bport in bridgeports:
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
+            if not self.ipcmd.bridge_port_exists(ifaceobj.name, bport):
+                self.logger.info('%s: skipping bridge config' %ifaceobj.name +
+                        ' for port %s (missing port)' %bport)
+                continue
             self.logger.info('%s: processing bridge config for port %s'
                              %(ifaceobj.name, bport))
             bportifaceobjlist = ifaceobj_getfunc(bport)
@@ -701,17 +694,18 @@ class bridge(moduleBase):
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
         if self._is_bridge_port(ifaceobj):
-            bridgename = ifaceobj.upperifaces[0]
+            bridgename = self._get_bridge_name(ifaceobj)
             if not bridgename:
                self.logger.warn('%s: unable to determine bridge name'
                                 %ifaceobj.name)
                return
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                self._apply_bridge_vlan_aware_port_settings_all(
-                                ifaceobj)
+               bridge_vids = self._get_bridge_vids(bridgename,
+                                                   ifaceobj_getfunc)
+               self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
+                                                               bridge_vids)
             self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
             return
-
         if not self._is_bridge(ifaceobj):
             return
         try:
@@ -753,7 +747,7 @@ class bridge(moduleBase):
         except Exception, e:
             self.log_error(str(e))
 
-    def _query_running_vidinfo(self, ifaceobjrunning, ports):
+    def _query_running_vidinfo_compat(self, ifaceobjrunning, ports):
         running_attrs = {}
         running_vidinfo = self._get_running_vidinfo()
         if ports:
@@ -785,6 +779,15 @@ class bridge(moduleBase):
             running_attrs['bridge-vids'] = ','.join(running_bridge_vids)
         return running_attrs
 
+    def _query_running_vidinfo(self, ifaceobjrunning):
+        running_attrs = {}
+        running_vidinfo = self._get_running_vidinfo()
+        running_bridge_vids = running_vidinfo.get(ifaceobjrunning.name,
+                                                  {}).get('vlan')
+        if running_bridge_vids:
+            running_attrs['bridge-vids'] = ','.join(running_bridge_vids)
+        return running_attrs
+
     def _query_running_mcqv4src(self, ifaceobjrunning):
         running_mcqv4src = self.brctlcmd.get_mcqv4src(ifaceobjrunning.name)
         mcqs = ['%s=%s' %(v, i) for v, i in running_mcqv4src.items()]
@@ -792,7 +795,7 @@ class bridge(moduleBase):
         mcq = ' '.join(mcqs)
         return mcq
 
-    def _query_running_attrs(self, ifaceobjrunning):
+    def _query_running_attrs(self, ifaceobjrunning, bridge_vlan_aware=False):
         bridgeattrdict = {}
         userspace_stp = 0
         ports = None
@@ -832,10 +835,14 @@ class bridge(moduleBase):
             if v != self.get_mod_subattr(attrname, 'default'):
                 bridgeattrdict[attrname] = [v]
 
-        bridgevidinfo = self._query_running_vidinfo(ifaceobjrunning, ports)
+        if bridge_vlan_aware:
+            bridgevidinfo = self._query_running_vidinfo(ifaceobjrunning)
+        else:
+            bridgevidinfo = self._query_running_vidinfo_compat(ifaceobjrunning,
+                                                               ports)
         if bridgevidinfo:
-            bridgeattrdict.update({k : [v] for k, v in bridgevidinfo.items()
-                                    if v})
+           bridgeattrdict.update({k : [v] for k, v in bridgevidinfo.items()
+                                  if v})
 
         mcq = self._query_running_mcqv4src(ifaceobjrunning)
         if mcq:
@@ -873,10 +880,9 @@ class bridge(moduleBase):
             ifaceobjcurr.update_config_with_status('bridge-mcqv4src',
                          running_mcqs, 1 if running_mcqs != mcqsout else 0)
 
-    def _query_check_vidinfo(self, ifaceobj, ifaceobjcurr):
-
+    def _query_check_bridge_vidinfo(self, ifaceobj, ifaceobjcurr):
         err = 0
-        running_vidinfo = self.ipcmd.bridge_port_vids_get_all()
+        running_vidinfo = self._get_running_vidinfo()
         attrval = ifaceobj.get_attr_value_first('bridge-port-vids')
         if attrval:
             running_bridge_port_vids = ''
@@ -910,7 +916,6 @@ class bridge(moduleBase):
                 ifaceobjcurr.update_config_with_status('bridge-port-vids',
                                                  attrval, 0)
 
-        # Install pvids
         attrval = ifaceobj.get_attr_value_first('bridge-port-pvids')
         if attrval:
             portlist = self.parse_port_list(attrval)
@@ -940,28 +945,35 @@ class bridge(moduleBase):
                 ifaceobjcurr.update_config_with_status('bridge-port-pvids',
                                                  running_bridge_port_pvids, 0)
 
+        # XXX: No need to check for bridge-vids on the bridge
+        # This is used by the ports. The vids on the bridge
+        # come from the vlan interfaces on the bridge.
+        #
         attrval = ifaceobj.get_attr_value_first('bridge-vids')
-        if attrval:
-            vids = re.split(r'[\s\t]\s*', attrval)
-            running_vids = running_vidinfo.get(ifaceobj.name, {}).get('vlan')
-            if running_vids:
-                if self._compare_vids(vids, running_vids):
-                    ifaceobjcurr.update_config_with_status('bridge-vids',
-                                                           attrval, 0)
-                else:
-                    ifaceobjcurr.update_config_with_status('bridge-vids',
-                                                ','.join(running_vids), 1)
-            else:
-                ifaceobjcurr.update_config_with_status('bridge-vids', attrval,
-                                                       1)
+        #if attrval:
+        #    vids = re.split(r'[\s\t]\s*', attrval)
+        #    running_vids = running_vidinfo.get(ifaceobj.name, {}).get('vlan')
+        #    if running_vids:
+        #        if self._compare_vids(vids, running_vids):
+        #            ifaceobjcurr.update_config_with_status('bridge-vids',
+        #                                                   attrval, 0)
+        #        else:
+        #            ifaceobjcurr.update_config_with_status('bridge-vids',
+        #                                        ','.join(running_vids), 1)
+        #    else:
+        #        ifaceobjcurr.update_config_with_status('bridge-vids', attrval,
+        #                                               1)
+        ifaceobjcurr.update_config_with_status('bridge-vids', attrval, -1)
 
-    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
+    def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
+                            ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
             return
         if not self.brctlcmd.bridge_exists(ifaceobj.name):
             self.logger.info('%s: bridge: does not exist' %(ifaceobj.name))
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
+
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self.get_mod_attrs())
         if not ifaceattrs:
@@ -985,7 +997,14 @@ class bridge(moduleBase):
             rv = runningattrs.get(k[7:])
             if k == 'bridge-mcqv4src':
                continue
-            if k == 'bridge-stp':
+            if k == 'bridge-vlan-aware' and v == 'yes':
+                if self.ipcmd.bridge_is_vlan_aware(ifaceobj.name):
+                    ifaceobjcurr.update_config_with_status('bridge-vlan-aware',
+                               v, 0)
+                else:
+                    ifaceobjcurr.update_config_with_status('bridge-vlan-aware',
+                               v, 1)
+            elif k == 'bridge-stp':
                # special case stp compare because it may
                # contain more than one valid values
                stp_on_vals = ['on', 'yes']
@@ -1047,15 +1066,188 @@ class bridge(moduleBase):
             else:
                ifaceobjcurr.update_config_with_status(k, rv, 0)
 
-            self._query_check_vidinfo(ifaceobj, ifaceobjcurr)
+        self._query_check_bridge_vidinfo(ifaceobj, ifaceobjcurr)
 
-            self._query_check_mcqv4src(ifaceobj, ifaceobjcurr)
+        self._query_check_mcqv4src(ifaceobj, ifaceobjcurr)
 
-    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
-        if not self.brctlcmd.bridge_exists(ifaceobjrunning.name):
+    def _get_bridge_vids(self, bridgename, ifaceobj_getfunc):
+        ifaceobjs = ifaceobj_getfunc(bridgename)
+        for ifaceobj in ifaceobjs:
+            vids = ifaceobj.get_attr_value_first('bridge-vids')
+            if vids: return re.split(r'[\s\t]\s*', vids)
+        return None
+
+    def _get_bridge_name(self, ifaceobj):
+        return self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+
+    def _query_check_bridge_port_vidinfo(self, ifaceobj, ifaceobjcurr,
+                                         ifaceobj_getfunc, bridgename):
+        running_vidinfo = self._get_running_vidinfo()
+
+        attr_name = 'bridge-access'
+        vids = ifaceobj.get_attr_value_first(attr_name)
+        if vids:
+           running_pvids = running_vidinfo.get(ifaceobj.name,
+                                              {}).get('pvid')
+           running_vids = running_vidinfo.get(ifaceobj.name,
+                                              {}).get('vlan')
+           if (not running_pvids or running_pvids != vids or
+                   running_vids):
+               ifaceobjcurr.update_config_with_status(attr_name,
+                                running_pvids, 1)
+           else:
+               ifaceobjcurr.update_config_with_status(attr_name, vids, 0)
+           return
+
+        attr_name = 'bridge-vids'
+        vids = ifaceobj.get_attr_value_first(attr_name)
+        if vids:
+           vids = re.split(r'[\s\t]\s*', vids)
+           running_vids = running_vidinfo.get(ifaceobj.name,
+                                              {}).get('vlan')
+           if not running_vids or not self._compare_vids(vids, running_vids):
+               ifaceobjcurr.update_config_with_status(attr_name,
+                                ' '.join(running_vids), 1)
+           else:
+               ifaceobjcurr.update_config_with_status(attr_name,
+                                ' '.join(running_vids), 0)
+        else:
+           # check if it matches the bridge vids
+           bridge_vids = self._get_bridge_vids(bridgename, ifaceobj_getfunc)
+           running_vids = running_vidinfo.get(ifaceobj.name,
+                                              {}).get('vlan')
+           if (bridge_vids and (not running_vids  or
+                   not self._compare_vids(bridge_vids, running_vids))):
+              ifaceobjcurr.status = ifaceStatus.ERROR
+              ifaceobjcurr.status_str = 'bridge vid error'
+
+        running_pvid = running_vidinfo.get(ifaceobj.name,
+                                           {}).get('pvid')
+        attr_name = 'bridge-pvid'
+        pvid = ifaceobj.get_attr_value_first(attr_name)
+        if pvid:
+           if running_pvid and runing_pvid == pvid:
+              ifaceobjcurr.update_config_with_status(attr_name,
+                                                     running_pvid, 0)
+           else:
+              ifaceobjcurr.update_config_with_status(attr_name,
+                                                     running_pvid, 1)
+        elif not running_pvid or running_pvid != '1':
+           ifaceobjcurr.status = ifaceStatus.ERROR
+           ifaceobjcurr.status_str = 'bridge pvid error'
+
+    def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr,
+                                 ifaceobj_getfunc):
+        if not self._is_bridge_port(ifaceobj):
+            # Mark all bridge attributes as failed
+            ifaceobj.check_n_update_config_with_status_many(
+                    ['bridge-vids', 'bridge-pvid', 'bridge-access',
+                     'bridge-pathcosts', 'bridge-portprios',
+                     'bridge-portmcrouter',
+                     'bridge-portmcfl',
+                     'bridge-igmp-querier-src'], 0)
             return
-        ifaceobjrunning.update_config_dict(self._query_running_attrs(
-                                           ifaceobjrunning))
+        bridgename = self._get_bridge_name(ifaceobj)
+        if not bridgename:
+            self.logger.warn('%s: unable to determine bridge name'
+                             %ifaceobj.name)
+            return
+
+        if self.ipcmd.bridge_is_vlan_aware(bridgename):
+            self._query_check_bridge_port_vidinfo(ifaceobj, ifaceobjcurr,
+                                                  ifaceobj_getfunc,
+                                                  bridgename)
+        for attr, dstattr in {'bridge-pathcosts' : 'pathcost',
+                              'bridge-portprios' : 'priority',
+                              'bridge-portmcrouter' : 'mcrouter',
+                              'bridge-portmcfl' : 'mcfl' }.items():
+            attrval = ifaceobj.get_attr_value_first(attr)
+            if not attrval:
+                continue
+
+            try:
+                running_attrval = self.brctlcmd.get_bridgeport_attr(
+                                       bridgename, ifaceobj.name, dstattr)
+                if running_attrval != attrval:
+                    ifaceobjcurr.update_config_with_status(attr,
+                                            running_attrval, 1)
+                else:
+                    ifaceobjcurr.update_config_with_status(attr,
+                                            running_attrval, 0)
+            except Exception, e:
+                self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
+        if self._is_bridge(ifaceobj):
+            self._query_check_bridge(ifaceobj, ifaceobjcurr)
+        else:
+            self._query_check_bridge_port(ifaceobj, ifaceobjcurr,
+                                          ifaceobj_getfunc)
+
+    def _query_running_bridge(self, ifaceobjrunning):
+        if self.ipcmd.bridge_is_vlan_aware(ifaceobjrunning.name):
+            ifaceobjrunning.update_config('bridge-vlan-aware', 'yes')
+            ifaceobjrunning.update_config_dict(self._query_running_attrs(
+                                               ifaceobjrunning,
+                                               bridge_vlan_aware=True))
+        else: 
+            ifaceobjrunning.update_config_dict(self._query_running_attrs(
+                                               ifaceobjrunning))
+
+    def _query_running_bridge_port_attrs(self, ifaceobjrunning, bridgename):
+        if self.sysctl_get('net.bridge.bridge-stp-user-space') == '1':
+            return
+
+        v = self.brctlcmd.get_pathcost(bridgename, ifaceobjrunning.name)
+        if v and v != self.get_mod_subattr('bridge-pathcosts', 'default'):
+            ifaceobjrunning.update_config('bridge-pathcosts', v)
+
+        v = self.brctlcmd.get_pathcost(bridgename, ifaceobjrunning.name)
+        if v and v != self.get_mod_subattr('bridge-portprios', 'default'):
+            ifaceobjrunning.update_config('bridge-portprios', v)
+
+    def _query_running_bridge_port(self, ifaceobjrunning,
+                                   ifaceobj_getfunc=None):
+        bridgename = self.ipcmd.bridge_port_get_bridge_name(
+                                                ifaceobjrunning.name)
+        if not bridgename:
+            self.logger.warn('%s: unable to find bridgename'
+                             %ifaceobjrunning.name)
+            return
+        if not self.ipcmd.bridge_is_vlan_aware(bridgename):
+            return
+
+        running_vidinfo = self._get_running_vidinfo()
+        # Check vidinfo
+        bridge_vids = running_vidinfo.get(bridgename, {}).get('vlan')
+
+        bridge_port_vids = running_vidinfo.get(ifaceobjrunning.name,
+                                               {}).get('vlan')
+        bridge_port_pvid = running_vidinfo.get(ifaceobjrunning.name,
+                                                {}).get('pvid')
+
+        if not bridge_port_vids and bridge_port_pvid:
+            # must be an access port
+            ifaceobjrunning.update_config('bridge-access',
+                                          bridge_port_pvid)
+        else:
+            if bridge_port_vids:
+                if bridge_vids and bridge_port_vids != bridge_vids:
+                    ifaceobjrunning.update_config('bridge-vids',
+                                        ' '.join(bridge_port_vids))
+
+            if bridge_port_pvid and bridge_port_pvid != '1':
+               ifaceobjrunning.update_config('bridge-pvid',
+                                        bridge_port_pvid)
+
+        self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
+
+            
+    def _query_running(self, ifaceobjrunning, **extra_args):
+        if self.brctlcmd.bridge_exists(ifaceobjrunning.name):
+            self._query_running_bridge(ifaceobjrunning)
+        elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
+            self._query_running_bridge_port(ifaceobjrunning)
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,

@@ -371,7 +371,7 @@ class ifupdownMain(ifupdownBase):
             if dlist: ret_dlist.extend(dlist)
         return list(set(ret_dlist))
 
-    def populate_dependency_info(self, ops, ifacenames=None):
+    def populate_dependency_info_old(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """
 
         if not ifacenames:
@@ -393,6 +393,33 @@ class ifupdownMain(ifupdownBase):
                 self.dependency_graph.setdefault(i, []).extend(dlist)
                 ifaceobj.lowerifaces = self.dependency_graph.get(i)
             else:
+                self.dependency_graph[i] = dlist
+
+    def populate_dependency_info(self, ops, ifacenames=None):
+        """ recursive function to generate iface dependency info """
+
+        if not ifacenames:
+            ifacenames = self.ifaceobjdict.keys()
+
+        iqueue = deque(ifacenames)
+        while iqueue:
+            i = iqueue.popleft()
+            # Go through all modules and find dependent ifaces
+            dlist = None
+            ifaceobj = self.get_ifaceobj_first(i)
+            if not ifaceobj: 
+                continue
+            dlist = ifaceobj.lowerifaces
+            if not dlist:
+                dlist = self.query_dependents(ifaceobj, ops, ifacenames)
+            else:
+                continue
+            if dlist:
+                self.preprocess_dependency_list(ifaceobj.name,
+                                                dlist, ops)
+                ifaceobj.lowerifaces = dlist
+                [iqueue.append(d) for d in dlist]
+            if not self.dependency_graph.get(i):
                 self.dependency_graph[i] = dlist
 
     def _add_ifaceobj(self, ifaceobj):
@@ -865,7 +892,9 @@ class ifupdownMain(ifupdownBase):
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')
 
-        self.populate_dependency_info(ops, filtered_ifacenames)
+        # Roopa
+        #self.populate_dependency_info(ops, filtered_ifacenames)
+        self.populate_dependency_info(ops)
         if ops[0] == 'query-dependency' and printdependency:
             self.print_dependency(filtered_ifacenames, printdependency)
             return

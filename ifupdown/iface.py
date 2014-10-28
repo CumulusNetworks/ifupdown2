@@ -191,6 +191,8 @@ class iface():
         """iface state (of type ifaceState) """
         self.status = ifaceStatus.UNKNOWN
         """iface status (of type ifaceStatus) """
+        self.status_str = None
+        """iface status str (string representing the status) """
         self.flags = 0x0
         """iface flags """
         self.priv_flags = 0x0
@@ -331,13 +333,22 @@ class iface():
             attr_value = ''
         self.config.setdefault(attr_name, []).append(attr_value)
         self._config_status.setdefault(attr_name, []).append(attr_status)
-
         # set global iface state
-        if attr_status:
+        if attr_status == 1:
             self.status = ifaceStatus.ERROR
         elif self.status != ifaceStatus.ERROR:
             # Not already error, mark success
             self.status = ifaceStatus.SUCCESS
+
+    def check_n_update_config_with_status_many(self, attr_names,
+                                               attr_status=0):
+        # set multiple attribute status to zero
+        # also updates status only if the attribute is present
+        for attr_name in attr_names:
+            if not self.get_attr_value_first(attr_name):
+                return
+            self.config.setdefault(attr_name, []).append('')
+            self._config_status.setdefault(attr_name, []).append(attr_status)
 
     def get_config_attr_status(self, attr_name, idx=0):
         """ get status of a attribute config on this interface.
@@ -361,6 +372,7 @@ class iface():
         if any(True for k,v in self.config.items()
                     if v != dstiface.config.get(k)): return False
         return True
+
 
     def __getstate__(self):
         odict = self.__dict__.copy()
@@ -435,15 +447,16 @@ class iface():
         if self.addr_method:
             outbuf += ' %s' %self.addr_method
         if with_status:
-            if (self.status == ifaceStatus.NOTFOUND or 
-                self.status == ifaceStatus.ERROR):
+            if (self.status == ifaceStatus.ERROR or
+                    self.status == ifaceStatus.NOTFOUND):
+                if self.status_str:
+                    outbuf += ' [%s]' %self.status_str
                 outbuf += ' %s' %errorstr
             elif self.status == ifaceStatus.SUCCESS:
                 outbuf += ' %s' %successstr
             if self.status == ifaceStatus.NOTFOUND:
-                if with_status:
-                    outbuf = (outbuf.encode('utf8')
-                        if isinstance(outbuf, unicode) else outbuf)
+                outbuf = (outbuf.encode('utf8')
+                    if isinstance(outbuf, unicode) else outbuf)
                 print outbuf + '\n'
                 return
         outbuf += '\n'
@@ -452,10 +465,12 @@ class iface():
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:
-                    if not cv: continue
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
-                        if s:
+                        if s == -1:
+                            outbuf += (indent + '%s %s\n'
+                                        %(cname, cv))
+                        elif s == 1:
                             outbuf += (indent + '%s %s %s\n'
                                         %(cname, cv, errorstr))
                         elif s == 0:

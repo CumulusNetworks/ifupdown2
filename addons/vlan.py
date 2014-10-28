@@ -9,6 +9,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
+import re
 
 class vlan(moduleBase):
     """  ifupdown2 addon module to configure vlans """
@@ -91,7 +92,27 @@ class vlan(moduleBase):
             return None
         return [self._get_vlan_raw_device(ifaceobj)]
 
-    def _up(self, ifaceobj):
+    def _get_bridge_vids(self, bridgename, ifaceobj_getfunc):
+        ifaceobjs = ifaceobj_getfunc(bridgename)
+        for ifaceobj in ifaceobjs:
+            vids = ifaceobj.get_attr_value_first('bridge-vids')
+            if vids: return re.split(r'[\s\t]\s*', vids)
+        return None
+
+    def _bridge_vid_add_del(self, ifaceobj, bridgename, vlanid,
+                            ifaceobj_getfunc, add=True):
+        if self.ipcmd.bridge_is_vlan_aware(bridgename):
+            # Check if the bridge vids has the vlanid
+            vids = self._get_bridge_vids(bridgename, ifaceobj_getfunc)
+            if vids and vlanid in vids:
+                return
+            else:
+                if add:
+                    self.ipcmd.bridge_vids_add(bridgename, [vlanid])
+                else:
+                    self.ipcmd.bridge_vids_del(bridgename, [vlanid])
+
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
@@ -102,25 +123,31 @@ class vlan(moduleBase):
             if not self.ipcmd.link_exists(vlanrawdevice):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
+                self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid,
+                                         ifaceobj_getfunc)
                 return
         rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
                     ifaceobj.name, vlanid)
+        self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid,
+                                 ifaceobj_getfunc)
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
-        vlan_raw_device = self._get_vlan_raw_device(ifaceobj)
-        if not vlan_raw_device:
+        vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
+        if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
         if not self.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
+            self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid,
+                                     ifaceobj_getfunc, add=False)
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
            ifaceobjcurr.status = ifaceStatus.NOTFOUND
            return
@@ -139,7 +166,7 @@ class vlan(moduleBase):
                 ifaceobjcurr.update_config_with_status('vlan-id',
                         vlanid, 0)
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             if self._is_vlan_by_name(ifaceobjrunning.name):
                 ifaceobjcurr.status = ifaceStatus.NOTFOUND
@@ -168,7 +195,8 @@ class vlan(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2(**self.get_flags())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None,
+            ifaceobj_getfunc=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
         Args:
@@ -194,6 +222,6 @@ class vlan(moduleBase):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj, ifaceobj_getfunc)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc)

@@ -608,8 +608,32 @@ class iproute2(utilsBase):
         [self.exec_command('bridge vlan del vid %s dev %s %s'
                           %(v, bridgeportname, target)) for v in vids]
 
+    def bridge_fdb_add(self, dev, address, vlan, bridge=True):
+        target = 'self' if bridge else ''
+        self.exec_command('bridge fdb add %s dev %s vlan %s %s'
+                          %(address, dev, vlan, target))
+
+    def bridge_fdb_del(self, dev, address, vlan, bridge=True):
+        target = 'self' if bridge else ''
+        self.exec_command('bridge fdb del %s dev %s vlan %s %s'
+                          %(address, dev, vlan, target))
+
     def bridge_is_vlan_aware(self, bridgename):
         filename = '/sys/class/net/%s/bridge/vlan_filtering' %bridgename
         if os.path.exists(filename) and self.read_file_oneline(filename) == '1':
             return True
         return False
+
+    def bridge_port_get_bridge_name(self, bridgeport):
+        filename = '/sys/class/net/%s/brport/bridge' %bridgeport
+        try:
+            return os.path.basename(os.readlink(filename))
+        except:
+            return None
+
+    def bridge_port_exists(self, bridge, bridgeportname):
+        try:
+            return os.path.exists('/sys/class/net/%s/brif/%s'
+                                  %(bridge, bridgeportname))
+        except Exception:
+            return False

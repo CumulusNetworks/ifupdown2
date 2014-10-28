@@ -62,7 +62,8 @@ class ifaceScheduler():
                         if (ifaceobj.priv_flags & ifupdownobj.NOCONFIG):
                             continue
                         ifupdownobj.logger.debug(msg)
-                        m.run(ifaceobj, op, query_ifaceobj)
+                        m.run(ifaceobj, op, query_ifaceobj,
+                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
                     else:
                         ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op, ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)

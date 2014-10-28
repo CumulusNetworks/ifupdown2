@@ -33,9 +33,24 @@ class addressvirtual(moduleBase):
             return True
         return False
 
-    def _apply_address_config(self, ifaceobj, realifacename, address_virtual_list):
+    def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
+        if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                [self.ipcmd.bridge_fdb_add(bridgename, addr,
+                    vlan) for addr in hwaddress]
+
+    def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
+        if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                [self.ipcmd.bridge_fdb_del(bridgename, addr,
+                    vlan) for addr in hwaddress]
+
+    def _apply_address_config(self, ifaceobj, address_virtual_list):
         purge_existing = False if self.PERFMODE else True
 
+        hwaddress = []
         self.ipcmd.batch_start()
         av_idx = 0
         macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
@@ -52,50 +67,82 @@ class addressvirtual(moduleBase):
             macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
                 rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
-                                                      realifacename)
+                                                      ifaceobj.name)
             if av_attrs[0] != 'None':
                 self.ipcmd.link_set_hwaddress(macvlan_ifacename, av_attrs[0])
+                hwaddress.append(av_attrs[0])
             self.ipcmd.addr_add_multiple(macvlan_ifacename, av_attrs[1:],
                                          purge_existing)
             av_idx += 1
         self.ipcmd.batch_commit()
 
-    def _remove_address_config(self, ifaceobj, ifacename):
-        if not self.ipcmd.link_exists(ifacename):
-            return
-        self.ipcmd.batch_start()
-        macvlan_prefix = '%s-virt' %ifacename.replace('.', '-')
-        for macvlan_ifacename in glob.glob("/sys/class/net/%s-*" %macvlan_prefix):
-            self.ipcmd.link_delete(os.path.basename(macvlan_ifacename))
-        self.ipcmd.batch_commit()
+        # if ifaceobj is a bridge and bridge is a vlan aware bridge
+        # add the vid to the bridge
+        self._add_addresses_to_bridge(ifaceobj, hwaddress)
 
-    def _get_real_ifacename(self, ifaceobj):
-        realifacename = ifaceobj.name
-        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
-            bridgename = ifaceobj.get_attr_value_first('bridge')
-            if bridgename:
-                realifacename = '%s.%s' %(bridgename, ifaceobj.priv_data)
-        return realifacename
+    def _remove_running_address_config(self, ifaceobj):
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            return
+        hwaddress = []
+        self.ipcmd.batch_start()
+        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
+        for macvlan_ifacename in glob.glob("/sys/class/net/%s-*" %macvlan_prefix):
+            macvlan_ifacename = os.path.basename(macvlan_ifacename)
+            if not self.ipcmd.link_exists(macvlan_ifacename):
+                continue
+            hwaddress.append(self.ipcmd.link_get_hwaddress(macvlan_ifacename))
+            self.ipcmd.link_delete(os.path.basename(macvlan_ifacename))
+            # XXX: Also delete any fdb addresses. This requires, checking mac address
+            # on individual macvlan interfaces and deleting the vlan from that.
+        self.ipcmd.batch_commit()
+        if any(hwaddress):
+            self._remove_addresses_from_bridge(ifaceobj, hwaddress)
+
+    def _remove_address_config(self, ifaceobj, address_virtual_list=None):
+        if not address_virtual_list:
+            self._remove_running_address_config(ifaceobj)
+            return
+
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            return
+        hwaddress = []
+        self.ipcmd.batch_start()
+        av_idx = 0
+        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
+        for av in address_virtual_list:
+            av_attrs = av.split()
+            if len(av_attrs) < 2:
+                self.logger.warn("%s: incorrect address-virtual attrs '%s'"
+                             %(ifaceobj.name,  av))
+                av_idx += 1
+                continue
+
+            # Delete the macvlan device on this device
+            macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
+            self.ipcmd.link_delete(os.path.basename(macvlan_ifacename))
+            if av_attrs[0] != 'None':
+                hwaddress.append(av_attrs[0])
+            av_idx += 1
+        self.ipcmd.batch_commit()
+        self._remove_addresses_from_bridge(ifaceobj, hwaddress)
 
     def _up(self, ifaceobj):
-        realifacename = self._get_real_ifacename(ifaceobj)
         address_virtual_list = ifaceobj.get_attr_value('address-virtual')
         if not address_virtual_list:
             # XXX: address virtual is not present. In which case,
             # delete stale any macvlan devices.
-            self._remove_address_config(ifaceobj, realifacename)
+            self._remove_address_config(ifaceobj, address_virtual_list)
             return
 
-        if not self.ipcmd.link_exists(realifacename):
-            self.log_warn('%s: target link %s does not exist'
-                          %(ifaceobj.name, realifacename))
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            #self.log_warn('%s: interface does not exist'
+            #              %ifaceobj.name)
             return
-        self._apply_address_config(ifaceobj, realifacename, address_virtual_list)
+        self._apply_address_config(ifaceobj, address_virtual_list)
 
     def _down(self, ifaceobj):
-        realifacename = self._get_real_ifacename(ifaceobj)
         try:
-            self._remove_address_config(ifaceobj, realifacename)
+            self._remove_address_config(ifaceobj, ifaceobj.get_attr_value('address-virtual'))
         except Exception, e:
             self.log_warn(str(e))
 
@@ -103,9 +150,8 @@ class addressvirtual(moduleBase):
         address_virtual_list = ifaceobj.get_attr_value('address-virtual')
         if not address_virtual_list:
             return
-        realifacename = self._get_real_ifacename(ifaceobj)
         av_idx = 0
-        macvlan_prefix = '%s-virt' %realifacename.replace('.', '-')
+        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
         for address_virtual in address_virtual_list:
             av_attrs = address_virtual.split()
             if len(av_attrs) < 2:
