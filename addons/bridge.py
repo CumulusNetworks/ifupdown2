@@ -172,6 +172,11 @@ class bridge(moduleBase):
                           'example' : ['bridge-igmp-querier-src 172.16.101.1']},
                      }}
 
+    # declare some ifaceobj priv_flags.
+    # XXX: This assumes that the priv_flags is owned by this module
+    # which it is not.
+    _BRIDGE_PORT_PROCESSED = 0x1
+
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
@@ -684,28 +689,29 @@ class bridge(moduleBase):
             if not bportifaceobjlist:
                continue
             for bportifaceobj in bportifaceobjlist:
+                # Dont process bridge port if it already has been processed
+                if bportifaceobj.priv_flags & self._BRIDGE_PORT_PROCESSED:
+                    continue
+
                 # Add attributes specific to the vlan aware bridge
                 if bridge_vlan_aware:
                    self._apply_bridge_vlan_aware_port_settings_all(
                                 bportifaceobj, bridge_vids)
-                self._apply_bridge_port_settings(
-                                bportifaceobj, bridgeifaceobj=ifaceobj)
+                self._apply_bridge_port_settings(bportifaceobj,
+                                                 bridgeifaceobj=ifaceobj)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
-        if self._is_bridge_port(ifaceobj):
-            bridgename = self._get_bridge_name(ifaceobj)
-            if not bridgename:
-               self.logger.warn('%s: unable to determine bridge name'
-                                %ifaceobj.name)
-               return
-            if self.ipcmd.bridge_is_vlan_aware(bridgename):
-               bridge_vids = self._get_bridge_vids(bridgename,
-                                                   ifaceobj_getfunc)
-               self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
-                                                               bridge_vids)
-            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
-            return
+        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        if bridgename:
+           if self.ipcmd.bridge_is_vlan_aware(bridgename):
+              bridge_vids = self._get_bridge_vids(bridgename,
+                                                  ifaceobj_getfunc)
+              self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
+                                                              bridge_vids)
+           self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
+           ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
+           return
         if not self._is_bridge(ifaceobj):
             return
         try:

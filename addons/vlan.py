@@ -53,10 +53,10 @@ class vlan(moduleBase):
         except:
             return -1
 
-        if ifaceobj.name.startswith('vlan'):
-            vid_str = ifaceobj.name[4:]
-        elif '.' in ifaceobj.name:
+        if '.' in ifaceobj.name:
             vid_str = ifaceobj.name.split('.', 1)[1]
+        elif ifaceobj.name.startswith('vlan'):
+            vid_str = ifaceobj.name[4:]
         else:
             return -1
         try:

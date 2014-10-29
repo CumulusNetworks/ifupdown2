@@ -144,6 +144,11 @@ class mstpctl(moduleBase):
                  'mstpctl-portnetwork' : 'portnetwork',
                  'mstpctl-portbpdufilter' : 'portbpdufilter'}
 
+    # declare some ifaceobj priv_flags.
+    # XXX: This assumes that the priv_flags is owned by this module
+    # which it is not.
+    _BRIDGE_PORT_PROCESSED = 0x1
+
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
@@ -316,17 +321,20 @@ class mstpctl(moduleBase):
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
                                         ifaceobj_getfunc=None):
-        self.logger.info('%s: applying bridge configuration '
+        self.logger.info('%s: applying mstp configuration '
                           %ifaceobj.name + 'specific to ports')
 
         bridgeports = self._get_bridge_port_list(ifaceobj)
         for bport in bridgeports:
-            self.logger.info('%s: processing bridge config for port %s'
+            self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))
             bportifaceobjlist = ifaceobj_getfunc(bport)
             if not bportifaceobjlist:
                continue
             for bportifaceobj in bportifaceobjlist:
+                # Dont process bridge port if it already has been processed
+                if bportifaceobj.priv_flags & self._BRIDGE_PORT_PROCESSED:
+                    continue
                 try:
                     self._apply_bridge_port_settings(bportifaceobj, 
                                             ifaceobj.name, ifaceobj)
@@ -335,14 +343,12 @@ class mstpctl(moduleBase):
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
-        if self._is_bridge_port(ifaceobj):
+        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        if bridgename:
             if self.mstpctlcmd.is_mstpd_running():
-                bridgename = ifaceobj.upperifaces[0]
-                if not bridgename:
-                    self.logger.warn('%s: unable to determine bridge name'
-                                %ifaceobj.name)
-                    return
                 self._apply_bridge_port_settings(ifaceobj, bridgename)
+                self.logger.info("Roopa: %s: setting processed flag\n" %ifaceobj.name)
+                ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
             return
         if not self._is_bridge(ifaceobj):
             return
@@ -587,7 +593,7 @@ class mstpctl(moduleBase):
             ifaceobj.check_n_update_config_with_status_many(
                             self._port_attrs_map.keys(), 0)
             return
-        bridgename = self._get_bridge_name(ifaceobj)
+        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-pathcost',
                 'mstpctl-treeprio', 'mstpctl-treecost']
