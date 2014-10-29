@@ -53,7 +53,7 @@ class addressvirtual(moduleBase):
         hwaddress = []
         self.ipcmd.batch_start()
         av_idx = 0
-        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
         for av in address_virtual_list:
             av_attrs = av.split()
             if len(av_attrs) < 2:
@@ -64,7 +64,7 @@ class addressvirtual(moduleBase):
 
             # Create a macvlan device on this device and set the virtual
             # router mac and ip on it
-            macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
+            macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
                 rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
                                                       ifaceobj.name)
@@ -85,7 +85,7 @@ class addressvirtual(moduleBase):
             return
         hwaddress = []
         self.ipcmd.batch_start()
-        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
         for macvlan_ifacename in glob.glob("/sys/class/net/%s-*" %macvlan_prefix):
             macvlan_ifacename = os.path.basename(macvlan_ifacename)
             if not self.ipcmd.link_exists(macvlan_ifacename):
@@ -108,7 +108,7 @@ class addressvirtual(moduleBase):
         hwaddress = []
         self.ipcmd.batch_start()
         av_idx = 0
-        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
         for av in address_virtual_list:
             av_attrs = av.split()
             if len(av_attrs) < 2:
@@ -118,7 +118,7 @@ class addressvirtual(moduleBase):
                 continue
 
             # Delete the macvlan device on this device
-            macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
+            macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             self.ipcmd.link_delete(os.path.basename(macvlan_ifacename))
             if av_attrs[0] != 'None':
                 hwaddress.append(av_attrs[0])
@@ -142,7 +142,8 @@ class addressvirtual(moduleBase):
 
     def _down(self, ifaceobj):
         try:
-            self._remove_address_config(ifaceobj, ifaceobj.get_attr_value('address-virtual'))
+            self._remove_address_config(ifaceobj,
+                         ifaceobj.get_attr_value('address-virtual'))
         except Exception, e:
             self.log_warn(str(e))
 
@@ -150,8 +151,10 @@ class addressvirtual(moduleBase):
         address_virtual_list = ifaceobj.get_attr_value('address-virtual')
         if not address_virtual_list:
             return
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            return
         av_idx = 0
-        macvlan_prefix = '%s-virt' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
         for address_virtual in address_virtual_list:
             av_attrs = address_virtual.split()
             if len(av_attrs) < 2:
@@ -161,17 +164,29 @@ class addressvirtual(moduleBase):
                 continue
 
             # Check if the macvlan device on this interface
-            macvlan_ifacename = '%s-%d' %(macvlan_prefix, av_idx)
-            if self.ipcmd.link_exists(macvlan_ifacename):
-                # XXX Check mac and ip address
-                rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
-                raddrs = self.ipcmd.addr_get(macvlan_ifacename)
-                if rhwaddress == av_attrs[0] and raddrs == av_attrs[1:]:
-                    ifaceobjcurr.update_config_with_status('address-virtual',
+            macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
+            if not self.ipcmd.link_exists(macvlan_ifacename):
+                ifaceobjcurr.update_config_with_status('address-virtual',
+                            '', 1)
+                av_idx += 1
+                continue
+            # Check mac and ip address
+            rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
+            raddrs = self.ipcmd.addr_get(macvlan_ifacename)
+            if not raddrs or not rhwaddress:
+               ifaceobjcurr.update_config_with_status('address-virtual', '', 1)
+               av_idx += 1
+               continue
+
+            raddrs = raddrs.keys()
+            self.logger.info(rhwaddress)
+            self.logger.info(raddrs)
+            if rhwaddress == av_attrs[0] and raddrs == av_attrs[1:]:
+               ifaceobjcurr.update_config_with_status('address-virtual',
                             address_virtual, 0)
-                else:
-                    raddress_virtual = '%s %s' %(rhwaddress, ' '.join(raddrs))
-                    ifaceobjcurr.update_config_with_status('address-virtual',
+            else:
+               raddress_virtual = '%s %s' %(rhwaddress, ' '.join(raddrs))
+               ifaceobjcurr.update_config_with_status('address-virtual',
                             raddress_virtual, 1)
             av_idx += 1
         return

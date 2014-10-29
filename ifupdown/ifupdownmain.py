@@ -224,8 +224,7 @@ class ifupdownMain(ifupdownBase):
         # to indicate if we should follow upperifaces
         #
         ifaceobj = self.get_ifaceobj_first(ifacename)
-        if (ifaceobj.type == ifaceType.BRIDGE or 
-                ifaceobj.type == ifaceType.BRIDGE_VLAN):
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return False
         return True
 
@@ -247,6 +246,7 @@ class ifupdownMain(ifupdownBase):
         """
         ifaceobjcurr = iface()
         ifaceobjcurr.name = ifaceobj.name
+        ifaceobjcurr.type = ifaceobj.type
         ifaceobjcurr.lowerifaces = ifaceobj.lowerifaces
         ifaceobjcurr.priv_flags = ifaceobj.priv_flags
         ifaceobjcurr.auto = ifaceobj.auto

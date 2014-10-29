@@ -441,7 +441,10 @@ class iface():
         outbuf = ''
         if self.auto:
             outbuf += 'auto %s\n' %self.name
-        outbuf += 'iface %s' %self.name
+        if self.type == ifaceType.BRIDGE_VLAN:
+            outbuf += 'vlan %s' %self.name
+        else:
+            outbuf += 'iface %s' %self.name
         if self.addr_family:
             outbuf += ' %s' %self.addr_family
         if self.addr_method:

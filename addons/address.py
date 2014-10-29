@@ -56,6 +56,20 @@ class address(moduleBase):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
+    def _add_address_to_bridge(self, ifaceobj, hwaddress):
+        if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                self.ipcmd.bridge_fdb_add(bridgename, hwaddress,
+                    vlan)
+
+    def _remove_address_from_bridge(self, ifaceobj, hwaddress):
+        if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                self.ipcmd.bridge_fdb_del(bridgename, hwaddress,
+                    vlan)
+
     def _inet_address_config(self, ifaceobj):
         newaddrs = []
         addrs = ifaceobj.get_attr_value('address')
@@ -126,13 +140,19 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
             self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
-        if hwaddress:
-            self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
             self.ipcmd.link_set_alias(ifaceobj.name, alias)
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
+        if hwaddress:
+            self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
         self.ipcmd.batch_commit()
+
+        # After all adds are successful, also add the hw address
+        # to the bridge if required
+        if hwaddress:
+            self._add_address_to_bridge(ifaceobj, hwaddress)
+
         self.ipcmd.route_add_gateway(ifaceobj.name,
                 ifaceobj.get_attr_value_first('gateway'))
 
@@ -151,6 +171,10 @@ class address(moduleBase):
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
                 self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
+            hwaddress = ifaceobj.get_attr_value_first('hwaddress')
+            if hwaddress:
+                # XXX Dont know what to reset the address to
+                self._remove_address_from_bridge(ifaceobj, hwaddress)
         except Exception, e:
             self.log_warn(str(e))
 
