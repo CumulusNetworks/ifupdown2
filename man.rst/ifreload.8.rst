@@ -14,7 +14,7 @@ reload network interface configuration
 
 SYNOPSIS
 ========
-    ifreload [-h] [-a] [-v] [-d] [-f] [-n] 
+    ifreload [-h] -a [-v] [-d] [-f] [-n] 
 
 DESCRIPTION
 ===========
