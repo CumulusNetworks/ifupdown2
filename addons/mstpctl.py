@@ -347,7 +347,6 @@ class mstpctl(moduleBase):
         if bridgename:
             if self.mstpctlcmd.is_mstpd_running():
                 self._apply_bridge_port_settings(ifaceobj, bridgename)
-                self.logger.info("Roopa: %s: setting processed flag\n" %ifaceobj.name)
                 ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
             return
         if not self._is_bridge(ifaceobj):
