@@ -67,7 +67,8 @@ class iproute2(utilsBase):
                     linkattrs['linkinfo'] = {'vlanid' : citems[i+2]}
                 elif citems[i] == 'vxlan' and citems[i+1] == 'id':
                     vattrs = {'vxlanid' : citems[i+2],
-                              'svcnode' : []}
+                              'svcnode' : [],
+                              'learning': 'on'}
                     for j in range(i+2, len(citems)):
                         if citems[j] == 'local':
                             vattrs['local'] = citems[j+1]
@@ -75,6 +76,8 @@ class iproute2(utilsBase):
                             vattrs['svcnode'].append(citems[j+1])
                         elif citems[j] == 'peernode':
                             vattrs['peernode'].append(citems[j+1])
+                        elif citems[j] == 'nolearning':
+                            vattrs['learning'] = 'off'
                     linkattrs['linkinfo'] = vattrs
                     break
             #linkattrs['alias'] = self.read_file_oneline(
@@ -471,6 +474,8 @@ class iproute2(utilsBase):
                 args += ' peernode %s' %s
         if learning == 'on':
             args += ' learning'
+        else:
+            args += ' nolearning'
         
         if self.link_exists(name):
             cmd = 'link set dev %s type vxlan ' %(name)
@@ -504,6 +509,9 @@ class iproute2(utilsBase):
     def get_vlandev_attrs(self, ifacename):
         return (self._cache_get('link', [ifacename, 'linkinfo', 'link']),
                 self._cache_get('link', [ifacename, 'linkinfo', 'vlanid']))
+
+    def get_vxlandev_attrs(self, ifacename):
+        return self._cache_get('link', [ifacename, 'linkinfo'])
 
     def link_get_mtu(self, ifacename):
         return self._cache_get('link', [ifacename, 'mtu'])

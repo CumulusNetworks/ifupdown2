@@ -126,11 +126,14 @@ class mstpctl(moduleBase):
                         { 'help' : 'port tree cost',
                           'required' : False},
                     'mstpctl-portbpdufilter' : 
-                        { 'help' : 'enable/disable bpdu filter on a port',
+                        { 'help' : 'enable/disable bpdu filter on a port. ' +
+                                'syntax varies when defined under a bridge ' +
+                                'vs under a port',
                           'validvals' : ['yes', 'no'],
                           'default' : 'no',
                           'required' : False,
-                          'example' : ['mstpctl-portbpdufilter swp1=no swp2=no']},
+                          'example' : ['under a bridge: mstpctl-portbpdufilter swp1=no swp2=no',
+                                       'under a port: mstpctl-portbpdufilter yes']},
                         }}
 
     _port_attrs_map = {'mstpctl-portpathcost' : 'portpathcost',

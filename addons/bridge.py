@@ -16,10 +16,17 @@ import time
 class bridge(moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
 
-    _modinfo = { 'mhelp' : 'bridge configuration module',
+    _modinfo = { 'mhelp' : 'Bridge configuration module. Supports both ' +
+                    'vlan aware and non vlan aware bridges. For the vlan ' +
+                    'aware bridge, the port specific attributes must be ' +
+                    'specified under the port. And for vlan unaware bridge ' +
+                    'port specific attributes must be specified under the ' +
+                    'bridge.',
                  'attrs' : {
                    'bridge-vlan-aware' :
-                        {'help' : 'bridge vlan aware',
+                        {'help' : 'vlan aware bridge. Setting this ' +
+                                  'attribute to yes enables vlan filtering' +
+                                  ' on the bridge',
                          'example' : ['bridge-vlan-aware yes/no']},
                    'bridge-ports' :
                         {'help' : 'bridge ports',
@@ -123,15 +130,18 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcsqi 31']},
                     'bridge-mcqv4src' :
                         { 'help' : 'set per VLAN v4 multicast querier source address',
+                          'compat' : True,
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
                     'bridge-portmcrouter' :
                         { 'help' : 'set port multicast routers',
                           'default' : '1',
-                          'example' : ['bridge-portmcrouter swp1=1 swp2=1']},
+                          'example' : ['under the bridge: bridge-portmcrouter swp1=1 swp2=1',
+                                       'under the port: bridge-portmcrouter 1']},
                     'bridge-portmcfl' :
-                        { 'help' : 'port multicast fast leave',
+                        { 'help' : 'port multicast fast leave.',
                           'default' : '0',
-                          'example' : ['bridge-portmcfl swp1=0 swp2=0']},
+                          'example' : ['under the bridge: bridge-portmcfl swp1=0 swp2=0',
+                                       'under the port: bridge-portmcfl 0']},
                     'bridge-waitport' :
                         { 'help' : 'wait for a max of time secs for the' +
                                 ' specified ports to become available,' +
@@ -153,22 +163,31 @@ class bridge(moduleBase):
                           'default' : '0',
                           'example' : ['bridge-maxwait 3']},
                     'bridge-vids' :
-                        { 'help' : 'bridge vlans',
+                        { 'help' : 'bridge port vids. Can be specified ' +
+                                   'under the bridge or under the port. ' +
+                                   'If specified under the bridge the ports ' +
+                                   'inherit it unless overridden by a ' +
+                                   'bridge-vids attribuet under the port',
                           'example' : ['bridge-vids 4000']},
                     'bridge-pvid' :
-                        { 'help' : 'bridge vlans',
+                        { 'help' : 'bridge port pvid. Must be specified under' +
+                                   ' the bridge port',
                           'example' : ['bridge-pvid 1']},
                     'bridge-access' :
-                        { 'help' : 'bridge access vlans',
+                        { 'help' : 'bridge port access vlan. Must be ' +
+                                   'specified under the bridge port',
                           'example' : ['bridge-access 300']},
                     'bridge-port-vids' :
                         { 'help' : 'bridge vlans',
+                          'compat': True,
                           'example' : ['bridge-port-vids bond0=1-1000,1010-1020']},
                     'bridge-port-pvids' :
                         { 'help' : 'bridge port vlans',
+                          'compat': True,
                           'example' : ['bridge-port-pvids bond0=100 bond1=200']},
                     'bridge-igmp-querier-src' :
-                        { 'help' : 'bridge igmp querier src',
+                        { 'help' : 'bridge igmp querier src. Must be ' +
+                                   'specified under the vlan interface',
                           'example' : ['bridge-igmp-querier-src 172.16.101.1']},
                      }}
 
@@ -969,7 +988,8 @@ class bridge(moduleBase):
         #    else:
         #        ifaceobjcurr.update_config_with_status('bridge-vids', attrval,
         #                                               1)
-        ifaceobjcurr.update_config_with_status('bridge-vids', attrval, -1)
+        if attrval:
+            ifaceobjcurr.update_config_with_status('bridge-vids', attrval, -1)
 
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
                             ifaceobj_getfunc=None):
@@ -1132,7 +1152,7 @@ class bridge(moduleBase):
         attr_name = 'bridge-pvid'
         pvid = ifaceobj.get_attr_value_first(attr_name)
         if pvid:
-           if running_pvid and runing_pvid == pvid:
+           if running_pvid and running_pvid == pvid:
               ifaceobjcurr.update_config_with_status(attr_name,
                                                      running_pvid, 0)
            else:

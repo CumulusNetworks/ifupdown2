@@ -169,7 +169,8 @@ class networkInterfaces():
                              attrval, lineno):
         newattrname = attrname.replace("_", "-")
         try:
-            if not self.callbacks.get('validateifaceattr')(newattrname, attrval):
+            if not self.callbacks.get('validateifaceattr')(newattrname,
+                                      attrval):
                 self._parse_error(self._currentfile, lineno,
                         'iface %s: unsupported keyword (%s)'
                         %(ifacename, attrname))
