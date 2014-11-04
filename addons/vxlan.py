@@ -110,7 +110,9 @@ class vxlan(moduleBase):
         vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobjrunning.name)
         if not vxlanattrs:
             return
-        ifaceobjrunning.update_config('vxlan-id',  vxlanattrs.get('vxlanid'))
+        attrval = vxlanattrs.get('vxlanid')
+        if attrval:
+            ifaceobjrunning.update_config('vxlan-id', vxlanattrs.get('vxlanid'))
         attrval = vxlanattrs.get('local')
         if attrval:
             ifaceobjrunning.update_config('vxlan-local-tunnelip', attrval)
