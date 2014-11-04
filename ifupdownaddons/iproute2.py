@@ -616,15 +616,23 @@ class iproute2(utilsBase):
         [self.exec_command('bridge vlan del vid %s dev %s %s'
                           %(v, bridgeportname, target)) for v in vids]
 
-    def bridge_fdb_add(self, dev, address, vlan, bridge=True):
+    def bridge_fdb_add(self, dev, address, vlan=None, bridge=True):
         target = 'self' if bridge else ''
-        self.exec_command('bridge fdb add %s dev %s vlan %s %s'
-                          %(address, dev, vlan, target))
+        if vlan:
+            self.exec_command('bridge fdb add %s dev %s vlan %s %s'
+                              %(address, dev, vlan, target))
+        else:
+            self.exec_command('bridge fdb add %s dev %s %s'
+                              %(address, dev, target))
 
-    def bridge_fdb_del(self, dev, address, vlan, bridge=True):
+    def bridge_fdb_del(self, dev, address, vlan=None, bridge=True):
         target = 'self' if bridge else ''
-        self.exec_command('bridge fdb del %s dev %s vlan %s %s'
-                          %(address, dev, vlan, target))
+        if vlan:
+            self.exec_command('bridge fdb del %s dev %s vlan %s %s'
+                              %(address, dev, vlan, target))
+        else:
+            self.exec_command('bridge fdb del %s dev %s %s'
+                              %(address, dev, target))
 
     def bridge_is_vlan_aware(self, bridgename):
         filename = '/sys/class/net/%s/bridge/vlan_filtering' %bridgename
@@ -645,3 +653,23 @@ class iproute2(utilsBase):
                                   %(bridge, bridgeportname))
         except Exception:
             return False
+
+    def bridge_fdb_show_dev(self, dev):
+        try:
+            fdbs = {}
+            output = self.exec_command('bridge fdb show dev %s' %dev)
+            if output:
+                for fdb_entry in output.splitlines():
+                    try:
+                        entries = fdb_entry.split()
+                        fdbs.setdefault(entries[2], []).append(entries[0])
+                    except:
+                        self.logger.debug('%s: invalid fdb line \'%s\''
+                                %(dev, fdb_entry))
+                        pass
+            return fdbs
+        except Exception:
+            return None
+
+    def is_bridge(self, bridge):
+        return os.path.exists('/sys/class/net/%s/bridge' %bridge)

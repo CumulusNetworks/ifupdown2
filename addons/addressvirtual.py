@@ -24,9 +24,11 @@ class addressvirtual(moduleBase):
                           'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.254/24 11.0.1.254/24']}
                  }}
 
+
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        self._bridge_fdb_query_cache = {}
 
     def _is_supported(self, ifaceobj):
         if ifaceobj.get_attr_value_first('address-virtual'):
@@ -34,18 +36,46 @@ class addressvirtual(moduleBase):
         return False
 
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
+        # XXX: batch the addresses
         if '.' in ifaceobj.name:
             (bridgename, vlan) = ifaceobj.name.split('.')
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 [self.ipcmd.bridge_fdb_add(bridgename, addr,
                     vlan) for addr in hwaddress]
+        elif self.ipcmd.is_bridge(ifaceobj.name):
+            [self.ipcmd.bridge_fdb_add(ifaceobj.name, addr)
+                    for addr in hwaddress]
 
     def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
+        # XXX: batch the addresses
         if '.' in ifaceobj.name:
             (bridgename, vlan) = ifaceobj.name.split('.')
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 [self.ipcmd.bridge_fdb_del(bridgename, addr,
                     vlan) for addr in hwaddress]
+        elif self.ipcmd.is_bridge(ifaceobj.name):
+            [self.ipcmd.bridge_fdb_del(ifaceobj.name, addr)
+                    for addr in hwaddress]
+
+    def _get_bridge_fdbs(self, bridgename, vlan):
+        fdbs = self._bridge_fdb_query_cache.get(bridgename)
+        if not fdbs:
+           fdbs = self.ipcmd.bridge_fdb_show_dev(bridgename)
+           if not fdbs:
+              return
+           self._bridge_fdb_query_cache[bridgename] = fdbs
+        return fdbs.get(vlan)
+
+    def _check_addresses_in_bridge(self, ifaceobj, hwaddress):
+        """ If the device is a bridge, make sure the addresses
+        are in the bridge """
+        if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                fdb_addrs = self._get_bridge_fdbs(bridgename, vlan)
+                if not fdb_addrs or hwaddress not in fdb_addrs:
+                   return False
+        return True
 
     def _apply_address_config(self, ifaceobj, address_virtual_list):
         purge_existing = False if self.PERFMODE else True
@@ -177,11 +207,9 @@ class addressvirtual(moduleBase):
                ifaceobjcurr.update_config_with_status('address-virtual', '', 1)
                av_idx += 1
                continue
-
             raddrs = raddrs.keys()
-            self.logger.info(rhwaddress)
-            self.logger.info(raddrs)
-            if rhwaddress == av_attrs[0] and raddrs == av_attrs[1:]:
+            if (rhwaddress == av_attrs[0] and raddrs == av_attrs[1:] and
+                    self._check_addresses_in_bridge(ifaceobj, av_attrs[0])):
                ifaceobjcurr.update_config_with_status('address-virtual',
                             address_virtual, 0)
             else:
@@ -192,7 +220,18 @@ class addressvirtual(moduleBase):
         return
 
     def _query_running(self, ifaceobjrunning):
-        # Not implemented
+        macvlan_prefix = '%s-v' %ifaceobjrunning.name.replace('.', '-')
+        address_virtuals = glob.glob("/sys/class/net/%s*" %macvlan_prefix)
+        for av in address_virtuals:
+            macvlan_ifacename = os.path.basename(av)
+            rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
+            raddress = self.ipcmd.addr_get(macvlan_ifacename)
+            if not raddress:
+                self.logger.warn('%s: no running addresses'
+                                 %ifaceobjrunning.name)
+                raddress = []
+            ifaceobjrunning.update_config('address-virtual',
+                            '%s %s' %(rhwaddress, ''.join(raddress)))
         return
 
     _run_ops = {'up' : _up,

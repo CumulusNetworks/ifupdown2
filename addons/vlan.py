@@ -25,9 +25,11 @@ class vlan(moduleBase):
                         'vlan-id' :
                             {'help' : 'vlan id'}}}
 
+
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        self._bridge_vids_query_cache = {}
 
     def _is_vlan_device(self, ifaceobj):
         vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
@@ -92,27 +94,30 @@ class vlan(moduleBase):
             return None
         return [self._get_vlan_raw_device(ifaceobj)]
 
-    def _get_bridge_vids(self, bridgename, ifaceobj_getfunc):
-        ifaceobjs = ifaceobj_getfunc(bridgename)
-        for ifaceobj in ifaceobjs:
-            vids = ifaceobj.get_attr_value_first('bridge-vids')
-            if vids: return re.split(r'[\s\t]\s*', vids)
-        return None
-
     def _bridge_vid_add_del(self, ifaceobj, bridgename, vlanid,
-                            ifaceobj_getfunc, add=True):
+                            add=True):
+        """ If the lower device is a vlan aware bridge, add/del the vlanid
+        to the bridge """
         if self.ipcmd.bridge_is_vlan_aware(bridgename):
-            # Check if the bridge vids has the vlanid
-            vids = self._get_bridge_vids(bridgename, ifaceobj_getfunc)
-            if vids and vlanid in vids:
-                return
-            else:
-                if add:
-                    self.ipcmd.bridge_vids_add(bridgename, [vlanid])
-                else:
-                    self.ipcmd.bridge_vids_del(bridgename, [vlanid])
+           if add:
+              self.ipcmd.bridge_vids_add(bridgename, [vlanid])
+           else:
+              self.ipcmd.bridge_vids_del(bridgename, [vlanid])
 
-    def _up(self, ifaceobj, ifaceobj_getfunc=None):
+    def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
+        """ If the lower device is a vlan aware bridge, check if the vlanid
+        is configured on the bridge """
+        if not self.ipcmd.bridge_is_vlan_aware(bridgename):
+            return
+        vids = self._bridge_vids_query_cache.get(bridgename)
+        if vids == None:
+           vids = self.ipcmd.bridge_port_vids_get(bridgename)
+           self._bridge_vids_query_cache[bridgename] = vids
+        if not vids or vlanid not in vids:
+            ifaceobjcurr.status = ifaceStatus.ERROR
+            ifaceobjcurr.status_str = 'bridge vid error'
+
+    def _up(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
@@ -123,15 +128,13 @@ class vlan(moduleBase):
             if not self.ipcmd.link_exists(vlanrawdevice):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
-                self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid,
-                                         ifaceobj_getfunc)
+                self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 return
         rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
                     ifaceobj.name, vlanid)
-        self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid,
-                                 ifaceobj_getfunc)
+        self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
 
-    def _down(self, ifaceobj, ifaceobj_getfunc=None):
+    def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
@@ -142,12 +145,11 @@ class vlan(moduleBase):
            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
-            self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid,
-                                     ifaceobj_getfunc, add=False)
+            self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid, add=False)
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
+    def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
            ifaceobjcurr.status = ifaceStatus.NOTFOUND
            return
@@ -165,8 +167,9 @@ class vlan(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vlan-id',
                         vlanid, 0)
+            self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, vlanid)
 
-    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
+    def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             if self._is_vlan_by_name(ifaceobjrunning.name):
                 ifaceobjcurr.status = ifaceStatus.NOTFOUND
@@ -195,8 +198,7 @@ class vlan(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2(**self.get_flags())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None,
-            ifaceobj_getfunc=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
         Args:
@@ -222,6 +224,6 @@ class vlan(moduleBase):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj, ifaceobj_getfunc)
+            op_handler(self, ifaceobj, query_ifaceobj)
         else:
-            op_handler(self, ifaceobj, ifaceobj_getfunc)
+            op_handler(self, ifaceobj)

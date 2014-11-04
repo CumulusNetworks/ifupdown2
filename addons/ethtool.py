@@ -87,7 +87,7 @@ class ethtool(moduleBase):
                 else:
                      ifaceobjcurr.update_config_with_status('link-duplex',
                              running_duplex, 0)
-        except Exception, e:
+        except Exception:
             pass
         return
 

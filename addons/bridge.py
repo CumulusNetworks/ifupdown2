@@ -753,7 +753,7 @@ class bridge(moduleBase):
             self._apply_bridge_settings(ifaceobj)
             self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
-            self._flush_running_vidinfo()
+            #self._flush_running_vidinfo()
         except Exception, e:
             self.log_error(str(e))
         if porterr:

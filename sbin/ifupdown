@@ -372,6 +372,14 @@ def read_config():
     parser.readfp(configFP)
     configmap_g = dict(parser.items('ifupdown2'))
 
+    # Preprocess config map
+    configval = configmap_g.get('multiple_vlan_aware_bridge_support', '0')
+    if configval == '0':
+        # if multiple bridges not allowed, set the bridge-vlan-aware
+        # attribute in the 'no_repeats' config, so that the ifupdownmain
+        # module can catch it appropriately
+        configmap_g['no_repeats'] = {'bridge-vlan-aware' : 'yes'}
+
 def main(argv):
     """ main function """
     args = None

@@ -189,6 +189,8 @@ class ifupdownMain(ifupdownBase):
             self.load_scripts(self.scripts_dir)
         self.dependency_graph = OrderedDict({})
 
+        self._cache_no_repeats = {}
+
         if self.STATEMANAGER_ENABLE:
             try:
                 self.statemanager = stateManager()
@@ -422,19 +424,26 @@ class ifupdownMain(ifupdownBase):
             if not self.dependency_graph.get(i):
                 self.dependency_graph[i] = dlist
 
-    def _add_ifaceobj(self, ifaceobj):
-        currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
-        if not currentifaceobjlist:
-           self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
-           return
-        if ifaceobj.compare(currentifaceobjlist[0]):
-            self.logger.warn('duplicate interface %s found' %ifaceobj.name)
-            return
-        currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
-        ifaceobj.flags |= iface.HAS_SIBLINGS
-        self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
+    def _check_config_no_repeats(self, ifaceobj):
+        """ check if object has an attribute that is
+        restricted to a single object in the system.
+        if yes, warn and return """
+        for k,v in self._cache_no_repeats.items():
+            iv = ifaceobj.config.get(k)
+            if iv and iv[0] == v:
+                self.logger.error('ignoring interface %s. ' %ifaceobj.name +
+                        'Only one object with attribute ' +
+                        '\'%s %s\' allowed.' %(k, v))
+                return True
+        for k, v in self.config.get('no_repeats', {}).items():
+            iv = ifaceobj.config.get(k)
+            if iv and iv[0] == v:
+                self._cache_no_repeats[k] = v
+        return False
 
     def _save_iface(self, ifaceobj):
+        if self._check_config_no_repeats(ifaceobj):
+           return
         currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
         if not currentifaceobjlist:
            self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
@@ -442,8 +451,9 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
-        currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
-        ifaceobj.flags |= iface.HAS_SIBLINGS
+        if currentifaceobjlist[0].type == ifaceobj.type:
+            currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
+            ifaceobj.flags |= iface.HAS_SIBLINGS
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
@@ -460,7 +470,7 @@ class ifupdownMain(ifupdownBase):
 
     def _ifaceobj_syntax_checker(self, ifaceobj):
         err = False
-        for attrname in ifaceobj.config:
+        for attrname, attrvalue in ifaceobj.config.items():
             found = False
             for k, v in self.module_attrs.items():
                 if v and v.get('attrs', {}).get(attrname):

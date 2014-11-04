@@ -55,6 +55,7 @@ class address(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        self._bridge_fdb_query_cache = {}
 
     def _add_address_to_bridge(self, ifaceobj, hwaddress):
         if '.' in ifaceobj.name:
@@ -135,14 +136,15 @@ class address(moduleBase):
                     dhclientcmd.release6(ifaceobj.name)
         except:
             pass
+
         self.ipcmd.batch_start()
         self._inet_address_config(ifaceobj)
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
-            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+           self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
-            self.ipcmd.link_set_alias(ifaceobj.name, alias)
+           self.ipcmd.link_set_alias(ifaceobj.name, alias)
         hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         if hwaddress:
             self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
@@ -193,6 +195,26 @@ class address(moduleBase):
             outaddrlist.append(addr)
         return outaddrlist
 
+    def _get_bridge_fdbs(self, bridgename, vlan):
+        fdbs = self._bridge_fdb_query_cache.get(bridgename)
+        if not fdbs:
+           fdbs = self.ipcmd.bridge_fdb_show_dev(bridgename)
+           if not fdbs:
+              return
+           self._bridge_fdb_query_cache[bridgename] = fdbs
+        return fdbs.get(vlan)
+
+    def _check_addresses_in_bridge(self, ifaceobj, hwaddress):
+        """ If the device is a bridge, make sure the addresses
+        are in the bridge """
+        if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                fdb_addrs = self._get_bridge_fdbs(bridgename, vlan)
+                if not fdb_addrs or hwaddress not in fdb_addrs:
+                   return False
+        return True
+
     def _query_check(self, ifaceobj, ifaceobjcurr):
         runningaddrsdict = None
         if not self.ipcmd.link_exists(ifaceobj.name):
@@ -200,8 +222,20 @@ class address(moduleBase):
             return
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.ipcmd.link_get_mtu)
-        self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
-                'hwaddress', self.ipcmd.link_get_hwaddress)
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
+        if hwaddress:
+            rhwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
+            if not rhwaddress  or rhwaddress != hwaddress:
+               ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
+                       1)
+            elif not self._check_addresses_in_bridge(ifaceobj, hwaddress):
+               # XXX: hw address is not in bridge
+               ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
+                       1)
+               ifaceobjcurr.status_str = 'bridge fdb error'
+            else:
+               ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
+                       0)
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                     'alias', self.ipcmd.link_get_alias)
         # compare addresses
@@ -305,7 +339,8 @@ class address(moduleBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
-
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+           return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
