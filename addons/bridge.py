@@ -185,10 +185,6 @@ class bridge(moduleBase):
                         { 'help' : 'bridge port vlans',
                           'compat': True,
                           'example' : ['bridge-port-pvids bond0=100 bond1=200']},
-                    'bridge-igmp-querier-src' :
-                        { 'help' : 'bridge igmp querier src. Must be ' +
-                                   'specified under the vlan interface',
-                          'example' : ['bridge-igmp-querier-src 172.16.101.1']},
                      }}
 
     # declare some ifaceobj priv_flags.
@@ -1170,8 +1166,7 @@ class bridge(moduleBase):
                     ['bridge-vids', 'bridge-pvid', 'bridge-access',
                      'bridge-pathcosts', 'bridge-portprios',
                      'bridge-portmcrouter',
-                     'bridge-portmcfl',
-                     'bridge-igmp-querier-src'], 0)
+                     'bridge-portmcfl'], 0)
             return
         bridgename = self._get_bridge_name(ifaceobj)
         if not bridgename:

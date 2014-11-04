@@ -21,7 +21,9 @@ class bridgevlan(moduleBase):
                         'vlan aware bridge this config is for',
                 'attrs' : {
                         'bridge-igmp-querier-src' :
-                            {'help' : 'igmp querier src'}}}
+                            { 'help' : 'bridge igmp querier src. Must be ' +
+                                   'specified under the vlan interface',
+                              'example' : ['bridge-igmp-querier-src 172.16.101.1']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -96,13 +98,27 @@ class bridgevlan(moduleBase):
             #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return
-
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if mcqv4src:
            self.brctlcmd.del_mcqv4src(bridgename, vlanid)
 
+    def _query_running_bridge_igmp_querier_src(self, ifaceobj):
+        (bridgename, vlanid) = ifaceobj.name.split('.')
+        running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
+        if running_mcqv4src:
+           return running_mcqv4src.get(vlanid)
+        return None
+
     def _query_check(self, ifaceobj, ifaceobjcurr):
-        # XXX not supported
+        attrval = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
+        if attrval:
+            running_mcq = self._query_running_bridge_igmp_querier_src(ifaceobj)
+            if not running_mcq or running_mcq != attrval:
+                ifaceobjcurr.update_config_with_status(
+                        'bridge-igmp-querier-src', running_mcq, 1)
+            else:
+                ifaceobjcurr.update_config_with_status(
+                        'bridge-igmp-querier-src', attrval, 0)
         return
 
     def _query_running(self, ifaceobjrunning):
