@@ -585,12 +585,12 @@ class mstpctl(moduleBase):
                 ifaceobjcurr.update_config_with_status(k, rv, 0)
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
-        if not self.ipcmd.link_exists():
+        if not self.ipcmd.link_exists(ifaceobj.name):
             self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
         # Check if this is a bridge port
-        if not self._is_bridge_port(ifaceobj.name):
+        if not self._is_bridge_port(ifaceobj):
             # mark all the bridge attributes as error
             ifaceobj.check_n_update_config_with_status_many(
                             self._port_attrs_map.keys(), 0)
