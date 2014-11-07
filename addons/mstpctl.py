@@ -659,22 +659,22 @@ class mstpctl(moduleBase):
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                           ifaceobjrunning.name, 'portadminedge')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-adminedge', v)
+           ifaceobjrunning.update_config('mstpctl-portadminedge', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                        ifaceobjrunning.name,'portp2p')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-p2p', v)
+           ifaceobjrunning.update_config('mstpctl-portp2p', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                         ifaceobjrunning.name, 'portrestrrole')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-restrrole', v)
+           ifaceobjrunning.update_config('mstpctl-portrestrrole', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                             ifaceobjrunning.name, 'restrtcn')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-restrtcn', v)
+           ifaceobjrunning.update_config('mstpctl-portrestrtcn', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                             ifaceobjrunning.name, 'bpduguard')
