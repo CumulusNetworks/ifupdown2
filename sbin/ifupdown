@@ -13,6 +13,7 @@ import argparse
 import ConfigParser
 import StringIO
 import logging
+import logging.handlers
 import resource
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
@@ -153,13 +154,27 @@ def init(args):
         log_level = logging.DEBUG
 
     try:
-        logging.basicConfig(level=log_level,
-            format='%(levelname)s: %(message)s')
-        logging.addLevelName(logging.ERROR, 'error')
-        logging.addLevelName(logging.WARNING, 'warning')
-        logging.addLevelName(logging.DEBUG, 'debug')
-        logging.addLevelName(logging.INFO, 'info')
-        logger = logging.getLogger('ifupdown')
+        if hasattr(args, 'syslog') and args.syslog:
+            root_logger = logging.getLogger()
+            syslog_handler = logging.handlers.SysLogHandler(address='/dev/log',
+                             facility=logging.handlers.SysLogHandler.LOG_DAEMON)
+            logging.addLevelName(logging.ERROR, 'error')
+            logging.addLevelName(logging.WARNING, 'warning')
+            logging.addLevelName(logging.DEBUG, 'debug')
+            logging.addLevelName(logging.INFO, 'info')
+            root_logger.setLevel(log_level)
+            syslog_handler.setFormatter(logging.Formatter(
+                '%(name)s: %(levelname)s: %(message)s'))
+            root_logger.addHandler(syslog_handler)
+            logger = logging.getLogger('ifupdown')
+        else:
+            logging.basicConfig(level=log_level,
+                format='%(levelname)s: %(message)s')
+            logging.addLevelName(logging.ERROR, 'error')
+            logging.addLevelName(logging.WARNING, 'warning')
+            logging.addLevelName(logging.DEBUG, 'debug')
+            logging.addLevelName(logging.INFO, 'info')
+            logger = logging.getLogger('ifupdown')
     except:
         raise
 
@@ -217,6 +232,9 @@ def update_ifupdown_argparser(argparser):
     argparser.add_argument('-f', '--force', dest='force',
                 action='store_true',
                 help='force run all operations')
+    argparser.add_argument('-l', '--syslog', dest='syslog',
+                action='store_true',
+                help=argparse.SUPPRESS)
     group = argparser.add_mutually_exclusive_group(required=False)
     group.add_argument('-n', '--no-act', dest='noact',
                 action='store_true', help='print out what would happen,' +
@@ -309,6 +327,9 @@ def update_ifreload_argparser(argparser):
                 ' only look at the current interfaces file. Useful when your ' +
                 'state file is corrupted or you want down to use the latest '
                 'from the interfaces file')
+    argparser.add_argument('-l', '--syslog', dest='syslog',
+                action='store_true',
+                help=argparse.SUPPRESS)
 
 def parse_args(argsv, op):
     if op == 'query':

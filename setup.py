@@ -18,6 +18,8 @@ setup(name='ifupdown2',
                   ('/sbin/', ['sbin/ifupdown']),
                   ('/etc/network/ifupdown2/',
                       ['config/ifupdown2.conf']),
+                  ('/etc/default/',
+                      ['config/networking']),
                   ('/usr/share/python-ifupdown2/',
                       ['docs/examples/generate_interfaces.py']),
                   ('/usr/share/doc/python-ifupdown2/examples/',
@@ -30,8 +32,7 @@ setup(name='ifupdown2',
                       'addons/mstpctl.py', 'addons/address.py',
                       'addons/dhcp.py', 'addons/usercmds.py',
                       'addons/ethtool.py', 'addons/loopback.py',
-                      'addons/addressvirtual.py', 'addons/vxlan.py',
-                      'addons/bridgevlanaware.py']),
+                      'addons/addressvirtual.py', 'addons/vxlan.py']),
                   ('/var/lib/ifupdownaddons/', ['config/addons.conf'])
                   ]
       )

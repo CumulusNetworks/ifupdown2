@@ -1,0 +1,14 @@
+#
+#
+# Parameters for the /etc/init.d/networking script
+#
+#
+
+# Change the below to yes if you want verbose logging to be enabled
+VERBOSE="no"
+
+# Change the below to yes if you want debug logging to be enabled
+DEBUG="no"
+
+# Change the below to yes if you want logging to go to syslog
+SYSLOG="no"

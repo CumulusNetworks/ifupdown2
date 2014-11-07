@@ -23,14 +23,14 @@ SCRIPTNAME=/etc/init.d/$NAME
 
 CONFIGURE_INTERFACES=yes
 EXCLUDE_INTERFACES=
-REMOTE_SYSLOG_SERVER=
-VERBOSE=no
 
-verbose=
+EXTRA_ARGS=
 
 [ -f /etc/default/networking ] && . /etc/default/networking
 
-[ "$VERBOSE" = yes ] && verbose=-v
+[ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+[ "$DEBUG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+[ "$SYSLOG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
 
 gen_examples() {
     # Generate sample interfaces file. The interfaces files are
@@ -143,7 +143,7 @@ start)
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
 	log_action_begin_msg "Configuring network interfaces"
-	ifup -a $verbose $perfoptions
+	ifup -a $EXTRA_ARGS $perfoptions
 	log_action_end_msg $?
 	;;
 
@@ -153,7 +153,7 @@ stop)
 	check_network_swap
 
 	log_action_begin_msg "Deconfiguring network interfaces"
-	ifdown -a $verbose
+	ifdown -a $EXTRA_ARGS
 	log_action_end_msg $?
 	;;
 
@@ -162,7 +162,7 @@ reload)
 	ifupdown_init
 	log_action_begin_msg "Reloading network interfaces configuration"
 
-	ifreload -a
+	ifreload -a $EXTRA_ARGS
 	log_action_end_msg $?
 	;;
 
@@ -179,10 +179,10 @@ restart)
 	ifupdown_init
 
 	log_action_begin_msg "Reconfiguring network interfaces"
-	ifdown -a $verbose || true
+	ifdown -a $EXTRA_ARGS || true
 	set -f
 	exclusions=$(process_exclusions)
-	ifup -a $verbose
+	ifup -a $EXTRA_ARGS
 	log_action_end_msg $?
 	;;
 
