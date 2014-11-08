@@ -67,8 +67,8 @@ class mstpctl(moduleBase):
                           'example' : ['mstpctl-portpathcost swp1=0 swp2=1']},
                     'mstpctl-portp2p' :
                         { 'help' : 'bridge port p2p detection mode',
-                          'default' : 'no',
-                          'validvals' : ['yes', 'no'],
+                          'default' : 'auto',
+                          'validvals' : ['yes', 'no', 'auto'],
                           'required' : False,
                           'example' : ['mstpctl-portp2p swp1=no swp2=no']},
                     'mstpctl-portrestrrole' :
@@ -663,7 +663,7 @@ class mstpctl(moduleBase):
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                        ifaceobjrunning.name,'portp2p')
-        if v and v != 'no':
+        if v and v != 'auto':
            ifaceobjrunning.update_config('mstpctl-portp2p', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
