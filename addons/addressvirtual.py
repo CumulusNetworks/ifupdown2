@@ -35,6 +35,9 @@ class addressvirtual(moduleBase):
             return True
         return False
 
+    def _get_macvlan_prefix(self, ifaceobj):
+        return '%s-v' %ifaceobj.name[0:13].replace('.', '-')
+
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
         if '.' in ifaceobj.name:
@@ -83,7 +86,7 @@ class addressvirtual(moduleBase):
         hwaddress = []
         self.ipcmd.batch_start()
         av_idx = 0
-        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
         for av in address_virtual_list:
             av_attrs = av.split()
             if len(av_attrs) < 2:
@@ -115,7 +118,7 @@ class addressvirtual(moduleBase):
             return
         hwaddress = []
         self.ipcmd.batch_start()
-        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
         for macvlan_ifacename in glob.glob("/sys/class/net/%s-*" %macvlan_prefix):
             macvlan_ifacename = os.path.basename(macvlan_ifacename)
             if not self.ipcmd.link_exists(macvlan_ifacename):
@@ -138,7 +141,7 @@ class addressvirtual(moduleBase):
         hwaddress = []
         self.ipcmd.batch_start()
         av_idx = 0
-        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
         for av in address_virtual_list:
             av_attrs = av.split()
             if len(av_attrs) < 2:
@@ -184,7 +187,7 @@ class addressvirtual(moduleBase):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
         av_idx = 0
-        macvlan_prefix = '%s-v' %ifaceobj.name.replace('.', '-')
+        macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
         for address_virtual in address_virtual_list:
             av_attrs = address_virtual.split()
             if len(av_attrs) < 2:
@@ -220,7 +223,7 @@ class addressvirtual(moduleBase):
         return
 
     def _query_running(self, ifaceobjrunning):
-        macvlan_prefix = '%s-v' %ifaceobjrunning.name.replace('.', '-')
+        macvlan_prefix = self._get_macvlan_prefix(ifaceobjrunning)
         address_virtuals = glob.glob("/sys/class/net/%s*" %macvlan_prefix)
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)
