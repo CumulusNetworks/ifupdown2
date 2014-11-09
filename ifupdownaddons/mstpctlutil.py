@@ -25,7 +25,7 @@ class mstpctlutil(utilsBase):
                      'forcevers' : 'force-protocol-version'}
 
     _bridgeportattrmap = {'portadminedge' : 'admin-edge-port',
-                     'portp2p' : 'point-to-point',
+                     'portp2p' : 'admin-point-to-point',
                      'portrestrrole' : 'restricted-role',
                      'portrestrtcn' : 'restricted-TCN',
                      'bpduguard' : 'bpdu-guard-port',
@@ -99,8 +99,8 @@ class mstpctlutil(utilsBase):
                                      '').split('.')[0], base=16) * 4096)
             del bridgeattrs['bridgeid']
         except Exception, e:
-            self.logger.info(bridgeattrs)
-            self.logger.warn(str(e))
+            self.logger.debug(bridgeattrs)
+            self.logger.debug(str(e))
             pass
         return bridgeattrs
 
