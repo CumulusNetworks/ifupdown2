@@ -52,7 +52,7 @@ class ifenslaveutil(utilsBase):
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
-                        'num_grat_arp'])
+                        'num_grat_arp', 'lacp_fallback_allow', 'lacp_fallback_period'])
         except Exception, e:
             pass
 
