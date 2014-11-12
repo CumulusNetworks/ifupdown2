@@ -51,14 +51,21 @@ class addressvirtual(moduleBase):
 
     def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
+        bridgename = None
         if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                [self.ipcmd.bridge_fdb_del(bridgename, addr,
-                    vlan) for addr in hwaddress]
+                (bridgename, vlan) = ifaceobj.name.split('.')
         elif self.ipcmd.is_bridge(ifaceobj.name):
-            [self.ipcmd.bridge_fdb_del(ifaceobj.name, addr)
-                    for addr in hwaddress]
+            vlan = None
+            bridgename = ifaceobj.name
+        if not bridgename:
+            return
+        for addr in hwaddress:
+            try:
+                self.ipcmd.bridge_fdb_del(bridgename, addr, vlan)
+            except Exception, e:
+                self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
+                pass
 
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
