@@ -50,7 +50,15 @@ class address(moduleBase):
                              'example': ['hwaddress 44:38:39:00:27:b8']},
                       'alias' :
                             { 'help': 'description/alias',
-                                'example' : ['alias testnetwork']}}}
+                              'example' : ['alias testnetwork']},
+                      'address-purge' :
+                            { 'help': 'purge existing addresses. By default ' +
+                              'any existing ip addresses on an interface are ' +
+                              'purged to match persistant addresses in the ' +
+                              'interfaces file. Set this attribute to \'no\'' +
+                              'if you want to preserve existing addresses',
+                              'default' : 'yes',
+                              'example' : ['address-purge yes/no']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -72,6 +80,9 @@ class address(moduleBase):
                     vlan)
 
     def _inet_address_config(self, ifaceobj):
+        purge_addresses = ifaceobj.get_attr_value_first('address-purge')
+        if not purge_addresses:
+           purge_addresses = 'yes'
         newaddrs = []
         addrs = ifaceobj.get_attr_value('address')
         if addrs:
@@ -89,7 +100,9 @@ class address(moduleBase):
                 else:
                     newaddrs.append(addr)
 
-        if not self.PERFMODE and not (ifaceobj.flags & iface.HAS_SIBLINGS):
+        if (not self.PERFMODE and
+                not (ifaceobj.flags & iface.HAS_SIBLINGS) and
+                purge_addresses == 'yes'):
             # if perfmode is not set and also if iface has no sibling
             # objects, purge addresses that are not present in the new
             # config
