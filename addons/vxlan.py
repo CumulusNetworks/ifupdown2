@@ -3,6 +3,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
 from sets import Set
 
@@ -44,6 +45,8 @@ class vxlan(moduleBase):
             svcnodeips=ifaceobj.get_attr_value('vxlan-svcnodeip'),
             peernodeips=ifaceobj.get_attr_value('vxlan-peernodeip'),
             learning=ifaceobj.get_attr_value_first('vxlan-learning'))
+            if ifaceobj.addr_method == 'manual':
+               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
 
     def _down(self, ifaceobj):
         try:

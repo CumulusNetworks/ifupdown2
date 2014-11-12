@@ -10,6 +10,7 @@ import ifupdownaddons
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.ifenslaveutil import ifenslaveutil
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.rtnetlink_api as rtnetlink_api
 
 class ifenslave(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
@@ -241,6 +242,8 @@ class ifenslave(moduleBase):
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
             self._apply_slaves_lacp_fallback_prio(ifaceobj)
+            if ifaceobj.addr_method == 'manual':
+               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
             self.log_error(str(e))
 

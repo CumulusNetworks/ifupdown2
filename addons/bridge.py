@@ -9,6 +9,7 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.rtnetlink_api as rtnetlink_api
 import itertools
 import re
 import time
@@ -749,6 +750,7 @@ class bridge(moduleBase):
         if not self._is_bridge(ifaceobj):
             return
         try:
+            link_exists = False
             porterr = False
             porterrstr = ''
             self.ipcmd.batch_start()
@@ -757,6 +759,7 @@ class bridge(moduleBase):
                     self.ipcmd.link_create(ifaceobj.name, 'bridge')
             else:
                 self.ipcmd.link_create(ifaceobj.name, 'bridge')
+            link_exists = True
             try:
                 self._add_ports(ifaceobj)
             except Exception, e:
@@ -771,6 +774,9 @@ class bridge(moduleBase):
             #self._flush_running_vidinfo()
         except Exception, e:
             self.log_error(str(e))
+        finally:
+            if link_exists and ifaceobj.addr_method == 'manual':
+               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         if porterr:
             raise Exception(porterrstr)
 

@@ -136,6 +136,8 @@ class vlan(moduleBase):
         rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
                     ifaceobj.name, vlanid)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
+        if ifaceobj.addr_method == 'manual':
+           rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
 
     def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)
