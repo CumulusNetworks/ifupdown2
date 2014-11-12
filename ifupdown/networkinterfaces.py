@@ -266,8 +266,11 @@ class networkInterfaces():
         if range_val:
            for v in range(range_val[1], range_val[2]):
                 ifaceobj_new = copy.deepcopy(ifaceobj)
-                ifaceobj_new.real_name = ifaceobj.name
+                ifaceobj_new.realname = ifaceobj.name
                 ifaceobj_new.name = "%s%d" %(range_val[0], v)
+                ifaceobj_new.flags |= iface.IFACERANGE_ENTRY
+                if v == range_val[1]:
+                    ifaceobj_new.flags |= iface.IFACERANGE_START
                 self.callbacks.get('iface_found')(ifaceobj_new)
         else:
             self.callbacks.get('iface_found')(ifaceobj)
@@ -282,9 +285,12 @@ class networkInterfaces():
         if range_val:
            for v in range(range_val[1], range_val[2]):
                 ifaceobj_new = copy.deepcopy(ifaceobj)
-                ifaceobj_new.real_name = ifaceobj.name
+                ifaceobj_new.realname = ifaceobj.name
                 ifaceobj_new.name = "%s%d" %(range_val[0], v)
                 ifaceobj_new.type = ifaceType.BRIDGE_VLAN
+                ifaceobj_new.flags |= iface.IFACERANGE_ENTRY
+                if v == range_val[1]:
+                    ifaceobj_new.flags |= iface.IFACERANGE_START
                 self.callbacks.get('iface_found')(ifaceobj_new)
         else:
             ifaceobj.type = ifaceType.BRIDGE_VLAN

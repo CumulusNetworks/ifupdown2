@@ -321,6 +321,7 @@ class ifenslave(moduleBase):
                             self.ifenslavecmd.get_lacp_fallback_period(bondname),
                      'bond-lacp-fallback-priority' :
                             self.ifenslavecmd.get_lacp_fallback_priority(bondname)}
+
         slaves = self.ifenslavecmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves

@@ -168,7 +168,8 @@ class bridge(moduleBase):
                                    'If specified under the bridge the ports ' +
                                    'inherit it unless overridden by a ' +
                                    'bridge-vids attribuet under the port',
-                          'example' : ['bridge-vids 4000']},
+                          'example' : ['bridge-vids 4000',
+                                       'bridge-vids 2000 2200-3000']},
                     'bridge-pvid' :
                         { 'help' : 'bridge port pvid. Must be specified under' +
                                    ' the bridge port',
@@ -198,6 +199,9 @@ class bridge(moduleBase):
         self.brctlcmd = None
         self._running_vidinfo = {}
         self._running_vidinfo_valid = False
+        self._resv_vlan_range =  self._get_reserved_vlan_range()
+        self.logger.debug('%s: using reserved vlan range %s'
+                  %(self.__class__.__name__, str(self._resv_vlan_range)))
 
     def _is_bridge(self, ifaceobj):
         if ifaceobj.get_attr_value_first('bridge-ports'):
@@ -605,7 +609,8 @@ class bridge(moduleBase):
                           %(bportifaceobj.name, pvid, str(e)))
 
     def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj,
-                                                   bridge_vids=None):
+                                                   bridge_vids=None,
+                                                   bridge_pvid=None):
         running_vidinfo = self._get_running_vidinfo()
         vids = None
         pvids = None
@@ -613,22 +618,27 @@ class bridge(moduleBase):
         if bport_access:
             vids = re.split(r'[\s\t]\s*', bport_access)
             pvids = vids
+        else:
+            bport_vids = bportifaceobj.get_attr_value_first('bridge-vids')
+            if bport_vids:
+                vids = re.split(r'[\s\t,]\s*', bport_vids)
 
-        bport_vids = bportifaceobj.get_attr_value_first('bridge-vids')
-        if bport_vids:
-            vids = re.split(r'[\s\t]\s*', bport_vids)
-
-        bport_pvids = bportifaceobj.get_attr_value_first('bridge-pvid')
-        if bport_pvids:
-            pvids = re.split(r'[\s\t]\s*', bport_pvids)
+            bport_pvids = bportifaceobj.get_attr_value_first('bridge-pvid')
+            if bport_pvids:
+                pvids = re.split(r'[\s\t]\s*', bport_pvids)
 
         if pvids:
             self._apply_bridge_port_pvids(bportifaceobj, pvids[0],
                     running_vidinfo.get(bportifaceobj.name, {}).get('pvid'))
-        else:
+        elif bridge_pvid:
             self._apply_bridge_port_pvids(bportifaceobj,
-                    '1', running_vidinfo.get(bportifaceobj.name,
+                    bridge_pvid, running_vidinfo.get(bportifaceobj.name,
                     {}).get('pvid'))
+        # XXX: default pvid is already one
+        #else:
+        #    self._apply_bridge_port_pvids(bportifaceobj,
+        #            '1', running_vidinfo.get(bportifaceobj.name,
+        #            {}).get('pvid'))
 
         if vids:
             self._apply_bridge_vids(bportifaceobj, vids,
@@ -686,9 +696,15 @@ class bridge(moduleBase):
 
         bridge_vids = ifaceobj.get_attr_value_first('bridge-vids')
         if bridge_vids:
-           bridge_vids = re.split(r'[\s\t]\s*', bridge_vids)
+           bridge_vids = re.split(r'[\s\t,]\s*', bridge_vids)
         else:
            bridge_vids = None
+
+        bridge_pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+        if bridge_pvid:
+           bridge_pvid = re.split(r'[\s\t]\s*', bridge_pvid)
+        else:
+           bridge_pvid = None
 
         bridgeports = self._get_bridge_port_list(ifaceobj)
         for bport in bridgeports:
@@ -711,7 +727,7 @@ class bridge(moduleBase):
                 # Add attributes specific to the vlan aware bridge
                 if bridge_vlan_aware:
                    self._apply_bridge_vlan_aware_port_settings_all(
-                                bportifaceobj, bridge_vids)
+                                bportifaceobj, bridge_vids, bridge_pvid)
                 self._apply_bridge_port_settings(bportifaceobj,
                                                  bridgeifaceobj=ifaceobj)
 
@@ -722,8 +738,11 @@ class bridge(moduleBase):
            if self.ipcmd.bridge_is_vlan_aware(bridgename):
               bridge_vids = self._get_bridge_vids(bridgename,
                                                   ifaceobj_getfunc)
+              bridge_pvid = self._get_bridge_pvid(bridgename,
+                                                   ifaceobj_getfunc)
               self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
-                                                              bridge_vids)
+                                                              bridge_vids,
+                                                              bridge_pvid)
            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
            ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
            return
@@ -1096,8 +1115,15 @@ class bridge(moduleBase):
         ifaceobjs = ifaceobj_getfunc(bridgename)
         for ifaceobj in ifaceobjs:
             vids = ifaceobj.get_attr_value_first('bridge-vids')
-            if vids: return re.split(r'[\s\t]\s*', vids)
+            if vids: return re.split(r'[\s\t,]\s*', vids)
         return None
+
+    def _get_bridge_pvid(self, bridgename, ifaceobj_getfunc):
+        ifaceobjs = ifaceobj_getfunc(bridgename)
+        pvid = None
+        for ifaceobj in ifaceobjs:
+            pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+        return pvid
 
     def _get_bridge_name(self, ifaceobj):
         return self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)

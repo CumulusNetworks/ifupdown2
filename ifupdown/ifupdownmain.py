@@ -165,6 +165,8 @@ class ifupdownMain(ifupdownBase):
         self.config = config
         self.logger.debug(self.config)
 
+        self.type = ifaceType.UNKNOWN
+
         # Can be used to provide hints for caching
         self.CACHE_FLAGS = 0x0
         self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
@@ -348,7 +350,7 @@ class ifupdownMain(ifupdownBase):
         for d in del_list:
             dlist.remove(d)
 
-    def query_dependents(self, ifaceobj, ops, ifacenames):
+    def query_dependents(self, ifaceobj, ops, ifacenames, type=None):
         """ Gets iface dependents by calling into respective modules """
         ret_dlist = []
 
@@ -742,8 +744,17 @@ class ifupdownMain(ifupdownBase):
                 traceback.print_tb(t)
                 self.logger.warning('error saving state (%s)' %str(e))
 
+    def set_type(self, type):
+        if type == 'iface':
+            self.type = ifaceType.IFACE
+        elif type == 'vlan':
+            self.type = ifaceType.BRIDGE_VLAN
+        else:
+            self.type = ifaceType.UNKNOWN
+
     def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
-           excludepats=None, printdependency=None, syntaxcheck=False):
+           excludepats=None, printdependency=None, syntaxcheck=False,
+           type=None):
         """This brings the interface(s) up
         
         Args:
@@ -757,6 +768,8 @@ class ifupdownMain(ifupdownBase):
             excludepats (list): list of patterns of interfaces to exclude
             syntaxcheck (bool): only perform syntax check
         """
+
+        self.set_type(type)
 
         if allow_classes:
             self.IFACE_CLASS = True
@@ -800,8 +813,11 @@ class ifupdownMain(ifupdownBase):
                 self._save_state()
 
     def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
-             excludepats=None, printdependency=None, usecurrentconfig=False):
+             excludepats=None, printdependency=None, usecurrentconfig=False,
+             type=None):
         """ down an interface """
+
+        self.set_type(type)
 
         if allow_classes:
             self.IFACE_CLASS = True
@@ -858,8 +874,10 @@ class ifupdownMain(ifupdownBase):
 
     def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
               excludepats=None, printdependency=None,
-              format='native'):
+              format='native', type=None):
         """ query an interface """
+
+        self.set_type(type)
 
         if allow_classes:
             self.IFACE_CLASS = True
@@ -902,8 +920,6 @@ class ifupdownMain(ifupdownBase):
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')
 
-        # Roopa
-        #self.populate_dependency_info(ops, filtered_ifacenames)
         self.populate_dependency_info(ops)
         if ops[0] == 'query-dependency' and printdependency:
             self.print_dependency(filtered_ifacenames, printdependency)
@@ -925,16 +941,87 @@ class ifupdownMain(ifupdownBase):
             self.print_ifaceobjsrunning_pretty(filtered_ifacenames, format)
             return
 
-    def reload(self, upops, downops, auto=False, allow=None,
-            ifacenames=None, excludepats=None, usecurrentconfig=False):
-        """ reload interface config """
+    def _reload_currentlyup(self, upops, downops, auto=True, allow=None,
+            ifacenames=None, excludepats=None, usecurrentconfig=False,
+            **extra_args):
+        """ reload currently up interfaces """
         allow_classes = []
         new_ifaceobjdict = {}
 
-        self.logger.debug('reloading interface config ..')
-        if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
+        # Override auto to true
+        auto = True
+
+        try:
+            self.read_iface_config()
+        except:
+            raise
+
+        if not self.ifaceobjdict:
+            self.logger.warn("nothing to reload ..exiting.")
+            return
+
+        already_up_ifacenames = []
+        # generate dependency graph of interfaces
+        self.populate_dependency_info(upops)
+        if (not usecurrentconfig and self.STATEMANAGER_ENABLE
+                and self.statemanager.ifaceobjdict):
+            already_up_ifacenames = self.statemanager.ifaceobjdict.keys()
+
+        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
+        filtered_ifacenames = [i for i in ifacenames
+                               if self._iface_whitelisted(auto, allow_classes,
+                               excludepats, i)]
+        
+        # Get already up interfaces that still exist in the interfaces file
+        already_up_ifacenames_not_present = Set(
+                        already_up_ifacenames).difference(ifacenames)
+        already_up_ifacenames_still_present = Set(
+                        already_up_ifacenames).difference(
+                        already_up_ifacenames_not_present)
+        interfaces_to_up = Set(already_up_ifacenames_still_present).union(
+                                            filtered_ifacenames)
+
+        if (already_up_ifacenames_not_present and
+                self.config.get('ifreload_currentlyup_down_notpresent') == '1'):
+           self.logger.info('reload: schedule down on interfaces: %s'
+                            %str(already_up_ifacenames_not_present))
+
+           # Save a copy of new iface objects and dependency_graph
+           new_ifaceobjdict = dict(self.ifaceobjdict)
+           new_dependency_graph = dict(self.dependency_graph)
+
+           # old interface config is read into self.ifaceobjdict
+           self.read_old_iface_config()
+
+           # reinitialize dependency graph 
+           self.dependency_graph = OrderedDict({})
+           self.populate_dependency_info(downops,
+                                         already_up_ifacenames_not_present)
+           self._sched_ifaces(already_up_ifacenames_not_present, downops)
+        else:
+           self.logger.debug('no interfaces to down ..')
+
+        # Now, run 'up' with new config dict
+        # reset statemanager update flag to default
+        if new_ifaceobjdict:
+            self.ifaceobjdict = new_ifaceobjdict
+            self.dependency_graph = new_dependency_graph
+
+        if not self.ifaceobjdict:
+           return
+        self.logger.info('reload: scheduling up on interfaces: %s'
+                         %str(interfaces_to_up))
+        self._sched_ifaces(interfaces_to_up, upops)
+        if self.DRYRUN:
+            return
+        self._save_state()
+
+    def _reload_default(self, upops, downops, auto=False, allow=None,
+            ifacenames=None, excludepats=None, usecurrentconfig=False,
+            **extra_args):
+        """ reload interface config """
+        allow_classes = []
+        new_ifaceobjdict = {}
 
         try:
             self.read_iface_config()
@@ -975,7 +1062,8 @@ class ifupdownMain(ifupdownBase):
             #     config
             #
             ifacedownlist = []
-            for ifname, lastifaceobjlist in self.ifaceobjdict.items():
+            for ifname in filtered_ifacenames:
+                lastifaceobjlist = self.ifaceobjdict.get(ifname)
                 objidx = 0
                 # If interface is not present in the new file
                 # append it to the down list
@@ -997,7 +1085,7 @@ class ifupdownMain(ifupdownBase):
                         continue
 
             if ifacedownlist:
-                self.logger.info('Executing down on interfaces: %s'
+                self.logger.info('reload: scheduling down on interfaces: %s'
                                   %str(ifacedownlist))
                 # reinitialize dependency graph 
                 self.dependency_graph = OrderedDict({})
@@ -1018,12 +1106,24 @@ class ifupdownMain(ifupdownBase):
                                if self._iface_whitelisted(auto, allow_classes,
                                excludepats, i)]
 
-        self.logger.info('Scheduling up on interfaces: %s'
-                                  %str(filtered_ifacenames))
+        self.logger.info('reload: scheduling up on interfaces: %s'
+                         %str(filtered_ifacenames))
         self._sched_ifaces(filtered_ifacenames, upops)
         if self.DRYRUN:
             return
         self._save_state()
+
+    def reload(self, *args, **kargs):
+        """ reload interface config """
+        if kargs.get('auto', False):
+            self.ALL = True
+            self.WITH_DEPENDS = True
+
+        self.logger.debug('reloading interface config ..')
+        if kargs.get('currentlyup', False):
+            self._reload_currentlyup(*args, **kargs)
+        else:
+            self._reload_default(*args, **kargs)
 
     def _pretty_print_ordered_dict(self, prefix, argdict):
         outbuf = prefix + ' {\n'
@@ -1085,7 +1185,14 @@ class ifupdownMain(ifupdownBase):
             print json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
                              indent=4, separators=(',', ': '))
         else:
-            map(lambda i: i.dump_pretty(), ifaceobjs)
+            expand = int(self.config.get('ifquery_ifacename_expand_range', '0'))
+            for i in ifaceobjs:
+                if not expand and (i.flags & iface.IFACERANGE_ENTRY):
+                    # print only the first one
+                    if i.flags & iface.IFACERANGE_START:
+                       i.dump_pretty(use_realname=True)
+                else:
+                    i.dump_pretty()
 
     def _get_ifaceobjscurr_pretty(self, ifacenames, ifaceobjs):
         ret = 0
@@ -1122,9 +1229,9 @@ class ifupdownMain(ifupdownBase):
                        separators=(',', ': '))
         else:
             map(lambda i: i.dump_pretty(with_status=True,
-                    successstr=self.config.get('check_success_str',
+                    successstr=self.config.get('ifquery_check_success_str',
                                                _success_sym),
-                    errorstr=self.config.get('check_error_str', _error_sym)),
+                    errorstr=self.config.get('ifquery_check_error_str', _error_sym)),
                                 ifaceobjs)
         return ret
 

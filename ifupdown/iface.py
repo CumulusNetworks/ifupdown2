@@ -18,10 +18,9 @@ import logging
 import json
 
 class ifaceType():
-    UNKNOWN = 0x1
-    GENERIC = 0x2
-    BRIDGE = 0x3
-    BRIDGE_VLAN = 0x4
+    UNKNOWN = 0x0
+    IFACE = 0x1
+    BRIDGE_VLAN = 0x2
 
 class ifaceStatus():
     """Enumerates iface status """
@@ -180,6 +179,8 @@ class iface():
     # flag to indicate that the object was created from pickled state
     _PICKLED = 0x1
     HAS_SIBLINGS = 0x2
+    IFACERANGE_ENTRY = 0x3
+    IFACERANGE_START = 0x4
 
     version = '0.1'
 
@@ -214,7 +215,7 @@ class iface():
         self.type = ifaceType.UNKNOWN
         """interface type"""
         self.priv_data = None
-        self.real_name = None
+        self.realname = None
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -436,15 +437,20 @@ class iface():
         logger.info('}')
 
     def dump_pretty(self, with_status=False,
-                    successstr='success', errorstr='error'):
+                    successstr='success', errorstr='error',
+                    use_realname=False):
         indent = '\t'
         outbuf = ''
-        if self.auto:
-            outbuf += 'auto %s\n' %self.name
-        if self.type == ifaceType.BRIDGE_VLAN:
-            outbuf += 'vlan %s' %self.name
+        if use_realname:
+            name = self.realname
         else:
-            outbuf += 'iface %s' %self.name
+            name = self.name
+        if self.auto:
+            outbuf += 'auto %s\n' %name
+        if self.type == ifaceType.BRIDGE_VLAN:
+            outbuf += 'vlan %s' %name
+        else:
+            outbuf += 'iface %s' %name
         if self.addr_family:
             outbuf += ' %s' %self.addr_family
         if self.addr_method:

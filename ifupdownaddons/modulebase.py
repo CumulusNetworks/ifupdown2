@@ -320,3 +320,13 @@ class moduleBase(object):
         return dict(force=self.FORCE, dryrun=self.DRYRUN, nowait=self.NOWAIT,
                     perfmode=self.PERFMODE, cache=self.CACHE,
                     cacheflags=self.CACHE_FLAGS)
+
+    def _get_reserved_vlan_range(self):
+        start = end = 0
+        get_resvvlan = '/usr/share/python-ifupdown2/get_reserved_vlan_range.sh'
+        try:
+            (start, end) = self.exec_command(get_resvvlan).split('-')
+        except:
+            # ignore errors
+            pass
+        return (start, end)

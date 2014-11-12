@@ -51,13 +51,13 @@ def run_up(args):
             ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency,
-                               syntaxcheck=args.syntaxcheck)
+                               syntaxcheck=args.syntaxcheck, type=args.type)
         else:
             ifupdown_handle.up(['pre-up', 'up', 'post-up'],
                                args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency,
-                               syntaxcheck=args.syntaxcheck)
+                               syntaxcheck=args.syntaxcheck, type=args.type)
     except:
         raise
 
@@ -81,7 +81,8 @@ def run_down(args):
                              args.all, args.CLASS, iflist,
                              excludepats=args.excludepats,
                              printdependency=args.printdependency,
-                             usecurrentconfig=args.usecurrentconfig)
+                             usecurrentconfig=args.usecurrentconfig,
+                             type=args.type)
     except:
         raise
 
@@ -123,7 +124,7 @@ def run_query(args):
         ifupdown_handle.query([qop], args.all, args.CLASS, iflist,
                               excludepats=args.excludepats,
                               printdependency=args.printdependency,
-                              format=args.format)
+                              format=args.format, type=args.type)
     except:
         raise
 
@@ -139,7 +140,8 @@ def run_reload(args):
                                ['pre-down', 'down', 'post-down'],
                                args.all, None, None,
                                excludepats=args.excludepats,
-                               usecurrentconfig=args.usecurrentconfig)
+                               usecurrentconfig=args.usecurrentconfig,
+                               currentlyup=args.currentlyup)
     except:
         raise
 
@@ -226,6 +228,13 @@ def update_argparser(argparser):
                 default='native',
                 choices=['native', 'json'],
                 help='interfaces file format')
+    argparser.add_argument('-T', '--type',
+                dest='type',
+                default=None,
+                choices=['iface', 'vlan'],
+                help='type of interface entry (iface or vlan).' +
+                     'This option can be used in case of ambiguity between ' +
+                     'a vlan interface and an iface interface of the same name')
 
 def update_ifupdown_argparser(argparser):
     """ common arg parser for ifup and ifdown """
@@ -294,8 +303,13 @@ def update_ifquery_argparser(argparser):
 
 def update_ifreload_argparser(argparser):
     """ parser for ifreload """
-    argparser.add_argument('-a', '--all', action='store_true', required=True,
+    group = argparser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-a', '--all', action='store_true',
                 help='process all interfaces marked \"auto\"')
+    group.add_argument('-c', '--currently-up', dest='currentlyup',
+                action='store_true',
+                help='only reload auto and other interfaces that are ' +
+                'currently up')
     argparser.add_argument('iflist', metavar='IFACE',
                 nargs='*', help=argparse.SUPPRESS)
     argparser.add_argument('-n', '--no-act', dest='noact',
@@ -367,8 +381,8 @@ def validate_args(op, args):
     if op == 'query' and args.syntaxhelp:
         return True
     if op == 'reload':
-        if not args.all:
-            print '\'-a\' option is required'
+        if not args.all and not args.currentlyup:
+            print '\'-a\' or \'-c\' option is required'
             return False
     elif (not args.iflist and
             not args.all and not args.CLASS):
