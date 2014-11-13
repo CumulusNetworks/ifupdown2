@@ -628,7 +628,6 @@ class ifupdownMain(ifupdownBase):
     def _sched_ifaces(self, ifacenames, ops):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
-
         self._pretty_print_ordered_dict('dependency graph',
                     self.dependency_graph)
         return ifaceScheduler.sched_ifaces(self, ifacenames, ops,
@@ -950,16 +949,17 @@ class ifupdownMain(ifupdownBase):
 
         # Override auto to true
         auto = True
+        if auto:
+            self.ALL = True
+            self.WITH_DEPENDS = True
 
         try:
             self.read_iface_config()
         except:
             raise
-
         if not self.ifaceobjdict:
             self.logger.warn("nothing to reload ..exiting.")
             return
-
         already_up_ifacenames = []
         # generate dependency graph of interfaces
         self.populate_dependency_info(upops)
@@ -1023,6 +1023,9 @@ class ifupdownMain(ifupdownBase):
         allow_classes = []
         new_ifaceobjdict = {}
 
+        if auto:
+            self.ALL = True
+            self.WITH_DEPENDS = True
         try:
             self.read_iface_config()
         except:
@@ -1031,7 +1034,6 @@ class ifupdownMain(ifupdownBase):
         if not self.ifaceobjdict:
             self.logger.warn("nothing to reload ..exiting.")
             return
-
         # generate dependency graph of interfaces
         self.populate_dependency_info(upops)
         if (not usecurrentconfig and self.STATEMANAGER_ENABLE
@@ -1115,10 +1117,6 @@ class ifupdownMain(ifupdownBase):
 
     def reload(self, *args, **kargs):
         """ reload interface config """
-        if kargs.get('auto', False):
-            self.ALL = True
-            self.WITH_DEPENDS = True
-
         self.logger.debug('reloading interface config ..')
         if kargs.get('currentlyup', False):
             self._reload_currentlyup(*args, **kargs)
