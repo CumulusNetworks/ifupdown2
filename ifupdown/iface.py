@@ -324,6 +324,17 @@ class iface():
         """ add attribute name and value to the interface config """
         self.config.setdefault(attr_name, []).append(attr_value)
 
+    def replace_config(self, attr_name, attr_value):
+        """ add attribute name and value to the interface config """
+        self.config[attr_name] = [attr_value]
+
+    def delete_config(self, attr_name):
+        """ add attribute name and value to the interface config """
+        try:
+            del self.config[attr_name]
+        except:
+            pass
+
     def update_config_dict(self, attrdict):
         self.config.update(attrdict)
 

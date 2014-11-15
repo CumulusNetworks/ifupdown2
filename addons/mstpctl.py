@@ -138,6 +138,7 @@ class mstpctl(moduleBase):
 
     _port_attrs_map = {'mstpctl-portpathcost' : 'portpathcost',
                  'mstpctl-portadminedge' : 'portadminedge',
+                 'mstpctl-portautoedge' : 'portautoedge' ,
                  'mstpctl-portp2p' : 'portp2p',
                  'mstpctl-portrestrrole' : 'portrestrrole',
                  'mstpctl-portrestrtcn' : 'portrestrtcn',
@@ -298,7 +299,8 @@ class mstpctl(moduleBase):
             pass
 
     def _apply_bridge_port_settings(self, ifaceobj, bridgename=None,
-                                    bridgeifaceobj=None):
+                                    bridgeifaceobj=None, stp_on=True,
+                                    mstpd_running=True):
         check = False if self.PERFMODE else True
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
@@ -314,6 +316,12 @@ class mstpctl(moduleBase):
                #   if not attrval:
                #      continue
                #else:
+               continue
+            if not stp_on:
+               self.logger.warn('%s: cannot set %s (stp on bridge %s not on)\n'
+                       %(ifaceobj.name, attrname, bridgename))
+               continue
+            if not mstpd_running:
                continue
             try:
                self.mstpctlcmd.set_bridgeport_attr(bridgename,
@@ -348,9 +356,14 @@ class mstpctl(moduleBase):
         # Check if bridge port
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         if bridgename:
-            if self.mstpctlcmd.is_mstpd_running():
-                self._apply_bridge_port_settings(ifaceobj, bridgename)
-                ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
+            mstpd_running = (True if self.mstpctlcmd.is_mstpd_running()
+                             else False)
+            stp_on = (True if self.read_file_oneline(
+                      '/sys/class/net/%s/bridge/stp_state'
+                      %bridgename) == '2' else False)
+            self._apply_bridge_port_settings(ifaceobj, bridgename, None,
+                                             stp_on, mstpd_running)
+            ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
             return
         if not self._is_bridge(ifaceobj):
             return
