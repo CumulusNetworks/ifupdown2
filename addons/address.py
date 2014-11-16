@@ -191,7 +191,8 @@ class address(moduleBase):
                 # XXX Dont know what to reset the address to
                 self._remove_address_from_bridge(ifaceobj, hwaddress)
         except Exception, e:
-            self.log_warn(str(e))
+            self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
+            pass
 
     def _get_iface_addresses(self, ifaceobj):
         addrlist = ifaceobj.get_attr_value('address')
