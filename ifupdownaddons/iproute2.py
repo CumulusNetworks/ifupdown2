@@ -619,10 +619,10 @@ class iproute2(utilsBase):
     def bridge_fdb_add(self, dev, address, vlan=None, bridge=True):
         target = 'self' if bridge else ''
         if vlan:
-            self.exec_command('bridge fdb add %s dev %s vlan %s %s'
+            self.exec_command('bridge fdb replace %s dev %s vlan %s %s'
                               %(address, dev, vlan, target))
         else:
-            self.exec_command('bridge fdb add %s dev %s %s'
+            self.exec_command('bridge fdb replace %s dev %s %s'
                               %(address, dev, target))
 
     def bridge_fdb_del(self, dev, address, vlan=None, bridge=True):
