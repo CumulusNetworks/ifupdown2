@@ -1,0 +1,81 @@
+#
+# vlan-aware bridge with clag example
+#
+#
+# bridge 'br' is a vlan aware bridge with ports:
+#      'peer-bond spine-bond glob host-bond-0[1-2]'
+#
+# All ports inherit 'vlans 10 20-23' from the 'bridge-vids' attribute
+# under the bridge
+# 
+# native vlan is by default 1
+#
+# 'bridge-vids' attribute is used to declare vlans.
+# 'bridge-pvid' attribute is used to specify native vlans if other than 1
+# 'bridge-access' attribute is used to declare access port
+# 
+# 
+
+# spine bond
+#
+auto spine-bond
+iface spine-bond
+      bond-slaves glob swp19-22
+      bond-mode 802.3ad
+      bond-miimon 100
+      bond-use-carrier 1
+      bond-lacp-rate 1
+      bond-min-links 1
+      bond-xmit-hash-policy layer3+4
+
+# mlag bond and peer interface
+#
+auto peer-bond
+iface peer-bond
+      bond-slaves glob swp23-24
+      bond-mode 802.3ad
+      bond-miimon 100
+      bond-use-carrier 1
+      bond-lacp-rate 1
+      bond-min-links 1
+      bond-xmit-hash-policy layer3+4
+
+# sub-interface for clagd communication
+#
+auto peer-bond.4094
+iface peer-bond.4094
+      address 169.254.0.1/31
+      clagd-peer-ip 11.0.5.2
+      clagd-sys-mac 00:00:00:aa:bb:01
+      clagd-args --vm
+
+# host ports
+#
+auto host-bond-01
+iface host-bond-01
+      bond-slaves swp1
+      bond-mode 802.3ad
+      bond-miimon 100
+      bond-use-carrier 1
+      bond-lacp-rate 1
+      bond-min-links 1
+      bond-xmit-hash-policy layer3+4
+
+auto host-bond-02
+iface host-bond-02
+      bond-slaves swp2
+      bond-mode 802.3ad
+      bond-miimon 100
+      bond-use-carrier 1
+      bond-lacp-rate 1
+      bond-min-links 1
+      bond-xmit-hash-policy layer3+4
+
+# the bridge
+#
+auto br
+iface br
+      bridge-vlan-aware yes
+      bridge-ports peer-bond spine-bond glob host-bond-0[1-2]
+      bridge-stp on
+      bridge-vids 10 20-23
