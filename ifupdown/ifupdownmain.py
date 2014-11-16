@@ -1227,10 +1227,11 @@ class ifupdownMain(ifupdownBase):
                        separators=(',', ': '))
         else:
             map(lambda i: i.dump_pretty(with_status=True,
-                    successstr=self.config.get('ifquery_check_success_str',
-                                               _success_sym),
-                    errorstr=self.config.get('ifquery_check_error_str', _error_sym)),
-                                ifaceobjs)
+                   successstr=self.config.get('ifquery_check_success_str',
+                                              _success_sym),
+                   errorstr=self.config.get('ifquery_check_error_str', _error_sym),
+                   unknownstr=self.config.get('ifquery_check_unknown_str', '')),
+                   ifaceobjs)
         return ret
 
     def print_ifaceobjsrunning_pretty(self, ifacenames, format='native'):

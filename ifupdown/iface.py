@@ -449,7 +449,7 @@ class iface():
 
     def dump_pretty(self, with_status=False,
                     successstr='success', errorstr='error',
-                    use_realname=False):
+                    unknownstr='unknown', use_realname=False):
         indent = '\t'
         outbuf = ''
         if use_realname:
@@ -488,13 +488,13 @@ class iface():
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
                         if s == -1:
-                            outbuf += (indent + '%s %s\n'
-                                        %(cname, cv))
+                            outbuf += (indent + '%s %s        %s\n'
+                                        %(cname, cv, unknownstr))
                         elif s == 1:
-                            outbuf += (indent + '%s %s %s\n'
+                            outbuf += (indent + '%s %s        %s\n'
                                         %(cname, cv, errorstr))
                         elif s == 0:
-                            outbuf += (indent + '%s %s %s\n'
+                            outbuf += (indent + '%s %s        %s\n'
                                         %(cname, cv, successstr))
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
