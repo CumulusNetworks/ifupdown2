@@ -65,19 +65,36 @@ class address(moduleBase):
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
 
-    def _add_address_to_bridge(self, ifaceobj, hwaddress):
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
-            if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                self.ipcmd.bridge_fdb_add(bridgename, hwaddress,
-                    vlan)
+    def _address_valid(self, addrs):
+        if not addrs:
+           return False
+        if any(map(lambda a: True if a[:7] != '0.0.0.0'
+                else False, addrs)):
+           return True
+        return False
 
-    def _remove_address_from_bridge(self, ifaceobj, hwaddress):
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
-            if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                self.ipcmd.bridge_fdb_del(bridgename, hwaddress,
-                    vlan)
+    def _process_bridge(self, ifaceobj, up):
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
+        addrs = ifaceobj.get_attr_value_first('address')
+        is_vlan_dev_on_vlan_aware_bridge = False
+        is_bridge = self.ipcmd.is_bridge(ifaceobj.name)
+        if not is_bridge:
+            if '.' in ifaceobj.name:
+                (bridgename, vlan) = ifaceobj.name.split('.')
+                is_vlan_dev_on_vlan_aware_bridge = self.ipcmd.bridge_is_vlan_aware(bridgename)
+        if is_bridge or is_vlan_dev_on_vlan_aware_bridge:
+           if self._address_valid(addrs):
+              if up:
+                self.write_file('/proc/sys/net/ipv4/conf/%s' %ifaceobj.name +
+                                '/arp_accept', '1')
+              else:
+                self.write_file('/proc/sys/net/ipv4/conf/%s' %ifaceobj.name +
+                                '/arp_accept', '0')
+        if hwaddress and is_vlan_dev_on_vlan_aware_bridge:
+           if up:
+              self.ipcmd.bridge_fdb_add(bridgename, hwaddress, vlan)
+           else:
+              self.ipcmd.bridge_fdb_del(bridgename, hwaddress, vlan)
 
     def _inet_address_config(self, ifaceobj):
         purge_addresses = ifaceobj.get_attr_value_first('address-purge')
@@ -141,7 +158,7 @@ class address(moduleBase):
                 # if not running in perf mode and ifaceobj does not have
                 # any sibling iface objects, kill any stale dhclient
                 # processes
-                dhclientcmd = self.dhclient()
+                dhclientcmd = dhclient()
                 if dhclient.is_running(ifaceobj.name):
                     # release any dhcp leases
                     dhclientcmd.release(ifaceobj.name)
@@ -163,10 +180,8 @@ class address(moduleBase):
             self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
         self.ipcmd.batch_commit()
 
-        # After all adds are successful, also add the hw address
-        # to the bridge if required
-        if hwaddress:
-            self._add_address_to_bridge(ifaceobj, hwaddress)
+        # Handle special things on a bridge
+        self._process_bridge(ifaceobj, True)
 
         self.ipcmd.route_add_gateway(ifaceobj.name,
                 ifaceobj.get_attr_value_first('gateway'))
@@ -186,10 +201,11 @@ class address(moduleBase):
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
                 self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
-            hwaddress = ifaceobj.get_attr_value_first('hwaddress')
-            if hwaddress:
-                # XXX Dont know what to reset the address to
-                self._remove_address_from_bridge(ifaceobj, hwaddress)
+            # XXX hwaddress reset cannot happen because we dont know last
+            # address.
+
+            # Handle special things on a bridge
+            self._process_bridge(ifaceobj, False)
         except Exception, e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
             pass
