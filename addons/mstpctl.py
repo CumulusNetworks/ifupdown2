@@ -136,6 +136,19 @@ class mstpctl(moduleBase):
                                        'under a port: mstpctl-portbpdufilter yes']},
                         }}
 
+    # Maps mstp bridge attribute names to corresponding mstpctl commands
+    # XXX: This can be encoded in the modules dict above
+    _attrs_map = OrderedDict([('mstpctl-treeprio' , 'treeprio'),
+                  ('mstpctl-ageing' , 'ageing'),
+                  ('mstpctl-maxage' , 'maxage'),
+                  ('mstpctl-fdelay' , 'fdelay'),
+                  ('mstpctl-maxhops' , 'maxhops'),
+                  ('mstpctl-txholdcount' , 'txholdcount'),
+                  ('mstpctl-forcevers', 'forcevers'),
+                  ('mstpctl-hello' , 'hello')])
+
+    # Maps mstp port attribute names to corresponding mstpctl commands
+    # XXX: This can be encoded in the modules dict above
     _port_attrs_map = {'mstpctl-portpathcost' : 'portpathcost',
                  'mstpctl-portadminedge' : 'portadminedge',
                  'mstpctl-portautoedge' : 'portautoedge' ,
@@ -251,36 +264,27 @@ class mstpctl(moduleBase):
                             ifaceobj.get_attr_value_first('mstpctl-hello')
                             }.items() if v}
 
-            if bridgeattrs:
-                # set bridge attributes
-                for k,v in bridgeattrs.items():
-                    if k == 'treeprio':
-                        continue
-                    try:
-                        if v:
-                            self.mstpctlcmd.set_bridge_attr(ifaceobj.name, k,
-                                        v, check)
-                    except Exception, e:
-                        self.logger.warn('%s' %str(e))
-                        pass
-                if bridgeattrs.get('treeprio'):
-                    try:
-                        self.mstpctlcmd.set_bridge_treeprio(ifaceobj.name,
-                            bridgeattrs['treeprio'], check)
-                    except Exception, e:
-                        self.logger.warn('%s' %str(e))
-                        pass
+            # set bridge attributes
+            for attrname, dstattrname in self._attrs_map.items():
+                try:
+                    v = ifaceobj.get_attr_value_first(attrname)
+                    if not v:
+                       continue
+                    if attrname == 'mstpctl-treeprio':
+                       self.mstpctlcmd.set_bridge_treeprio(ifaceobj.name,
+                                v, check)
+                    else:
+                       self.mstpctlcmd.set_bridge_attr(ifaceobj.name,
+                                dstattrname, v, check)
+                except Exception, e:
+                    self.logger.warn('%s' %str(e))
+                    pass
 
             # set bridge port attributes
-            for attrname in ['mstpctl-portpathcost', 'mstpctl-portadminedge',
-                             'mstpctl-portp2p', 'mstpctl-portrestrrole',
-                             'mstpctl-portrestrtcn', 'mstpctl-bpduguard',
-                             'mstpctl-treeportprio', 'mstpctl-treeportcost',
-                             'mstpctl-portnetwork', 'mstpctl-portbpdufilter']:
+            for attrname, dstattrname in self._port_attrs_map.items():
                 attrval = ifaceobj.get_attr_value_first(attrname)
                 if not attrval:
                     continue
-                dstattrname = attrname.split('-')[1]
                 portlist = self.parse_port_list(attrval)
                 if not portlist:
                     self.log_warn('%s: error parsing \'%s %s\''
@@ -336,6 +340,9 @@ class mstpctl(moduleBase):
                           %ifaceobj.name + 'specific to ports')
 
         bridgeports = self._get_bridge_port_list(ifaceobj)
+        if not bridgeports:
+           self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
+           return
         for bport in bridgeports:
             self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))

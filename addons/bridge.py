@@ -715,6 +715,9 @@ class bridge(moduleBase):
            bridge_pvid = None
 
         bridgeports = self._get_bridge_port_list(ifaceobj)
+        if not bridgeports:
+           self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
+           return
         for bport in bridgeports:
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
