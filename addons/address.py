@@ -151,9 +151,10 @@ class address(moduleBase):
     def _up(self, ifaceobj):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
+        addr_method = ifaceobj.addr_method
         try:
             # release any stale dhcp addresses if present
-            if (not self.PERFMODE and
+            if (addr_method != "dhcp" and not self.PERFMODE and
                     not (ifaceobj.flags & iface.HAS_SIBLINGS)):
                 # if not running in perf mode and ifaceobj does not have
                 # any sibling iface objects, kill any stale dhclient
@@ -168,7 +169,8 @@ class address(moduleBase):
             pass
 
         self.ipcmd.batch_start()
-        self._inet_address_config(ifaceobj)
+        if addr_method != "dhcp":
+            self._inet_address_config(ifaceobj)
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
@@ -180,20 +182,27 @@ class address(moduleBase):
             self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
         self.ipcmd.batch_commit()
 
-        # Handle special things on a bridge
-        self._process_bridge(ifaceobj, True)
+        try:
+            # Handle special things on a bridge
+            self._process_bridge(ifaceobj, True)
+        except Exception, e:
+            self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+            pass
 
-        self.ipcmd.route_add_gateway(ifaceobj.name,
-                ifaceobj.get_attr_value_first('gateway'))
+        if addr_method != "dhcp":
+            self.ipcmd.route_add_gateway(ifaceobj.name,
+                    ifaceobj.get_attr_value_first('gateway'))
 
     def _down(self, ifaceobj):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 return
-            self.ipcmd.route_del_gateway(ifaceobj.name,
+            addr_method = ifaceobj.addr_method
+            if addr_method != "dhcp":
+                self.ipcmd.route_del_gateway(ifaceobj.name,
                     ifaceobj.get_attr_value_first('gateway'),
                     ifaceobj.get_attr_value_first('metric'))
-            self.ipcmd.del_addr_all(ifaceobj.name)
+                self.ipcmd.del_addr_all(ifaceobj.name)
             mtu = ifaceobj.get_attr_value_first('mtu')
             if mtu:
                 self.ipcmd.link_set(ifaceobj.name, 'mtu',
@@ -373,14 +382,6 @@ class address(moduleBase):
            return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
-            return
-        if (operation != 'query-running' and ifaceobj.addr_family and
-                ifaceobj.addr_family != 'inet' and
-                ifaceobj.addr_family != 'inet6'):
-            return
-        if (operation != 'query-running' and ifaceobj.addr_method and
-                ifaceobj.addr_method != 'static' and
-            ifaceobj.addr_method != 'loopback'):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
