@@ -38,7 +38,8 @@ setup(name='ifupdown2',
                       'addons/mstpctl.py', 'addons/address.py',
                       'addons/dhcp.py', 'addons/usercmds.py',
                       'addons/ethtool.py', 'addons/loopback.py',
-                      'addons/addressvirtual.py', 'addons/vxlan.py']),
+                      'addons/addressvirtual.py', 'addons/vxlan.py',
+                      'addons/bridgevlan.py']),
                   ('/var/lib/ifupdownaddons/', ['config/addons.conf'])
                   ]
       )
