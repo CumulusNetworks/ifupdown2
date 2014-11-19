@@ -12,3 +12,6 @@ DEBUG="no"
 
 # Change the below to yes if you want logging to go to syslog
 SYSLOG="no"
+
+# Exclude interfaces
+EXCLUDE_INTERFACES=

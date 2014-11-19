@@ -22,7 +22,6 @@ SCRIPTNAME=/etc/init.d/$NAME
 . /lib/lsb/init-functions
 
 CONFIGURE_INTERFACES=yes
-EXCLUDE_INTERFACES=
 
 EXTRA_ARGS=
 
@@ -143,7 +142,8 @@ start)
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
 	log_action_begin_msg "Configuring network interfaces"
-	ifup -a $EXTRA_ARGS $perfoptions
+	echo "ifup -a $EXTRA_ARGS $exclusions $perfoptions"
+	ifup -a $EXTRA_ARGS $exclusions $perfoptions 
 	log_action_end_msg $?
 	;;
 
@@ -151,9 +151,10 @@ stop)
 	ifupdown_init
 	check_network_file_systems
 	check_network_swap
+	exclusions=$(process_exclusions)
 
 	log_action_begin_msg "Deconfiguring network interfaces"
-	ifdown -a $EXTRA_ARGS
+	ifdown -a $EXTRA_ARGS $exclusions
 	log_action_end_msg $?
 	;;
 
@@ -178,11 +179,11 @@ force-reload)
 restart)
 	ifupdown_init
 
-	log_action_begin_msg "Reconfiguring network interfaces"
-	ifdown -a $EXTRA_ARGS || true
 	set -f
 	exclusions=$(process_exclusions)
-	ifup -a $EXTRA_ARGS
+	log_action_begin_msg "Reconfiguring network interfaces"
+	ifdown -a $EXTRA_ARGS $exclusions || true
+	ifup -a $EXTRA_ARGS $exclusions
 	log_action_end_msg $?
 	;;
 
