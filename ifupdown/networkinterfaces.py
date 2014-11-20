@@ -141,7 +141,12 @@ class networkInterfaces():
         self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
         sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
         if sourced_file:
-            for f in glob.glob(sourced_file):
+            filenames = glob.glob(sourced_file)
+            if not filenames:
+                self._parse_error(self._currentfile, lineno,
+                            'cannot find source file %s' %sourced_file)
+                return 0
+            for f in filenames:
                 self.read_file(f)
         else:
             self._parse_error(self._currentfile, lineno,
