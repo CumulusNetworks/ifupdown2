@@ -53,6 +53,13 @@ class ifaceScheduler():
         if not ifupdownobj.ADDONS_ENABLE: return
         if op == 'query-checkcurr':
             query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(ifaceobj)
+            # If not type bridge vlan and the object does not exist,
+            # mark not found and return
+            if (not ifupdownobj.link_exists(ifaceobj.name) and
+                ifaceobj.type != ifaceType.BRIDGE_VLAN):
+                query_ifaceobj.set_state_n_status(ifaceState.from_str(op),
+                                                  ifaceStatus.NOTFOUND)
+                return
         for mname in ifupdownobj.module_ops.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0
@@ -104,7 +111,8 @@ class ifaceScheduler():
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
         ifupdownobj.logger.info('%s: running ops ...' %ifacename)
-        if ('down' in ops[0] and ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
+        if ('down' in ops[0] and
+                ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
                 not ifupdownobj.link_exists(ifacename)):
             ifupdownobj.logger.debug('%s: does not exist' %ifacename)
             # run posthook before you get out of here, so that

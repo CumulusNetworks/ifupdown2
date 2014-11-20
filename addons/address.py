@@ -259,6 +259,7 @@ class address(moduleBase):
         if not self.ipcmd.link_exists(ifaceobj.name):
             self.logger.debug('iface %s not found' %ifaceobj.name)
             return
+        addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.ipcmd.link_get_mtu)
         hwaddress = ifaceobj.get_attr_value_first('hwaddress')
@@ -278,6 +279,8 @@ class address(moduleBase):
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                     'alias', self.ipcmd.link_get_alias)
         # compare addresses
+        if addr_method == 'dhcp':
+           return
         addrs = self._get_iface_addresses(ifaceobj)
         runningaddrsdict = self.ipcmd.addr_get(ifaceobj.name)
 
@@ -320,7 +323,6 @@ class address(moduleBase):
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             self.logger.debug('iface %s not found' %ifaceobjrunning.name)
-            ifaceobjrunning.status = ifaceStatus.NOTFOUND
             return
         dhclientcmd = dhclient()
         if (dhclientcmd.is_running(ifaceobjrunning.name) or

@@ -61,19 +61,19 @@ class dhcp(moduleBase):
             if ifaceobj.addr_family != 'inet':
                 ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.addr_method = 'dhcp'
+            ifaceobjcurr.status = ifaceStatus.SUCCESS
         elif self.dhclientcmd.is_running6(ifaceobjcurr.name):
             ifaceobjcurr.addr_family = 'inet6'
             if ifaceobj.addr_family != 'inet6':
                 ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.addr_method = 'dhcp'
+            ifaceobjcurr.status = ifaceStatus.SUCCESS
         else:
             ifaceobjcurr.addr_family = None
             ifaceobjcurr.status = ifaceStatus.ERROR
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
-            self.logger.debug('iface %s not found' %ifaceobjrunning.name)
-            ifaceobjrunning.status = ifaceStatus.NOTFOUND
             return
         if self.dhclientcmd.is_running(ifaceobjrunning.name):
             ifaceobjrunning.addr_family = 'inet'

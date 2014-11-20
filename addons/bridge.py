@@ -1084,7 +1084,6 @@ class bridge(moduleBase):
             return
         if not self.brctlcmd.bridge_exists(ifaceobj.name):
             self.logger.info('%s: bridge: does not exist' %(ifaceobj.name))
-            ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
 
         ifaceattrs = self.dict_key_subset(ifaceobj.config,

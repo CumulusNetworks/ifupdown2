@@ -259,7 +259,6 @@ class ifenslave(moduleBase):
         if not self.ifenslavecmd.bond_exists(ifaceobj.name):
             self.logger.debug('bond iface %s' %ifaceobj.name +
                               ' does not exist')
-            ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
 
         ifaceattrs = self.dict_key_subset(ifaceobj.config,

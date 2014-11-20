@@ -1221,7 +1221,6 @@ class ifupdownMain(ifupdownBase):
         ifaceobjs = []
         ret = self._get_ifaceobjscurr_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
-        self.logger.debug(ifaceobjs)
         if format == 'json':
             print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
                        separators=(',', ': '))

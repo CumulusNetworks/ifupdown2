@@ -36,7 +36,6 @@ class loopback(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           ifaceobjcurr.status = ifaceStatus.NOTFOUND
            return
 
     _run_ops = {'pre-up' : _up,

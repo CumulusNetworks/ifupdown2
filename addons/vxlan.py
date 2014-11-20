@@ -76,7 +76,6 @@ class vxlan(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           ifaceobjcurr.status = ifaceStatus.NOTFOUND
            return
         # Update vxlan object
         vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)

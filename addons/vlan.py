@@ -156,7 +156,6 @@ class vlan(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           ifaceobjcurr.status = ifaceStatus.NOTFOUND
            return
         if not '.' in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
@@ -176,8 +175,6 @@ class vlan(moduleBase):
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
-            if self._is_vlan_by_name(ifaceobjrunning.name):
-                ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
         if not self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name):
             return

@@ -119,6 +119,7 @@ class bridgevlan(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status(
                         'bridge-igmp-querier-src', attrval, 0)
+                ifaceobjcurr.status = ifaceStatus.SUCCESS
         return
 
     def _query_running(self, ifaceobjrunning):

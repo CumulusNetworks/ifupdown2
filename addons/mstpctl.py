@@ -510,7 +510,6 @@ class mstpctl(moduleBase):
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
-        self.logger.debug(bridgeattrdict)
         return bridgeattrdict
 
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr):
@@ -519,7 +518,6 @@ class mstpctl(moduleBase):
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
         if not self.brctlcmd.bridge_exists(ifaceobj.name):
             self.logger.debug('bridge %s does not exist' %ifaceobj.name)
-            ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self.get_mod_attrs())
@@ -617,8 +615,8 @@ class mstpctl(moduleBase):
             return
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         # list of attributes that are not supported currently
-        blacklistedattrs = ['mstpctl-pathcost',
-                'mstpctl-treeprio', 'mstpctl-treecost']
+        blacklistedattrs = ['mstpctl-portpathcost',
+                'mstpctl-treeportprio', 'mstpctl-treeportcost']
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self._port_attrs_map.keys())
         if not ifaceattrs:
@@ -630,10 +628,8 @@ class mstpctl(moduleBase):
             # for all mstpctl options
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
-            if not v:
+            if not v or k in blacklistedattrs:
                 ifaceobjcurr.update_config_with_status(k, v, -1)
-                continue
-            if k in blacklistedattrs:
                 continue
             currv = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                              ifaceobj.name, self._port_attrs_map.get(k))
