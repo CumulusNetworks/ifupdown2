@@ -500,6 +500,10 @@ class bridge(moduleBase):
                        '/sys/class/net/%s/bridge/stp_state' %ifaceobj.name)
                 if running_stp_state and running_stp_state != '0':
                    self.brctlcmd.set_stp(ifaceobj.name, 'no')
+
+            if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+               self.write_file('/sys/class/net/%s/bridge/vlan_filtering'
+                       %ifaceobj.name, '1')
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
             bridgeattrs = { k:v for k,v in
