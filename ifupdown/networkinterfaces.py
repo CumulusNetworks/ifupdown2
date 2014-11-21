@@ -77,6 +77,12 @@ class networkInterfaces():
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
 
+    def _parse_warn(self, filename, lineno, msg):
+        if lineno == -1 or self._currentfile_has_template:
+            self.logger.warn('%s: %s' %(filename, msg))
+        else:
+            self.logger.warn('%s: line%d: %s' %(filename, lineno, msg))
+
     def _validate_addr_family(self, ifaceobj, lineno=-1):
         if ifaceobj.addr_family:
             if not self._addrfams.get(ifaceobj.addr_family):
@@ -143,7 +149,7 @@ class networkInterfaces():
         if sourced_file:
             filenames = glob.glob(sourced_file)
             if not filenames:
-                self._parse_error(self._currentfile, lineno,
+                self._parse_warn(self._currentfile, lineno,
                             'cannot find source file %s' %sourced_file)
                 return 0
             for f in filenames:
