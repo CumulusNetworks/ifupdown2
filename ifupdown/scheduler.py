@@ -336,7 +336,7 @@ class ifaceScheduler():
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
-                followdependents=True):
+                followdependents=True, skipupperifaces=False):
         """ runs interface configuration modules on interfaces passed as
             argument. Runs topological sort on interface dependency graph.
 
@@ -426,7 +426,8 @@ class ifaceScheduler():
         if not cls._SCHED_RETVAL:
             raise Exception()
 
-        if (ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
+        if (not skipupperifaces and
+                ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
                 ((not ifupdownobj.ALL and followdependents) or
                 followupperifaces) and
                 'up' in ops[0]):

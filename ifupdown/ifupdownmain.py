@@ -625,7 +625,7 @@ class ifupdownMain(ifupdownBase):
                 # continue reading
                 pass
 
-    def _sched_ifaces(self, ifacenames, ops):
+    def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
@@ -635,7 +635,8 @@ class ifupdownMain(ifupdownBase):
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
                                 else ifaceSchedulerFlags.POSTORDER,
-                        followdependents=True if self.WITH_DEPENDS else False)
+                        followdependents=True if self.WITH_DEPENDS else False,
+                        skipupperifaces=skipupperifaces)
 
     def _render_ifacename(self, ifacename):
         new_ifacenames = []
@@ -753,7 +754,7 @@ class ifupdownMain(ifupdownBase):
 
     def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
            excludepats=None, printdependency=None, syntaxcheck=False,
-           type=None):
+           type=None, skipupperifaces=False):
         """This brings the interface(s) up
         
         Args:
@@ -806,7 +807,8 @@ class ifupdownMain(ifupdownBase):
             self.populate_dependency_info(ops)
 
         try:
-            self._sched_ifaces(filtered_ifacenames, ops)
+            self._sched_ifaces(filtered_ifacenames, ops,
+                    skipupperifaces=skipupperifaces)
         finally:
             if not self.DRYRUN and self.ADDONS_ENABLE:
                 self._save_state()

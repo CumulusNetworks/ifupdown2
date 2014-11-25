@@ -336,6 +336,15 @@ class bridge(moduleBase):
             b = list(b)
             yield b[0][1], b[-1][1]
 
+    def _handle_reserved_vlan(self, vlanid):
+        if vlanid in range(self._resv_vlan_range[0],
+                           self._resv_vlan_range[1]):
+           self.logger.warn('skipping reserved vlan %d' %vlanid +
+                   ' (reserved vlan range %d-%d)' %(self._resv_vlan_range[0],
+                   self._resv_vlan_range[1]))
+           return True
+        return False
+
     def _ranges_to_ints(self, rangelist):
         """ returns expanded list of integers given set of string ranges
         example: ['1', '2-4', '6'] returns [1, 2, 3, 4, 6]
@@ -345,9 +354,14 @@ class bridge(moduleBase):
             if '-' in part:
                 a, b = part.split('-')
                 a, b = int(a), int(b)
+                if (self._handle_reserved_vlan(a) or
+                    self._handle_reserved_vlan(b)):
+                    continue
                 result.extend(range(a, b + 1))
             else:
                 a = int(part)
+                if self._handle_reserved_vlan(a):
+                   continue
                 result.append(a)
         return result
 

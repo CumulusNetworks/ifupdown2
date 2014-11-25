@@ -51,13 +51,15 @@ def run_up(args):
             ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency,
-                               syntaxcheck=args.syntaxcheck, type=args.type)
+                               syntaxcheck=args.syntaxcheck, type=args.type,
+                               skipupperifaces=args.skipupperifaces)
         else:
             ifupdown_handle.up(['pre-up', 'up', 'post-up'],
                                args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency,
-                               syntaxcheck=args.syntaxcheck, type=args.type)
+                               syntaxcheck=args.syntaxcheck, type=args.type,
+                               skipupperifaces=args.skipupperifaces)
     except:
         raise
 
@@ -260,6 +262,13 @@ def update_ifup_argparser(argparser):
     argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
                 action='store_true',
                 help='Only run the interfaces file parser')
+    argparser.add_argument('-k', '--skip-upperifaces', dest='skipupperifaces',
+                action='store_true',
+                help='ifup by default tries to add newly created interfaces' +
+                ' into its upper/parent interfaces. Eg. if a bridge port is' +
+                ' created as a result of ifup on the port, ifup automatically' +
+                ' adds the port to the bridge. This option can be used to ' +
+                'disable this default behaviour')
     update_ifupdown_argparser(argparser)
 
 def update_ifdown_argparser(argparser):

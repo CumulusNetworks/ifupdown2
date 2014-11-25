@@ -325,7 +325,9 @@ class moduleBase(object):
         start = end = 0
         get_resvvlan = '/usr/share/python-ifupdown2/get_reserved_vlan_range.sh'
         try:
-            (start, end) = self.exec_command(get_resvvlan).split('-')
+            (s, e) = self.exec_command(get_resvvlan).strip('\n').split('-')
+            start = int(s)
+            end = int(e)
         except:
             # ignore errors
             pass
