@@ -77,7 +77,7 @@ vlan bridge.4094
     bridge-igmp-querier-src 172.16.101.1
 
 #
-# vlan aware bridge br
+# vlan aware bridge
 #
 auto bridge
 iface bridge
