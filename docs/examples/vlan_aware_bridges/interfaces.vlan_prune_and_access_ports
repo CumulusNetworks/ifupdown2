@@ -28,19 +28,19 @@ iface swp2
       mstpctl-bpduguard yes
      
 # The following port is the trunk uplink and inherits all vlans
-# from bridge br
+# from 'bridge'
 auto swp49
 iface swp49
       mstpctl-portpathcost 10
 
 # The following port is the trunk uplink and inherits all vlans
-# from bridge br
+# from 'bridge'
 auto swp50
 iface swp50
       mstpctl-portpathcost 0
 
 #
-# ports swp3-swp48 are trunk ports which inherit vlans from the bridge br
+# ports swp3-swp48 are trunk ports which inherit vlans from the 'bridge'
 # ie vlans 310,700,707,712,850,910
       
 #

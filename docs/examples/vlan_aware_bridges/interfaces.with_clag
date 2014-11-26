@@ -74,7 +74,6 @@ iface host-bond-02
       bond-xmit-hash-policy layer3+4
 
 # the bridge
-#
 auto bridge
 iface bridge
       bridge-vlan-aware yes

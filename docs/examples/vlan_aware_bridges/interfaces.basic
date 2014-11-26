@@ -10,7 +10,7 @@
 # 
 
 #
-# ports swp1-swp52 are trunk ports which inherit vlans from the bridge br
+# ports swp1-swp52 are trunk ports which inherit vlans from 'bridge'
 # ie vlans 310 700 707 712 850 910
       
 #
