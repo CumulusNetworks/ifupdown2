@@ -124,6 +124,8 @@ class vlan(moduleBase):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
+        if self._handle_reserved_vlan(vlanid):
+           return
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')

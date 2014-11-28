@@ -336,3 +336,14 @@ class moduleBase(object):
             # ignore errors
             pass
         return (start, end)
+
+    def _handle_reserved_vlan(self, vlanid):
+        """ Helper function to check and warn if the vlanid falls in the
+        reserved vlan range """
+        if vlanid in range(self._resv_vlan_range[0],
+                           self._resv_vlan_range[1]):
+           self.logger.warn('skipping reserved vlan %d' %vlanid +
+                   ' (reserved vlan range %d-%d)' %(self._resv_vlan_range[0],
+                   self._resv_vlan_range[1]))
+           return True
+        return False
