@@ -245,25 +245,6 @@ class mstpctl(moduleBase):
     def _apply_bridge_settings(self, ifaceobj):
         check = False if self.PERFMODE else True
         try:
-            bridgeattrs = {k:v for k,v in
-                            {'treeprio' :
-                            ifaceobj.get_attr_value_first('mstpctl-treeprio'),
-                          'ageing' :
-                            ifaceobj.get_attr_value_first('mstpctl-ageing'),
-                          'maxage' :
-                            ifaceobj.get_attr_value_first('mstpctl-maxage'),
-                          'fdelay' :
-                            ifaceobj.get_attr_value_first('mstpctl-fdelay'),
-                          'maxhops' :
-                            ifaceobj.get_attr_value_first('mstpctl-maxhops'),
-                          'txholdcount' :
-                            ifaceobj.get_attr_value_first('mstpctl-txholdcount'),
-                          'forcevers' :
-                            ifaceobj.get_attr_value_first('mstpctl-forcevers'),
-                          'hello' :
-                            ifaceobj.get_attr_value_first('mstpctl-hello')
-                            }.items() if v}
-
             # set bridge attributes
             for attrname, dstattrname in self._attrs_map.items():
                 try:
@@ -346,6 +327,10 @@ class mstpctl(moduleBase):
         for bport in bridgeports:
             self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))
+            if not self.ipcmd.link_exists(bport):
+               self.logger.warn('%s: port %s does not exist' %(ifaceobj.name,
+                                bport))
+               continue
             bportifaceobjlist = ifaceobj_getfunc(bport)
             if not bportifaceobjlist:
                continue
@@ -604,7 +589,7 @@ class mstpctl(moduleBase):
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-            self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
+            #self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
         # Check if this is a bridge port
@@ -764,6 +749,8 @@ class mstpctl(moduleBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+           return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
            return
