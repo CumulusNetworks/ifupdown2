@@ -43,7 +43,7 @@ class ifaceScheduler():
         """ Runs sub operation on an interface """
         ifacename = ifaceobj.name
 
-        if ifupdownobj.type and ifupdownobj.type != ifaceobj.Type:
+        if ifupdownobj.type and ifupdownobj.type != ifaceobj.type:
             return
 
         if (cls._STATE_CHECK and
@@ -76,12 +76,14 @@ class ifaceScheduler():
                               ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
                     else:
                         ifupdownobj.logger.debug(msg)
-                        m.run(ifaceobj, op, ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
+                        m.run(ifaceobj, op,
+                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
             except Exception, e:
-                err = 1
-                ifupdownobj.log_error(str(e))
-                err = 0  # error can be ignored by log_error, in which case
-                         # reset err flag
+                if not ifupdownobj.ignore_error(str(e)):
+                   err = 1
+                   ifupdownobj.logger.warn(str(e))
+                # Continue with rest of the modules
+                pass
             finally:
                 if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
@@ -89,8 +91,13 @@ class ifaceScheduler():
                     if 'up' in  op or 'down' in op:
                         cls._SCHED_RETVAL = False
                 else:
+                    # Mark success only if the interface was not already
+                    # marked with error
+                    status = (ifaceobj.status
+                              if ifaceobj.status == ifaceStatus.ERROR
+                              else ifaceStatus.SUCCESS)
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
-                                                ifaceStatus.SUCCESS)
+                                                status)
 
         if ifupdownobj.config.get('addon_scripts_support', '0') == '1':
             # execute /etc/network/ scripts 
