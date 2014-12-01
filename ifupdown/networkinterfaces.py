@@ -219,8 +219,18 @@ class networkInterfaces():
         iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
 
+        # in cases where mako is unable to render the template
+        # or incorrectly renders it due to user template
+        # errors, we maybe left with interface names with
+        # mako variables in them. There is no easy way to
+        # recognize and warn about these. In the below check
+        # we try to warn the user of such cases by looking for
+        # variable patterns ('$') in interface names.
+        if '$' in ifacename:
+           self._parse_warn(self._currentfile, lineno,
+                    '%s: unexpected characters in interface name' %ifacename)
+
         ifaceobj.raw_config.append(iface_line)
-    
         iface_config = collections.OrderedDict()
         for line_idx in range(cur_idx + 1, len(lines)):
             l = lines[line_idx].strip(whitespaces)
@@ -365,9 +375,9 @@ class networkInterfaces():
         try:
             rendered_filedata = self._template_engine.render(filedata)
             if rendered_filedata is filedata:
-                self._currentfile_has_template = True
-            else:
                 self._currentfile_has_template = False
+            else:
+                self._currentfile_has_template = True
         except Exception, e:
             self._parse_error(self._currentfile, -1,
                     'failed to render template (%s). ' %str(e) +
