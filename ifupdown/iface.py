@@ -458,28 +458,35 @@ class iface():
             name = self.name
         if self.auto:
             outbuf += 'auto %s\n' %name
+        ifaceline = ''
         if self.type == ifaceType.BRIDGE_VLAN:
-            outbuf += 'vlan %s' %name
+            ifaceline += 'vlan %s' %name
         else:
-            outbuf += 'iface %s' %name
+            ifaceline += 'iface %s' %name
         if self.addr_family:
-            outbuf += ' %s' %self.addr_family
+            ifaceline += ' %s' %self.addr_family
         if self.addr_method:
-            outbuf += ' %s' %self.addr_method
+            ifaceline += ' %s' %self.addr_method
         if with_status:
+            status_str = None
             if (self.status == ifaceStatus.ERROR or
                     self.status == ifaceStatus.NOTFOUND):
                 if self.status_str:
-                    outbuf += ' [%s]' %self.status_str
-                outbuf += ' %s' %errorstr
+                    ifaceline += ' (%s)' %self.status_str
+                status_str = errorstr
             elif self.status == ifaceStatus.SUCCESS:
-                outbuf += ' %s' %successstr
+                status_str = successstr
+            if status_str:
+               outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
+            else:
+                outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
                 outbuf = (outbuf.encode('utf8')
                     if isinstance(outbuf, unicode) else outbuf)
                 print outbuf + '\n'
                 return
-        outbuf += '\n'
+        else:
+            outbuf += ifaceline + '\n'
         config = self.config
         if config:
             for cname, cvaluelist in config.items():
@@ -488,14 +495,13 @@ class iface():
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
                         if s == -1:
-                            outbuf += (indent + '%s %s        %s\n'
-                                        %(cname, cv, unknownstr))
+                            status_str = unknownstr
                         elif s == 1:
-                            outbuf += (indent + '%s %s        %s\n'
-                                        %(cname, cv, errorstr))
+                            status_str = errorstr
                         elif s == 0:
-                            outbuf += (indent + '%s %s        %s\n'
-                                        %(cname, cv, successstr))
+                            status_str = successstr
+                        outbuf += (indent + '{0:55} {1:>10}'.format(
+                                   '%s %s' %(cname, cv), status_str)) + '\n'
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1
