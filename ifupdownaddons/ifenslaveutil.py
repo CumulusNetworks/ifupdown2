@@ -52,7 +52,8 @@ class ifenslaveutil(utilsBase):
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
-                        'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period'])
+                        'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period',
+                        'clag_id'])
         except Exception, e:
             pass
 
@@ -189,6 +190,17 @@ class ifenslaveutil(utilsBase):
 
     def get_miimon(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'miimon'])
+
+    def set_clag_id(self, bondname, clag_id):
+        if (self._cache_check([bondname, 'linkinfo', 'clag_id'],
+                clag_id)):
+            return
+        self.write_file('/sys/class/net/%s' %bondname +
+                '/bonding/clag_id', clag_id)
+        self._cache_update([bondname, 'linkinfo', 'clag_id'], clag_id)
+
+    def get_clag_id(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'clag_id'])
 
     def set_mode(self, bondname, mode, prehook=None):
         valid_modes = ['balance-rr', 'active-backup', 'balance-xor',

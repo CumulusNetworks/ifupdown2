@@ -99,7 +99,12 @@ class ifenslave(moduleBase):
                          'required' : True,
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
-                                      'bond-slaves regex (swp[1|2)']}}}
+                                      'bond-slaves regex (swp[1|2)']},
+                     'clag-id' :
+                        {'help' : 'multi-chassis lag id',
+                         'validrange' : ['0', '1023'],
+                         'default' : '0',
+                         'example' : ['clag-id 1']}}}
 
     def __init__(self, *args, **kargs):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
@@ -176,7 +181,8 @@ class ifenslave(moduleBase):
                                  ('bond-lacp-fallback-allow', 'lacp_bypass_allow'),
                                  ('bond-lacp-fallback-period', 'lacp_bypass_period'),
                                  ('bond-lacp-bypass-allow', 'lacp_bypass_allow'),
-                                 ('bond-lacp-bypass-period', 'lacp_bypass_period')])
+                                 ('bond-lacp-bypass-period', 'lacp_bypass_period'),
+                                 ('clag-id', 'clag_id')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
@@ -226,6 +232,13 @@ class ifenslave(moduleBase):
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                rtnetlink_api.rtnl_api.link_set(slave, "up")
 
+    def _remove_stale_clag_id(self, ifaceobj):
+        attrval = ifaceobj.get_attr_value_first('clag-id')
+        if attrval is None:
+            clag_id = self.ifenslavecmd.get_clag_id(ifaceobj.name)
+            if clag_id != '0':
+                self.ifenslavecmd.set_clag_id(ifaceobj.name, '0')
+
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
         if not slaves:
@@ -265,6 +278,7 @@ class ifenslave(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ifenslavecmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
+            self._remove_stale_clag_id(ifaceobj)
             self._add_slaves(ifaceobj)
             self._apply_slaves_lacp_bypass_prio(ifaceobj)
             if ifaceobj.addr_method == 'manual':
@@ -355,6 +369,8 @@ class ifenslave(moduleBase):
                             self.ifenslavecmd.get_lacp_fallback_period(bondname),
                      'bond-lacp-bypass-priority' :
                             self.ifenslavecmd.get_lacp_fallback_priority(bondname)}
+                     'clag-id' :
+                            self.ifenslavecmd.get_clag_id(bondname)}
         slaves = self.ifenslavecmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves
