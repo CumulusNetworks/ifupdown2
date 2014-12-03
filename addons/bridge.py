@@ -345,14 +345,9 @@ class bridge(moduleBase):
             if '-' in part:
                 a, b = part.split('-')
                 a, b = int(a), int(b)
-                if (self._handle_reserved_vlan(a) or
-                    self._handle_reserved_vlan(b)):
-                    continue
                 result.extend(range(a, b + 1))
             else:
                 a = int(part)
-                if self._handle_reserved_vlan(a):
-                   continue
                 result.append(a)
         return result
 
@@ -594,8 +589,25 @@ class bridge(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
+    def _check_vids(self, ifaceobj, vids):
+        ret = True
+        for v in vids:
+            if '-' in v:
+                va, vb = v.split('-')
+                va, vb = int(va), int(vb)
+                if (self._handle_reserved_vlan(va, ifaceobj.name) or
+                    self._handle_reserved_vlan(vb, ifaceobj.name)):
+                    ret = False
+            else:
+                va = int(v)
+                if self._handle_reserved_vlan(va, ifaceobj.name):
+                   ret = False
+        return ret
+         
     def _apply_bridge_vids(self, bportifaceobj, vids, running_vids, isbridge):
         try:
+            if not self._check_vids(bportifaceobj, vids):
+               return
             if running_vids:
                 (vids_to_del, vids_to_add) = \
                     self._diff_vids(vids, running_vids)
