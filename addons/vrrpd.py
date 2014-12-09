@@ -64,7 +64,6 @@ class vrrpd(moduleBase):
                    targetpids.append(pid)
             except:
                 pass
-        self.logger.debug("Roopa: targetpids = %s" %str(targetpids))
         return targetpids
             
     def _up(self, ifaceobj):
