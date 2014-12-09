@@ -105,7 +105,7 @@ class ifenslave(moduleBase):
 
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
-        ifaceobj.flags |= iface.LINK_MASTER
+        ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         return slave_list
 
     def get_dependent_ifacenames_running(self, ifaceobj):
@@ -145,6 +145,7 @@ class ifenslave(moduleBase):
 
     def _apply_master_settings(self, ifaceobj):
         have_attrs_to_set = 0
+        linkup = False
         ifenslavecmd_attrmap =  OrderedDict([('bond-mode' , 'mode'),
                                  ('bond-miimon' , 'miimon'),
                                  ('bond-use-carrier', 'use_carrier'),
@@ -157,10 +158,7 @@ class ifenslave(moduleBase):
                                  ('bond-ad-sys-priority' , 'ad_sys_priority'),
                                  ('bond-lacp-fallback-allow', 'lacp_fallback_allow'),
                                  ('bond-lacp-fallback-period', 'lacp_fallback_period')])
-        linkstatus = self.ipcmd.link_get_status(ifaceobj.name)
-        if not linkstatus:
-            # assume link status is 'UP'
-            linkstatus = 'UP'
+        linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
             # construct the list sequentially
@@ -173,11 +171,11 @@ class ifenslave(moduleBase):
                 return
             have_attrs_to_set = 1
             self.ifenslavecmd.set_attrs(ifaceobj.name, attrstoset,
-                    self.ipcmd.link_down if linkstatus == 'UP' else None)
+                    self.ipcmd.link_down if linkup else None)
         except:
             raise
         finally:
-            if have_attrs_to_set and linkstatus == 'UP':
+            if have_attrs_to_set and linkup:
                 self.ipcmd.link_up(ifaceobj.name)
 
     def _add_slaves(self, ifaceobj):
@@ -201,6 +199,8 @@ class ifenslave(moduleBase):
                 self.log_warn('%s: skipping slave %s, does not exist'
                         %(ifaceobj.name, slave))
                 continue
+            if self.ipcmd.is_link_up(slave):
+               rtnetlink_api.rtnl_api.link_set(slave, "down")
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             rtnetlink_api.rtnl_api.link_set(slave, "up")
 

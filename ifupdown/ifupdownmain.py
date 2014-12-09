@@ -112,7 +112,7 @@ class ifupdownMain(ifupdownBase):
         # by its link master interface, then dont set the link state.
         # But do allow user to change state of the link if the interface
         # is already with its link master (hence the master check).
-        if ((ifaceobj.flags & iface.LINK_SLAVE) and
+        if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and
              not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
             return
         if self.link_exists(ifaceobj.name):
@@ -123,7 +123,7 @@ class ifupdownMain(ifupdownBase):
         # by its link master interface, then dont set the link state.
         # But do allow user to change state of the link if the interface
         # is already with its link master (hence the master check).
-        if ((ifaceobj.flags & iface.LINK_SLAVE) and 
+        if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and 
             not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
             return
         if self.link_exists(ifaceobj.name):
@@ -357,14 +357,14 @@ class ifupdownMain(ifupdownBase):
                     del_list.append(d)
                 if ni:
                     ni.add_to_upperifaces(upperifaceobj.name)
-                    if (upperifaceobj.flags & iface.LINK_MASTER):
-                        ni.flags |= iface.LINK_SLAVE
+                    if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
+                        ni.link_type = ifaceLinkType.LINK_SLAVE
             else:
                 for di in dilist:
                     di.inc_refcnt()
                     di.add_to_upperifaces(upperifaceobj.name)
-                    if (upperifaceobj.flags & iface.LINK_MASTER):
-                        di.flags |= iface.LINK_SLAVE
+                    if upperifaceobj.flags == ifaceLinkType.LINK_MASTER:
+                        di.link_type = ifaceLinkType.LINK_SLAVE
 
         for d in del_list:
             dlist.remove(d)

@@ -22,6 +22,11 @@ class ifaceType():
     IFACE = 0x1
     BRIDGE_VLAN = 0x2
 
+class ifaceLinkType():
+    UNKNOWN = 0x0
+    LINK_SLAVE = 0x1
+    LINK_MASTER = 0x2
+
 class ifaceStatus():
     """Enumerates iface status """
 
@@ -181,8 +186,6 @@ class iface():
     HAS_SIBLINGS = 0x2
     IFACERANGE_ENTRY = 0x3
     IFACERANGE_START = 0x4
-    LINK_MASTER = 0x5
-    LINK_SLAVE = 0x6
 
     version = '0.1'
 
@@ -218,6 +221,7 @@ class iface():
         """interface type"""
         self.priv_data = None
         self.realname = None
+        self.link_type = ifaceLinkType.UNKNOWN
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -401,6 +405,7 @@ class iface():
         del odict['raw_config']
         del odict['linkstate']
         del odict['env']
+        del odict['link_type']
         return odict
 
     def __setstate__(self, dict):
@@ -417,6 +422,7 @@ class iface():
         self.priv_flags = 0
         self.raw_config = []
         self.flags |= self._PICKLED
+        self.link_type = ifaceLinkType.UNKNOWN
 
     def dump_raw(self, logger):
         indent = '  '
