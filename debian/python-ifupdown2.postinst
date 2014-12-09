@@ -50,10 +50,10 @@ case "$1" in
             fi
         fi
 
-        [ -e /sbin/ifup ] || ln -s /sbin/ifupdown /sbin/ifup
-        [ -e /sbin/ifdown ] || ln -s /sbin/ifupdown /sbin/ifdown
-        [ -e /sbin/ifquery ] || ln -s /sbin/ifupdown /sbin/ifquery
-        [ -e /sbin/ifreload ] || ln -s /sbin/ifupdown /sbin/ifreload
+        [ -e /sbin/ifup ] || ln -sf /sbin/ifupdown /sbin/ifup
+        [ -e /sbin/ifdown ] || ln -sf /sbin/ifupdown /sbin/ifdown
+        [ -e /sbin/ifquery ] || ln -sf /sbin/ifupdown /sbin/ifquery
+        [ -e /sbin/ifreload ] || ln -sf /sbin/ifupdown /sbin/ifreload
 
         (cd /usr/share/man/man8/ && ln -sf /usr/share/man/man8/ifup.8.gz ifdown.8.gz)
 

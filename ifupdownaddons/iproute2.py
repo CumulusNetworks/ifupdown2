@@ -673,3 +673,15 @@ class iproute2(utilsBase):
 
     def is_bridge(self, bridge):
         return os.path.exists('/sys/class/net/%s/bridge' %bridge)
+
+    def is_link_up(self, ifacename):
+        ret = False
+        try:
+            flags = self.read_file_oneline('/sys/class/net/%s/flags' %ifacename)
+            iflags = int(flags, 16)
+            if (iflags & 0x0001):
+                ret = True
+        except: 
+            ret = False
+            pass
+        return ret
