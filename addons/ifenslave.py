@@ -105,6 +105,7 @@ class ifenslave(moduleBase):
 
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
+        ifaceobj.flags |= iface.LINK_MASTER
         return slave_list
 
     def get_dependent_ifacenames_running(self, ifaceobj):
@@ -200,9 +201,8 @@ class ifenslave(moduleBase):
                 self.log_warn('%s: skipping slave %s, does not exist'
                         %(ifaceobj.name, slave))
                 continue
-            self.ifenslavecmd.enslave_slave(ifaceobj.name, slave,
-                                            prehook=self.ipcmd.link_down,
-                                            posthook=self.ipcmd.link_up)
+            self.ipcmd.link_set(slave, 'master', ifaceobj.name)
+            rtnetlink_api.rtnl_api.link_set(slave, "up")
 
     def _apply_slaves_lacp_fallback_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)

@@ -108,14 +108,26 @@ class ifupdownMain(ifupdownBase):
 
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
-        ifacename = ifaceobj.name
-        if self.link_exists(ifacename):
-            self.link_up(ifacename)
+        # If this object is a link slave, ie its link is controlled
+        # by its link master interface, then dont set the link state.
+        # But do allow user to change state of the link if the interface
+        # is already with its link master (hence the master check).
+        if ((ifaceobj.flags & iface.LINK_SLAVE) and
+             not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
+            return
+        if self.link_exists(ifaceobj.name):
+            self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
-        ifacename = ifaceobj.name
-        if self.link_exists(ifacename):
-            self.link_down(ifacename)
+        # If this object is a link slave, ie its link is controlled
+        # by its link master interface, then dont set the link state.
+        # But do allow user to change state of the link if the interface
+        # is already with its link master (hence the master check).
+        if ((ifaceobj.flags & iface.LINK_SLAVE) and 
+            not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
+            return
+        if self.link_exists(ifaceobj.name):
+            self.link_down(ifaceobj.name)
 
     # ifupdown object interface operation handlers
     ops_handlers = OrderedDict([('up', run_up),
@@ -314,7 +326,7 @@ class ifupdownMain(ifupdownBase):
         if not ifaceobj: return True
         return self.is_ifaceobj_noconfig(ifaceobj)
 
-    def preprocess_dependency_list(self, upperifacename, dlist, ops):
+    def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
             applying the following rules:
@@ -334,18 +346,25 @@ class ifupdownMain(ifupdownBase):
         for d in dlist:
             dilist = self.get_ifaceobjs(d)
             if not dilist:
+                ni = None
                 if self.is_iface_builtin_byname(d):
-                    self.create_n_save_ifaceobj(d, self.BUILTIN | self.NOCONFIG,
-                            True).add_to_upperifaces(upperifacename)
+                    ni = self.create_n_save_ifaceobj(d, self.BUILTIN | self.NOCONFIG,
+                            True)
                 elif not self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG:
-                    self.create_n_save_ifaceobj(d, self.NOCONFIG,
-                            True).add_to_upperifaces(upperifacename)
+                    ni = self.create_n_save_ifaceobj(d, self.NOCONFIG,
+                            True)
                 else:
                     del_list.append(d)
+                if ni:
+                    ni.add_to_upperifaces(upperifaceobj.name)
+                    if (upperifaceobj.flags & iface.LINK_MASTER):
+                        ni.flags |= iface.LINK_SLAVE
             else:
                 for di in dilist:
                     di.inc_refcnt()
-                    di.add_to_upperifaces(upperifacename)
+                    di.add_to_upperifaces(upperifaceobj.name)
+                    if (upperifaceobj.flags & iface.LINK_MASTER):
+                        di.flags |= iface.LINK_SLAVE
 
         for d in del_list:
             dlist.remove(d)
@@ -375,30 +394,6 @@ class ifupdownMain(ifupdownBase):
             if dlist: ret_dlist.extend(dlist)
         return list(set(ret_dlist))
 
-    def populate_dependency_info_old(self, ops, ifacenames=None):
-        """ recursive function to generate iface dependency info """
-
-        if not ifacenames:
-            ifacenames = self.ifaceobjdict.keys()
-
-        iqueue = deque(ifacenames)
-        while iqueue:
-            i = iqueue.popleft()
-            # Go through all modules and find dependent ifaces
-            dlist = None
-            ifaceobj = self.get_ifaceobj_first(i)
-            if not ifaceobj: 
-                continue
-            dlist = self.query_dependents(ifaceobj, ops, ifacenames)
-            if dlist and dlist != ifaceobj.lowerifaces:
-                self.preprocess_dependency_list(ifaceobj.name,
-                                                dlist, ops)
-                [iqueue.append(d) for d in dlist]
-                self.dependency_graph.setdefault(i, []).extend(dlist)
-                ifaceobj.lowerifaces = self.dependency_graph.get(i)
-            else:
-                self.dependency_graph[i] = dlist
-
     def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """
 
@@ -419,7 +414,7 @@ class ifupdownMain(ifupdownBase):
             else:
                 continue
             if dlist:
-                self.preprocess_dependency_list(ifaceobj.name,
+                self.preprocess_dependency_list(ifaceobj,
                                                 dlist, ops)
                 ifaceobj.lowerifaces = dlist
                 [iqueue.append(d) for d in dlist]
