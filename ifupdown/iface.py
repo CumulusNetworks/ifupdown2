@@ -181,6 +181,8 @@ class iface():
     HAS_SIBLINGS = 0x2
     IFACERANGE_ENTRY = 0x3
     IFACERANGE_START = 0x4
+    LINK_MASTER = 0x5
+    LINK_SLAVE = 0x6
 
     version = '0.1'
 
@@ -452,10 +454,10 @@ class iface():
                     unknownstr='unknown', use_realname=False):
         indent = '\t'
         outbuf = ''
-        if use_realname:
-            name = self.realname
+        if use_realname and self.realname:
+            name = '%s' %self.realname
         else:
-            name = self.name
+            name = '%s' %self.name
         if self.auto:
             outbuf += 'auto %s\n' %name
         ifaceline = ''
