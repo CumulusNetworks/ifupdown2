@@ -363,7 +363,7 @@ class ifupdownMain(ifupdownBase):
                 for di in dilist:
                     di.inc_refcnt()
                     di.add_to_upperifaces(upperifaceobj.name)
-                    if upperifaceobj.flags == ifaceLinkType.LINK_MASTER:
+                    if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
                         di.link_type = ifaceLinkType.LINK_SLAVE
 
         for d in del_list:
