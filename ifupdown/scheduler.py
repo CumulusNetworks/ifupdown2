@@ -138,7 +138,11 @@ class ifaceScheduler():
                 if (not ifaceobjs[0].addr_method or
                     (ifaceobjs[0].addr_method and
                     ifaceobjs[0].addr_method != 'manual')):
-                    handler(ifupdownobj, ifaceobjs[0])
+                    try:
+                        handler(ifupdownobj, ifaceobjs[0])
+                    except Exception, e:
+                        ifupdownobj.logger.warn('%s' %str(e))
+                        pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
@@ -146,8 +150,12 @@ class ifaceScheduler():
                             '0') == '1' else None)
         posthookfunc = ifupdownobj.sched_hooks.get('posthook')
         if posthookfunc:
-            [posthookfunc(ifupdownobj, ifaceobj, ops[0])
-                for ifaceobj in ifaceobjs]
+            try:
+                [posthookfunc(ifupdownobj, ifaceobj, ops[0])
+                    for ifaceobj in ifaceobjs]
+            except Exception, e:
+                ifupdownobj.logger.warn('%s' %str(e))
+                pass
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
