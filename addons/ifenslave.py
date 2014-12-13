@@ -67,17 +67,33 @@ class ifenslave(moduleBase):
                          'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00']},
                      'bond-lacp-fallback-allow':
                          {'help' : 'allow lacp fall back',
+                          'compat' : True,
                           'validvals' : ['0', '1'],
                           'default' : '0',
                           'example' : ['bond-lacp-fallback-allow 0']},
                      'bond-lacp-fallback-period':
                          {'help' : 'grace period (seconds) for lacp fall back',
+                          'compat' : True,
                           'validrange' : ['0', '100'],
                           'default' : '90',
                           'example' : ['bond-lacp-fallback-period 100']},
                      'bond-lacp-fallback-priority':
                          {'help' : 'slave priority for lacp fall back',
+                          'compat' : True,
                           'example' : ['bond-lacp-fallback-priority swp1=1 swp2=1 swp3=2']},
+                     'bond-lacp-bypass-allow':
+                         {'help' : 'allow lacp bypass',
+                          'validvals' : ['0', '1'],
+                          'default' : '0',
+                          'example' : ['bond-lacp-bypass-allow 0']},
+                     'bond-lacp-bypass-period':
+                         {'help' : 'grace period (seconds) for lacp bypass',
+                          'validrange' : ['0', '100'],
+                          'default' : '90',
+                          'example' : ['bond-lacp-bypass-period 100']},
+                     'bond-lacp-bypass-priority':
+                         {'help' : 'slave priority for lacp bypass',
+                          'example' : ['bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
@@ -157,7 +173,9 @@ class ifenslave(moduleBase):
                                  ('bond-ad-sys-mac-addr' , 'ad_sys_mac_addr'),
                                  ('bond-ad-sys-priority' , 'ad_sys_priority'),
                                  ('bond-lacp-fallback-allow', 'lacp_fallback_allow'),
-                                 ('bond-lacp-fallback-period', 'lacp_fallback_period')])
+                                 ('bond-lacp-fallback-period', 'lacp_fallback_period'),
+                                 ('bond-lacp-bypass-allow', 'lacp_fallback_allow'),
+                                 ('bond-lacp-bypass-period', 'lacp_fallback_period')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
@@ -204,16 +222,16 @@ class ifenslave(moduleBase):
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             rtnetlink_api.rtnl_api.link_set(slave, "up")
 
-    def _apply_slaves_lacp_fallback_prio(self, ifaceobj):
+    def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
-        attrval = ifaceobj.get_attr_value_first('bond-lacp-fallback-priority')
+        attrval = ifaceobj.get_attrs_value_first(['bond-lacp-bypass-priority',
+                                'bond-lacp-fallback-priority'])
         if attrval:
             portlist = self.parse_port_list(attrval)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
                               %(ifaceobj.name, attrname, attrval))
                 return
-
             for p in portlist:
                 try:
                     (port, val) = p.split('=')
@@ -222,7 +240,8 @@ class ifenslave(moduleBase):
                                       %(ifaceobj.name, port))
                         continue
                     slaves.remove(port)
-                    self.ifenslavecmd.set_lacp_fallback_priority(ifaceobj.name, port, val)
+                    self.ifenslavecmd.set_lacp_fallback_priority(
+                                            ifaceobj.name, port, val)
                 except Exception, e:
                     self.log_warn('%s: failed to set lacp_fallback_priority %s (%s)'
                                   %(ifaceobj.name, port, str(e)))
@@ -231,7 +250,7 @@ class ifenslave(moduleBase):
             try:
                 self.ifenslavecmd.set_lacp_fallback_priority(ifaceobj.name, p, '0')
             except Exception, e:
-                self.log_warn('%s: failed to clear lacp_fallback_priority %s (%s)'
+                self.log_warn('%s: failed to clear lacp_bypass_priority %s (%s)'
                               %(ifaceobj.name, p, str(e)))
 
 
@@ -241,7 +260,7 @@ class ifenslave(moduleBase):
                 self.ifenslavecmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
-            self._apply_slaves_lacp_fallback_prio(ifaceobj)
+            self._apply_slaves_lacp_bypass_prio(ifaceobj)
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
@@ -265,26 +284,33 @@ class ifenslave(moduleBase):
                                           self.get_mod_attrs())
         if not ifaceattrs: return
         runningattrs = self._query_running_attrs(ifaceobj.name)
+
+        # backward compat change
+        runningattrs.update({'bond-lacp-fallback-allow': runningattrs.get(
+                                                    'bond-lacp-bypass-allow'),
+                          'bond-lacp-fallback-period': runningattrs.get(
+                                                    'bond-lacp-bypass-period'),
+                          'bond-lacp-fallback-priority': runningattrs.get(
+                                                'bond-lacp-bypass-priority')})
         for k in ifaceattrs:
             v = ifaceobj.get_attr_value_first(k)
             if not v:
                 continue
             if k == 'bond-slaves':
                 slaves = self._get_slave_list(ifaceobj)
-                #slaves = v.split()
                 continue
             rv = runningattrs.get(k)
             if not rv:
                 ifaceobjcurr.update_config_with_status(k, 'None', 1)
             else:
-                if k == 'bond-lacp-fallback-priority':
+                if (k == 'bond-lacp-bypass-priority' or
+                    k == 'bond-lacp-fallback-priority'):
                     prios = v.split()
                     prios.sort()
                     prio_str = ' '.join(prios)
                     ifaceobjcurr.update_config_with_status(k, rv,
-                                 1 if prio_str != rv else 0)
+                                    1 if prio_str != rv else 0)
                     continue
-
                 ifaceobjcurr.update_config_with_status(k, rv,
                                                        1 if v != rv else 0)
         runningslaves = runningattrs.get('bond-slaves')
@@ -317,13 +343,12 @@ class ifenslave(moduleBase):
                             self.ifenslavecmd.get_ad_sys_priority(bondname),
                      'bond-xmit-hash-policy' :
                             self.ifenslavecmd.get_xmit_hash_policy(bondname),
-                     'bond-lacp-fallback-allow' :
+                     'bond-lacp-bypass-allow' :
                             self.ifenslavecmd.get_lacp_fallback_allow(bondname),
-                     'bond-lacp-fallback-period' :
+                     'bond-lacp-bypass-period' :
                             self.ifenslavecmd.get_lacp_fallback_period(bondname),
-                     'bond-lacp-fallback-priority' :
+                     'bond-lacp-bypass-priority' :
                             self.ifenslavecmd.get_lacp_fallback_priority(bondname)}
-
         slaves = self.ifenslavecmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves
