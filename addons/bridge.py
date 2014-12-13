@@ -277,7 +277,6 @@ class bridge(moduleBase):
     def _add_ports(self, ifaceobj):
         bridgeports = self._get_bridge_port_list(ifaceobj)
         runningbridgeports = []
-        newbridgeports = []
 
         self.ipcmd.batch_start()
         self._process_bridge_waitport(ifaceobj, bridgeports)
@@ -306,11 +305,9 @@ class bridge(moduleBase):
                 self.write_file('/proc/sys/net/ipv6/conf/%s' %bridgeport +
                                 '/disable_ipv6', '1')
                 self.ipcmd.addr_flush(bridgeport)
-                newbridgeports.append(bridgeport)
             except Exception, e:
                 self.logger.error(str(e))
                 pass
-        [self.ipcmd.link_set(p, 'up') for p in newbridgeports]
         self.ipcmd.batch_commit()
         if err:
             self.log_error('bridge configuration failed (missing ports)')
@@ -812,6 +809,8 @@ class bridge(moduleBase):
         except Exception, e:
             self.log_error(str(e))
         finally:
+            running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            [rtnetlink_api.rtnl_api.link_set(p, "up") for p in running_ports]
             if link_exists and ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         if porterr:

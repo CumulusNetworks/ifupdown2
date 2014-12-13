@@ -498,4 +498,4 @@ class brctl(utilsBase):
         try:
             return os.listdir('/sys/class/net/%s/brif/' %bridgename)
         except:
-            return {}
+            return []
