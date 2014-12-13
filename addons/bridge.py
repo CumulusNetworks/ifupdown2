@@ -278,16 +278,19 @@ class bridge(moduleBase):
         runningbridgeports = []
 
         self._process_bridge_waitport(ifaceobj, bridgeports)
+        self.ipcmd.batch_start()
         # Delete active ports not in the new port list
         if not self.PERFMODE:
             runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if runningbridgeports:
-                [self.ipcmd.link_set(bport, 'nomaster')
-                    for bport in runningbridgeports
-                        if not bridgeports or bport not in bridgeports]
+                for bport in runningbridgeports:
+                    if not bridgeports or bport not in bridgeports:
+                       self.ipcmd.link_set(bport, 'nomaster')
+                       self.ipcmd.link_set(bport, 'down')
             else:
                 runningbridgeports = []
         if not bridgeports:
+            self.ipcmd.batch_commit()
             return
         err = 0
         for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
@@ -302,7 +305,9 @@ class bridge(moduleBase):
                                 '/disable_ipv6', '1')
                 self.ipcmd.addr_flush(bridgeport)
             except Exception, e:
-                self.log_error(str(e))
+                self.logger.error(str(e))
+                pass
+        self.ipcmd.batch_commit()
         if err:
             self.log_error('bridge configuration failed (missing ports)')
 
@@ -784,7 +789,6 @@ class bridge(moduleBase):
             link_exists = False
             porterr = False
             porterrstr = ''
-            self.ipcmd.batch_start()
             if not self.PERFMODE:
                 if not self.ipcmd.link_exists(ifaceobj.name):
                     self.ipcmd.link_create(ifaceobj.name, 'bridge')
@@ -797,8 +801,6 @@ class bridge(moduleBase):
                 porterr = True
                 porterrstr = str(e)
                 pass
-            finally:
-                self.ipcmd.batch_commit()
             self._apply_bridge_settings(ifaceobj)
             self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
@@ -806,6 +808,8 @@ class bridge(moduleBase):
         except Exception, e:
             self.log_error(str(e))
         finally:
+            running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            [rtnetlink_api.rtnl_api.link_set(p, "up") for p in running_ports]
             if link_exists and ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         if porterr:
