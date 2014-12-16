@@ -172,10 +172,10 @@ class ifenslave(moduleBase):
                                  ('bond-num-unsol-na' , 'num_unsol_na'),
                                  ('bond-ad-sys-mac-addr' , 'ad_sys_mac_addr'),
                                  ('bond-ad-sys-priority' , 'ad_sys_priority'),
-                                 ('bond-lacp-fallback-allow', 'lacp_fallback_allow'),
-                                 ('bond-lacp-fallback-period', 'lacp_fallback_period'),
-                                 ('bond-lacp-bypass-allow', 'lacp_fallback_allow'),
-                                 ('bond-lacp-bypass-period', 'lacp_fallback_period')])
+                                 ('bond-lacp-fallback-allow', 'lacp_bypass_allow'),
+                                 ('bond-lacp-fallback-period', 'lacp_bypass_period'),
+                                 ('bond-lacp-bypass-allow', 'lacp_bypass_allow'),
+                                 ('bond-lacp-bypass-period', 'lacp_bypass_period')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so

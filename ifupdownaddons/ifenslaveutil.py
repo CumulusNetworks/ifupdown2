@@ -52,7 +52,7 @@ class ifenslaveutil(utilsBase):
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
-                        'num_grat_arp', 'lacp_fallback_allow', 'lacp_fallback_period'])
+                        'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period'])
         except Exception, e:
             pass
 
@@ -231,44 +231,44 @@ class ifenslaveutil(utilsBase):
         return self._cache_get([bondname, 'linkinfo', 'lacp_rate'])
 
     def set_lacp_fallback_allow(self, bondname, allow, prehook=None, posthook=None):
-        if (self._cache_check([bondname, 'linkinfo', 'lacp_fallback_allow'],
-                lacp_fallback_allow)):
+        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_allow'],
+                lacp_bypass_allow)):
             return
         if prehook:
             prehook(bondname)
         try:
             self.write_file('/sys/class/net/%s' %bondname +
-                            '/bonding/lacp_fallback_allow', allow)
+                            '/bonding/lacp_bypass_allow', allow)
         except:
             raise
         finally:
             if posthook:
                 posthook(bondname)
             self._cache_update([bondname, 'linkinfo',
-                               'lacp_fallback_allow'], allow)
+                               'lacp_bypass_allow'], allow)
 
     def get_lacp_fallback_allow(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'lacp_fallback_allow'])
+        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_allow'])
 
     def set_lacp_fallback_period(self, bondname, period, prehook=None, posthook=None):
-        if (self._cache_check([bondname, 'linkinfo', 'lacp_fallback_period'],
-                lacp_fallback_period)):
+        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_period'],
+                lacp_bypass_period)):
             return
         if prehook:
             prehook(bondname)
         try:
             self.write_file('/sys/class/net/%s' %bondname + 
-                            '/bonding/lacp_fallback_period', period)
+                            '/bonding/lacp_bypass_period', period)
         except:
             raise
         finally:
             if posthook:
                 posthook(bondname)
             self._cache_update([bondname, 'linkinfo',
-                               'lacp_fallback_period'], period)
+                               'lacp_bypass_period'], period)
 
     def get_lacp_fallback_period(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'lacp_fallback_period']) 
+        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_period']) 
 
     def set_min_links(self, bondname, min_links, prehook=None):
         if (self._cache_check([bondname, 'linkinfo', 'min_links'],
@@ -284,7 +284,7 @@ class ifenslaveutil(utilsBase):
         return self._cache_get([bondname, 'linkinfo', 'min_links'])
 
     def set_lacp_fallback_priority(self, bondname, port, val):
-        slavefile = '/sys/class/net/%s/bonding_slave/lacp_fallback_priority' %port
+        slavefile = '/sys/class/net/%s/bonding_slave/lacp_bypass_priority' %port
         if os.path.exists(slavefile):
             self.write_file(slavefile, val)
 
@@ -294,7 +294,7 @@ class ifenslaveutil(utilsBase):
             return slaves
         prios = []
         for slave in slaves:
-            priofile = '/sys/class/net/%s/bonding_slave/lacp_fallback_priority' %slave
+            priofile = '/sys/class/net/%s/bonding_slave/lacp_bypass_priority' %slave
             if os.path.exists(priofile):
                 val = self.read_file_oneline(priofile)
                 if val and val != '0':
