@@ -218,6 +218,8 @@ class bridge(moduleBase):
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if not self._is_bridge(ifaceobj):
             return None
+        if ifaceobj.link_type != ifaceLinkType.LINK_NA:
+           ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         return self.parse_port_list(ifaceobj.get_attr_value_first(
                                     'bridge-ports'), ifacenames_all)
 
@@ -808,8 +810,10 @@ class bridge(moduleBase):
         except Exception, e:
             self.log_error(str(e))
         finally:
-            running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
-            [rtnetlink_api.rtnl_api.link_set(p, "up") for p in running_ports]
+            if ifaceobj.link_type != ifaceLinkType.LINK_NA:
+                running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+                [rtnetlink_api.rtnl_api.link_set(p, "up")
+                                    for p in running_ports]
             if link_exists and ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         if porterr:
@@ -819,12 +823,14 @@ class bridge(moduleBase):
         try:
             if ifaceobj.get_attr_value_first('bridge-ports'):
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+                self.brctlcmd.delete_bridge(ifaceobj.name)
                 if ports:
                     for p in ports:
                         proc_file = ('/proc/sys/net/ipv6/conf/%s' %p +
                                      '/disable_ipv6')
                         self.write_file(proc_file, '0')
-                self.brctlcmd.delete_bridge(ifaceobj.name)
+                        if ifaceobj.link_type == ifaceLinkType.LINK_MASTER:
+                           rtnetlink_api.rtnl_api.link_set(p, "down")
         except Exception, e:
             self.log_error(str(e))
 
@@ -1284,11 +1290,11 @@ class bridge(moduleBase):
                                  ifaceobj_getfunc):
         if not self._is_bridge_port(ifaceobj):
             # Mark all bridge attributes as failed
-            ifaceobj.check_n_update_config_with_status_many(
+            ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                     ['bridge-vids', 'bridge-pvid', 'bridge-access',
                      'bridge-pathcosts', 'bridge-portprios',
                      'bridge-portmcrouter',
-                     'bridge-portmcfl'], 0)
+                     'bridge-portmcfl'], 1)
             return
         bridgename = self._get_bridge_name(ifaceobj)
         if not bridgename:

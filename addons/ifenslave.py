@@ -121,7 +121,8 @@ class ifenslave(moduleBase):
 
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
-        ifaceobj.link_type = ifaceLinkType.LINK_MASTER
+        if ifaceobj.link_type != ifaceLinkType.LINK_NA:
+           ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         return slave_list
 
     def get_dependent_ifacenames_running(self, ifaceobj):
@@ -217,10 +218,13 @@ class ifenslave(moduleBase):
                 self.log_warn('%s: skipping slave %s, does not exist'
                         %(ifaceobj.name, slave))
                 continue
+            link_up = False
             if self.ipcmd.is_link_up(slave):
                rtnetlink_api.rtnl_api.link_set(slave, "down")
+               link_up = True
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
-            rtnetlink_api.rtnl_api.link_set(slave, "up")
+            if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
+               rtnetlink_api.rtnl_api.link_set(slave, "up")
 
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)

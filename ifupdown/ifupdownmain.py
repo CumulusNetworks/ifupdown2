@@ -60,8 +60,8 @@ class ifupdownMain(ifupdownBase):
     ADDONS_ENABLE = False
 
     # priv flags to mark iface objects
-    BUILTIN = 0x1
-    NOCONFIG = 0x2
+    BUILTIN = 0x0001
+    NOCONFIG = 0x0010
 
     scripts_dir='/etc/network'
     addon_modules_dir='/usr/share/ifupdownaddons'
@@ -108,6 +108,12 @@ class ifupdownMain(ifupdownBase):
 
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
+        if (ifaceobj.addr_method and
+            ifaceobj.addr_method == 'manual'):
+            return
+        if self._delay_admin_state:
+            self._delay_admin_state_iface_queue.append(ifaceobj.name)
+            return
         # If this object is a link slave, ie its link is controlled
         # by its link master interface, then dont set the link state.
         # But do allow user to change state of the link if the interface
@@ -115,19 +121,27 @@ class ifupdownMain(ifupdownBase):
         if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and
              not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
             return
-        if self.link_exists(ifaceobj.name):
-            self.link_up(ifaceobj.name)
+        if not self.link_exists(ifaceobj.name):
+           return
+        self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
+        if (ifaceobj.addr_method and
+            ifaceobj.addr_method == 'manual'):
+            return
+        if self._delay_admin_state:
+            self._delay_admin_state_iface_queue.append(ifaceobj.name)
+            return
         # If this object is a link slave, ie its link is controlled
         # by its link master interface, then dont set the link state.
         # But do allow user to change state of the link if the interface
         # is already with its link master (hence the master check).
-        if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and 
-            not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
+        if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and
+             not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
             return
-        if self.link_exists(ifaceobj.name):
-            self.link_down(ifaceobj.name)
+        if not self.link_exists(ifaceobj.name):
+           return
+        self.link_down(ifaceobj.name)
 
     # ifupdown object interface operation handlers
     ops_handlers = OrderedDict([('up', run_up),
@@ -215,6 +229,14 @@ class ifupdownMain(ifupdownBase):
                 raise
         else:
             self.STATEMANAGER_UPDATE = False
+        self._delay_admin_state = True if self.config.get(
+                            'delay_admin_state_change', '0') == '1' else False
+        self._delay_admin_state_iface_queue = []
+        if not self._delay_admin_state:
+            self._link_master_slave = True if self.config.get(
+                      'link_master_slave', '0') == '1' else False
+        else:
+            self._link_master_slave = False
 
     def get_ifaceobjs(self, ifacename):
         return self.ifaceobjdict.get(ifacename)
@@ -348,8 +370,8 @@ class ifupdownMain(ifupdownBase):
             if not dilist:
                 ni = None
                 if self.is_iface_builtin_byname(d):
-                    ni = self.create_n_save_ifaceobj(d, self.BUILTIN | self.NOCONFIG,
-                            True)
+                    ni = self.create_n_save_ifaceobj(d,
+                            self.BUILTIN | self.NOCONFIG, True)
                 elif not self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG:
                     ni = self.create_n_save_ifaceobj(d, self.NOCONFIG,
                             True)
@@ -365,7 +387,6 @@ class ifupdownMain(ifupdownBase):
                     di.add_to_upperifaces(upperifaceobj.name)
                     if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
                         di.link_type = ifaceLinkType.LINK_SLAVE
-
         for d in del_list:
             dlist.remove(d)
 
@@ -448,6 +469,8 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
+        if not self._link_master_slave:
+           ifaceobj.link_type = ifaceLinkType.LINK_NA
         if currentifaceobjlist[0].type == ifaceobj.type:
             currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
             ifaceobj.flags |= iface.HAS_SIBLINGS
@@ -747,6 +770,23 @@ class ifupdownMain(ifupdownBase):
         else:
             self.type = ifaceType.UNKNOWN
 
+    def _process_delay_admin_state_queue(self, op):
+        if not self._delay_admin_state_iface_queue:
+           return
+        if op == 'up':
+           func = self.link_up
+        elif op == 'down':
+           func = self.link_down
+        else:
+           return
+        for i in self._delay_admin_state_iface_queue:
+            try:
+                if self.link_exists(i):
+                   func(i)
+            except Exception, e:
+                self.logger.warn(str(e))
+                pass
+
     def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
            excludepats=None, printdependency=None, syntaxcheck=False,
            type=None, skipupperifaces=False):
@@ -805,6 +845,7 @@ class ifupdownMain(ifupdownBase):
             self._sched_ifaces(filtered_ifacenames, ops,
                     skipupperifaces=skipupperifaces)
         finally:
+            self._process_delay_admin_state_queue('up')
             if not self.DRYRUN and self.ADDONS_ENABLE:
                 self._save_state()
 
@@ -865,6 +906,7 @@ class ifupdownMain(ifupdownBase):
         try:
             self._sched_ifaces(filtered_ifacenames, ops)
         finally:
+            self._process_delay_admin_state_queue('down')
             if not self.DRYRUN and self.ADDONS_ENABLE:
                 self._save_state()
 
@@ -1090,7 +1132,13 @@ class ifupdownMain(ifupdownBase):
                 self.dependency_graph = OrderedDict({})
                 # Generate dependency info for old config
                 self.populate_dependency_info(downops, ifacedownlist)
-                self._sched_ifaces(ifacedownlist, downops)
+                try:
+                    self._sched_ifaces(ifacedownlist, downops)
+                except Exception, e:
+                    self.logger.error(str(e))
+                    pass
+                finally:
+                    self._process_delay_admin_state_queue('down')
             else:
                 self.logger.debug('no interfaces to down ..')
 
@@ -1107,7 +1155,13 @@ class ifupdownMain(ifupdownBase):
 
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(filtered_ifacenames))
-        self._sched_ifaces(filtered_ifacenames, upops)
+        try:
+            self._sched_ifaces(filtered_ifacenames, upops)
+        except Exception, e:
+            self.logger.error(str(e))
+            pass
+        finally:
+            self._process_delay_admin_state_queue('up')
         if self.DRYRUN:
             return
         self._save_state()
