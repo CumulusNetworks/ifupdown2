@@ -82,7 +82,8 @@ class address(moduleBase):
             if '.' in ifaceobj.name:
                 (bridgename, vlan) = ifaceobj.name.split('.')
                 is_vlan_dev_on_vlan_aware_bridge = self.ipcmd.bridge_is_vlan_aware(bridgename)
-        if is_bridge or is_vlan_dev_on_vlan_aware_bridge:
+        if ((is_bridge and not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name))
+                        or is_vlan_dev_on_vlan_aware_bridge):
            if self._address_valid(addrs):
               if up:
                 self.write_file('/proc/sys/net/ipv4/conf/%s' %ifaceobj.name +
