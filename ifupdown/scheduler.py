@@ -19,6 +19,7 @@ from graph import *
 from collections import deque
 from threading import *
 from ifupdownbase import *
+from sets import Set
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
@@ -331,6 +332,66 @@ class ifaceScheduler():
                 pass
 
     @classmethod
+    def _get_valid_upperifaces(cls, ifupdownobj, ifacenames,
+                               allupperifacenames):
+        """ Recursively find valid upperifaces
+
+        valid upperifaces are:
+            - An upperiface which had no user config (example builtin
+              interfaces. usually vlan interfaces.)
+            - or had config and previously up
+            - and interface currently does not exist
+            - or is a bridge (because if your upperiface was a bridge
+            - u will have to execute up on the bridge
+              to enslave the port and apply bridge attributes to the port) """
+
+        upperifacenames = []
+        for ifacename in ifacenames:
+            # get upperifaces
+            ifaceobj = ifupdownobj.get_ifaceobj_first(ifacename)
+            if not ifaceobj:
+               continue
+            ulist = Set(ifaceobj.upperifaces).difference(upperifacenames)
+            nulist = []
+            for u in ulist:
+                uifaceobj = ifupdownobj.get_ifaceobj_first(u)
+                if not uifaceobj:
+                   continue
+                has_config = not bool(uifaceobj.priv_flags
+                                   & ifupdownobj.NOCONFIG)
+                if (((has_config and ifupdownobj.get_ifaceobjs_saved(u)) or
+                     not has_config) and (not ifupdownobj.link_exists(u)
+                         or uifaceobj.link_kind == ifaceLinkKind.BRIDGE)):
+                     nulist.append(u)
+            upperifacenames.extend(nulist)
+        allupperifacenames.extend(upperifacenames)
+        if upperifacenames:
+            cls._get_valid_upperifaces(ifupdownobj, upperifacenames,
+                                       allupperifacenames)
+        return
+
+    @classmethod
+    def run_upperifaces(cls, ifupdownobj, ifacenames, ops,
+                        continueonfailure=True):
+        """ Run through valid upperifaces """ 
+        upperifaces = []
+
+        cls._get_valid_upperifaces(ifupdownobj, ifacenames, upperifaces)
+        if not upperifaces:
+           return
+        # dump valid upperifaces
+        ifupdownobj.logger.debug(upperifaces)
+        for u in upperifaces:
+            try:
+                ifaceobjs = ifupdownobj.get_ifaceobjs(u)
+                if not ifaceobjs:
+                   continue
+                cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
+            except Exception, e:
+                if continueonfailure:
+                   self.logger.warn('%s' %str(e))
+
+    @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
                               dependency_graph, indegrees=None):
         if len(ifacenames) == 1:
@@ -457,6 +518,5 @@ class ifaceScheduler():
             ifupdownobj.logger.info('running upperifaces (parent interfaces) ' +
                                     'if available ..')
             cls._STATE_CHECK = False
-            cls.run_iface_list_upper(ifupdownobj, ifacenames, ops,
-                                     skip_root=True)
+            cls.run_upperifaces(ifupdownobj, ifacenames, ops)
             cls._STATE_CHECK = True

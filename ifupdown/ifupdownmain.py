@@ -241,6 +241,13 @@ class ifupdownMain(ifupdownBase):
     def get_ifaceobjs(self, ifacename):
         return self.ifaceobjdict.get(ifacename)
 
+    def get_ifaceobjs_saved(self, ifacename):
+        """ Return ifaceobjects from statemanager """
+        if self.STATEMANAGER_ENABLE:
+           return self.statemanager.get_ifaceobjs(ifacename)
+        else:
+           None
+
     def get_ifaceobj_first(self, ifacename):
         ifaceobjs = self.get_ifaceobjs(ifacename)
         if ifaceobjs:
@@ -252,6 +259,7 @@ class ifupdownMain(ifupdownBase):
 
     def get_iface_obj_last(self, ifacename):
         return self.ifaceobjdict.get(ifacename)[-1]
+
 
     def must_follow_upperifaces(self, ifacename):
         #

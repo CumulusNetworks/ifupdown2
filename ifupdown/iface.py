@@ -22,6 +22,11 @@ class ifaceType():
     IFACE = 0x1
     BRIDGE_VLAN = 0x2
 
+class ifaceLinkKind():
+    UNKNOWN = 0x0
+    BRIDGE = 0x1
+    BOND = 0x2
+
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0
     LINK_SLAVE = 0x1
@@ -223,6 +228,7 @@ class iface():
         self.priv_data = None
         self.realname = None
         self.link_type = ifaceLinkType.LINK_UNKNOWN
+        self.link_kind = ifaceLinkKind.BRIDGE
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -407,6 +413,7 @@ class iface():
         del odict['linkstate']
         del odict['env']
         del odict['link_type']
+        del odict['link_kind']
         return odict
 
     def __setstate__(self, dict):
@@ -424,6 +431,7 @@ class iface():
         self.raw_config = []
         self.flags |= self._PICKLED
         self.link_type = ifaceLinkType.LINK_UNKNOWN
+        self.link_kind = ifaceLinkKind.UNKNOWN
 
     def dump_raw(self, logger):
         indent = '  '
