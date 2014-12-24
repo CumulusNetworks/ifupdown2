@@ -80,7 +80,7 @@ class vxlan(moduleBase):
         # Update vxlan object
         vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
         if not vxlanattrs:
-            ifaceobjcurr.check_n_update_config_with_status_many(
+            ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                     self.get_mod_attrs(), -1)
             return
         self._query_check_n_update(ifaceobjcurr, 'vxlan-id',

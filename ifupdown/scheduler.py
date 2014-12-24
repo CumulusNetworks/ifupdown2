@@ -46,10 +46,6 @@ class ifaceScheduler():
         if ifupdownobj.type and ifupdownobj.type != ifaceobj.type:
             return
 
-        if (cls._STATE_CHECK and
-            (ifaceobj.state >= ifaceState.from_str(op))):
-            ifupdownobj.logger.debug('%s: already in state %s' %(ifacename, op))
-            return
         if not ifupdownobj.ADDONS_ENABLE: return
         if op == 'query-checkcurr':
             query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(ifaceobj)
@@ -114,6 +110,7 @@ class ifaceScheduler():
         """ Runs all operations on a list of interface
             configurations for the same interface
         """
+
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
@@ -135,14 +132,12 @@ class ifaceScheduler():
             # for the first object in the list
             handler = ifupdownobj.ops_handlers.get(op)
             if handler:
-                if (not ifaceobjs[0].addr_method or
-                    (ifaceobjs[0].addr_method and
-                    ifaceobjs[0].addr_method != 'manual')):
-                    try:
-                        handler(ifupdownobj, ifaceobjs[0])
-                    except Exception, e:
-                        ifupdownobj.logger.warn('%s' %str(e))
-                        pass
+                try:
+                    handler(ifupdownobj, ifaceobjs[0])
+                except Exception, e:
+                    ifupdownobj.logger.warn('%s: %s'
+                                            %(ifaceobjs[0].name, str(e)))
+                    pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
@@ -212,10 +207,16 @@ class ifaceScheduler():
         if not ifaceobjs:
             raise Exception('%s: not found' %ifacename)
 
+        # Check state of the dependent. If it is already brought up, return
+        if (cls._STATE_CHECK and
+            (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):
+            ifupdownobj.logger.debug('%s: already processed' %ifacename)
+            return
+
         for ifaceobj in ifaceobjs:
             if not cls._check_upperifaces(ifupdownobj, ifaceobj,
                                           ops, parent, followdependents):
-                return
+               return
 
         # If inorder, run the iface first and then its dependents
         if order == ifaceSchedulerFlags.INORDER:
@@ -287,6 +288,11 @@ class ifaceScheduler():
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
             raise Exception('%s: not found' %ifacename)
+
+        if (cls._STATE_CHECK and
+            (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):
+            ifupdownobj.logger.debug('%s: already processed' %ifacename)
+            return
 
         if not skip_root:
             # run the iface first and then its upperifaces

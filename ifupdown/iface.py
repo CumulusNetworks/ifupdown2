@@ -23,9 +23,10 @@ class ifaceType():
     BRIDGE_VLAN = 0x2
 
 class ifaceLinkType():
-    UNKNOWN = 0x0
+    LINK_UNKNOWN = 0x0
     LINK_SLAVE = 0x1
     LINK_MASTER = 0x2
+    LINK_NA = 0x3
 
 class ifaceStatus():
     """Enumerates iface status """
@@ -182,10 +183,10 @@ class iface():
     """
 
     # flag to indicate that the object was created from pickled state
-    _PICKLED = 0x1
-    HAS_SIBLINGS = 0x2
-    IFACERANGE_ENTRY = 0x3
-    IFACERANGE_START = 0x4
+    _PICKLED = 0x00000001
+    HAS_SIBLINGS = 0x00000010
+    IFACERANGE_ENTRY = 0x00000100
+    IFACERANGE_START = 0x00001000
 
     version = '0.1'
 
@@ -221,7 +222,7 @@ class iface():
         """interface type"""
         self.priv_data = None
         self.realname = None
-        self.link_type = ifaceLinkType.UNKNOWN
+        self.link_type = ifaceLinkType.LINK_UNKNOWN
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -358,13 +359,13 @@ class iface():
             # Not already error, mark success
             self.status = ifaceStatus.SUCCESS
 
-    def check_n_update_config_with_status_many(self, attr_names,
+    def check_n_update_config_with_status_many(self, ifaceobjorig, attr_names,
                                                attr_status=0):
         # set multiple attribute status to zero
         # also updates status only if the attribute is present
         for attr_name in attr_names:
-            if not self.get_attr_value_first(attr_name):
-                return
+            if not ifaceobjorig.get_attr_value_first(attr_name):
+               continue
             self.config.setdefault(attr_name, []).append('')
             self._config_status.setdefault(attr_name, []).append(attr_status)
 
@@ -422,7 +423,7 @@ class iface():
         self.priv_flags = 0
         self.raw_config = []
         self.flags |= self._PICKLED
-        self.link_type = ifaceLinkType.UNKNOWN
+        self.link_type = ifaceLinkType.LINK_UNKNOWN
 
     def dump_raw(self, logger):
         indent = '  '

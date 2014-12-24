@@ -595,7 +595,7 @@ class mstpctl(moduleBase):
         # Check if this is a bridge port
         if not self._is_bridge_port(ifaceobj):
             # mark all the bridge attributes as error
-            ifaceobj.check_n_update_config_with_status_many(
+            ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                             self._port_attrs_map.keys(), 0)
             return
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
