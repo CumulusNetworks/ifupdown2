@@ -118,11 +118,10 @@ class ifupdownMain(ifupdownBase):
         # by its link master interface, then dont set the link state.
         # But do allow user to change state of the link if the interface
         # is already with its link master (hence the master check).
-        if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and
-             not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
+        if ifaceobj.link_type == ifaceLinkType.LINK_SLAVE:
             return
         if not self.link_exists(ifaceobj.name):
-	   return
+           return
         self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
@@ -136,11 +135,10 @@ class ifupdownMain(ifupdownBase):
         # by its link master interface, then dont set the link state.
         # But do allow user to change state of the link if the interface
         # is already with its link master (hence the master check).
-        if ((ifaceobj.link_type == ifaceLinkType.LINK_SLAVE) and 
-            not os.path.exists('/sys/class/net/%s/master' %ifaceobj.name)):
-            return
+        if ifaceobj.link_type == ifaceLinkType.LINK_SLAVE:
+           return
         if not self.link_exists(ifaceobj.name):
-	   return
+           return
         self.link_down(ifaceobj.name)
 
     # ifupdown object interface operation handlers
@@ -470,6 +468,8 @@ class ifupdownMain(ifupdownBase):
     def _save_iface(self, ifaceobj):
         if self._check_config_no_repeats(ifaceobj):
            return
+        if not self._link_master_slave:
+           ifaceobj.link_type = ifaceLinkType.LINK_NA
         currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
         if not currentifaceobjlist:
            self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
@@ -477,8 +477,6 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
-        if not self._link_master_slave:
-           ifaceobj.link_type = ifaceLinkType.LINK_NA
         if currentifaceobjlist[0].type == ifaceobj.type:
             currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
             ifaceobj.flags |= iface.HAS_SIBLINGS
@@ -820,6 +818,8 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
+        else:
+            self._link_master_slave = False
         try:
             self.read_iface_config()
         except Exception:
@@ -870,6 +870,8 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
+        else:
+            self._link_master_slave = False
         # For down we need to look at old state, unless usecurrentconfig
         # is set
         if (not usecurrentconfig and self.STATEMANAGER_ENABLE and
@@ -999,7 +1001,8 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-
+        else:
+            self._link_master_slave = False
         try:
             self.read_iface_config()
         except:
@@ -1073,6 +1076,8 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
+        else:
+            self._link_master_slave = False
         try:
             self.read_iface_config()
         except:
