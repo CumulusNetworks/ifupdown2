@@ -103,9 +103,11 @@ class vlan(moduleBase):
         to the bridge """
         if self.ipcmd.bridge_is_vlan_aware(bridgename):
            if add:
-              self.ipcmd.bridge_vids_add(bridgename, [vlanid])
+              rtnetlink_api.rtnl_api.bridge_vlan(add=True, dev=bridgename,
+                                                 vid=vlanid, master=False)
            else:
-              self.ipcmd.bridge_vids_del(bridgename, [vlanid])
+              rtnetlink_api.rtnl_api.bridge_vlan(add=False, dev=bridgename,
+                                                 vid=vlanid, master=False)
 
     def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
         """ If the lower device is a vlan aware bridge, check if the vlanid

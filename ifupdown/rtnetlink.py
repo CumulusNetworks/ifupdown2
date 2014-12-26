@@ -28,6 +28,7 @@ RTMGRP_IPV6_ROUTE = 0x400
 RTM_NEWLINK = 16
 RTM_DELLINK = 17
 RTM_GETLINK = 18
+RTM_SETLINK = 19
 RTM_NEWADDR = 20
 RTM_DELADDR = 21
 RTM_GETADDR = 22
@@ -91,15 +92,6 @@ class Nlmsg(Structure):
     def rta_linkinfo(self, addr, rtas):
         total_len = 0
 
-        # Start nested linkinfo
-        #rta = Rtattr.from_address(addr)
-        #rta.rta_type = IFLA_LINKINFO
-        #rta.rta_len = RTA_LENGTH(0)
-        #rta_len = NLMSG_ALIGN(rta.rta_len)
-        #total_len += rta_len
-        #addr += rta_len
-        #nest_start_linkinfo = rta
-
         # Check interface kind 
         kind = rtas.get(IFLA_INFO_KIND)
         if kind == 'vlan':
@@ -122,7 +114,7 @@ class Nlmsg(Structure):
         total_len += rta_len
         addr += rta_len
         rta_len = self.pack_rtas_new(rtas.get(IFLA_INFO_DATA), addr,
-                                      data_policy)
+                                     data_policy)
         rta.rta_len += rta_len
 
         total_len += rta_len
@@ -130,11 +122,21 @@ class Nlmsg(Structure):
 
         return total_len
 
-    def rta_linkinfo_data_vlan(self, addr, rtas):
-        return self.pack_rtas_new(rtas, addr, self.rta_linkinfo_data_vlan_policy())
+    def rta_bridge_vlan_info(self, rta, value):
+        if value:
+           data = RTA_DATA(rta)
+           memmove(data, addressof(value), sizeof(value))
+           rta.rta_len = RTA_LENGTH(sizeof(value))
+           return rta.rta_len
 
-    def rta_linkinfo_data(self, addr, rtas):
-        return self.pack_rtas_new(rtas, addr, self.rta_linkinfo_data_vlan_policy())
+    def rta_af_spec(self, addr, rtas):
+        total_len = 0
+
+        # XXX: Check family (Assumes bridge family for now)
+        rta_len = self.pack_rtas_new(rtas, addr,
+                                     self.rta_bridge_af_spec_policy())
+        total_len += rta_len
+        return total_len
 
     def unpack_rtas(self, which_ones=[]):
         len = self.nlh.nlmsg_len - NLMSG_LENGTH(sizeof(self))
@@ -188,7 +190,7 @@ class Nlmsg(Structure):
             c_uint32.from_address(data).value = value
             rta.rta_len = RTA_LENGTH(sizeof(c_uint32))
             return rta.rta_len
-	else:
+        else:
             return c_uint32.from_address(data).value
 
     def rta_string(self, rta, value=None):
@@ -225,10 +227,13 @@ class Nlmsg(Structure):
             return addr
 
     def rta_uint8_array(self, rta, value=None):
+        data = RTA_DATA(rta)
         if value:
-            assert(False)
+            s = (c_uint8 * len(value)).from_buffer_copy(value)
+            memmove(data, addressof(s), len(value))
+            rta.rta_len = RTA_LENGTH(len(value))
+            return rta.rta_len
         else:
-            data = RTA_DATA(rta)
             array = (c_uint8 * RTA_PAYLOAD(rta))()
             memmove(array, data, RTA_PAYLOAD(rta))
             return array
@@ -564,6 +569,27 @@ MACVLAN_MODE_VEPA = 2
 MACVLAN_MODE_BRIDGE = 3
 MACVLAN_MODE_PASSTHRU = 4
 
+# BRIDGE IFLA_AF_SPEC attributes
+IFLA_BRIDGE_FLAGS = 0
+IFLA_BRIDGE_MODE = 1
+IFLA_BRIDGE_VLAN_INFO = 2
+
+# BRIDGE_VLAN_INFO flags
+BRIDGE_VLAN_INFO_MASTER = 1
+BRIDGE_VLAN_INFO_PVID = 2
+BRIDGE_VLAN_INFO_UNTAGGED = 4
+
+# Bridge flags
+BRIDGE_FLAGS_MASTER = 1
+BRIDGE_FLAGS_SELF = 2
+
+class BridgeVlanInfo(Structure):
+    _fields_ = [
+        ('flags', c_uint16),
+        ('vid', c_uint16),
+        ('vid_end', c_uint16),
+    ]
+
 class Ifinfomsg(Nlmsg):
 
     _fields_ = [
@@ -601,6 +627,14 @@ class Ifinfomsg(Nlmsg):
         }
         return fns
 
+    def rta_bridge_af_spec_policy(self):
+        # Assume bridge family for now
+        fns = {
+            IFLA_BRIDGE_FLAGS : self.rta_uint16,
+            IFLA_BRIDGE_VLAN_INFO : self.rta_bridge_vlan_info,
+        }
+        return fns
+
     def rta_policy(self):
         fns = {
             IFLA_UNSPEC: self.rta_wtf,
@@ -629,7 +663,7 @@ class Ifinfomsg(Nlmsg):
             IFLA_STATS64: self.rta_none,
             IFLA_VF_PORTS: self.rta_none,
             IFLA_PORT_SELF: self.rta_none,
-            IFLA_AF_SPEC: self.rta_none,
+            IFLA_AF_SPEC: self.rta_af_spec,
             IFLA_GROUP: self.rta_none,
             IFLA_NET_NS_FD: self.rta_none,
             IFLA_EXT_MASK: self.rta_none,
@@ -664,7 +698,7 @@ class Ifinfomsg(Nlmsg):
             IFLA_STATS64: self.rta_none,
             IFLA_VF_PORTS: self.rta_none,
             IFLA_PORT_SELF: self.rta_none,
-            IFLA_AF_SPEC: self.rta_none,
+            IFLA_AF_SPEC: self.rta_af_spec,
             IFLA_GROUP: self.rta_none,
             IFLA_NET_NS_FD: self.rta_none,
             IFLA_EXT_MASK: self.rta_none,
@@ -738,6 +772,7 @@ class RtNetlink(Netlink):
         RTM_NEWROUTE: "RTM_NEWROUTE",
         RTM_DELROUTE: "RTM_DELROUTE",
         RTM_NEWLINK: "RTM_NEWLINK",
+        RTM_SETLINK: "RTM_SETLINK",
         RTM_DELLINK: "RTM_DELLINK",
         RTM_GETLINK: "RTM_GETLINK",
         RTM_NEWADDR: "RTM_NEWADDR",
@@ -769,6 +804,7 @@ class RtNetlink(Netlink):
             RTM_DELROUTE: Rtmsg,
             RTM_GETROUTE: Rtmsg,
             RTM_NEWLINK: Ifinfomsg,
+            RTM_SETLINK: Ifinfomsg,
             RTM_DELLINK: Ifinfomsg,
             RTM_GETLINK: Rtgenmsg,
             RTM_NEWADDR: Ifaddrmsg,
@@ -814,53 +850,11 @@ class RtNetlink(Netlink):
         nlmsg = self.nlmsg(nlh)
 
         nlh.nlmsg_len += nlmsg.pack_extra(extra, nlh_p + nlh.nlmsg_len)
-        nlh.nlmsg_len += nlmsg.pack_rtas_new(rtas, nlh_p + nlh.nlmsg_len, nlmsg.rta_policy())
-
+        nlh.nlmsg_len += nlmsg.pack_rtas_new(rtas, nlh_p + nlh.nlmsg_len,
+                                             nlmsg.rta_policy())
         #self.dump(nlh)
         self.sendall(string_at(nlh_p, nlh.nlmsg_len))
         self.seq += 1
 
         token = (pid, seq)
         return token
-
-    def rta_linkinfo_policy(self):
-        fns = {
-            [IFLA_INFO_KIND] : self.rta_string,
-            [IFLA_INFO_DATA] : self.rta_linkinfo_data,
-        }
-        return fns
-
-    def rta_policy(self):
-        fns = {
-            IFLA_UNSPEC: self.rta_wtf,
-            IFLA_ADDRESS: self.rta_uint8_array,
-            IFLA_BROADCAST: self.rta_uint8_array,
-            IFLA_IFNAME: self.rta_string,
-            IFLA_MTU: self.rta_uint32,
-            IFLA_LINK: self.rta_uint32,
-            IFLA_QDISC: self.rta_string,
-            IFLA_STATS: self.rta_none,
-            IFLA_COST: self.rta_none,
-            IFLA_PRIORITY: self.rta_none,
-            IFLA_MASTER: self.rta_uint32,
-            IFLA_WIRELESS: self.rta_none,
-            IFLA_PROTINFO: self.rta_none,
-            IFLA_TXQLEN: self.rta_uint32,
-            IFLA_MAP: self.rta_none,
-            IFLA_WEIGHT: self.rta_uint32,
-            IFLA_OPERSTATE: self.rta_uint8,
-            IFLA_LINKMODE: self.rta_uint8,
-            IFLA_LINKINFO: self.rta_linkinfo,
-            IFLA_NET_NS_PID: self.rta_uint32,
-            IFLA_IFALIAS: self.rta_string,
-            IFLA_NUM_VF: self.rta_uint32,
-            IFLA_VFINFO_LIST: self.rta_none,
-            IFLA_STATS64: self.rta_none,
-            IFLA_VF_PORTS: self.rta_none,
-            IFLA_PORT_SELF: self.rta_none,
-            IFLA_AF_SPEC: self.rta_none,
-            IFLA_GROUP: self.rta_none,
-            IFLA_NET_NS_FD: self.rta_none,
-            IFLA_EXT_MASK: self.rta_none,
-        }
-        return fns;
