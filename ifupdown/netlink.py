@@ -117,8 +117,7 @@ class NetlinkError(Exception):
 
     def __init__(self, message):
         Exception.__init__(self, message)
-        #logger.error(message)
-        print(message)
+        #print(message)
 
 class Netlink(socket.socket):
 
@@ -182,7 +181,7 @@ class Netlink(socket.socket):
         except socket.error as (errno, string):
             if errno in [EINTR, EAGAIN]:
                 return False
-            raise NetlinkError("process: socket err[%d]: %s" % \
+            raise NetlinkError("netlink: socket err[%d]: %s" % \
                 (errno, string))
 
         nlh = Nlmsghdr.from_buffer(self.recvbuf)
@@ -194,7 +193,7 @@ class Netlink(socket.socket):
             l = nlh.nlmsg_len - sizeof(Nlmsghdr)
 
             if l < 0 or nlh.nlmsg_len > recv:
-                raise NetlinkError("process: malformed msg: len %d" % \
+                raise NetlinkError("netlink: malformed msg: len %d" % \
                     nlh.nlmsg_len)
 
             if tokens:
@@ -210,7 +209,7 @@ class Netlink(socket.socket):
                 err = Nlmsgerr.from_address(NLMSG_DATA(nlh))
                 if err.error == 0:
                     return False
-                raise NetlinkError("process: %s" % strerror(abs(err.error)))
+                raise NetlinkError("netlink: %s" % strerror(abs(err.error)))
 
             if self._nl_cb:
                 self._nl_cb(nlh)
@@ -220,7 +219,7 @@ class Netlink(socket.socket):
 
         remnant = recv - NLMSG_ALIGN(nlh.nlmsg_len) > 0
         if remnant:
-            raise NetlinkError("process: remnant of size %d" % \
+            raise NetlinkError("netlink: remnant of size %d" % \
                 remnant)
 
         return True
