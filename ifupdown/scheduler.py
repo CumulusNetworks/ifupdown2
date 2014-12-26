@@ -136,8 +136,9 @@ class ifaceScheduler():
                 try:
                     handler(ifupdownobj, ifaceobjs[0])
                 except Exception, e:
-                    ifupdownobj.logger.warn('%s: %s'
-                                            %(ifaceobjs[0].name, str(e)))
+                    if not ifupdownobj.link_master_slave_ignore_error(str(e)):
+                       ifupdownobj.logger.warn('%s: %s'
+                                   %(ifaceobjs[0].name, str(e)))
                     pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,

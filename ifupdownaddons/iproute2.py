@@ -368,7 +368,7 @@ class iproute2(utilsBase):
     def link_set_hwaddress(self, ifacename, hwaddress, force=False):
         if not force:
             if self._cache_check('link', [ifacename, 'hwaddress'], hwaddress):
-                return
+               return
         self.link_down(ifacename)
         cmd = 'link set dev %s address %s' %(ifacename, hwaddress)
         if self.ipbatch:

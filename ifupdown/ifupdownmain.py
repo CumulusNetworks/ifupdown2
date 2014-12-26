@@ -236,6 +236,21 @@ class ifupdownMain(ifupdownBase):
         else:
             self._link_master_slave = False
 
+    def link_master_slave_ignore_error(self, errorstr):
+        # If link master slave flag is set, 
+        # there may be cases where the lowerdev may not be
+        # up resulting in 'Network is down' error
+        # This can happen if the lowerdev is a LINK_SLAVE
+        # of another interface which is not up yet
+        # example of such a case:
+        #   bringing up a vlan on a bond interface and the bond
+        #   is a LINK_SLAVE of a bridge (in other words the bond is
+        #   part of a bridge) which is not up yet
+        if self._link_master_slave:
+           if 'Network is down':
+              return True
+        return False
+
     def get_ifaceobjs(self, ifacename):
         return self.ifaceobjdict.get(ifacename)
 
