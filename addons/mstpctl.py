@@ -319,8 +319,8 @@ class mstpctl(moduleBase):
                                         ifaceobj_getfunc=None):
         self.logger.info('%s: applying mstp configuration '
                           %ifaceobj.name + 'specific to ports')
-
-        bridgeports = self._get_bridge_port_list(ifaceobj)
+        # Query running bridge ports. and only apply attributes on them
+        bridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
         if not bridgeports:
            self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
            return
@@ -328,8 +328,6 @@ class mstpctl(moduleBase):
             self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))
             if not self.ipcmd.link_exists(bport):
-               self.logger.warn('%s: port %s does not exist' %(ifaceobj.name,
-                                bport))
                continue
             bportifaceobjlist = ifaceobj_getfunc(bport)
             if not bportifaceobjlist:

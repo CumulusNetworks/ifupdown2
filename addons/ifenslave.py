@@ -228,6 +228,8 @@ class ifenslave(moduleBase):
 
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
+        if not slaves:
+           return
         attrval = ifaceobj.get_attrs_value_first(['bond-lacp-bypass-priority',
                                 'bond-lacp-fallback-priority'])
         if attrval:
