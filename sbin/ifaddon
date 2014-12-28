@@ -162,7 +162,8 @@ def man_rst_see_also():
     ip(8),
     mstpctl(8),
     brctl(8),
-    ethtool(8)'''
+    ethtool(8),
+    clagctl(8)'''
 
 def show_man_rst():
     man_rst_header()

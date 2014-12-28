@@ -5,6 +5,7 @@
 #
 
 import os
+import re
 from ifupdown.iface import *
 from utilsbase import *
 from iproute2 import *
@@ -48,12 +49,14 @@ class ifenslaveutil(utilsBase):
             linkCache.set_attr([bondname, 'linkinfo', 'ad_sys_mac_addr'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_mac_addr'
                                        %bondname))
+            linkCache.set_attr([bondname, 'linkinfo', 'clag_id'], 
+                            self.get_clag_id_from_clagd(bondname))
             map(lambda x: linkCache.set_attr([bondname, 'linkinfo', x],
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
                         'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period',
-                        'clag_id'])
+                        'clag_enable'])
         except Exception, e:
             pass
 
@@ -192,15 +195,43 @@ class ifenslaveutil(utilsBase):
         return self._cache_get([bondname, 'linkinfo', 'miimon'])
 
     def set_clag_id(self, bondname, clag_id):
-        if (self._cache_check([bondname, 'linkinfo', 'clag_id'],
-                clag_id)):
-            return
-        self.write_file('/sys/class/net/%s' %bondname +
-                '/bonding/clag_id', clag_id)
-        self._cache_update([bondname, 'linkinfo', 'clag_id'], clag_id)
+        # this involves -
+        # 1. Setting bond type in the bonding driver
+        # 2. Setting clag id via clagctl
+        clag_enable = '0' if clag_id == '0' else '1'
+        if self._cache_check([bondname, 'linkinfo', 'clag_enable'], 
+                        clag_enable) == False:
+            self.write_file('/sys/class/net/%s' %bondname +
+                        '/bonding/clag_enable', clag_enable)
+            self._cache_update([bondname, 'linkinfo', 'clag_enable'], 
+                        clag_enable)
+
+        if self.is_process_running('clagd') and \
+            self._cache_check([bondname, 'linkinfo', 'clag_id'], 
+                                             clag_id) == False:
+            self.exec_command('/usr/bin/clagctl setclagid %s %s' % (bondname, clag_id))
+            self._cache_update([bondname, 'linkinfo', 'clag_id'], clag_id)
+
+    def get_clag_id_from_clagd(self, bondname):
+        clag_id = None
+        if self.is_process_running('clagd'):
+            try:
+                output = self.subprocess_check_output(['/usr/bin/clagctl',
+                       'showclagid']) 
+                pat = re.compile('%s[ \t]+(?P<cid>\d+)' % bondname)
+                if output:
+                    obj = pat.search(output)
+                    if obj:
+                        clag_id = obj.group('cid')
+            except Exception, e:
+                pass
+        return clag_id
 
     def get_clag_id(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'clag_id'])
+
+    def get_clag_enable(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'clag_enable'])
 
     def set_mode(self, bondname, mode, prehook=None):
         valid_modes = ['balance-rr', 'active-backup', 'balance-xor',

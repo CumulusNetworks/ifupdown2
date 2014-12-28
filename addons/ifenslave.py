@@ -102,7 +102,7 @@ class ifenslave(moduleBase):
                                       'bond-slaves regex (swp[1|2)']},
                      'bond-clag-id' :
                         {'help' : 'multi-chassis lag id',
-                         'validrange' : ['0', '1023'],
+                         'validrange' : ['0', '65535'],
                          'default' : '0',
                          'example' : ['bond-clag-id 1']}}}
 
@@ -181,8 +181,7 @@ class ifenslave(moduleBase):
                                  ('bond-lacp-fallback-allow', 'lacp_bypass_allow'),
                                  ('bond-lacp-fallback-period', 'lacp_bypass_period'),
                                  ('bond-lacp-bypass-allow', 'lacp_bypass_allow'),
-                                 ('bond-lacp-bypass-period', 'lacp_bypass_period'),
-                                 ('bond-clag-id', 'clag_id')])
+                                 ('bond-lacp-bypass-period', 'lacp_bypass_period')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
@@ -232,12 +231,10 @@ class ifenslave(moduleBase):
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                rtnetlink_api.rtnl_api.link_set(slave, "up")
 
-    def _remove_stale_clag_id(self, ifaceobj):
+    def _set_clag_id(self, ifaceobj):
         attrval = ifaceobj.get_attr_value_first('bond-clag-id')
-        if attrval is None:
-            clag_id = self.ifenslavecmd.get_clag_id(ifaceobj.name)
-            if clag_id != '0':
-                self.ifenslavecmd.set_clag_id(ifaceobj.name, '0')
+        attrval = attrval if attrval else '0'
+        self.ifenslavecmd.set_clag_id(ifaceobj.name, attrval)
 
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
@@ -278,7 +275,7 @@ class ifenslave(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ifenslavecmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
-            self._remove_stale_clag_id(ifaceobj)
+            self._set_clag_id(ifaceobj)
             self._add_slaves(ifaceobj)
             self._apply_slaves_lacp_bypass_prio(ifaceobj)
             if ifaceobj.addr_method == 'manual':
