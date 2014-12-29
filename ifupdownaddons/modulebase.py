@@ -51,6 +51,14 @@ class moduleBase(object):
         else:
             pass
 
+    def is_process_running(self, procName):
+        try:
+            self.exec_command('/bin/pidof -x %s' % procName)
+        except:
+            return False
+        else:
+            return True
+
     def exec_command(self, cmd, cmdenv=None):
         """ execute command passed as argument.
 

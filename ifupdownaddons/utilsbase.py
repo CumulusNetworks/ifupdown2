@@ -36,14 +36,6 @@ class utilsBase(object):
         self.PERFMODE = kargs.get('perfmode', False)
         self.CACHE = kargs.get('cache', False)
 
-    def is_process_running(self, procName):
-        try:
-            self.exec_command('/bin/pidof -x %s' % procName)
-        except:
-            return False
-        else:
-            return True
-
     def exec_commandl(self, cmdl, cmdenv=None):
         """ Executes command """
 
