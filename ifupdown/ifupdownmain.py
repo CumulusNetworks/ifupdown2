@@ -230,11 +230,16 @@ class ifupdownMain(ifupdownBase):
         self._delay_admin_state = True if self.config.get(
                             'delay_admin_state_change', '0') == '1' else False
         self._delay_admin_state_iface_queue = []
-        if not self._delay_admin_state:
-            self._link_master_slave = True if self.config.get(
+        if self._delay_admin_state:
+            self.logger.info('\'delay_admin_state_change\' is set. admin ' +
+                             'state changes will be delayed till the end.')
+
+        self._link_master_slave = True if self.config.get(
                       'link_master_slave', '0') == '1' else False
-        else:
-            self._link_master_slave = False
+        if self._link_master_slave:
+            self.logger.info('\'link_master_slave\' is set. slave admin ' +
+                             'state changes will be delayed till the ' +
+                             'masters admin state change.')
 
     def link_master_slave_ignore_error(self, errorstr):
         # If link master slave flag is set, 
@@ -833,8 +838,6 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-        else:
-            self._link_master_slave = False
         try:
             self.read_iface_config()
         except Exception:
@@ -885,8 +888,6 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-        else:
-            self._link_master_slave = False
         # For down we need to look at old state, unless usecurrentconfig
         # is set
         if (not usecurrentconfig and self.STATEMANAGER_ENABLE and
@@ -1016,8 +1017,6 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-        else:
-            self._link_master_slave = False
         try:
             self.read_iface_config()
         except:
@@ -1091,8 +1090,6 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
-        else:
-            self._link_master_slave = False
         try:
             self.read_iface_config()
         except:

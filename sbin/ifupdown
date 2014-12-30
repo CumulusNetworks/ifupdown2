@@ -406,7 +406,7 @@ def validate_args(op, args):
         return False
     return True
 
-def read_config():
+def read_config(args):
     global configmap_g
 
     config = open(configfile, 'r').read()
@@ -423,6 +423,18 @@ def read_config():
         # attribute in the 'no_repeats' config, so that the ifupdownmain
         # module can catch it appropriately
         configmap_g['no_repeats'] = {'bridge-vlan-aware' : 'yes'}
+
+
+    configval = configmap_g.get('link_master_slave', '0')
+    if configval == '1':
+        # link_master_slave is only valid when all is set
+        if hasattr(args, 'all') and not args.all:
+            configmap_g['link_master_slave'] = '0'
+
+    configval = configmap_g.get('delay_admin_state_change', '0')
+    if configval == '1':
+        # reset link_master_slave if delay_admin_state_change is on
+        configmap_g['link_master_slave'] = '0'
 
 def main(argv):
     """ main function """
@@ -454,7 +466,7 @@ def main(argv):
             print 'Another instance of this program is already running.'
             exit(0)
 
-        read_config()
+        read_config(args)
         init(args)
         handlers.get(op)(args)
     except Exception, e:
