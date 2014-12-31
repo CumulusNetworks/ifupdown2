@@ -430,7 +430,7 @@ class iface():
         self.priv_flags = 0
         self.raw_config = []
         self.flags |= self._PICKLED
-        self.link_type = ifaceLinkType.LINK_UNKNOWN
+        self.link_type = ifaceLinkType.LINK_NA
         self.link_kind = ifaceLinkKind.UNKNOWN
 
     def dump_raw(self, logger):

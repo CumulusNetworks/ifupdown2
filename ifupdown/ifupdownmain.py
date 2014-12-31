@@ -299,6 +299,8 @@ class ifupdownMain(ifupdownBase):
         ifaceobj.name = ifacename
         ifaceobj.priv_flags = priv_flags
         ifaceobj.auto = True
+        if not self._link_master_slave:
+            ifaceobj.link_type = ifaceLinkType.LINK_NA
         if increfcnt:
             ifaceobj.inc_refcnt()
         self.ifaceobjdict[ifacename] = [ifaceobj]

@@ -871,7 +871,7 @@ class bridge(moduleBase):
                         proc_file = ('/proc/sys/net/ipv6/conf/%s' %p +
                                      '/disable_ipv6')
                         self.write_file(proc_file, '0')
-                        if ifaceobj.link_type == ifaceLinkType.LINK_MASTER:
+                        if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                            rtnetlink_api.rtnl_api.link_set(p, "down")
         except Exception, e:
             self.log_error(str(e))
