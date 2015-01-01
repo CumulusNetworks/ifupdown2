@@ -8,6 +8,7 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
+from ipaddr import IPNetwork
 import logging
 import os
 import glob
@@ -87,6 +88,37 @@ class addressvirtual(moduleBase):
                    return False
         return True
 
+    def _fix_connected_route(self, ifaceobj, vifacename, addr):
+        #
+        # XXX: Hack to make sure the primary address 
+        # is the first in the routing table.
+        #
+        # We use `ip route get` on the vrr network to see which
+        # device the kernel returns. if it is the mac vlan device,
+        # flap the macvlan device to adjust the routing table entry.
+        # 
+        # flapping the macvlan device makes sure the macvlan
+        # connected route goes through delete + add, hence adjusting
+        # the order in the routing table.
+        #
+        try:
+            self.logger.info('%s: checking route entry ...' %ifaceobj.name)
+            ip = IPNetwork(addr)
+            route_prefix = '%s/%d' %(ip.network, ip.prefixlen)
+
+            dev = self.ipcmd.ip_route_get_dev(route_prefix)
+            if dev and dev == vifacename:
+                self.logger.info('%s: preferred routing entry ' %ifaceobj.name +
+                                 'seems to be of the macvlan dev %s'
+                                 %vifacename +
+                                 ' .. flapping macvlan dev to fix entry.')
+                self.ipcmd.link_down(vifacename)
+                self.ipcmd.link_up(vifacename)
+        except Exception, e:
+            self.logger.debug('%s: fixing route entry failed (%s)'
+                              %str(e))
+            pass
+
     def _apply_address_config(self, ifaceobj, address_virtual_list):
         purge_existing = False if self.PERFMODE else True
 
@@ -104,15 +136,21 @@ class addressvirtual(moduleBase):
 
             # Create a macvlan device on this device and set the virtual
             # router mac and ip on it
+            link_created = False
             macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
                 rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
                                                       ifaceobj.name)
+                link_created = True
             if av_attrs[0] != 'None':
                 self.ipcmd.link_set_hwaddress(macvlan_ifacename, av_attrs[0])
                 hwaddress.append(av_attrs[0])
             self.ipcmd.addr_add_multiple(macvlan_ifacename, av_attrs[1:],
                                          purge_existing)
+            # If link existed before, flap the link
+            if not link_created:
+                self._fix_connected_route(ifaceobj, macvlan_ifacename,
+                                          av_attrs[1])
             av_idx += 1
         self.ipcmd.batch_commit()
 
@@ -170,13 +208,11 @@ class addressvirtual(moduleBase):
         address_virtual_list = ifaceobj.get_attr_value('address-virtual')
         if not address_virtual_list:
             # XXX: address virtual is not present. In which case,
-            # delete stale any macvlan devices.
+            # delete stale macvlan devices.
             self._remove_address_config(ifaceobj, address_virtual_list)
             return
 
         if not self.ipcmd.link_exists(ifaceobj.name):
-            #self.log_warn('%s: interface does not exist'
-            #              %ifaceobj.name)
             return
         self._apply_address_config(ifaceobj, address_virtual_list)
 
