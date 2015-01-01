@@ -685,3 +685,16 @@ class iproute2(utilsBase):
             ret = False
             pass
         return ret
+
+    def ip_route_get_dev(self, prefix):
+        try:
+            output = self.exec_command('ip route get %s' %prefix)
+            if output:
+               rline = output.splitlines()[0]
+               if rline:
+                    rattrs = rline.split()
+                    return rattrs[rattrs.index('dev') + 1]
+        except Exception, e:
+            self.logger.debug('ip_route_get_dev: failed .. %s' %str(e))
+            pass
+        return None
