@@ -282,7 +282,7 @@ class bridge(moduleBase):
                 self.write_file('/proc/sys/net/ipv6/conf/%s' %p +
                                 '/disable_ipv6', enable)
             except Exception, e:
-                self.logger.warn(str(e))
+                self.logger.info(str(e))
                 pass
 
     def _add_ports(self, ifaceobj):
@@ -326,7 +326,7 @@ class bridge(moduleBase):
             pass
 
         # enable ipv6 for ports that were removed
-        self._ports_enable_disable_ipv6(removedbridgeports, '1')
+        self._ports_enable_disable_ipv6(removedbridgeports, '0')
         if err:
             self.log_error('bridge configuration failed (missing ports)')
 
@@ -844,7 +844,7 @@ class bridge(moduleBase):
             if not running_ports:
                return
             # disable ipv6 for ports that were added to bridge
-            self._ports_enable_disable_ipv6(running_ports, '0')
+            self._ports_enable_disable_ipv6(running_ports, '1')
             self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
@@ -867,12 +867,10 @@ class bridge(moduleBase):
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 self.brctlcmd.delete_bridge(ifaceobj.name)
                 if ports:
-                    for p in ports:
-                        proc_file = ('/proc/sys/net/ipv6/conf/%s' %p +
-                                     '/disable_ipv6')
-                        self.write_file(proc_file, '0')
-                        if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                           rtnetlink_api.rtnl_api.link_set(p, "down")
+                    self._ports_enable_disable_ipv6(ports, '0')
+                    if ifaceobj.link_type != ifaceLinkType.LINK_NA:
+                        map(lambda p: rtnetlink_api.rtnl_api.link_set(p,
+                                    "down"), ports)
         except Exception, e:
             self.log_error(str(e))
 
