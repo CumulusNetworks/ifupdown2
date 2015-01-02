@@ -158,6 +158,11 @@ class ifenslave(moduleBase):
                         int(attrval) > int(validrange[1])):
                     raise Exception(msg + ' Valid range is [%s,%s]'
                                     %(validrange[0], validrange[1]))
+        elif attrname in ['bond-lacp-bypass-allow']:
+            # For some attrs, set default values
+            optiondict = self.get_mod_attr(attrname)
+            if optiondict:
+                return optiondict.get('default')
         return attrval
 
     def _apply_master_settings(self, ifaceobj):
