@@ -158,6 +158,13 @@ class ifenslave(moduleBase):
                         int(attrval) > int(validrange[1])):
                     raise Exception(msg + ' Valid range is [%s,%s]'
                                     %(validrange[0], validrange[1]))
+            if attrname == 'bond-mode' and attrval == '802.3ad':
+               dattrname = 'bond-min-links'
+               min_links = ifaceobj.get_attr_value_first(dattrname)
+               if not min_links or min_links == '0':
+                   self.logger.warn('%s: required attribute %s'
+                        %(ifaceobj.name, dattrname) +
+                        ' not present or set to \'0\'')
         elif attrname in ['bond-lacp-bypass-allow']:
             # For some attrs, set default values
             optiondict = self.get_mod_attr(attrname)
