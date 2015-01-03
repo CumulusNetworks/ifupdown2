@@ -166,12 +166,21 @@ reload)
 	log_action_end_msg $?
 	;;
 
+reload-currently-up)
+
+	ifupdown_init
+	log_action_begin_msg "Reloading currently up network interfaces configuration"
+
+	ifreload --currently-up $EXTRA_ARGS
+	log_action_end_msg $?
+	;;
+
 force-reload)
 
 	ifupdown_init
 
 	log_action_begin_msg "Reloading network interfaces configuration"
-	ifreload -a
+	ifreload -f -a $EXTRA_ARGS
 	log_action_end_msg $?
 	;;
 

@@ -14,7 +14,7 @@ reload network interface configuration
 
 SYNOPSIS
 ========
-    ifreload [-h] -a [-v] [-d] [-f] [-n] 
+    ifreload [-h] (-a|-c) [-v] [-d] [-f] [-n] 
 
 DESCRIPTION
 ===========
@@ -26,6 +26,10 @@ DESCRIPTION
     **ifreload** is equivalent to **ifdown -a** followed by **ifup -a**
     but it skips **ifdown** for interfaces that did not change in the config
     file.
+
+    If you do not wish to execute **down** on any interfaces, but only **up** on
+    interfaces that were already **up**, please see the **--currently-up**
+    option below.
 
 
 OPTIONS
@@ -40,6 +44,11 @@ OPTIONS
 
     -f, --force           force run all operations
 
+    -c, --currently-up    only reload auto and other interfaces that are
+                          currently up. This can be used as a non-disruptive
+                          alternative to -a because it will not down any
+                          interfaces
+
 EXAMPLES
 ========
     # reload all auto interfaces in **interfaces(5)** file
@@ -49,6 +58,10 @@ EXAMPLES
     # reload all interfaces using service command
 
     **service networking reload**
+
+    # reload all currently up interfaces without bringing any interfaces down
+
+    **service networking reload-currently-up**
 
 SEE ALSO
 ========
