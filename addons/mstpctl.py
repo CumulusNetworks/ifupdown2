@@ -210,6 +210,15 @@ class mstpctl(moduleBase):
         else:
             return None
 
+    def _ports_enable_disable_ipv6(self, ports, enable='1'):
+        for p in ports:
+            try:
+                self.write_file('/proc/sys/net/ipv6/conf/%s' %p +
+                                '/disable_ipv6', enable)
+            except Exception, e:
+                self.logger.info(str(e))
+                pass
+
     def _add_ports(self, ifaceobj):
         bridgeports = self._get_bridge_port_list(ifaceobj)
 
@@ -234,11 +243,10 @@ class mstpctl(moduleBase):
                     err += 1
                     continue
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
-                self.write_file('/proc/sys/net/ipv6/conf/%s' %bridgeport +
-                                '/disable_ipv6', '1')
                 self.ipcmd.addr_flush(bridgeport)
             except Exception, e:
                 self.log_error(str(e))
+
         if err:
             self.log_error('error configuring bridge (missing ports)')
 
@@ -378,6 +386,11 @@ class mstpctl(moduleBase):
                     pass
                 finally:
                     self.ipcmd.batch_commit()
+            running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            if running_ports:
+                # disable ipv6 for ports that were added to bridge
+                self._ports_enable_disable_ipv6(running_ports, '1')
+
             stp = ifaceobj.get_attr_value_first('mstpctl-stp')
             if stp:
                self.set_iface_attr(ifaceobj, 'mstpctl-stp',
@@ -403,10 +416,7 @@ class mstpctl(moduleBase):
                 # bridge
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 if ports:
-                    for p in ports:
-                        proc_file = ('/proc/sys/net/ipv6/conf/%s' %p +
-                                     '/disable_ipv6')
-                        self.write_file(proc_file, '0')
+                    self._ports_enable_disable_ipv6(ports, '0')
                 self.brctlcmd.delete_bridge(ifaceobj.name)
         except Exception, e:
             self.log_error(str(e))
