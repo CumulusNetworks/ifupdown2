@@ -460,7 +460,7 @@ class iproute2(utilsBase):
                           localtunnelip=None,
                           svcnodeips=None,
                           peernodeips=None,
-                          learning='off'):
+                          learning='on'):
         if svcnodeips and peernodeips:
             raise Exception("svcnodeip and peernodeip is mutually exclusive")
         args = ''
@@ -472,9 +472,7 @@ class iproute2(utilsBase):
         if peernodeips:
             for s in peernodeips:
                 args += ' peernode %s' %s
-        if learning == 'on':
-            args += ' learning'
-        else:
+        if learning == 'off':
             args += ' nolearning'
         
         if self.link_exists(name):
