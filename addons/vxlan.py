@@ -25,7 +25,7 @@ class vxlan(moduleBase):
                              'example': ['vxlan-peernodeip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning on/off',
-                             'example': ['vxlan-learning on'],
+                             'example': ['vxlan-learning off'],
                              'default': 'on'},
                 }}
 
