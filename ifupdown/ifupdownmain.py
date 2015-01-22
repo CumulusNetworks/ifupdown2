@@ -554,10 +554,16 @@ class ifupdownMain(ifupdownBase):
         with open(self.addon_modules_configfile, 'r') as f:
             lines = f.readlines()
             for l in lines:
-                litems = l.rstrip(' \n\t\r').split(',')
-                operation = litems[0]
-                mname = litems[1]
-                self.module_ops[operation].append(mname)
+                try:
+                    litems = l.strip(' \n\t\r').split(',')
+                    if not litems or len(litems) < 2:
+                        continue
+                    operation = litems[0]
+                    mname = litems[1]
+                    self.module_ops[operation].append(mname)
+                except Exception, e:
+                    self.logger.warn('error reading line \'%s\'' %(l, str(e)))
+                    continue
 
     def load_addon_modules(self, modules_dir):
         """ load python modules from modules_dir
