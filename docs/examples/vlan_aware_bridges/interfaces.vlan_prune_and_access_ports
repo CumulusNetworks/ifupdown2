@@ -14,7 +14,7 @@
 auto swp1
 iface swp1
       bridge-access 310
-      mstpctl-portautoedge yes
+      mstpctl-portadminedge yes
       mstpctl-bpduguard yes
 
 # The following is a truk port that is "pruned".
@@ -24,7 +24,7 @@ iface swp1
 auto swp2
 iface swp2
       bridge-vids 707 712 850
-      mstpctl-portautoedge yes
+      mstpctl-portadminedge yes
       mstpctl-bpduguard yes
      
 # The following port is the trunk uplink and inherits all vlans
@@ -32,12 +32,16 @@ iface swp2
 auto swp49
 iface swp49
       mstpctl-portpathcost 10
+      # Enable bridge assurance on uplink port using 'portnetwork' attribute
+      mstpctl-portnetwork yes
 
 # The following port is the trunk uplink and inherits all vlans
 # from 'bridge'
 auto swp50
 iface swp50
       mstpctl-portpathcost 0
+      # Enable bridge assurance on uplink port using 'portnetwork' attribute
+      mstpctl-portnetwork yes
 
 #
 # ports swp3-swp48 are trunk ports which inherit vlans from the 'bridge'
