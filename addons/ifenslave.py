@@ -246,6 +246,11 @@ class ifenslave(moduleBase):
                      ifaceobj.link_type != ifaceLinkType.LINK_NA):
                rtnetlink_api.rtnl_api.link_set(slave, "up")
 
+    def _set_clag_enable(self, ifaceobj):
+        attrval = ifaceobj.get_attr_value_first('clag-id')
+        attrval = attrval if attrval else '0'
+        self.ifenslavecmd.set_clag_enable(ifaceobj.name, attrval)
+
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
         if not slaves:
@@ -285,6 +290,8 @@ class ifenslave(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ifenslavecmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
+            # clag_enable has to happen before the slaves are added to the bond
+            self._set_clag_enable(ifaceobj)
             self._add_slaves(ifaceobj)
             self._apply_slaves_lacp_bypass_prio(ifaceobj)
             if ifaceobj.addr_method == 'manual':
