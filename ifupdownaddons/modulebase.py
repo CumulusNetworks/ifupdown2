@@ -355,3 +355,9 @@ class moduleBase(object):
                    %(self._resv_vlan_range[0], self._resv_vlan_range[1]))
            return True
         return False
+
+    def _valid_ethaddr(self, ethaddr):
+        """ Check if address is 00:00:00:00:00:00 """
+        if not ethaddr or re.match('00:00:00:00:00:00', ethaddr):
+            return False
+        return True

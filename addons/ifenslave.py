@@ -231,11 +231,10 @@ class ifenslave(moduleBase):
         attrval = ifaceobj.get_attr_value_first('clag-id')
         clag_id = attrval if attrval else '0'
         for slave in Set(slaves).difference(Set(runningslaves)):
-            if (not self.PERFMODE and
-                not self.ipcmd.link_exists(slave)):
-                self.log_warn('%s: skipping slave %s, does not exist'
-                        %(ifaceobj.name, slave))
-                continue
+            if not self.PERFMODE and not self.ipcmd.link_exists(slave):
+                    self.log_warn('%s: skipping slave %s, does not exist'
+                                  %(ifaceobj.name, slave))
+                    continue
             link_up = False
             if self.ipcmd.is_link_up(slave):
                rtnetlink_api.rtnl_api.link_set(slave, "down")

@@ -314,6 +314,12 @@ class bridge(moduleBase):
                                    %(ifaceobj.name, bridgeport))
                     err += 1
                     continue
+                hwaddress = self.ipcmd.link_get_hwaddress(bridgeport)
+                if not self._valid_ethaddr(hwaddress):
+                    self.log_warn('%s: skipping port %s, ' %(ifaceobj.name,
+                                  bridgeport) + 'invalid ether addr %s'
+                                  %hwaddress)
+                    continue
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
             except Exception, e:

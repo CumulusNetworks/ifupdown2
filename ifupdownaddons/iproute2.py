@@ -515,7 +515,13 @@ class iproute2(utilsBase):
         return self._cache_get('link', [ifacename, 'mtu'])
 
     def link_get_hwaddress(self, ifacename):
-        return self._cache_get('link', [ifacename, 'hwaddress'])
+        address = self._cache_get('link', [ifacename, 'hwaddress'])
+        # newly created logical interface addresses dont end up in the cache
+        # read hwaddress from sysfs file for these interfaces
+        if not address:
+            address = self.read_file_oneline('/sys/class/net/%s/address'
+                                             %ifacename)
+        return address
 
     def link_create(self, ifacename, type, link=None):
         if self.link_exists(ifacename):
