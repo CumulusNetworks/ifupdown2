@@ -108,6 +108,10 @@ class ifupdownMain(ifupdownBase):
 
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
+        # Skip link sets on ifaceobjs of type 'vlan' (used for l2 attrs).
+        # there is no real interface behind it
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+            return
         if (ifaceobj.addr_method and
             ifaceobj.addr_method == 'manual'):
             return
@@ -125,6 +129,10 @@ class ifupdownMain(ifupdownBase):
         self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
+        # Skip link sets on ifaceobjs of type 'vlan' (used for l2 attrs)
+        # there is no real interface behind it
+        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+            return
         if (ifaceobj.addr_method and
             ifaceobj.addr_method == 'manual'):
             return
