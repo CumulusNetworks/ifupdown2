@@ -410,6 +410,11 @@ class networkInterfaces():
             fp = open(filename)
             ifacedicts = json.load(fp)
                             #object_hook=ifaceJsonDecoder.json_object_hook)
+
+        # we need to handle both lists and non lists formats (e.g. {{}})
+        if not isinstance(ifacedicts,list):
+            ifacedicts = [ifacedicts]
+
         for ifacedict in ifacedicts:
             ifaceobj = ifaceJsonDecoder.json_to_ifaceobj(ifacedict)
             if ifaceobj:
