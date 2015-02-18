@@ -121,11 +121,7 @@ class ifenslave(moduleBase):
 
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
-        # if clag-id is non-zero then clagd controls the slave states
-        attrval = ifaceobj.get_attr_value_first('clag-id')
-        clag_id = attrval if attrval else '0'
-        if (ifaceobj.link_type != ifaceLinkType.LINK_NA or
-           clag_id != '0'):
+        if ifaceobj.link_type != ifaceLinkType.LINK_NA:
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         return slave_list
 
@@ -228,8 +224,6 @@ class ifenslave(moduleBase):
                 [ self.ifenslavecmd.remove_slave(ifaceobj.name, s)
                     for s in runningslaves if s not in slaves ]
 
-        attrval = ifaceobj.get_attr_value_first('clag-id')
-        clag_id = attrval if attrval else '0'
         for slave in Set(slaves).difference(Set(runningslaves)):
             if not self.PERFMODE and not self.ipcmd.link_exists(slave):
                     self.log_warn('%s: skipping slave %s, does not exist'
@@ -240,9 +234,7 @@ class ifenslave(moduleBase):
                rtnetlink_api.rtnl_api.link_set(slave, "down")
                link_up = True
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
-            # for clag bonds clagd controls the state of the clag slaves
-            if clag_id == '0' and (link_up or\
-                     ifaceobj.link_type != ifaceLinkType.LINK_NA):
+            if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                rtnetlink_api.rtnl_api.link_set(slave, "up")
 
     def _set_clag_enable(self, ifaceobj):
