@@ -344,6 +344,10 @@ class networkInterfaces():
         return classes
 
     def process_interfaces(self, filedata):
+
+        # process line continuations
+        filedata = ' '.join(d.strip() for d in filedata.split('\\'))
+
         line_idx = 0
         lines_consumed = 0
         raw_config = filedata.split('\n')
@@ -369,8 +373,6 @@ class networkInterfaces():
 
     def read_filedata(self, filedata):
         self._currentfile_has_template = False
-        # process line continuations
-        filedata = ' '.join(d.strip() for d in filedata.split('\\'))
         # run through template engine
         try:
             rendered_filedata = self._template_engine.render(filedata)
