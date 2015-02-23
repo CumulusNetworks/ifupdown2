@@ -88,8 +88,8 @@ class ifenslave(moduleBase):
                           'example' : ['bond-lacp-bypass-allow 0']},
                      'bond-lacp-bypass-period':
                          {'help' : 'grace period (seconds) for lacp bypass',
-                          'validrange' : ['0', '100'],
-                          'default' : '90',
+                          'validrange' : ['0', '900'],
+                          'default' : '0',
                           'example' : ['bond-lacp-bypass-period 100']},
                      'bond-lacp-bypass-priority':
                          {'help' : 'slave priority for lacp bypass',
