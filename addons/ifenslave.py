@@ -235,7 +235,12 @@ class ifenslave(moduleBase):
                link_up = True
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
-               rtnetlink_api.rtnl_api.link_set(slave, "up")
+               try:
+                    rtnetlink_api.rtnl_api.link_set(slave, "up")
+               except Exception, e:
+                    self.logger.debug('%s: %s: link set up (%s)'
+                                      %(ifaceobj.name, slave, str(e)))
+                    pass
 
     def _set_clag_enable(self, ifaceobj):
         attrval = ifaceobj.get_attr_value_first('clag-id')

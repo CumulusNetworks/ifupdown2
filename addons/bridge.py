@@ -860,8 +860,14 @@ class bridge(moduleBase):
             #self._flush_running_vidinfo()
         finally:
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                [rtnetlink_api.rtnl_api.link_set(p, "up")
-                                    for p in running_ports]
+                for p in running_ports:
+                    try:
+                        rtnetlink_api.rtnl_api.link_set(p, "up")
+                    except Exception, e:
+                        self.logger.debug('%s: %s: link set up (%s)'
+                                          %(ifaceobj.name, p, str(e)))
+                        pass
+
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         if err:
