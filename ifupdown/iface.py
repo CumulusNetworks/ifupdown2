@@ -228,7 +228,7 @@ class iface():
         self.priv_data = None
         self.realname = None
         self.link_type = ifaceLinkType.LINK_UNKNOWN
-        self.link_kind = ifaceLinkKind.BRIDGE
+        self.link_kind = ifaceLinkKind.UNKNOWN
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
