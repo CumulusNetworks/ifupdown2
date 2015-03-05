@@ -27,6 +27,9 @@ class vxlan(moduleBase):
                             {'help' : 'vxlan learning on/off',
                              'example': ['vxlan-learning off'],
                              'default': 'on'},
+                        'vxlan-ageing' :
+                            {'help' : 'vxlan aging timer',
+                             'example': ['vxlan-ageing 300']},
                 }}
 
     def __init__(self, *args, **kargs):
@@ -45,7 +48,8 @@ class vxlan(moduleBase):
             localtunnelip=ifaceobj.get_attr_value_first('vxlan-local-tunnelip'),
             svcnodeips=ifaceobj.get_attr_value('vxlan-svcnodeip'),
             remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
-            learning=ifaceobj.get_attr_value_first('vxlan-learning'))
+            learning=ifaceobj.get_attr_value_first('vxlan-learning'),
+            ageing=ifaceobj.get_attr_value_first('vxlan-ageing'))
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
 
@@ -100,6 +104,10 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value('vxlan-remoteip'), 
                        vxlanattrs.get('remote', []))
 
+        self._query_check_n_update(ifaceobjcurr, 'vxlan-ageing',
+                       ifaceobj.get_attr_value('vxlan-ageing'),
+                       vxlanattrs.get('ageing'))
+
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
         if not learning:
             learning = 'on'
@@ -132,7 +140,9 @@ class vxlan(moduleBase):
         attrval = vxlanattrs.get('learning')
         if attrval and attrval == 'on':
             ifaceobjrunning.update_config('vxlan-learning', 'on')
-
+        attrval = vxlanattrs.get('ageing')
+        if attrval:
+            ifaceobjrunning.update_config('vxlan-ageing', vxlanattrs.get('ageing'))
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,

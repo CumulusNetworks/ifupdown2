@@ -71,12 +71,15 @@ class iproute2(utilsBase):
                     vattrs = {'vxlanid' : citems[i+2],
                               'svcnode' : [],
                               'remote'  : [],
+                              'ageing' : citems[i+2],
                               'learning': 'on'}
                     for j in range(i+2, len(citems)):
                         if citems[j] == 'local':
                             vattrs['local'] = citems[j+1]
                         elif citems[j] == 'svcnode':
                             vattrs['svcnode'].append(citems[j+1])
+                        elif citems[j] == 'ageing':
+                            vattrs['ageing'].append(citems[j+1])
                         elif citems[j] == 'nolearning':
                             vattrs['learning'] = 'off'
                     # get vxlan peer nodes
@@ -487,7 +490,8 @@ class iproute2(utilsBase):
                           localtunnelip=None,
                           svcnodeips=None,
                           remoteips=None,
-                          learning='on'):
+                          learning='on',
+                          ageing=None):
         if svcnodeips and remoteips:
             raise Exception("svcnodeip and remoteip is mutually exclusive")
         args = ''
@@ -496,9 +500,11 @@ class iproute2(utilsBase):
         if svcnodeips:
             for s in svcnodeips:
                 args += ' svcnode %s' %s
+        if ageing:
+            args += ' ageing %s' %ageing
         if learning == 'off':
             args += ' nolearning'
-        
+
         if self.link_exists(name):
             cmd = 'link set dev %s type vxlan dstport %d' %(name, VXLAN_UDP_PORT)
         else:
