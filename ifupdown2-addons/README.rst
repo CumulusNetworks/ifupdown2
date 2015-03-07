@@ -1,3 +1,7 @@
+NOTE: This package contents are now part of python-ifupdown2 package.
+and this package is deprecated.
+
+
 python-ifupdown2-addons
 =======================
 
