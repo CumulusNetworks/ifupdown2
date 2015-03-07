@@ -22,15 +22,14 @@ SCRIPTNAME=/etc/init.d/$NAME
 . /lib/lsb/init-functions
 
 CONFIGURE_INTERFACES=yes
-EXCLUDE_INTERFACES=
-REMOTE_SYSLOG_SERVER=
-VERBOSE=no
 
-verbose=
+EXTRA_ARGS=
 
 [ -f /etc/default/networking ] && . /etc/default/networking
 
-[ "$VERBOSE" = yes ] && verbose=-v
+[ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+[ "$DEBUG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+[ "$SYSLOG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
 
 gen_examples() {
     # Generate sample interfaces file. The interfaces files are
@@ -51,20 +50,11 @@ gen_examples() {
     return
 }
 
-is_bootup() {
-    # Return 0 if its bootup or return 1
-    [ -f /var/tmp/network/ifstatenew ] && return 1
-
-    return 0
-}
-
 perf_options() {
     # At bootup lets set perfmode
-    if is_bootup ; then
-       echo -n "--perfmode"
-    else
-       echo -n ""
-    fi
+    [ -f /var/tmp/network/ifstatenew ] && echo -n "" && return
+
+    echo -n "--perfmode"
 }
 
 process_exclusions() {
@@ -152,12 +142,7 @@ start)
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
 	log_action_begin_msg "Configuring network interfaces"
-	if is_bootup ; then
-	    ifup -a $verbose $perfoptions 2>&1 | /usr/bin/logger \
-			$REMOTE_SYSLOG_SERVER -s -i -t $SCRIPTNAME
-	else
-	    ifup -a $verbose $perfoptions
-	fi
+	ifup -a $EXTRA_ARGS $exclusions $perfoptions 
 	log_action_end_msg $?
 	;;
 
@@ -165,13 +150,11 @@ stop)
 	ifupdown_init
 	check_network_file_systems
 	check_network_swap
+	exclusions=$(process_exclusions)
 
 	log_action_begin_msg "Deconfiguring network interfaces"
-	if ifdown -a --exclude=lo $verbose; then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifdown -a $EXTRA_ARGS $exclusions
+	log_action_end_msg $?
 	;;
 
 reload)
@@ -179,12 +162,17 @@ reload)
 	ifupdown_init
 	log_action_begin_msg "Reloading network interfaces configuration"
 
-	if ifreload -a
-	then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifreload -a $EXTRA_ARGS
+	log_action_end_msg $?
+	;;
+
+reload-currently-up)
+
+	ifupdown_init
+	log_action_begin_msg "Reloading currently up network interfaces configuration"
+
+	ifreload --currently-up $EXTRA_ARGS
+	log_action_end_msg $?
 	;;
 
 force-reload)
@@ -192,27 +180,19 @@ force-reload)
 	ifupdown_init
 
 	log_action_begin_msg "Reloading network interfaces configuration"
-	if ifreload -a
-	then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	ifreload -f -a $EXTRA_ARGS
+	log_action_end_msg $?
 	;;
 
 restart)
 	ifupdown_init
 
-	log_action_begin_msg "Reconfiguring network interfaces"
-	ifdown -a --exclude=lo $verbose || true
 	set -f
 	exclusions=$(process_exclusions)
-	if ifup -a --exclude=lo $verbose
-	then
-	    log_action_end_msg $?
-	else
-	    log_action_end_msg $?
-	fi
+	log_action_begin_msg "Reconfiguring network interfaces"
+	ifdown -a $EXTRA_ARGS $exclusions || true
+	ifup -a $EXTRA_ARGS $exclusions
+	log_action_end_msg $?
 	;;
 
 *)

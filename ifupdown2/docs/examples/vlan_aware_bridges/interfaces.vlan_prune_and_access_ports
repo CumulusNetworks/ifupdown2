@@ -1,0 +1,59 @@
+#
+# vlan-aware bridge access ports and pruned vlan example
+#
+# 'bridge' is a vlan aware bridge with all ports (swp1-52).
+# native vlan is by default 1
+#
+# 'bridge-vids' attribute is used to declare vlans.
+# 'bridge-pvid' attribute is used to specify native vlans if other than 1
+# 'bridge-access' attribute is used to declare access port
+#
+# 
+
+# The following is an access port to vlan 310, no trunking
+auto swp1
+iface swp1
+      bridge-access 310
+      mstpctl-portadminedge yes
+      mstpctl-bpduguard yes
+
+# The following is a truk port that is "pruned".
+# native vlan is 1, but only .1q tags of 707, 712, 850 are
+# sent and received
+#
+auto swp2
+iface swp2
+      bridge-vids 707 712 850
+      mstpctl-portadminedge yes
+      mstpctl-bpduguard yes
+     
+# The following port is the trunk uplink and inherits all vlans
+# from 'bridge'
+auto swp49
+iface swp49
+      mstpctl-portpathcost 10
+      # Enable bridge assurance on uplink port using 'portnetwork' attribute
+      mstpctl-portnetwork yes
+
+# The following port is the trunk uplink and inherits all vlans
+# from 'bridge'
+auto swp50
+iface swp50
+      mstpctl-portpathcost 0
+      # Enable bridge assurance on uplink port using 'portnetwork' attribute
+      mstpctl-portnetwork yes
+
+#
+# ports swp3-swp48 are trunk ports which inherit vlans from the 'bridge'
+# ie vlans 310,700,707,712,850,910
+      
+#
+# the following is a vlan aware bridge with ports swp1-swp52
+# It has stp on
+#
+auto bridge
+iface bridge
+      bridge-vlan-aware yes
+      bridge-ports glob swp1-52
+      bridge-stp on
+      bridge-vids 310 700 707 712 850 910

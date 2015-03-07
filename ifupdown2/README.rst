@@ -9,11 +9,11 @@ The python-ifupdown2 package provides the infrastructure for
 parsing /etc/network/interfaces file, loading, scheduling and state
 management of interfaces.
 
-It dynamically loads python modules from /usr/share/ifupdownmodules (provided
- by the python-ifupdown2-addons package). To remain compatible with other
-packages that depend on ifupdown, it also executes scripts under /etc/network/.
+It dynamically loads python modules from /usr/share/ifupdownaddons.
+To remain compatible with other packages that depend on ifupdown,
+it also executes scripts under /etc/network/.
 To make the transition smoother, a python module under
-/usr/share/ifupdownmodules will override a script by the same name under
+/usr/share/ifupdownaddons will override a script by the same name under
 /etc/network/.
 
 It publishes an interface object which is passed to all loadble python
@@ -26,7 +26,7 @@ pluggable python modules:
 Unlike original ifupdown, all interface configuration is moved to external
 python modules. That includes inet, inet6 and dhcp configurations.
 
-A set of default modules are provided by the python-ifupdown2-addons deb.
+A set of default modules are included in the package.
 
 python-ifupdown2 expects a few things from the pluggable modules:
 - the module should implement a class by the same name
@@ -72,7 +72,3 @@ install
 
 - or install from deb
     dpkg -i python-ifupdown2-<ver>.deb
-
-- note that python-ifupdown2 requires python-ifupdown2-addons package to
-  function. And python-ifupdown2-addons deb has an install dependency on
-  python-ifupdown2

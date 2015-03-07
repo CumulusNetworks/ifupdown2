@@ -12,6 +12,7 @@ import subprocess
 import re
 import os
 from iface import *
+import rtnetlink_api as rtnetlink_api
 
 class ifupdownBase(object):
 
@@ -65,7 +66,7 @@ class ifupdownBase(object):
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
     def link_up(self, ifacename):
-        self.exec_command('ifconfig %s up' %ifacename)
+        rtnetlink_api.rtnl_api.link_set(ifacename, "up")
 
     def link_down(self, ifacename):
-        self.exec_command('ifconfig %s down' %ifacename)
+        rtnetlink_api.rtnl_api.link_set(ifacename, "down")

@@ -12,6 +12,8 @@ import logging
 import glob
 import re
 import os
+import copy
+from utils import utils
 from iface import *
 from template import templateEngine
 
@@ -23,6 +25,7 @@ class networkInterfaces():
     hotplugs = {}
     auto_ifaces = []
     callbacks = {}
+    auto_all = False
 
     _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6'],
                  'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
@@ -73,6 +76,12 @@ class networkInterfaces():
             self.logger.error('%s: %s' %(filename, msg))
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
+
+    def _parse_warn(self, filename, lineno, msg):
+        if lineno == -1 or self._currentfile_has_template:
+            self.logger.warn('%s: %s' %(filename, msg))
+        else:
+            self.logger.warn('%s: line%d: %s' %(filename, lineno, msg))
 
     def _validate_addr_family(self, ifaceobj, lineno=-1):
         if ifaceobj.addr_family:
@@ -138,7 +147,12 @@ class networkInterfaces():
         self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
         sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
         if sourced_file:
-            for f in glob.glob(sourced_file):
+            filenames = glob.glob(sourced_file)
+            if not filenames:
+                self._parse_warn(self._currentfile, lineno,
+                            'cannot find source file %s' %sourced_file)
+                return 0
+            for f in filenames:
                 self.read_file(f)
         else:
             self._parse_error(self._currentfile, lineno,
@@ -151,14 +165,23 @@ class networkInterfaces():
             self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
             return 0
-        [self.auto_ifaces.append(a) for a in auto_ifaces]
+        for a in auto_ifaces:
+            if a == 'all':
+                self.auto_all = True
+                break
+            r = utils.parse_iface_range(a)
+            if r:
+                for i in range(r[1], r[2]):
+                   self.auto_ifaces.append('%s-%d' %(r[0], i))
+            self.auto_ifaces.append(a)
         return 0
 
     def _add_to_iface_config(self, ifacename, iface_config, attrname,
                              attrval, lineno):
         newattrname = attrname.replace("_", "-")
         try:
-            if not self.callbacks.get('validateifaceattr')(newattrname, attrval):
+            if not self.callbacks.get('validateifaceattr')(newattrname,
+                                      attrval):
                 self._parse_error(self._currentfile, lineno,
                         'iface %s: unsupported keyword (%s)'
                         %(ifacename, attrname))
@@ -188,17 +211,26 @@ class networkInterfaces():
         else:
             iface_config[newattrname].append(attrval)
 
-    def process_iface(self, lines, cur_idx, lineno):
+    def parse_iface(self, lines, cur_idx, lineno, ifaceobj):
         lines_consumed = 0
         line_idx = cur_idx
 
-        ifaceobj = iface()
         iface_line = lines[cur_idx].strip(whitespaces)
         iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
 
+        # in cases where mako is unable to render the template
+        # or incorrectly renders it due to user template
+        # errors, we maybe left with interface names with
+        # mako variables in them. There is no easy way to
+        # recognize and warn about these. In the below check
+        # we try to warn the user of such cases by looking for
+        # variable patterns ('$') in interface names.
+        if '$' in ifacename:
+           self._parse_warn(self._currentfile, lineno,
+                    '%s: unexpected characters in interface name' %ifacename)
+
         ifaceobj.raw_config.append(iface_line)
-    
         iface_config = collections.OrderedDict()
         for line_idx in range(cur_idx + 1, len(lines)):
             l = lines[line_idx].strip(whitespaces)
@@ -238,22 +270,60 @@ class networkInterfaces():
             pass
         self._validate_addr_family(ifaceobj, lineno)
 
-        if ifaceobj.name in self.auto_ifaces:
+        if self.auto_all or (ifaceobj.name in self.auto_ifaces):
             ifaceobj.auto = True
 
         classes = self.get_allow_classes_for_iface(ifaceobj.name)
         if classes:
             [ifaceobj.set_class(c) for c in classes]
-
-        # Call iface found callback
-        self.callbacks.get('iface_found')(ifaceobj)
+        
         return lines_consumed       # Return next index
 
+    def process_iface(self, lines, cur_idx, lineno):
+        ifaceobj = iface()
+        lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+
+        range_val = utils.parse_iface_range(ifaceobj.name)
+        if range_val:
+           for v in range(range_val[1], range_val[2]):
+                ifaceobj_new = copy.deepcopy(ifaceobj)
+                ifaceobj_new.realname = '%s' %ifaceobj.name
+                ifaceobj_new.name = '%s%d' %(range_val[0], v)
+                ifaceobj_new.flags = iface.IFACERANGE_ENTRY
+                if v == range_val[1]:
+                    ifaceobj_new.flags |= iface.IFACERANGE_START
+                self.callbacks.get('iface_found')(ifaceobj_new)
+        else:
+            self.callbacks.get('iface_found')(ifaceobj)
+
+        return lines_consumed       # Return next index
+
+    def process_vlan(self, lines, cur_idx, lineno):
+        ifaceobj = iface()
+        lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+
+        range_val = utils.parse_iface_range(ifaceobj.name)
+        if range_val:
+           for v in range(range_val[1], range_val[2]):
+                ifaceobj_new = copy.deepcopy(ifaceobj)
+                ifaceobj_new.realname = '%s' %ifaceobj.name
+                ifaceobj_new.name = '%s%d' %(range_val[0], v)
+                ifaceobj_new.type = ifaceType.BRIDGE_VLAN
+                ifaceobj_new.flags = iface.IFACERANGE_ENTRY
+                if v == range_val[1]:
+                    ifaceobj_new.flags |= iface.IFACERANGE_START
+                self.callbacks.get('iface_found')(ifaceobj_new)
+        else:
+            ifaceobj.type = ifaceType.BRIDGE_VLAN
+            self.callbacks.get('iface_found')(ifaceobj)
+
+        return lines_consumed       # Return next index
 
     network_elems = { 'source'      : process_source,
                       'allow'      : process_allow,
                       'auto'        : process_auto,
-                      'iface'       : process_iface}
+                      'iface'       : process_iface,
+                      'vlan'       : process_vlan}
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword
@@ -274,6 +344,10 @@ class networkInterfaces():
         return classes
 
     def process_interfaces(self, filedata):
+
+        # process line continuations
+        filedata = ' '.join(d.strip() for d in filedata.split('\\'))
+
         line_idx = 0
         lines_consumed = 0
         raw_config = filedata.split('\n')
@@ -299,15 +373,13 @@ class networkInterfaces():
 
     def read_filedata(self, filedata):
         self._currentfile_has_template = False
-        # process line continuations
-        filedata = ' '.join(d.strip() for d in filedata.split('\\'))
         # run through template engine
         try:
             rendered_filedata = self._template_engine.render(filedata)
             if rendered_filedata is filedata:
-                self._currentfile_has_template = True
-            else:
                 self._currentfile_has_template = False
+            else:
+                self._currentfile_has_template = True
         except Exception, e:
             self._parse_error(self._currentfile, -1,
                     'failed to render template (%s). ' %str(e) +
@@ -340,6 +412,11 @@ class networkInterfaces():
             fp = open(filename)
             ifacedicts = json.load(fp)
                             #object_hook=ifaceJsonDecoder.json_object_hook)
+
+        # we need to handle both lists and non lists formats (e.g. {{}})
+        if not isinstance(ifacedicts,list):
+            ifacedicts = [ifacedicts]
+
         for ifacedict in ifacedicts:
             ifaceobj = ifaceJsonDecoder.json_to_ifaceobj(ifacedict)
             if ifaceobj:

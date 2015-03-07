@@ -6,6 +6,9 @@
 # Except bridge-ports, none of the other attributes are required. Default
 # values are documented in the ifupdown-addons-interfaces(5) man page.
 #
+# The bridge in the example below is a vlan unaware bridge (classic linux
+# bridge)
+#
 auto br-300
 iface br-300 inet static
            address 12.0.0.3/24

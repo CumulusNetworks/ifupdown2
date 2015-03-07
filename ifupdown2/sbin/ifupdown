@@ -13,6 +13,8 @@ import argparse
 import ConfigParser
 import StringIO
 import logging
+import logging.handlers
+import resource
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
@@ -49,13 +51,15 @@ def run_up(args):
             ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency,
-                               syntaxcheck=args.syntaxcheck)
+                               syntaxcheck=args.syntaxcheck, type=args.type,
+                               skipupperifaces=args.skipupperifaces)
         else:
             ifupdown_handle.up(['pre-up', 'up', 'post-up'],
                                args.all, args.CLASS, iflist,
                                excludepats=args.excludepats,
                                printdependency=args.printdependency,
-                               syntaxcheck=args.syntaxcheck)
+                               syntaxcheck=args.syntaxcheck, type=args.type,
+                               skipupperifaces=args.skipupperifaces)
     except:
         raise
 
@@ -79,7 +83,8 @@ def run_down(args):
                              args.all, args.CLASS, iflist,
                              excludepats=args.excludepats,
                              printdependency=args.printdependency,
-                             usecurrentconfig=args.usecurrentconfig)
+                             usecurrentconfig=args.usecurrentconfig,
+                             type=args.type)
     except:
         raise
 
@@ -121,7 +126,7 @@ def run_query(args):
         ifupdown_handle.query([qop], args.all, args.CLASS, iflist,
                               excludepats=args.excludepats,
                               printdependency=args.printdependency,
-                              format=args.format)
+                              format=args.format, type=args.type)
     except:
         raise
 
@@ -135,9 +140,10 @@ def run_reload(args):
                                        perfmode=args.perfmode)
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                ['pre-down', 'down', 'post-down'],
-                               args.all, None, None,
+                               auto=args.all, allow=None, ifacenames=None,
                                excludepats=args.excludepats,
-                               usecurrentconfig=args.usecurrentconfig)
+                               usecurrentconfig=args.usecurrentconfig,
+                               currentlyup=args.currentlyup)
     except:
         raise
 
@@ -152,13 +158,27 @@ def init(args):
         log_level = logging.DEBUG
 
     try:
-        logging.basicConfig(level=log_level,
-            format='%(levelname)s: %(message)s')
-        logging.addLevelName(logging.ERROR, 'error')
-        logging.addLevelName(logging.WARNING, 'warning')
-        logging.addLevelName(logging.DEBUG, 'debug')
-        logging.addLevelName(logging.INFO, 'info')
-        logger = logging.getLogger('ifupdown')
+        if hasattr(args, 'syslog') and args.syslog:
+            root_logger = logging.getLogger()
+            syslog_handler = logging.handlers.SysLogHandler(address='/dev/log',
+                             facility=logging.handlers.SysLogHandler.LOG_DAEMON)
+            logging.addLevelName(logging.ERROR, 'error')
+            logging.addLevelName(logging.WARNING, 'warning')
+            logging.addLevelName(logging.DEBUG, 'debug')
+            logging.addLevelName(logging.INFO, 'info')
+            root_logger.setLevel(log_level)
+            syslog_handler.setFormatter(logging.Formatter(
+                '%(name)s: %(levelname)s: %(message)s'))
+            root_logger.addHandler(syslog_handler)
+            logger = logging.getLogger('ifupdown')
+        else:
+            logging.basicConfig(level=log_level,
+                format='%(levelname)s: %(message)s')
+            logging.addLevelName(logging.ERROR, 'error')
+            logging.addLevelName(logging.WARNING, 'warning')
+            logging.addLevelName(logging.DEBUG, 'debug')
+            logging.addLevelName(logging.INFO, 'info')
+            logger = logging.getLogger('ifupdown')
     except:
         raise
 
@@ -210,12 +230,22 @@ def update_argparser(argparser):
                 default='native',
                 choices=['native', 'json'],
                 help='interfaces file format')
+    argparser.add_argument('-T', '--type',
+                dest='type',
+                default=None,
+                choices=['iface', 'vlan'],
+                help='type of interface entry (iface or vlan).' +
+                     'This option can be used in case of ambiguity between ' +
+                     'a vlan interface and an iface interface of the same name')
 
 def update_ifupdown_argparser(argparser):
     """ common arg parser for ifup and ifdown """
     argparser.add_argument('-f', '--force', dest='force',
                 action='store_true',
                 help='force run all operations')
+    argparser.add_argument('-l', '--syslog', dest='syslog',
+                action='store_true',
+                help=argparse.SUPPRESS)
     group = argparser.add_mutually_exclusive_group(required=False)
     group.add_argument('-n', '--no-act', dest='noact',
                 action='store_true', help='print out what would happen,' +
@@ -232,6 +262,13 @@ def update_ifup_argparser(argparser):
     argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
                 action='store_true',
                 help='Only run the interfaces file parser')
+    argparser.add_argument('-k', '--skip-upperifaces', dest='skipupperifaces',
+                action='store_true',
+                help='ifup by default tries to add newly created interfaces' +
+                ' into its upper/parent interfaces. Eg. if a bridge port is' +
+                ' created as a result of ifup on the port, ifup automatically' +
+                ' adds the port to the bridge. This option can be used to ' +
+                'disable this default behaviour')
     update_ifupdown_argparser(argparser)
 
 def update_ifdown_argparser(argparser):
@@ -275,8 +312,13 @@ def update_ifquery_argparser(argparser):
 
 def update_ifreload_argparser(argparser):
     """ parser for ifreload """
-    argparser.add_argument('-a', '--all', action='store_true', required=True,
+    group = argparser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-a', '--all', action='store_true',
                 help='process all interfaces marked \"auto\"')
+    group.add_argument('-c', '--currently-up', dest='currentlyup',
+                action='store_true',
+                help='only reload auto and other interfaces that are ' +
+                'currently up')
     argparser.add_argument('iflist', metavar='IFACE',
                 nargs='*', help=argparse.SUPPRESS)
     argparser.add_argument('-n', '--no-act', dest='noact',
@@ -308,6 +350,12 @@ def update_ifreload_argparser(argparser):
                 ' only look at the current interfaces file. Useful when your ' +
                 'state file is corrupted or you want down to use the latest '
                 'from the interfaces file')
+    argparser.add_argument('-l', '--syslog', dest='syslog',
+                action='store_true',
+                help=argparse.SUPPRESS)
+    argparser.add_argument('-f', '--force', dest='force',
+                action='store_true',
+                help='force run all operations')
 
 def parse_args(argsv, op):
     if op == 'query':
@@ -345,8 +393,8 @@ def validate_args(op, args):
     if op == 'query' and args.syntaxhelp:
         return True
     if op == 'reload':
-        if not args.all:
-            print '\'-a\' option is required'
+        if not args.all and not args.currentlyup:
+            print '\'-a\' or \'-c\' option is required'
             return False
     elif (not args.iflist and
             not args.all and not args.CLASS):
@@ -361,7 +409,7 @@ def validate_args(op, args):
         return False
     return True
 
-def read_config():
+def read_config(args):
     global configmap_g
 
     config = open(configfile, 'r').read()
@@ -370,6 +418,26 @@ def read_config():
     parser = ConfigParser.RawConfigParser()
     parser.readfp(configFP)
     configmap_g = dict(parser.items('ifupdown2'))
+
+    # Preprocess config map
+    configval = configmap_g.get('multiple_vlan_aware_bridge_support', '0')
+    if configval == '0':
+        # if multiple bridges not allowed, set the bridge-vlan-aware
+        # attribute in the 'no_repeats' config, so that the ifupdownmain
+        # module can catch it appropriately
+        configmap_g['no_repeats'] = {'bridge-vlan-aware' : 'yes'}
+
+
+    configval = configmap_g.get('link_master_slave', '0')
+    if configval == '1':
+        # link_master_slave is only valid when all is set
+        if hasattr(args, 'all') and not args.all:
+            configmap_g['link_master_slave'] = '0'
+
+    configval = configmap_g.get('delay_admin_state_change', '0')
+    if configval == '1':
+        # reset link_master_slave if delay_admin_state_change is on
+        configmap_g['link_master_slave'] = '0'
 
 def main(argv):
     """ main function """
@@ -401,7 +469,7 @@ def main(argv):
             print 'Another instance of this program is already running.'
             exit(0)
 
-        read_config()
+        read_config(args)
         init(args)
         handlers.get(op)(args)
     except Exception, e:
@@ -422,7 +490,7 @@ def main(argv):
 
 if __name__ == "__main__":
 
-
     # required during boot
     os.putenv('PATH', ENVPATH)
+    resource.setrlimit(resource.RLIMIT_CORE, (0,0))
     main(sys.argv)

@@ -19,6 +19,7 @@ from graph import *
 from collections import deque
 from threading import *
 from ifupdownbase import *
+from sets import Set
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
@@ -43,13 +44,19 @@ class ifaceScheduler():
         """ Runs sub operation on an interface """
         ifacename = ifaceobj.name
 
-        if (cls._STATE_CHECK and
-            (ifaceobj.state >= ifaceState.from_str(op))):
-            ifupdownobj.logger.debug('%s: already in state %s' %(ifacename, op))
+        if ifupdownobj.type and ifupdownobj.type != ifaceobj.type:
             return
+
         if not ifupdownobj.ADDONS_ENABLE: return
         if op == 'query-checkcurr':
             query_ifaceobj=ifupdownobj.create_n_save_ifaceobjcurr(ifaceobj)
+            # If not type bridge vlan and the object does not exist,
+            # mark not found and return
+            if (not ifupdownobj.link_exists(ifaceobj.name) and
+                ifaceobj.type != ifaceType.BRIDGE_VLAN):
+                query_ifaceobj.set_state_n_status(ifaceState.from_str(op),
+                                                  ifaceStatus.NOTFOUND)
+                return
         for mname in ifupdownobj.module_ops.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0
@@ -62,15 +69,18 @@ class ifaceScheduler():
                         if (ifaceobj.priv_flags & ifupdownobj.NOCONFIG):
                             continue
                         ifupdownobj.logger.debug(msg)
-                        m.run(ifaceobj, op, query_ifaceobj)
+                        m.run(ifaceobj, op, query_ifaceobj,
+                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
                     else:
                         ifupdownobj.logger.debug(msg)
-                        m.run(ifaceobj, op)
+                        m.run(ifaceobj, op,
+                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
             except Exception, e:
-                err = 1
-                ifupdownobj.log_error(str(e))
-                err = 0  # error can be ignored by log_error, in which case
-                         # reset err flag
+                if not ifupdownobj.ignore_error(str(e)):
+                   err = 1
+                   ifupdownobj.logger.warn(str(e))
+                # Continue with rest of the modules
+                pass
             finally:
                 if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
@@ -78,10 +88,15 @@ class ifaceScheduler():
                     if 'up' in  op or 'down' in op:
                         cls._SCHED_RETVAL = False
                 else:
+                    # Mark success only if the interface was not already
+                    # marked with error
+                    status = (ifaceobj.status
+                              if ifaceobj.status == ifaceStatus.ERROR
+                              else ifaceStatus.SUCCESS)
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
-                                                ifaceStatus.SUCCESS)
+                                                status)
 
-        if ifupdownobj.COMPAT_EXEC_SCRIPTS:
+        if ifupdownobj.config.get('addon_scripts_support', '0') == '1':
             # execute /etc/network/ scripts 
             for mname in ifupdownobj.script_ops.get(op, []):
                 ifupdownobj.logger.debug('%s: %s : running script %s'
@@ -96,10 +111,13 @@ class ifaceScheduler():
         """ Runs all operations on a list of interface
             configurations for the same interface
         """
+
         # minor optimization. If operation is 'down', proceed only
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
+        ifupdownobj.logger.info('%s: running ops ...' %ifacename)
         if ('down' in ops[0] and
+                ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
                 not ifupdownobj.link_exists(ifacename)):
             ifupdownobj.logger.debug('%s: does not exist' %ifacename)
             # run posthook before you get out of here, so that
@@ -115,17 +133,26 @@ class ifaceScheduler():
             # for the first object in the list
             handler = ifupdownobj.ops_handlers.get(op)
             if handler:
-                if (not ifaceobjs[0].addr_method or
-                    (ifaceobjs[0].addr_method and
-                    ifaceobjs[0].addr_method != 'manual')):
+                try:
                     handler(ifupdownobj, ifaceobjs[0])
+                except Exception, e:
+                    if not ifupdownobj.link_master_slave_ignore_error(str(e)):
+                       ifupdownobj.logger.warn('%s: %s'
+                                   %(ifaceobjs[0].name, str(e)))
+                    pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
-                        if ifupdownobj.COMPAT_EXEC_SCRIPTS else None) 
-                posthookfunc = ifupdownobj.sched_hooks.get('posthook')
-                if posthookfunc:
-                    posthookfunc(ifupdownobj, ifaceobj, op)
+                        if ifupdownobj.config.get('addon_scripts_support',
+                            '0') == '1' else None)
+        posthookfunc = ifupdownobj.sched_hooks.get('posthook')
+        if posthookfunc:
+            try:
+                [posthookfunc(ifupdownobj, ifaceobj, ops[0])
+                    for ifaceobj in ifaceobjs]
+            except Exception, e:
+                ifupdownobj.logger.warn('%s' %str(e))
+                pass
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
@@ -182,10 +209,16 @@ class ifaceScheduler():
         if not ifaceobjs:
             raise Exception('%s: not found' %ifacename)
 
+        # Check state of the dependent. If it is already brought up, return
+        if (cls._STATE_CHECK and
+            (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):
+            ifupdownobj.logger.debug('%s: already processed' %ifacename)
+            return
+
         for ifaceobj in ifaceobjs:
             if not cls._check_upperifaces(ifupdownobj, ifaceobj,
                                           ops, parent, followdependents):
-                return
+               return
 
         # If inorder, run the iface first and then its dependents
         if order == ifaceSchedulerFlags.INORDER:
@@ -258,6 +291,11 @@ class ifaceScheduler():
         if not ifaceobjs:
             raise Exception('%s: not found' %ifacename)
 
+        if (cls._STATE_CHECK and
+            (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):
+            ifupdownobj.logger.debug('%s: already processed' %ifacename)
+            return
+
         if not skip_root:
             # run the iface first and then its upperifaces
             cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
@@ -295,6 +333,66 @@ class ifaceScheduler():
                 pass
 
     @classmethod
+    def _get_valid_upperifaces(cls, ifupdownobj, ifacenames,
+                               allupperifacenames):
+        """ Recursively find valid upperifaces
+
+        valid upperifaces are:
+            - An upperiface which had no user config (example builtin
+              interfaces. usually vlan interfaces.)
+            - or had config and previously up
+            - and interface currently does not exist
+            - or is a bridge (because if your upperiface was a bridge
+            - u will have to execute up on the bridge
+              to enslave the port and apply bridge attributes to the port) """
+
+        upperifacenames = []
+        for ifacename in ifacenames:
+            # get upperifaces
+            ifaceobj = ifupdownobj.get_ifaceobj_first(ifacename)
+            if not ifaceobj:
+               continue
+            ulist = Set(ifaceobj.upperifaces).difference(upperifacenames)
+            nulist = []
+            for u in ulist:
+                uifaceobj = ifupdownobj.get_ifaceobj_first(u)
+                if not uifaceobj:
+                   continue
+                has_config = not bool(uifaceobj.priv_flags
+                                   & ifupdownobj.NOCONFIG)
+                if (((has_config and ifupdownobj.get_ifaceobjs_saved(u)) or
+                     not has_config) and (not ifupdownobj.link_exists(u)
+                         or uifaceobj.link_kind == ifaceLinkKind.BRIDGE)):
+                     nulist.append(u)
+            upperifacenames.extend(nulist)
+        allupperifacenames.extend(upperifacenames)
+        if upperifacenames:
+            cls._get_valid_upperifaces(ifupdownobj, upperifacenames,
+                                       allupperifacenames)
+        return
+
+    @classmethod
+    def run_upperifaces(cls, ifupdownobj, ifacenames, ops,
+                        continueonfailure=True):
+        """ Run through valid upperifaces """ 
+        upperifaces = []
+
+        cls._get_valid_upperifaces(ifupdownobj, ifacenames, upperifaces)
+        if not upperifaces:
+           return
+        # dump valid upperifaces
+        ifupdownobj.logger.debug(upperifaces)
+        for u in upperifaces:
+            try:
+                ifaceobjs = ifupdownobj.get_ifaceobjs(u)
+                if not ifaceobjs:
+                   continue
+                cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
+            except Exception, e:
+                if continueonfailure:
+                   self.logger.warn('%s' %str(e))
+
+    @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
                               dependency_graph, indegrees=None):
         if len(ifacenames) == 1:
@@ -321,7 +419,7 @@ class ifaceScheduler():
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
-                followdependents=True):
+                followdependents=True, skipupperifaces=False):
         """ runs interface configuration modules on interfaces passed as
             argument. Runs topological sort on interface dependency graph.
 
@@ -354,7 +452,7 @@ class ifaceScheduler():
         #
         # Run any upperifaces if available
         #
-        followupperifaces = []
+        followupperifaces = False
         run_queue = []
         skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
         if not skip_ifacesort and not indegrees:
@@ -366,7 +464,9 @@ class ifaceScheduler():
             # If there is any interface that does exist, maybe it is a
             # logical interface and we have to followupperifaces when it
             # comes up, so get that list.
-            followupperifaces = (True if
+            if any([True for i in ifacenames
+                    if ifupdownobj.must_follow_upperifaces(i)]):
+                followupperifaces = (True if
                                     [i for i in ifacenames
                                         if not ifupdownobj.link_exists(i)]
                                         else False)
@@ -403,14 +503,14 @@ class ifaceScheduler():
                 run_queue.reverse()
 
         # run interface list
-        ifupdownobj.logger.info('running interfaces: %s' %str(run_queue))
         cls.run_iface_list(ifupdownobj, run_queue, ops,
                            parent=None, order=order,
                            followdependents=followdependents)
         if not cls._SCHED_RETVAL:
             raise Exception()
 
-        if (ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
+        if (not skipupperifaces and
+                ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
                 ((not ifupdownobj.ALL and followdependents) or
                 followupperifaces) and
                 'up' in ops[0]):
@@ -419,6 +519,5 @@ class ifaceScheduler():
             ifupdownobj.logger.info('running upperifaces (parent interfaces) ' +
                                     'if available ..')
             cls._STATE_CHECK = False
-            cls.run_iface_list_upper(ifupdownobj, ifacenames, ops,
-                                     skip_root=True)
+            cls.run_upperifaces(ifupdownobj, ifacenames, ops)
             cls._STATE_CHECK = True

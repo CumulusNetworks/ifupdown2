@@ -1,0 +1,1343 @@
+.\" Man page generated from reStructeredText.
+.
+.TH IFUPDOWN-ADDONS-INTERFACES 5 "2013-09-25" "0.1" ""
+.SH NAME
+ifupdown-addons-interfaces \- ifupdown2 addon modules interface configuration
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH DESCRIPTION
+.INDENT 0.0
+.INDENT 3.5
+ifupdown2 addon modules add incremental functionality to
+core ifupdown2 tool.
+.sp
+All installed addon modules are executed on every interface
+listed in the interfaces file. Addon modules are installed under
+/usr/share/ifupdownaddons. To see the list of active addon
+modules, see ifaddon(8).
+.sp
+Addon modules add new attributes to the interfaces(5) file.
+Below is a list of attribute options provided by each module.
+These can be listed under each iface section in the interfaces(5)
+file.
+.UNINDENT
+.UNINDENT
+.SH EXAMPLES
+.INDENT 0.0
+.INDENT 3.5
+Listed below are addon modules and their supported attributes.
+The attributes if applicable go under the iface section in the
+interfaces(5) file.
+.sp
+\fBethtool\fP: ethtool configuration module for interfaces
+.INDENT 0.0
+.INDENT 3.5
+\fBlink\-duplex\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set link duplex
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: half
+.sp
+\fBvalidvals\fP: half,full
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+link\-duplex full
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBlink\-autoneg\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set autonegotiation
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: off
+.sp
+\fBvalidvals\fP: on,off
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+link\-autoneg on
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBlink\-speed\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set link speed
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+link\-speed 1000
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\fP: bridge configuration module
+.INDENT 0.0
+.INDENT 3.5
+\fBbridge\-mcqifaddr\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast query to use ifaddr
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcqifaddr 0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-gcint\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge garbage collection interval in secs
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 4
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-gcint 4
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcsqc\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast startup query count
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 2
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcsqc 2
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-stp\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge\-stp yes/no
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,on,off,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-stp no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcsqi\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast startup query interval (in secs)
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 31
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcsqi 31
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcmi\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast membership interval (in secs)
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 260
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcmi 260
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-ports\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge ports
+.sp
+\fBrequired\fP: True
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-ports swp1.100 swp2.100 swp3.100
+.sp
+bridge\-ports glob swp1\-3.100
+.sp
+bridge\-ports regex (swp[1|2|3].100)
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcsnoop\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast snooping
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcsnoop 1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-maxwait\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: forces to time seconds the maximum time that the Deb
+ian bridge setup  scripts will wait for the bridge ports to ge
+t to the forwarding status, doesn\(aqt allow factional part. If i
+t is equal to 0 then no waiting is done
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-maxwait 3
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-pathcosts\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge set port path costs
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 100
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-pathcosts swp1=100 swp2=100
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-portprios\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge port prios
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 32
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-portprios swp1=32 swp2=32
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-fd\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge forward delay
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 15
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-fd 15
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-ageing\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge ageing
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 300
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-ageing 300
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-hello\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge set hello time
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 2
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-hello 2
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcquerier\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast querier
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcquerier 0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mclmc\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast last member count
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 2
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mclmc 2
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcrouter\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast router
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcrouter 1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-portmcrouter\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set port multicast routers
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-portmcrouter swp1=1 swp2=1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mclmi\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast last member interval (in secs)
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mclmi 1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-hashmax\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set hash max
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 4096
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-hashmax 4096
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-waitport\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: wait for a max of time secs for the specified ports
+to become available,if no ports are specified then those speci
+fied on bridge\-ports will be used here. Specifying no ports he
+re should not be used if we are using regex or "all" on bridge
+_ports,as it wouldnt work.
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-waitport 4
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcqri\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast query response interval (in secs)
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 10
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcqri 10
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-hashel\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set hash elasticity
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 4096
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-hashel 4096
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcqpi\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast querier interval (in secs)
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 255
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcqpi 255
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-bridgeprio\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge priority
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 32768
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-bridgeprio 32768
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-maxage\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge set maxage
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 20
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-maxage 20
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-portmcfl\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: port multicast fast leave
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-portmcfl swp1=0 swp2=0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbridge\-mcqi\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set multicast query interval (in secs)
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 125
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bridge\-mcqi 125
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBusercmds\fP: user commands for interfaces
+.INDENT 0.0
+.INDENT 3.5
+\fBdown\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: run command at interface down
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBpost\-up\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: run command after interface bring up
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBup\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: run command at interface bring up
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBpre\-down\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: run command before bringing the interface down
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBpre\-up\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: run command before bringing the interface up
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBpost\-down\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: run command after bringing interface down
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\fP: mstp configuration module for bridges
+.INDENT 0.0
+.INDENT 3.5
+\fBmstpctl\-fdelay\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set forwarding delay
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 15
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-fdelay 15
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-txholdcount\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge transmit holdcount
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 6
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-txholdcount 6
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portautoedge\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable auto transition to/from edge state of
+the port
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portautoedge swp1=yes swp2=yes
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portrestrrole\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable port ability to take root role of the
+port
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portrestrrole swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portnetwork\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable bridge assurance capability for a por
+t
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portnetwork swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portp2p\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge port p2p detection mode
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portp2p swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-treeprio\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: tree priority
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 32768
+.sp
+validrange: 0\-65535
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-treeprio 32768
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-treeportprio\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: port priority for MSTI instance
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 128
+.sp
+validrange: 0\-240
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-treeportprio swp1=128 swp2=128
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-hello\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: set hello time
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 2
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-hello 2
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-ageing\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: ageing time
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 300
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-ageing 300
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portadminedge\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable initial edge state of the port
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portadminedge swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-maxage\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: max message age
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 20
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-maxage 20
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-maxhops\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge max hops
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 15
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-maxhops 15
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portrestrtcn\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable port ability to propagate received to
+pology change notification of the port
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portrestrtcn swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portpathcost\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge port path cost
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portpathcost swp1=0 swp2=1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portadminage\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge port admin age
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portadminage swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-portbpdufilter\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable bpdu filter on a port
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-portbpdufilter swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-forcevers\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bridge force stp version
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: rstp
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-forcevers rstp
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-treeportcost\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: port tree cost
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBmstpctl\-bpduguard\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: enable/disable bpduguard
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: no
+.sp
+\fBvalidvals\fP: yes,no
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mstpctl\-bpduguard swp1=no swp2=no
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBvlan\fP: vlan module configures vlan interfaces.This module under
+stands vlan interfaces with dot notations. eg swp1.100. Vlan inter
+faces with any other names need to have raw device and vlan id att
+ributes
+.INDENT 0.0
+.INDENT 3.5
+\fBvlan\-id\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: vlan id
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.sp
+\fBvlan\-raw\-device\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: vlan raw device
+.sp
+\fBrequired\fP: False
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBifenslave\fP: bond configuration module
+.INDENT 0.0
+.INDENT 3.5
+\fBbond\-miimon\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond miimon
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.sp
+validrange: 0\-255
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-miimon 0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-slaves\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond slaves
+.sp
+\fBrequired\fP: True
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-slaves swp1 swp2
+.sp
+bond\-slaves glob swp1\-2
+.sp
+bond\-slaves regex (swp[1|2)
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-mode\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond mode
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: balance\-rr
+.sp
+\fBvalidvals\fP: balance\-rr,active\-backup,balance\-xor,broadcast,802.3ad,balance\-tlb,balance\-alb
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-mode 802.3ad
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-num\-grat\-arp\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond use carrier
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.sp
+validrange: 0\-255
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-num\-grat\-arp 1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-ad\-sys\-mac\-addr\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: 802.3ad system mac address
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 00:00:00:00:00:00
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-ad\-sys\-mac\-addr 00:00:00:00:00:00
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-use\-carrier\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond use carrier
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.sp
+\fBvalidvals\fP: 0,1
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-use\-carrier 1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-lacp\-rate\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond use carrier
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.sp
+\fBvalidvals\fP: 0,1
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-lacp\-rate 0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-min\-links\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond min links
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 0
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-min\-links 0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-num\-unsol\-na\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond slave devices
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1
+.sp
+validrange: 0\-255
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-num\-unsol\-na 1
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-ad\-sys\-priority\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: 802.3ad system priority
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 65535
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-ad\-sys\-priority 65535
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbond\-xmit\-hash\-policy\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: bond slave devices
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: layer2
+.sp
+\fBvalidvals\fP: layer2,layer3+4,layer2+3
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+bond\-xmit\-hash\-policy layer2
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBaddress\fP: address configuration module for interfaces
+.INDENT 0.0
+.INDENT 3.5
+\fBbroadcast\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: broadcast address
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+broadcast 10.0.1.255
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBhwaddress\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: hw address
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+hwaddress 44:38:39:00:27:b8
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBalias\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: description/alias
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+alias testnetwork
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBaddress\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: ipv4 or ipv6 addresses
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+address 10.0.12.3/24
+.sp
+address 2000:1000:1000:1000:3::5/128
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBscope\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: scope
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+scope host
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBpreferred\-lifetime\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: preferred lifetime
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+preferred\-lifetime forever
+.sp
+preferred\-lifetime 10
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBgateway\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: default gateway
+.sp
+\fBrequired\fP: False
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+gateway 255.255.255.0
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBmtu\fP
+.INDENT 0.0
+.INDENT 3.5
+\fBhelp\fP: interface mtu
+.sp
+\fBrequired\fP: False
+.sp
+\fBdefault\fP: 1500
+.INDENT 0.0
+.TP
+.B \fBexample\fP:
+mtu 1600
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.SH SEE ALSO
+.INDENT 0.0
+.INDENT 3.5
+interfaces(5),
+ifup(8),
+ip(8),
+mstpctl(8),
+brctl(8),
+ethtool(8)
+.UNINDENT
+.UNINDENT
+.SH AUTHOR
+roopa@cumulusnetworks.com
+.SH COPYRIGHT
+Copyright 2013 Cumulus Networks, Inc.  All rights reserved.
+.\" Generated by docutils manpage writer.
+.\" 
+.

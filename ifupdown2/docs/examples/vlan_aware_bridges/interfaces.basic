@@ -1,0 +1,25 @@
+#
+# vlan-aware bridge simple example
+#
+# 'bridge' is a vlan aware bridge with all ports (swp1-52).
+# native vlan is by default 1
+#
+# 'bridge-vids' attribute is used to declare vlans.
+# 'bridge-pvid' attribute is used to specify native vlans if other than 1
+# 'bridge-access' attribute is used to declare access port
+# 
+
+#
+# ports swp1-swp52 are trunk ports which inherit vlans from 'bridge'
+# ie vlans 310 700 707 712 850 910
+      
+#
+# the following is a vlan aware bridge with ports swp1-swp52
+# It has stp on
+#
+auto bridge
+iface bridge
+      bridge-vlan-aware yes
+      bridge-ports glob swp1-52
+      bridge-stp on
+      bridge-vids 310 700 707 712 850 910

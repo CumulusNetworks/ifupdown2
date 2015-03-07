@@ -17,6 +17,22 @@ from collections import OrderedDict
 import logging
 import json
 
+class ifaceType():
+    UNKNOWN = 0x0
+    IFACE = 0x1
+    BRIDGE_VLAN = 0x2
+
+class ifaceLinkKind():
+    UNKNOWN = 0x0
+    BRIDGE = 0x1
+    BOND = 0x2
+
+class ifaceLinkType():
+    LINK_UNKNOWN = 0x0
+    LINK_SLAVE = 0x1
+    LINK_MASTER = 0x2
+    LINK_NA = 0x3
+
 class ifaceStatus():
     """Enumerates iface status """
 
@@ -172,8 +188,10 @@ class iface():
     """
 
     # flag to indicate that the object was created from pickled state
-    _PICKLED = 0x1
-    HAS_SIBLINGS = 0x2
+    _PICKLED = 0x00000001
+    HAS_SIBLINGS = 0x00000010
+    IFACERANGE_ENTRY = 0x00000100
+    IFACERANGE_START = 0x00001000
 
     version = '0.1'
 
@@ -185,13 +203,15 @@ class iface():
         """iface state (of type ifaceState) """
         self.status = ifaceStatus.UNKNOWN
         """iface status (of type ifaceStatus) """
+        self.status_str = None
+        """iface status str (string representing the status) """
         self.flags = 0x0
         """iface flags """
         self.priv_flags = 0x0
         """iface priv flags. can be used by the external object manager """
         self.refcnt = 0
         """iface refcnt (incremented for each dependent this interface has) """
-        self.lowerifaces = None
+        self.lowerifaces = None 
         """lower iface list (in other words: slaves of this interface """
         self.upperifaces = None
         """upper iface list (in other words: master of this interface """
@@ -203,6 +223,12 @@ class iface():
         """interface config/attributes in raw format (eg: as it appeared in the interfaces file)"""
         self.linkstate = None
         """linkstate of the interface"""
+        self.type = ifaceType.UNKNOWN
+        """interface type"""
+        self.priv_data = None
+        self.realname = None
+        self.link_type = ifaceLinkType.LINK_UNKNOWN
+        self.link_kind = ifaceLinkKind.UNKNOWN
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -266,6 +292,17 @@ class iface():
             return attr_value_list[0]
         return None
 
+    def get_attrs_value_first(self, attrs):
+        """ get first value of the first attr in the list.
+            Useful when you have multiple attrs representing the
+            same thing.
+        """
+        for attr in attrs:
+            attr_value_list = self.config.get(attr)
+            if attr_value_list:
+                return attr_value_list[0]
+        return None
+
     def get_attr_value_n(self, attr_name, attr_index):
         """ get n'th value of the specified attr name """
         attr_value_list = self.config.get(attr_name)
@@ -300,6 +337,17 @@ class iface():
         """ add attribute name and value to the interface config """
         self.config.setdefault(attr_name, []).append(attr_value)
 
+    def replace_config(self, attr_name, attr_value):
+        """ add attribute name and value to the interface config """
+        self.config[attr_name] = [attr_value]
+
+    def delete_config(self, attr_name):
+        """ add attribute name and value to the interface config """
+        try:
+            del self.config[attr_name]
+        except:
+            pass
+
     def update_config_dict(self, attrdict):
         self.config.update(attrdict)
 
@@ -310,13 +358,22 @@ class iface():
             attr_value = ''
         self.config.setdefault(attr_name, []).append(attr_value)
         self._config_status.setdefault(attr_name, []).append(attr_status)
-
         # set global iface state
-        if attr_status:
+        if attr_status == 1:
             self.status = ifaceStatus.ERROR
         elif self.status != ifaceStatus.ERROR:
             # Not already error, mark success
             self.status = ifaceStatus.SUCCESS
+
+    def check_n_update_config_with_status_many(self, ifaceobjorig, attr_names,
+                                               attr_status=0):
+        # set multiple attribute status to zero
+        # also updates status only if the attribute is present
+        for attr_name in attr_names:
+            if not ifaceobjorig.get_attr_value_first(attr_name):
+               continue
+            self.config.setdefault(attr_name, []).append('')
+            self._config_status.setdefault(attr_name, []).append(attr_status)
 
     def get_config_attr_status(self, attr_name, idx=0):
         """ get status of a attribute config on this interface.
@@ -330,6 +387,7 @@ class iface():
         Returns True if object self is same as dstiface and False otherwise """
 
         if self.name != dstiface.name: return False
+        if self.type != dstiface.type: return False
         if self.addr_family != dstiface.addr_family: return False
         if self.addr_method != dstiface.addr_method: return False
         if self.auto != dstiface.auto: return False
@@ -339,6 +397,7 @@ class iface():
         if any(True for k,v in self.config.items()
                     if v != dstiface.config.get(k)): return False
         return True
+
 
     def __getstate__(self):
         odict = self.__dict__.copy()
@@ -353,6 +412,8 @@ class iface():
         del odict['raw_config']
         del odict['linkstate']
         del odict['env']
+        del odict['link_type']
+        del odict['link_kind']
         return odict
 
     def __setstate__(self, dict):
@@ -369,6 +430,8 @@ class iface():
         self.priv_flags = 0
         self.raw_config = []
         self.flags |= self._PICKLED
+        self.link_type = ifaceLinkType.LINK_NA
+        self.link_kind = ifaceLinkKind.UNKNOWN
 
     def dump_raw(self, logger):
         indent = '  '
@@ -402,43 +465,60 @@ class iface():
         logger.info('}')
 
     def dump_pretty(self, with_status=False,
-                    successstr='success', errorstr='error'):
+                    successstr='success', errorstr='error',
+                    unknownstr='unknown', use_realname=False):
         indent = '\t'
         outbuf = ''
+        if use_realname and self.realname:
+            name = '%s' %self.realname
+        else:
+            name = '%s' %self.name
         if self.auto:
-            outbuf += 'auto %s\n' %self.name
-        outbuf += 'iface %s' %self.name
+            outbuf += 'auto %s\n' %name
+        ifaceline = ''
+        if self.type == ifaceType.BRIDGE_VLAN:
+            ifaceline += 'vlan %s' %name
+        else:
+            ifaceline += 'iface %s' %name
         if self.addr_family:
-            outbuf += ' %s' %self.addr_family
+            ifaceline += ' %s' %self.addr_family
         if self.addr_method:
-            outbuf += ' %s' %self.addr_method
+            ifaceline += ' %s' %self.addr_method
         if with_status:
-            if (self.status == ifaceStatus.NOTFOUND or 
-                self.status == ifaceStatus.ERROR):
-                outbuf += ' (%s)' %errorstr
+            status_str = None
+            if (self.status == ifaceStatus.ERROR or
+                    self.status == ifaceStatus.NOTFOUND):
+                if self.status_str:
+                    ifaceline += ' (%s)' %self.status_str
+                status_str = errorstr
             elif self.status == ifaceStatus.SUCCESS:
-                outbuf += ' (%s)' %successstr
+                status_str = successstr
+            if status_str:
+               outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
+            else:
+                outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
-                if with_status:
-                    outbuf = (outbuf.encode('utf8')
-                        if isinstance(outbuf, unicode) else outbuf)
+                outbuf = (outbuf.encode('utf8')
+                    if isinstance(outbuf, unicode) else outbuf)
                 print outbuf + '\n'
                 return
-        outbuf += '\n'
+        else:
+            outbuf += ifaceline + '\n'
         config = self.config
         if config:
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:
-                    if not cv: continue
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
-                        if s:
-                            outbuf += (indent + '%s %s (%s)\n'
-                                        %(cname, cv, errorstr))
+                        if s == -1:
+                            status_str = unknownstr
+                        elif s == 1:
+                            status_str = errorstr
                         elif s == 0:
-                            outbuf += (indent + '%s %s (%s)\n'
-                                        %(cname, cv, successstr))
+                            status_str = successstr
+                        outbuf += (indent + '{0:55} {1:>10}'.format(
+                                   '%s %s' %(cname, cv), status_str)) + '\n'
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1
