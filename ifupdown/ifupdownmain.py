@@ -534,7 +534,8 @@ class ifupdownMain(ifupdownBase):
                     break
             if not found:
                 err = True
-                self.logger.warn('%s: unsupported attribute \'%s\'' %attrname) 
+                self.logger.warn('%s: unsupported attribute \'%s\'' \
+                                 % (ifaceobj.name, attrname))
                 continue
         return err
 
