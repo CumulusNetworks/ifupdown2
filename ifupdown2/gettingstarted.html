@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -9,7 +10,7 @@
     
     <title>Getting Started &mdash; ifupdown2 0.1 documentation</title>
     
-    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
@@ -60,10 +61,10 @@
 <ul class="simple">
 <li>python-ifupdown2 is currently only tested on debian wheezy</li>
 <li>python-ifupdown2 needs python version 2.6 or greater</li>
-<li>build depends on: python-stdeb (for deb builds), python-docutils (for rst2man)</li>
-<li>depends on python-gvgen package for printing interface graphs (this will be made optional in the future)</li>
-<li>optional dependency for template engine: python-mako</li>
-<li>python-ifupdown2 needs python-ifupdown2-addons to function correctly</li>
+<li>Depends on: python-stdeb (for deb builds), python-docutils
+(for rst2man), python-argcomplete, &#8216;python-ipaddr&#8217;</li>
+<li>Depends on python-gvgen package for printing interface graphs (this will be made optional in the future)</li>
+<li>Optional dependency for template engine: python-mako</li>
 </ul>
 </div>
 <div class="section" id="building">
@@ -75,7 +76,7 @@
 <div class="section" id="installing">
 <h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
 <p>install generated python-ifupdown2-&lt;ver&gt;.deb</p>
-<p>$dpkg -i &lt;python-ifupdown2-addons-&lt;ver&gt;.deb</p>
+<p>$dpkg -i &lt;python-ifupdown2-&lt;ver&gt;.deb</p>
 </div>
 </div>
 
@@ -142,7 +143,7 @@
       </ul>
     </div>
     <div class="footer">
-        &copy; Copyright 2014, Cumulus Networks, Inc. All rights reserved.
+        &copy; Copyright 2014, Roopa Prabhu.
       Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
     </div>
   </body>
