@@ -5,10 +5,10 @@ Prerequisites
 -------------
 * python-ifupdown2 is currently only tested on debian wheezy
 * python-ifupdown2 needs python version 2.6 or greater
-* build depends on: python-stdeb (for deb builds), python-docutils (for rst2man)
-* depends on python-gvgen package for printing interface graphs (this will be made optional in the future)
-* optional dependency for template engine: python-mako
-* python-ifupdown2 needs python-ifupdown2-addons to function correctly
+* Depends on: python-stdeb (for deb builds), python-docutils
+  (for rst2man), python-argcomplete, 'python-ipaddr'
+* Depends on python-gvgen package for printing interface graphs (this will be made optional in the future)
+* Optional dependency for template engine: python-mako
 
 
 Building
@@ -23,5 +23,5 @@ Installing
 ----------
 install generated python-ifupdown2-<ver>.deb
 
-$dpkg -i <python-ifupdown2-addons-<ver>.deb
+$dpkg -i <python-ifupdown2-<ver>.deb
 

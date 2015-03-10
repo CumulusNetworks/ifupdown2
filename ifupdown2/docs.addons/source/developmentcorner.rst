@@ -1,11 +1,26 @@
 Development Corner
 ==================
 
+Getting started
+---------------
+Unlike original ifupdown, all interface configuration is moved to external
+python modules. That includes inet, inet6 and dhcp configurations.
+
+* if you are looking at fixing bugs or adding new features to the ifupdown2
+  infrastructure package, pls look at the apiref, documentation and code
+  for python-ifupdown2
+
+
 Writing a ifupdown2 addon module
 --------------------------------
-ifupdown2 addon modules are part of the python-ifupdown2-addons package.
-They are installed under /usr/share/ifupdownaddons directory on the target
-system.
+Addon modules are a nice way to add additional functionality to ifupdown2.
+Typically a new addon module will include support for a new network interface
+configuration which is not already supported by existing ifupdown2 addon
+modules.
+
+ifupdown2 addon modules are written in python. python-ifupdown2 package
+comes with default addon modules. All addon modules are installed under
+/usr/share/ifupdownaddons directory.
 
 The center of the universe for an addon module is the 'class iface' object
 exported by the python-ifupdown2 package.
@@ -43,9 +58,8 @@ to implement a few methods.
     * provide a dictionary of all supported attributes in the _modinfo
       attribute. This is useful for syntax help and man page generation.
 
-python-ifupdown2-addons package also installs ifupdownaddons python package
-that contains helper modules for all addon modules. Its optional for the addon
-module to use this package.
+python-ifupdown2 package also installs ifupdownaddons python package
+that contains helper modules for all addon modules.
 
 see example address handling module /usr/share/ifupdownaddons/address.py
 
