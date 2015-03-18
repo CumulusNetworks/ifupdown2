@@ -204,10 +204,6 @@ class address(moduleBase):
                     ifaceobj.get_attr_value_first('gateway'),
                     ifaceobj.get_attr_value_first('metric'))
                 self.ipcmd.del_addr_all(ifaceobj.name)
-            mtu = ifaceobj.get_attr_value_first('mtu')
-            if mtu:
-                self.ipcmd.link_set(ifaceobj.name, 'mtu',
-                        self.get_mod_subattr('mtu', 'default'))
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
                 self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
