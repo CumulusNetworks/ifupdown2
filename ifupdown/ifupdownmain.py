@@ -686,7 +686,8 @@ class ifupdownMain(ifupdownBase):
                 # continue reading
                 pass
 
-    def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False):
+    def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
+                      followdependents=True):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
@@ -696,7 +697,7 @@ class ifupdownMain(ifupdownBase):
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
                                 else ifaceSchedulerFlags.POSTORDER,
-                        followdependents=True if self.WITH_DEPENDS else False,
+                        followdependents=followdependents,
                         skipupperifaces=skipupperifaces)
 
     def _render_ifacename(self, ifacename):
@@ -886,7 +887,8 @@ class ifupdownMain(ifupdownBase):
 
         try:
             self._sched_ifaces(filtered_ifacenames, ops,
-                    skipupperifaces=skipupperifaces)
+                    skipupperifaces=skipupperifaces,
+                    followdependents=True if self.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('up')
             if not self.DRYRUN and self.ADDONS_ENABLE:
@@ -947,7 +949,8 @@ class ifupdownMain(ifupdownBase):
             self.populate_dependency_info(ops)
 
         try:
-            self._sched_ifaces(filtered_ifacenames, ops)
+            self._sched_ifaces(filtered_ifacenames, ops,
+                    followdependents=True if self.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('down')
             if not self.DRYRUN and self.ADDONS_ENABLE:
@@ -1011,7 +1014,8 @@ class ifupdownMain(ifupdownBase):
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
-        self._sched_ifaces(filtered_ifacenames, ops)
+        self._sched_ifaces(filtered_ifacenames, ops,
+                           followdependents=True if self.WITH_DEPENDS else False)
 
         if ops[0] == 'query-checkcurr':
             ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames, format)
@@ -1078,7 +1082,8 @@ class ifupdownMain(ifupdownBase):
            self.dependency_graph = OrderedDict({})
            self.populate_dependency_info(downops,
                                          already_up_ifacenames_not_present)
-           self._sched_ifaces(already_up_ifacenames_not_present, downops)
+           self._sched_ifaces(already_up_ifacenames_not_present, downops,
+                   followdependents=True if self.WITH_DEPENDS else False)
         else:
            self.logger.debug('no interfaces to down ..')
 
@@ -1092,7 +1097,8 @@ class ifupdownMain(ifupdownBase):
            return
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(interfaces_to_up))
-        self._sched_ifaces(interfaces_to_up, upops)
+        self._sched_ifaces(interfaces_to_up, upops,
+                followdependents=True if self.WITH_DEPENDS else False)
         if self.DRYRUN:
             return
         self._save_state()
@@ -1175,7 +1181,8 @@ class ifupdownMain(ifupdownBase):
                 # Generate dependency info for old config
                 self.populate_dependency_info(downops, ifacedownlist)
                 try:
-                    self._sched_ifaces(ifacedownlist, downops)
+                    self._sched_ifaces(ifacedownlist, downops,
+                                       followdependents=False)
                 except Exception, e:
                     self.logger.error(str(e))
                     pass
@@ -1198,7 +1205,8 @@ class ifupdownMain(ifupdownBase):
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(filtered_ifacenames))
         try:
-            self._sched_ifaces(filtered_ifacenames, upops)
+            self._sched_ifaces(filtered_ifacenames, upops,
+                    followdependents=True if self.WITH_DEPENDS else False)
         except Exception, e:
             self.logger.error(str(e))
             pass
