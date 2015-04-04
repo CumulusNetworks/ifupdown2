@@ -401,9 +401,9 @@ class ifupdownMain(ifupdownBase):
             if check_depends:
                 common = Set(ifacedlist).intersection(setdlist)
                 if common:
-                    self.logger.error('iface %s and %s '
+                    self.logger.error('misconfig..?. iface %s and %s '
                             %(ifaceobj.name, ifacename) +
-                            'have common dependents %s' %str(list(common)))
+                            'seem to share dependents/ports %s' %str(list(common)))
 
     def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
         """ We go through the dependency list and
