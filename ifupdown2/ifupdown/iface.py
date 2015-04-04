@@ -33,6 +33,36 @@ class ifaceLinkType():
     LINK_MASTER = 0x2
     LINK_NA = 0x3
 
+class ifaceDependencyType():
+    """ Indicates type of dependency.
+
+        This class enumerates types of dependency relationships
+        between interfaces.
+
+        iface dependency relationships can be classified
+        into:
+         - link
+         - master/slave
+
+        In a 'link' dependency relationship, dependency can be shared
+        between interfaces. example: swp1.100 and
+        swp1.200 can both have 'link' swp1. swp1 is also a dependency
+        of swp1.100 and swp1.200. As you can see dependency
+        swp1 is shared between swp1.100 and swp1.200.
+         
+        In a master/slave relationship like bridge and
+        its ports: eg: bridge br0 and its ports swp1 and swp2.
+        dependency swp1 and swp2 cannot be shared with any other
+        interface with the same dependency relationship.
+        ie, swp1 and swp2 cannot be in a slave relationship
+        with another interface. Understanding the dependency type is
+        required for any semantic checks between dependencies.
+
+    """
+    UNKNOWN = 0x0
+    LINK = 0x1
+    MASTER_SLAVE = 0x2
+
 class ifaceStatus():
     """Enumerates iface status """
 
@@ -234,6 +264,10 @@ class iface():
         self.link_type = ifaceLinkType.LINK_UNKNOWN
         self.link_kind = ifaceLinkKind.UNKNOWN
 
+        # The below attribute is used to disambiguate between various
+        # types of dependencies
+        self.dependency_type = ifaceDependencyType.UNKNOWN
+
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
         self.name = attrdict.get('name')
@@ -421,6 +455,7 @@ class iface():
         del odict['env']
         del odict['link_type']
         del odict['link_kind']
+        del odict['dependency_type']
         return odict
 
     def __setstate__(self, dict):
@@ -440,6 +475,7 @@ class iface():
         self.flags |= self._PICKLED
         self.link_type = ifaceLinkType.LINK_NA
         self.link_kind = ifaceLinkKind.UNKNOWN
+        self.dependency_type = ifaceDependencyType.UNKNOWN
 
     def dump_raw(self, logger):
         indent = '  '

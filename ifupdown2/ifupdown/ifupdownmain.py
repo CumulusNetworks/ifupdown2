@@ -384,6 +384,27 @@ class ifupdownMain(ifupdownBase):
         if not ifaceobj: return True
         return self.is_ifaceobj_noconfig(ifaceobj)
 
+    def check_shared_dependents(self, ifaceobj, dlist):
+        """ Check if dlist intersects with any other
+            interface with slave dependents.
+            example: bond and bridges.
+            This function logs such errors """
+        setdlist = Set(dlist)
+        for ifacename, ifacedlist in self.dependency_graph.items():
+            if not ifacedlist:
+                continue
+            check_depends = False
+            iobjs = self.get_ifaceobjs(ifacename)
+            for i in iobjs:
+                if (i.dependency_type == ifaceDependencyType.MASTER_SLAVE):
+                    check_depends = True
+            if check_depends:
+                common = Set(ifacedlist).intersection(setdlist)
+                if common:
+                    self.logger.error('iface %s and %s '
+                            %(ifaceobj.name, ifacename) +
+                            'have common dependents %s' %str(list(common)))
+
     def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
@@ -400,6 +421,10 @@ class ifupdownMain(ifupdownBase):
                     present in the ifacesdict
         """
         del_list = []
+
+        if (upperifaceobj.dependency_type ==
+                    ifaceDependencyType.MASTER_SLAVE):
+            self.check_shared_dependents(upperifaceobj, dlist)
 
         for d in dlist:
             dilist = self.get_ifaceobjs(d)
@@ -450,6 +475,7 @@ class ifupdownMain(ifupdownBase):
                 pass
             if dlist: ret_dlist.extend(dlist)
         return list(set(ret_dlist))
+
 
     def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """

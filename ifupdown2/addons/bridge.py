@@ -220,6 +220,7 @@ class bridge(moduleBase):
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         ifaceobj.link_kind = ifaceLinkKind.BRIDGE
+        ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         return self.parse_port_list(ifaceobj.get_attr_value_first(
                                     'bridge-ports'), ifacenames_all)
 
