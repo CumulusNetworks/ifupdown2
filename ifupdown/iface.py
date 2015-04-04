@@ -392,6 +392,8 @@ class iface():
         if self.addr_method != dstiface.addr_method: return False
         if self.auto != dstiface.auto: return False
         if self.classes != dstiface.classes: return False
+        if len(self.config) != len(dstiface.config):
+            return False
         if any(True for k in self.config if k not in dstiface.config):
             return False
         if any(True for k,v in self.config.items()
