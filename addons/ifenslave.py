@@ -118,7 +118,7 @@ class ifenslave(moduleBase):
             return None
         slave_list = self.parse_port_list(ifaceobj.get_attr_value_first(
                                     'bond-slaves'), ifacenames_all)
-
+        ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:
