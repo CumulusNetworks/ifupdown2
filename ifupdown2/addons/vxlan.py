@@ -20,9 +20,9 @@ class vxlan(moduleBase):
                         'vxlan-svcnodeip' :
                             {'help' : 'vxlan id',
                              'example': ['vxlan-svcnodeip 172.16.22.125']},
-                        'vxlan-peernodeip' :
-                            {'help' : 'vxlan peer node ip',
-                             'example': ['vxlan-peernodeip 172.16.22.127']},
+                        'vxlan-remoteip' :
+                            {'help' : 'vxlan remote ip',
+                             'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning on/off',
                              'example': ['vxlan-learning off'],
@@ -44,8 +44,9 @@ class vxlan(moduleBase):
             self.ipcmd.link_create_vxlan(ifaceobj.name, vxlanid,
             localtunnelip=ifaceobj.get_attr_value_first('vxlan-local-tunnelip'),
             svcnodeips=ifaceobj.get_attr_value('vxlan-svcnodeip'),
-            peernodeips=ifaceobj.get_attr_value('vxlan-peernodeip'),
-            learning=ifaceobj.get_attr_value_first('vxlan-learning'))
+            remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
+            learning=ifaceobj.get_attr_value_first('vxlan-learning'),
+            ageing=ifaceobj.get_attr_value_first('vxlan-ageing'))
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
 
@@ -96,11 +97,13 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value('vxlan-svcnodeip'), 
                        vxlanattrs.get('svcnode', []))
 
-        self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-peernodeip',
-                       ifaceobj.get_attr_value('vxlan-peernodeip'), 
-                       vxlanattrs.get('peernode', []))
+        self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
+                       ifaceobj.get_attr_value('vxlan-remoteip'), 
+                       vxlanattrs.get('remote', []))
 
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
+        if not learning:
+            learning = 'on'
         running_learning = vxlanattrs.get('learning')
         if learning == running_learning:
            ifaceobjcurr.update_config_with_status('vxlan-learning',
@@ -123,9 +126,9 @@ class vxlan(moduleBase):
         if attrval:
             [ifaceobjrunning.update_config('vxlan-svcnode', a)
                         for a in attrval]
-        attrval = vxlanattrs.get('peernode')
+        attrval = vxlanattrs.get('remote')
         if attrval:
-            [ifaceobjrunning.update_config('vxlan-peernode', a)
+            [ifaceobjrunning.update_config('vxlan-remoteip', a)
                         for a in attrval]
         attrval = vxlanattrs.get('learning')
         if attrval and attrval == 'on':
