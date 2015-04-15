@@ -9,6 +9,8 @@ from collections import OrderedDict
 from utilsbase import *
 from cache import *
 
+VXLAN_UDP_PORT = 4789
+
 class iproute2(utilsBase):
     """ This class contains helper methods to cache and interact with the
     commands in the iproute2 package """
@@ -68,16 +70,19 @@ class iproute2(utilsBase):
                 elif citems[i] == 'vxlan' and citems[i+1] == 'id':
                     vattrs = {'vxlanid' : citems[i+2],
                               'svcnode' : [],
+                              'remote'  : [],
                               'learning': 'on'}
                     for j in range(i+2, len(citems)):
                         if citems[j] == 'local':
                             vattrs['local'] = citems[j+1]
                         elif citems[j] == 'svcnode':
                             vattrs['svcnode'].append(citems[j+1])
-                        elif citems[j] == 'peernode':
-                            vattrs['peernode'].append(citems[j+1])
                         elif citems[j] == 'nolearning':
                             vattrs['learning'] = 'off'
+                    # get vxlan peer nodes
+                    peers = self.get_vxlan_peers(ifname)
+                    if peers:
+                        vattrs['remote'] = peers
                     linkattrs['linkinfo'] = vattrs
                     break
             #linkattrs['alias'] = self.read_file_oneline(
@@ -456,35 +461,77 @@ class iproute2(utilsBase):
             self.exec_command('ip %s' %cmd)
         self._cache_update([name], {})
 
+    def get_vxlan_peers(self, dev):
+        cmd = 'bridge fdb show brport %s' % dev
+        cur_peers = []
+        try:
+            ps = subprocess.Popen((cmd).split(), stdout=subprocess.PIPE, close_fds=True)
+            output = subprocess.check_output(('grep', '00:00:00:00:00:00'), stdin=ps.stdout)
+            ps.wait()
+            try:
+                ppat = re.compile('\s+dst\s+(\d+.\d+.\d+.\d+)\s+')
+                for l in output.split('\n'):
+                    m = ppat.search(l)
+                    if m:
+                        cur_peers.append(m.group(1))
+            except:
+                self.logger.warn('error parsing ip link output')
+                pass
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 1:
+                self.logger.error(str(e))
+
+        return cur_peers
+
     def link_create_vxlan(self, name, vxlanid,
                           localtunnelip=None,
                           svcnodeips=None,
-                          peernodeips=None,
+                          remoteips=None,
                           learning='on'):
-        if svcnodeips and peernodeips:
-            raise Exception("svcnodeip and peernodeip is mutually exclusive")
+        if svcnodeips and remoteips:
+            raise Exception("svcnodeip and remoteip is mutually exclusive")
         args = ''
         if localtunnelip:
             args += ' local %s' %localtunnelip
         if svcnodeips:
             for s in svcnodeips:
                 args += ' svcnode %s' %s
-        if peernodeips:
-            for s in peernodeips:
-                args += ' peernode %s' %s
         if learning == 'off':
             args += ' nolearning'
         
         if self.link_exists(name):
-            cmd = 'link set dev %s type vxlan ' %(name)
+            cmd = 'link set dev %s type vxlan dstport %d' %(name, VXLAN_UDP_PORT)
         else:
-            cmd = 'link add dev %s type vxlan id %s' %(name, vxlanid)
+            cmd = 'link add dev %s type vxlan id %s dstport %d' %(name, vxlanid, VXLAN_UDP_PORT)
         cmd += args
 
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
             self.exec_command('ip %s' %cmd)
+
+        # figure out the diff for remotes and do the bridge fdb updates
+        cur_peers = set(self.get_vxlan_peers(name))
+        if remoteips:
+            new_peers = set(remoteips)
+            del_list = cur_peers.difference(new_peers)
+            add_list = new_peers.difference(cur_peers)
+        else:
+            del_list = cur_peers
+            add_list = []
+
+        try:
+            for addr in del_list:
+                self.bridge_fdb_del(name, '00:00:00:00:00:00', None, True, addr)
+        except:
+            pass
+
+        try:
+            for addr in add_list:
+                self.bridge_fdb_append(name, '00:00:00:00:00:00', None, True, addr)
+        except:
+            pass
+
         # XXX: update linkinfo correctly
         self._cache_update([name], {})
 
@@ -620,23 +667,43 @@ class iproute2(utilsBase):
         [self.exec_command('bridge vlan del vid %s dev %s %s'
                           %(v, bridgeportname, target)) for v in vids]
 
-    def bridge_fdb_add(self, dev, address, vlan=None, bridge=True):
+    def bridge_fdb_add(self, dev, address, vlan=None, bridge=True, remote=None):
         target = 'self' if bridge else ''
+        vlan_str = ''
         if vlan:
-            self.exec_command('bridge fdb replace %s dev %s vlan %s %s'
-                              %(address, dev, vlan, target))
-        else:
-            self.exec_command('bridge fdb replace %s dev %s %s'
-                              %(address, dev, target))
+            vlan_str = 'vlan %s ' % vlan
 
-    def bridge_fdb_del(self, dev, address, vlan=None, bridge=True):
+        dst_str = ''
+        if remote:
+            dst_str = 'dst %s ' % remote
+
+        self.exec_command('bridge fdb replace %s dev %s %s %s %s'
+                          %(address, dev, vlan_str, target, dst_str))
+
+    def bridge_fdb_append(self, dev, address, vlan=None, bridge=True, remote=None):
         target = 'self' if bridge else ''
+        vlan_str = ''
         if vlan:
-            self.exec_command('bridge fdb del %s dev %s vlan %s %s'
-                              %(address, dev, vlan, target))
-        else:
-            self.exec_command('bridge fdb del %s dev %s %s'
-                              %(address, dev, target))
+            vlan_str = 'vlan %s ' % vlan
+ 
+        dst_str = ''
+        if remote:
+            dst_str = 'dst %s ' % remote
+
+        self.exec_command('bridge fdb append %s dev %s %s %s %s'
+                          %(address, dev, vlan_str, target, dst_str))
+
+    def bridge_fdb_del(self, dev, address, vlan=None, bridge=True, remote=None):
+        target = 'self' if bridge else ''
+        vlan_str = ''
+        if vlan:
+            vlan_str = 'vlan %s ' % vlan
+
+        dst_str = ''
+        if remote:
+            dst_str = 'dst %s ' % remote
+        self.exec_command('bridge fdb del %s dev %s %s %s %s'
+                          %(address, dev, vlan_str, target, dst_str))
 
     def bridge_is_vlan_aware(self, bridgename):
         filename = '/sys/class/net/%s/bridge/vlan_filtering' %bridgename
