@@ -89,3 +89,5 @@ if [ -x "/etc/init.d/networking" ]; then
 fi
 
 #DEBHELPER#
+
+exit 0
