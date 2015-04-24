@@ -198,6 +198,8 @@ class iface():
 
         **priv_flags**      private flags owned by module using this class
 
+        **module_flags**    module flags owned by module using this class
+
         **refcnt**          reference count, indicating number of interfaces
                             dependent on this iface
 
@@ -238,6 +240,8 @@ class iface():
         self.flags = 0x0
         """iface flags """
         self.priv_flags = 0x0
+        """iface module flags dictionary with module name: flags"""
+        self.module_flags = {}
         """iface priv flags. can be used by the external object manager """
         self.refcnt = 0
         """iface refcnt (incremented for each dependent this interface has) """
@@ -445,6 +449,7 @@ class iface():
         del odict['_config_status']
         del odict['flags']
         del odict['priv_flags']
+        del odict['module_flags']
         del odict['raw_config']
         del odict['linkstate']
         del odict['env']
@@ -465,6 +470,7 @@ class iface():
         self.linkstate = None
         self.env = None
         self.priv_flags = 0
+        self.module_flags = {}
         self.raw_config = []
         self.flags |= self._PICKLED
         self.link_type = ifaceLinkType.LINK_NA

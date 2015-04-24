@@ -15,6 +15,9 @@ import itertools
 import re
 import time
 
+class bridgeFlags:
+    PORT_PROCESSED = 0x1
+
 class bridge(moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
 
@@ -190,14 +193,10 @@ class bridge(moduleBase):
                           'example' : ['bridge-port-pvids bond0=100 bond1=200']},
                      }}
 
-    # declare some ifaceobj priv_flags.
-    # XXX: This assumes that the priv_flags is owned by this module
-    # which it is not.
-    _BRIDGE_PORT_PROCESSED = 0x1
-
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        self.name = self.__class__.__name__
         self.brctlcmd = None
         self._running_vidinfo = {}
         self._running_vidinfo_valid = False
@@ -788,7 +787,8 @@ class bridge(moduleBase):
                continue
             for bportifaceobj in bportifaceobjlist:
                 # Dont process bridge port if it already has been processed
-                if bportifaceobj.priv_flags & self._BRIDGE_PORT_PROCESSED:
+                if (bportifaceobj.module_flags.get(self.name,0x0) & \
+                    bridgeFlags.PORT_PROCESSED):
                     continue
                 try:
                     # Add attributes specific to the vlan aware bridge
@@ -817,7 +817,8 @@ class bridge(moduleBase):
                                                               bridge_vids,
                                                               bridge_pvid)
            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
-           ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
+           ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
+                                              bridgeFlags.PORT_PROCESSED
            return
         if not self._is_bridge(ifaceobj):
             return

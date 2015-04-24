@@ -12,6 +12,9 @@ from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.mstpctlutil import mstpctlutil
 import traceback
 
+class mstpctlFlags:
+    PORT_PROCESSED = 0x1
+
 class mstpctl(moduleBase):
     """  ifupdown2 addon module to configure mstp attributes """
 
@@ -161,14 +164,10 @@ class mstpctl(moduleBase):
                  'mstpctl-portnetwork' : 'portnetwork',
                  'mstpctl-portbpdufilter' : 'portbpdufilter'}
 
-    # declare some ifaceobj priv_flags.
-    # XXX: This assumes that the priv_flags is owned by this module
-    # which it is not.
-    _BRIDGE_PORT_PROCESSED = 0x1
-
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        self.name = self.__class__.__name__
         self.brctlcmd = None
         self.mstpctlcmd = None
 
@@ -342,7 +341,8 @@ class mstpctl(moduleBase):
                continue
             for bportifaceobj in bportifaceobjlist:
                 # Dont process bridge port if it already has been processed
-                if bportifaceobj.priv_flags & self._BRIDGE_PORT_PROCESSED:
+                if (bportifaceobj.module_flags.get(self.name,0x0) & \
+                    mstpctlFlags.PORT_PROCESSED):
                     continue
                 try:
                     self._apply_bridge_port_settings(bportifaceobj, 
@@ -361,7 +361,8 @@ class mstpctl(moduleBase):
                       %bridgename) == '2' else False)
             self._apply_bridge_port_settings(ifaceobj, bridgename, None,
                                              stp_on, mstpd_running)
-            ifaceobj.priv_flags |= self._BRIDGE_PORT_PROCESSED
+            ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
+                                               mstpctlFlags.PORT_PROCESSED
             return
         if not self._is_bridge(ifaceobj):
             return
