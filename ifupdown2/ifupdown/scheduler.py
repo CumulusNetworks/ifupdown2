@@ -419,7 +419,7 @@ class ifaceScheduler():
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
-                followdependents=True, skipupperifaces=False):
+                followdependents=True, skipupperifaces=False, sort=False):
         """ runs interface configuration modules on interfaces passed as
             argument. Runs topological sort on interface dependency graph.
 
@@ -438,6 +438,8 @@ class ifaceScheduler():
             **order** (int): ifaceSchedulerFlags (POSTORDER, INORDER)
 
             **followdependents** (bool): follow dependent interfaces if true
+
+            **sort** (bool): sort ifacelist in the case where ALL is not set
 
         """
         #
@@ -461,25 +463,26 @@ class ifaceScheduler():
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
         if not ifupdownobj.ALL:
-            # If there is any interface that does exist, maybe it is a
-            # logical interface and we have to followupperifaces when it
-            # comes up, so get that list.
-            if any([True for i in ifacenames
-                    if ifupdownobj.must_follow_upperifaces(i)]):
-                followupperifaces = (True if
+            if 'up' in ops[0]:
+                # If there is any interface that does not exist, maybe it
+                # is a logical interface and we have to followupperifaces
+                # when it comes up, so lets get that list.
+                if any([True for i in ifacenames
+                        if ifupdownobj.must_follow_upperifaces(i)]):
+                    followupperifaces = (True if
                                     [i for i in ifacenames
                                         if not ifupdownobj.link_exists(i)]
                                         else False)
-            if not skip_ifacesort and ifupdownobj.IFACE_CLASS:
-                # sort interfaces only if allow class was specified and
-                # not skip_ifacesort
+            # sort interfaces only if the caller asked to sort
+            # and skip_ifacesort is not on.
+            if not skip_ifacesort and sort:
                 run_queue = cls.get_sorted_iface_list(ifupdownobj, ifacenames,
                                     ops, dependency_graph, indegrees)
                 if run_queue and 'up' in ops[0]:
                     run_queue.reverse()
         else:
-            # if -a is set, we dont really have to sort. We pick the interfaces
-            # that have no parents and 
+            # if -a is set, we pick the interfaces
+            # that have no parents and use a sorted list of those
             if not skip_ifacesort:
                 sorted_ifacenames = cls.get_sorted_iface_list(ifupdownobj,
                                             ifacenames, ops, dependency_graph,
@@ -496,9 +499,14 @@ class ifaceScheduler():
                 else:
                     ifupdownobj.logger.warn('interface sort returned None')
 
-        # If queue not present, just run interfaces that were asked by the user
+        # If queue not present, just run interfaces that were asked by the
+        # user
         if not run_queue:
             run_queue = list(ifacenames)
+            # if we are taking the order of interfaces as specified
+            # in the interfaces file, we should reverse the list if we
+            # want to down. This can happen if 'skip_ifacesort'
+            # is been specified.
             if 'down' in ops[0]:
                 run_queue.reverse()
 
