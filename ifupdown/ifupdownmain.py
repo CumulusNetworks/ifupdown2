@@ -713,7 +713,7 @@ class ifupdownMain(ifupdownBase):
                 pass
 
     def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
-                      followdependents=True):
+                      followdependents=True, sort=False):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
@@ -724,7 +724,8 @@ class ifupdownMain(ifupdownBase):
                             if 'down' in ops[0]
                                 else ifaceSchedulerFlags.POSTORDER,
                         followdependents=followdependents,
-                        skipupperifaces=skipupperifaces)
+                        skipupperifaces=skipupperifaces,
+                        sort=True if (sort or self.IFACE_CLASS) else False)
 
     def _render_ifacename(self, ifacename):
         new_ifacenames = []
@@ -1061,9 +1062,6 @@ class ifupdownMain(ifupdownBase):
 
         # Override auto to true
         auto = True
-        if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
         try:
             self.read_iface_config()
         except:
@@ -1109,12 +1107,15 @@ class ifupdownMain(ifupdownBase):
            self.populate_dependency_info(downops,
                                          already_up_ifacenames_not_present)
            self._sched_ifaces(already_up_ifacenames_not_present, downops,
-                   followdependents=True if self.WITH_DEPENDS else False)
+                              followdependents=False, sort=True)
         else:
            self.logger.debug('no interfaces to down ..')
 
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
+        if auto:
+            self.ALL = True
+            self.WITH_DEPENDS = True
         if new_ifaceobjdict:
             self.ifaceobjdict = new_ifaceobjdict
             self.dependency_graph = new_dependency_graph
@@ -1136,9 +1137,6 @@ class ifupdownMain(ifupdownBase):
         allow_classes = []
         new_ifaceobjdict = {}
 
-        if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
         try:
             self.read_iface_config()
         except:
@@ -1169,13 +1167,17 @@ class ifupdownMain(ifupdownBase):
             filtered_ifacenames = [i for i in ifacenames
                                if self._iface_whitelisted(auto, allow_classes,
                                excludepats, i)]
+
+            # if config file had 'ifreload_down_changed' variable
+            # set, also look for interfaces that changed to down them
+            down_changed = int(self.config.get('ifreload_down_changed', '1'))
+
             # Generate the interface down list
             # Interfaces that go into the down list:
             #   - interfaces that were present in last config and are not
             #     present in the new config
             #   - interfaces that were changed between the last and current
             #     config
-            #
             ifacedownlist = []
             for ifname in filtered_ifacenames:
                 lastifaceobjlist = self.ifaceobjdict.get(ifname)
@@ -1186,11 +1188,14 @@ class ifupdownMain(ifupdownBase):
                 if not newifaceobjlist:
                     ifacedownlist.append(ifname)
                     continue
-                # If interface has changed between the current file
-                # and the last installed append it to the down list
                 if len(newifaceobjlist) != len(lastifaceobjlist):
                     ifacedownlist.append(ifname)
                     continue
+                if not down_changed:
+                    continue
+
+                # If interface has changed between the current file
+                # and the last installed append it to the down list
                 # compare object list
                 for objidx in range(0, len(lastifaceobjlist)):
                     oldobj = lastifaceobjlist[objidx]
@@ -1208,7 +1213,8 @@ class ifupdownMain(ifupdownBase):
                 self.populate_dependency_info(downops, ifacedownlist)
                 try:
                     self._sched_ifaces(ifacedownlist, downops,
-                                       followdependents=False)
+                                       followdependents=False,
+                                       sort=True)
                 except Exception, e:
                     self.logger.error(str(e))
                     pass
@@ -1221,6 +1227,10 @@ class ifupdownMain(ifupdownBase):
         # reset statemanager update flag to default
         if not new_ifaceobjdict:
             return
+
+        if auto:
+            self.ALL = True
+            self.WITH_DEPENDS = True
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
         ifacenames = self.ifaceobjdict.keys()
