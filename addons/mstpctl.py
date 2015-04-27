@@ -122,7 +122,7 @@ class mstpctl(moduleBase):
                     'mstpctl-portautoedge' : 
                         { 'help' : 'enable/disable auto transition to/from edge state of the port',
                           'validvals' : ['yes', 'no'],
-                          'default' : 'no',
+                          'default' : 'yes',
                           'required' : False,
                           'example' : ['mstpctl-portautoedge swp1=yes swp2=yes']},
                     'mstpctl-treeportcost' : 

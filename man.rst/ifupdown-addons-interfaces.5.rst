@@ -78,131 +78,23 @@ EXAMPLES
 
 
 
-    **bridge**: bridge configuration module
+    **bridge**: Bridge configuration module. Supports both vlan aware 
+    and non vlan aware bridges. For the vlan aware bridge, the port sp
+    ecific attributes must be specified under the port. And for vlan u
+    naware bridge port specific attributes must be specified under the
+    bridge.
 
 
-      **bridge-mcqifaddr**
+      **bridge-vlan-aware**
 
-        **help**: set multicast query to use ifaddr
-
-
-        **required**: False
-
-        **default**: 0
-
-        **example**:
-            bridge-mcqifaddr 0
-
-
-      **bridge-gcint**
-
-        **help**: bridge garbage collection interval in secs
+        **help**: vlan aware bridge. Setting this attribute to yes ena
+        bles vlan filtering on the bridge
 
 
         **required**: False
 
-        **default**: 4
-
         **example**:
-            bridge-gcint 4
-
-
-      **bridge-mcsqc**
-
-        **help**: set multicast startup query count
-
-
-        **required**: False
-
-        **default**: 2
-
-        **example**:
-            bridge-mcsqc 2
-
-
-      **bridge-stp**
-
-        **help**: bridge-stp yes/no
-
-
-        **required**: False
-
-        **default**: no
-
-        **validvals**: yes,on,off,no
-
-        **example**:
-            bridge-stp no
-
-
-      **bridge-mcsqi**
-
-        **help**: set multicast startup query interval (in secs)
-
-
-        **required**: False
-
-        **default**: 31
-
-        **example**:
-            bridge-mcsqi 31
-
-
-      **bridge-mcmi**
-
-        **help**: set multicast membership interval (in secs)
-
-
-        **required**: False
-
-        **default**: 260
-
-        **example**:
-            bridge-mcmi 260
-
-
-      **bridge-ports**
-
-        **help**: bridge ports
-
-
-        **required**: True
-
-        **example**:
-            bridge-ports swp1.100 swp2.100 swp3.100
-
-            bridge-ports glob swp1-3.100
-
-            bridge-ports regex (swp[1|2|3].100)
-
-
-      **bridge-mcsnoop**
-
-        **help**: set multicast snooping
-
-
-        **required**: False
-
-        **default**: 1
-
-        **example**:
-            bridge-mcsnoop 1
-
-
-      **bridge-maxwait**
-
-        **help**: forces to time seconds the maximum time that the Deb
-        ian bridge setup  scripts will wait for the bridge ports to ge
-        t to the forwarding status, doesn't allow factional part. If i
-        t is equal to 0 then no waiting is done
-
-
-        **required**: False
-
-        **default**: 0
-
-        **example**:
-            bridge-maxwait 3
+            bridge-vlan-aware yes/no
 
 
       **bridge-pathcosts**
@@ -270,6 +162,19 @@ EXAMPLES
             bridge-hello 2
 
 
+      **bridge-gcint**
+
+        **help**: bridge garbage collection interval in secs
+
+
+        **required**: False
+
+        **default**: 4
+
+        **example**:
+            bridge-gcint 4
+
+
       **bridge-mcquerier**
 
         **help**: set multicast querier
@@ -296,6 +201,19 @@ EXAMPLES
             bridge-mclmc 2
 
 
+      **bridge-mcsqc**
+
+        **help**: set multicast startup query count
+
+
+        **required**: False
+
+        **default**: 2
+
+        **example**:
+            bridge-mcsqc 2
+
+
       **bridge-mcrouter**
 
         **help**: set multicast router
@@ -309,17 +227,57 @@ EXAMPLES
             bridge-mcrouter 1
 
 
-      **bridge-portmcrouter**
+      **bridge-stp**
 
-        **help**: set port multicast routers
+        **help**: bridge-stp yes/no
 
 
         **required**: False
 
-        **default**: 1
+        **default**: no
+
+        **validvals**: yes,on,off,no
 
         **example**:
-            bridge-portmcrouter swp1=1 swp2=1
+            bridge-stp no
+
+
+      **bridge-pvid**
+
+        **help**: bridge port pvid. Must be specified under the bridge
+        port
+
+
+        **required**: False
+
+        **example**:
+            bridge-pvid 1
+
+
+      **bridge-mcsqi**
+
+        **help**: set multicast startup query interval (in secs)
+
+
+        **required**: False
+
+        **default**: 31
+
+        **example**:
+            bridge-mcsqi 31
+
+
+      **bridge-mcmi**
+
+        **help**: set multicast membership interval (in secs)
+
+
+        **required**: False
+
+        **default**: 260
+
+        **example**:
+            bridge-mcmi 260
 
 
       **bridge-mclmi**
@@ -335,17 +293,48 @@ EXAMPLES
             bridge-mclmi 1
 
 
-      **bridge-hashmax**
+      **bridge-vids**
 
-        **help**: set hash max
+        **help**: bridge port vids. Can be specified under the bridge 
+        or under the port. If specified under the bridge the ports inh
+        erit it unless overridden by a bridge-vids attribuet under the
+        port
 
 
         **required**: False
 
-        **default**: 4096
+        **example**:
+            bridge-vids 4000
+
+            bridge-vids 2000 2200-3000
+
+
+      **bridge-ports**
+
+        **help**: bridge ports
+
+
+        **required**: True
 
         **example**:
-            bridge-hashmax 4096
+            bridge-ports swp1.100 swp2.100 swp3.100
+
+            bridge-ports glob swp1-3.100
+
+            bridge-ports regex (swp[1|2|3].100)
+
+
+      **bridge-mcqifaddr**
+
+        **help**: set multicast query to use ifaddr
+
+
+        **required**: False
+
+        **default**: 0
+
+        **example**:
+            bridge-mcqifaddr 0
 
 
       **bridge-waitport**
@@ -362,7 +351,7 @@ EXAMPLES
         **default**: 0
 
         **example**:
-            bridge-waitport 4
+            bridge-waitport 4 swp1 swp2
 
 
       **bridge-mcqri**
@@ -404,6 +393,19 @@ EXAMPLES
             bridge-mcqpi 255
 
 
+      **bridge-hashmax**
+
+        **help**: set hash max
+
+
+        **required**: False
+
+        **default**: 4096
+
+        **example**:
+            bridge-hashmax 4096
+
+
       **bridge-bridgeprio**
 
         **help**: bridge priority
@@ -430,9 +432,37 @@ EXAMPLES
             bridge-maxage 20
 
 
-      **bridge-portmcfl**
+      **bridge-mcsnoop**
 
-        **help**: port multicast fast leave
+        **help**: set multicast snooping
+
+
+        **required**: False
+
+        **default**: 1
+
+        **example**:
+            bridge-mcsnoop 1
+
+
+      **bridge-access**
+
+        **help**: bridge port access vlan. Must be specified under the
+        bridge port
+
+
+        **required**: False
+
+        **example**:
+            bridge-access 300
+
+
+      **bridge-maxwait**
+
+        **help**: forces to time seconds the maximum time that the Deb
+        ian bridge setup  scripts will wait for the bridge ports to ge
+        t to the forwarding status, doesn't allow factional part. If i
+        t is equal to 0 then no waiting is done
 
 
         **required**: False
@@ -440,7 +470,37 @@ EXAMPLES
         **default**: 0
 
         **example**:
-            bridge-portmcfl swp1=0 swp2=0
+            bridge-maxwait 3
+
+
+      **bridge-portmcrouter**
+
+        **help**: set port multicast routers
+
+
+        **required**: False
+
+        **default**: 1
+
+        **example**:
+            under the bridge: bridge-portmcrouter swp1=1 swp2=1
+
+            under the port: bridge-portmcrouter 1
+
+
+      **bridge-portmcfl**
+
+        **help**: port multicast fast leave.
+
+
+        **required**: False
+
+        **default**: 0
+
+        **example**:
+            under the bridge: bridge-portmcfl swp1=0 swp2=0
+
+            under the port: bridge-portmcfl 0
 
 
       **bridge-mcqi**
@@ -506,6 +566,39 @@ EXAMPLES
     **mstpctl**: mstp configuration module for bridges
 
 
+      **mstpctl-portadminedge**
+
+        **help**: enable/disable initial edge state of the port
+
+
+        **required**: False
+
+        **default**: no
+
+        **validvals**: yes,no
+
+        **example**:
+            mstpctl-portadminedge swp1=no swp2=no
+
+
+      **mstpctl-portbpdufilter**
+
+        **help**: enable/disable bpdu filter on a port. syntax varies 
+        when defined under a bridge vs under a port
+
+
+        **required**: False
+
+        **default**: no
+
+        **validvals**: yes,no
+
+        **example**:
+            under a bridge: mstpctl-portbpdufilter swp1=no swp2=no
+
+            under a port: mstpctl-portbpdufilter yes
+
+
       **mstpctl-fdelay**
 
         **help**: set forwarding delay
@@ -517,51 +610,6 @@ EXAMPLES
 
         **example**:
             mstpctl-fdelay 15
-
-
-      **mstpctl-txholdcount**
-
-        **help**: bridge transmit holdcount
-
-
-        **required**: False
-
-        **default**: 6
-
-        **example**:
-            mstpctl-txholdcount 6
-
-
-      **mstpctl-portautoedge**
-
-        **help**: enable/disable auto transition to/from edge state of
-        the port
-
-
-        **required**: False
-
-        **default**: no
-
-        **validvals**: yes,no
-
-        **example**:
-            mstpctl-portautoedge swp1=yes swp2=yes
-
-
-      **mstpctl-portrestrrole**
-
-        **help**: enable/disable port ability to take root role of the
-        port
-
-
-        **required**: False
-
-        **default**: no
-
-        **validvals**: yes,no
-
-        **example**:
-            mstpctl-portrestrrole swp1=no swp2=no
 
 
       **mstpctl-portnetwork**
@@ -580,19 +628,59 @@ EXAMPLES
             mstpctl-portnetwork swp1=no swp2=no
 
 
-      **mstpctl-portp2p**
+      **mstpctl-txholdcount**
 
-        **help**: bridge port p2p detection mode
+        **help**: bridge transmit holdcount
 
 
         **required**: False
 
-        **default**: no
+        **default**: 6
+
+        **example**:
+            mstpctl-txholdcount 6
+
+
+      **mstpctl-forcevers**
+
+        **help**: bridge force stp version
+
+
+        **required**: False
+
+        **default**: rstp
+
+        **example**:
+            mstpctl-forcevers rstp
+
+
+      **mstpctl-portautoedge**
+
+        **help**: enable/disable auto transition to/from edge state of
+        the port
+
+
+        **required**: False
+
+        **default**: yes
 
         **validvals**: yes,no
 
         **example**:
-            mstpctl-portp2p swp1=no swp2=no
+            mstpctl-portautoedge swp1=yes swp2=yes
+
+
+      **mstpctl-maxhops**
+
+        **help**: bridge max hops
+
+
+        **required**: False
+
+        **default**: 15
+
+        **example**:
+            mstpctl-maxhops 15
 
 
       **mstpctl-treeprio**
@@ -625,71 +713,17 @@ EXAMPLES
             mstpctl-treeportprio swp1=128 swp2=128
 
 
-      **mstpctl-hello**
+      **mstpctl-portpathcost**
 
-        **help**: set hello time
-
-
-        **required**: False
-
-        **default**: 2
-
-        **example**:
-            mstpctl-hello 2
-
-
-      **mstpctl-ageing**
-
-        **help**: ageing time
+        **help**: bridge port path cost
 
 
         **required**: False
 
-        **default**: 300
+        **default**: 0
 
         **example**:
-            mstpctl-ageing 300
-
-
-      **mstpctl-portadminedge**
-
-        **help**: enable/disable initial edge state of the port
-
-
-        **required**: False
-
-        **default**: no
-
-        **validvals**: yes,no
-
-        **example**:
-            mstpctl-portadminedge swp1=no swp2=no
-
-
-      **mstpctl-maxage**
-
-        **help**: max message age
-
-
-        **required**: False
-
-        **default**: 20
-
-        **example**:
-            mstpctl-maxage 20
-
-
-      **mstpctl-maxhops**
-
-        **help**: bridge max hops
-
-
-        **required**: False
-
-        **default**: 15
-
-        **example**:
-            mstpctl-maxhops 15
+            mstpctl-portpathcost swp1=0 swp2=1
 
 
       **mstpctl-portrestrtcn**
@@ -708,22 +742,36 @@ EXAMPLES
             mstpctl-portrestrtcn swp1=no swp2=no
 
 
-      **mstpctl-portpathcost**
+      **mstpctl-maxage**
 
-        **help**: bridge port path cost
+        **help**: max message age
 
 
         **required**: False
 
-        **default**: 0
+        **default**: 20
 
         **example**:
-            mstpctl-portpathcost swp1=0 swp2=1
+            mstpctl-maxage 20
 
 
-      **mstpctl-portadminage**
+      **mstpctl-hello**
 
-        **help**: bridge port admin age
+        **help**: set hello time
+
+
+        **required**: False
+
+        **default**: 2
+
+        **example**:
+            mstpctl-hello 2
+
+
+      **mstpctl-portrestrrole**
+
+        **help**: enable/disable port ability to take root role of the
+        port
 
 
         **required**: False
@@ -733,43 +781,8 @@ EXAMPLES
         **validvals**: yes,no
 
         **example**:
-            mstpctl-portadminage swp1=no swp2=no
+            mstpctl-portrestrrole swp1=no swp2=no
 
-
-      **mstpctl-portbpdufilter**
-
-        **help**: enable/disable bpdu filter on a port
-
-
-        **required**: False
-
-        **default**: no
-
-        **validvals**: yes,no
-
-        **example**:
-            mstpctl-portbpdufilter swp1=no swp2=no
-
-
-      **mstpctl-forcevers**
-
-        **help**: bridge force stp version
-
-
-        **required**: False
-
-        **default**: rstp
-
-        **example**:
-            mstpctl-forcevers rstp
-
-
-      **mstpctl-treeportcost**
-
-        **help**: port tree cost
-
-
-        **required**: False
 
       **mstpctl-bpduguard**
 
@@ -784,6 +797,132 @@ EXAMPLES
 
         **example**:
             mstpctl-bpduguard swp1=no swp2=no
+
+
+      **mstpctl-ageing**
+
+        **help**: ageing time
+
+
+        **required**: False
+
+        **default**: 300
+
+        **example**:
+            mstpctl-ageing 300
+
+
+      **mstpctl-treeportcost**
+
+        **help**: port tree cost
+
+
+        **required**: False
+
+      **mstpctl-portp2p**
+
+        **help**: bridge port p2p detection mode
+
+
+        **required**: False
+
+        **default**: auto
+
+        **validvals**: yes,no,auto
+
+        **example**:
+            mstpctl-portp2p swp1=no swp2=no
+
+
+
+    **clagd**: This module generates the clagd defaults file.
+
+
+      **clagd-priority**
+
+        **help**: The priority of this clagd switch
+
+
+        **required**: False
+
+        **example**:
+            clagd-priority 30000
+
+
+      **clagd-backup-ip**
+
+        **help**: Backup IP address of the clagd peer
+
+
+        **required**: False
+
+        **example**:
+            clagd-backup-ip 192.1.1.1
+
+
+      **clagd-enable**
+
+        **help**: enable clagd
+
+
+        **required**: False
+
+        **validvals**: yes,no
+
+        **example**:
+            clagd-enable yes
+
+
+      **clag-id**
+
+        **help**: multi-chassis lag id
+
+
+        **required**: False
+
+        **default**: 0
+
+        validrange: 0-65535
+
+        **example**:
+            clag-id 1
+
+
+      **clagd-peer-ip**
+
+        **help**: The IP address of the clagd peer
+
+
+        **required**: True
+
+        **example**:
+            clagd-peer 10.10.10.2
+
+
+      **clagd-sys-mac**
+
+        **help**: The system ID of the CLAG pair
+
+
+        **required**: True
+
+        **example**:
+            clagd-sys-mac 44:38:39:ff:00:00
+
+
+      **clagd-args**
+
+        **help**: Additional command line arguments for clagd
+
+
+        **required**: False
+
+        **example**:
+            clagd-args --log /var/log/clagd.log
+
+            clagd-args --verbose --lacpPoll 10
+
+            clagd-args --debug 0x4
 
 
 
@@ -808,80 +947,26 @@ EXAMPLES
         **required**: False
 
 
+    **bridgevlan**: bridgevlan module configures vlan attributes on a 
+    vlan aware bridge. This module only understands vlan interface nam
+    e with dot notations. eg br0.100. where br0 is the vlan aware brid
+    ge this config is for
+
+
+      **bridge-igmp-querier-src**
+
+        **help**: bridge igmp querier src. Must be specified under the
+        vlan interface
+
+
+        **required**: False
+
+        **example**:
+            bridge-igmp-querier-src 172.16.101.1
+
+
+
     **ifenslave**: bond configuration module
-
-
-      **bond-miimon**
-
-        **help**: bond miimon
-
-
-        **required**: False
-
-        **default**: 0
-
-        validrange: 0-255
-
-        **example**:
-            bond-miimon 0
-
-
-      **bond-slaves**
-
-        **help**: bond slaves
-
-
-        **required**: True
-
-        **example**:
-            bond-slaves swp1 swp2
-
-            bond-slaves glob swp1-2
-
-            bond-slaves regex (swp[1|2)
-
-
-      **bond-mode**
-
-        **help**: bond mode
-
-
-        **required**: False
-
-        **default**: balance-rr
-
-        **validvals**: balance-rr,active-backup,balance-xor,broadcast,802.3ad,balance-tlb,balance-alb
-
-        **example**:
-            bond-mode 802.3ad
-
-
-      **bond-num-grat-arp**
-
-        **help**: bond use carrier
-
-
-        **required**: False
-
-        **default**: 1
-
-        validrange: 0-255
-
-        **example**:
-            bond-num-grat-arp 1
-
-
-      **bond-ad-sys-mac-addr**
-
-        **help**: 802.3ad system mac address
-
-
-        **required**: False
-
-        **default**: 00:00:00:00:00:00
-
-        **example**:
-            bond-ad-sys-mac-addr 00:00:00:00:00:00
 
 
       **bond-use-carrier**
@@ -899,9 +984,39 @@ EXAMPLES
             bond-use-carrier 1
 
 
+      **bond-lacp-bypass-period**
+
+        **help**: grace period (seconds) for lacp bypass
+
+
+        **required**: False
+
+        **default**: 0
+
+        validrange: 0-900
+
+        **example**:
+            bond-lacp-bypass-period 100
+
+
+      **bond-miimon**
+
+        **help**: bond miimon
+
+
+        **required**: False
+
+        **default**: 0
+
+        validrange: 0-255
+
+        **example**:
+            bond-miimon 0
+
+
       **bond-lacp-rate**
 
-        **help**: bond use carrier
+        **help**: bond lacp rate
 
 
         **required**: False
@@ -912,6 +1027,17 @@ EXAMPLES
 
         **example**:
             bond-lacp-rate 0
+
+
+      **bond-lacp-bypass-priority**
+
+        **help**: slave priority for lacp bypass
+
+
+        **required**: False
+
+        **example**:
+            bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2
 
 
       **bond-min-links**
@@ -925,6 +1051,51 @@ EXAMPLES
 
         **example**:
             bond-min-links 0
+
+
+      **bond-slaves**
+
+        **help**: bond slaves
+
+
+        **required**: True
+
+        **example**:
+            bond-slaves swp1 swp2
+
+            bond-slaves glob swp1-2
+
+            bond-slaves regex (swp[1|2)
+
+
+      **bond-lacp-bypass-allow**
+
+        **help**: allow lacp bypass
+
+
+        **required**: False
+
+        **default**: 0
+
+        **validvals**: 0,1
+
+        **example**:
+            bond-lacp-bypass-allow 0
+
+
+      **bond-mode**
+
+        **help**: bond mode
+
+
+        **required**: False
+
+        **default**: balance-rr
+
+        **validvals**: balance-rr,active-backup,balance-xor,broadcast,802.3ad,balance-tlb,balance-alb
+
+        **example**:
+            bond-mode 802.3ad
 
 
       **bond-num-unsol-na**
@@ -968,6 +1139,34 @@ EXAMPLES
 
         **example**:
             bond-xmit-hash-policy layer2
+
+
+      **bond-num-grat-arp**
+
+        **help**: bond use carrier
+
+
+        **required**: False
+
+        **default**: 1
+
+        validrange: 0-255
+
+        **example**:
+            bond-num-grat-arp 1
+
+
+      **bond-ad-sys-mac-addr**
+
+        **help**: 802.3ad system mac address
+
+
+        **required**: False
+
+        **default**: 00:00:00:00:00:00
+
+        **example**:
+            bond-ad-sys-mac-addr 00:00:00:00:00:00
 
 
 
@@ -1031,6 +1230,22 @@ EXAMPLES
             scope host
 
 
+      **address-purge**
+
+        **help**: purge existing addresses. By default any existing ip
+        addresses on an interface are purged to match persistant addre
+        sses in the interfaces file. Set this attribute to 'no'if you 
+        want to preserve existing addresses
+
+
+        **required**: False
+
+        **default**: yes
+
+        **example**:
+            address-purge yes/no
+
+
       **preferred-lifetime**
 
         **help**: preferred lifetime
@@ -1069,6 +1284,84 @@ EXAMPLES
 
 
 
+    **addressvirtual**: address module configures virtual addresses fo
+    r interfaces. It creates a macvlan interface for every mac ip addr
+    ess-virtual line
+
+
+      **address-virtual**
+
+        **help**: bridge router virtual mac and ip
+
+
+        **required**: False
+
+        **example**:
+            address-virtual 00:11:22:33:44:01 11.0.1.254/24 11.0.1.254/24
+
+
+
+    **vxlan**: vxlan module configures vxlan interfaces.
+
+
+      **vxlan-learning**
+
+        **help**: vxlan learning on/off
+
+
+        **required**: False
+
+        **default**: on
+
+        **example**:
+            vxlan-learning off
+
+
+      **vxlan-id**
+
+        **help**: vxlan id
+
+
+        **required**: True
+
+        **example**:
+            vxlan-id 100
+
+
+      **vxlan-remoteip**
+
+        **help**: vxlan remote ip
+
+
+        **required**: False
+
+        **example**:
+            vxlan-remoteip 172.16.22.127
+
+
+      **vxlan-svcnodeip**
+
+        **help**: vxlan id
+
+
+        **required**: False
+
+        **example**:
+            vxlan-svcnodeip 172.16.22.125
+
+
+      **vxlan-local-tunnelip**
+
+        **help**: vxlan local tunnel ip
+
+
+        **required**: False
+
+        **example**:
+            vxlan-local-tunnelip 172.16.20.103
+
+
+
 SEE ALSO
 ========
     interfaces(5),
@@ -1076,4 +1369,5 @@ SEE ALSO
     ip(8),
     mstpctl(8),
     brctl(8),
-    ethtool(8)
+    ethtool(8),
+    clagctl(8)
