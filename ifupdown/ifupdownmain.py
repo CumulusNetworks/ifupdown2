@@ -1188,10 +1188,10 @@ class ifupdownMain(ifupdownBase):
                 if not newifaceobjlist:
                     ifacedownlist.append(ifname)
                     continue
+                if not down_changed:
+                    continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
                     ifacedownlist.append(ifname)
-                    continue
-                if not down_changed:
                     continue
 
                 # If interface has changed between the current file
