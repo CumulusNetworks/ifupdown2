@@ -20,12 +20,15 @@ DESCRIPTION
 ===========
     reloads network **interfaces(5)** file **/etc/network/interfaces**.
 
-    Runs **ifdown** on interfaces that changed in the interfaces file and
+    Runs **ifdown** on interfaces that were removed from the file and
     subsequently runs **ifup** on all interfaces.
 
-    **ifreload** is equivalent to **ifdown -a** followed by **ifup -a**
-    but it skips **ifdown** for interfaces that did not change in the config
-    file.
+    When removing an interface (iface section) from the interfaces file
+    please make sure all its references are removed as well. Similarly
+    when renaming an interface, please make sure all references to the
+    interface are changed to the new name. Renaming an interface
+    in the interfaces file results in ifdown of the old and ifup
+    of the interface with the new name.
 
     If you do not wish to execute **down** on any interfaces, but only **up** on
     interfaces that were already **up**, please see the **--currently-up**
