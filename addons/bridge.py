@@ -670,12 +670,90 @@ class bridge(moduleBase):
             self.log_warn('%s: failed to set pvid `%s` (%s)'
                           %(bportifaceobj.name, pvid, str(e)))
 
+    def _apply_bridge_vids_and_pvid(self, bportifaceobj, vids, running_vids,
+                                    pvid, running_pvid, isbridge):
+        """ This method is a combination of methods _apply_bridge_vids and
+            _apply_bridge_port_pvids above. A combined function is
+            found necessary to do the deletes first and the adds later
+            because kernel does honor vid info flags during deletes.
+
+        """
+
+        try:
+            if not self._check_vids(bportifaceobj, vids):
+               return
+
+            vids_to_del = []
+            vids_to_add = vids
+            pvid_to_del = None
+            pvid_to_add = pvid if pvid else '1'
+
+            if running_vids:
+                (vids_to_del, vids_to_add) = \
+                    self._diff_vids(vids, running_vids)
+
+            if running_pvid:
+                if running_pvid != pvid:
+                    pvid_to_del = running_pvid
+
+            if (pvid_to_del and (pvid_to_del in vids) and
+                (pvid_to_del not in vids_to_add)):
+                # kernel deletes dont take into account
+                # bridge vid flags and its possible that
+                # the pvid deletes we do end up deleting
+                # the vids. Be proactive and add the pvid
+                # to the vid add list if it is in the vids
+                # and not already part of vids_to_add.
+                # This helps with a small corner case:
+                #   - running
+                #       pvid 100
+                #       vid 101 102
+                #   - new change is going to move the state to
+                #       pvid 101
+                #       vid 100 102
+                vids_to_add.append(pvid_to_del)
+        except Exception, e:
+            self.log_warn('%s: failed to process vids/pvids'
+                          %bportifaceobj.name + ' vids = %s' %str(vids) +
+                          'pvid = %s ' %pvid + '(%s)' %str(e))
+        try:
+            if vids_to_del:
+               self.ipcmd.bridge_vids_del(bportifaceobj.name,
+                                          vids_to_del, isbridge)
+        except Exception, e:
+                self.log_warn('%s: failed to del vid `%s` (%s)'
+                        %(bportifaceobj.name, str(vids_to_del), str(e)))
+
+        try:
+            if pvid_to_del:
+               self.ipcmd.bridge_port_pvid_del(bportifaceobj.name,
+                                               pvid_to_del)
+        except Exception, e:
+                self.log_warn('%s: failed to del pvid `%s` (%s)'
+                        %(bportifaceobj.name, pvid_to_del, str(e)))
+
+        try:
+            if vids_to_add:
+               self.ipcmd.bridge_vids_add(bportifaceobj.name,
+                                           vids_to_add, isbridge)
+        except Exception, e:
+                self.log_warn('%s: failed to set vid `%s` (%s)'
+                        %(bportifaceobj.name, str(vids_to_add), str(e)))
+
+        try:
+            self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid_to_add)
+        except Exception, e:
+                self.log_warn('%s: failed to set pvid `%s` (%s)'
+                        %(bportifaceobj.name, pvid_to_add, str(e)))
+
     def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj,
                                                    bridge_vids=None,
                                                    bridge_pvid=None):
         running_vidinfo = self._get_running_vidinfo()
         vids = None
         pvids = None
+        vids_final = []
+        pvid_final = None
         bport_access = bportifaceobj.get_attr_value_first('bridge-access')
         if bport_access:
             vids = re.split(r'[\s\t]\s*', bport_access)
@@ -689,28 +767,21 @@ class bridge(moduleBase):
             if bport_pvids:
                 pvids = re.split(r'[\s\t]\s*', bport_pvids)
 
-        if pvids:
-            self._apply_bridge_port_pvids(bportifaceobj, pvids[0],
-                    running_vidinfo.get(bportifaceobj.name, {}).get('pvid'))
-        elif bridge_pvid:
-            self._apply_bridge_port_pvids(bportifaceobj,
-                    bridge_pvid, running_vidinfo.get(bportifaceobj.name,
-                    {}).get('pvid'))
-        # XXX: default pvid is already one
-        #else:
-        #    self._apply_bridge_port_pvids(bportifaceobj,
-        #            '1', running_vidinfo.get(bportifaceobj.name,
-        #            {}).get('pvid'))
-
         if vids:
-            self._apply_bridge_vids(bportifaceobj, vids,
-                    running_vidinfo.get(bportifaceobj.name,
-                    {}).get('vlan'), False)
+            vids_final =  vids
         elif bridge_vids:
-            self._apply_bridge_vids(bportifaceobj,
-                                    bridge_vids, running_vidinfo.get(
-                                    bportifaceobj.name, {}).get('vlan'), False)
+            vids_final = bridge_vids
 
+        if pvids:
+            pvid_final = pvids[0]
+        elif bridge_pvid:
+            pvid_final = bridge_pvid
+
+        self._apply_bridge_vids_and_pvid(bportifaceobj, vids_final,
+                running_vidinfo.get(bportifaceobj.name, {}).get('vlan'),
+                pvid_final,
+                running_vidinfo.get(bportifaceobj.name, {}).get('pvid'),
+                False)
 
     def _apply_bridge_port_settings(self, bportifaceobj, bridgename=None,
                                     bridgeifaceobj=None):
