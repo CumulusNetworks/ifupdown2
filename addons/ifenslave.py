@@ -94,6 +94,11 @@ class ifenslave(moduleBase):
                      'bond-lacp-bypass-priority':
                          {'help' : 'slave priority for lacp bypass',
                           'example' : ['bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2']},
+                     'bond-lacp-bypass-use-priority':
+                         {'help' : 'enable priority based selection for lacp bypass',
+                          'validvals' : ['0', '1'],
+                          'default' : '1',
+                          'example' : ['bond-lacp-bypass-use-priority 1']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
@@ -188,6 +193,7 @@ class ifenslave(moduleBase):
                                  ('bond-lacp-fallback-allow', 'lacp_bypass_allow'),
                                  ('bond-lacp-fallback-period', 'lacp_bypass_period'),
                                  ('bond-lacp-bypass-allow', 'lacp_bypass_allow'),
+                                 ('bond-lacp-bypass-use-priority', 'lacp_bypass_use_priority'),
                                  ('bond-lacp-bypass-period', 'lacp_bypass_period')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
@@ -377,7 +383,9 @@ class ifenslave(moduleBase):
                      'bond-lacp-bypass-period' :
                             self.ifenslavecmd.get_lacp_fallback_period(bondname),
                      'bond-lacp-bypass-priority' :
-                            self.ifenslavecmd.get_lacp_fallback_priority(bondname)}
+                            self.ifenslavecmd.get_lacp_fallback_priority(bondname),
+                     'bond-lacp-bypass-use-priority' :
+                            self.ifenslavecmd.get_lacp_fallback_use_priority(bondname)}
         slaves = self.ifenslavecmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves
