@@ -54,7 +54,7 @@ class ifenslaveutil(utilsBase):
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
                         'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period', 
-                        'lacp_bypass_use_priority', 'clag_enable'])
+                        'lacp_bypass_all_active', 'clag_enable'])
         except Exception, e:
             pass
 
@@ -318,25 +318,25 @@ class ifenslaveutil(utilsBase):
         prio_str = ' '.join(prios)
         return prio_str
 
-    def set_lacp_fallback_use_priority(self, bondname, useprio, prehook=None, posthook=None):
-        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_use_priority'], 
-                              lacp_bypass_use_priority)):
+    def set_lacp_fallback_all_active(self, bondname, useprio, prehook=None, posthook=None):
+        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_all_active'], 
+                              lacp_bypass_all_active)):
             return
         if prehook:
             prehook(bondname)
         try:
             self.write_file('/sys/class/net/%s' %bondname +
-                            '/bonding/lacp_bypass_use_priority', useprio)
+                            '/bonding/lacp_bypass_all_active', useprio)
         except:
             raise
         finally:
             if posthook:
                 posthook(bondname)
             self._cache_update([bondname, 'linkinfo',
-                               'lacp_bypass_use_priority'], useprio)
+                               'lacp_bypass_all_active'], useprio)
 
-    def get_lacp_fallback_use_priority(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_use_priority'])
+    def get_lacp_fallback_all_active(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_all_active'])
 
     def get_ad_sys_mac_addr(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'ad_sys_mac_addr'])
