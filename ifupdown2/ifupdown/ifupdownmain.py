@@ -1117,6 +1117,7 @@ class ifupdownMain(ifupdownBase):
             self.ALL = True
             self.WITH_DEPENDS = True
         if new_ifaceobjdict:
+            # and now, ifaceobjdict is back to current config
             self.ifaceobjdict = new_ifaceobjdict
             self.dependency_graph = new_dependency_graph
 
@@ -1231,6 +1232,7 @@ class ifupdownMain(ifupdownBase):
         if auto:
             self.ALL = True
             self.WITH_DEPENDS = True
+        # and now, we are back to the current config in ifaceobjdict
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
         ifacenames = self.ifaceobjdict.keys()

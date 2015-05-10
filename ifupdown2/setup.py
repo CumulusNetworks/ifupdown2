@@ -40,6 +40,8 @@ setup(name='ifupdown2',
                       'addons/ethtool.py', 'addons/loopback.py',
                       'addons/addressvirtual.py', 'addons/vxlan.py',
                       'addons/bridgevlan.py']),
-                  ('/var/lib/ifupdownaddons/', ['config/addons.conf'])
+                  ('/var/lib/ifupdownaddons/', ['config/addons.conf']),
+                  ('/var/lib/ifupdownaddons/policy.d/', []),
+                  ('/etc/network/ifupdown2/policy.d/', [])
                   ]
       )
