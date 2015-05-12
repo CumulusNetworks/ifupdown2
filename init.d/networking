@@ -147,6 +147,18 @@ start)
 	;;
 
 stop)
+	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
+		shutdown_or_reboot=$(runlevel 2>/dev/null | \
+				     /usr/bin/tr -s " " | \
+				     /usr/bin/cut -d " " \
+				     -f1- --output-delimiter=$'\n' | \
+				     /bin/grep -e "0" -e "6")
+		if [ -n "$shutdown_or_reboot" ]; then
+			log_action_begin_msg "Deconfiguring network interfaces..skip"
+			log_action_end_msg 0
+			exit 0
+		fi
+	fi
 	ifupdown_init
 	check_network_file_systems
 	check_network_swap
