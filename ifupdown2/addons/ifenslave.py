@@ -219,10 +219,6 @@ class ifenslave(moduleBase):
 
         if not self.PERFMODE:
             runningslaves = self.ifenslavecmd.get_slaves(ifaceobj.name);
-            if runningslaves:
-                # Delete active slaves not in the new slave list
-                [ self.ifenslavecmd.remove_slave(ifaceobj.name, s)
-                    for s in runningslaves if s not in slaves ]
 
         for slave in Set(slaves).difference(Set(runningslaves)):
             if not self.PERFMODE and not self.ipcmd.link_exists(slave):
@@ -241,6 +237,11 @@ class ifenslave(moduleBase):
                     self.logger.debug('%s: %s: link set up (%s)'
                                       %(ifaceobj.name, slave, str(e)))
                     pass
+
+        if runningslaves:
+            # Delete active slaves not in the new slave list
+            [ self.ifenslavecmd.remove_slave(ifaceobj.name, s)
+                    for s in runningslaves if s not in slaves ]
 
     def _set_clag_enable(self, ifaceobj):
         attrval = ifaceobj.get_attr_value_first('clag-id')
