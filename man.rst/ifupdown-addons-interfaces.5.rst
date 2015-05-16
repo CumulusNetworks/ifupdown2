@@ -1083,6 +1083,21 @@ EXAMPLES
             bond-lacp-bypass-allow 0
 
 
+      **bond-lacp-bypass-allow-all-active**
+
+        **help**: allow all slaves to be active in lacp bypass irrespective of priority
+
+
+        **required**: False
+
+        **default**: 0
+
+        **validvals**: 0,1
+
+        **example**:
+            bond-lacp-bypass-all-active 1
+
+
       **bond-mode**
 
         **help**: bond mode
