@@ -52,6 +52,11 @@ OPTIONS
                           alternative to -a because it will not down any
                           interfaces
 
+    -X EXCLUDEPATS, --exclude EXCLUDEPATS
+                          Exclude interfaces from the list of interfaces to
+                          operate on. Can be specified multiple times
+
+
 EXAMPLES
 ========
     # reload all auto interfaces in **interfaces(5)** file
