@@ -22,10 +22,28 @@ class ifaceType():
     IFACE = 0x1
     BRIDGE_VLAN = 0x2
 
+
+class ifaceRole():
+    """ ifaceRole is used to classify the ifaceobj.role of
+        MASTER or SLAVE where there is a bond or bridge
+        with bond-slaves or bridge-ports.  A bond in a bridge
+        is both a master and slave (0x3)
+    """
+    UNKNOWN = 0x0
+    SLAVE = 0x1
+    MASTER = 0x2
+
 class ifaceLinkKind():
+    """ ifaceLlinkKind is used to identify interfaces
+        in the ifaceobj.link_kind attribute. Dependents of the bridge or
+        bond have an ifaceobj.role attribute of SLAVE and the bridge or
+        bond itself has ifaceobj.role of MASTER.
+    """
     UNKNOWN = 0x0
     BRIDGE = 0x1
     BOND = 0x2
+    VLAN = 0x4
+    VXLAN = 0x8
 
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0
@@ -260,6 +278,7 @@ class iface():
         self.type = ifaceType.UNKNOWN
         """interface type"""
         self.priv_data = None
+        self.role = ifaceRole.UNKNOWN
         self.realname = None
         self.link_type = ifaceLinkType.LINK_UNKNOWN
         self.link_kind = ifaceLinkKind.UNKNOWN
@@ -455,6 +474,7 @@ class iface():
         del odict['env']
         del odict['link_type']
         del odict['link_kind']
+        del odict['role']
         del odict['dependency_type']
         return odict
 
@@ -469,6 +489,7 @@ class iface():
         self.upperifaces = None
         self.linkstate = None
         self.env = None
+        self.role = ifaceRole.UNKNOWN
         self.priv_flags = 0
         self.module_flags = {}
         self.raw_config = []

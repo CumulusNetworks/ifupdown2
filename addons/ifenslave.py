@@ -128,6 +128,9 @@ class ifenslave(moduleBase):
         ifaceobj.priv_data = list(slave_list)
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
+        ifaceobj.link_kind |= ifaceLinkKind.BOND
+        ifaceobj.role |= ifaceRole.MASTER
+
         return slave_list
 
     def get_dependent_ifacenames_running(self, ifaceobj):

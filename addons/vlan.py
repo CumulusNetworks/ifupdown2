@@ -95,6 +95,7 @@ class vlan(moduleBase):
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
         if not self._is_vlan_device(ifaceobj):
             return None
+        ifaceobj.link_kind |= ifaceLinkKind.VLAN
         return [self._get_vlan_raw_device(ifaceobj)]
 
     def _bridge_vid_add_del(self, ifaceobj, bridgename, vlanid,
