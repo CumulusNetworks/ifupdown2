@@ -104,6 +104,11 @@ class address(moduleBase):
         newaddrs = []
         addrs = ifaceobj.get_attr_value('address')
         if addrs:
+            if ifaceobj.role & ifaceRole.SLAVE:
+                # we must not configure an IP address if the interface is enslaved
+                self.log_warn('interface %s is enslaved and cannot have an IP Address' % \
+                              (ifaceobj.name))
+                return
             # If user address is not in CIDR notation, convert them to CIDR
             for addr_index in range(0, len(addrs)):
                 addr = addrs[addr_index]

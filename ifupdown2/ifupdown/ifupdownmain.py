@@ -439,6 +439,9 @@ class ifupdownMain(ifupdownBase):
                 else:
                     del_list.append(d)
                 if ni:
+                    if upperifaceobj.link_kind & \
+                           (ifaceLinkKind.BOND | ifaceLinkKind.BRIDGE):
+                        ni.role |= ifaceRole.SLAVE
                     ni.add_to_upperifaces(upperifaceobj.name)
                     if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
                         ni.link_type = ifaceLinkType.LINK_SLAVE
@@ -446,6 +449,9 @@ class ifupdownMain(ifupdownBase):
                 for di in dilist:
                     di.inc_refcnt()
                     di.add_to_upperifaces(upperifaceobj.name)
+                    if upperifaceobj.link_kind & \
+                           (ifaceLinkKind.BOND | ifaceLinkKind.BRIDGE):
+                        di.role |= ifaceRole.SLAVE
                     if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
                         di.link_type = ifaceLinkType.LINK_SLAVE
         for d in del_list:

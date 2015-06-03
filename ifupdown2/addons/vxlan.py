@@ -33,6 +33,12 @@ class vxlan(moduleBase):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
+    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
+        if not self._is_vxlan_device(ifaceobj):
+            return None
+        ifaceobj.link_kind |= ifaceLinkKind.VXLAN
+        return None
+
     def _is_vxlan_device(self, ifaceobj):
         if ifaceobj.get_attr_value_first('vxlan-id'):
             return True
