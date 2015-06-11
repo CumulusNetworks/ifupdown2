@@ -8,9 +8,10 @@
 SRC_MAN_DIR=$1
 DST_MAN_DIR=$2
 
-echo -n "Generating man pages .."
+echo "Generating man pages .."
 # Loop over all the man directories
 mkdir -p $DST_MAN_DIR
+
 for p in $(ls $SRC_MAN_DIR/*.rst) ; do
     # strip src man path
     src_file=$p

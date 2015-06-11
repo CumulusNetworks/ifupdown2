@@ -1,3 +1,3 @@
-sbin/ifupdown2 sbin/ifup
-sbin/ifupdown2 sbin/ifdown
-sbin/ifupdown2 sbin/ifquery
+usr/share/ifupdown2/sbin/ifupdown2 sbin/ifup
+usr/share/ifupdown2/sbin/ifupdown2 sbin/ifdown
+usr/share/ifupdown2/sbin/ifupdown2 sbin/ifquery
