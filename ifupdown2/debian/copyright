@@ -3,11 +3,11 @@ Upstream-Name: ifupdown2
 Source: http://www.cumulusnetworks.com
 
 Files: *
-Copyright: 2013 Cumulus Networks
+Copyright: 2014 Cumulus Networks
 License: GPL-2
 
 Files: debian/*
-Copyright: 2013 Cumulus Networks
+Copyright: 2014 Cumulus Networks
 License: GPL-2
  This package is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by

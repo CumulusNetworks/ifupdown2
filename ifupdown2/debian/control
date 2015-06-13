@@ -1,0 +1,22 @@
+Source: ifupdown2
+Section: admin
+Priority: optional
+Maintainer: Roopa Prabhu <roopa@cumulusnetworks.com>
+Standards-Version: 3.9.4
+Build-Depends: python-setuptools, dh-python, python-all (>= 2.6.6-3), debhelper (>= 9~), python3-all, python3-setuptools
+Homepage: https://github.com/CumulusNetworks/ifupdown2
+X-Python-Version: >= 2.6
+X-Python3-Version: >= 3.2
+
+Package: ifupdown2
+Architecture: all
+Section: admin
+Priority: optional
+Suggests: python-gvgen, python-mako 
+Replaces: ifupdown
+Conflicts: ifupdown
+Depends: ${python:Depends}, ${misc:Depends}
+Description: ifupdown2 is a high level tool to configure (or, respectively
+ deconfigure) network interfaces based on interface definitions in the file /etc/network/interfaces. It is an implementation of ifupdown in python.  It provides the same tools as ifupdown with new features and options for additional functionality.
+
+
