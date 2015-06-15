@@ -15,7 +15,7 @@ Priority: optional
 Suggests: python-gvgen, python-mako 
 Replaces: ifupdown
 Conflicts: ifupdown
-Depends: ${python:Depends}, ${misc:Depends}
+Depends: ${python:Depends}, ${misc:Depends}, python-argcomplete, python-ipaddr
 Description: ifupdown2 is a high level tool to configure (or, respectively
  deconfigure) network interfaces based on interface definitions in the file /etc/network/interfaces. It is an implementation of ifupdown in python.  It provides the same tools as ifupdown with new features and options for additional functionality.
 

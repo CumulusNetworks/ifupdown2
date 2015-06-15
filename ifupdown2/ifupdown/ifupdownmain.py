@@ -64,8 +64,8 @@ class ifupdownMain(ifupdownBase):
     NOCONFIG = 0x0010
 
     scripts_dir='/etc/network'
-    addon_modules_dir='/usr/share/ifupdownaddons'
-    addon_modules_configfile='/var/lib/ifupdownaddons/addons.conf'
+    addon_modules_dir='/lib/ifupdown2/addons'
+    addon_modules_configfile='/etc/network/ifupdown2/addons.conf'
 
     # iface dictionary in the below format:
     # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
