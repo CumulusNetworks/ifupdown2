@@ -79,7 +79,7 @@ class iproute2(utilsBase):
                         elif citems[j] == 'svcnode':
                             vattrs['svcnode'].append(citems[j+1])
                         elif citems[j] == 'ageing':
-                            vattrs['ageing'].append(citems[j+1])
+                            vattrs['ageing'] = citems[j+1]
                         elif citems[j] == 'nolearning':
                             vattrs['learning'] = 'off'
                     # get vxlan peer nodes
