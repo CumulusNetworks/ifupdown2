@@ -321,6 +321,8 @@ EXAMPLES
 
             bridge-ports glob swp1-3.100
 
+            bridge-ports glob swp[1-3]s[0-4].100
+
             bridge-ports regex (swp[1|2|3].100)
 
 

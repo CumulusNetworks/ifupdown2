@@ -317,6 +317,10 @@ bridge ports and bond slaves::
     iface br1
         bridge-ports glob swp7-9.100  swp11.100 glob swp15-18.100
 
+    auto br2
+    iface br2
+        bridge-ports glob swp[1-6]s[0-3].100
+
 Using Templates
 ===============
 

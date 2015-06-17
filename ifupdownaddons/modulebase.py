@@ -148,32 +148,57 @@ class moduleBase(object):
 
     def parse_glob(self, expr):
         errmsg = ('error parsing glob expression \'%s\'' %expr +
-                    ' (supported glob syntax: swp1-10 or swp[1-10])')
-        start_index = 0
-        end_index = 0
-        try:
-            regexs = [re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
-                      re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
-            for r in regexs:
-                m = r.match(expr)
-                if not m:
-                    continue
-                mlist = m.groups()
-                if len(mlist) != 4:
-                    raise Exception(errmsg + '(unexpected len)')
-                prefix = mlist[0]
-                suffix = mlist[3]
-                start_index = int(mlist[1])
-                end_index = int(mlist[2])
-        except:
-            self.logger.warn(errmsg)
-            pass
-        if not start_index and not end_index:
-            self.logger.warn(errmsg)
-            yield expr
-        else:
+                    ' (supported glob syntax: swp1-10.300 or swp[1-10].300' +
+                    '  or swp[1-10]sub[0-4].300')
+
+        # explanations are shown below in each if clause
+        regexs = [re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\]([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)"),
+                  re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
+                  re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
+
+        if regexs[0].match(expr):
+            # the first regex checks for exactly two levels of ranges defined only with square brackets
+            # (e.g. swpxyz[10-23]subqwe[0-4].100) to handle naming with two levels of port names.
+            m = regexs[0].match(expr)
+            mlist = m.groups()
+            if len(mlist) < 7:
+                # we have problems and should not continue
+                raise Exception('Error: unhandled glob expression %s\n%s' % (expr,errmsg))
+
+            prefix = mlist[0]
+            suffix = mlist[6]
+            start_index = int(mlist[1])
+            end_index = int(mlist[2])
+            sub_string = mlist[3]
+            start_sub = int(mlist[4])
+            end_sub = int(mlist[5])
+            for i in range(start_index, end_index + 1):
+                for j in range(start_sub, end_sub + 1):
+                    yield prefix + '%d%s%d' % (i,sub_string,j) + suffix
+
+        elif regexs[1].match(expr) or regexs[2].match(expr):
+            # the second regex for 1 level with a range (e.g. swp10-14.100
+            # the third regex checks for 1 level with [] (e.g. swp[10-14].100)
+            start_index = 0
+            end_index = 0
+            if regexs[1].match(expr):
+                m = regexs[1].match(expr)
+            else:
+                m = regexs[2].match(expr)
+            mlist = m.groups()
+            if len(mlist) != 4:
+                raise Exception(errmsg + '(unexpected len)')
+            prefix = mlist[0]
+            suffix = mlist[3]
+            start_index = int(mlist[1])
+            end_index = int(mlist[2])
             for i in range(start_index, end_index + 1):
                 yield prefix + '%d' %i + suffix
+
+        else:
+            # Could not match anything.
+            self.logger.warn('Warning: could not glob properly with %s\n%s' % (expr,errmsg))
+            yield expr
 
     def parse_port_list(self, port_expr, ifacenames=None):
         """ parse port list containing glob and regex
