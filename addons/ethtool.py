@@ -57,14 +57,7 @@ class ethtool(moduleBase,utilsBase):
                 attr='link-%s'%attr)
 
             # check running values
-            running_val = None
-            if attr == 'autoneg':
-                # we can only get autoneg from ethtool
-                output = self.exec_commandl(['ethtool', ifaceobj.name])
-                running_val = self.get_autoneg(ethtool_output=output)
-            else:
-                running_val = self.read_file_oneline('/sys/class/net/%s/%s' % \
-                                                     (ifaceobj.name, attr))
+            running_val = self.get_running_attr(attr, ifaceobj)
             if config_val and config_val == running_val:
                 # running value is what is configured, do nothing
                 continue
@@ -82,8 +75,6 @@ class ethtool(moduleBase,utilsBase):
                 # no value set nor default, leave it alone
                 pass
         if cmd:
-            self.logger.debug('ethtool %s: iface %s cmd is %s' % \
-                              (operation, ifaceobj.name, cmd))
             try:
                 # we should only be calling ethtool if there
                 # is a speed set or we can find a default speed
@@ -111,12 +102,7 @@ class ethtool(moduleBase,utilsBase):
         """
         for attr in ['speed', 'duplex', 'autoneg']:
             # autoneg comes from ethtool whereas speed and duplex from /sys/class
-            if attr == 'autoneg':
-                output = self.exec_commandl(['ethtool', ifaceobj.name])
-                running_attr = self.get_autoneg(ethtool_output=output)
-            else:
-                running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
-                                                      (ifaceobj.name, attr))
+            running_attr = self.get_running_attr(attr, ifaceobj)
 
             configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             default = policymanager.policymanager_api.get_iface_default(
@@ -161,6 +147,25 @@ class ethtool(moduleBase,utilsBase):
         else:
             return(None)
 
+    def get_running_attr(self,attr='',ifaceobj=None):
+        if not ifaceobj or not attr:
+            return
+        running_attr = None
+        try:
+            if attr == 'autoneg':
+                output=self.exec_commandl(['ethtool', ifaceobj.name])
+                running_attr = self.get_autoneg(ethtool_output=output)
+            else:
+                running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
+                                                      (ifaceobj.name, attr))
+        except:
+            # for nonexistent interfaces, we get an error (rc = 256 or 19200)
+            self.logger.debug('ethtool: problems calling ethtool or reading'
+                              ' /sys/class on iface %s for attr %s' % \
+                              (ifaceobj.name,attr))
+        return running_attr
+
+
     def _query_running(self, ifaceobj, ifaceobj_getfunc=None):
         """
         _query_running looks at the speed and duplex from /sys/class
@@ -173,19 +178,7 @@ class ethtool(moduleBase,utilsBase):
         if not self.ipcmd.is_link_up(ifaceobj.name):
             return
         for attr in ['speed', 'duplex', 'autoneg']:
-            # autoneg comes from ethtool whereas speed and duplex from /sys/class
-            running_attr = None
-            try:
-                if attr == 'autoneg':
-                    output=self.exec_commandl(['ethtool', ifaceobj.name])
-                    running_attr = self.get_autoneg(ethtool_output=output)
-                else:
-                    running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
-                                                          (ifaceobj.name, attr))
-            except:
-                # for nonexistent interfaces, we get an error (rc = 256 or 19200)
-                pass
-
+            running_attr = self.get_running_attr(attr, ifaceobj)
             # show it
             if (running_attr):
                 ifaceobj.update_config('link-%s'%attr, running_attr)
@@ -226,12 +219,12 @@ class ethtool(moduleBase,utilsBase):
         if not op_handler:
             return
         self._init_command_handlers()
-
-        # check to make sure we are only checking/setting interfaces with
-        # no lower interfaces.   No bridges, no vlans, loopbacks.
-        if ifaceobj.lowerifaces != None or \
-           self.ipcmd.link_isloopback(ifaceobj.name) or \
-           self.ipcmd.is_vlan_device_by_name(ifaceobj.name):
+        # while this will not catch all interface kinds, we try for most here
+        # we should only be running ethtool on real, hardware devices.  For
+        # newer interfaces that do not set link_kind, they should not have
+        # a default attribute setting since update-ports only generates
+        # settings for hardware ports.
+        if ifaceobj.link_kind != ifaceLinkKind.UNKNOWN:
             return
 
         if operation == 'query-checkcurr':
