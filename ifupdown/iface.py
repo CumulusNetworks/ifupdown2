@@ -286,6 +286,7 @@ class iface():
         # The below attribute is used to disambiguate between various
         # types of dependencies
         self.dependency_type = ifaceDependencyType.UNKNOWN
+        self.blacklisted = False
 
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
@@ -476,6 +477,7 @@ class iface():
         del odict['link_kind']
         del odict['role']
         del odict['dependency_type']
+        del odict['blacklisted']
         return odict
 
     def __setstate__(self, dict):
@@ -497,6 +499,7 @@ class iface():
         self.link_type = ifaceLinkType.LINK_NA
         self.link_kind = ifaceLinkKind.UNKNOWN
         self.dependency_type = ifaceDependencyType.UNKNOWN
+        self.blacklisted = False
 
     def dump_raw(self, logger):
         indent = '  '

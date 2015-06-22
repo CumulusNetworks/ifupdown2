@@ -497,6 +497,8 @@ class ifupdownMain(ifupdownBase):
             ifaceobj = self.get_ifaceobj_first(i)
             if not ifaceobj: 
                 continue
+            if ifaceobj.blacklisted:
+                continue
             dlist = ifaceobj.lowerifaces
             if not dlist:
                 dlist = self.query_dependents(ifaceobj, ops, ifacenames)
@@ -778,29 +780,45 @@ class ifupdownMain(ifupdownBase):
         interfaces are checked against the allow_classes and auto lists.
 
         """
+        ret = True
+
+	# Check if interface matches the exclude patter
         if excludepats:
             for e in excludepats:
                 if re.search(e, ifacename):
-                    return False
+                    ret = False
         ifaceobjs = self.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            self.logger.debug('iface %s' %ifacename + ' not found')
-            return False
-        # We check classes first
+            if ret:
+                self.logger.debug('iface %s' %ifacename + ' not found')
+            return ret
+    	# If matched exclude pattern, return false
+        if not ret:
+            for i in ifaceobjs:
+                i.blacklisted = True
+            return ret
+        # Check if interface belongs to the class
+	# the user is interested in, if not return false
         if allow_classes:
             for i in ifaceobjs:
                 if i.classes:
                     common = Set([allow_classes]).intersection(
                                 Set(i.classes))
                     if common:
-                        return True
-            return False
+                        ret = True
+                    else:
+                        i.blacklisted = True
+            if not ret:
+                return ret
+	# If the user has requested auto class, check if the interface
+	# is marked auto
         if auto:
             for i in ifaceobjs:
                 if i.auto:
-                    return True
-            return False
-        return True
+                    ret = True
+                else:
+                    i.blacklisted = True
+        return ret
 
     def _compat_conv_op_to_mode(self, op):
         """ Returns old op name to work with existing scripts """
