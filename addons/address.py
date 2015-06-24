@@ -104,9 +104,12 @@ class address(moduleBase):
         newaddrs = []
         addrs = ifaceobj.get_attr_value('address')
         if addrs:
-            if ifaceobj.role & ifaceRole.SLAVE:
+            if (ifaceobj.role & ifaceRole.SLAVE) or \
+               (ifaceobj.link_kind & ifaceLinkKind.BRIDGE_VLAN_AWARE):
                 # we must not configure an IP address if the interface is enslaved
-                self.log_warn('interface %s is enslaved and cannot have an IP Address' % \
+                # or is a VLAN AWARE BRIDGE
+                self.log_warn('interface %s is enslaved or a vlan aware bridge '
+                              'and cannot have an IP Address' % \
                               (ifaceobj.name))
                 return
             # If user address is not in CIDR notation, convert them to CIDR

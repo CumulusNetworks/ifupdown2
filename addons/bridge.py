@@ -220,6 +220,9 @@ class bridge(moduleBase):
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
+        # for special vlan aware bridges, we need to add another bit
+        if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+            ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_VLAN_AWARE
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         return self.parse_port_list(ifaceobj.get_attr_value_first(
