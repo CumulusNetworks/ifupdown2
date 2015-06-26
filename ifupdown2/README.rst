@@ -72,3 +72,12 @@ install
 
 - or install from deb
     dpkg -i python-ifupdown2-<ver>.deb
+
+
+Misc
+====
+- Enbling mako templates
+    * apt-get install python-mako
+    * uncomment the following lines in /etc/network/ifupdown2/ifupdown2.conf
+        template_engine=mako
+        template_lookuppath=/etc/network/ifupdown2/templates
