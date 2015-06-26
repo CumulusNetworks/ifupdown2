@@ -11,7 +11,7 @@ try:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.iproute2 import iproute2
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 class dhcp(moduleBase):
@@ -48,7 +48,7 @@ class dhcp(moduleBase):
                     except:
                         pass
                 self.dhclientcmd.start6(ifaceobj.name)
-        except Exception, e:
+        except Exception as e:
             self.log_error(str(e))
 
     def _down(self, ifaceobj):

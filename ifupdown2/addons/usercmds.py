@@ -44,7 +44,7 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
                     close_fds=True)
             cmd_returncode = ch.wait()
             cmdout = ch.communicate()[0]
-        except Exception, e:
+        except Exception as e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(cmd, str(e)))
         if cmd_returncode != 0:
@@ -58,7 +58,7 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
                 self.logger.info('executing cmd \'%s\'' %cmd)
                 try:
                     self._exec_user_cmd(cmd)
-                except Exception, e:
+                except Exception as e:
                     if not self.ignore_error(str(e)):
                         self.logger.warn('%s: %s cmd \'%s\' failed (%s)'
                                 %(ifaceobj.name, op, cmd, str(e).strip('\n')))

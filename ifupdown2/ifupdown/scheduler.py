@@ -75,7 +75,7 @@ class ifaceScheduler():
                         ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op,
                               ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
-            except Exception, e:
+            except Exception as e:
                 if not ifupdownobj.ignore_error(str(e)):
                    err = 1
                    ifupdownobj.logger.warn(str(e))
@@ -103,7 +103,7 @@ class ifaceScheduler():
                     %(ifacename, op, mname))
                 try:
                     ifupdownobj.exec_command(mname, cmdenv=cenv)
-                except Exception, e:
+                except Exception as e:
                     ifupdownobj.log_error(str(e))
 
     @classmethod
@@ -135,7 +135,7 @@ class ifaceScheduler():
             if handler:
                 try:
                     handler(ifupdownobj, ifaceobjs[0])
-                except Exception, e:
+                except Exception as e:
                     if not ifupdownobj.link_master_slave_ignore_error(str(e)):
                        ifupdownobj.logger.warn('%s: %s'
                                    %(ifaceobjs[0].name, str(e)))
@@ -150,7 +150,7 @@ class ifaceScheduler():
             try:
                 [posthookfunc(ifupdownobj, ifaceobj, ops[0])
                     for ifaceobj in ifaceobjs]
-            except Exception, e:
+            except Exception as e:
                 ifupdownobj.logger.warn('%s' %str(e))
                 pass
 
@@ -248,7 +248,7 @@ class ifaceScheduler():
                                             ifacename, order,
                                             followdependents,
                                             continueonfailure=False)
-                except Exception, e:
+                except Exception as e:
                     if (ifupdownobj.ignore_error(str(e))):
                         pass
                     else:
@@ -269,7 +269,7 @@ class ifaceScheduler():
             try:
               cls.run_iface_graph(ifupdownobj, ifacename, ops, parent,
                       order, followdependents)
-            except Exception, e:
+            except Exception as e:
                 if continueonfailure:
                     if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                         traceback.print_tb(sys.exc_info()[2])
@@ -310,7 +310,7 @@ class ifaceScheduler():
                                             ifacename,
                                             followdependents,
                                             continueonfailure=True)
-                except Exception, e:
+                except Exception as e:
                     if (ifupdownobj.ignore_error(str(e))):
                         pass
                     else:
@@ -326,7 +326,7 @@ class ifaceScheduler():
             try:
               cls.run_iface_graph_upper(ifupdownobj, ifacename, ops, parent,
                       followdependents, skip_root)
-            except Exception, e:
+            except Exception as e:
                 if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                     traceback.print_tb(sys.exc_info()[2])
                 ifupdownobj.logger.warn('%s : %s' %(ifacename, str(e)))
@@ -388,7 +388,7 @@ class ifaceScheduler():
                 if not ifaceobjs:
                    continue
                 cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
-            except Exception, e:
+            except Exception as e:
                 if continueonfailure:
                    self.logger.warn('%s' %str(e))
 

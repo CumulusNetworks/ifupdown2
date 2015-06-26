@@ -19,7 +19,7 @@ def profile(func):
     def wrap(*args, **kwargs):
         started_at = time.time()
         result = func(*args, **kwargs)
-        print str(func)
+        print (str(func))
         print (time.time() - started_at)
         return result
     return wrap
@@ -52,7 +52,7 @@ class utilsBase(object):
                     close_fds=True)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
-        except OSError, e:
+        except OSError as e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(' '.join(cmdl), str(e)))
         if cmd_returncode != 0:
@@ -81,7 +81,7 @@ class utilsBase(object):
                     close_fds=True)
             cmdout = ch.communicate(input=stdinbuf)[0]
             cmd_returncode = ch.wait()
-        except OSError, e:
+        except OSError as e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(cmd, str(e)))
         if cmd_returncode != 0:
@@ -95,7 +95,7 @@ class utilsBase(object):
             return
         try:
             return subprocess.check_output(cmdl, stderr=subprocess.STDOUT)
-        except Exception, e:
+        except Exception as e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                         %(' '.join(cmdl), e.output))
 
@@ -116,7 +116,7 @@ class utilsBase(object):
                     stderr=None,
                     close_fds=True)
             cmd_returncode = ch.wait()
-        except Exception, e:
+        except Exception as e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(' '.join(cmdl), str(e)))
         if cmd_returncode != 0:
@@ -132,7 +132,7 @@ class utilsBase(object):
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
-        except IOError, e:
+        except IOError as e:
             self.logger.warn('error writing to file %s'
                 %filename + '(' + str(e) + ')')
             return -1

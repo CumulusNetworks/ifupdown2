@@ -168,11 +168,6 @@ class ifenslave(moduleBase):
                    self.logger.warn('%s: required attribute %s'
                         %(ifaceobj.name, dattrname) +
                         ' not present or set to \'0\'')
-        elif attrname in ['bond-lacp-bypass-allow']:
-            # For some attrs, set default values
-            optiondict = self.get_mod_attr(attrname)
-            if optiondict:
-                return optiondict.get('default')
         return attrval
 
     def _apply_master_settings(self, ifaceobj):
@@ -236,7 +231,7 @@ class ifenslave(moduleBase):
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
                     rtnetlink_api.rtnl_api.link_set(slave, "up")
-               except Exception, e:
+               except Exception as e:
                     self.logger.debug('%s: %s: link set up (%s)'
                                       %(ifaceobj.name, slave, str(e)))
                     pass
@@ -245,11 +240,6 @@ class ifenslave(moduleBase):
             # Delete active slaves not in the new slave list
             [ self.ifenslavecmd.remove_slave(ifaceobj.name, s)
                     for s in runningslaves if s not in slaves ]
-
-    def _set_clag_enable(self, ifaceobj):
-        attrval = ifaceobj.get_attr_value_first('clag-id')
-        attrval = attrval if attrval else '0'
-        self.ifenslavecmd.set_clag_enable(ifaceobj.name, attrval)
 
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
@@ -273,14 +263,14 @@ class ifenslave(moduleBase):
                     slaves.remove(port)
                     self.ifenslavecmd.set_lacp_fallback_priority(
                                             ifaceobj.name, port, val)
-                except Exception, e:
+                except Exception as e:
                     self.log_warn('%s: failed to set lacp_fallback_priority %s (%s)'
                                   %(ifaceobj.name, port, str(e)))
 
         for p in slaves:
             try:
                 self.ifenslavecmd.set_lacp_fallback_priority(ifaceobj.name, p, '0')
-            except Exception, e:
+            except Exception as e:
                 self.log_warn('%s: failed to clear lacp_bypass_priority %s (%s)'
                               %(ifaceobj.name, p, str(e)))
 
@@ -290,19 +280,17 @@ class ifenslave(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ifenslavecmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
-            # clag_enable has to happen before the slaves are added to the bond
-            self._set_clag_enable(ifaceobj)
             self._add_slaves(ifaceobj)
             self._apply_slaves_lacp_bypass_prio(ifaceobj)
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
-        except Exception, e:
+        except Exception as e:
             self.log_error(str(e))
 
     def _down(self, ifaceobj):
         try:
             self.ifenslavecmd.delete_bond(ifaceobj.name)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):

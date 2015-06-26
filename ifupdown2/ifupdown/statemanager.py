@@ -52,7 +52,7 @@ class stateManager():
 
     """
 
-    state_dir = '/var/tmp/network/'
+    state_dir = '/run/network/'
     """directory where the state file is stored """
 
     state_filename = 'ifstatenew'

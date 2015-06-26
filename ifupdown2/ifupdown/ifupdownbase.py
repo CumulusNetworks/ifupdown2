@@ -34,7 +34,7 @@ class ifupdownBase(object):
                     close_fds=True)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
-        except OSError, e:
+        except OSError as e:
             raise Exception('could not execute ' + cmd +
                     '(' + str(e) + ')')
         if cmd_returncode != 0:

@@ -50,7 +50,7 @@ class brctl(utilsBase):
                 try:
                     v = int(n) / 100
                     mcattrs[m] = str(v)
-                except Exception, e:
+                except Exception as e:
                     self.logger.warn('error getting mc attr %s (%s)'
                                      %(m, str(e)))
                     pass
@@ -88,7 +88,7 @@ class brctl(utilsBase):
             #battrs['mcrouter'] = broutlines[12].split('mc router')[1].split()[0].strip()
             ##battrs['mcsnoop'] = broutlines[12].split('mc snooping')[1].strip()
             #battrs['mclmt'] = broutlines[13].split('mc last member timer')[1].split()[0].strip()
-        except Exception, e:
+        except Exception as e:
             self.logger.warn(str(e))
             pass
 
@@ -113,7 +113,7 @@ class brctl(utilsBase):
 
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn(str(e))
                 pass
             bports[pname] = bportattrs
@@ -158,7 +158,7 @@ class brctl(utilsBase):
                     return linkCache.get_attr(attrlist)
             self._bridge_fill(attrlist[0], refresh)
             return linkCache.get_attr(attrlist)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('_cache_get(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
@@ -169,7 +169,7 @@ class brctl(utilsBase):
             attrvalue = self._cache_get(attrlist, refresh)
             if attrvalue and attrvalue == value:
                 return True
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('_cache_check(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
@@ -254,7 +254,7 @@ class brctl(utilsBase):
             try:
                 self.exec_command('/sbin/brctl set%s %s %s'
                                   %(k, bridgename, v))
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn('%s: %s' %(bridgename, str(e)))
                 pass
 

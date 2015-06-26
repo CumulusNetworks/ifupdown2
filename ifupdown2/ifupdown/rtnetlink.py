@@ -70,15 +70,14 @@ class Nlmsg(Structure):
                 
         for rta_type, value in rtas.iteritems():
             if type(value) == dict:
-            	rta = Rtattr.from_address(addr)
-            	rta.rta_type = rta_type
+                rta = Rtattr.from_address(addr)
+                rta.rta_type = rta_type
                 rta.rta_len = RTA_LENGTH(0)
                 rta_len = NLMSG_ALIGN(rta.rta_len)
                 total_len += rta_len
                 addr += rta_len
-            	pack_fn = policy.get(rta_type)
+                pack_fn = policy.get(rta_type)
                 rta_len = NLMSG_ALIGN(pack_fn(addr, value))
-
                 rta.rta_len += rta_len
             else:
                 rta = Rtattr.from_address(addr)
@@ -153,7 +152,7 @@ class Nlmsg(Structure):
     def dump_rtas(self):
         rtas = self.unpack_rtas()
         for type, value in rtas.iteritems():
-            print "rta", type, ":", value
+            print ("rta", type, ":", value)
 
     class _IPv6Addr(BigEndianStructure):
         _fields_ = [
@@ -172,7 +171,7 @@ class Nlmsg(Structure):
             c_uint8.from_address(data).value = value
             rta.rta_len = RTA_LENGTH(sizeof(c_uint8))
             return rta.rta_len
-	else:
+        else:
             return c_uint8.from_address(data).value
 
     def rta_uint16(self, rta, value=None):
@@ -181,7 +180,7 @@ class Nlmsg(Structure):
             c_uint16.from_address(data).value = value
             rta.rta_len = RTA_LENGTH(sizeof(c_uint16))
             return rta.rta_len
-	else:
+        else:
             return c_uint16.from_address(data).value
 
     def rta_uint32(self, rta, value=None):
@@ -469,15 +468,15 @@ class Rtmsg(Nlmsg):
     }
 
     def dump(self):
-        print 'rtm_family', self.rtm_family
-        print 'rtm_dst_len', self.rtm_dst_len
-        print 'rtm_src_len', self.rtm_src_len
-        print 'rtm_tos', self.rtm_tos
-        print 'rtm_table', self._table_str.get(self.rtm_table, self.rtm_table)
-        print 'rtm_protocol', self._proto_str.get(self.rtm_protocol)
-        print 'rtm_scope', self._scope_str.get(self.rtm_scope)
-        print 'rtm_type', self._type_str.get(self.rtm_type)
-        print 'rtm_flags 0x%08x' % self.rtm_flags
+        print ('rtm_family', self.rtm_family)
+        print ('rtm_dst_len', self.rtm_dst_len)
+        print ('rtm_src_len', self.rtm_src_len)
+        print ('rtm_tos', self.rtm_tos)
+        print ('rtm_table', self._table_str.get(self.rtm_table, self.rtm_table))
+        print ('rtm_protocol', self._proto_str.get(self.rtm_protocol))
+        print ('rtm_scope', self._scope_str.get(self.rtm_scope))
+        print ('rtm_type', self._type_str.get(self.rtm_type))
+        print ('rtm_flags 0x%08x' % self.rtm_flags)
 
     def rta_fn(self, rta_type):
         fns = {
@@ -507,7 +506,7 @@ class Rtgenmsg(Nlmsg):
     ]
 
     def dump(self):
-        print 'rtgen_family', self.rtgen_family
+        print ('rtgen_family', self.rtgen_family)
 
 # New extended info filters for IFLA_EXT_MASK
 RTEXT_FILTER_VF = (1 << 0)
@@ -602,11 +601,11 @@ class Ifinfomsg(Nlmsg):
     ]
 
     def dump(self):
-        print 'ifi_family', self.ifi_family
-        print 'ifi_type', self.ifi_type
-        print 'ifi_index', self.ifi_index
-        print 'ifi_flags 0x%08x' % self.ifi_flags
-        print 'ifi_change 0x%08x' % self.ifi_change
+        print ('ifi_family', self.ifi_family)
+        print ('ifi_type', self.ifi_type)
+        print ('ifi_index', self.ifi_index)
+        print ('ifi_flags 0x%08x' % self.ifi_flags)
+        print ('ifi_change 0x%08x' % self.ifi_change)
 
     def rta_linkinfo_data_vlan_policy(self):
         fns = {
@@ -739,11 +738,11 @@ class Ifaddrmsg(Nlmsg):
     }
 
     def dump(self):
-        print 'ifa_family', self.ifa_family
-        print 'ifa_prefixlen', self.ifa_prefixlen
-        print 'ifa_flags 0x%02x' % self.ifa_flags
-        print 'ifa_scope', self.ifa_scope
-        print 'ifa_index', self.ifa_index
+        print ('ifa_family', self.ifa_family)
+        print ('ifa_prefixlen', self.ifa_prefixlen)
+        print ('ifa_flags 0x%02x' % self.ifa_flags)
+        print ('ifa_scope', self.ifa_scope)
+        print ('ifa_index', self.ifa_index)
 
     def rta_fn(self, rta_type):
         fns = {
@@ -785,7 +784,7 @@ class RtNetlink(Netlink):
             buf = buf[16:]
             nums = ["%02x" % c for c in chunk]
             txt = [chr(c) if chr(c) in printable[:-5] else '.' for c in chunk]
-            print " ".join(nums).ljust(48), "".join(txt)
+            print (" ".join(nums).ljust(48), "".join(txt))
 
     def dump(self, nlh):
         nlmsg = self.nlmsg(nlh)

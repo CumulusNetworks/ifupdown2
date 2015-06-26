@@ -79,12 +79,12 @@ class linkCache():
 
     @classmethod
     def dump(cls):
-        print 'Dumping link cache'
+        print ('Dumping link cache')
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(cls.links)
 
     @classmethod
     def dump_link(cls, linkname):
-        print 'Dumping link %s' %linkname
+        print ('Dumping link %s' %linkname)
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(cls.links.get(linkname))

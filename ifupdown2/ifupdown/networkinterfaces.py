@@ -113,7 +113,7 @@ class networkInterfaces():
         """
 
         if callback_name not in self.callbacks.keys():
-            print 'warning: invalid callback ' + callback_name
+            print ('warning: invalid callback ' + callback_name)
             return -1
 
         self.callbacks[callback_name] = callback_func
@@ -380,7 +380,7 @@ class networkInterfaces():
                 self._currentfile_has_template = False
             else:
                 self._currentfile_has_template = True
-        except Exception, e:
+        except Exception as e:
             self._parse_error(self._currentfile, -1,
                     'failed to render template (%s). ' %str(e) +
                     'Continue without template rendering ...')

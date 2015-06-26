@@ -173,7 +173,7 @@ class iproute2(utilsBase):
                 self._link_fill(attrlist[0], refresh)
                 self._addr_fill(attrlist[0], refresh)
             return linkCache.get_attr(attrlist)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('_cache_get(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
@@ -184,7 +184,7 @@ class iproute2(utilsBase):
             attrvalue = self._cache_get(type, attrlist, refresh)
             if attrvalue and attrvalue == value:
                 return True
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('_cache_check(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
@@ -333,12 +333,12 @@ class iproute2(utilsBase):
                     self.del_addr_all(ifacename)
                 else:
                     self.del_addr_all(ifacename, addrs)
-            except Exception, e:
+            except Exception as e:
                 self.log_warn(str(e))
         for a in addrs:
             try:
                 self.addr_add(ifacename, a)
-            except Exception, e:
+            except Exception as e:
                 self.logger.error(str(e))
 
     def _link_set_ifflag(self, ifacename, value):
@@ -613,8 +613,8 @@ class iproute2(utilsBase):
                           %(vid, bridgeportname))
 
     def bridge_port_vids_get(self, bridgeportname):
-        self.exec_command('/bin/bridge vlan show %s' %bridgeportname)
-        bridgeout = self.exec_command('/bin/bridge vlan show dev %s'
+        self.exec_command('/sbin/bridge vlan show %s' %bridgeportname)
+        bridgeout = self.exec_command('/sbin/bridge vlan show dev %s'
                                       %bridgeportname)
         if not bridgeout: return []
         brvlanlines = bridgeout.readlines()[2:]
@@ -623,7 +623,7 @@ class iproute2(utilsBase):
 
     def bridge_port_vids_get_all(self):
         brvlaninfo = {}
-        bridgeout = self.exec_command('/bin/bridge vlan show')
+        bridgeout = self.exec_command('/sbin/bridge vlan show')
         if not bridgeout: return brvlaninfo
         brvlanlines = bridgeout.splitlines()
         brportname=None
@@ -635,13 +635,13 @@ class iproute2(utilsBase):
                 brportname=None
                 continue
             if 'PVID' in l:
-		        attrs = l.split()
-		        brportname = attrs[0]
-		        brvlaninfo[brportname] = {'pvid' : attrs[1],
-					                      'vlan' : []}
+                attrs = l.split()
+                brportname = attrs[0]
+                brvlaninfo[brportname] = {'pvid' : attrs[1],
+                                          'vlan' : []}
             elif brportname:
                 if 'Egress Untagged' not in l:
-		            brvlaninfo[brportname]['vlan'].append(l)
+                    brvlaninfo[brportname]['vlan'].append(l)
             elif not brportname:
                 attrs = l.split()
                 if attrs[1] == 'None' or 'Egress Untagged' in attrs[1]:
@@ -770,7 +770,7 @@ class iproute2(utilsBase):
                if rline:
                     rattrs = rline.split()
                     return rattrs[rattrs.index('dev') + 1]
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('ip_route_get_dev: failed .. %s' %str(e))
             pass
         return None

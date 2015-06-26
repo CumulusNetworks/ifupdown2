@@ -46,7 +46,7 @@ class rtnetlinkApi(RtNetlink):
             return
         try:
             ifindex = self.get_ifindex(link)
-        except Exception, e:
+        except Exception as e:
             raise Exception('cannot determine ifindex for link %s (%s)'
                             %(link, str(e)))
 
@@ -70,7 +70,7 @@ class rtnetlinkApi(RtNetlink):
             return
         try:
             ifindex = self.get_ifindex(link)
-        except Exception, e:
+        except Exception as e:
             raise Exception('cannot determine ifindex for link %s (%s)'
                             %(link, str(e)))
 
@@ -129,7 +129,7 @@ class rtnetlinkApi(RtNetlink):
 
         try:
             ifindex = self.get_ifindex(link)
-        except Exception, e:
+        except Exception as e:
             raise Exception('cannot determine ifindex for link %s (%s)'
                             %(link, str(e)))
         ifa_scope = RT_SCOPE_
@@ -203,7 +203,7 @@ class rtnetlinkApi(RtNetlink):
             return
         try:
             ifindex = self.get_ifindex(dev)
-        except Exception, e:
+        except Exception as e:
             raise Exception('cannot determine ifindex for dev %s (%s)'
                             %(dev, str(e)))
         if not master:

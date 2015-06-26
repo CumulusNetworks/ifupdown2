@@ -214,7 +214,7 @@ class mstpctl(moduleBase):
             try:
                 self.write_file('/proc/sys/net/ipv6/conf/%s' %p +
                                 '/disable_ipv6', enable)
-            except Exception, e:
+            except Exception as e:
                 self.logger.info(str(e))
                 pass
 
@@ -243,7 +243,7 @@ class mstpctl(moduleBase):
                     continue
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
-            except Exception, e:
+            except Exception as e:
                 self.log_error(str(e))
 
         if err:
@@ -264,7 +264,7 @@ class mstpctl(moduleBase):
                     else:
                        self.mstpctlcmd.set_bridge_attr(ifaceobj.name,
                                 dstattrname, v, check)
-                except Exception, e:
+                except Exception as e:
                     self.logger.warn('%s' %str(e))
                     pass
 
@@ -283,10 +283,10 @@ class mstpctl(moduleBase):
                         (port, val) = p.split('=')
                         self.mstpctlcmd.set_bridgeport_attr(ifaceobj.name,
                                 port, dstattrname, val, check)
-                    except Exception, e:
+                    except Exception as e:
                         self.log_warn('%s: error setting %s (%s)'
                                 %(ifaceobj.name, attrname, str(e)))
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
             pass
 
@@ -318,7 +318,7 @@ class mstpctl(moduleBase):
             try:
                self.mstpctlcmd.set_bridgeport_attr(bridgename,
                            ifaceobj.name, dstattrname, attrval, check)
-            except Exception, e:
+            except Exception as e:
                self.log_warn('%s: error setting %s (%s)'
                              %(ifaceobj.name, attrname, str(e)))
 
@@ -347,7 +347,7 @@ class mstpctl(moduleBase):
                 try:
                     self._apply_bridge_port_settings(bportifaceobj, 
                                             ifaceobj.name, ifaceobj)
-                except Exception, e:
+                except Exception as e:
                     self.log_warn(str(e))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
@@ -381,7 +381,7 @@ class mstpctl(moduleBase):
                     self.ipcmd.link_create(ifaceobj.name, 'bridge')
                 try:
                     self._add_ports(ifaceobj)
-                except Exception, e:
+                except Exception as e:
                     porterr = True
                     porterrstr = str(e)
                     pass
@@ -403,7 +403,7 @@ class mstpctl(moduleBase):
                 self._apply_bridge_settings(ifaceobj)
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
-        except Exception, e:
+        except Exception as e:
             self.log_error(str(e))
         if porterr:
             raise Exception(porterrstr)
@@ -419,7 +419,7 @@ class mstpctl(moduleBase):
                 if ports:
                     self._ports_enable_disable_ipv6(ports, '0')
                 self.brctlcmd.delete_bridge(ifaceobj.name)
-        except Exception, e:
+        except Exception as e:
             self.log_error(str(e))
 
     def _query_running_attrs(self, ifaceobjrunning):
@@ -585,7 +585,7 @@ class mstpctl(moduleBase):
                             currstr += ' %s=%s' %(p, 'None')
                         if currv != v:
                             status = 1
-                    except Exception, e:
+                    except Exception as e:
                         self.log_warn(str(e))
                         pass
                 ifaceobjcurr.update_config_with_status(k, currstr, status)

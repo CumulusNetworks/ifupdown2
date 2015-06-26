@@ -12,7 +12,7 @@ import copy
 from collections import deque
 try:
     from gvgen import *
-except ImportError, e:
+except ImportError as e:
     pass
 
 class graph():

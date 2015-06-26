@@ -82,7 +82,7 @@ class moduleBase(object):
                     close_fds=True)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
-        except OSError, e:
+        except OSError as e:
             raise Exception('could not execute ' + cmd +
                     '(' + str(e) + ')')
         if cmd_returncode != 0:
@@ -113,7 +113,7 @@ class moduleBase(object):
                     close_fds=True)
             cmdout = ch.communicate(input=stdinbuf)[0]
             cmd_returncode = ch.wait()
-        except OSError, e:
+        except OSError as e:
             raise Exception('could not execute ' + cmd +
                     '(' + str(e) + ')')
         if cmd_returncode != 0:
@@ -227,7 +227,7 @@ class moduleBase(object):
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
-        except IOError, e:
+        except IOError as e:
             self.logger.warn('error writing to file %s'
                 %filename + '(' + str(e) + ')')
             return -1
@@ -339,7 +339,7 @@ class moduleBase(object):
             (s, e) = self.exec_command(get_resvvlan).strip('\n').split('-')
             start = int(s)
             end = int(e)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('%s failed (%s)' %(get_resvvlan, str(e)))
             # ignore errors
             pass

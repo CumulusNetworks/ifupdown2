@@ -55,7 +55,7 @@ class ifenslaveutil(utilsBase):
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
                         'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period', 
                         'clag_enable'])
-        except Exception, e:
+        except Exception as e:
             pass
 
     def _bond_linkinfo_fill_all(self):
@@ -88,7 +88,7 @@ class ifenslaveutil(utilsBase):
                     return linkCache.get_attr(attrlist)
             self._bond_linkinfo_fill(attrlist[0], refresh)
             return linkCache.get_attr(attrlist)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('_cache_get(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
@@ -99,7 +99,7 @@ class ifenslaveutil(utilsBase):
             attrvalue = self._cache_get(attrlist, refresh)
             if attrvalue and attrvalue == value:
                 return True
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('_cache_check(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
@@ -141,7 +141,7 @@ class ifenslaveutil(utilsBase):
             try:
                 self.write_file('/sys/class/net/%s/bonding/%s'
                                 %(bondname, attrname), attrval)
-            except Exception, e:
+            except Exception as e:
                 if self.FORCE:
                     self.logger.warn(str(e))
                     pass
@@ -357,14 +357,14 @@ class ifenslaveutil(utilsBase):
             f = open(sysfs_bond_path, 'r')
             slaves = f.readline().strip().split()
             f.close()
-        except IOError, e:
+        except IOError as e:
             raise Exception('error reading slaves of bond %s' %bondname
                 + '(' + str(e) + ')')
         for slave in slaves:
             ipcmd.ip_link_down(slave)
             try:
                 self.remove_slave(bondname, slave)
-            except Exception, e:
+            except Exception as e:
                 if not self.FORCE:
                     raise Exception('error removing slave %s'
                         %slave + ' from bond %s' %bondname +
@@ -395,7 +395,7 @@ class ifenslaveutil(utilsBase):
         self._cache_delete([bondname])
 
     def unset_master(self, bondname):
-        print 'Do nothing yet'
+        print ('Do nothing yet')
         return 0
 
     def get_slaves(self, bondname):

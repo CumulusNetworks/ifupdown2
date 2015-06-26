@@ -64,7 +64,7 @@ class ifupdownMain(ifupdownBase):
     NOCONFIG = 0x0010
 
     scripts_dir='/etc/network'
-    addon_modules_dir='/lib/ifupdown2/addons'
+    addon_modules_dir='/usr/share/ifupdown2/addons'
     addon_modules_configfile='/etc/network/ifupdown2/addons.conf'
 
     # iface dictionary in the below format:
@@ -229,7 +229,7 @@ class ifupdownMain(ifupdownBase):
             try:
                 self.statemanager = stateManager()
                 self.statemanager.read_saved_state()
-            except Exception, e:
+            except Exception as e:
                 # XXX Maybe we should continue by ignoring old state
                 self.logger.warning('error reading state (%s)' %str(e))
                 raise
@@ -474,7 +474,7 @@ class ifupdownMain(ifupdownBase):
                         continue
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                         ifacenames)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn('%s: error getting dependent interfaces (%s)'
                         %(ifaceobj.name, str(e)))
                 dlist = None
@@ -602,7 +602,7 @@ class ifupdownMain(ifupdownBase):
                     operation = litems[0]
                     mname = litems[1]
                     self.module_ops[operation].append(mname)
-                except Exception, e:
+                except Exception as e:
                     self.logger.warn('error reading line \'%s\'' %str(e))
                     continue
 
@@ -688,12 +688,12 @@ class ifupdownMain(ifupdownBase):
                     if not examples:
                         continue
 
-                    print '%sexample:' %(indent + '  ')
+                    print ('%sexample:' %(indent + '  '))
                     for e in examples:
-                        print '%s%s' %(indent + '    ', e)
+                        print ('%s%s' %(indent + '    ', e))
             except:
                 pass
-            print ''
+            print ('')
             
     def load_scripts(self, modules_dir):
         """ loading user modules from /etc/network/.
@@ -833,7 +833,7 @@ class ifupdownMain(ifupdownBase):
         try:
             # Update persistant iface states
             self.statemanager.save_state()
-        except Exception, e:
+        except Exception as e:
             if self.logger.isEnabledFor(logging.DEBUG):
                 t = sys.exc_info()[2]
                 traceback.print_tb(t)
@@ -860,7 +860,7 @@ class ifupdownMain(ifupdownBase):
             try:
                 if self.link_exists(i):
                    func(i)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn(str(e))
                 pass
 
@@ -952,14 +952,14 @@ class ifupdownMain(ifupdownBase):
             # If no old state available 
             try:
                 self.read_iface_config()
-            except Exception, e:
+            except Exception as e:
                 raise Exception('error reading iface config (%s)' %str(e))
         if ifacenames:
             # If iface list is given by the caller, always check if iface
             # is present
             try:
                ifacenames = self._preprocess_ifacenames(ifacenames)
-            except Exception, e:
+            except Exception as e:
                raise Exception('%s' %str(e) +
                        ' (interface was probably never up ?)')
 
@@ -1222,7 +1222,7 @@ class ifupdownMain(ifupdownBase):
                     self._sched_ifaces(ifacedownlist, downops,
                                        followdependents=False,
                                        sort=True)
-                except Exception, e:
+                except Exception as e:
                     self.logger.error(str(e))
                     pass
                 finally:
@@ -1251,7 +1251,7 @@ class ifupdownMain(ifupdownBase):
         try:
             self._sched_ifaces(filtered_ifacenames, upops,
                     followdependents=True if self.WITH_DEPENDS else False)
-        except Exception, e:
+        except Exception as e:
             self.logger.error(str(e))
             pass
         finally:
@@ -1281,7 +1281,7 @@ class ifupdownMain(ifupdownBase):
             ifacenames = self.ifaceobjdict.keys()
         if format == 'list':
             for k,v in self.dependency_graph.items():
-                print '%s : %s' %(k, str(v))
+                print ('%s : %s' %(k, str(v)))
         elif format == 'dot':
             indegrees = {}
             map(lambda i: indegrees.update({i :
@@ -1298,7 +1298,7 @@ class ifupdownMain(ifupdownBase):
                     not ifaceobj.is_config_present()):
                     continue
                 ifaceobj.dump_raw(self.logger)
-                print '\n'
+                print ('\n')
                 if self.WITH_DEPENDS and not self.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
@@ -1325,8 +1325,8 @@ class ifupdownMain(ifupdownBase):
         self._get_ifaceobjs_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
-                             indent=4, separators=(',', ': '))
+            print (json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
+                             indent=4, separators=(',', ': ')))
         else:
             expand = int(self.config.get('ifquery_ifacename_expand_range', '0'))
             for i in ifaceobjs:
@@ -1367,8 +1367,8 @@ class ifupdownMain(ifupdownBase):
         ret = self._get_ifaceobjscurr_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
-                       separators=(',', ': '))
+            print (json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
+                       separators=(',', ': ')))
         else:
             map(lambda i: i.dump_pretty(with_status=True,
                    successstr=self.config.get('ifquery_check_success_str',
@@ -1385,19 +1385,19 @@ class ifupdownMain(ifupdownBase):
         self._get_ifaceobjs_pretty(ifacenames, ifaceobjs, running=True)
         if not ifaceobjs: return
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
-                       separators=(',', ': '))
+            print (json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
+                       separators=(',', ': ')))
         else:
             map(lambda i: i.dump_pretty(), ifaceobjs)
 
     def _dump(self):
-        print 'ifupdown main object dump'
-        print self.pp.pprint(self.modules)
-        print self.pp.pprint(self.ifaceobjdict)
+        print ('ifupdown main object dump')
+        print (self.pp.pprint(self.modules))
+        print (self.pp.pprint(self.ifaceobjdict))
 
     def _dump_ifaceobjs(self, ifacenames):
         for i in ifacenames:
             ifaceobjs = self.get_ifaceobjs(i)
             for i in ifaceobjs:
                 i.dump(self.logger)
-                print '\n'
+                print ('\n')

@@ -49,7 +49,7 @@ class mstpctlutil(utilsBase):
             return self.subprocess_check_output(['/sbin/mstpctl',
                        'showportdetail', '%s' %bridgename, '%s' %portname,
                        self._bridgeportattrmap[attrname]]).strip('\n')
-        except Exception, e:
+        except Exception as e:
             pass
         return None
 
@@ -60,7 +60,7 @@ class mstpctlutil(utilsBase):
                                  for k, v in self._bridgeattrmap.items())
             bridgeattrs['treeprio'] = int(bridgeattrs.get('bridgeid',
                                      '').split('.')[0], base=16) * 4096
-        except Exception, e:
+        except Exception as e:
             self.logger.warn(str(e))
             pass
         return bridgeattrs
@@ -73,7 +73,7 @@ class mstpctlutil(utilsBase):
             try:
                 self.set_bridgeport_attr(self, bridgename, bridgeportname,
                         k, v, check)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn(str(e))
 
     def set_bridgeport_attr(self, bridgename, bridgeportname, attrname,
@@ -98,7 +98,7 @@ class mstpctlutil(utilsBase):
             bridgeattrs['treeprio'] = '%d' %(int(bridgeattrs.get('bridgeid',
                                      '').split('.')[0], base=16) * 4096)
             del bridgeattrs['bridgeid']
-        except Exception, e:
+        except Exception as e:
             self.logger.debug(bridgeattrs)
             self.logger.debug(str(e))
             pass
@@ -109,7 +109,7 @@ class mstpctlutil(utilsBase):
             return self.subprocess_check_output(['/sbin/mstpctl',
                        'showbridge', '%s' %bridgename,
                        self._bridgeattrmap[attrname]]).strip('\n')
-        except Exception, e:
+        except Exception as e:
             pass
         return None
 
@@ -132,7 +132,7 @@ class mstpctlutil(utilsBase):
                 continue
             try:
                 self.set_bridge_attr(bridgename, k, v, check)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn('%s: %s' %(bridgename, str(e)))
                 pass
 

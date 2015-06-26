@@ -13,7 +13,7 @@ try:
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 class ethtool(moduleBase,utilsBase):
@@ -90,7 +90,7 @@ class ethtool(moduleBase,utilsBase):
                 # because we should only be calling ethtool on swp ports
                 cmd = 'ethtool -s %s %s' %(ifaceobj.name, cmd)
                 self.exec_command(cmd)
-            except Exception, e:
+            except Exception as e:
                 ifaceobj.status = ifaceStatus.ERROR
                 self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
         else:

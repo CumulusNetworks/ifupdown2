@@ -60,11 +60,11 @@ class Nlmsghdr(Structure):
     ]
 
     def dump(self):
-        print 'nlmsg_len', self.nlmsg_len
-        print 'nlmsg_type', self.nlmsg_type
-        print 'nlmsg_flags 0x%04x' % self.nlmsg_flags
-        print 'nlmsg_seq', self.nlmsg_seq
-        print 'nlmsg_pid', self.nlmsg_pid
+        print ('nlmsg_len', self.nlmsg_len)
+        print ('nlmsg_type', self.nlmsg_type)
+        print ('nlmsg_flags 0x%04x' % self.nlmsg_flags)
+        print ('nlmsg_seq', self.nlmsg_seq)
+        print ('nlmsg_pid', self.nlmsg_pid)
 
 # Flags values
 
@@ -140,9 +140,8 @@ class Netlink(socket.socket):
 
             self.setsockopt(SOL_NETLINK, NETLINK_NO_ENOBUFS, 1)
 
-        except socket.error as (errno, string):
-            raise NetlinkError("open: socket err[%d]: %s" % \
-                (errno, string))
+        except OSError as e:
+            raise NetlinkError("open: socket err: %s" %e.strerror)
 
     def bind(self, groups, cb):
 
@@ -151,16 +150,14 @@ class Netlink(socket.socket):
         try:
             socket.socket.bind(self, (self.pid, groups))
 
-        except socket.error as (errno, string):
-            raise NetlinkError("bind: socket err[%d]: %s" % \
-                (errno, string))
+        except OSError as e:
+            raise NetlinkError("bind: socket err: %s" %e.strerror)
 
     def sendall(self, string):
         try:
             socket.socket.sendall(self, string)
-        except socket.error as (errno, string):
-            raise NetlinkError("send: socket err[%d]: %s" % \
-                (errno, string))
+        except OSError as e:
+            raise NetlinkError("send: socket err: %s" %e.strerror)
 
     def _process_nlh(self, recv, nlh):
         while NLMSG_OK(nlh, recv):
@@ -175,14 +172,13 @@ class Netlink(socket.socket):
             recv, src_addr = self.recvfrom_into(self.recvbuf)
             if not recv:
                 # EOF
-                print "EOF"
+                print ("EOF")
                 return False
 
-        except socket.error as (errno, string):
-            if errno in [EINTR, EAGAIN]:
+        except OSError as e:
+            if e.errno in [EINTR, EAGAIN]:
                 return False
-            raise NetlinkError("netlink: socket err[%d]: %s" % \
-                (errno, string))
+            raise NetlinkError("netlink: socket err: %s" %e.strerror)
 
         nlh = Nlmsghdr.from_buffer(self.recvbuf)
         for recv, nlh in self._process_nlh(recv, nlh):

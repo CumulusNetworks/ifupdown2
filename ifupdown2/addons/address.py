@@ -11,7 +11,7 @@ try:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 class address(moduleBase):
@@ -140,7 +140,7 @@ class address(moduleBase):
                     self.ipcmd.del_addr_all(ifaceobj.name)
                 else:
                     self.ipcmd.del_addr_all(ifaceobj.name, newaddrs)
-            except Exception, e:
+            except Exception as e:
                 self.log_warn(str(e))
         if not newaddrs:
             return
@@ -151,7 +151,7 @@ class address(moduleBase):
                     ifaceobj.get_attr_value_n('pointopoint',addr_index),
                     ifaceobj.get_attr_value_n('scope', addr_index),
                     ifaceobj.get_attr_value_n('preferred-lifetime', addr_index))
-            except Exception, e:
+            except Exception as e:
                 self.log_error(str(e))
 
     def _up(self, ifaceobj):
@@ -191,7 +191,7 @@ class address(moduleBase):
         try:
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
-        except Exception, e:
+        except Exception as e:
             self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
@@ -217,7 +217,7 @@ class address(moduleBase):
 
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, False)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
             pass
 
