@@ -362,7 +362,7 @@ class ifaceScheduler():
                                    & ifupdownobj.NOCONFIG)
                 if (((has_config and ifupdownobj.get_ifaceobjs_saved(u)) or
                      not has_config) and (not ifupdownobj.link_exists(u)
-                         or uifaceobj.link_kind == ifaceLinkKind.BRIDGE)):
+                         or (uifaceobj.link_kind & ifaceLinkKind.BRIDGE))):
                      nulist.append(u)
             upperifacenames.extend(nulist)
         allupperifacenames.extend(upperifacenames)
