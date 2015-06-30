@@ -7,19 +7,21 @@
 #    interface scheduler
 #
 
-from statemanager import *
-from iface import *
-from graph import *
+from .statemanager import *
+from .iface import *
+from .graph import *
 from collections import deque
 from collections import OrderedDict
 import logging
 import traceback
 import sys
-from graph import *
 from collections import deque
 from threading import *
-from ifupdownbase import *
-from sets import Set
+from .ifupdownbase import *
+try:
+    from sets import Set as set
+except ImportError:
+    pass
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
@@ -352,7 +354,7 @@ class ifaceScheduler():
             ifaceobj = ifupdownobj.get_ifaceobj_first(ifacename)
             if not ifaceobj:
                continue
-            ulist = Set(ifaceobj.upperifaces).difference(upperifacenames)
+            ulist = set(ifaceobj.upperifaces).difference(upperifacenames)
             nulist = []
             for u in ulist:
                 uifaceobj = ifupdownobj.get_ifaceobj_first(u)

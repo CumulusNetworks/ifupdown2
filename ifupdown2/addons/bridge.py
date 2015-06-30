@@ -4,7 +4,6 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from sets import Set
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
@@ -14,6 +13,11 @@ import ifupdown.rtnetlink_api as rtnetlink_api
 import itertools
 import re
 import time
+
+try:
+    from sets import Set as set
+except ImportError:
+    pass
 
 class bridgeFlags:
     PORT_PROCESSED = 0x1
@@ -308,7 +312,7 @@ class bridge(moduleBase):
             self.ipcmd.batch_commit()
             return
         err = 0
-        for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
+        for bridgeport in set(bridgeports).difference(set(runningbridgeports)):
             try:
                 if not self.DRYRUN and not self.ipcmd.link_exists(bridgeport):
                     self.log_warn('%s: bridge port %s does not exist'
@@ -389,8 +393,8 @@ class bridge(moduleBase):
 
         vids1_ints = self._ranges_to_ints(vids1)
         vids2_ints = self._ranges_to_ints(vids2)
-        vids1_diff = Set(vids1_ints).difference(vids2_ints)
-        vids2_diff = Set(vids2_ints).difference(vids1_ints)
+        vids1_diff = set(vids1_ints).difference(vids2_ints)
+        vids2_diff = set(vids2_ints).difference(vids1_ints)
         if vids1_diff:
             vids_to_add = ['%d' %start if start == end else '%d-%d' %(start, end)
                         for start, end in self._ints_to_ranges(vids1_diff)]
@@ -404,7 +408,7 @@ class bridge(moduleBase):
 
         vids1_ints = self._ranges_to_ints(vids1)
         vids2_ints = self._ranges_to_ints(vids2)
-        if Set(vids1_ints).symmetric_difference(vids2_ints):
+        if set(vids1_ints).symmetric_difference(vids2_ints):
             return False
         else:
             return True
@@ -1258,7 +1262,7 @@ class bridge(moduleBase):
             runningattrs = {}
         filterattrs = ['bridge-vids', 'bridge-port-vids',
                        'bridge-port-pvids']
-        for k in Set(ifaceattrs).difference(filterattrs):
+        for k in set(ifaceattrs).difference(filterattrs):
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
             if not v:

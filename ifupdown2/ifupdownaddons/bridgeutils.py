@@ -5,11 +5,11 @@
 #
 
 from ifupdown.iface import *
-from utilsbase import *
+from .utilsbase import *
 import os
 import re
 import logging
-from cache import *
+from .cache import *
 
 class brctl(utilsBase):
     """ This class contains helper functions to interact with the bridgeutils

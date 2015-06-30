@@ -5,7 +5,10 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
-from sets import Set
+try:
+    from sets import Set as set
+except ImportError:
+    pass
 
 class vxlan(moduleBase):
     _modinfo = {'mhelp' : 'vxlan module configures vxlan interfaces.',
@@ -77,8 +80,8 @@ class vxlan(moduleBase):
                     ifaceobjcurr.update_config_with_status(attrname, a, 0)
                 else:
                     ifaceobjcurr.update_config_with_status(attrname, a, 1)
-            running_addresses = Set(running_addresses).difference(
-                                                    Set(addresses))
+            running_addresses = set(running_addresses).difference(
+                                                    set(addresses))
         [ifaceobjcurr.update_config_with_status(attrname, a, 1)
                     for a in running_addresses]
 

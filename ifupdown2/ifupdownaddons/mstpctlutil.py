@@ -4,9 +4,9 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from utilsbase import *
+from .utilsbase import *
 from ifupdown.iface import *
-from cache import *
+from .cache import *
 import re
 
 class mstpctlutil(utilsBase):

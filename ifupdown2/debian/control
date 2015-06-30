@@ -1,0 +1,21 @@
+Source: ifupdown2
+Section: admin
+Priority: optional
+Maintainer: Roopa Prabhu <roopa@cumulusnetworks.com>
+Standards-Version: 3.9.4
+Build-Depends: python-setuptools, dh-python, debhelper (>= 9~), python3-all, python3-setuptools
+Homepage: https://github.com/CumulusNetworks/ifupdown2
+X-Python-Version: >= 2.6
+X-Python3-Version: >= 3.2
+
+Package: ifupdown2
+Architecture: all
+Section: admin
+Priority: optional
+Suggests: python-gvgen, python3-mako 
+Replaces: ifupdown
+Conflicts: ifupdown
+Depends: ${python3:Depends}, ${misc:Depends}, python3-argcomplete, python-ipaddr
+Description: ifupdown2 is a network interface management tool similar to ifupdown. ifupdown2 is essentially ifupdown re-written in python. ifupdown2 replaces ifupdown and provides the same binaries and files as ifupdown for interface configuration. Like ifupdown, ifupdown2 is a high level tool to configure (or, respectively deconfigure) network interfaces based on interface definitions in the file /etc/network/interfaces. ifupdown2 comes with a new command ifreload and new features with new command line options to existing commands ifup/ifdown/ifquery. New command line options to ifquery can help with querying and validating running state of interfaces.  ifupdown2 supports interface templates for large scale interface deployments with python-mako. mako templates can be included or sourced into /etc/network/interfaces file.  See /usr/share/doc/ifupdown2/README.rst for details about ifupdown2. see examples under /usr/share/doc/ifupdown2/examples.
+
+

@@ -8,7 +8,6 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
-from ipaddr import IPNetwork
 import logging
 import os
 import glob

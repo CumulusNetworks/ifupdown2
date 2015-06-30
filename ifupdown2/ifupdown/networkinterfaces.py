@@ -13,9 +13,9 @@ import glob
 import re
 import os
 import copy
-from utils import utils
-from iface import *
-from template import templateEngine
+from .utils import utils
+from .iface import *
+from .template import templateEngine
 
 whitespaces = '\n\t\r '
 

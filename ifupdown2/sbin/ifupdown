@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/python3
 #
 # Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
@@ -10,8 +10,14 @@ import sys
 import os
 import argcomplete
 import argparse
-import ConfigParser
-import StringIO
+try:
+    import configparser as ConfigParser
+except ImportError:
+    import ConfigParser as ConfigParser
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import logging
 import logging.handlers
 import resource
@@ -394,14 +400,14 @@ def validate_args(op, args):
         return True
     if op == 'reload':
         if not args.all and not args.currentlyup:
-            print '\'-a\' or \'-c\' option is required'
+            print ('\'-a\' or \'-c\' option is required')
             return False
     elif (not args.iflist and
             not args.all and not args.CLASS):
-        print '\'-a\' option or interface list are required'
+        print ('\'-a\' option or interface list are required')
         return False
     if args.iflist and args.all:
-        print '\'-a\' option and interface list are mutually exclusive'
+        print ('\'-a\' option and interface list are mutually exclusive')
         return False
     if op != 'reload' and args.CLASS and (args.all or args.iflist):
         print ('\'--allow\' option is mutually exclusive ' +
@@ -414,7 +420,7 @@ def read_config(args):
 
     config = open(configfile, 'r').read()
     configStr = '[ifupdown2]\n' + config
-    configFP =  StringIO.StringIO(configStr)
+    configFP =  StringIO(configStr)
     parser = ConfigParser.RawConfigParser()
     parser.readfp(configFP)
     configmap_g = dict(parser.items('ifupdown2'))
@@ -462,17 +468,17 @@ def main(argv):
             exit(1)
 
         if not sys.argv[0].endswith('ifquery') and not os.geteuid() == 0:
-            print 'error: must be root to run this command'
+            print ('error: must be root to run this command')
             exit(1)
 
         if not sys.argv[0].endswith('ifquery') and not utils.lockFile(lockfile):
-            print 'Another instance of this program is already running.'
+            print ('Another instance of this program is already running.')
             exit(0)
 
         read_config(args)
         init(args)
         handlers.get(op)(args)
-    except Exception, e:
+    except Exception as e:
         if not str(e):
             exit(1)
         if args and args.debug:
@@ -481,7 +487,7 @@ def main(argv):
             if logger:
                 logger.error(str(e))
             else:
-                print str(e)
+                print (str(e))
             #if args and not args.debug:
             #    print '\nrerun the command with \'-d\' for a detailed errormsg'
         exit(1)

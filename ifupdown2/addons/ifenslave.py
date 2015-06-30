@@ -4,13 +4,17 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from sets import Set
 from ifupdown.iface import *
 import ifupdownaddons
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.ifenslaveutil import ifenslaveutil
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
+
+try:
+    from sets import Set as set
+except ImportError:
+    pass
 
 class ifenslave(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
@@ -223,7 +227,7 @@ class ifenslave(moduleBase):
         if not self.PERFMODE:
             runningslaves = self.ifenslavecmd.get_slaves(ifaceobj.name);
 
-        for slave in Set(slaves).difference(Set(runningslaves)):
+        for slave in set(slaves).difference(set(runningslaves)):
             if not self.PERFMODE and not self.ipcmd.link_exists(slave):
                     self.log_warn('%s: skipping slave %s, does not exist'
                                   %(ifaceobj.name, slave))

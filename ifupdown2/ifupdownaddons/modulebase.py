@@ -11,11 +11,6 @@ import logging
 import subprocess
 import traceback
 from ifupdown.iface import *
-#from ifupdownaddons.iproute2 import *
-#from ifupdownaddons.dhclient import *
-#from ifupdownaddons.bridgeutils import *
-#from ifupdownaddons.mstpctlutil import *
-#from ifupdownaddons.ifenslaveutil import *
 
 class moduleBase(object):
     """ Base class for ifupdown addon modules

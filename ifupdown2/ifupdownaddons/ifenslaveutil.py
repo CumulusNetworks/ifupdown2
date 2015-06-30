@@ -7,9 +7,9 @@
 import os
 import re
 from ifupdown.iface import *
-from utilsbase import *
-from iproute2 import *
-from cache import *
+from .utilsbase import *
+from .iproute2 import *
+from .cache import *
 
 class ifenslaveutil(utilsBase):
     """ This class contains methods to interact with linux kernel bond

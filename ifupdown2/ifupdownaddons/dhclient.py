@@ -4,7 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from utilsbase import *
+from .utilsbase import *
 import subprocess
 import os
 

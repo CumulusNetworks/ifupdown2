@@ -7,8 +7,6 @@ import json
 import ifupdown.policymanager as policymanager
 
 try:
-    from ipaddr import IPNetwork
-    from sets import Set
     from ifupdown.iface import *
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.modulebase import moduleBase

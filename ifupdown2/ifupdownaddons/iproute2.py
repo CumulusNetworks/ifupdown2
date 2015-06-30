@@ -6,8 +6,8 @@
 
 import os
 from collections import OrderedDict
-from utilsbase import *
-from cache import *
+from .utilsbase import *
+from .cache import *
 
 VXLAN_UDP_PORT = 4789
 

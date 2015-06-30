@@ -5,8 +5,6 @@
 #
 
 try:
-    from ipaddr import IPNetwork
-    from sets import Set
     from ifupdown.iface import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.dhclient import dhclient

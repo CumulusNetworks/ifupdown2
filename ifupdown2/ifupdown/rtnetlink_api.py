@@ -6,13 +6,13 @@
 #
 #
 
+import os
 from os import getpid
 from socket import AF_UNSPEC
 from socket import AF_BRIDGE
-from iff import IFF_UP
-from rtnetlink import *
-import os
-import ifupdownmain
+from .iff import IFF_UP
+from .rtnetlink import *
+from .ifupdownmain import *
 
 class rtnetlinkApi(RtNetlink):
 

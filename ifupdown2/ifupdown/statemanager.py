@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #
 # Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
@@ -6,11 +5,14 @@
 # stateManager --
 #    interface state manager
 #
-import cPickle
+try:
+    import pickle
+except ImportError:
+    import cPickle as pickle
 from collections import OrderedDict
 import logging
 import os
-from iface import *
+from .iface import *
 
 class pickling():
     """ class with helper methods for pickling/unpickling iface objects """
@@ -21,7 +23,7 @@ class pickling():
         try:
             with open(filename, 'w') as f:
                 for obj in list_of_objects:
-                    cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
+                    pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
         except:
             raise
 
@@ -29,7 +31,7 @@ class pickling():
     def save_obj(cls, f, obj):
         """ pickle iface object """
         try:
-            cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
+            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
         except:
             raise
 
@@ -38,7 +40,7 @@ class pickling():
         """ load picked iface object """
         with open(filename, 'r') as f:
             while True:
-                try: yield cPickle.load(f)
+                try: yield pickle.load(f)
                 except EOFError: break
                 except: raise
 

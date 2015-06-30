@@ -15,14 +15,17 @@ import logging
 import sys, traceback
 import copy
 import json
-from statemanager import *
-from networkinterfaces import *
-from iface import *
-from scheduler import *
+from .statemanager import *
+from .networkinterfaces import *
+from .iface import *
+from .scheduler import *
 from collections import deque
 from collections import OrderedDict
-from graph import *
-from sets import Set
+from .graph import *
+try:
+    from sets import Set as set
+except ImportError:
+    pass
 
 """
 .. module:: ifupdownmain
@@ -389,7 +392,7 @@ class ifupdownMain(ifupdownBase):
             interface with slave dependents.
             example: bond and bridges.
             This function logs such errors """
-        setdlist = Set(dlist)
+        setdlist = set(dlist)
         for ifacename, ifacedlist in self.dependency_graph.items():
             if not ifacedlist:
                 continue
@@ -399,7 +402,7 @@ class ifupdownMain(ifupdownBase):
                 if (i.dependency_type == ifaceDependencyType.MASTER_SLAVE):
                     check_depends = True
             if check_depends:
-                common = Set(ifacedlist).intersection(setdlist)
+                common = set(ifacedlist).intersection(setdlist)
                 if common:
                     self.logger.error('misconfig..?. iface %s and %s '
                             %(ifaceobj.name, ifacename) +
@@ -790,8 +793,8 @@ class ifupdownMain(ifupdownBase):
         if allow_classes:
             for i in ifaceobjs:
                 if i.classes:
-                    common = Set([allow_classes]).intersection(
-                                Set(i.classes))
+                    common = set([allow_classes]).intersection(
+                                set(i.classes))
                     if common:
                         return True
             return False
@@ -1088,12 +1091,12 @@ class ifupdownMain(ifupdownBase):
                                excludepats, i)]
         
         # Get already up interfaces that still exist in the interfaces file
-        already_up_ifacenames_not_present = Set(
+        already_up_ifacenames_not_present = set(
                         already_up_ifacenames).difference(ifacenames)
-        already_up_ifacenames_still_present = Set(
+        already_up_ifacenames_still_present = set(
                         already_up_ifacenames).difference(
                         already_up_ifacenames_not_present)
-        interfaces_to_up = Set(already_up_ifacenames_still_present).union(
+        interfaces_to_up = set(already_up_ifacenames_still_present).union(
                                             filtered_ifacenames)
 
         if (already_up_ifacenames_not_present and

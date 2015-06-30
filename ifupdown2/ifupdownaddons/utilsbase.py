@@ -9,9 +9,8 @@ import subprocess
 import re
 import io
 from ifupdown.iface import *
-from cache import *
+from .cache import *
 
-#import timeit
 import time
 import logging
 

@@ -5,14 +5,17 @@
 #
 
 try:
-    from ipaddr import IPNetwork
-    from sets import Set
     from ifupdown.iface import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
+
+try:
+    import ipaddress
+except ImportError:
+    import ipaddr as ipaddress
 
 class address(moduleBase):
     """  ifupdown2 addon module to configure address, mtu, hwaddress, alias
@@ -117,8 +120,12 @@ class address(moduleBase):
                     continue
                 netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
                 if netmask:
-                    prefixlen = IPNetwork('%s' %addr +
-                                '/%s' %netmask).prefixlen
+                    try:
+                        prefixlen = ipaddress.ip_network('%s' %addr +
+                                            '/%s' %netmask).prefixlen
+                    except AttributeError:
+                        prefixlen = ipaddress.IPNetwork('%s' %addr +
+                                            '/%s' %netmask).prefixlen
                     newaddrs.append(addr + '/%s' %prefixlen)
                 else:
                     newaddrs.append(addr)
@@ -230,8 +237,12 @@ class address(moduleBase):
             addr = addrlist[addrindex]
             netmask = ifaceobj.get_attr_value_n('netmask', addrindex)
             if netmask:
-                prefixlen = IPNetwork('%s' %addr +
-                                '/%s' %netmask).prefixlen
+                try:
+                    prefixlen = ipaddress.ip_network('%s' %addr +
+                                        '/%s' %netmask).prefixlen
+                except AttributeError:
+                    prefixlen = ipaddress.IPNetwork('%s' %addr +
+                                        '/%s' %netmask).prefixlen
                 addr = addr + '/%s' %prefixlen
             outaddrlist.append(addr)
         return outaddrlist

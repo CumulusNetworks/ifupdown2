@@ -4,13 +4,17 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from sets import Set
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.mstpctlutil import mstpctlutil
 import traceback
+
+try:
+    from sets import Set as set
+except ImportError:
+    pass
 
 class mstpctlFlags:
     PORT_PROCESSED = 0x1
@@ -234,7 +238,7 @@ class mstpctl(moduleBase):
         if not bridgeports:
             return
         err = 0
-        for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
+        for bridgeport in set(bridgeports).difference(set(runningbridgeports)):
             try:
                 if not self.DRYRUN and not self.ipcmd.link_exists(bridgeport):
                     self.log_warn('%s: bridge port %s does not exist'
@@ -554,8 +558,8 @@ class mstpctl(moduleBase):
                     continue
                 portliststatus = 1
                 if running_port_list and bridge_port_list:
-                    difference = Set(running_port_list).symmetric_difference(
-                                                        Set(bridge_port_list))
+                    difference = set(running_port_list).symmetric_difference(
+                                                        set(bridge_port_list))
                     if not difference:
                         portliststatus = 0
                 ifaceobjcurr.update_config_with_status('mstpctl-ports',

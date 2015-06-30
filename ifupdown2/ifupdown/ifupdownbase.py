@@ -11,8 +11,8 @@ import logging
 import subprocess
 import re
 import os
-from iface import *
-import rtnetlink_api as rtnetlink_api
+from .iface import *
+from .rtnetlink_api import *
 
 class ifupdownBase(object):
 

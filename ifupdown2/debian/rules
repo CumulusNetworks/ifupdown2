@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+export PYBUILD_NAME=ifupdown2
+export PYBUILD_INSTALL_ARGS=--install-lib=/usr/share/ifupdown2 --install-scripts=/usr/share/ifupdown2
+
+%:
+		dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_python3:
+		dh_python3 --shebang=/usr/bin/python3
+
+override_dh_installman:
+		./scripts/genmanpages.sh ./man.rst ./man
+		dh_installman

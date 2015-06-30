@@ -8,9 +8,12 @@
 #
 from socket import NETLINK_ROUTE, AF_INET, AF_INET6
 from string import printable
-from ipaddr import *
+try:
+    import ipaddress
+except ImportError:
+    import ipaddr as ipaddress
 from ctypes import *
-from netlink import *
+from .netlink import *
 import logging
 
 logger = logging.getLogger(__name__)
