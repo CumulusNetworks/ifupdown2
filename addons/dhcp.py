@@ -23,6 +23,12 @@ class dhcp(moduleBase):
         self.ipcmd = None
 
     def _up(self, ifaceobj):
+        # if dhclient is already running do not stop and start it
+        if self.dhclientcmd.is_running(ifaceobj.name) or \
+               self.dhclientcmd.is_running6(ifaceobj.name):
+            self.logger.info('dhclient already running on %s.  Not restarting.' % \
+                             ifaceobj.name)
+            return
         try:
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
