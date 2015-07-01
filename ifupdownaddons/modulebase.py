@@ -197,7 +197,7 @@ class moduleBase(object):
 
         else:
             # Could not match anything.
-            self.logger.warn('Warning: could not glob properly with %s\n%s' % (expr,errmsg))
+            self.logger.warn('%s' %(errmsg))
             yield expr
 
     def parse_port_list(self, port_expr, ifacenames=None):
