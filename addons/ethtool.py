@@ -101,15 +101,18 @@ class ethtool(moduleBase,utilsBase):
         (the default will get set).
         """
         for attr in ['speed', 'duplex', 'autoneg']:
-            # autoneg comes from ethtool whereas speed and duplex from /sys/class
-            running_attr = self.get_running_attr(attr, ifaceobj)
-
-            configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             default = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
                 attr='link-%s'%attr)
+            # if we have no default, do not bother checking
+            # this avoids ethtool calls on virtual interfaces
+            if not default:
+                continue
+            # autoneg comes from ethtool whereas speed and duplex from /sys/class
+            running_attr = self.get_running_attr(attr, ifaceobj)
 
+            configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             # there is a case where there is no running config or
             # (there is no default and it is not configured).
             # In this case, we do nothing (e.g. eth0 has only a
@@ -178,9 +181,19 @@ class ethtool(moduleBase,utilsBase):
         if not self.ipcmd.is_link_up(ifaceobj.name):
             return
         for attr in ['speed', 'duplex', 'autoneg']:
+            default_val = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-%s'%attr)
+            # do not continue if we have no defaults
+            # this avoids ethtool calls on virtual interfaces
+            if not default_val:
+                continue
             running_attr = self.get_running_attr(attr, ifaceobj)
-            # show it
-            if (running_attr):
+            # if we can change it (have a default) then show it
+            # otherwise, customers will show the running and save it to startup
+            # which will result in errors (ethtool does not work on bonds, etc.)
+            if running_attr:
                 ifaceobj.update_config('link-%s'%attr, running_attr)
 
         return
