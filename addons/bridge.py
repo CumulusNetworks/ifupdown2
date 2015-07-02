@@ -1012,7 +1012,7 @@ class bridge(moduleBase):
                 running_bridgeport_vids.append(' '.join(vids))
             pvids = running_vidinfo.get(bport, {}).get('pvid')
             if pvids:
-                running_bridgeport_pvids.append(pvids[0])
+                running_bridgeport_pvids.append(pvids)
 
         bridge_vids = None
         if running_bridgeport_vids: 
