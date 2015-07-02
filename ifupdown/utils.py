@@ -49,4 +49,12 @@ class utils():
                 ifacenames.append('%s-%d' %(iface_range[0], i))
         return ifacenames
 
+    @classmethod
+    def check_ifname_size_invalid(cls, name=''):
+        """ IFNAMSIZ in include/linux/if.h is 16 so we check this """
+        IFNAMSIZ = 16
+        if len(name) > IFNAMSIZ - 1:
+            return True
+        else:
+            return False
 

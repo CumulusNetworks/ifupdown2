@@ -754,6 +754,7 @@ class ifupdownMain(ifupdownBase):
         """
         new_ifacenames = []
         err_iface = ''
+        ifnamsiz_error = ''
         for i in ifacenames:
             ifaceobjs = self.get_ifaceobjs(i)
             if not ifaceobjs:
@@ -765,13 +766,19 @@ class ifupdownMain(ifupdownBase):
                         if not ifaceobjs:
                             err_iface += ' ' + ri
                         else:
+                            if utils.check_ifname_size_invalid(ri):
+                                ifnamsiz_error += ' ' + ri
                             new_ifacenames.append(ri)
                 else:
                     err_iface += ' ' + i
             else:
+                if utils.check_ifname_size_invalid(i):
+                    ifnamsiz_error += ' ' + i
                 new_ifacenames.append(i)
         if err_iface:
             raise Exception('cannot find interfaces:%s' %err_iface)
+        if ifnamsiz_error:
+            raise Exception('the following interface names are too long:%s' %ifnamsiz_error)
         return new_ifacenames 
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
@@ -936,6 +943,8 @@ class ifupdownMain(ifupdownBase):
         else:
             self.populate_dependency_info(ops)
 
+        if filtered_ifacenames:
+            filtered_ifacenames = self._preprocess_ifacenames(filtered_ifacenames)
         try:
             self._sched_ifaces(filtered_ifacenames, ops,
                     skipupperifaces=skipupperifaces,
@@ -1065,6 +1074,8 @@ class ifupdownMain(ifupdownBase):
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
+        if filtered_ifacenames:
+            filtered_ifacenames = self._preprocess_ifacenames(filtered_ifacenames)
         self._sched_ifaces(filtered_ifacenames, ops,
                            followdependents=True if self.WITH_DEPENDS else False)
 
@@ -1149,6 +1160,7 @@ class ifupdownMain(ifupdownBase):
            return
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(interfaces_to_up))
+        interfaces_to_up = self._preprocess_ifacenames(interfaces_to_up)
         self._sched_ifaces(interfaces_to_up, upops,
                 followdependents=True if self.WITH_DEPENDS else False)
         if self.DRYRUN:
@@ -1266,6 +1278,7 @@ class ifupdownMain(ifupdownBase):
 
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(filtered_ifacenames))
+        filtered_ifacenames = self._preprocess_ifacenames(filtered_ifacenames)
         try:
             self._sched_ifaces(filtered_ifacenames, upops,
                     followdependents=True if self.WITH_DEPENDS else False)
