@@ -56,6 +56,10 @@ class ethtool(moduleBase,utilsBase):
                 ifname=ifaceobj.name,
                 attr='link-%s'%attr)
 
+            if not default_val and not config_val:
+                # there is no point in checking the running config
+                # if we have no default and the user did not have settings
+                continue
             # check running values
             running_val = self.get_running_attr(attr, ifaceobj)
             if config_val and config_val == running_val:
