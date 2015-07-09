@@ -219,6 +219,10 @@ class networkInterfaces():
         iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
 
+        if utils.check_ifname_size_invalid(ifacename):
+            self._parse_warn(self._currentfile, lineno,
+                             '%s: interface name too long' %ifacename)
+
         # in cases where mako is unable to render the template
         # or incorrectly renders it due to user template
         # errors, we maybe left with interface names with
