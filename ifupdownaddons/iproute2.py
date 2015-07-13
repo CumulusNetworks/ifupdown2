@@ -128,6 +128,13 @@ class iproute2(utilsBase):
                 ifname = ifnamenlink[0]
             else:
                 ifname = ifnamenlink[0].strip(':')
+            if not linkout.get(ifname):
+                linkattrs = {}
+                linkattrs['addrs'] = OrderedDict({})
+                try:
+                    linkout[ifname].update(linkattrs)
+                except KeyError:
+                    linkout[ifname] = linkattrs
             if citems[2] == 'inet':
                 if self._addr_filter(citems[3], scope=citems[5]):
                     continue
@@ -143,14 +150,6 @@ class iproute2(utilsBase):
                 addrattrs['scope'] = citems[5]
                 addrattrs['type'] = 'inet6'
                 linkout[ifname]['addrs'][citems[3]] = addrattrs
-            else:
-                linkattrs = {}
-                linkattrs['addrs'] = OrderedDict({})
-                try:
-                    linkout[ifname].update(linkattrs)
-                except KeyError:
-                    linkout[ifname] = linkattrs
-
         [linkCache.update_attrdict([ifname], linkattrs)
                     for ifname, linkattrs in linkout.items()]
 
