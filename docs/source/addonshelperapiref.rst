@@ -15,15 +15,15 @@ Helper module to work with bridgeutil commands
 
 .. autoclass:: brctl
 
-ifenslaveutil
-=============
+bondutil
+========
 
 Helper module to interact with linux api to create bonds.
 Currently this is via sysfs.
 
-.. automodule:: ifenslaveutil
+.. automodule:: bondutil
 
-.. autoclass:: ifenslaveutil
+.. autoclass:: bondutil
 
 dhclient
 ========

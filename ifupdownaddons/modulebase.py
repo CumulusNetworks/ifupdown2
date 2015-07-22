@@ -15,7 +15,7 @@ from ifupdown.iface import *
 #from ifupdownaddons.dhclient import *
 #from ifupdownaddons.bridgeutils import *
 #from ifupdownaddons.mstpctlutil import *
-#from ifupdownaddons.ifenslaveutil import *
+#from ifupdownaddons.bondutil import *
 
 class moduleBase(object):
     """ Base class for ifupdown addon modules

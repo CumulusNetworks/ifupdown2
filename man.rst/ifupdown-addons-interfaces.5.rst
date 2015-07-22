@@ -968,7 +968,7 @@ EXAMPLES
 
 
 
-    **ifenslave**: bond configuration module
+    **bond**: bond configuration module
 
 
       **bond-use-carrier**

@@ -11,7 +11,7 @@ from utilsbase import *
 from iproute2 import *
 from cache import *
 
-class ifenslaveutil(utilsBase):
+class bondutil(utilsBase):
     """ This class contains methods to interact with linux kernel bond
     related interfaces """
 
@@ -80,9 +80,9 @@ class ifenslaveutil(utilsBase):
             if self.DRYRUN:
                 return None
             if self.CACHE:
-                if not ifenslaveutil._cache_fill_done: 
+                if not bondutil._cache_fill_done: 
                     self._bond_linkinfo_fill_all()
-                    ifenslaveutil._cache_fill_done = True
+                    bondutil._cache_fill_done = True
                     return linkCache.get_attr(attrlist)
                 if not refresh:
                     return linkCache.get_attr(attrlist)
