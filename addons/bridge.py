@@ -1284,8 +1284,9 @@ class bridge(moduleBase):
             rv = runningattrs.get(k[7:])
             if k == 'bridge-mcqv4src':
                continue
-            if k == 'bridge-vlan-aware' and v == 'yes':
-                if self.ipcmd.bridge_is_vlan_aware(ifaceobj.name):
+            if k == 'bridge-vlan-aware':
+                rv = self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)
+                if (rv and v == 'yes') or (not rv and v == 'no'):
                     ifaceobjcurr.update_config_with_status('bridge-vlan-aware',
                                v, 0)
                 else:

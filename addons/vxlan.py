@@ -29,7 +29,8 @@ class vxlan(moduleBase):
                              'default': 'on'},
                         'vxlan-ageing' :
                             {'help' : 'vxlan aging timer',
-                             'example': ['vxlan-ageing 300']},
+                             'example': ['vxlan-ageing 300'],
+                             'default': '300'},
                 }}
 
     def __init__(self, *args, **kargs):
@@ -110,10 +111,6 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value('vxlan-remoteip'), 
                        vxlanattrs.get('remote', []))
 
-        self._query_check_n_update(ifaceobjcurr, 'vxlan-ageing',
-                       ifaceobj.get_attr_value('vxlan-ageing'),
-                       vxlanattrs.get('ageing'))
-
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
         if not learning:
             learning = 'on'
@@ -124,6 +121,11 @@ class vxlan(moduleBase):
         else:
            ifaceobjcurr.update_config_with_status('vxlan-learning',
                                                   running_learning, 1)
+        ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
+        if not ageing:
+            ageing = self.get_mod_subattr('vxlan-ageing', 'default')
+        self._query_check_n_update(ifaceobjcurr, 'vxlan-ageing',
+                       ageing, vxlanattrs.get('ageing'))
 
     def _query_running(self, ifaceobjrunning):
         vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobjrunning.name)

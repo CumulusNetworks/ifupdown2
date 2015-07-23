@@ -505,6 +505,8 @@ class iproute2(utilsBase):
             args += ' nolearning'
 
         if self.link_exists(name):
+            if not svcnodeips:
+                args += ' svcnode 0.0.0.0'
             cmd = 'link set dev %s type vxlan dstport %d' %(name, VXLAN_UDP_PORT)
         else:
             cmd = 'link add dev %s type vxlan id %s dstport %d' %(name, vxlanid, VXLAN_UDP_PORT)
