@@ -32,12 +32,12 @@ ethtool
 
 .. autoclass:: ethtool
 
-ifenslave
-=========
+bond
+====
 
-.. automodule:: ifenslave
+.. automodule:: bond
 
-.. autoclass:: ifenslave
+.. autoclass:: bond
 
 mstpctl
 =======

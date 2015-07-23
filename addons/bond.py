@@ -8,11 +8,12 @@ from sets import Set
 from ifupdown.iface import *
 import ifupdownaddons
 from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.ifenslaveutil import ifenslaveutil
+from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
+import ifupdown.policymanager as policymanager
 
-class ifenslave(moduleBase):
+class bond(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
     _modinfo = { 'mhelp' : 'bond configuration module',
                     'attrs' : {
@@ -109,7 +110,7 @@ class ifenslave(moduleBase):
     def __init__(self, *args, **kargs):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
-        self.ifenslavecmd = None
+        self.bondcmd = None
 
     def _is_bond(self, ifaceobj):
         if ifaceobj.get_attr_value_first('bond-slaves'):
@@ -135,7 +136,7 @@ class ifenslave(moduleBase):
 
     def get_dependent_ifacenames_running(self, ifaceobj):
         self._init_command_handlers()
-        return self.ifenslavecmd.get_slaves(ifaceobj.name)
+        return self.bondcmd.get_slaves(ifaceobj.name)
 
     def _get_slave_list(self, ifaceobj):
         """ Returns slave list present in ifaceobj config """
@@ -151,6 +152,12 @@ class ifenslave(moduleBase):
 
     def fetch_attr(self, ifaceobj, attrname):
         attrval = ifaceobj.get_attr_value_first(attrname)
+        # grab the defaults from the policy file in case the
+        # user did not specify something.
+        policy_default_val = policymanager.policymanager_api.\
+                             get_iface_default(module_name=self.__class__.__name__,
+                                               ifname=ifaceobj.name,
+                                               attr=attrname)
         if attrval:
             msg = ('%s: invalid value %s for attr %s.'
                     %(ifaceobj.name, attrval, attrname))
@@ -173,6 +180,8 @@ class ifenslave(moduleBase):
                    self.logger.warn('%s: required attribute %s'
                         %(ifaceobj.name, dattrname) +
                         ' not present or set to \'0\'')
+        elif policy_default_val:
+            return policy_default_val
         elif attrname in ['bond-lacp-bypass-allow', 'bond-lacp-bypass-all-active', 'bond-lacp-bypass-period']:
             # For some attrs, set default values
             optiondict = self.get_mod_attr(attrname)
@@ -183,7 +192,7 @@ class ifenslave(moduleBase):
     def _apply_master_settings(self, ifaceobj):
         have_attrs_to_set = 0
         linkup = False
-        ifenslavecmd_attrmap =  OrderedDict([('bond-mode' , 'mode'),
+        bondcmd_attrmap =  OrderedDict([('bond-mode' , 'mode'),
                                  ('bond-miimon' , 'miimon'),
                                  ('bond-use-carrier', 'use_carrier'),
                                  ('bond-lacp-rate' , 'lacp_rate'),
@@ -203,14 +212,14 @@ class ifenslave(moduleBase):
             # order of attributes set matters for bond, so
             # construct the list sequentially
             attrstoset = OrderedDict()
-            for k, dstk in ifenslavecmd_attrmap.items():
+            for k, dstk in bondcmd_attrmap.items():
                 v = self.fetch_attr(ifaceobj, k)
                 if v:
                     attrstoset[dstk] = v
             if not attrstoset:
                 return
             have_attrs_to_set = 1
-            self.ifenslavecmd.set_attrs(ifaceobj.name, attrstoset,
+            self.bondcmd.set_attrs(ifaceobj.name, attrstoset,
                     self.ipcmd.link_down if linkup else None)
         except:
             raise
@@ -227,7 +236,7 @@ class ifenslave(moduleBase):
             return
 
         if not self.PERFMODE:
-            runningslaves = self.ifenslavecmd.get_slaves(ifaceobj.name);
+            runningslaves = self.bondcmd.get_slaves(ifaceobj.name);
 
         for slave in Set(slaves).difference(Set(runningslaves)):
             if not self.PERFMODE and not self.ipcmd.link_exists(slave):
@@ -249,16 +258,16 @@ class ifenslave(moduleBase):
 
         if runningslaves:
             # Delete active slaves not in the new slave list
-            [ self.ifenslavecmd.remove_slave(ifaceobj.name, s)
+            [ self.bondcmd.remove_slave(ifaceobj.name, s)
                     for s in runningslaves if s not in slaves ]
 
     def _set_clag_enable(self, ifaceobj):
         attrval = ifaceobj.get_attr_value_first('clag-id')
         attrval = attrval if attrval else '0'
-        self.ifenslavecmd.set_clag_enable(ifaceobj.name, attrval)
+        self.bondcmd.set_clag_enable(ifaceobj.name, attrval)
 
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
-        slaves = self.ifenslavecmd.get_slaves(ifaceobj.name)
+        slaves = self.bondcmd.get_slaves(ifaceobj.name)
         if not slaves:
            return
         attrval = ifaceobj.get_attrs_value_first(['bond-lacp-bypass-priority',
@@ -277,7 +286,7 @@ class ifenslave(moduleBase):
                                       %(ifaceobj.name, port))
                         continue
                     slaves.remove(port)
-                    self.ifenslavecmd.set_lacp_fallback_priority(
+                    self.bondcmd.set_lacp_fallback_priority(
                                             ifaceobj.name, port, val)
                 except Exception, e:
                     self.log_warn('%s: failed to set lacp_fallback_priority %s (%s)'
@@ -285,7 +294,7 @@ class ifenslave(moduleBase):
 
         for p in slaves:
             try:
-                self.ifenslavecmd.set_lacp_fallback_priority(ifaceobj.name, p, '0')
+                self.bondcmd.set_lacp_fallback_priority(ifaceobj.name, p, '0')
             except Exception, e:
                 self.log_warn('%s: failed to clear lacp_bypass_priority %s (%s)'
                               %(ifaceobj.name, p, str(e)))
@@ -294,7 +303,7 @@ class ifenslave(moduleBase):
     def _up(self, ifaceobj):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
-                self.ifenslavecmd.create_bond(ifaceobj.name)
+                self.bondcmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
             # clag_enable has to happen before the slaves are added to the bond
             self._set_clag_enable(ifaceobj)
@@ -307,14 +316,14 @@ class ifenslave(moduleBase):
 
     def _down(self, ifaceobj):
         try:
-            self.ifenslavecmd.delete_bond(ifaceobj.name)
+            self.bondcmd.delete_bond(ifaceobj.name)
         except Exception, e:
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         slaves = None
 
-        if not self.ifenslavecmd.bond_exists(ifaceobj.name):
+        if not self.bondcmd.bond_exists(ifaceobj.name):
             self.logger.debug('bond iface %s' %ifaceobj.name +
                               ' does not exist')
             return
@@ -367,36 +376,36 @@ class ifenslave(moduleBase):
 
     def _query_running_attrs(self, bondname):
         bondattrs = {'bond-mode' :
-                            self.ifenslavecmd.get_mode(bondname),
+                            self.bondcmd.get_mode(bondname),
                      'bond-miimon' :
-                            self.ifenslavecmd.get_miimon(bondname),
+                            self.bondcmd.get_miimon(bondname),
                      'bond-use-carrier' :
-                            self.ifenslavecmd.get_use_carrier(bondname),
+                            self.bondcmd.get_use_carrier(bondname),
                      'bond-lacp-rate' :
-                            self.ifenslavecmd.get_lacp_rate(bondname),
+                            self.bondcmd.get_lacp_rate(bondname),
                      'bond-min-links' :
-                            self.ifenslavecmd.get_min_links(bondname),
+                            self.bondcmd.get_min_links(bondname),
                      'bond-ad-sys-mac-addr' :
-                            self.ifenslavecmd.get_ad_sys_mac_addr(bondname),
+                            self.bondcmd.get_ad_sys_mac_addr(bondname),
                      'bond-ad-sys-priority' :
-                            self.ifenslavecmd.get_ad_sys_priority(bondname),
+                            self.bondcmd.get_ad_sys_priority(bondname),
                      'bond-xmit-hash-policy' :
-                            self.ifenslavecmd.get_xmit_hash_policy(bondname),
+                            self.bondcmd.get_xmit_hash_policy(bondname),
                      'bond-lacp-bypass-allow' :
-                            self.ifenslavecmd.get_lacp_fallback_allow(bondname),
+                            self.bondcmd.get_lacp_fallback_allow(bondname),
                      'bond-lacp-bypass-period' :
-                            self.ifenslavecmd.get_lacp_fallback_period(bondname),
+                            self.bondcmd.get_lacp_fallback_period(bondname),
                      'bond-lacp-bypass-priority' :
-                            self.ifenslavecmd.get_lacp_fallback_priority(bondname),
+                            self.bondcmd.get_lacp_fallback_priority(bondname),
                      'bond-lacp-bypass-all-active' :
-                            self.ifenslavecmd.get_lacp_fallback_all_active(bondname)}
-        slaves = self.ifenslavecmd.get_slaves(bondname)
+                            self.bondcmd.get_lacp_fallback_all_active(bondname)}
+        slaves = self.bondcmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves
         return bondattrs
 
     def _query_running(self, ifaceobjrunning):
-        if not self.ifenslavecmd.bond_exists(ifaceobjrunning.name):
+        if not self.bondcmd.bond_exists(ifaceobjrunning.name):
             return
         bondattrs = self._query_running_attrs(ifaceobjrunning.name)
         if bondattrs.get('bond-slaves'):
@@ -418,8 +427,8 @@ class ifenslave(moduleBase):
         flags = self.get_flags()
         if not self.ipcmd:
             self.ipcmd = iproute2(**flags)
-        if not self.ifenslavecmd:
-            self.ifenslavecmd = ifenslaveutil(**flags)
+        if not self.bondcmd:
+            self.bondcmd = bondutil(**flags)
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run bond configuration on the interface object passed as argument
