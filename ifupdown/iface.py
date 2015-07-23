@@ -45,6 +45,8 @@ class ifaceLinkKind():
     VLAN = 0x4
     VXLAN = 0x8
     BRIDGE_VLAN_AWARE = 0x10
+    BRIDGE_PORT = 0x20
+    BOND_SLAVE = 0x40
 
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0

@@ -405,6 +405,16 @@ class ifupdownMain(ifupdownBase):
                             %(ifaceobj.name, ifacename) +
                             'seem to share dependents/ports %s' %str(list(common)))
 
+    def _set_iface_role_n_kind(self, ifaceobj, upperifaceobj):
+        if (upperifaceobj.link_kind & ifaceLinkKind.BOND):
+            ifaceobj.role |= ifaceRole.SLAVE
+            ifaceobj.link_kind |= ifaceLinkKind.BOND_SLAVE
+        if (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+            ifaceobj.role |= ifaceRole.SLAVE
+            ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_PORT
+        if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
+            ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
+
     def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
@@ -439,21 +449,13 @@ class ifupdownMain(ifupdownBase):
                 else:
                     del_list.append(d)
                 if ni:
-                    if upperifaceobj.link_kind & \
-                           (ifaceLinkKind.BOND | ifaceLinkKind.BRIDGE):
-                        ni.role |= ifaceRole.SLAVE
+                    self._set_iface_role_n_kind(ni, upperifaceobj)
                     ni.add_to_upperifaces(upperifaceobj.name)
-                    if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
-                        ni.link_type = ifaceLinkType.LINK_SLAVE
             else:
                 for di in dilist:
                     di.inc_refcnt()
+                    self._set_iface_role_n_kind(di, upperifaceobj)
                     di.add_to_upperifaces(upperifaceobj.name)
-                    if upperifaceobj.link_kind & \
-                           (ifaceLinkKind.BOND | ifaceLinkKind.BRIDGE):
-                        di.role |= ifaceRole.SLAVE
-                    if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
-                        di.link_type = ifaceLinkType.LINK_SLAVE
         for d in del_list:
             dlist.remove(d)
 

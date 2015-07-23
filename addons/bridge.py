@@ -879,10 +879,25 @@ class bridge(moduleBase):
         if err:
            raise Exception('%s: errors applying port settings' %ifaceobj.name)
 
+    def _get_bridgename(self, ifaceobj):
+        for u in ifaceobj.upperifaces:
+            if self.ipcmd.is_bridge(u):
+                return u
+        return None
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
-        # Check if bridge port
+        # Check if bridge port and see if we need to add it to the bridge
+        add_port = False
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        if (not bridgename and
+                (ifaceobj.link_kind & ifaceLinkKind.BRIDGE_PORT)):
+            # get bridgename and add port to bridge
+            bridgename = self._get_bridgename(ifaceobj)
+            add_port = True
         if bridgename:
+           if add_port:
+                # add ifaceobj to bridge
+                self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
            if self.ipcmd.bridge_is_vlan_aware(bridgename):
               bridge_vids = self._get_bridge_vids(bridgename,
                                                   ifaceobj_getfunc)
