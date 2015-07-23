@@ -7,6 +7,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.statemanager as statemanager
 import ifupdown.rtnetlink_api as rtnetlink_api
 from ipaddr import IPNetwork
 import logging
@@ -52,21 +53,22 @@ class addressvirtual(moduleBase):
 
     def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
-        bridgename = None
         if '.' in ifaceobj.name:
+            (bridgename, vlan) = ifaceobj.name.split('.')
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                (bridgename, vlan) = ifaceobj.name.split('.')
+                for addr in hwaddress:
+                    try:
+                        self.ipcmd.bridge_fdb_del(bridgename, addr, vlan)
+                    except Exception, e:
+                        self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
+                        pass
         elif self.ipcmd.is_bridge(ifaceobj.name):
-            vlan = None
-            bridgename = ifaceobj.name
-        if not bridgename:
-            return
-        for addr in hwaddress:
-            try:
-                self.ipcmd.bridge_fdb_del(bridgename, addr, vlan)
-            except Exception, e:
-                self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
-                pass
+            for addr in hwaddress:
+                try:
+                    self.ipcmd.bridge_fdb_del(ifaceobj.name, addr)
+                except Exception, e:
+                    self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
+                    pass
 
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
@@ -119,6 +121,26 @@ class addressvirtual(moduleBase):
                               %str(e))
             pass
 
+    def _get_macs_from_old_config(self, ifaceobj=None):
+        """ This method returns a list of the mac addresses
+        in the address-virtual attribute for the bridge. """
+        maclist = []
+        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
+        if not saved_ifaceobjs:
+            return maclist
+        # we need the old saved configs from the statemanager
+        for oldifaceobj in saved_ifaceobjs:
+            if not oldifaceobj.get_attr_value('address-virtual'):
+                continue
+            for av in oldifaceobj.get_attr_value('address-virtual'):
+                macip = av.split()
+                if len(macip) < 2:
+                    self.logger.debug("%s: incorrect old address-virtual attrs '%s'"
+                                      %(oldifaceobj.name,  av))
+                    continue
+                maclist.append(macip[0])
+        return maclist
+
     def _apply_address_config(self, ifaceobj, address_virtual_list):
         purge_existing = False if self.PERFMODE else True
 
@@ -154,6 +176,13 @@ class addressvirtual(moduleBase):
             av_idx += 1
         self.ipcmd.batch_commit()
 
+        # check the statemanager for old configs.
+        # We need to remove only the previously configured FDB entries
+        oldmacs = self._get_macs_from_old_config(ifaceobj)
+        # get a list of fdbs in old that are not in new config meaning they should
+        # be removed since they are gone from the config
+        removed_macs = [mac for mac in oldmacs if mac not in hwaddress]
+        self._remove_addresses_from_bridge(ifaceobj, removed_macs)
         # if ifaceobj is a bridge and bridge is a vlan aware bridge
         # add the vid to the bridge
         self._add_addresses_to_bridge(ifaceobj, hwaddress)
@@ -164,7 +193,7 @@ class addressvirtual(moduleBase):
         hwaddress = []
         self.ipcmd.batch_start()
         macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
-        for macvlan_ifacename in glob.glob("/sys/class/net/%s-*" %macvlan_prefix):
+        for macvlan_ifacename in glob.glob("/sys/class/net/%s*" %macvlan_prefix):
             macvlan_ifacename = os.path.basename(macvlan_ifacename)
             if not self.ipcmd.link_exists(macvlan_ifacename):
                 continue

@@ -174,3 +174,5 @@ class stateManager():
         else:
             for ifacename, ifaceobjs in self.ifaceobjdict.items():
                 [i.dump(self.logger) for i in ifaceobjs]
+
+statemanager_api = stateManager()

@@ -15,7 +15,7 @@ import logging
 import sys, traceback
 import copy
 import json
-from statemanager import *
+import ifupdown.statemanager as statemanager
 from networkinterfaces import *
 from iface import *
 from scheduler import *
@@ -227,7 +227,7 @@ class ifupdownMain(ifupdownBase):
 
         if self.STATEMANAGER_ENABLE:
             try:
-                self.statemanager = stateManager()
+                self.statemanager = statemanager.statemanager_api
                 self.statemanager.read_saved_state()
             except Exception, e:
                 # XXX Maybe we should continue by ignoring old state
