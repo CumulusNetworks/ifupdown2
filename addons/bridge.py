@@ -311,6 +311,7 @@ class bridge(moduleBase):
             self.ipcmd.batch_commit()
             return
         err = 0
+        ports = 0
         for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
             try:
                 if not self.DRYRUN and not self.ipcmd.link_exists(bridgeport):
@@ -326,6 +327,11 @@ class bridge(moduleBase):
                     continue
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
+                ports += 1
+                if ports == 250:
+                    ports = 0
+                    self.ipcmd.batch_commit()
+                    self.ipcmd.batch_start()
             except Exception, e:
                 self.logger.error(str(e))
                 pass
