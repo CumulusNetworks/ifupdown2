@@ -9,6 +9,7 @@ License: GPL-2
 
 Files: debian/*
 Copyright: 2014 Cumulus Networks
+License: GPL-2
 
 License: GPL-2
  This package is free software; you can redistribute it and/or modify
