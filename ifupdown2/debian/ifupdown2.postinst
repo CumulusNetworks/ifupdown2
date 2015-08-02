@@ -1,5 +1,39 @@
-#!/bin/bash
+#!/bin/sh
+# postinst script for ifupdown2
+#
+# see: dh_installdeb(1)
+
 set -e
+
+# summary of how this script can be called:
+#        * <postinst> `configure' <most-recently-configured-version>
+#        * <old-postinst> `abort-upgrade' <new version>
+#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
+#          <new-version>
+#        * <postinst> `abort-remove'
+#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
+#          <failed-install-package> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see http://www.debian.org/doc/debian-policy/ or
+# the debian-policy package
+
+process_udev()
+{
+    # override default udev bridge and hotplug rules because they interfere with
+    # networking init script
+    udev_user_rulesdir=/etc/udev/rules.d/
+    udev_sys_rulesdir=/lib/udev/rules.d/
+    if [ -e $udev_user_rulesdir ]; then
+        udev_ifupdown2_overrides="80-networking.rules
+        60-bridge-network-interface.rules"
+        for u in ${udev_ifupdown2_overrides}
+        do
+            if [ -e ${udev_sys_rulesdir}/$u -a ! -e ${udev_user_rulesdir}/$u ]; then
+                (cd ${udev_user_rulesdir} && ln -sf /dev/null $u)
+            fi
+        done
+    fi
+}
 
 MYNAME="${0##*/}"
 
@@ -10,12 +44,8 @@ report_err() { report "Error: $*" >&2 ; }
 case "$1" in
     configure)
 
-        #ln -sf /usr/share/python-ifupdown2/generate_interfaces.py /usr/share/doc/python-ifupdown2/examples/generate_interfaces.py
-
         # Generic stuff done on all configurations
         if [ -f /etc/network/interfaces ] ; then
-            # TODO: This should be handled with debconf and the script
-            # could introduce the line there directly
             if ! grep -q "^[[:space:]]*iface[[:space:]]\+lo0\?[[:space:]]\+inet[[:space:]]\+loopback\>" /etc/network/interfaces ; then
                 report_warn "No 'iface lo' definition found in /etc/network/interfaces"
             fi
@@ -35,30 +65,13 @@ case "$1" in
         fi
 
         mkdir -p /etc/network/interfaces.d/
+        process_udev
         ;;
 
   purge)
-    # Note: We don't remove /etc/network/interfaces
-    #rm -f /usr/share/doc/python-ifupdown2/generate_interfaces.py
     ;;
 esac
 
-# override default udev bridge and hotplug rules because they interfere with
-# networking init script
-udev_user_rulesdir=/etc/udev/rules.d/
-udev_sys_rulesdir=/lib/udev/rules.d/
-if [ -e $udev_user_rulesdir ]; then
-    udev_ifupdown2_overrides=("80-networking.rules" "60-bridge-network-interface.rules")
-    for u in ${udev_ifupdown2_overrides[*]}
-    do
-        if [ -e ${udev_sys_rulesdir}/$u -a ! -e ${udev_user_rulesdir}/$u ]; then
-            (cd ${udev_user_rulesdir} && ln -sf /dev/null $u)
-        fi
-    done
-fi
-
-if [ -x "/etc/init.d/networking" ]; then
-    update-rc.d networking start 40 S . start 35 0 6 . >/dev/null || exit $?
-fi
-
 #DEBHELPER#
+
+exit 0

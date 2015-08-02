@@ -1,21 +1,15 @@
 #!/usr/bin/make -f
 
-export DH_VERBOSE=1
+#export DH_VERBOSE=1
 export PYBUILD_NAME=ifupdown2
 export PYBUILD_INSTALL_ARGS=--install-lib=/usr/share/ifupdown2 --install-scripts=/usr/share/ifupdown2
 
 %:
-		dh $@ --with python2,python3 --buildsystem=pybuild
+	dh $@ --with python2 --buildsystem=pybuild
 
 override_dh_installman:
 	./scripts/genmanpages.sh ./man.rst ./man
 	dh_installman
 
-
-#override_dh_auto_clean:
-#		rm -rf $(CURDIR)/ipaddr.pyc
-#		rm -rf $(CURDIR)/build
-#		rm -rf $(CURDIR)/__pycache__
-#		dh_clean
-
-
+override_dh_installinit:
+	dh_installinit --name=networking --no-start
