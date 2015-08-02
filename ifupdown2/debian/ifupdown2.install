@@ -1,1 +1,2 @@
 sbin/ifupdown2 /usr/share/ifupdown2/
+config/networking.default /etc/default/networking
