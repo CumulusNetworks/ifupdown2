@@ -28,6 +28,6 @@
 auto br${vlan}
 iface br${vlan} inet static
     address ${addr}
-    bridge-ports swp1.${vlan} swp2.${vlan}
+    bridge-ports eth1.${vlan} eth2.${vlan}
     bridge-stp on
 </%def>

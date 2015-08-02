@@ -12,12 +12,11 @@
 # 
 #
 
-%for v in range(1000,1100):
+%for v in range(1000,1010):
 auto vlan-${v}
 iface vlan-${v} inet static
-    bridge-ports glob swp1-6.${v}
+    bridge-ports eth2.${v}
     bridge-stp on
-    bridge-ageing 200
     bridge-maxage 10
     bridge-fd 10
 %endfor
