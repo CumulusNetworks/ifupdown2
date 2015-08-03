@@ -104,7 +104,7 @@ class ifaceScheduler():
                 try:
                     ifupdownobj.exec_command(mname, cmdenv=cenv)
                 except Exception as e:
-                    ifupdownobj.log_error(str(e))
+                    ifupdownobj.log_warn(str(e))
 
     @classmethod
     def run_iface_list_ops(cls, ifupdownobj, ifaceobjs, ops):

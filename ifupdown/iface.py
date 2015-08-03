@@ -370,7 +370,6 @@ class iface():
                 return None
         return None
 
-    @property
     def get_env(self):
         """ get shell environment variables the interface must execute in """
         if not self.env:
@@ -385,10 +384,9 @@ class iface():
         config = self.config
         env['IFACE'] = self.name
         for attr, attr_value in config.items():
-            attr_env_name = 'IF_%s' %attr.upper()
+            attr_env_name = 'IF_%s' %attr.upper().replace("-", "_")
             env[attr_env_name] = attr_value[0]
-        if env:
-            self.env = env
+        self.env = env
 
     def update_config(self, attr_name, attr_value):
         """ add attribute name and value to the interface config """

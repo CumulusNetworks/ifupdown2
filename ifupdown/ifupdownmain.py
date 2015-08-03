@@ -218,11 +218,12 @@ class ifupdownMain(ifupdownBase):
         self.modules = OrderedDict({})
         self.module_attrs = {}
         
-        self.load_addon_modules(self.addon_modules_dir)
-        if self.COMPAT_EXEC_SCRIPTS:
+        if self.config.get('addon_python_modules_support', '1') == '1':
+            self.load_addon_modules(self.addon_modules_dir)
+        if self.config.get('addon_scripts_support', '0') == '1':
             self.load_scripts(self.scripts_dir)
-        self.dependency_graph = OrderedDict({})
 
+        self.dependency_graph = OrderedDict({})
         self._cache_no_repeats = {}
 
         if self.STATEMANAGER_ENABLE:
@@ -579,9 +580,11 @@ class ifupdownMain(ifupdownBase):
                         template_engine=self.config.get('template_engine'),
                 template_lookuppath=self.config.get('template_lookuppath'))
         nifaces.subscribe('iface_found', self._save_iface)
-        nifaces.subscribe('validateifaceattr',
-                          self._iface_configattr_syntax_checker)
-        nifaces.subscribe('validateifaceobj', self._ifaceobj_syntax_checker)
+
+        if self.config.get('addon_syntax_check', '1') == '1':
+            nifaces.subscribe('validateifaceattr',
+                              self._iface_configattr_syntax_checker)
+            nifaces.subscribe('validateifaceobj', self._ifaceobj_syntax_checker)
         nifaces.load()
 
     def read_old_iface_config(self):
@@ -804,9 +807,9 @@ class ifupdownMain(ifupdownBase):
 
     def _compat_conv_op_to_mode(self, op):
         """ Returns old op name to work with existing scripts """
-        if op == 'pre-up':
+        if 'up' in op:
             return 'start'
-        elif op == 'pre-down':
+        elif 'down' in op:
             return 'stop'
         else:
             return op
@@ -817,14 +820,18 @@ class ifupdownMain(ifupdownBase):
         """
 
         cenv = None
-        iface_env = ifaceobj.env
+        iface_env = ifaceobj.get_env()
         if iface_env:
             cenv = os.environ
             if cenv:
                 cenv.update(iface_env)
             else:
                 cenv = iface_env
-            cenv['MODE'] = self._compat_conv_op_to_mode(op)
+        else:
+            cenv = {}
+        cenv['MODE'] = self._compat_conv_op_to_mode(op)
+        cenv['PHASE'] = op
+
         return cenv
 
     def _save_state(self):
