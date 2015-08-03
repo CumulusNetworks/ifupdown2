@@ -31,25 +31,6 @@ EXTRA_ARGS=
 [ "$DEBUG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
 [ "$SYSLOG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
 
-gen_examples() {
-    # Generate sample interfaces file. The interfaces files are
-    # generated under /usr/share/doc/python-ifupdown2/examples/
-    #
-
-    # generate files only at boot
-    [ -f /var/tmp/network/ifstatenew ] && return
-
-    python_ifupdown2_docdir="/usr/share/doc/python-ifupdown2"
-    swpfile=${python_ifupdown2_docdir}"/examples/swp_defaults"
-    bridgedefaultfile=${python_ifupdown2_docdir}"/examples/bridge_untagged_default"
-    interfaces_gen_script=${python_ifupdown2_docdir}"/examples/generate_interfaces.py"
-
-    [ ! -e $interfaces_gen_script ] && return
-    ret=$($interfaces_gen_script -s 2>&1 >$swpfile)
-    ret=$($interfaces_gen_script -b 2>&1 >$bridgedefaultfile)
-    return
-}
-
 perf_options() {
     # At bootup lets set perfmode
     [ -f /var/tmp/network/ifstatenew ] && echo -n "" && return
@@ -131,7 +112,6 @@ ifupdown_init() {
 
 case "$1" in
 start)
-    	gen_examples
 	ifupdown_init
 	if [ "$CONFIGURE_INTERFACES" = no ]
 	then
