@@ -1,8 +1,8 @@
 #!/bin/bash
 ### BEGIN INIT INFO
 # Provides:          networking ifupdown
-# Required-Start:    mountkernfs $local_fs $remote_fs urandom
-# Required-Stop:     $local_fs $remote_fs
+# Required-Start:    mountkernfs $local_fs urandom
+# Required-Stop:     $local_fs
 # Default-Start:     S
 # Default-Stop:      0 1 6
 # Short-Description: Raise network interfaces.
