@@ -183,6 +183,13 @@ class bridge(moduleBase):
                         { 'help' : 'bridge port access vlan. Must be ' +
                                    'specified under the bridge port',
                           'example' : ['bridge-access 300']},
+                    'bridge-allow-untagged' :
+                        { 'help' : 'indicate if the bridge port accepts ' +
+                                   'untagged packets or not.  Must be ' +
+                                   'specified under the bridge port. ' +
+                                   'Default is \'yes\'',
+                          'example' : ['bridge-allow-untagged yes'],
+                          'default' : 'yes'},
                     'bridge-port-vids' :
                         { 'help' : 'bridge vlans',
                           'compat': True,
@@ -696,14 +703,14 @@ class bridge(moduleBase):
             vids_to_del = []
             vids_to_add = vids
             pvid_to_del = None
-            pvid_to_add = pvid if pvid else '1'
+            pvid_to_add = pvid
 
             if running_vids:
                 (vids_to_del, vids_to_add) = \
                     self._diff_vids(vids, running_vids)
 
             if running_pvid:
-                if running_pvid != pvid:
+                if running_pvid != pvid and running_pvid != '0':
                     pvid_to_del = running_pvid
 
             if (pvid_to_del and (pvid_to_del in vids) and
@@ -751,7 +758,8 @@ class bridge(moduleBase):
                         %(bportifaceobj.name, str(vids_to_add), str(e)))
 
         try:
-            self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid_to_add)
+            if pvid_to_add:
+                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid_to_add)
         except Exception, e:
                 self.log_warn('%s: failed to set pvid `%s` (%s)'
                         %(bportifaceobj.name, pvid_to_add, str(e)))
@@ -768,7 +776,10 @@ class bridge(moduleBase):
         if bport_access:
             vids = re.split(r'[\s\t]\s*', bport_access)
             pvids = vids
+            allow_untagged = 'yes'
         else:
+            allow_untagged = bportifaceobj.get_attr_value_first('bridge-allow-untagged') or 'yes'
+
             bport_vids = bportifaceobj.get_attr_value_first('bridge-vids')
             if bport_vids:
                 vids = re.split(r'[\s\t,]\s*', bport_vids)
@@ -782,10 +793,15 @@ class bridge(moduleBase):
         elif bridge_vids:
             vids_final = bridge_vids
 
-        if pvids:
-            pvid_final = pvids[0]
-        elif bridge_pvid:
-            pvid_final = bridge_pvid
+        if allow_untagged == 'yes':
+            if pvids:
+                pvid_final = pvids[0]
+            elif bridge_pvid:
+                pvid_final = bridge_pvid
+            else:
+                pvid_final = '1'
+        else:
+            pvid_final = None
 
         self._apply_bridge_vids_and_pvid(bportifaceobj, vids_final,
                 running_vidinfo.get(bportifaceobj.name, {}).get('vlan'),
