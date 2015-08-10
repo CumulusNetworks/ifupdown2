@@ -139,8 +139,13 @@ class bondutil(utilsBase):
                 if prehook:
                     prehook(bondname)
             try:
-                self.write_file('/sys/class/net/%s/bonding/%s'
-                                %(bondname, attrname), attrval)
+                if ((attrname not in ['lacp_rate',
+                                      'lacp_bypass_allow',
+                                      'lacp_bypass_period',
+                                      'lacp_bypass_all_active']) or
+                    ('mode', '802.3ad') in attrdict.items()):
+                    self.write_file('/sys/class/net/%s/bonding/%s'
+                                    %(bondname, attrname), attrval)
             except Exception, e:
                 if self.FORCE:
                     self.logger.warn(str(e))
