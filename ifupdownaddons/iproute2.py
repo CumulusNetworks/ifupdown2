@@ -67,7 +67,11 @@ class iproute2(utilsBase):
                 elif citems[i] == 'link/ether': linkattrs['hwaddress'] = citems[i+1]
                 elif citems[i] == 'vlan' and citems[i+1] == 'id':
                     linkattrs['linkinfo'] = {'vlanid' : citems[i+2]}
+                    linkattrs['kind'] = 'vlan'
+                elif citems[i] == 'dummy':
+                    linkattrs['kind'] = 'dummy'
                 elif citems[i] == 'vxlan' and citems[i+1] == 'id':
+                    linkattrs['kind'] = 'vxlan'
                     vattrs = {'vxlanid' : citems[i+2],
                               'svcnode' : [],
                               'remote'  : [],
@@ -567,6 +571,9 @@ class iproute2(utilsBase):
 
     def link_get_mtu(self, ifacename):
         return self._cache_get('link', [ifacename, 'mtu'])
+
+    def link_get_kind(self, ifacename):
+        return self._cache_get('link', [ifacename, 'kind'])
 
     def link_get_hwaddress(self, ifacename):
         address = self._cache_get('link', [ifacename, 'hwaddress'])

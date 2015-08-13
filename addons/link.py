@@ -11,20 +11,25 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import logging
 
-class loopback(moduleBase):
-    _modinfo = {'mhelp' : 'configure extra loopback module based on ' +
-			  'dummy device' }
+class link(moduleBase):
+    _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',
+                'attrs' : {
+                   'link-type' :
+                        {'help' : 'type of link as in \'ip link\' command.',
+                         'example' : ['link-type <dummy|veth>']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
-    def _is_loopback_by_name(self, ifacename):
-        return 'loop' in ifacename
+    def _is_my_interface(self, ifaceobj):
+        if ifaceobj.get_attr_value_first('link-type'):
+            return True
+        return False
 
     def _up(self, ifaceobj):
-        if self._is_loopback_by_name(ifaceobj.name):
-           self.ipcmd.link_create(ifaceobj.name, 'dummy')
+        self.ipcmd.link_create(ifaceobj.name,
+                               ifaceobj.get_attr_value_first('link-type'))
 
     def _down(self, ifaceobj):
         if not self.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
@@ -36,7 +41,15 @@ class loopback(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           return
+            ifaceobjcurr.update_config_with_status('link-type', 'None', 1)
+        else:
+            link_type = ifaceobj.get_attr_value_first('link-type')
+            if self.ipcmd.link_get_kind(ifaceobj.name) == link_type:
+                ifaceobjcurr.update_config_with_status('link-type',
+                                                        link_type, 0)
+            else:
+                ifaceobjcurr.update_config_with_status('link-type',
+                                                        link_type, 1)
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
@@ -54,7 +67,7 @@ class loopback(moduleBase):
         if not op_handler:
             return
         if (operation != 'query-running' and
-                not self._is_loopback_by_name(ifaceobj.name)):
+                not self._is_my_interface(ifaceobj)):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
