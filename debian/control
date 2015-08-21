@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Roopa Prabhu <roopa@cumulusnetworks.com>
 Standards-Version: 3.9.6
-Build-Depends: python-setuptools, dh-python, python-all (>= 2.6.6-3), debhelper (>= 9~)
+Build-Depends: python-setuptools, dh-python, python-all (>= 2.6.6-3), debhelper (>= 9~), python-docutils
 Homepage: https://github.com/CumulusNetworks/ifupdown2
 X-Python-Version: >= 2.6
 
