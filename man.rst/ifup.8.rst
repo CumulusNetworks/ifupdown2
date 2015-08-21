@@ -105,7 +105,7 @@ OPTIONS
                           print iface dependency in list or dot format
 
     -m, --admin-state, --no-scripts
-                          dont run any addon modules/scripts. Only bring
+                          don't run any addon modules/scripts. Only bring
                           the interface administratively up/down
 
     -u, --use-current-config
