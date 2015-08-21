@@ -111,7 +111,7 @@ BUILTIN INTERFACES
     **iface** sections for some interfaces like physical interfaces or vlan
     interfaces in dot notation (like eth1.100) are understood by ifupdown.
     These interfaces do not need an entry in the interfaces file if
-    they are dependents of other interfaces and dont need any specific
+    they are dependents of other interfaces and don't need any specific
     configurations like addresses etc.
 
 EXAMPLES

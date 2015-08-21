@@ -948,9 +948,9 @@ EXAMPLES
 
 
     **bridgevlan**: bridgevlan module configures vlan attributes on a 
-    vlan aware bridge. This module only understands vlan interface nam
-    e with dot notations. eg br0.100. where br0 is the vlan aware brid
-    ge this config is for
+    vlan aware bridge. This module only understands vlan interface name
+    with dot notations. eg br0.100. where br0 is the vlan aware bridge
+    this config is for.
 
 
       **bridge-igmp-querier-src**
@@ -1233,7 +1233,7 @@ EXAMPLES
       **address-purge**
 
         **help**: purge existing addresses. By default any existing ip
-        addresses on an interface are purged to match persistant addre
+        addresses on an interface are purged to match persistent addre
         sses in the interfaces file. Set this attribute to 'no'if you 
         want to preserve existing addresses
 
