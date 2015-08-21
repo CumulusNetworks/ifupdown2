@@ -23,6 +23,7 @@ configfile="/etc/network/ifupdown2/ifupdown2.conf"
 configmap_g=None
 logger = None
 interfacesfileiobuf=None
+interfacesfilename=None
 ENVPATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 def run_up(args):
@@ -44,7 +45,7 @@ def run_up(args):
                                        cache=cachearg,
                                        addons_enable=not args.noaddons,
                                        statemanager_enable=not args.noaddons,
-                                       interfacesfile=args.interfacesfile,
+                                       interfacesfile=interfacesfilename,
                                        interfacesfileiobuf=interfacesfileiobuf,
                                        interfacesfileformat=args.interfacesfileformat)
         if args.noaddons:
@@ -75,7 +76,7 @@ def run_down(args):
                                        dryrun=args.noact,
                                        addons_enable=not args.noaddons,
                                        statemanager_enable=not args.noaddons,
-                                       interfacesfile=args.interfacesfile,
+                                       interfacesfile=interfacesfilename,
                                        interfacesfileiobuf=interfacesfileiobuf,
                                        interfacesfileformat=args.interfacesfileformat)
 
@@ -119,7 +120,7 @@ def run_query(args):
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
                                        cache=cachearg,
-                                       interfacesfile=args.interfacesfile,
+                                       interfacesfile=interfacesfilename,
                                        interfacesfileiobuf=interfacesfileiobuf,
                                        interfacesfileformat=args.interfacesfileformat)
 
@@ -136,6 +137,7 @@ def run_reload(args):
     try:
         logger.debug('creating ifupdown object ..')
         ifupdown_handle = ifupdownMain(config=configmap_g,
+                                       interfacesfile=interfacesfilename,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode)
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
@@ -150,6 +152,7 @@ def run_reload(args):
 def init(args):
     global logger
     global interfacesfileiobuf
+    global interfacesfilename
 
     log_level = logging.WARNING
     if args.verbose:
@@ -182,9 +185,24 @@ def init(args):
     except:
         raise
 
-    # If interfaces file is stdin, read
-    if hasattr(args, 'interfacesfile') and args.interfacesfile == '-':
-        interfacesfileiobuf = sys.stdin.read()
+    if hasattr(args, 'interfacesfile') and args.interfacesfile != None:
+        # Check to see if -i option is allowed by config file
+        if configmap_g.get('disable_cli_interfacesfile','1') == '1':
+            logger.error('disable_cli_interfacesfile is set so users '
+                         'not allowed to specify interfaces file on cli.')
+            exit(1)
+        if args.interfacesfile == '-':
+            # If interfaces file is stdin, read
+            interfacesfileiobuf = sys.stdin.read()
+        else:
+            interfacesfilename = args.interfacesfile
+    else:
+        # if the ifupdown2 config file does not have it, default to standard
+        interfacesfilename = configmap_g.get('default_interfaces_configfile',
+                                             '/etc/network/interfaces')
+
+
+
 
 def deinit():
     {}
@@ -222,9 +240,9 @@ def update_argparser(argparser):
                 help='Exclude interfaces from the list of interfaces' +
                 ' to operate on. Can be specified multiple times.')
     argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
-                default='/etc/network/interfaces',
-                help='use interfaces file instead of default ' +
-                '/etc/network/interfaces')
+                default=None,
+                help='Specify interfaces file instead of file defined ' +
+                'in ifupdown2.conf file')
     argparser.add_argument('-t', '--interfaces-format',
                 dest='interfacesfileformat',
                 default='native',

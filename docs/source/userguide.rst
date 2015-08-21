@@ -66,7 +66,7 @@ Man Pages
 Configuration Files
 ===================
 
-* /etc/network/interfaces
+* config file defined in ifupdown2.conf (default /etc/network/interfaces)
 
     
 ifupdown Built-in Interfaces

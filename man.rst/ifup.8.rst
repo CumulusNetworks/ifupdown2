@@ -33,13 +33,13 @@ DESCRIPTION
 ===========
     **ifup** and **ifdown** commands can be used to configure (or, respectively,
     deconfigure) network interfaces based on interface definitions in the
-    file **/etc/network/interfaces/** file.
+    config file ifupdown2.conf (defaults to **/etc/network/interfaces/** file).
 
     **ifquery(8)** maybe used in conjunction with **ifup** and **ifdown**
     commands to query and validate applied/running configuration.
 
-    **ifup** always works on the current **interfaces(5)** file under
-    **/etc/network/interfaces**. **ifdown** works on the last applied interface
+    **ifup** always works on the current **interfaces(5)** file defined in ifupdown2.conf
+    (default **/etc/network/interfaces**). **ifdown** works on the last applied interface
     configuration.
 
     **ifup** on an already ifup'ed interface will re-apply the configuration,
@@ -88,8 +88,11 @@ OPTIONS
                           to be excluded.
 
     -i INTERFACESFILE, --interfaces INTERFACESFILE
-                          Use interfaces file instead of default
-                          /etc/network/interfaces
+                          Uses interfaces file instead of default defined in 
+                          ifupdown2.conf (default /etc/network/interfaces).
+			  Also in ifupdown2.conf, users are not allowed to specify their own
+			  interfaces file unless disable_cli_interfacesfile is set to 0
+			  (default is 1).
 
     -t {native,json}, --interfaces-format {native,json}
                           interfaces file format

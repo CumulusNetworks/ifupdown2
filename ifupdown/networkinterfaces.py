@@ -434,6 +434,10 @@ class networkInterfaces():
         Assumes networkinterfaces parser object is initialized with the
         parser arguments
         """
+        if self.interfacesfile == None:
+            self.logger.warn('no network interfaces file defined in ifupdown2.conf')
+            return
+
         if self.interfacesfileformat == 'json':
             return self.read_file_json(self.interfacesfile,
                                        self.interfacesfileiobuf)

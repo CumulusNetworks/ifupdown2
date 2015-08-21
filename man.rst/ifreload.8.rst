@@ -18,7 +18,8 @@ SYNOPSIS
 
 DESCRIPTION
 ===========
-    reloads network **interfaces(5)** file **/etc/network/interfaces**.
+    reloads network **interfaces(5)** file **/etc/network/interfaces**
+    or config file defined in ifupdown2.conf file.
 
     Runs **ifdown** on interfaces that were removed from the file and
     subsequently runs **ifup** on all interfaces.

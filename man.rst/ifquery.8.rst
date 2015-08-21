@@ -33,7 +33,8 @@ DESCRIPTION
 
     **ifquery** always works on the current **interfaces(5)** file
     **/etc/network/interfaces** unless an alternate interfaces file is
-    provided with the **-i** option.
+    defined in ifupdown2.conf or provided with the **-i** option.
+    Note: the -i option is disabled by default in ifupdown2.conf.
 
 OPTIONS
 =======
@@ -67,7 +68,7 @@ OPTIONS
 
     -i INTERFACESFILE, --interfaces INTERFACESFILE
                           Use interfaces file instead of default
-                          /etc/network/interfaces
+                          defined in ifupdown2.conf (default /etc/network/interfaces)
 
     -t {native,json}, --interfaces-format {native,json}
                           interfaces file format
