@@ -236,13 +236,6 @@ class ethtool(moduleBase,utilsBase):
         if not op_handler:
             return
         self._init_command_handlers()
-        # while this will not catch all interface kinds, we try for most here
-        # we should only be running ethtool on real, hardware devices.  For
-        # newer interfaces that do not set link_kind, they should not have
-        # a default attribute setting since update-ports only generates
-        # settings for hardware ports.
-        if ifaceobj.link_kind != ifaceLinkKind.UNKNOWN:
-            return
 
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
