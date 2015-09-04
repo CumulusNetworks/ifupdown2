@@ -494,12 +494,11 @@ class iproute2(utilsBase):
                           svcnodeips=None,
                           remoteips=None,
                           learning='on',
-                          ageing=None):
+                          ageing=None,
+                          anycastip=None):
         if svcnodeips and remoteips:
             raise Exception("svcnodeip and remoteip is mutually exclusive")
         args = ''
-        if localtunnelip:
-            args += ' local %s' %localtunnelip
         if svcnodeips:
             for s in svcnodeips:
                 args += ' svcnode %s' %s
@@ -509,11 +508,22 @@ class iproute2(utilsBase):
             args += ' nolearning'
 
         if self.link_exists(name):
-            if not svcnodeips:
-                args += ' svcnode 0.0.0.0'
             cmd = 'link set dev %s type vxlan dstport %d' %(name, VXLAN_UDP_PORT)
+            vxlanattrs = self.get_vxlandev_attrs(name)
+            # on ifreload do not overwrite anycast_ip to individual ip if clagd
+            # has modified
+            if vxlanattrs:
+                running_localtunnelip = vxlanattrs.get('local')
+                if anycastip and running_localtunnelip and anycastip == running_localtunnelip:
+                    localtunnelip = running_localtunnelip
+                running_svcnode = vxlanattrs.get('svcnode')
+                if running_svcnode and not svcnodeips:
+                    args += ' svcnode 0.0.0.0'
         else:
             cmd = 'link add dev %s type vxlan id %s dstport %d' %(name, vxlanid, VXLAN_UDP_PORT)
+
+        if localtunnelip:
+            args += ' local %s' %localtunnelip
         cmd += args
 
         if self.ipbatch and not self.ipbatch_pause:
@@ -521,27 +531,29 @@ class iproute2(utilsBase):
         else:
             self.exec_command('ip %s' %cmd)
 
-        # figure out the diff for remotes and do the bridge fdb updates
-        cur_peers = set(self.get_vxlan_peers(name))
-        if remoteips:
-            new_peers = set(remoteips)
-            del_list = cur_peers.difference(new_peers)
-            add_list = new_peers.difference(cur_peers)
-        else:
-            del_list = cur_peers
-            add_list = []
+        if os.system('service vxrd status > /dev/null 2>&1') != 0:
+            #figure out the diff for remotes and do the bridge fdb updates
+            #only if provisioned by user and not by vxrd
+            cur_peers = set(self.get_vxlan_peers(name))
+            if remoteips:
+                new_peers = set(remoteips)
+                del_list = cur_peers.difference(new_peers)
+                add_list = new_peers.difference(cur_peers)
+            else:
+                del_list = cur_peers
+                add_list = []
 
-        try:
-            for addr in del_list:
-                self.bridge_fdb_del(name, '00:00:00:00:00:00', None, True, addr)
-        except:
-            pass
+            try:
+                for addr in del_list:
+                    self.bridge_fdb_del(name, '00:00:00:00:00:00', None, True, addr)
+            except:
+                pass
 
-        try:
-            for addr in add_list:
-                self.bridge_fdb_append(name, '00:00:00:00:00:00', None, True, addr)
-        except:
-            pass
+            try:
+                for addr in add_list:
+                    self.bridge_fdb_append(name, '00:00:00:00:00:00', None, True, addr)
+            except:
+                pass
 
         # XXX: update linkinfo correctly
         self._cache_update([name], {})

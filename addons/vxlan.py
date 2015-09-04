@@ -5,6 +5,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
+import os
 from sets import Set
 
 class vxlan(moduleBase):
@@ -32,15 +33,22 @@ class vxlan(moduleBase):
                              'example': ['vxlan-ageing 300'],
                              'default': '300'},
                 }}
+    _clagd_vxlan_anycast_ip = ""
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
-        if not self._is_vxlan_device(ifaceobj):
-            return None
-        ifaceobj.link_kind |= ifaceLinkKind.VXLAN
+        if self._is_vxlan_device(ifaceobj):
+            ifaceobj.link_kind |= ifaceLinkKind.VXLAN
+        elif ifaceobj.name == 'lo':
+            clagd_vxlan_list = ifaceobj.get_attr_value('clagd-vxlan-anycast-ip')
+            if clagd_vxlan_list:
+                if len(clagd_vxlan_list) != 1:
+                    self.log_warn('%s: multiple clagd-vxlan-anycast-ip lines, using first one'
+                                  % (ifaceobj.name,))
+                vxlan._clagd_vxlan_anycast_ip = clagd_vxlan_list[0]
         return None
 
     def _is_vxlan_device(self, ifaceobj):
@@ -56,7 +64,8 @@ class vxlan(moduleBase):
             svcnodeips=ifaceobj.get_attr_value('vxlan-svcnodeip'),
             remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
             learning=ifaceobj.get_attr_value_first('vxlan-learning'),
-            ageing=ifaceobj.get_attr_value_first('vxlan-ageing'))
+            ageing=ifaceobj.get_attr_value_first('vxlan-ageing'),
+            anycastip=self._clagd_vxlan_anycast_ip)
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
 
@@ -99,17 +108,23 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value_first('vxlan-id'), 
                        vxlanattrs.get('vxlanid'))
 
+        running_attrval = vxlanattrs.get('local')
+        attrval = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+        if running_attrval == self._clagd_vxlan_anycast_ip:
+            # if local ip is anycast_ip, then let query_check to go through
+            attrval = self._clagd_vxlan_anycast_ip
         self._query_check_n_update(ifaceobjcurr, 'vxlan-local-tunnelip',
-                       ifaceobj.get_attr_value_first('vxlan-local-tunnelip'), 
-                       vxlanattrs.get('local'))
+                                   attrval, running_attrval)
 
         self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-svcnodeip',
-                       ifaceobj.get_attr_value('vxlan-svcnodeip'), 
+                       ifaceobj.get_attr_value('vxlan-svcnodeip'),
                        vxlanattrs.get('svcnode', []))
 
-        self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
-                       ifaceobj.get_attr_value('vxlan-remoteip'), 
-                       vxlanattrs.get('remote', []))
+        if os.system('service vxrd status > /dev/null 2>&1') != 0:
+            # vxlan-remoteip config is allowed only if vxrd is not running
+            self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
+                           ifaceobj.get_attr_value('vxlan-remoteip'),
+                           vxlanattrs.get('remote', []))
 
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
         if not learning:
@@ -141,10 +156,12 @@ class vxlan(moduleBase):
         if attrval:
             [ifaceobjrunning.update_config('vxlan-svcnode', a)
                         for a in attrval]
-        attrval = vxlanattrs.get('remote')
-        if attrval:
-            [ifaceobjrunning.update_config('vxlan-remoteip', a)
-                        for a in attrval]
+        if os.system('service vxrd status > /dev/null 2>&1') != 0:
+            # vxlan-remoteip config is allowed only if vxrd is not running
+            attrval = vxlanattrs.get('remote')
+            if attrval:
+                [ifaceobjrunning.update_config('vxlan-remoteip', a)
+                            for a in attrval]
         attrval = vxlanattrs.get('learning')
         if attrval and attrval == 'on':
             ifaceobjrunning.update_config('vxlan-learning', 'on')

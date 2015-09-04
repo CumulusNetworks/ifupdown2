@@ -58,7 +58,11 @@ class address(moduleBase):
                               'interfaces file. Set this attribute to \'no\'' +
                               'if you want to preserve existing addresses',
                               'default' : 'yes',
-                              'example' : ['address-purge yes/no']}}}
+                              'example' : ['address-purge yes/no']},
+                      'clagd-vxlan-anycast-ip' :
+                            { 'help'     : 'Anycast local IP address for ' +
+                              'dual connected VxLANs',
+                              'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -133,6 +137,13 @@ class address(moduleBase):
             # objects, purge addresses that are not present in the new
             # config
             runningaddrs = self.ipcmd.addr_get(ifaceobj.name, details=False)
+            # if anycast address is configured on 'lo' and is in running config
+            # add it to newaddrs so that ifreload doesn't wipe it out
+            anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
+            if anycast_addr:
+                anycast_addr = anycast_addr+'/32'
+            if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
+                newaddrs.append(anycast_addr)
             if newaddrs == runningaddrs:
                 return
             try:
@@ -288,6 +299,13 @@ class address(moduleBase):
            return
         addrs = self._get_iface_addresses(ifaceobj)
         runningaddrsdict = self.ipcmd.addr_get(ifaceobj.name)
+        # if anycast address is configured on 'lo' and is in running config
+        # add it to addrs so that query_check doesn't fail
+        anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
+        if anycast_addr:
+            anycast_addr = anycast_addr+'/32'
+        if runningaddrsdict and anycast_addr and runningaddrsdict.get(anycast_addr):
+            addrs.append(anycast_addr)
 
         # Set ifaceobjcurr method and family
         ifaceobjcurr.addr_method = ifaceobj.addr_method
