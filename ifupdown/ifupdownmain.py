@@ -414,6 +414,9 @@ class ifupdownMain(ifupdownBase):
             ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_PORT
         if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
             ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
+	if (ifaceobj.link_kind == ifaceLinkKind.BOND_SLAVE and
+			len(ifaceobj.upperifaces) > 1):
+		self.logger.warn("misconfig..? bond slave \'%s\' is enslaved to multiple interfaces %s" %(ifaceobj.name, str(ifaceobj.upperifaces)))
 
     def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
         """ We go through the dependency list and
@@ -449,13 +452,13 @@ class ifupdownMain(ifupdownBase):
                 else:
                     del_list.append(d)
                 if ni:
-                    self._set_iface_role_n_kind(ni, upperifaceobj)
                     ni.add_to_upperifaces(upperifaceobj.name)
+                    self._set_iface_role_n_kind(ni, upperifaceobj)
             else:
                 for di in dilist:
                     di.inc_refcnt()
-                    self._set_iface_role_n_kind(di, upperifaceobj)
                     di.add_to_upperifaces(upperifaceobj.name)
+                    self._set_iface_role_n_kind(di, upperifaceobj)
         for d in del_list:
             dlist.remove(d)
 
@@ -914,10 +917,6 @@ class ifupdownMain(ifupdownBase):
         except Exception:
             raise
 
-        # If only syntax check was requested, return here
-        if syntaxcheck:
-            return
-
         if ifacenames:
             ifacenames = self._preprocess_ifacenames(ifacenames)
 
@@ -937,6 +936,10 @@ class ifupdownMain(ifupdownBase):
             return
         else:
             self.populate_dependency_info(ops)
+
+        # If only syntax check was requested, return here
+        if syntaxcheck:
+            return
 
         try:
             self._sched_ifaces(filtered_ifacenames, ops,
@@ -1215,6 +1218,19 @@ class ifupdownMain(ifupdownBase):
                 if not newifaceobjlist:
                     ifacedownlist.append(ifname)
                     continue
+                # If ifaceobj was present in the old interfaces file,
+                # and does not have a config in the new interfaces file
+                # but has been picked up as a dependent of another
+                # interface, catch it here. This catches a common error
+                # for example: remove a bond section from the interfaces
+                # file, but leave it around as a bridge port
+                # XXX: Ideally its better to just add it to the
+                # ifacedownlist. But we will be cautious here 
+                # and just print a warning
+                if (self.is_ifaceobj_noconfig(newifaceobjlist[0]) and
+                    lastifaceobjlist[0].is_config_present()):
+                    self.logger.warn('%s: misconfig ? removed but still exists as a dependency of %s' %(newifaceobjlist[objidx].name,
+                         str(newifaceobjlist[objidx].upperifaces)))
                 if not down_changed:
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
