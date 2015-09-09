@@ -15,7 +15,7 @@
 %for v in range(1000,1100):
 auto vlan-${v}
 iface vlan-${v} inet static
-    bridge-ports swp1-6.${v}
+    bridge-ports glob swp1-6.${v}
     bridge-stp on
     bridge-ageing 200
     bridge-maxage 10
