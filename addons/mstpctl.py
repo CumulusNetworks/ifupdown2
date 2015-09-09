@@ -4,6 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import os
 from sets import Set
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
@@ -281,6 +282,9 @@ class mstpctl(moduleBase):
                 for p in portlist:
                     try:
                         (port, val) = p.split('=')
+                        # if it is not bridge port, continue
+                        if not os.path.exists('/sys/class/net/%s/brport' %port):
+                            continue
                         self.mstpctlcmd.set_bridgeport_attr(ifaceobj.name,
                                 port, dstattrname, val, check)
                     except Exception, e:
@@ -315,6 +319,9 @@ class mstpctl(moduleBase):
                continue
             if not mstpd_running:
                continue
+            # if its not a bridge port, continue
+            if not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name):
+                continue
             try:
                self.mstpctlcmd.set_bridgeport_attr(bridgename,
                            ifaceobj.name, dstattrname, attrval, check)
@@ -336,6 +343,8 @@ class mstpctl(moduleBase):
                              %(ifaceobj.name, bport))
             if not self.ipcmd.link_exists(bport):
                continue
+            if not os.path.exists('/sys/class/net/%s/brport' %bport):
+                continue
             bportifaceobjlist = ifaceobj_getfunc(bport)
             if not bportifaceobjlist:
                continue
