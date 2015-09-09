@@ -4,6 +4,7 @@ Description=ifupdown2 init script
 [Service]
 Type=oneshot
 ExecStart=/sbin/ifup -a
+ExecStop=/sbin/ifdown -a
 
 [Install]
 WantedBy=multi-user.target
