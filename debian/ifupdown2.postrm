@@ -20,10 +20,15 @@ set -e
 
 process_udev()
 {
-    udevlink=$(readlink /etc/udev/rules.d/80-networking.rules 2>/dev/null || true)
-    [ -n "$udevlink" -a "$udevlink" = "/dev/null" ] && rm -f /etc/udev/rules.d/80-networking.rules
-    udevlink=$(readlink /etc/udev/rules.d/60-bridge-network-interface.rules 2>/dev/null || true)
-    [ -n "$udevlink" -a "$udevlink" = "/dev/null" ] && rm -f /etc/udev/rules.d/60-bridge-network-interface.rules
+    if [ -e /etc/udev/rules.d/80-networking.rules ]; then
+        udevlink=$(readlink /etc/udev/rules.d/80-networking.rules 2>/dev/null || true)
+        [ -n "$udevlink" -a "$udevlink" = "/dev/null" ] && rm -f /etc/udev/rules.d/80-networking.rules
+    fi
+
+    if  [ -e /etc/udev/rules.d/60-bridge-network-interface.rules ]; then
+        udevlink=$(readlink /etc/udev/rules.d/60-bridge-network-interface.rules 2>/dev/null || true)
+        [ -n "$udevlink" -a "$udevlink" = "/dev/null" ] && rm -f /etc/udev/rules.d/60-bridge-network-interface.rules
+    fi
 }
 
 postrm_remove()
