@@ -7,6 +7,7 @@
 import os
 from collections import OrderedDict
 from utilsbase import *
+from systemutils import *
 from cache import *
 
 VXLAN_UDP_PORT = 4789
@@ -531,7 +532,7 @@ class iproute2(utilsBase):
         else:
             self.exec_command('ip %s' %cmd)
 
-        if os.system('service vxrd status > /dev/null 2>&1') != 0:
+        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             #figure out the diff for remotes and do the bridge fdb updates
             #only if provisioned by user and not by vxrd
             cur_peers = set(self.get_vxlan_peers(name))

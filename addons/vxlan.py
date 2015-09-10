@@ -3,6 +3,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.systemutils import systemUtils
 import ifupdown.rtnetlink_api as rtnetlink_api
 import logging
 import os
@@ -120,7 +121,7 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value('vxlan-svcnodeip'),
                        vxlanattrs.get('svcnode', []))
 
-        if os.system('service vxrd status > /dev/null 2>&1') != 0:
+        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
             self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
                            ifaceobj.get_attr_value('vxlan-remoteip'),
@@ -156,7 +157,7 @@ class vxlan(moduleBase):
         if attrval:
             [ifaceobjrunning.update_config('vxlan-svcnode', a)
                         for a in attrval]
-        if os.system('service vxrd status > /dev/null 2>&1') != 0:
+        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
             attrval = vxlanattrs.get('remote')
             if attrval:
