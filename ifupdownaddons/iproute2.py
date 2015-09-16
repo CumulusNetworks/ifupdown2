@@ -228,6 +228,9 @@ class iproute2(utilsBase):
 
     def batch_commit(self):
         if not self.ipbatchbuf:
+            self.ipbatchbuf = ''
+            self.ipbatch = False
+            self.ipbatch_pause = False
             return
         try:
             self.exec_command_talk_stdin('ip -force -batch -',
