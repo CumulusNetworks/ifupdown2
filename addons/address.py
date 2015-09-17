@@ -11,6 +11,7 @@ try:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
+    import ifupdown.rtnetlink_api as rtnetlink_api
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -197,10 +198,29 @@ class address(moduleBase):
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
+        self.ipcmd.batch_commit()
+
         hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         if hwaddress:
-            self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
-        self.ipcmd.batch_commit()
+            running_hwaddress = None
+            if not self.PERFMODE: # system is clean
+                running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
+            if hwaddress != running_hwaddress:
+                slave_down = False
+                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "down")
+                if ifaceobj.link_kind & ifaceLinkKind.BOND:
+                    # if bond, down all the slaves
+                    if ifaceobj.lowerifaces:
+                        for l in ifaceobj.lowerifaces:
+                            rtnetlink_api.rtnl_api.link_set(l, "down")
+                        slave_down = True
+                try:
+                    self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
+                finally:
+                    rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                    if slave_down:
+                        for l in ifaceobj.lowerifaces:
+                            rtnetlink_api.rtnl_api.link_set(l, "up")
 
         try:
             # Handle special things on a bridge
