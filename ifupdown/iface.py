@@ -17,6 +17,11 @@ from collections import OrderedDict
 import logging
 import json
 
+class ifaceStatusStrs():
+    SUCCESS = "success",
+    FAILURE = "error",
+    UNKNOWN = "unknown"
+
 class ifaceType():
     UNKNOWN = 0x0
     IFACE = 0x1
@@ -175,16 +180,44 @@ class ifaceState():
             return cls.QUERY_RUNNING
 
 class ifaceJsonEncoder(json.JSONEncoder):
-    def default(self, o):
+    def default(self, o, with_status=False):
         retconfig = {}
-        if o.config:
-            retconfig = dict((k, (v[0] if len(v) == 1 else v))
-                             for k,v in o.config.items())
-        return OrderedDict({'name' : o.name,
-                            'addr_method' : o.addr_method,
-                            'addr_family' : o.addr_family,
-                            'auto' : o.auto,
-                            'config' : retconfig})
+        retconfig_status = {}
+        retifacedict = OrderedDict([])
+        if o.config: 
+            for k,v in o.config.items():
+                idx = 0
+                vitem_status = []
+                for vitem in v:
+                    s = o.get_config_attr_status(k, idx)
+                    if s == -1:
+                        status_str = ifaceStatusStrs.UNKNOWN
+                    elif s == 1:
+                        status_str = ifaceStatusStrs.ERROR
+                    elif s == 0:
+                        status_str = ifaceStatusStrs.SUCCESS
+                    vitem_status.append('%s' %status_str)
+                    idx += 1
+                retconfig[k] = v[0] if len(v) == 1 else v
+                retconfig_status[k] = vitem_status[0] if len(vitem_status) == 1 else vitem_status
+
+        if (o.status == ifaceStatus.NOTFOUND or
+                o.status == ifaceStatus.ERROR):
+            status =  ifaceStatusStrs.ERROR
+        else:
+            status =  ifaceStatusStrs.SUCCESS
+
+        retifacedict['name'] = o.name
+        if o.addr_method:
+            retifacedict['addr_method'] = o.addr_method
+        if o.addr_family:
+            retifacedict['addr_family'] = o.addr_family
+        retifacedict['auto'] = o.auto
+        retifacedict['config'] = retconfig
+        retifacedict['config_status'] = retconfig_status
+        retifacedict['status'] = status
+
+        return retifacedict
 
 class ifaceJsonDecoder():
     @classmethod
@@ -535,9 +568,7 @@ class iface():
             logger.info(indent + indent + str(config))
         logger.info('}')
 
-    def dump_pretty(self, with_status=False,
-                    successstr='success', errorstr='error',
-                    unknownstr='unknown', use_realname=False):
+    def dump_pretty(self, with_status=False, use_realname=False):
         indent = '\t'
         outbuf = ''
         if use_realname and self.realname:
@@ -561,9 +592,9 @@ class iface():
                     self.status == ifaceStatus.NOTFOUND):
                 if self.status_str:
                     ifaceline += ' (%s)' %self.status_str
-                status_str = errorstr
+                status_str = '[%s]' %ifaceStatusStrs.ERROR
             elif self.status == ifaceStatus.SUCCESS:
-                status_str = successstr
+                status_str = '[%s]' %ifaceStatusStrs.SUCCESS
             if status_str:
                outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
             else:
@@ -583,11 +614,11 @@ class iface():
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
                         if s == -1:
-                            status_str = unknownstr
+                            status_str = '[%s]' %ifaceStatusStrs.UNKNOWN
                         elif s == 1:
-                            status_str = errorstr
+                            status_str = '[%s]' %ifaceStatusStrs.ERROR
                         elif s == 0:
-                            status_str = successstr
+                            status_str = '[%s]' %ifaceStatusStrs.SUCCESS
                         outbuf += (indent + '{0:55} {1:>10}'.format(
                                    '%s %s' %(cname, cv), status_str)) + '\n'
                     else:
