@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20150917-2) unstable; urgency=medium
+
+  * move /etc/network/interfaces.d creation from postinst script to debian/dirs (Closes: #801915)
+
+ -- Roopa Prabhu <roopa@cumulusnetworks.com>  Fri, 18 Sep 2015 14:04:45 -0700
+
 ifupdown2 (1.0~git20150917-1) unstable; urgency=low
 
   * Initial release.

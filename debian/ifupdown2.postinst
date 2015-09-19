@@ -64,7 +64,6 @@ case "$1" in
             fi
         fi
 
-        mkdir -p /etc/network/interfaces.d/
         process_udev
         ;;
 
