@@ -1409,7 +1409,7 @@ class ifupdownMain(ifupdownBase):
         ifaceStatusStrs.UNKNOWN = self.config.get('ifquery_check_unknown_str',
                                                   '')
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
+            print json.dumps(ifaceobjs, cls=ifaceJsonEncoderWithStatus, indent=2,
                        separators=(',', ': '))
         else:
             map(lambda i: i.dump_pretty(with_status=True), ifaceobjs)

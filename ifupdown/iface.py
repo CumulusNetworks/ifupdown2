@@ -180,11 +180,28 @@ class ifaceState():
             return cls.QUERY_RUNNING
 
 class ifaceJsonEncoder(json.JSONEncoder):
-    def default(self, o, with_status=False):
+    def default(self, o):
+        retconfig = {}
+        retifacedict = OrderedDict([])
+        if o.config: 
+            retconfig = dict((k, (v[0] if len(v) == 1 else v))
+                             for k,v in o.config.items())
+        retifacedict['name'] = o.name
+        if o.addr_method:
+            retifacedict['addr_method'] = o.addr_method
+        if o.addr_family:
+            retifacedict['addr_family'] = o.addr_family
+        retifacedict['auto'] = o.auto
+        retifacedict['config'] = retconfig
+
+        return retifacedict
+
+class ifaceJsonEncoderWithStatus(json.JSONEncoder):
+    def default(self, o):
         retconfig = {}
         retconfig_status = {}
         retifacedict = OrderedDict([])
-        if o.config: 
+        if o.config:
             for k,v in o.config.items():
                 idx = 0
                 vitem_status = []
