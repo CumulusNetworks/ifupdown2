@@ -359,15 +359,34 @@ class mstpctl(moduleBase):
                 except Exception, e:
                     self.log_warn(str(e))
 
+    def _is_stp_on(self, ifaceobj, bridgename, ifaceobj_getfunc=None):
+        # Check if running stp state is on
+        running_stp_state = (True if self.read_file_oneline(
+                  '/sys/class/net/%s/bridge/stp_state'
+                  %bridgename) == '2' else False)
+        if not running_stp_state:
+            # If running stp is not on, and bridge has stp configured
+            # set stp on bridge
+            if ifaceobj_getfunc:
+                bridgeifaceobjlist = ifaceobj_getfunc(bridgename)
+                if not bridgeifaceobjlist:
+                    return running_stp_state
+                for b in bridgeifaceobjlist:
+                    stp_attrval = b.get_attr_value_first('bridge-stp')
+                    if stp_attrval and (stp_attrval == 'on' or
+                                        stp_attrval == 'yes'):
+                        # set stp on bridge and return True
+                        self.brctlcmd.set_stp(bridgename, stp_attrval)
+                        return True
+        return running_stp_state
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         if bridgename:
             mstpd_running = (True if self.mstpctlcmd.is_mstpd_running()
                              else False)
-            stp_on = (True if self.read_file_oneline(
-                      '/sys/class/net/%s/bridge/stp_state'
-                      %bridgename) == '2' else False)
+            stp_on = self._is_stp_on(ifaceobj, bridgename, ifaceobj_getfunc)
             self._apply_bridge_port_settings(ifaceobj, bridgename, None,
                                              stp_on, mstpd_running)
             ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
