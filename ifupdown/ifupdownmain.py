@@ -196,6 +196,7 @@ class ifupdownMain(ifupdownBase):
         self.interfacesfileformat = interfacesfileformat
         self.config = config
         self.logger.debug(self.config)
+        self.blacklisted_ifaces_present = False
 
         self.type = ifaceType.UNKNOWN
 
@@ -502,8 +503,6 @@ class ifupdownMain(ifupdownBase):
             ifaceobj = self.get_ifaceobj_first(i)
             if not ifaceobj: 
                 continue
-            if ifaceobj.blacklisted:
-                continue
             dlist = ifaceobj.lowerifaces
             if not dlist:
                 dlist = self.query_dependents(ifaceobj, ops, ifacenames)
@@ -516,6 +515,34 @@ class ifupdownMain(ifupdownBase):
                 [iqueue.append(d) for d in dlist]
             if not self.dependency_graph.get(i):
                 self.dependency_graph[i] = dlist
+
+        if not self.blacklisted_ifaces_present:
+            return
+
+        # Walk through the dependency graph and remove blacklisted
+        # interfaces that were picked up as dependents
+        for i in self.dependency_graph.keys():
+            ifaceobj = self.get_ifaceobj_first(i)
+            if not ifaceobj:
+                continue
+            if ifaceobj.blacklisted and not ifaceobj.upperifaces:
+                # if blacklisted and was not picked up as a
+                # dependent of a upper interface, delete the
+                # interface from the dependency graph
+                dlist = ifaceobj.lowerifaces
+                if dlist:
+                    for d in dlist:
+                        difaceobj = self.get_ifaceobj_first(d)
+                        if not difaceobj:
+                            continue
+                        difaceobj.dec_refcnt()
+                        try:
+                            difaceobj.upperifaces.remove(i)
+                        except:
+                            self.logger.debug('error removing %s from %s upperifaces' %(i, d))
+                            pass
+                self.logger.debug("populate_dependency_info: deleting blacklisted interface %s" %i)
+                del self.dependency_graph[i]
 
     def _check_config_no_repeats(self, ifaceobj):
         """ check if object has an attribute that is
@@ -797,13 +824,14 @@ class ifupdownMain(ifupdownBase):
             if ret:
                 self.logger.debug('iface %s' %ifacename + ' not found')
             return ret
-    	# If matched exclude pattern, return false
+        # If matched exclude pattern, return false
         if not ret:
             for i in ifaceobjs:
                 i.blacklisted = True
+                self.blacklisted_ifaces_present = True
             return ret
         # Check if interface belongs to the class
-	# the user is interested in, if not return false
+        # the user is interested in, if not return false
         if allow_classes:
             for i in ifaceobjs:
                 if i.classes:
@@ -813,16 +841,18 @@ class ifupdownMain(ifupdownBase):
                         ret = True
                     else:
                         i.blacklisted = True
+                        self.blacklisted_ifaces_present = True
             if not ret:
                 return ret
-	# If the user has requested auto class, check if the interface
-	# is marked auto
+        # If the user has requested auto class, check if the interface
+        # is marked auto
         if auto:
             for i in ifaceobjs:
                 if i.auto:
                     ret = True
                 else:
                     i.blacklisted = True
+                    self.blacklisted_ifaces_present = True
         return ret
 
     def _compat_conv_op_to_mode(self, op):

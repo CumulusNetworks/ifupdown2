@@ -630,7 +630,7 @@ class bridge(moduleBase):
                     self.brctlcmd.set_bridgeport_attrs(ifaceobj.name, port,
                                                        attrdict)
                 except Exception, e:
-                    self.log_warn('%s: %s', str(e))
+                    self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
                     pass
             self._set_bridge_vidinfo_compat(ifaceobj)
             self._set_bridge_mcqv4src_compat(ifaceobj)

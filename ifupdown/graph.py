@@ -51,7 +51,12 @@ class graph():
                 continue
 
             for y in dlist:
-                indegrees[y] = indegrees.get(y) - 1
+                try:
+                    indegrees[y] = indegrees.get(y) - 1
+                except:
+                    self.logger.debug('topological_sort_graphs_all: did not find %s' %y)
+                    indegrees[y] = 0
+                    pass
                 if indegrees.get(y) == 0:
                     Q.append(y)
 
