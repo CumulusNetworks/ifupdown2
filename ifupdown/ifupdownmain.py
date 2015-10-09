@@ -814,7 +814,7 @@ class ifupdownMain(ifupdownBase):
         """
         ret = True
 
-	# Check if interface matches the exclude patter
+	    # Check if interface matches the exclude patter
         if excludepats:
             for e in excludepats:
                 if re.search(e, ifacename):
@@ -833,26 +833,33 @@ class ifupdownMain(ifupdownBase):
         # Check if interface belongs to the class
         # the user is interested in, if not return false
         if allow_classes:
+            ret = False
             for i in ifaceobjs:
                 if i.classes:
                     common = Set([allow_classes]).intersection(
                                 Set(i.classes))
                     if common:
                         ret = True
-                    else:
-                        i.blacklisted = True
-                        self.blacklisted_ifaces_present = True
             if not ret:
-                return ret
+                # If a class was requested and interface does not belong
+                # to the class, only then mark the ifaceobjs as blacklisted
+                self.blacklisted_ifaces_present = True
+                for i in ifaceobjs:
+                    i.blacklisted = True
+            return ret
         # If the user has requested auto class, check if the interface
         # is marked auto
         if auto:
+            ret = False
             for i in ifaceobjs:
                 if i.auto:
                     ret = True
-                else:
+            if not ret:
+                # If auto was requested and interface was not marked auto,
+                # only then mark all of them as blacklisted
+                self.blacklisted_ifaces_present = True
+                for i in ifaceobjs:
                     i.blacklisted = True
-                    self.blacklisted_ifaces_present = True
         return ret
 
     def _compat_conv_op_to_mode(self, op):
