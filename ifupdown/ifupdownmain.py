@@ -532,12 +532,13 @@ class ifupdownMain(ifupdownBase):
                 dlist = ifaceobj.lowerifaces
                 if dlist:
                     for d in dlist:
-                        difaceobj = self.get_ifaceobj_first(d)
-                        if not difaceobj:
+                        difaceobjs = self.get_ifaceobjs(d)
+                        if not difaceobjs:
                             continue
-                        difaceobj.dec_refcnt()
                         try:
-                            difaceobj.upperifaces.remove(i)
+                            for d in difaceobjs:
+                                d.dec_refcnt()
+                                d.upperifaces.remove(i)
                         except:
                             self.logger.debug('error removing %s from %s upperifaces' %(i, d))
                             pass
