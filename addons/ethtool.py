@@ -39,6 +39,8 @@ class ethtool(moduleBase,utilsBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        # keep a list of iface objects who have modified link attributes
+        self.ifaceobjs_modified_configs = []
 
     def _post_up(self, ifaceobj, operation='post_up'):
         """
@@ -62,12 +64,36 @@ class ethtool(moduleBase,utilsBase):
                 continue
             # check running values
             running_val = self.get_running_attr(attr, ifaceobj)
+            # we need to track if an interface has a configured value
+            # this will be used if there are duplicate iface stanza and
+            # the configured interface will always take precedence.
+            # so even if we do not change the settings because they match
+            # what is configured, we need to append it here so that later duplicate
+            # ifaces will see that we had a configured iface and not change things.
             if config_val and config_val == running_val:
                 # running value is what is configured, do nothing
+                # this prevents unconfigured ifaces from resetting to default
+                self.ifaceobjs_modified_configs.append(ifaceobj.name)
                 continue
+
             if not config_val and default_val and default_val == running_val:
                 # nothing configured but the default is running
                 continue
+            # if we are the oldest sibling, we have to reset to defaults
+            # unless a previous sibling had link attr configured and made changes
+            if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+                (ifaceobj.flags & iface.OLDEST_SIBLING) and
+                (ifaceobj.name in self.ifaceobjs_modified_configs)):
+                continue
+
+            # if we are not the oldest and we have no configs, do not change anything
+            # the only way a non-oldest sibling would change values is if it
+            # had configured settings
+            if (not ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+                     (ifaceobj.flags & iface.OLDEST_SIBLING)) and
+                not config_val):
+                continue
+
             # if we got this far, we need to change it
             if config_val and (config_val != running_val):
                 # if the configured value is not set, set it
@@ -83,6 +109,9 @@ class ethtool(moduleBase,utilsBase):
                 # we should only be calling ethtool if there
                 # is a speed set or we can find a default speed
                 # because we should only be calling ethtool on swp ports
+                # we also need to set this here in case we changed
+                # something.  this prevents unconfigured ifaces from resetting to default
+                self.ifaceobjs_modified_configs.append(ifaceobj.name)
                 cmd = 'ethtool -s %s %s' %(ifaceobj.name, cmd)
                 self.exec_command(cmd)
             except Exception, e:

@@ -574,8 +574,13 @@ class ifupdownMain(ifupdownBase):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
         if currentifaceobjlist[0].type == ifaceobj.type:
-            currentifaceobjlist[0].flags |= iface.HAS_SIBLINGS
-            ifaceobj.flags |= iface.HAS_SIBLINGS
+            currentifaceobjlist[0].flags |= ifaceobj.HAS_SIBLINGS
+            ifaceobj.flags |= ifaceobj.HAS_SIBLINGS
+        # clear the OLDEST_SIBLING from all the siblings
+        for iface in self.ifaceobjdict[ifaceobj.name]:
+            iface.flags &= ~ifaceobj.OLDEST_SIBLING
+        # current sibling is the oldest
+        ifaceobj.flags |= ifaceobj.OLDEST_SIBLING
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
