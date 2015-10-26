@@ -20,9 +20,9 @@ class brctl(utilsBase):
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
         if self.CACHE and not brctl._cache_fill_done:
-            self._bridge_fill()
-            brctl._cache_fill_done = True
-
+            if os.path.exists('/sbin/brctl'):
+                self._bridge_fill()
+            self._cache_fill_done = True
 
     def _bridge_get_mcattrs_from_sysfs(self, bridgename):
         mcattrs = {}
