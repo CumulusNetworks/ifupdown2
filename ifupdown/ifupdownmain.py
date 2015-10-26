@@ -577,6 +577,7 @@ class ifupdownMain(ifupdownBase):
         nifaces = networkInterfaces(self.interfacesfile,
                         self.interfacesfileiobuf,
                         self.interfacesfileformat,
+                        template_enable=self.config.get('template_enable', 0),
                         template_engine=self.config.get('template_engine'),
                 template_lookuppath=self.config.get('template_lookuppath'))
         nifaces.subscribe('iface_found', self._save_iface)

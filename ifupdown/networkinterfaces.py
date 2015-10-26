@@ -32,7 +32,8 @@ class networkInterfaces():
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
-                 template_engine=None, template_lookuppath=None):
+                 template_enable='0', template_engine=None,
+                 template_lookuppath=None):
         """This member function initializes the networkinterfaces parser object.
 
         Kwargs:
