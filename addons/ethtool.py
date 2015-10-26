@@ -7,11 +7,13 @@ import json
 import ifupdown.policymanager as policymanager
 
 try:
+    import os
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
+    from ifupdown.exceptions import moduleNotSupported 
     from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.modulebase import moduleBase, NotSupported
     from ifupdownaddons.iproute2 import iproute2
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -38,6 +40,8 @@ class ethtool(moduleBase,utilsBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
+        if not os.path.exists('/sbin/ethtool'):
+            raise moduleNotSupported('module init failed: no /sbin/ethtool found')
         self.ipcmd = None
 
     def _post_up(self, ifaceobj, operation='post_up'):

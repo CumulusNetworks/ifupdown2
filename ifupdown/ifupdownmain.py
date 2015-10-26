@@ -22,6 +22,7 @@ from scheduler import *
 from collections import deque
 from collections import OrderedDict
 from graph import *
+from exceptions import *
 from sets import Set
 
 """
@@ -632,12 +633,22 @@ class ifupdownMain(ifupdownBase):
                             mclass = getattr(m, mname)
                         except:
                             raise
-                        minstance = mclass(force=self.FORCE,
+
+                        try:
+                            minstance = mclass(force=self.FORCE,
                                         dryrun=self.DRYRUN,
                                         nowait=self.NOWAIT,
                                         perfmode=self.PERFMODE,
                                         cache=self.CACHE,
                                         cacheflags=self.CACHE_FLAGS)
+                        except moduleNotSupported, e:
+                            self.logger.info('module %s not loaded (%s)\n'
+                                             %(mname, str(e)))
+                            pass
+                            continue
+                        except:
+                            raise
+
                         self.modules[mname] = minstance
                         try:
                             self.module_attrs[mname] = minstance.get_modinfo()

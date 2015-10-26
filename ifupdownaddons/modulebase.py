@@ -17,6 +17,9 @@ from ifupdown.iface import *
 #from ifupdownaddons.mstpctlutil import *
 #from ifupdownaddons.ifenslaveutil import *
 
+class NotSupported(Exception):
+    pass
+
 class moduleBase(object):
     """ Base class for ifupdown addon modules
 
