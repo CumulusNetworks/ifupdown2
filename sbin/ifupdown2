@@ -18,7 +18,7 @@ import resource
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
-lockfile="/run/network/.lock"
+lockfile="/tmp/.ifupdown2.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
 configmap_g=None
 logger = None
