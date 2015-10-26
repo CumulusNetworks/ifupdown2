@@ -1,3 +1,12 @@
+ifupdown2 (1.0~git20151029-1) unstable; urgency=medium
+
+  * bridgeutils: build cache only if bridge-utils is installed
+  * addon modules: handle unsupported modules
+  * ifupdown: change location of lockfile to /tmp/
+  * templates: Disable template execution by default
+
+ -- Roopa Prabhu <roopa@cumulusnetworks.com>  Mon, 26 Oct 2015 06:12:40 -0700
+
 ifupdown2 (1.0~git20150917-2) unstable; urgency=medium
 
   * move /etc/network/interfaces.d creation from postinst script to debian/dirs (Closes: #801915)
