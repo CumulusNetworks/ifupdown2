@@ -1244,8 +1244,8 @@ class ifupdownMain(ifupdownBase):
             # oldconfig not available, continue with 'up' with new config
             op = 'up'
 
-        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
         if op == 'reload' and ifacenames:
+            ifacenames = self.ifaceobjdict.keys()
             old_filtered_ifacenames = [i for i in ifacenames
                                if self._iface_whitelisted(auto, allow,
                                excludepats, i)]
@@ -1329,7 +1329,6 @@ class ifupdownMain(ifupdownBase):
         # and now, we are back to the current config in ifaceobjdict
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
-        ifacenames = self.ifaceobjdict.keys()
 
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(new_filtered_ifacenames))
