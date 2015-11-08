@@ -17,6 +17,7 @@ import time
 
 class bridgeFlags:
     PORT_PROCESSED = 0x1
+    PORT_PROCESSED_OVERRIDE = 0x2
 
 class bridge(moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
@@ -539,16 +540,39 @@ class bridge(moduleBase):
         #    if running_vids:
         #        self.ipcmd.bridge_vids_del(ifaceobj.name, running_vids)
 
+
+    def _is_running_stp_state_on(self, bridgename):
+        """ Returns True if running stp state is on, else False """
+
+        stp_state_file = '/sys/class/net/%s/bridge/stp_state' %bridgename
+        if not stp_state_file:
+            return False
+        running_stp_state = self.read_file_oneline(stp_state_file)
+        if running_stp_state and running_stp_state != '0':
+            return True
+        return False
+
+    def _is_config_stp_state_on(self, ifaceobj):
+        """ Returns true if user specified stp state is on, else False """
+
+        stp_attr = ifaceobj.get_attr_value_first('bridge-stp')
+        if (stp_attr and (stp_attr == 'on' or stp_attr == 'yes')):
+            return True
+        return False
+
     def _apply_bridge_settings(self, ifaceobj):
         try:
-            stp = ifaceobj.get_attr_value_first('bridge-stp')
-            if stp:
-                self.brctlcmd.set_stp(ifaceobj.name, stp)
+            if self._is_config_stp_state_on(ifaceobj):
+                if not self._is_running_stp_state_on(ifaceobj.name):
+                    self.brctlcmd.set_stp(ifaceobj.name, "on")
+                    self.logger.info('%s: stp state reset, reapplying port '
+                                     'settings' %ifaceobj.name)
+                    ifaceobj.module_flags[ifaceobj.name] = \
+                        ifaceobj.module_flags.setdefault(self.name,0) | \
+                        bridgeFlags.PORT_PROCESSED_OVERRIDE
             else:
                 # If stp not specified and running stp state on, set it to off
-                running_stp_state = self.read_file_oneline(
-                       '/sys/class/net/%s/bridge/stp_state' %ifaceobj.name)
-                if running_stp_state and running_stp_state != '0':
+                if self._is_running_stp_state_on(ifaceobj.name):
                    self.brctlcmd.set_stp(ifaceobj.name, 'no')
 
             if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
@@ -868,6 +892,12 @@ class bridge(moduleBase):
         else:
            bridge_pvid = None
 
+        if (ifaceobj.module_flags.get(self.name, 0x0) &
+                bridgeFlags.PORT_PROCESSED_OVERRIDE):
+            port_processed_override = True
+        else:
+            port_processed_override = False
+
         bridgeports = self._get_bridge_port_list(ifaceobj)
         if not bridgeports:
            self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
@@ -886,8 +916,10 @@ class bridge(moduleBase):
                continue
             for bportifaceobj in bportifaceobjlist:
                 # Dont process bridge port if it already has been processed
-                if (bportifaceobj.module_flags.get(self.name,0x0) & \
-                    bridgeFlags.PORT_PROCESSED):
+                # and there is no override on port_processed
+                if (not port_processed_override and
+                    (bportifaceobj.module_flags.get(self.name,0x0) & 
+                     bridgeFlags.PORT_PROCESSED)):
                     continue
                 try:
                     # Add attributes specific to the vlan aware bridge

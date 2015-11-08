@@ -295,27 +295,23 @@ class mstpctl(moduleBase):
             pass
 
     def _apply_bridge_port_settings(self, ifaceobj, bridgename=None,
-                                    bridgeifaceobj=None, stp_on=True,
+                                    bridgeifaceobj=None,
+                                    stp_running_on=True,
                                     mstpd_running=True):
         check = False if self.PERFMODE else True
+        applied = False
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
         # set bridge port attributes
         for attrname, dstattrname in self._port_attrs_map.items():
             attrval = ifaceobj.get_attr_value_first(attrname)
             if not attrval:
-               #if bridgeifaceobj:
-               #   # If bridge object available, check if the bridge
-               #   # has the attribute set, in which case,
-               #   # inherit it from the bridge
-               #   attrval = bridgeifaceobj.get_attr_value_first(attrname)
-               #   if not attrval:
-               #      continue
-               #else:
                continue
-            if not stp_on:
-               self.logger.warn('%s: cannot set %s (stp on bridge %s not on)\n'
-                       %(ifaceobj.name, attrname, bridgename))
+            if not stp_running_on:
+               # stp may get turned on at a later point
+               self.logger.info('%s: ignoring %s config'
+                       %(ifaceobj.name, attrname) +
+                       ' (stp on bridge %s is not on yet)' %bridgename)
                continue
             if not mstpd_running:
                continue
@@ -325,9 +321,11 @@ class mstpctl(moduleBase):
             try:
                self.mstpctlcmd.set_bridgeport_attr(bridgename,
                            ifaceobj.name, dstattrname, attrval, check)
+               applied = True
             except Exception, e:
                self.log_warn('%s: error setting %s (%s)'
                              %(ifaceobj.name, attrname, str(e)))
+        return applied
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
                                         ifaceobj_getfunc=None):
@@ -359,19 +357,29 @@ class mstpctl(moduleBase):
                 except Exception, e:
                     self.log_warn(str(e))
 
+    def _is_running_userspace_stp_state_on(self, bridgename):
+        stp_state_file = '/sys/class/net/%s/bridge/stp_state' %bridgename
+        if not stp_state_file:
+            return False
+        running_stp_state = self.read_file_oneline(stp_state_file)
+        if running_stp_state and running_stp_state == '2':
+            return True
+        return False
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         if bridgename:
             mstpd_running = (True if self.mstpctlcmd.is_mstpd_running()
                              else False)
-            stp_on = (True if self.read_file_oneline(
-                      '/sys/class/net/%s/bridge/stp_state'
-                      %bridgename) == '2' else False)
-            self._apply_bridge_port_settings(ifaceobj, bridgename, None,
-                                             stp_on, mstpd_running)
-            ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
-                                               mstpctlFlags.PORT_PROCESSED
+            stp_running_on = self._is_running_userspace_stp_state_on(bridgename)
+            applied = self._apply_bridge_port_settings(ifaceobj, bridgename,
+                                                       None, stp_running_on,
+                                                       mstpd_running)
+            if applied:
+                ifaceobj.module_flags[self.name] = \
+                        ifaceobj.module_flags.setdefault(self.name,0) | \
+                        mstpctlFlags.PORT_PROCESSED
             return
         if not self._is_bridge(ifaceobj):
             return
