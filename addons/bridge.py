@@ -450,8 +450,10 @@ class bridge(moduleBase):
         if self._running_vidinfo_valid:
             return self._running_vidinfo
         self._running_vidinfo = {}
-        if not self.PERFMODE:
-            self._running_vidinfo = self.ipcmd.bridge_port_vids_get_all()
+
+        # CM-8161.  Removed check for PERFMODE.  Need the get in all cases
+        # including reboot, so that we can configure the pvid correctly.
+        self._running_vidinfo = self.ipcmd.bridge_port_vids_get_all()
         self._running_vidinfo_valid = True
         return self._running_vidinfo
 
