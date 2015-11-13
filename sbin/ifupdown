@@ -142,7 +142,7 @@ def run_reload(args):
                                        perfmode=args.perfmode)
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                ['pre-down', 'down', 'post-down'],
-                               auto=args.all, allow=None, ifacenames=None,
+                               auto=args.all, allow=args.CLASS, ifacenames=None,
                                excludepats=args.excludepats,
                                usecurrentconfig=args.usecurrentconfig,
                                currentlyup=args.currentlyup)
@@ -339,6 +339,8 @@ def update_ifreload_argparser(argparser):
                 action='store_true',
                 help='only reload auto and other interfaces that are ' +
                 'currently up')
+    group.add_argument('--allow', dest='CLASS',
+                help='ignore non-\"allow-CLASS\" interfaces')
     argparser.add_argument('iflist', metavar='IFACE',
                 nargs='*', help=argparse.SUPPRESS)
     argparser.add_argument('-n', '--no-act', dest='noact',
@@ -413,8 +415,8 @@ def validate_args(op, args):
     if op == 'query' and args.syntaxhelp:
         return True
     if op == 'reload':
-        if not args.all and not args.currentlyup:
-            print '\'-a\' or \'-c\' option is required'
+        if not args.all and not args.currentlyup and not args.CLASS:
+            print '\'-a\' or \'-c\' or \'-allow\' option is required'
             return False
     elif (not args.iflist and
             not args.all and not args.CLASS):
