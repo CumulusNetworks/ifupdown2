@@ -233,7 +233,8 @@ class bridge(moduleBase):
             ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_VLAN_AWARE
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
-        return self.parse_port_list(ifaceobj.get_attr_value_first(
+        return self.parse_port_list(ifaceobj.name,
+                                    ifaceobj.get_attr_value_first(
                                     'bridge-ports'), ifacenames_all)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
@@ -252,7 +253,7 @@ class bridge(moduleBase):
             return port_list
         ports = ifaceobj.get_attr_value_first('bridge-ports')
         if ports:
-            return self.parse_port_list(ports)
+            return self.parse_port_list(ifaceobj.name, ports)
         else:
             return None
 
@@ -270,7 +271,8 @@ class bridge(moduleBase):
                 return
             if waitporttime <= 0: return
             try:
-                waitportlist = self.parse_port_list(waitportvals[1])
+                waitportlist = self.parse_port_list(ifaceobj.name,
+                                                    waitportvals[1])
             except IndexError, e:
                 # ignore error and use all bridge ports
                 waitportlist = portlist
@@ -474,7 +476,7 @@ class bridge(moduleBase):
         # Install pvids
         attrval = ifaceobj.get_attr_value_first('bridge-port-pvids')
         if attrval:
-            portlist = self.parse_port_list(attrval)
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
                               %(ifaceobj.name, attrname, attrval))
@@ -496,7 +498,7 @@ class bridge(moduleBase):
         # install port vids
         attrval = ifaceobj.get_attr_value_first('bridge-port-vids')
         if attrval:
-            portlist = self.parse_port_list(attrval)
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
                           %(ifaceobj.name, attrname, attrval))
@@ -637,7 +639,7 @@ class bridge(moduleBase):
                 attrval = ifaceobj.get_attr_value_first(attrname)
                 if not attrval:
                     continue
-                portlist = self.parse_port_list(attrval)
+                portlist = self.parse_port_list(ifaceobj.name, attrval)
                 if not portlist:
                     self.log_warn('%s: could not parse \'%s %s\''
                          %(ifaceobj.name, attrname, attrval))
@@ -1229,7 +1231,7 @@ class bridge(moduleBase):
         attrval = ifaceobj.get_attr_value_first('bridge-port-vids')
         if attrval:
             running_bridge_port_vids = ''
-            portlist = self.parse_port_list(attrval)
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
                           %(ifaceobj.name, attrname, attrval))
@@ -1261,7 +1263,7 @@ class bridge(moduleBase):
 
         attrval = ifaceobj.get_attr_value_first('bridge-port-pvids')
         if attrval:
-            portlist = self.parse_port_list(attrval)
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
                               %(ifaceobj.name, attrname, attrval))
@@ -1383,7 +1385,7 @@ class bridge(moduleBase):
                # <portname>=<portattrvalue>
                status = 0
                currstr = ''
-               vlist = self.parse_port_list(v)
+               vlist = self.parse_port_list(ifaceobj.name, v)
                if not vlist:
                   continue
                for vlistitem in vlist:

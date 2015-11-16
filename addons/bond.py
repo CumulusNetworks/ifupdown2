@@ -122,7 +122,8 @@ class bond(moduleBase):
 
         if not self._is_bond(ifaceobj):
             return None
-        slave_list = self.parse_port_list(ifaceobj.get_attr_value_first(
+        slave_list = self.parse_port_list(ifaceobj.name,
+                                    ifaceobj.get_attr_value_first(
                                     'bond-slaves'), ifacenames_all)
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         # Also save a copy for future use
@@ -146,7 +147,7 @@ class bond(moduleBase):
             return ifaceobj.priv_data
         slaves = ifaceobj.get_attr_value_first('bond-slaves')
         if slaves:
-            return self.parse_port_list(slaves)
+            return self.parse_port_list(ifaceobj.name, slaves)
         else:
             return None
 
@@ -273,7 +274,7 @@ class bond(moduleBase):
         attrval = ifaceobj.get_attrs_value_first(['bond-lacp-bypass-priority',
                                 'bond-lacp-fallback-priority'])
         if attrval:
-            portlist = self.parse_port_list(attrval)
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
                               %(ifaceobj.name, attrname, attrval))

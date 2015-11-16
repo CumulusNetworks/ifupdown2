@@ -186,7 +186,8 @@ class mstpctl(moduleBase):
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if not self._is_bridge(ifaceobj):
             return None
-        return self.parse_port_list(ifaceobj.get_attr_value_first(
+        return self.parse_port_list(ifaceobj.name,
+                                    ifaceobj.get_attr_value_first(
                                     'mstpctl-ports'), ifacenames_all)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
@@ -206,7 +207,7 @@ class mstpctl(moduleBase):
             return port_list
         ports = ifaceobj.get_attr_value_first('mstpctl-ports')
         if ports:
-            return self.parse_port_list(ports)
+            return self.parse_port_list(ifaceobj.name, ports)
         else:
             return None
 
@@ -274,7 +275,7 @@ class mstpctl(moduleBase):
                 attrval = ifaceobj.get_attr_value_first(attrname)
                 if not attrval:
                     continue
-                portlist = self.parse_port_list(attrval)
+                portlist = self.parse_port_list(ifaceobj.name, attrval)
                 if not portlist:
                     self.log_warn('%s: error parsing \'%s %s\''
                          %(ifaceobj.name, attrname, attrval))
@@ -588,7 +589,7 @@ class mstpctl(moduleBase):
                 # <portname>=<portattrvalue>
                 status = 0
                 currstr = ''
-                vlist = self.parse_port_list(v)
+                vlist = self.parse_port_list(ifaceobj.name, v)
                 if not vlist:
                     continue
                 for vlistitem in vlist:

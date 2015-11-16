@@ -126,27 +126,36 @@ class moduleBase(object):
         with open('/proc/net/dev') as f:
             try:
                 lines = f.readlines()
-                for line in lines:
+                for line in lines[2:]:
                     ifacenames.append(line.split()[0].strip(': '))
             except:
                 raise
         return ifacenames
 
-    def parse_regex(self, expr, ifacenames=None):
+    def parse_regex(self, ifacename, expr, ifacenames=None):
         try:
             proc_ifacenames = self.get_ifaces_from_proc()
         except:
-            self.logger.warn('error reading ifaces from proc')
+            self.logger.warn('%s: error reading ifaces from proc' %ifacename)
+
         for proc_ifacename in proc_ifacenames:
-            if re.search(expr + '$', proc_ifacename):
-                yield proc_ifacename
+            try:
+                if re.search(expr + '$', proc_ifacename):
+                    yield proc_ifacename
+            except Exception, e:
+                raise Exception('%s: error searching regex \'%s\' in %s (%s)'
+                                %(ifacename, expr, proc_ifacename, str(e)))
         if not ifacenames:
             return
         for ifacename in ifacenames:
-            if re.search(expr + '$', ifacename):
-                yield ifacename
+            try:
+                if re.search(expr + '$', ifacename):
+                    yield ifacename
+            except Exception, e:
+                raise Exception('%s: error searching regex \'%s\' in %s (%s)'
+                                %(ifacename, expr, ifacename, str(e)))
 
-    def parse_glob(self, expr):
+    def parse_glob(self, ifacename, expr):
         errmsg = ('error parsing glob expression \'%s\'' %expr +
                     ' (supported glob syntax: swp1-10.300 or swp[1-10].300' +
                     '  or swp[1-10]sub[0-4].300')
@@ -163,7 +172,7 @@ class moduleBase(object):
             mlist = m.groups()
             if len(mlist) < 7:
                 # we have problems and should not continue
-                raise Exception('Error: unhandled glob expression %s\n%s' % (expr,errmsg))
+                raise Exception('%s: error: unhandled glob expression %s\n%s' % (ifacename, expr,errmsg))
 
             prefix = mlist[0]
             suffix = mlist[6]
@@ -187,7 +196,7 @@ class moduleBase(object):
                 m = regexs[2].match(expr)
             mlist = m.groups()
             if len(mlist) != 4:
-                raise Exception(errmsg + '(unexpected len)')
+                raise Exception('%s: ' %ifacename + errmsg + '(unexpected len)')
             prefix = mlist[0]
             suffix = mlist[3]
             start_index = int(mlist[1])
@@ -197,10 +206,10 @@ class moduleBase(object):
 
         else:
             # Could not match anything.
-            self.logger.warn('%s' %(errmsg))
+            self.logger.warn('%s: %s' %(ifacename, errmsg))
             yield expr
 
-    def parse_port_list(self, port_expr, ifacenames=None):
+    def parse_port_list(self, ifacename, port_expr, ifacenames=None):
         """ parse port list containing glob and regex
 
         Args:
@@ -213,7 +222,10 @@ class moduleBase(object):
 
         if not port_expr:
             return None
-        for expr in re.split(r'[\s\t]\s*', port_expr):
+        exprs = re.split(r'[\s\t]\s*', port_expr)
+        self.logger.info('%s: evaluating port expr \'%s\''
+                         %(ifacename, str(exprs)))
+        for expr in exprs:
             if expr == 'noregex':
                 regex = 0
             elif expr == 'noglob':
@@ -223,7 +235,7 @@ class moduleBase(object):
             elif expr == 'glob':
                 glob = 1
             elif regex:
-                for port in self.parse_regex(expr, ifacenames):
+                for port in self.parse_regex(ifacename, expr, ifacenames):
                     if port not in portlist:
                         portlist.append(port)
                 regex = 0
