@@ -257,8 +257,16 @@ class mstpctl(moduleBase):
             for attrname, dstattrname in self._attrs_map.items():
                 try:
                     v = ifaceobj.get_attr_value_first(attrname)
-                    if not v:
-                       continue
+                    if (not v and
+                        self.get_mod_subattr(attrname,'default') and
+                        (self.mstpctlcmd.get_bridge_attr(ifaceobj.name, dstattrname) !=
+                         self.get_mod_subattr(attrname,'default'))):
+                        # this happens when customers remove an attribute
+                        # and expect the default to be restored with ifreload.
+                        v = get_mod_subattr(attrname,'default')
+                    elif not v:
+                        continue
+
                     if attrname == 'mstpctl-treeprio':
                        self.mstpctlcmd.set_bridge_treeprio(ifaceobj.name,
                                 v, check)
@@ -305,8 +313,16 @@ class mstpctl(moduleBase):
         # set bridge port attributes
         for attrname, dstattrname in self._port_attrs_map.items():
             attrval = ifaceobj.get_attr_value_first(attrname)
-            if not attrval:
-               continue
+            if (not attrval and
+                self.get_mod_subattr(attrname,'default') and
+                (self.mstpctlcmd.get_bridgeport_attr(bridgename, ifaceobj.name,dstattrname) !=
+                 self.get_mod_subattr(attrname,'default'))):
+                # this happens when customers remove an attribute
+                # and expect the default to be restored with ifreload.
+                attrval = self.get_mod_subattr(attrname,'default')
+            elif not attrval:
+                continue
+
             if not stp_running_on:
                # stp may get turned on at a later point
                self.logger.info('%s: ignoring %s config'
