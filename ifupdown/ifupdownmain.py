@@ -16,6 +16,7 @@ import sys, traceback
 import copy
 import json
 import ifupdown.statemanager as statemanager
+import ifupdown.ifupdownconfig as ifupdownConfig
 from networkinterfaces import *
 from iface import *
 from scheduler import *
@@ -249,6 +250,10 @@ class ifupdownMain(ifupdownBase):
             self.logger.info('\'link_master_slave\' is set. slave admin ' +
                              'state changes will be delayed till the ' +
                              'masters admin state change.')
+
+        # initialize global config object with config passed by the user
+        # This makes config available to addon modules
+        ifupdownConfig.config = self.config
 
     def link_master_slave_ignore_error(self, errorstr):
         # If link master slave flag is set, 
@@ -570,6 +575,7 @@ class ifupdownMain(ifupdownBase):
         currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
         if not currentifaceobjlist:
            self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
+           ifaceobj.flags |= ifaceobj.YOUNGEST_SIBLING
            return
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
