@@ -1456,15 +1456,14 @@ class ifupdownMain(ifupdownBase):
         ifaceobjs = []
         ret = self._get_ifaceobjscurr_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
-        ifaceStatusStrs.SUCCESS = self.config.get('ifquery_check_success_str',
-                                                  _success_sym)
-        ifaceStatusStrs.ERROR = self.config.get('ifquery_check_error_str',
-                                                _error_sym)
-        ifaceStatusStrs.UNKNOWN = self.config.get('ifquery_check_unknown_str',
-                                                  '')
+
+        # override ifaceStatusUserStrs
+        ifaceStatusUserStrs.SUCCESS = self.config.get('ifquery_check_success_str', _success_sym)
+        ifaceStatusUserStrs.ERROR = self.config.get('ifquery_check_error_str', _error_sym)
+        ifaceStatusUserStrs.UNKNOWN = self.config.get('ifquery_check_unknown_str', '')
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoderWithStatus, indent=2,
-                       separators=(',', ': '))
+            print json.dumps(ifaceobjs, cls=ifaceJsonEncoderWithStatus,
+                             indent=2, separators=(',', ': '))
         else:
             map(lambda i: i.dump_pretty(with_status=True), ifaceobjs)
         return ret

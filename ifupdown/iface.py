@@ -17,7 +17,10 @@ from collections import OrderedDict
 import logging
 import json
 
-class ifaceStatusStrs():
+class ifaceStatusUserStrs():
+    """ This class declares strings user can see during an ifquery --check
+    for example. These strings can be overridden by user defined strings from
+    config file """
     SUCCESS = "success",
     FAILURE = "error",
     UNKNOWN = "unknown"
@@ -208,11 +211,11 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
                 for vitem in v:
                     s = o.get_config_attr_status(k, idx)
                     if s == -1:
-                        status_str = ifaceStatusStrs.UNKNOWN
+                        status_str = ifaceStatusUserStrs.UNKNOWN
                     elif s == 1:
-                        status_str = ifaceStatusStrs.ERROR
+                        status_str = ifaceStatusUserStrs.ERROR
                     elif s == 0:
-                        status_str = ifaceStatusStrs.SUCCESS
+                        status_str = ifaceStatusUserStrs.SUCCESS
                     vitem_status.append('%s' %status_str)
                     idx += 1
                 retconfig[k] = v[0] if len(v) == 1 else v
@@ -220,9 +223,9 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
 
         if (o.status == ifaceStatus.NOTFOUND or
                 o.status == ifaceStatus.ERROR):
-            status =  ifaceStatusStrs.ERROR
+            status =  ifaceStatusUserStrs.ERROR
         else:
-            status =  ifaceStatusStrs.SUCCESS
+            status =  ifaceStatusUserStrs.SUCCESS
 
         retifacedict['name'] = o.name
         if o.addr_method:
@@ -612,9 +615,9 @@ class iface():
                     self.status == ifaceStatus.NOTFOUND):
                 if self.status_str:
                     ifaceline += ' (%s)' %self.status_str
-                status_str = '[%s]' %ifaceStatusStrs.ERROR
+                status_str = '[%s]' %ifaceStatusUserStrs.ERROR
             elif self.status == ifaceStatus.SUCCESS:
-                status_str = '[%s]' %ifaceStatusStrs.SUCCESS
+                status_str = '[%s]' %ifaceStatusUserStrs.SUCCESS
             if status_str:
                outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
             else:
@@ -631,16 +634,18 @@ class iface():
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:
+                    status_str = None
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
                         if s == -1:
-                            status_str = '[%s]' %ifaceStatusStrs.UNKNOWN
+                            status_str = '[%s]' %ifaceStatusUserStrs.UNKNOWN
                         elif s == 1:
-                            status_str = '[%s]' %ifaceStatusStrs.ERROR
+                            status_str = '[%s]' %ifaceStatusUserStrs.ERROR
                         elif s == 0:
-                            status_str = '[%s]' %ifaceStatusStrs.SUCCESS
+                            status_str = '[%s]' %ifaceStatusUserStrs.SUCCESS
+                    if status_str:
                         outbuf += (indent + '{0:55} {1:>10}'.format(
-                                   '%s %s' %(cname, cv), status_str)) + '\n'
+                              '%s %s' %(cname, cv), status_str)) + '\n'
                     else:
                         outbuf += indent + '%s %s\n' %(cname, cv)
                     idx += 1

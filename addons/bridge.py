@@ -1405,7 +1405,19 @@ class bridge(moduleBase):
                    pass
                ifaceobjcurr.update_config_with_status(k, currstr, status)
             elif not rv:
-               ifaceobjcurr.update_config_with_status(k, 'notfound', 1)
+               if k == 'bridge-pvid' or k == 'bridge-vids':
+                   # bridge-pvid and bridge-vids on a bridge does
+                   # not correspond directly to a running config
+                   # on the bridge. They correspond to default
+                   # values for the bridge ports. And they are
+                   # already checked against running config of the
+                   # bridge port and reported against a bridge port.
+                   # So, ignore these attributes under the bridge.
+                   # Use '2' for ignore today. XXX: '2' will be
+                   # mapped to a defined value in subsequent patches.
+                   ifaceobjcurr.update_config_with_status(k, v, 2)
+               else:
+                   ifaceobjcurr.update_config_with_status(k, 'notfound', 1)
                continue
             elif v != rv:
                ifaceobjcurr.update_config_with_status(k, rv, 1)
@@ -1428,6 +1440,8 @@ class bridge(moduleBase):
         pvid = None
         for ifaceobj in ifaceobjs:
             pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+            if pvid:
+                break
         return pvid
 
     def _get_bridge_name(self, ifaceobj):
