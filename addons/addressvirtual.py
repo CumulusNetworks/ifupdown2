@@ -164,15 +164,19 @@ class addressvirtual(moduleBase):
                 rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
                                                       ifaceobj.name)
                 link_created = True
-            if av_attrs[0] != 'None':
-                self.ipcmd.link_set_hwaddress(macvlan_ifacename, av_attrs[0])
-                hwaddress.append(av_attrs[0])
-            self.ipcmd.addr_add_multiple(macvlan_ifacename, av_attrs[1:],
+            mac = av_attrs[0]
+            ips = av_attrs[1:]
+            if mac != 'None':
+                mac = mac.lower()
+                # customer could have used UPPERCASE for MAC
+                self.ipcmd.link_set_hwaddress(macvlan_ifacename, mac)
+                hwaddress.append(mac)
+            self.ipcmd.addr_add_multiple(macvlan_ifacename, ips,
                                          purge_existing)
             # If link existed before, flap the link
             if not link_created:
                 self._fix_connected_route(ifaceobj, macvlan_ifacename,
-                                          av_attrs[1])
+                                          ips[0])
             av_idx += 1
         self.ipcmd.batch_commit()
 
@@ -181,7 +185,7 @@ class addressvirtual(moduleBase):
         oldmacs = self._get_macs_from_old_config(ifaceobj)
         # get a list of fdbs in old that are not in new config meaning they should
         # be removed since they are gone from the config
-        removed_macs = [mac for mac in oldmacs if mac not in hwaddress]
+        removed_macs = [mac for mac in oldmacs if mac.lower() not in hwaddress]
         self._remove_addresses_from_bridge(ifaceobj, removed_macs)
         # if ifaceobj is a bridge and bridge is a vlan aware bridge
         # add the vid to the bridge
