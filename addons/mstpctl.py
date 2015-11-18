@@ -263,7 +263,7 @@ class mstpctl(moduleBase):
                          self.get_mod_subattr(attrname,'default'))):
                         # this happens when customers remove an attribute
                         # and expect the default to be restored with ifreload.
-                        v = self.get_mod_subattr(attrname,'default')
+                        v = get_mod_subattr(attrname,'default')
                     elif not v:
                         continue
 
