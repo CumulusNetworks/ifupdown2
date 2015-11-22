@@ -299,6 +299,30 @@ class bridge(moduleBase):
                 self.logger.info(str(e))
                 pass
 
+    def _pretty_print_add_ports_error(self, errstr, bridgename, bridgeports):
+        """ pretty print bridge port add errors.
+            since the commands are batched and the kernel only returns error
+            codes, this function tries to interpret some error codes
+            and prints clearer errors """
+
+        if re.search('RTNETLINK answers: Invalid argument', errstr):
+            # Cumulus Linux specific error checks
+            try:
+                if self.sysctl_get('net.bridge.bridge-allow-multiple-vlans') == '0':
+                    vlanid = None
+                    for bport in bridgeports:
+                        ifattrs = bport.split('.')
+                        if vlanid:
+                            if (len(ifattrs) == 1 or ifattrs[1] != vlanid):
+                                self.logger.error('%s: ' %bridgename +
+                                                  'net.bridge.bridge-allow-multiple-vlans not set, multiple vlans not allowed')
+                                break
+                        if len(ifattrs) == 2:
+                            vlanid = ifattrs[1]
+            except:
+                pass
+        self.logger.error(bridgename + ': ' + errstr)
+
     def _add_ports(self, ifaceobj):
         bridgeports = self._get_bridge_port_list(ifaceobj)
         runningbridgeports = []
@@ -322,7 +346,8 @@ class bridge(moduleBase):
             return
         err = 0
         ports = 0
-        for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
+        newbridgeports = Set(bridgeports).difference(Set(runningbridgeports))
+        for bridgeport in newbridgeports:
             try:
                 if not self.DRYRUN and not self.ipcmd.link_exists(bridgeport):
                     self.log_warn('%s: bridge port %s does not exist'
@@ -348,7 +373,8 @@ class bridge(moduleBase):
         try:
             self.ipcmd.batch_commit()
         except Exception, e:
-            self.logger.error(str(e))
+            self._pretty_print_add_ports_error(str(e), ifaceobj.name,
+                                               bridgeports)
             pass
 
         # enable ipv6 for ports that were removed
