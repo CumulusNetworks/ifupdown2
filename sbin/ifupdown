@@ -145,6 +145,7 @@ def run_reload(args):
                                auto=args.all, allow=args.CLASS, ifacenames=None,
                                excludepats=args.excludepats,
                                usecurrentconfig=args.usecurrentconfig,
+                               syntaxcheck=args.syntaxcheck,
                                currentlyup=args.currentlyup)
     except:
         raise
@@ -378,6 +379,9 @@ def update_ifreload_argparser(argparser):
     argparser.add_argument('-f', '--force', dest='force',
                 action='store_true',
                 help='force run all operations')
+    argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
+                action='store_true',
+                help='Only run the interfaces file parser')
 
 def parse_args(argsv, op):
     if op == 'query':

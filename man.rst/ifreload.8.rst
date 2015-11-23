@@ -14,7 +14,7 @@ reload network interface configuration
 
 SYNOPSIS
 ========
-    ifreload [-h] (-a|-c) [-v] [-d] [-f] [-n] 
+    ifreload [-h] (-a|-c) [-v] [-d] [-f] [-n] [-s]
 
 DESCRIPTION
 ===========
@@ -60,6 +60,8 @@ OPTIONS
                           (e.g. a bridge or a bond with multiple enslaved interfaces)
                           then each dependent interface must be specified in order
                           to be excluded.
+
+    -s, --syntax-check    Only run the interfaces file parser
 
 
 EXAMPLES

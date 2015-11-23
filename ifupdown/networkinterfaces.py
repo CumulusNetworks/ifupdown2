@@ -64,6 +64,9 @@ class networkInterfaces():
         self._currentfile_has_template = False
         self._ws_split_regex = re.compile(r'[\s\t]\s*')
 
+        self.errors = 0
+        self.warns = 0
+
     @property
     def _currentfile(self):
         try:
@@ -76,12 +79,14 @@ class networkInterfaces():
             self.logger.error('%s: %s' %(filename, msg))
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
+        self.errors += 1
 
     def _parse_warn(self, filename, lineno, msg):
         if lineno == -1 or self._currentfile_has_template:
             self.logger.warn('%s: %s' %(filename, msg))
         else:
             self.logger.warn('%s: line%d: %s' %(filename, lineno, msg))
+        self.warns += 1
 
     def _validate_addr_family(self, ifaceobj, lineno=-1):
         if ifaceobj.addr_family:
@@ -421,12 +426,15 @@ class networkInterfaces():
         if not isinstance(ifacedicts,list):
             ifacedicts = [ifacedicts]
 
+        errors = 0
         for ifacedict in ifacedicts:
             ifaceobj = ifaceJsonDecoder.json_to_ifaceobj(ifacedict)
             if ifaceobj:
                 self._validate_addr_family(ifaceobj)
-                self.callbacks.get('validateifaceobj')(ifaceobj)
+                if not self.callbacks.get('validateifaceobj')(ifaceobj):
+                    errors += 1
                 self.callbacks.get('iface_found')(ifaceobj)
+        self.errors += errors
         
     def load(self):
         """ This member function loads the networkinterfaces file.
@@ -437,6 +445,7 @@ class networkInterfaces():
         if not self.interfacesfile and not self.interfacesfileiobuf:
             self.logger.warn('no terminal line stdin used or ')
             self.logger.warn('no network interfaces file defined.')
+            self.warns += 1
             return
 
         if self.interfacesfileformat == 'json':

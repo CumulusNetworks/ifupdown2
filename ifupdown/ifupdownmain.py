@@ -603,7 +603,7 @@ class ifupdownMain(ifupdownBase):
         return False
 
     def _ifaceobj_syntax_checker(self, ifaceobj):
-        err = False
+        ret = True
         for attrname, attrvalue in ifaceobj.config.items():
             found = False
             for k, v in self.module_attrs.items():
@@ -611,14 +611,15 @@ class ifupdownMain(ifupdownBase):
                     found = True
                     break
             if not found:
-                err = True
+                ret = False
                 self.logger.warn('%s: unsupported attribute \'%s\'' \
                                  % (ifaceobj.name, attrname))
                 continue
-        return err
+        return ret
 
     def read_iface_config(self):
         """ Reads default network interface config /etc/network/interfaces. """
+        ret = True
         nifaces = networkInterfaces(self.interfacesfile,
                         self.interfacesfileiobuf,
                         self.interfacesfileformat,
@@ -629,6 +630,9 @@ class ifupdownMain(ifupdownBase):
                           self._iface_configattr_syntax_checker)
         nifaces.subscribe('validateifaceobj', self._ifaceobj_syntax_checker)
         nifaces.load()
+        if nifaces.errors or nifaces.warns:
+            ret = False
+        return ret
 
     def read_old_iface_config(self):
         """ Reads the saved iface config instead of default iface config.
@@ -963,7 +967,7 @@ class ifupdownMain(ifupdownBase):
             self.ALL = True
             self.WITH_DEPENDS = True
         try:
-            self.read_iface_config()
+            iface_read_ret = self.read_iface_config()
         except Exception:
             raise
 
@@ -987,8 +991,12 @@ class ifupdownMain(ifupdownBase):
         else:
             self.populate_dependency_info(ops)
 
-        # If only syntax check was requested, return here
+        # If only syntax check was requested, return here.
+        # return here because we want to make sure most
+        # errors above are caught and reported.
         if syntaxcheck:
+            if not iface_read_ret:
+                raise Exception()
             return
 
         try:
@@ -1134,14 +1142,14 @@ class ifupdownMain(ifupdownBase):
 
     def _reload_currentlyup(self, upops, downops, auto=True, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
-            **extra_args):
+            syntaxcheck=False, **extra_args):
         """ reload currently up interfaces """
         new_ifaceobjdict = {}
 
         # Override auto to true
         auto = True
         try:
-            self.read_iface_config()
+            iface_read_ret = self.read_iface_config()
         except:
             raise
         if not self.ifaceobjdict:
@@ -1155,6 +1163,15 @@ class ifupdownMain(ifupdownBase):
 
         # generate dependency graph of interfaces
         self.populate_dependency_info(upops)
+
+        # If only syntax check was requested, return here.
+        # return here because we want to make sure most
+        # errors above are caught and reported.
+        if syntaxcheck:
+            if not iface_read_ret:
+                raise Exception()
+            return
+
         if (not usecurrentconfig and self.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):
             already_up_ifacenames = self.statemanager.ifaceobjdict.keys()
@@ -1215,12 +1232,12 @@ class ifupdownMain(ifupdownBase):
 
     def _reload_default(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
-            **extra_args):
+            syntaxcheck=False, **extra_args):
         """ reload interface config """
         new_ifaceobjdict = {}
 
         try:
-            self.read_iface_config()
+            iface_read_ret = self.read_iface_config()
         except:
             raise
 
@@ -1234,6 +1251,14 @@ class ifupdownMain(ifupdownBase):
                                excludepats, i)]
         # generate dependency graph of interfaces
         self.populate_dependency_info(upops)
+
+        # If only syntax check was requested, return here.
+        # return here because we want to make sure most
+        # errors above are caught and reported.
+        if syntaxcheck:
+            if not iface_read_ret:
+                raise Exception()
+            return
 
         if (not usecurrentconfig and self.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):

@@ -22,7 +22,7 @@ SYNOPSIS
 ========
 
     ifup [-h] [-a] [-v] [-d] [--allow CLASS] [--with-depends]
-       **[-X EXCLUDEPATS] [-f] [-n] [--print-dependency {list,dot}]**
+       **[-X EXCLUDEPATS] [-f] [-n] [-s] [--print-dependency {list,dot}]**
        **[IFACE [IFACE ...]]**
 
     ifdown [-h] [-a] [-v] [-d] [--allow CLASS] [--with-depends]
@@ -114,6 +114,8 @@ OPTIONS
                           to look at the current interfaces file. Useful when
                           your state file is corrupted or you want down to use
                           the latest from the interfaces file
+
+    -s, --syntax-check    Only run the interfaces file parser
 
 EXAMPLES
 ========
