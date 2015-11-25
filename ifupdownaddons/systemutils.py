@@ -29,3 +29,16 @@ class systemUtils():
                 return True
 
         return False
+
+    @classmethod
+    def check_service_status(cls, servicename=None):
+        if not servicename:
+            return False
+        utilsobj = utilsBase()
+        try:
+            utilsobj.subprocess_check_call(['/usr/sbin/service',
+                                           '%s' %servicename, 'status'])
+        except Exception:
+            # XXX: check for subprocess errors vs os error
+            return False
+        return True
