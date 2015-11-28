@@ -42,3 +42,15 @@ class systemUtils():
             # XXX: check for subprocess errors vs os error
             return False
         return True
+
+    @classmethod
+    def is_process_running(self, processname):
+        if not processname:
+            return False
+        utilsobj = utilsBase()
+        try:
+            utilsobj.exec_command('/bin/pidof %s' %processname)
+        except:
+            return False
+        else:
+            return True

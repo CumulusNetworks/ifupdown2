@@ -11,7 +11,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.mstpctlutil import mstpctlutil
-import traceback
+from ifupdownaddons.systemutils import systemUtils
 
 class mstpctlFlags:
     PORT_PROCESSED = 0x1
@@ -171,6 +171,8 @@ class mstpctl(moduleBase):
         self.name = self.__class__.__name__
         self.brctlcmd = None
         self.mstpctlcmd = None
+        self.mstpd_running = (True if systemUtils.is_process_running('mstpd')
+                             else False)
 
     def _is_bridge(self, ifaceobj):
         if (ifaceobj.get_attr_value_first('mstpctl-ports') or
@@ -371,8 +373,7 @@ class mstpctl(moduleBase):
         # Check if bridge port
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         if bridgename:
-            mstpd_running = (True if self.mstpctlcmd.is_mstpd_running()
-                             else False)
+            mstpd_running = self.mstpd_running
             stp_running_on = self._is_running_userspace_stp_state_on(bridgename)
             applied = self._apply_bridge_port_settings(ifaceobj, bridgename,
                                                        None, stp_running_on,
@@ -416,7 +417,7 @@ class mstpctl(moduleBase):
                                     self.brctlcmd.set_stp)
             else:
                stp = self.brctlcmd.get_stp(ifaceobj.name)
-            if (self.mstpctlcmd.is_mstpd_running() and
+            if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
                 self._apply_bridge_settings(ifaceobj)
                 self._apply_bridge_port_settings_all(ifaceobj,
