@@ -505,13 +505,22 @@ class ifupdownMain(ifupdownBase):
             i = iqueue.popleft()
             # Go through all modules and find dependent ifaces
             dlist = None
-            ifaceobj = self.get_ifaceobj_first(i)
-            if not ifaceobj: 
+            ifaceobjs = self.get_ifaceobjs(i)
+            if not ifaceobjs:
                 continue
-            dlist = ifaceobj.lowerifaces
-            if not dlist:
-                dlist = self.query_dependents(ifaceobj, ops, ifacenames)
-            else:
+            already_processed = False
+
+            # Store all dependency info in the first ifaceobj
+            # but get dependency info from all ifaceobjs
+            ifaceobj = ifaceobjs[0]
+            for iobj in ifaceobjs:
+                if iobj.lowerifaces:
+                    already_processed = True
+                    break
+                dlist = self.query_dependents(iobj, ops, ifacenames)
+                if dlist:
+                   break
+            if already_processed:
                 continue
             if dlist:
                 self.preprocess_dependency_list(ifaceobj,
