@@ -8,6 +8,7 @@ from utilsbase import *
 from ifupdown.iface import *
 from cache import *
 import re
+import json
 
 class mstpctlutil(utilsBase):
     """ This class contains helper methods to interact with mstpd using
@@ -64,6 +65,46 @@ class mstpctlutil(utilsBase):
             self.logger.warn(str(e))
             pass
         return bridgeattrs
+
+    def cache_bridgeport_attrs(self,bridgename):
+        '''
+        This method grab output of a mstpctl showportdetail json and caches
+        it this should save on the overhead of checking each attribute
+        for every port in the bridge.
+        '''
+        self.mstpctl_bridgeport_attrs_dict = {}
+        self.mstpctl_bridgeport_attrs_dict[bridgename] = {}
+        showall_output = self.subprocess_check_output(['/sbin/mstpctl',
+                         'showportdetail', bridgename, 'json']).strip('\n')
+        if showall_output == None or showall_output == '':
+            return
+        mstpctl_bridge_cache = json.loads(showall_output)
+        for portname in mstpctl_bridge_cache.keys():
+            # we will ignore the portid for now and just index
+            # by bridgename, portname, and json attribute
+            for portid in mstpctl_bridge_cache[portname].keys():
+                self.mstpctl_bridgeport_attrs_dict[bridgename][portname] = {}
+                for jsonAttr in mstpctl_bridge_cache[portname][portid].keys():
+                    jsonVal = mstpctl_bridge_cache[portname][portid][jsonAttr]
+                    self.mstpctl_bridgeport_attrs_dict[bridgename][portname]\
+                                               [jsonAttr] = str(jsonVal)
+
+    def get_mstpctl_bridgeport_attr(self,bridgename=None, portname=None,
+                                    jsonAttr=None):
+        '''
+        Just return the JSON attribute we cached earlier making
+        sure to convert integers to strings for later comparison.
+        '''
+        if not bridgename or not portname or not jsonAttr:
+            return
+        # just return the value or None if there is no JSON attr defined the
+        # output will not show anything if the value is no so we default to no
+        val = self.mstpctl_bridgeport_attrs_dict.get(bridgename,{}).get(portname,{}).\
+              get(jsonAttr,'no')
+        if val == 'True':
+            val = 'yes'
+         # some values are integers so we need to return only strings
+        return str(val)
 
     def set_bridgeport_attrs(self, bridgename, bridgeportname, attrdict,
                              check=True):

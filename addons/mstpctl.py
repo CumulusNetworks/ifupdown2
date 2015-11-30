@@ -67,11 +67,13 @@ class mstpctl(moduleBase):
                     'mstpctl-portpathcost' :
                         { 'help' : 'bridge port path cost',
                           'default' : '0',
+                          'jsonAttr' : 'adminExtPortCost',
                           'required' : False,
                           'example' : ['mstpctl-portpathcost swp1=0 swp2=1']},
                     'mstpctl-portp2p' :
                         { 'help' : 'bridge port p2p detection mode',
                           'default' : 'auto',
+                          'jsonAttr' : 'adminPointToPoint',
                           'validvals' : ['yes', 'no', 'auto'],
                           'required' : False,
                           'example' : ['mstpctl-portp2p swp1=no swp2=no']},
@@ -79,6 +81,7 @@ class mstpctl(moduleBase):
                         { 'help' :
                           'enable/disable port ability to take root role of the port',
                           'default' : 'no',
+                          'jsonAttr' : 'restrictedRole',
                           'validvals' : ['yes', 'no'],
                           'required' : False,
                           'example' : ['mstpctl-portrestrrole swp1=no swp2=no']},
@@ -86,6 +89,7 @@ class mstpctl(moduleBase):
                         { 'help' :
                           'enable/disable port ability to propagate received topology change notification of the port',
                           'default' : 'no',
+                          'jsonAttr' : 'restrictedTcn',
                           'validvals' : ['yes', 'no'],
                           'required' : False,
                           'example' : ['mstpctl-portrestrtcn swp1=no swp2=no']},
@@ -93,6 +97,7 @@ class mstpctl(moduleBase):
                         { 'help' :
                           'enable/disable bpduguard',
                           'default' : 'no',
+                          'jsonAttr' : 'bpduGuardPort',
                           'validvals' : ['yes', 'no'],
                           'required' : False,
                           'example' : ['mstpctl-bpduguard swp1=no swp2=no']},
@@ -112,18 +117,21 @@ class mstpctl(moduleBase):
                         { 'help' : 'enable/disable bridge assurance capability for a port',
                           'validvals' : ['yes', 'no'],
                           'default' : 'no',
+                          'jsonAttr' : 'networkPort',
                           'required' : False,
                           'example' : ['mstpctl-portnetwork swp1=no swp2=no']},
                     'mstpctl-portadminedge' : 
                         { 'help' : 'enable/disable initial edge state of the port',
                           'validvals' : ['yes', 'no'],
                           'default' : 'no',
+                          'jsonAttr' : 'adminEdgePort',
                           'required' : False,
                           'example' : ['mstpctl-portadminedge swp1=no swp2=no']},
                     'mstpctl-portautoedge' : 
                         { 'help' : 'enable/disable auto transition to/from edge state of the port',
                           'validvals' : ['yes', 'no'],
                           'default' : 'yes',
+                          'jsonAttr' : 'autoEdgePort',
                           'required' : False,
                           'example' : ['mstpctl-portautoedge swp1=yes swp2=yes']},
                     'mstpctl-treeportcost' : 
@@ -134,6 +142,7 @@ class mstpctl(moduleBase):
                                 'syntax varies when defined under a bridge ' +
                                 'vs under a port',
                           'validvals' : ['yes', 'no'],
+                          'jsonAttr' : 'bpduFilterPort',
                           'default' : 'no',
                           'required' : False,
                           'example' : ['under a bridge: mstpctl-portbpdufilter swp1=no swp2=no',
@@ -274,14 +283,35 @@ class mstpctl(moduleBase):
 
             # set bridge port attributes
             for attrname, dstattrname in self._port_attrs_map.items():
-                attrval = ifaceobj.get_attr_value_first(attrname)
-                if not attrval:
+                config_val = ifaceobj.get_attr_value_first(attrname)
+                default_val = self.get_mod_subattr(attrname,'default')
+                if not config_val:
+                    # nothing configured, we may need to reset all ports to defaults
+                    # if the default exists and jsonAttribute conversion exists
+                    try:
+                        jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
+                        if default_val and jsonAttr:
+                            bridgeports = self._get_bridge_port_list(ifaceobj)
+                            for port in bridgeports:
+                                running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(ifaceobj.name,
+                                                              port, jsonAttr)
+                                if running_val != default_val:
+                                    # we will not bother checking since we already checked
+                                    self.mstpctlcmd.set_bridgeport_attr(ifaceobj.name,
+                                            port, dstattrname, default_val, False)
+                    except:
+                        self.logger.info('%s: not resetting %s config'
+                                         %(ifaceobj.name, attrname))
+                    # leave the loop for this attribute
                     continue
-                portlist = self.parse_port_list(ifaceobj.name, attrval)
+
+                portlist = self.parse_port_list(ifaceobj.name, config_val)
                 if not portlist:
                     self.log_warn('%s: error parsing \'%s %s\''
-                         %(ifaceobj.name, attrname, attrval))
+                         %(ifaceobj.name, attrname, config_val))
                     continue
+                # there was a configured value so we need to parse it
+                # and set the attribute for each port configured
                 for p in portlist:
                     try:
                         (port, val) = p.split('=')
@@ -305,25 +335,43 @@ class mstpctl(moduleBase):
         applied = False
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
+
+        if not stp_running_on:
+            # stp may get turned on at a later point
+            self.logger.info('%s: ignoring config'
+                             %(ifaceobj.name) +
+                             ' (stp on bridge %s is not on yet)' %bridgename)
+            return applied
+        if (not mstpd_running or
+            not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name) or
+            not self.ipcmd.bridge_is_vlan_aware(bridgename)):
+               return applied
         # set bridge port attributes
         for attrname, dstattrname in self._port_attrs_map.items():
             attrval = ifaceobj.get_attr_value_first(attrname)
-            if not attrval:
-               continue
-            if not stp_running_on:
-               # stp may get turned on at a later point
-               self.logger.info('%s: ignoring %s config'
-                       %(ifaceobj.name, attrname) +
-                       ' (stp on bridge %s is not on yet)' %bridgename)
-               continue
-            if not mstpd_running:
-               continue
-            # if its not a bridge port, continue
-            if not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name):
+            config_val = ifaceobj.get_attr_value_first(attrname)
+            default_val = self.get_mod_subattr(attrname,'default')
+            jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
+            # to see the running value, stp would have to be on
+            # so we would have parsed mstpctl showportdetail json output
+            try:
+                running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(bridgename,
+                                                       ifaceobj.name, jsonAttr)
+            except:
+                self.logger.info('%s %s: could not get running %s value'
+                                 %(bridgename, ifaceobj.name, attrname))
+                running_val = None
+            if (not config_val and default_val and (running_val != default_val)):
+                # this happens when users remove an attribute from a port
+                # and expect the default to be restored with ifreload.
+                config_val = default_val
+            elif not config_val:
+                # there is nothing configured and no default to reset
                 continue
+
             try:
                self.mstpctlcmd.set_bridgeport_attr(bridgename,
-                           ifaceobj.name, dstattrname, attrval, check)
+                           ifaceobj.name, dstattrname, config_val, check)
                applied = True
             except Exception, e:
                self.log_warn('%s: error setting %s (%s)'
@@ -375,6 +423,10 @@ class mstpctl(moduleBase):
         if bridgename:
             mstpd_running = self.mstpd_running
             stp_running_on = self._is_running_userspace_stp_state_on(bridgename)
+            # initialize all the mstpctl attributes cache with
+            # the command mstpctl showportdetail bridge json
+            # since we are about to loop over all the ports below
+            self.mstpctlcmd.cache_bridgeport_attrs(bridgename)
             applied = self._apply_bridge_port_settings(ifaceobj, bridgename,
                                                        None, stp_running_on,
                                                        mstpd_running)
@@ -385,6 +437,7 @@ class mstpctl(moduleBase):
             return
         if not self._is_bridge(ifaceobj):
             return
+        # we are now here because the ifaceobj is a bridge
         stp = None
         try:
             porterr = False
@@ -419,6 +472,10 @@ class mstpctl(moduleBase):
                stp = self.brctlcmd.get_stp(ifaceobj.name)
             if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
+                # initialize all the mstpctl attributes cache with
+                # the command mstpctl showportdetail bridge json
+                # since we are about to loop over all the ports below
+                self.mstpctlcmd.cache_bridgeport_attrs(ifaceobj.name)
                 self._apply_bridge_settings(ifaceobj)
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
