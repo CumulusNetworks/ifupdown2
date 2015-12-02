@@ -240,7 +240,7 @@ class moduleBase(object):
                         portlist.append(port)
                 regex = 0
             elif glob:
-                for port in self.parse_glob(expr):
+                for port in self.parse_glob(ifacename, expr):
                     portlist.append(port)
                 glob = 0
             else:
