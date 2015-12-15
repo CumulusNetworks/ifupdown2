@@ -1,0 +1,5 @@
+man/ifup.8
+man/ifquery.8
+man/ifreload.8
+man/ifupdown-addons-interfaces.5
+man/interfaces.5
