@@ -134,6 +134,7 @@ class address(moduleBase):
                 if '/' in addr:
                     newaddrs.append(addr)
                     continue
+                newaddr = addr
                 netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
                 if netmask:
                     prefixlen = IPNetwork('%s' %addr +
