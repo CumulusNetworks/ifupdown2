@@ -406,9 +406,14 @@ class networkInterfaces():
             return
         self._filestack.append(filename)
         self.logger.info('processing interfaces file %s' %filename)
-        f = open(filename)
-        filedata = f.read()
-        f.close()
+        try:
+            f = open(filename)
+            filedata = f.read()
+            f.close()
+        except Exception, e:
+            self.logger.warn('error processing file %s (%s)',
+                             filename, str(e))
+            return
         self.read_filedata(filedata)
         self._filestack.pop()
 
