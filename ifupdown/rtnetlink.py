@@ -587,7 +587,6 @@ class BridgeVlanInfo(Structure):
     _fields_ = [
         ('flags', c_uint16),
         ('vid', c_uint16),
-        ('vid_end', c_uint16),
     ]
 
 class Ifinfomsg(Nlmsg):

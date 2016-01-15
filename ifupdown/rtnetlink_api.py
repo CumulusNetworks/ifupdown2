@@ -198,7 +198,7 @@ class rtnetlinkApi(RtNetlink):
         self.logger.info('rtnetlink: bridge vlan add vid %s %s %s dev %s %s'
                          %(vid, 'untagged' if untagged else '',
                            'pvid' if pvid else '', dev,
-                           'self' if self else ''))
+                           'self' if not master else ''))
         if ifupdownmain.ifupdownFlags.DRYRUN:
             return
         try:
@@ -218,7 +218,7 @@ class rtnetlinkApi(RtNetlink):
         ifm = Ifinfomsg(AF_BRIDGE, ifi_index=ifindex)
         rtas = {IFLA_AF_SPEC: {
                     IFLA_BRIDGE_FLAGS: flags,
-                    IFLA_BRIDGE_VLAN_INFO : BridgeVlanInfo(vflags, int(vid), int(vid))
+                    IFLA_BRIDGE_VLAN_INFO : BridgeVlanInfo(vflags, int(vid))
                   }
                }
         if add:
