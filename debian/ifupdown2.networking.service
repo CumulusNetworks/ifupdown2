@@ -1,0 +1,16 @@
+[Unit]
+Description=Cumulus Linux networking initialization
+After=switchd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+SyslogIdentifier=networking
+TimeoutSec=60s
+TimeoutStopSec=30s
+ExecStart=/sbin/start-networking start
+ExecStop=/sbin/start-networking stop
+ExecReload=/sbin/start-networking reload
+
+[Install]
+WantedBy=basic.target network.target
