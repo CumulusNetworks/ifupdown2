@@ -585,6 +585,9 @@ class iproute2(utilsBase):
     def get_vxlandev_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
+    def link_get_linkinfo_attrs(self, ifacename):
+        return self._cache_get('link', [ifacename, 'linkinfo'])
+
     def link_get_mtu(self, ifacename):
         return self._cache_get('link', [ifacename, 'mtu'])
 
@@ -600,13 +603,17 @@ class iproute2(utilsBase):
                                              %ifacename)
         return address
 
-    def link_create(self, ifacename, type, link=None):
+    def link_create(self, ifacename, type, attrs={}):
+        """ generic link_create function """
         if self.link_exists(ifacename):
             return
         cmd = 'link add'
-        if link:
-            cmd += ' link %s' %link
         cmd += ' name %s type %s' %(ifacename, type)
+        if attrs:
+            for k, v in attrs.iteritems():
+                cmd += ' %s' %k
+                if v:
+                    cmd += ' %s' %v
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
@@ -622,6 +629,17 @@ class iproute2(utilsBase):
         else:
             self.exec_command('ip %s' %cmd)
         self._cache_invalidate()
+
+    def link_get_master(self, ifacename):
+        sysfs_master_path = '/sys/class/net/%s/master' %ifacename
+        if os.path.exists(sysfs_master_path):
+            link_path = os.readlink(sysfs_master_path)
+            if link_path:
+                return os.path.basename(link_path)
+            else:
+                return None
+        else:
+            return self._cache_get('link', [ifacename, 'master'])
 
     def bridge_port_vids_add(self, bridgeportname, vids):
         [self.exec_command('bridge vlan add vid %s dev %s'
