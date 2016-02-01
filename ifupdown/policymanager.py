@@ -43,7 +43,7 @@ class policymanager():
         # the defaults_policy is checked first
         user_files = glob.glob('/etc/network/ifupdown2/policy.d/*.json')
         # grab the default module files
-        default_files = glob.glob('/var/lib/ifupdownaddons/policy.d/*.json')
+        default_files = glob.glob('/var/lib/ifupdown2/policy.d/*.json')
         # keep an array of defaults indexed by module name
         self.system_policy_array = {}
         for filename in default_files:
