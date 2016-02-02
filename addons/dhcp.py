@@ -8,6 +8,7 @@ try:
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
+    import ifupdown.policymanager as policymanager
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.iproute2 import iproute2
@@ -30,6 +31,10 @@ class dhcp(moduleBase):
                              ifaceobj.name)
             return
         try:
+            nowait = policymanager.policymanager_api.get_attr_default(
+                module_name='dhcp', attr='nowait')
+            nowait = not str(nowait).lower() in [ "false", "f", "no",  "n", "o",
+                                                  "off", "disabled", "0", "0.0" ]
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
                 try:
@@ -37,7 +42,7 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop(ifaceobj.name)
                 except:
                     pass
-                self.dhclientcmd.start(ifaceobj.name)
+                self.dhclientcmd.start(ifaceobj.name, nowait=nowait)
             elif ifaceobj.addr_family == 'inet6':
                 accept_ra = ifaceobj.get_attr_value_first('accept_ra')
                 if accept_ra:
@@ -53,7 +58,7 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop6(ifaceobj.name)
                     except:
                         pass
-                self.dhclientcmd.start6(ifaceobj.name)
+                self.dhclientcmd.start6(ifaceobj.name, nowait=nowait)
         except Exception, e:
             self.log_error(str(e))
 
