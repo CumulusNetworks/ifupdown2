@@ -106,25 +106,25 @@ class policymanager():
             # looks for user specified value
             val = self.user_policy_array[module_name]['iface_defaults'][ifname][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
         try:
             # failing that, there may be a user default for all intefaces
             val = self.user_policy_array[module_name]['defaults'][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
         try:
             # failing that, look for  system setting for the interface
             val = self.system_policy_array[module_name]['iface_defaults'][ifname][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
         try:
             # failing that, look for  system setting for all interfaces
             val = self.system_policy_array[module_name]['defaults'][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
 
         # could not find any system or user default so return Non
@@ -135,7 +135,7 @@ class policymanager():
         get_attr_default: Addon modules must use one of two types of access methods to
         the default configs.   In this method, we expect the default to be in
 
-        [module][attr] 
+        [module]['defaults'][attr] 
 
         We first check the user_policy_array and return that value. But if
         the user did not specify an override, we use the system_policy_array.
@@ -143,14 +143,20 @@ class policymanager():
         if (not attr or not module_name):
             return None
         # users can specify defaults to override the systemwide settings
-        # look for user specific interface attribute iface_defaults first
+        # look for user specific attribute defaults first
         val = None
-        if self.user_policy_array.get(module_name):
-            val = self.user_policy_array[module_name].get(attr)
-
-        if not val:
-            if self.system_policy_array.get(module_name):
-                val = self.system_policy_array[module_name].get(attr)
+        try:
+            # looks for user specified value
+            val = self.user_policy_array[module_name]['defaults'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
+        try:
+            # failing that, look for system setting
+            val = self.system_policy_array[module_name]['defaults'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
 
         return val
 

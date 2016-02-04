@@ -42,7 +42,7 @@ class dhclient(utilsBase):
                    '%s' %ifacename]
         self.subprocess_check_call(cmd)
 
-    def start(self, ifacename, nowait=False):
+    def start(self, ifacename, wait=True):
         if os.path.exists('/sbin/dhclient3'):
             cmd = ['/sbin/dhclient3', '-pf',
                    '/run/dhclient.%s.pid' %ifacename,
@@ -52,7 +52,7 @@ class dhclient(utilsBase):
             cmd = ['/sbin/dhclient', '-pf', '/run/dhclient.%s.pid' %ifacename,
                    '-lf', '/var/lib/dhcp/dhclient.%s.leases' %ifacename,
                    '%s' %ifacename]
-        if nowait:
+        if not wait:
             cmd.append('-nw')
         self.subprocess_check_call(cmd)
 
@@ -69,12 +69,12 @@ class dhclient(utilsBase):
                    '%s' %ifacename]
         self.subprocess_check_call(cmd)
 
-    def start6(self, ifacename, nowait=False):
+    def start6(self, ifacename, wait=True):
         cmd = ['dhclient', '-6', '-pf',
                 '/run/dhclient6.%s.pid' %ifacename, '-lf',
                 '/var/lib/dhcp/dhclient.%s.leases ' %ifacename,
                 '%s' %ifacename]
-        if nowait:
+        if not wait:
             cmd.append('-nw')
         self.subprocess_check_call(cmd)
 

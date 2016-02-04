@@ -31,10 +31,9 @@ class dhcp(moduleBase):
                              ifaceobj.name)
             return
         try:
-            nowait = policymanager.policymanager_api.get_attr_default(
-                module_name='dhcp', attr='nowait')
-            nowait = not str(nowait).lower() in [ "false", "f", "no",  "n", "o",
-                                                  "off", "disabled", "0", "0.0" ]
+            dhcp_wait = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__, attr='dhcp-wait')
+            wait = not str(dhcp_wait).lower() == "no"
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
                 try:
@@ -42,7 +41,7 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop(ifaceobj.name)
                 except:
                     pass
-                self.dhclientcmd.start(ifaceobj.name, nowait=nowait)
+                self.dhclientcmd.start(ifaceobj.name, wait=wait)
             elif ifaceobj.addr_family == 'inet6':
                 accept_ra = ifaceobj.get_attr_value_first('accept_ra')
                 if accept_ra:
@@ -58,7 +57,7 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop6(ifaceobj.name)
                     except:
                         pass
-                self.dhclientcmd.start6(ifaceobj.name, nowait=nowait)
+                self.dhclientcmd.start6(ifaceobj.name, wait=wait)
         except Exception, e:
             self.log_error(str(e))
 
