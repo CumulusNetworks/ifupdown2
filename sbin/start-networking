@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This overrides /etc/init.d/networking
+# This replaces the old init.d script, and is run from the networking.service
 # Only has start, stop, reload, because that's all systemd has.
 # restart is implemented in systemd by stop then start.
 
