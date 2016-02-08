@@ -147,7 +147,7 @@ class address(moduleBase):
                         'preferred-lifetime']:
                     aval = ifaceobj.get_attr_value_n(a, addr_index)
                     if aval:
-                        attrs['broadcast'] = aval
+                        attrs[a] = aval
 
                 if attrs:
                     newaddr_attrs[newaddr]= attrs
