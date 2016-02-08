@@ -397,7 +397,6 @@ class bondutil(utilsBase):
         if not os.path.exists(sysfs_bonding_masters):
             self.logger.debug('loading bonding driver')
             self.load_bonding_module()
-            return True
         self.write_file(sysfs_bonding_masters, '+' + bondname)
         self._cache_update([bondname], {})
 
