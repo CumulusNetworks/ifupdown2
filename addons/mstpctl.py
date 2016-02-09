@@ -153,8 +153,8 @@ class mstpctl(moduleBase):
     # XXX: This can be encoded in the modules dict above
     _attrs_map = OrderedDict([('mstpctl-treeprio' , 'treeprio'),
                   ('mstpctl-ageing' , 'ageing'),
-                  ('mstpctl-maxage' , 'maxage'),
                   ('mstpctl-fdelay' , 'fdelay'),
+                  ('mstpctl-maxage' , 'maxage'),
                   ('mstpctl-maxhops' , 'maxhops'),
                   ('mstpctl-txholdcount' , 'txholdcount'),
                   ('mstpctl-forcevers', 'forcevers'),
