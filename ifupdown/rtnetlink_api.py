@@ -105,6 +105,21 @@ class rtnetlinkApi(RtNetlink):
         token = self.request(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK, ifm, rtas)
         self.process_wait([token])
 
+    def link_set_protodown(self, ifname, state):
+        flags = 0
+        self.logger.info('rtnetlink: setting link %s protodown %s' %(ifname, state))
+        if ifupdownmain.ifupdownFlags.DRYRUN:
+            return
+
+        protodown = 1 if state == "on" else 0
+
+        ifm = Ifinfomsg(AF_UNSPEC)
+        rtas = {IFLA_IFNAME : ifname,
+                IFLA_PROTO_DOWN : protodown}
+
+        token = self.request(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK, ifm, rtas)
+        self.process_wait([token])
+
     def link_set_hwaddress(self, ifname, hwaddress):
         flags = 0
         self.logger.info('rtnetlink: setting link hwaddress %s %s' %(ifname, hwaddress))

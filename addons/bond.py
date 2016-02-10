@@ -151,6 +151,13 @@ class bond(moduleBase):
         else:
             return None
 
+    def _is_clag_bond(self, ifaceobj):
+        if ifaceobj.get_attr_value_first('bond-slaves'):
+            attrval = ifaceobj.get_attr_value_first('clag-id')
+            if attrval and attrval != '0':
+                return True
+        return False
+
     def fetch_attr(self, ifaceobj, attrname):
         attrval = ifaceobj.get_attr_value_first(attrname)
         # grab the defaults from the policy file in case the
@@ -239,6 +246,8 @@ class bond(moduleBase):
         if not self.PERFMODE:
             runningslaves = self.bondcmd.get_slaves(ifaceobj.name);
 
+        clag_bond = self._is_clag_bond(ifaceobj)
+
         for slave in Set(slaves).difference(Set(runningslaves)):
             if not self.PERFMODE and not self.ipcmd.link_exists(slave):
                     self.log_warn('%s: skipping slave %s, does not exist'
@@ -248,6 +257,10 @@ class bond(moduleBase):
             if self.ipcmd.is_link_up(slave):
                rtnetlink_api.rtnl_api.link_set(slave, "down")
                link_up = True
+            # If clag bond place the slave in a protodown state; clagd
+            # will protoup it when it is ready
+            if clag_bond:
+                rtnetlink_api.rtnl_api.link_set_protodown(slave, "on")
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
@@ -258,10 +271,12 @@ class bond(moduleBase):
                     pass
 
         if runningslaves:
-            # Delete active slaves not in the new slave list
-            [ self.bondcmd.remove_slave(ifaceobj.name, s)
-                    for s in runningslaves if s not in slaves ]
-
+            for s in runningslaves:
+                if s not in slaves:
+                    self.bondcmd.remove_slave(ifaceobj.name, s)
+                    if clag_bond:
+                        rtnetlink_api.rtnl_api.link_set_protodown(s, "off")
+                    
     def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
         slaves = self.bondcmd.get_slaves(ifaceobj.name)
         if not slaves:

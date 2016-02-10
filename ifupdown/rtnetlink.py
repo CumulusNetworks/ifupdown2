@@ -168,7 +168,7 @@ class Nlmsg(Structure):
 
     def rta_uint8(self, rta, value=None):
         data = RTA_DATA(rta)
-        if value:
+        if value is not None:
             c_uint8.from_address(data).value = value
             rta.rta_len = RTA_LENGTH(sizeof(c_uint8))
             return rta.rta_len
@@ -183,6 +183,15 @@ class Nlmsg(Structure):
             return rta.rta_len
 	else:
             return c_uint16.from_address(data).value
+
+    def rta_sint32(self, rta, value=None):
+        data = RTA_DATA(rta)
+        if value is not None:
+            c_int32.from_address(data).value = value
+            rta.rta_len = RTA_LENGTH(sizeof(c_int32))
+            return rta.rta_len
+        else:
+            return c_int32.from_address(data).value
 
     def rta_uint32(self, rta, value=None):
         data = RTA_DATA(rta)
@@ -545,8 +554,17 @@ IFLA_AF_SPEC = 26
 IFLA_GROUP = 27             # Group the device belongs to
 IFLA_NET_NS_FD = 28
 IFLA_EXT_MASK = 29          # Extended info mask, VFs, etc
-IFLA_MAX = 29
-
+IFLA_PROMISCUITY = 30
+IFLA_NUM_TX_QUEUES = 31
+IFLA_NUM_RX_QUEUES = 32
+IFLA_CARRIER = 33
+IFLA_PHYS_PORT_ID = 34
+IFLA_CARRIER_CHANGES = 35
+IFLA_PHYS_SWITCH_ID = 36
+IFLA_LINK_NETNSID = 37
+IFLA_PHYS_PORT_NAME = 38
+IFLA_PROTO_DOWN = 39
+IFLA_MAX = 40
 
 # IFLA_LINKINFO attributes
 IFLA_INFO_UNSPEC = 0
@@ -666,6 +684,16 @@ class Ifinfomsg(Nlmsg):
             IFLA_GROUP: self.rta_none,
             IFLA_NET_NS_FD: self.rta_none,
             IFLA_EXT_MASK: self.rta_none,
+            IFLA_PROMISCUITY: self.rta_uint32,
+            IFLA_NUM_TX_QUEUES: self.rta_uint32,
+            IFLA_NUM_RX_QUEUES: self.rta_uint32,
+            IFLA_CARRIER: self.rta_uint8,
+            IFLA_PHYS_PORT_ID: self.rta_uint8_array,
+            IFLA_CARRIER_CHANGES: self.rta_uint32,
+            IFLA_PHYS_SWITCH_ID: self.rta_uint8_array,
+            IFLA_LINK_NETNSID: self.rta_sint32,
+            IFLA_PHYS_PORT_NAME: self.rta_string,
+            IFLA_PROTO_DOWN: self.rta_uint8,
         }
         return fns;
 
@@ -701,6 +729,16 @@ class Ifinfomsg(Nlmsg):
             IFLA_GROUP: self.rta_none,
             IFLA_NET_NS_FD: self.rta_none,
             IFLA_EXT_MASK: self.rta_none,
+            IFLA_PROMISCUITY: self.rta_uint32,
+            IFLA_NUM_TX_QUEUES: self.rta_uint32,
+            IFLA_NUM_RX_QUEUES: self.rta_uint32,
+            IFLA_CARRIER: self.rta_uint8,
+            IFLA_PHYS_PORT_ID: self.rta_uint8_array,
+            IFLA_CARRIER_CHANGES: self.rta_uint32,
+            IFLA_PHYS_SWITCH_ID: self.rta_uint8_array,
+            IFLA_LINK_NETNSID: self.rta_sint32,
+            IFLA_PHYS_PORT_NAME: self.rta_string,
+            IFLA_PROTO_DOWN: self.rta_uint8,
         }
         return fns.get(rta_type)
 
