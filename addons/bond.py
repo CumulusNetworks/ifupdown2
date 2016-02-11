@@ -82,24 +82,24 @@ class bond(moduleBase):
                          {'help' : 'slave priority for lacp fall back',
                           'compat' : True,
                           'example' : ['bond-lacp-fallback-priority swp1=1 swp2=1 swp3=2']},
-                     'bond-lacp-bypass-allow':
-                         {'help' : 'allow lacp bypass',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-bypass-allow 0']},
-                     'bond-lacp-bypass-period':
-                         {'help' : 'grace period (seconds) for lacp bypass',
-                          'validrange' : ['0', '900'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-bypass-period 100']},
-                     'bond-lacp-bypass-priority':
-                         {'help' : 'slave priority for lacp bypass',
-                          'example' : ['bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2']},
-                     'bond-lacp-bypass-all-active':
-                         {'help' : 'allow all slaves to be active in lacp bypass irrespective of priority',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-bypass-all-active 1']},
+                     #'bond-lacp-bypass-allow':
+                     #    {'help' : 'allow lacp bypass',
+                     #     'validvals' : ['0', '1'],
+                     #     'default' : '0',
+                     #     'example' : ['bond-lacp-bypass-allow 0']},
+                     #'bond-lacp-bypass-period':
+                     #    {'help' : 'grace period (seconds) for lacp bypass',
+                     #     'validrange' : ['0', '900'],
+                     #     'default' : '0',
+                     #     'example' : ['bond-lacp-bypass-period 100']},
+                     #'bond-lacp-bypass-priority':
+                     #    {'help' : 'slave priority for lacp bypass',
+                     #     'example' : ['bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2']},
+                     #'bond-lacp-bypass-all-active':
+                     #    {'help' : 'allow all slaves to be active in lacp bypass irrespective of priority',
+                     #     'validvals' : ['0', '1'],
+                     #     'default' : '0',
+                     #     'example' : ['bond-lacp-bypass-all-active 1']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
