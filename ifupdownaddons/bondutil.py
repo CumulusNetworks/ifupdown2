@@ -49,12 +49,14 @@ class bondutil(utilsBase):
             linkCache.set_attr([bondname, 'linkinfo', 'ad_sys_mac_addr'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_mac_addr'
                                        %bondname))
+            linkCache.set_attr([bondname, 'linkinfo', 'lacp_bypass'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/lacp_bypass'
+                                       %bondname).split()[1])
             map(lambda x: linkCache.set_attr([bondname, 'linkinfo', x],
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
-                        'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period', 
-                        'lacp_bypass_all_active'])
+                        'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period'])
         except Exception, e:
             pass
 
@@ -142,7 +144,7 @@ class bondutil(utilsBase):
                 if ((attrname not in ['lacp_rate',
                                       'lacp_bypass_allow',
                                       'lacp_bypass_period',
-                                      'lacp_bypass_all_active']) or
+                                      'lacp_bypass']) or
                     ('mode', '802.3ad') in attrdict.items()):
                     self.write_file('/sys/class/net/%s/bonding/%s'
                                     %(bondname, attrname), attrval)
@@ -312,24 +314,24 @@ class bondutil(utilsBase):
         return prio_str
 
     def set_lacp_fallback_all_active(self, bondname, useprio, prehook=None, posthook=None):
-        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_all_active'], 
-                              lacp_bypass_all_active)):
+        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass'],
+                              lacp_bypass)):
             return
         if prehook:
             prehook(bondname)
         try:
             self.write_file('/sys/class/net/%s' %bondname +
-                            '/bonding/lacp_bypass_all_active', useprio)
+                            '/bonding/lacp_bypass', useprio)
         except:
             raise
         finally:
             if posthook:
                 posthook(bondname)
             self._cache_update([bondname, 'linkinfo',
-                               'lacp_bypass_all_active'], useprio)
+                               'lacp_bypass'], useprio)
 
     def get_lacp_fallback_all_active(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_all_active'])
+        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass'])
 
     def get_ad_sys_mac_addr(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'ad_sys_mac_addr'])

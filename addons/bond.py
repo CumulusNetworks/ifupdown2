@@ -95,11 +95,11 @@ class bond(moduleBase):
                      #'bond-lacp-bypass-priority':
                      #    {'help' : 'slave priority for lacp bypass',
                      #     'example' : ['bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2']},
-                     #'bond-lacp-bypass-all-active':
-                     #    {'help' : 'allow all slaves to be active in lacp bypass irrespective of priority',
-                     #     'validvals' : ['0', '1'],
-                     #     'default' : '0',
-                     #     'example' : ['bond-lacp-bypass-all-active 1']},
+                     'bond-lacp-bypass-all-active':
+                         {'help' : 'allow all slaves to be active in lacp bypass irrespective of priority',
+                          'validvals' : ['0', '1'],
+                          'default' : '0',
+                          'example' : ['bond-lacp-bypass-all-active 1']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
@@ -206,7 +206,7 @@ class bond(moduleBase):
                                  ('bond-lacp-fallback-allow', 'lacp_bypass_allow'),
                                  ('bond-lacp-fallback-period', 'lacp_bypass_period'),
                                  ('bond-lacp-bypass-allow', 'lacp_bypass_allow'),
-                                 ('bond-lacp-bypass-all-active', 'lacp_bypass_all_active'),
+                                 ('bond-lacp-bypass-all-active', 'lacp_bypass'),
                                  ('bond-lacp-bypass-period', 'lacp_bypass_period')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
