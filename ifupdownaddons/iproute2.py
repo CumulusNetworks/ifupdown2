@@ -666,7 +666,7 @@ class iproute2(utilsBase):
 
     def bridge_port_vids_get_all(self):
         brvlaninfo = {}
-        bridgeout = self.exec_command('/sbin/bridge vlan show')
+        bridgeout = self.exec_command('/sbin/bridge -c vlan show')
         if not bridgeout: return brvlaninfo
         brvlanlines = bridgeout.splitlines()
         brportname=None
