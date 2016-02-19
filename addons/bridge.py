@@ -603,9 +603,6 @@ class bridge(moduleBase):
                 if self._is_running_stp_state_on(ifaceobj.name):
                    self.brctlcmd.set_stp(ifaceobj.name, 'no')
 
-            if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
-               self.write_file('/sys/class/net/%s/bridge/vlan_filtering'
-                       %ifaceobj.name, '1')
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
             bridgeattrs = { k:v for k,v in
@@ -1007,6 +1004,13 @@ class bridge(moduleBase):
                 self.ipcmd.link_create(ifaceobj.name, 'bridge')
         except Exception, e:
             raise Exception(str(e))
+
+        try:
+            if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+                self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1', False, "bridge")
+        except Exception, e:
+            raise Exception(str(e))
+
         try:
             self._add_ports(ifaceobj)
         except Exception, e:

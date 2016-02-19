@@ -369,12 +369,15 @@ class iproute2(utilsBase):
     def link_down(self, ifacename):
         self._link_set_ifflag(ifacename, 'DOWN')
 
-    def link_set(self, ifacename, key, value=None, force=False):
+    def link_set(self, ifacename, key, value=None, force=False, type=None):
         if not force:
             if (key not in ['master', 'nomaster'] and
                 self._cache_check('link', [ifacename, key], value)):
                 return
-        cmd = 'link set dev %s %s' %(ifacename, key)
+        cmd = 'link set dev %s' %ifacename
+        if type:
+            cmd += ' type %s' %type
+        cmd += ' %s' %key
         if value:
             cmd += ' %s' %value
         if self.ipbatch:
