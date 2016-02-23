@@ -7,6 +7,7 @@
 import os
 import atexit
 from ifupdown.iface import *
+import ifupdown.policymanager as policymanager
 import ifupdownaddons
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
@@ -20,6 +21,10 @@ class vrf(moduleBase):
                          {'help' : 'vrf device table id. key to ' +
                                    'creating a vrf device',
                           'example': ['vrf-table-id 1']},
+                    'vrf-default-route':
+                         {'help' : 'vrf device default route ' +
+                                   'to avoid communication outside the vrf device',
+                          'example': ['vrf-default-route yes/no']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
                           'example': ['vrf blue']}}}
@@ -225,11 +230,29 @@ class vrf(moduleBase):
         except Exception, e:
             self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
 
+
+    def _up_vrf_default_route(self, ifaceobj,  vrf_table):
+        vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
+        if not vrf_default_route:
+            vrf_default_route = policymanager.policymanager_api.get_attr_default(
+            module_name=self.__class__.__name__, attr='vrf-default-route')
+        if not vrf_default_route:
+            return
+        if str(vrf_default_route).lower() == "yes":
+            try:
+                self.exec_command('ip route add table %s unreachable default' %vrf_table)
+            except OSError, e:
+                if e.errno != 17:
+                    raise
+                pass
+
+
     def _up(self, ifaceobj):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
                 self._up_vrf_dev(ifaceobj, vrf_table)
+                self._up_vrf_default_route(ifaceobj, vrf_table)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
@@ -267,7 +290,7 @@ class vrf(moduleBase):
 
     def _query_check_vrf_slave(self, ifaceobj, ifaceobjcurr, vrf):
         try:
-            master = self.ipcmd.link_get_master(ifacename)
+            master = self.ipcmd.link_get_master(ifaceobj.name)
             if not master or master != vrf:
                 ifaceobjcurr.update_config_with_status('vrf', master, 1)
             else:
@@ -317,14 +340,14 @@ class vrf(moduleBase):
         try:
             kind = self.ipcmd.link_get_kind(ifaceobjrunning.name)
             if kind == 'vrf':
-                vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
+                vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobjrunning.name)
                 if vrfdev_attrs:
                     running_table = vrfdev_attrs.get('table')
                     if running_table:
                         ifaceobjrunning.update_config('vrf-table',
                                                       running_table)
             elif kind == 'vrf_slave':
-                vrf = self.link_get_master(ifaceobjrunning.name)
+                vrf = self.ipcmd.link_get_master(ifaceobjrunning.name)
                 if vrf:
                     ifaceobjrunning.update_config('vrf', vrf)
         except Exception, e:

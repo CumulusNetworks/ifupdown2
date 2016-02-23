@@ -96,6 +96,10 @@ class iproute2(utilsBase):
                 elif citems[i] == 'vrf' and citems[i+1] == 'table':
                     vattrs = {'table' : citems[i+2]}
                     linkattrs['linkinfo'] = vattrs
+                    linkattrs['kind'] = 'vrf'
+                    break
+                elif citems[i] == 'vrf_slave':
+                    linkattrs['kind'] = 'vrf_slave'
                     break
             #linkattrs['alias'] = self.read_file_oneline(
             #            '/sys/class/net/%s/ifalias' %ifname)
