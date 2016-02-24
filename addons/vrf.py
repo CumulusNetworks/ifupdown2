@@ -260,6 +260,15 @@ class vrf(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ipcmd.link_create(ifaceobj.name, 'vrf',
                                        {'table' : '%s' %vrf_table})
+            else:
+                # if the device exists, check if table id is same
+                vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
+                if vrfdev_attrs:
+                   running_table = vrfdev_attrs.get('table', None)
+                   if vrf_table != running_table:
+                       self.log_error("cannot change vrf table id,"
+                                      " running table id %s is different from config id %s)"
+                                      %(running_table, vrf_table))
             self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
             self._add_vrf_rules(ifaceobj.name, vrf_table)
             self._add_vrf_slaves(ifaceobj)
@@ -281,7 +290,6 @@ class vrf(moduleBase):
                 if e.errno != 17:
                     raise
                 pass
-
 
     def _up(self, ifaceobj):
         try:
