@@ -5,6 +5,7 @@
 #
 
 import os
+import glob
 from collections import OrderedDict
 from utilsbase import *
 from systemutils import *
@@ -827,3 +828,12 @@ class iproute2(utilsBase):
             self.logger.debug('ip_route_get_dev: failed .. %s' %str(e))
             pass
         return None
+
+    def link_get_lowers(self, ifacename):
+        try:
+            lowers = glob.glob("/sys/class/net/%s/lower_*" %ifacename)
+            if not lowers:
+                return []
+            return [os.path.basename(l).strip("lower_") for l in lowers]
+        except:
+            return []

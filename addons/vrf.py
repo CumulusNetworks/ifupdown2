@@ -9,6 +9,7 @@ import atexit
 from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
 import ifupdownaddons
+import ifupdown.rtnetlink_api as rtnetlink_api
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
@@ -118,15 +119,20 @@ class vrf(moduleBase):
             return True
         return False
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_upper_ifacenames(self, ifaceobj, ifacenames_all=None):
         """ Returns list of interfaces dependent on ifaceobj """
 
+        vrf_table = ifaceobj.get_attr_value_first('vrf-table')
+        if vrf_table:
+            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
+            ifaceobj.link_kind |= ifaceLinkKind.VRF
         vrf_iface_name = ifaceobj.get_attr_value_first('vrf')
         if not vrf_iface_name:
             return None
+        ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
         return [vrf_iface_name]
 
-    def get_dependent_ifacenames_running(self, ifaceobj):
+    def get_upper_ifacenames_running(self, ifaceobj):
         return None
 
     def _get_iproute2_vrf_table(self, vrf_dev_name):
@@ -156,11 +162,12 @@ class vrf(moduleBase):
                              %(table_id, str(e)))
             pass
 
-    def _up_vrf_slave(self, ifaceobj, vrf):
+    def _up_vrf_slave(self, ifacename, vrfname):
         try:
-            self.ipcmd.link_set(ifaceobj.name, 'master', vrf)
+            if self.ipcmd.link_exists(vrfname):
+                self.ipcmd.link_set(ifacename, 'master', vrfname)
         except Exception, e:
-            self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
+            self.logger.warn('%s: %s' %(ifacename, str(e)))
 
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
@@ -216,6 +223,34 @@ class vrf(moduleBase):
                                      vrf_table)
             self.exec_command(rule_cmd)
 
+    def _add_vrf_slaves(self, ifaceobj):
+        running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+        config_slaves = ifaceobj.lowerifaces
+
+        add_slaves = set(config_slaves).difference(set(running_slaves))
+        del_slaves = set(running_slaves).difference(set(config_slaves))
+        if add_slaves:
+            for s in add_slaves:
+                try:
+                    self._up_vrf_slave(s, ifaceobj.name)
+                except Exception, e:
+                    self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+
+        if del_slaves:
+            for s in del_slaves:
+                try:
+                    self._down_vrf_slave(s, ifaceobj.name)
+                except Exception, e:
+                    self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+
+        if ifaceobj.link_type == ifaceLinkType.LINK_MASTER:
+            for s in config_slaves:
+                try:
+                    rtnetlink_api.rtnl_api.link_set(s, "up")
+                except Exception, e:
+                    self.logger.debug('%s: %s: link set up (%s)'
+                                      %(ifaceobj.name, s, str(e)))
+                    pass
 
     def _up_vrf_dev(self, ifaceobj, vrf_table):
         if vrf_table == 'auto':
@@ -227,6 +262,7 @@ class vrf(moduleBase):
                                        {'table' : '%s' %vrf_table})
             self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
             self._add_vrf_rules(ifaceobj.name, vrf_table)
+            self._add_vrf_slaves(ifaceobj)
         except Exception, e:
             self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
 
@@ -256,7 +292,7 @@ class vrf(moduleBase):
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._up_vrf_slave(ifaceobj, vrf)
+                    self._up_vrf_slave(ifaceobj.name, vrf)
         except Exception, e:
             self.log_error(str(e))
 
@@ -265,16 +301,27 @@ class vrf(moduleBase):
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
         try:
             self.ipcmd.link_delete(ifaceobj.name)
+        except Exception, e:
+            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+            pass
+
+        try:
             self._iproute2_vrf_table_entry_del(vrf_table)
+        except Exception, e:
+            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+            pass
+
+        try:
             self._del_vrf_rules(ifaceobj.name, vrf_table)
         except Exception, e:
-            self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
+            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+            pass
 
-    def _down_vrf_slave(self, ifaceobj, vrf):
+    def _down_vrf_slave(self, ifacename, vrf):
         try:
-            self.ipcmd.link_set(ifaceobj.name, 'nomaster')
+            self.ipcmd.link_set(ifacename, 'nomaster')
         except Exception, e:
-            self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
+            self.logger.warn('%s: %s' %(ifacename, str(e)))
 
     def _down(self, ifaceobj):
         try:
@@ -284,7 +331,7 @@ class vrf(moduleBase):
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._down_vrf_slave(ifaceobj, vrf)
+                    self._down_vrf_slave(ifaceobj.name, vrf)
         except Exception, e:
             self.log_warn(str(e))
 

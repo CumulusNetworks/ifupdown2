@@ -432,8 +432,12 @@ class ifupdownMain(ifupdownBase):
         if (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
             ifaceobj.role |= ifaceRole.SLAVE
             ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_PORT
-        if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
-            ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
+        if self._link_master_slave:
+            if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
+                ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
+        else:
+            upperifaceobj.link_type = ifaceLinkType.LINK_NA
+            ifaceobj.link_type = ifaceLinkType.LINK_NA
 	if (ifaceobj.link_kind == ifaceLinkKind.BOND_SLAVE and
 			len(ifaceobj.upperifaces) > 1):
 		self.logger.warn("misconfig..? bond slave \'%s\' is enslaved to multiple interfaces %s" %(ifaceobj.name, str(ifaceobj.upperifaces)))
@@ -487,6 +491,7 @@ class ifupdownMain(ifupdownBase):
         if uifacelist:
            lowerifaceobj.inc_refcnt()
            for ui in uifacelist:
+               self._set_iface_role_n_kind(lowerifaceobj, ui)
                ui.add_to_lowerifaces(lowerifaceobj.name)
 
     def query_lowerifaces(self, ifaceobj, ops, ifacenames, type=None):

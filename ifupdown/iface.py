@@ -55,6 +55,8 @@ class ifaceLinkKind():
     BRIDGE_VLAN_AWARE = 0x10
     BRIDGE_PORT = 0x20
     BOND_SLAVE = 0x40
+    VRF = 0x80
+    VRF_SLAVE = 0x100
 
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0
