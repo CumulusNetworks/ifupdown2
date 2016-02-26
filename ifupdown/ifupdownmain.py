@@ -48,10 +48,7 @@ class ifupdownFlags():
     # Flags
     CACHE_FLAGS = 0x0
 
-class ifupdownMain(ifupdownBase):
-    """ ifupdown2 main class """
-
-    # Flags
+class ifupdownMainFlags():
     WITH_DEPENDS = False
     ALL = False
     IFACE_CLASS = False
@@ -59,10 +56,21 @@ class ifupdownMain(ifupdownBase):
     STATEMANAGER_ENABLE = True
     STATEMANAGER_UPDATE = True
     ADDONS_ENABLE = False
+    DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
+    SCHED_SKIP_CHECK_UPPERIFACES = False
+    CHECK_SHARED_DEPENDENTS = True
 
+class ifacePrivFlags():
     # priv flags to mark iface objects
-    BUILTIN = 0x0001
-    NOCONFIG = 0x0010
+    BUILTIN = False
+    NOCONFIG = False
+
+    def __init__(self, builtin=False, noconfig=False):
+        self.BUILTIN = builtin
+        self.NOCONFIG = noconfig
+    
+class ifupdownMain(ifupdownBase):
+    """ ifupdown2 main class """
 
     scripts_dir='/etc/network'
     addon_modules_dir='/usr/share/ifupdown2/addons'
@@ -155,10 +163,10 @@ class ifupdownMain(ifupdownBase):
                                 ('down', run_down)])
 
     def run_sched_ifaceobj_posthook(self, ifaceobj, op):
-        if ((ifaceobj.priv_flags & self.BUILTIN) or
-            (ifaceobj.priv_flags & self.NOCONFIG)):
+        if (ifaceobj.priv_flags and (ifaceobj.priv_flags.BUILTIN or
+            ifaceobj.priv_flags.NOCONFIG)):
             return
-        if self.STATEMANAGER_UPDATE:
+        if self.flags.STATEMANAGER_UPDATE:
             self.statemanager.ifaceobj_sync(ifaceobj, op)
 
     # ifupdown object interface scheduler pre and posthooks
@@ -189,9 +197,14 @@ class ifupdownMain(ifupdownBase):
         self.DRYRUN = dryrun
         self.NOWAIT = nowait
         self.PERFMODE = perfmode
-        self.WITH_DEPENDS = withdepends
-        self.STATEMANAGER_ENABLE = statemanager_enable
         self.CACHE = cache
+        # Can be used to provide hints for caching
+        self.CACHE_FLAGS = 0x0
+
+        self.flags = ifupdownMainFlags()
+
+        self.flags.WITH_DEPENDS = withdepends
+        self.flags.STATEMANAGER_ENABLE = statemanager_enable
         self.interfacesfile = interfacesfile
         self.interfacesfileiobuf = interfacesfileiobuf
         self.interfacesfileformat = interfacesfileformat
@@ -201,10 +214,8 @@ class ifupdownMain(ifupdownBase):
 
         self.type = ifaceType.UNKNOWN
 
-        # Can be used to provide hints for caching
-        self.CACHE_FLAGS = 0x0
-        self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
-        self.ADDONS_ENABLE = addons_enable
+        self.flags.DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
+        self.flags.ADDONS_ENABLE = addons_enable
 
         # Copy flags into ifupdownFlags
         # XXX: before we transition fully to ifupdownFlags
@@ -221,13 +232,13 @@ class ifupdownMain(ifupdownBase):
         self.module_attrs = {}
         
         self.load_addon_modules(self.addon_modules_dir)
-        if self.COMPAT_EXEC_SCRIPTS:
+        if self.flags.COMPAT_EXEC_SCRIPTS:
             self.load_scripts(self.scripts_dir)
         self.dependency_graph = OrderedDict({})
 
         self._cache_no_repeats = {}
 
-        if self.STATEMANAGER_ENABLE:
+        if self.flags.STATEMANAGER_ENABLE:
             try:
                 self.statemanager = statemanager.statemanager_api
                 self.statemanager.read_saved_state()
@@ -236,7 +247,7 @@ class ifupdownMain(ifupdownBase):
                 self.logger.warning('error reading state (%s)' %str(e))
                 raise
         else:
-            self.STATEMANAGER_UPDATE = False
+            self.flags.STATEMANAGER_UPDATE = False
         self._delay_admin_state = True if self.config.get(
                             'delay_admin_state_change', '0') == '1' else False
         self._delay_admin_state_iface_queue = []
@@ -275,7 +286,7 @@ class ifupdownMain(ifupdownBase):
 
     def get_ifaceobjs_saved(self, ifacename):
         """ Return ifaceobjects from statemanager """
-        if self.STATEMANAGER_ENABLE:
+        if self.flags.STATEMANAGER_ENABLE:
            return self.statemanager.get_ifaceobjs(ifacename)
         else:
            None
@@ -328,7 +339,7 @@ class ifupdownMain(ifupdownBase):
         ifaceobjcurr.name = ifaceobj.name
         ifaceobjcurr.type = ifaceobj.type
         ifaceobjcurr.lowerifaces = ifaceobj.lowerifaces
-        ifaceobjcurr.priv_flags = ifaceobj.priv_flags
+        ifaceobjcurr.priv_flags = copy.deepcopy(ifaceobj.priv_flags)
         ifaceobjcurr.auto = ifaceobj.auto
         self.ifaceobjcurrdict.setdefault(ifaceobj.name,
                                      []).append(ifaceobjcurr)
@@ -373,7 +384,8 @@ class ifupdownMain(ifupdownBase):
         The following are currently considered builtin ifaces:
             - vlan interfaces in the format <ifacename>.<vlanid>
         """
-        return (ifaceobj.priv_flags & self.BUILTIN)
+
+        return (ifaceobj.priv_flags and ifaceobj.priv_flags.BUILTIN)
 
     def is_ifaceobj_noconfig(self, ifaceobj):
         """ Returns true if iface object did not have a user defined config.
@@ -381,7 +393,7 @@ class ifupdownMain(ifupdownBase):
         These interfaces appear only when they are dependents of interfaces
         which have user defined config
         """
-        return (ifaceobj.priv_flags & self.NOCONFIG)
+        return (ifaceobj.priv_flags and ifaceobj.priv_flags.NOCONFIG)
 
     def is_iface_noconfig(self, ifacename):
         """ Returns true if iface has no config """
@@ -401,6 +413,8 @@ class ifupdownMain(ifupdownBase):
                 continue
             check_depends = False
             iobjs = self.get_ifaceobjs(ifacename)
+            if not iobjs:
+                continue
             for i in iobjs:
                 if (i.dependency_type == ifaceDependencyType.MASTER_SLAVE):
                     check_depends = True
@@ -428,21 +442,21 @@ class ifupdownMain(ifupdownBase):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
             applying the following rules:
-                if flag _DELETE_DEPENDENT_IFACES_WITH_NOCONFIG is True:
+                if flag DELETE_DEPENDENT_IFACES_WITH_NOCONFIG is True:
                     we only consider devices whose configuration was
                     specified in the network interfaces file. We delete
                     any interface whose config was not specified except
                     for vlan devices. vlan devices get special treatment.
                     Even if they are not present they are created and added
                     to the ifacesdict
-                elif flag _DELETE_DEPENDENT_IFACES_WITH_NOCONFIG is False:
+                elif flag DELETE_DEPENDENT_IFACES_WITH_NOCONFIG is False:
                     we create objects for all dependent devices that are not
                     present in the ifacesdict
         """
         del_list = []
 
-        if (upperifaceobj.dependency_type ==
-                    ifaceDependencyType.MASTER_SLAVE):
+        if (upperifaceobj.dependency_type == ifaceDependencyType.MASTER_SLAVE
+                and self.flags.CHECK_SHARED_DEPENDENTS):
             self.check_shared_dependents(upperifaceobj, dlist)
 
         for d in dlist:
@@ -451,10 +465,10 @@ class ifupdownMain(ifupdownBase):
                 ni = None
                 if self.is_iface_builtin_byname(d):
                     ni = self.create_n_save_ifaceobj(d,
-                            self.BUILTIN | self.NOCONFIG, True)
-                elif not self._DELETE_DEPENDENT_IFACES_WITH_NOCONFIG:
-                    ni = self.create_n_save_ifaceobj(d, self.NOCONFIG,
-                            True)
+                            ifacePrivFlags(True, True), True)
+                elif not self.flags.DELETE_DEPENDENT_IFACES_WITH_NOCONFIG:
+                    ni = self.create_n_save_ifaceobj(d,
+                                    ifacePrivFlags(False, True), True)
                 else:
                     del_list.append(d)
                 if ni:
@@ -579,6 +593,7 @@ class ifupdownMain(ifupdownBase):
     def _save_iface(self, ifaceobj):
         if self._check_config_no_repeats(ifaceobj):
            return
+        ifaceobj.priv_flags = ifacePrivFlags()
         if not self._link_master_slave:
            ifaceobj.link_type = ifaceLinkType.LINK_NA
         currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
@@ -790,7 +805,7 @@ class ifupdownMain(ifupdownBase):
                                 else ifaceSchedulerFlags.POSTORDER,
                         followdependents=followdependents,
                         skipupperifaces=skipupperifaces,
-                        sort=True if (sort or self.IFACE_CLASS) else False)
+                        sort=True if (sort or self.flags.IFACE_CLASS) else False)
 
     def _render_ifacename(self, ifacename):
         new_ifacenames = []
@@ -914,7 +929,8 @@ class ifupdownMain(ifupdownBase):
         return cenv
 
     def _save_state(self):
-        if not self.STATEMANAGER_ENABLE or not self.STATEMANAGER_UPDATE:
+        if (not self.flags.STATEMANAGER_ENABLE or
+            not self.flags.STATEMANAGER_UPDATE):
             return
         try:
             # Update persistant iface states
@@ -970,11 +986,12 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.IFACE_CLASS = True
-        if not self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
+            self.flags.IFACE_CLASS = True
+        if not self.flags.ADDONS_ENABLE:
+            self.flags.STATEMANAGER_UPDATE = False
         if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
+            self.flags.ALL = True
+            self.flags.WITH_DEPENDS = True
         try:
             iface_read_ret = self.read_iface_config()
         except Exception:
@@ -1011,10 +1028,10 @@ class ifupdownMain(ifupdownBase):
         try:
             self._sched_ifaces(filtered_ifacenames, ops,
                     skipupperifaces=skipupperifaces,
-                    followdependents=True if self.WITH_DEPENDS else False)
+                    followdependents=True if self.flags.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('up')
-            if not self.DRYRUN and self.ADDONS_ENABLE:
+            if not self.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
     def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
@@ -1025,14 +1042,15 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.IFACE_CLASS = True
-        if not self.ADDONS_ENABLE: self.STATEMANAGER_UPDATE = False
+            self.flags.IFACE_CLASS = True
+        if not self.flags.ADDONS_ENABLE:
+            self.flags.STATEMANAGER_UPDATE = False
         if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
+            self.flags.ALL = True
+            self.flags.WITH_DEPENDS = True
         # For down we need to look at old state, unless usecurrentconfig
         # is set
-        if (not usecurrentconfig and self.STATEMANAGER_ENABLE and
+        if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE and
                     self.statemanager.ifaceobjdict):
             # Since we are using state manager objects,
             # skip the updating of state manager objects
@@ -1073,10 +1091,11 @@ class ifupdownMain(ifupdownBase):
 
         try:
             self._sched_ifaces(filtered_ifacenames, ops,
-                    followdependents=True if self.WITH_DEPENDS else False)
+                               followdependents=True
+                               if self.flags.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('down')
-            if not self.DRYRUN and self.ADDONS_ENABLE:
+            if not self.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
     def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
@@ -1087,22 +1106,22 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.IFACE_CLASS = True
-        if self.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
+            self.flags.IFACE_CLASS = True
+        if self.flags.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
-        self.STATEMANAGER_UPDATE = False
+        self.flags.STATEMANAGER_UPDATE = False
         if auto:
             self.logger.debug('setting flag ALL')
-            self.ALL = True
-            self.WITH_DEPENDS = True
+            self.flags.ALL = True
+            self.flags.WITH_DEPENDS = True
 
         if ops[0] == 'query-syntax':
             self._modules_help()
             return
         elif ops[0] == 'query-running':
             # create fake devices to all dependents that dont have config
-            map(lambda i: self.create_n_save_ifaceobj(i, self.NOCONFIG),
-                    ifacenames)
+            map(lambda i: self.create_n_save_ifaceobj(i,
+                                ifacePrivFlags(False, True)), ifacenames)
         else:
             try:
                 self.read_iface_config()
@@ -1138,7 +1157,8 @@ class ifupdownMain(ifupdownBase):
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
         self._sched_ifaces(filtered_ifacenames, ops,
-                           followdependents=True if self.WITH_DEPENDS else False)
+                           followdependents=True
+                           if self.flags.WITH_DEPENDS else False)
 
         if ops[0] == 'query-checkcurr':
             ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames, format)
@@ -1181,7 +1201,7 @@ class ifupdownMain(ifupdownBase):
                 raise Exception()
             return
 
-        if (not usecurrentconfig and self.STATEMANAGER_ENABLE
+        if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):
             already_up_ifacenames = self.statemanager.ifaceobjdict.keys()
 
@@ -1222,8 +1242,8 @@ class ifupdownMain(ifupdownBase):
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
         if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
+            self.flags.ALL = True
+            self.flags.WITH_DEPENDS = True
         if new_ifaceobjdict:
             # and now, ifaceobjdict is back to current config
             self.ifaceobjdict = new_ifaceobjdict
@@ -1234,7 +1254,8 @@ class ifupdownMain(ifupdownBase):
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(interfaces_to_up))
         self._sched_ifaces(interfaces_to_up, upops,
-                followdependents=True if self.WITH_DEPENDS else False)
+                followdependents=True
+                if self.flags.WITH_DEPENDS else False)
         if self.DRYRUN:
             return
         self._save_state()
@@ -1269,11 +1290,14 @@ class ifupdownMain(ifupdownBase):
                 raise Exception()
             return
 
-        if (not usecurrentconfig and self.STATEMANAGER_ENABLE
+        if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):
             # Save a copy of new iface objects and dependency_graph
             new_ifaceobjdict = dict(self.ifaceobjdict)
             new_dependency_graph = dict(self.dependency_graph)
+
+            self.ifaceobjdict = OrderedDict({})
+            self.dependency_graph = OrderedDict({})
 
             # if old state is present, read old state and mark op for 'down'
             # followed by 'up' aka: reload
@@ -1290,6 +1314,16 @@ class ifupdownMain(ifupdownBase):
                                if self._iface_whitelisted(auto, allow,
                                excludepats, i)]
 
+            # generate dependency graph of old interfaces,
+            # This should make sure built in interfaces are
+            # populated. disable check shared dependents as an optimization.
+            # these are saved interfaces and dependency for these
+            # have been checked before they became part of saved state.
+            self.flags.CHECK_SHARED_DEPENDENTS = False 
+            self.populate_dependency_info(upops)
+            self.flags.CHECK_SHARED_DEPENDENTS = True
+
+            # make sure we pick up built-in interfaces
             # if config file had 'ifreload_down_changed' variable
             # set, also look for interfaces that changed to down them
             down_changed = int(self.config.get('ifreload_down_changed', '1'))
@@ -1301,8 +1335,13 @@ class ifupdownMain(ifupdownBase):
             #   - interfaces that were changed between the last and current
             #     config
             ifacedownlist = []
-            for ifname in old_filtered_ifacenames:
+            for ifname in self.ifaceobjdict.keys():
                 lastifaceobjlist = self.ifaceobjdict.get(ifname)
+                if not self.is_ifaceobj_builtin(lastifaceobjlist[0]):
+                    # if interface is not built-in and is not in
+                    # old filtered ifacenames
+                    if ifname not in old_filtered_ifacenames:
+                        continue
                 objidx = 0
                 # If interface is not present in the new file
                 # append it to the down list
@@ -1320,6 +1359,7 @@ class ifupdownMain(ifupdownBase):
                 # ifacedownlist. But we will be cautious here 
                 # and just print a warning
                 if (self.is_ifaceobj_noconfig(newifaceobjlist[0]) and
+                    not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
                     lastifaceobjlist[0].is_config_present()):
                     self.logger.warn('%s: misconfig ? removed but still exists as a dependency of %s' %(newifaceobjlist[objidx].name,
                          str(newifaceobjlist[objidx].upperifaces)))
@@ -1344,9 +1384,18 @@ class ifupdownMain(ifupdownBase):
                                   %str(ifacedownlist))
                 # reinitialize dependency graph 
                 self.dependency_graph = OrderedDict({})
+
                 # Generate dependency info for old config
                 self.populate_dependency_info(downops, ifacedownlist)
                 try:
+                    # XXX: Hack to skip checking upperifaces during down.
+                    # the dependency list is not complete here
+                    # and we dont want to down the upperiface.
+                    # Hence during reload, set  this to true.
+                    # This is being added to avoid a failure in
+                    # scheduler._check_upperifaces when we are dowing
+                    # a builtin bridge port 
+                    self.flags.SCHED_SKIP_CHECK_UPPERIFACES = True
                     self._sched_ifaces(ifacedownlist, downops,
                                        followdependents=False,
                                        sort=True)
@@ -1354,6 +1403,7 @@ class ifupdownMain(ifupdownBase):
                     self.logger.error(str(e))
                     pass
                 finally:
+                    self.flags.SCHED_SKIP_CHECK_UPPERIFACES = False
                     self._process_delay_admin_state_queue('down')
             else:
                 self.logger.debug('no interfaces to down ..')
@@ -1364,8 +1414,8 @@ class ifupdownMain(ifupdownBase):
             return
 
         if auto:
-            self.ALL = True
-            self.WITH_DEPENDS = True
+            self.flags.ALL = True
+            self.flags.WITH_DEPENDS = True
         # and now, we are back to the current config in ifaceobjdict
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
@@ -1374,7 +1424,8 @@ class ifupdownMain(ifupdownBase):
                          %str(new_filtered_ifacenames))
         try:
             self._sched_ifaces(new_filtered_ifacenames, upops,
-                    followdependents=True if self.WITH_DEPENDS else False)
+                    followdependents=True
+                    if self.flags.WITH_DEPENDS else False)
         except Exception, e:
             self.logger.error(str(e))
             pass
@@ -1423,7 +1474,7 @@ class ifupdownMain(ifupdownBase):
                     continue
                 ifaceobj.dump_raw(self.logger)
                 print '\n'
-                if self.WITH_DEPENDS and not self.ALL:
+                if self.flags.WITH_DEPENDS and not self.flags.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     self.print_ifaceobjs_raw(dlist)
@@ -1437,7 +1488,7 @@ class ifupdownMain(ifupdownBase):
                     (running and not ifaceobj.is_config_present())):
                     continue
                 ifaceobjs.append(ifaceobj)
-                if self.WITH_DEPENDS and not self.ALL:
+                if self.flags.WITH_DEPENDS and not self.flags.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     self._get_ifaceobjs_pretty(dlist, ifaceobjs, running)
@@ -1473,7 +1524,7 @@ class ifupdownMain(ifupdownBase):
                 if self.is_ifaceobj_noconfig(ifaceobj):
                     continue
                 ifaceobjs.append(ifaceobj)
-                if self.WITH_DEPENDS and not self.ALL:
+                if self.flags.WITH_DEPENDS and not self.flags.ALL:
                     dlist = ifaceobj.lowerifaces
                     if not dlist: continue
                     dret = self._get_ifaceobjscurr_pretty(dlist, ifaceobjs)

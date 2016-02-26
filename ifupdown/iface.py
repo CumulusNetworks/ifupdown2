@@ -316,7 +316,7 @@ class iface():
         """iface status str (string representing the status) """
         self.flags = 0x0
         """iface flags """
-        self.priv_flags = 0x0
+        self.priv_flags = None
         """iface module flags dictionary with module name: flags"""
         self.module_flags = {}
         """iface priv flags. can be used by the external object manager """
@@ -551,7 +551,7 @@ class iface():
         self.linkstate = None
         self.env = None
         self.role = ifaceRole.UNKNOWN
-        self.priv_flags = 0
+        self.priv_flags = None
         self.module_flags = {}
         self.raw_config = []
         self.flags |= self._PICKLED
