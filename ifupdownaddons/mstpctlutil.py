@@ -74,10 +74,14 @@ class mstpctlutil(utilsBase):
         '''
         self.mstpctl_bridgeport_attrs_dict = {}
         self.mstpctl_bridgeport_attrs_dict[bridgename] = {}
-        showall_output = self.subprocess_check_output(['/sbin/mstpctl',
-                         'showportdetail', bridgename, 'json']).strip('\n')
-        if showall_output == None or showall_output == '':
+        try:
+            showall_output = self.subprocess_check_output(['/sbin/mstpctl',
+                         'showportdetail', bridgename, 'json'])
+        except:
+            pass
+        if not showall_output or showall_output == '':
             return
+        showall_output = showall_output.strip('\n')
         mstpctl_bridge_cache = json.loads(showall_output)
         for portname in mstpctl_bridge_cache.keys():
             # we will ignore the portid for now and just index
