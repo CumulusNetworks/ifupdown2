@@ -66,40 +66,11 @@ class bond(moduleBase):
                          {'help' : '802.3ad system mac address',
                           'default' : '00:00:00:00:00:00',
                          'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00']},
-                     'bond-lacp-fallback-allow':
-                         {'help' : 'allow lacp fall back',
-                          'compat' : True,
+                     'bond-lacp-bypass-allow':
+                         {'help' : 'allow lacp bypass',
                           'validvals' : ['0', '1'],
                           'default' : '0',
-                          'example' : ['bond-lacp-fallback-allow 0']},
-                     'bond-lacp-fallback-period':
-                         {'help' : 'grace period (seconds) for lacp fall back',
-                          'compat' : True,
-                          'validrange' : ['0', '100'],
-                          'default' : '90',
-                          'example' : ['bond-lacp-fallback-period 100']},
-                     'bond-lacp-fallback-priority':
-                         {'help' : 'slave priority for lacp fall back',
-                          'compat' : True,
-                          'example' : ['bond-lacp-fallback-priority swp1=1 swp2=1 swp3=2']},
-                     #'bond-lacp-bypass-allow':
-                     #    {'help' : 'allow lacp bypass',
-                     #     'validvals' : ['0', '1'],
-                     #     'default' : '0',
-                     #     'example' : ['bond-lacp-bypass-allow 0']},
-                     #'bond-lacp-bypass-period':
-                     #    {'help' : 'grace period (seconds) for lacp bypass',
-                     #     'validrange' : ['0', '900'],
-                     #     'default' : '0',
-                     #     'example' : ['bond-lacp-bypass-period 100']},
-                     #'bond-lacp-bypass-priority':
-                     #    {'help' : 'slave priority for lacp bypass',
-                     #     'example' : ['bond-lacp-bypass-priority swp1=1 swp2=1 swp3=2']},
-                     'bond-lacp-bypass-all-active':
-                         {'help' : 'allow all slaves to be active in lacp bypass irrespective of priority',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-bypass-all-active 1']},
+                          'example' : ['bond-lacp-bypass-allow 0']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
@@ -190,11 +161,6 @@ class bond(moduleBase):
                         ' not present or set to \'0\'')
         elif policy_default_val:
             return policy_default_val
-        elif attrname in ['bond-lacp-bypass-allow', 'bond-lacp-bypass-all-active', 'bond-lacp-bypass-period']:
-            # For some attrs, set default values
-            optiondict = self.get_mod_attr(attrname)
-            if optiondict:
-                return optiondict.get('default')
         return attrval
 
     def _apply_master_settings(self, ifaceobj):
@@ -210,11 +176,7 @@ class bond(moduleBase):
                                  ('bond-num-unsol-na' , 'num_unsol_na'),
                                  ('bond-ad-sys-mac-addr' , 'ad_sys_mac_addr'),
                                  ('bond-ad-sys-priority' , 'ad_sys_priority'),
-                                 ('bond-lacp-fallback-allow', 'lacp_bypass_allow'),
-                                 ('bond-lacp-fallback-period', 'lacp_bypass_period'),
-                                 ('bond-lacp-bypass-allow', 'lacp_bypass_allow'),
-                                 ('bond-lacp-bypass-all-active', 'lacp_bypass'),
-                                 ('bond-lacp-bypass-period', 'lacp_bypass_period')])
+                                 ('bond-lacp-bypass-allow', 'lacp_bypass')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
@@ -277,47 +239,12 @@ class bond(moduleBase):
                     if clag_bond:
                         rtnetlink_api.rtnl_api.link_set_protodown(s, "off")
                     
-    def _apply_slaves_lacp_bypass_prio(self, ifaceobj):
-        slaves = self.bondcmd.get_slaves(ifaceobj.name)
-        if not slaves:
-           return
-        attrval = ifaceobj.get_attrs_value_first(['bond-lacp-bypass-priority',
-                                'bond-lacp-fallback-priority'])
-        if attrval:
-            portlist = self.parse_port_list(ifaceobj.name, attrval)
-            if not portlist:
-                self.log_warn('%s: could not parse \'%s %s\''
-                              %(ifaceobj.name, attrname, attrval))
-                return
-            for p in portlist:
-                try:
-                    (port, val) = p.split('=')
-                    if port not in slaves:
-                        self.log_warn('%s: skipping slave %s, does not exist' 
-                                      %(ifaceobj.name, port))
-                        continue
-                    slaves.remove(port)
-                    self.bondcmd.set_lacp_fallback_priority(
-                                            ifaceobj.name, port, val)
-                except Exception, e:
-                    self.log_warn('%s: failed to set lacp_fallback_priority %s (%s)'
-                                  %(ifaceobj.name, port, str(e)))
-
-        for p in slaves:
-            try:
-                self.bondcmd.set_lacp_fallback_priority(ifaceobj.name, p, '0')
-            except Exception, e:
-                self.log_warn('%s: failed to clear lacp_bypass_priority %s (%s)'
-                              %(ifaceobj.name, p, str(e)))
-
-
     def _up(self, ifaceobj):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.bondcmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
-            self._apply_slaves_lacp_bypass_prio(ifaceobj)
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
@@ -342,13 +269,6 @@ class bond(moduleBase):
         if not ifaceattrs: return
         runningattrs = self._query_running_attrs(ifaceobj.name)
 
-        # backward compat change
-        runningattrs.update({'bond-lacp-fallback-allow': runningattrs.get(
-                                                    'bond-lacp-bypass-allow'),
-                          'bond-lacp-fallback-period': runningattrs.get(
-                                                    'bond-lacp-bypass-period'),
-                          'bond-lacp-fallback-priority': runningattrs.get(
-                                                'bond-lacp-bypass-priority')})
         for k in ifaceattrs:
             v = ifaceobj.get_attr_value_first(k)
             if not v:
@@ -360,14 +280,6 @@ class bond(moduleBase):
             if not rv:
                 ifaceobjcurr.update_config_with_status(k, 'None', 1)
             else:
-                if (k == 'bond-lacp-bypass-priority' or
-                    k == 'bond-lacp-fallback-priority'):
-                    prios = v.split()
-                    prios.sort()
-                    prio_str = ' '.join(prios)
-                    ifaceobjcurr.update_config_with_status(k, rv,
-                                    1 if prio_str != rv else 0)
-                    continue
                 ifaceobjcurr.update_config_with_status(k, rv,
                                                        1 if v != rv else 0)
         runningslaves = runningattrs.get('bond-slaves')
@@ -401,13 +313,7 @@ class bond(moduleBase):
                      'bond-xmit-hash-policy' :
                             self.bondcmd.get_xmit_hash_policy(bondname),
                      'bond-lacp-bypass-allow' :
-                            self.bondcmd.get_lacp_fallback_allow(bondname),
-                     'bond-lacp-bypass-period' :
-                            self.bondcmd.get_lacp_fallback_period(bondname),
-                     'bond-lacp-bypass-priority' :
-                            self.bondcmd.get_lacp_fallback_priority(bondname),
-                     'bond-lacp-bypass-all-active' :
-                            self.bondcmd.get_lacp_fallback_all_active(bondname)}
+                            self.bondcmd.get_lacp_bypass_allow(bondname)}
         slaves = self.bondcmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves
