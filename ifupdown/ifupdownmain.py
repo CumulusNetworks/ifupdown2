@@ -482,7 +482,14 @@ class ifupdownMain(ifupdownBase):
         for d in del_list:
             dlist.remove(d)
 
-    def query_dependents(self, ifaceobj, ops, ifacenames, type=None):
+    def preprocess_upperiface(self, lowerifaceobj, ulist, ops):
+        uifacelist = self.get_ifaceobjs(ulist[0])
+        if uifacelist:
+           lowerifaceobj.inc_refcnt()
+           for ui in uifacelist:
+               ui.add_to_lowerifaces(lowerifaceobj.name)
+
+    def query_lowerifaces(self, ifaceobj, ops, ifacenames, type=None):
         """ Gets iface dependents by calling into respective modules """
         ret_dlist = []
 
@@ -507,6 +514,29 @@ class ifupdownMain(ifupdownBase):
             if dlist: ret_dlist.extend(dlist)
         return list(set(ret_dlist))
 
+    def query_upperifaces(self, ifaceobj, ops, ifacenames, type=None):
+        """ Gets iface upperifaces by calling into respective modules """
+        ret_ulist = []
+
+        # Get upperifaces for interface by querying respective modules
+        for module in self.modules.values():
+            try:
+                if ops[0] == 'query-running':
+                    if (not hasattr(module,
+                        'get_upper_ifacenames_running')):
+                        continue
+                    ulist = module.get_upper_ifacenames_running(ifaceobj)
+                else:
+                    if (not hasattr(module, 'get_upper_ifacenames')):
+                        continue
+                    ulist = module.get_upper_ifacenames(ifaceobj, ifacenames)
+            except Exception, e:
+                self.logger.warn('%s: error getting upper interfaces (%s)'
+                                 %(ifaceobj.name, str(e)))
+                ulist = None
+                pass
+            if ulist: ret_ulist.extend(ulist)
+        return list(set(ret_ulist))
 
     def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """
@@ -514,35 +544,48 @@ class ifupdownMain(ifupdownBase):
         if not ifacenames:
             ifacenames = self.ifaceobjdict.keys()
 
+
         iqueue = deque(ifacenames)
         while iqueue:
             i = iqueue.popleft()
             # Go through all modules and find dependent ifaces
             dlist = None
+            ulist = None
             ifaceobjs = self.get_ifaceobjs(i)
             if not ifaceobjs:
                 continue
-            already_processed = False
+            dependents_processed = False
 
             # Store all dependency info in the first ifaceobj
             # but get dependency info from all ifaceobjs
             ifaceobj = ifaceobjs[0]
             for iobj in ifaceobjs:
+                ulist = self.query_upperifaces(iobj, ops, ifacenames)
                 if iobj.lowerifaces:
-                    already_processed = True
+                    dependents_processed = True
                     break
-                dlist = self.query_dependents(iobj, ops, ifacenames)
+                dlist = self.query_lowerifaces(iobj, ops, ifacenames)
                 if dlist:
                    break
-            if already_processed:
+            if ulist:
+                self.preprocess_upperiface(ifaceobj, ulist, ops)
+                ifaceobj.add_to_upperifaces(ulist)
+            if dependents_processed:
                 continue
             if dlist:
                 self.preprocess_dependency_list(ifaceobj,
                                                 dlist, ops)
                 ifaceobj.lowerifaces = dlist
                 [iqueue.append(d) for d in dlist]
-            if not self.dependency_graph.get(i):
-                self.dependency_graph[i] = dlist
+            #if not self.dependency_graph.get(i):
+            #    self.dependency_graph[i] = dlist
+
+        for i in self.ifaceobjdict.keys():
+            iobj = self.get_ifaceobj_first(i)
+            if iobj.lowerifaces:
+                self.dependency_graph[i] = iobj.lowerifaces
+            else:
+                self.dependency_graph[i] = []
 
         if not self.blacklisted_ifaces_present:
             return

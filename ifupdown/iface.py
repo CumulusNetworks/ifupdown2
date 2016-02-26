@@ -398,6 +398,14 @@ class iface():
         else:
             self.upperifaces = [upperifacename]
 
+    def add_to_lowerifaces(self, lowerifacename):
+        """ add to the list of lowerifaces """
+        if self.lowerifaces:
+            if lowerifacename not in self.lowerifaces:
+                self.lowerifaces.append(lowerifacename)
+        else:
+            self.lowerifaces = [lowerifacename]
+
     def get_attr_value(self, attr_name):
         """ add to the list of upperifaces """
         return self.config.get(attr_name)
