@@ -74,21 +74,21 @@ class iproute2(utilsBase):
                 elif citems[i] == 'vxlan' and citems[i+1] == 'id':
                     linkattrs['kind'] = 'vxlan'
                     vattrs = {'vxlanid' : citems[i+2],
-                              'svcnode' : [],
+                              'svcnode' : None,
                               'remote'  : [],
                               'ageing' : citems[i+2],
                               'learning': 'on'}
                     for j in range(i+2, len(citems)):
                         if citems[j] == 'local':
                             vattrs['local'] = citems[j+1]
-                        elif citems[j] == 'svcnode':
-                            vattrs['svcnode'].append(citems[j+1])
+                        elif citems[j] == 'remote':
+                            vattrs['svcnode'] = citems[j+1]
                         elif citems[j] == 'ageing':
                             vattrs['ageing'] = citems[j+1]
                         elif citems[j] == 'nolearning':
                             vattrs['learning'] = 'off'
                     # get vxlan peer nodes
-                    peers = self.get_vxlan_peers(ifname)
+                    peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
                     if peers:
                         vattrs['remote'] = peers
                     linkattrs['linkinfo'] = vattrs
@@ -482,7 +482,7 @@ class iproute2(utilsBase):
             self.exec_command('ip %s' %cmd)
         self._cache_update([name], {})
 
-    def get_vxlan_peers(self, dev):
+    def get_vxlan_peers(self, dev, svcnodeip):
         cmd = 'bridge fdb show brport %s' % dev
         cur_peers = []
         try:
@@ -493,7 +493,7 @@ class iproute2(utilsBase):
                 ppat = re.compile('\s+dst\s+(\d+.\d+.\d+.\d+)\s+')
                 for l in output.split('\n'):
                     m = ppat.search(l)
-                    if m:
+                    if m and m.group(1) != svcnodeip:
                         cur_peers.append(m.group(1))
             except:
                 self.logger.warn('error parsing ip link output')
@@ -506,17 +506,16 @@ class iproute2(utilsBase):
 
     def link_create_vxlan(self, name, vxlanid,
                           localtunnelip=None,
-                          svcnodeips=None,
+                          svcnodeip=None,
                           remoteips=None,
                           learning='on',
                           ageing=None,
                           anycastip=None):
-        if svcnodeips and remoteips:
+        if svcnodeip and remoteips:
             raise Exception("svcnodeip and remoteip is mutually exclusive")
         args = ''
-        if svcnodeips:
-            for s in svcnodeips:
-                args += ' svcnode %s' %s
+        if svcnodeip:
+            args += ' remote %s' %svcnodeip
         if ageing:
             args += ' ageing %s' %ageing
         if learning == 'off':
@@ -532,8 +531,8 @@ class iproute2(utilsBase):
                 if anycastip and running_localtunnelip and anycastip == running_localtunnelip:
                     localtunnelip = running_localtunnelip
                 running_svcnode = vxlanattrs.get('svcnode')
-                if running_svcnode and not svcnodeips:
-                    args += ' svcnode 0.0.0.0'
+                if running_svcnode and not svcnodeip:
+                    args += ' noremote'
         else:
             cmd = 'link add dev %s type vxlan id %s dstport %d' %(name, vxlanid, VXLAN_UDP_PORT)
 
@@ -549,7 +548,7 @@ class iproute2(utilsBase):
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             #figure out the diff for remotes and do the bridge fdb updates
             #only if provisioned by user and not by vxrd
-            cur_peers = set(self.get_vxlan_peers(name))
+            cur_peers = set(self.get_vxlan_peers(name, svcnodeip))
             if remoteips:
                 new_peers = set(remoteips)
                 del_list = cur_peers.difference(new_peers)

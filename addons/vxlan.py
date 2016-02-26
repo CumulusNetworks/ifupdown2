@@ -62,7 +62,7 @@ class vxlan(moduleBase):
         if vxlanid:
             self.ipcmd.link_create_vxlan(ifaceobj.name, vxlanid,
             localtunnelip=ifaceobj.get_attr_value_first('vxlan-local-tunnelip'),
-            svcnodeips=ifaceobj.get_attr_value('vxlan-svcnodeip'),
+            svcnodeip=ifaceobj.get_attr_value_first('vxlan-svcnodeip'),
             remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
             learning=ifaceobj.get_attr_value_first('vxlan-learning'),
             ageing=ifaceobj.get_attr_value_first('vxlan-ageing'),
@@ -117,9 +117,9 @@ class vxlan(moduleBase):
         self._query_check_n_update(ifaceobjcurr, 'vxlan-local-tunnelip',
                                    attrval, running_attrval)
 
-        self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-svcnodeip',
-                       ifaceobj.get_attr_value('vxlan-svcnodeip'),
-                       vxlanattrs.get('svcnode', []))
+        self._query_check_n_update(ifaceobjcurr, 'vxlan-svcnodeip',
+                       ifaceobj.get_attr_value_first('vxlan-svcnodeip'),
+                       vxlanattrs.get('svcnode'))
 
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
@@ -155,8 +155,7 @@ class vxlan(moduleBase):
             ifaceobjrunning.update_config('vxlan-local-tunnelip', attrval)
         attrval = vxlanattrs.get('svcnode')
         if attrval:
-            [ifaceobjrunning.update_config('vxlan-svcnode', a)
-                        for a in attrval]
+            ifaceobjrunning.update_config('vxlan-svcnode', attrval)
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
             attrval = vxlanattrs.get('remote')
