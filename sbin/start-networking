@@ -6,7 +6,10 @@
 
 PATH="/sbin:/bin"
 RUN_DIR="/run/network"
-IFSTATE="$RUN_DIR/ifstate"
+IFSTATE_LOCKFILE="${RUN_DIR}/ifstatelock"
+
+STATE_DIR="/var/tmp/network"
+IFSTATE_FILE="${STATE_DIR}/ifstatenew"
 
 NAME=networking
 
@@ -25,7 +28,7 @@ EXTRA_ARGS=
 
 perf_options() {
     # At bootup lets set perfmode
-    [ -f /var/tmp/network/ifstatenew ] && echo -n "" && return
+    [ -f ${IFSTATE_LOCKFILE} ] && echo -n "" && return
 
     echo -n "--perfmode"
 }
@@ -97,6 +100,9 @@ ifup_hotplug () {
 }
 
 ifupdown_init() {
+	# remove state file at boot
+	[ ! -e ${IFSTATE_LOCKFILE} ] && rm -f ${IFSTATE_FILE}
+
 	[ ! -e /run/network ] && mkdir -p /run/network &>/dev/null
 	[ ! -e /etc/network/run ] && \
 		ln -sf /run/network /etc/network/run &>/dev/null
