@@ -442,6 +442,18 @@ class ifupdownMain(ifupdownBase):
 			len(ifaceobj.upperifaces) > 1):
 		self.logger.warn("misconfig..? bond slave \'%s\' is enslaved to multiple interfaces %s" %(ifaceobj.name, str(ifaceobj.upperifaces)))
 
+    def dump_iface_dependency_info(self):
+        """ debug funtion to print raw dependency 
+        info - lower and upper devices"""
+
+        for ifacename, ifaceobjs in self.ifaceobjdict.iteritems():
+            iobj = ifaceobjs[0]
+            self.logger.info("%s: refcnt: %d, lower: %s, upper: %s" %(ifacename,
+                             self.get_iface_refcnt(ifacename),
+                             str(iobj.lowerifaces) if iobj.lowerifaces else [],
+                             str(iobj.upperifaces) if iobj.upperifaces else []))
+
+
     def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
@@ -487,12 +499,17 @@ class ifupdownMain(ifupdownBase):
             dlist.remove(d)
 
     def preprocess_upperiface(self, lowerifaceobj, ulist, ops):
-        uifacelist = self.get_ifaceobjs(ulist[0])
-        if uifacelist:
-           lowerifaceobj.inc_refcnt()
-           for ui in uifacelist:
-               self._set_iface_role_n_kind(lowerifaceobj, ui)
-               ui.add_to_lowerifaces(lowerifaceobj.name)
+        for u in ulist:
+            if (lowerifaceobj.upperifaces and
+                u in lowerifaceobj.upperifaces):
+                continue
+            lowerifaceobj.add_to_upperifaces(u)
+            uifacelist = self.get_ifaceobjs(u)
+            if uifacelist:
+                for ui in uifacelist:
+                    lowerifaceobj.inc_refcnt()
+                    self._set_iface_role_n_kind(lowerifaceobj, ui)
+                    ui.add_to_lowerifaces(lowerifaceobj.name)
 
     def query_lowerifaces(self, ifaceobj, ops, ifacenames, type=None):
         """ Gets iface dependents by calling into respective modules """
@@ -549,7 +566,6 @@ class ifupdownMain(ifupdownBase):
         if not ifacenames:
             ifacenames = self.ifaceobjdict.keys()
 
-
         iqueue = deque(ifacenames)
         while iqueue:
             i = iqueue.popleft()
@@ -574,7 +590,6 @@ class ifupdownMain(ifupdownBase):
                    break
             if ulist:
                 self.preprocess_upperiface(ifaceobj, ulist, ops)
-                ifaceobj.add_to_upperifaces(ulist)
             if dependents_processed:
                 continue
             if dlist:

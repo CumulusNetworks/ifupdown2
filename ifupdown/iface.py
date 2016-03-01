@@ -595,6 +595,12 @@ class iface():
         else:
             logger.info(indent + 'lowerdevs: None')
 
+        d = self.upperifaces
+        if d:
+            logger.info(indent + 'upperdevs: %s' %str(d))
+        else:
+            logger.info(indent + 'upperdevs: None')
+
         logger.info(indent + 'config: ')
         config = self.config
         if config:
