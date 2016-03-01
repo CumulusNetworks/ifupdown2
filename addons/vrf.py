@@ -103,6 +103,7 @@ class vrf(moduleBase):
         self.last_used_vrf_table = last_used_vrf_table
         self.iproute2_write_vrf_map = False
         atexit.register(self.iproute2_vrf_map_write)
+        self.vrf_fix_local_table = True
 
     def iproute2_vrf_map_write(self):
         if not self.iproute2_write_vrf_map:
@@ -200,24 +201,36 @@ class vrf(moduleBase):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
         ip_rule_cmd = 'ip %s rule add pref %s %s %s table %s' 
+        try:
+            if self.vrf_fix_local_table:
+                self.vrf_fix_local_table = False
+                rule = '0: from all lookup local'
+                if rule in self.ip_rule_cache:
+                    self.exec_command('ip rule del pref 0')
+                    self.exec_command('ip rule add pref 32765 table local')
+        except Exception, e:
+            self.logger.info('%s' %str(e))
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
+        #Example ip rule
+        #200: from all oif blue lookup blue
+        #200: from all iif blue lookup blue
+
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name, vrf_table)
             self.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name, vrf_table)
             self.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
-                                     vrf_table)
+            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name, vrf_table)
             self.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_table)
