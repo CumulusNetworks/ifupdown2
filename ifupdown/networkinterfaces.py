@@ -336,8 +336,8 @@ class networkInterfaces():
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword
-        tmp_str = str.split('-')[0]
-        if tmp_str in self.network_elems.keys():
+        if (str in self.network_elems.keys() or
+            str.split('-')[0] == 'allow'):
             return 1
         return 0
 
