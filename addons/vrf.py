@@ -240,7 +240,8 @@ class vrf(moduleBase):
     def _add_vrf_slaves(self, ifaceobj):
         running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
         config_slaves = ifaceobj.lowerifaces
-
+        if not config_slaves or not running_slaves:
+            return
         add_slaves = set(config_slaves).difference(set(running_slaves))
         del_slaves = set(running_slaves).difference(set(config_slaves))
         if add_slaves:
