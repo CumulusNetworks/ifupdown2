@@ -6,7 +6,6 @@ Documentation=man:interfaces(5) man:ifup(8) man:ifdown(8)
 Type=oneshot
 RemainAfterExit=yes
 SyslogIdentifier=networking
-TimeoutSec=60s
 TimeoutStopSec=30s
 ExecStart=/sbin/start-networking start
 ExecStop=/sbin/start-networking stop
