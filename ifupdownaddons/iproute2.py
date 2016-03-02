@@ -835,6 +835,6 @@ class iproute2(utilsBase):
             lowers = glob.glob("/sys/class/net/%s/lower_*" %ifacename)
             if not lowers:
                 return []
-            return [os.path.basename(l).strip("lower_") for l in lowers]
+            return [os.path.basename(l)[6:] for l in lowers]
         except:
             return []

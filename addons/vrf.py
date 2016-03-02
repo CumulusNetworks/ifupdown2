@@ -201,15 +201,16 @@ class vrf(moduleBase):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
         ip_rule_cmd = 'ip %s rule add pref %s %s %s table %s' 
-        try:
-            if self.vrf_fix_local_table:
-                self.vrf_fix_local_table = False
-                rule = '0: from all lookup local'
-                if rule in self.ip_rule_cache:
+        if self.vrf_fix_local_table:
+            self.vrf_fix_local_table = False
+            rule = '0: from all lookup local'
+            if rule in self.ip_rule_cache:
+                try:
                     self.exec_command('ip rule del pref 0')
                     self.exec_command('ip rule add pref 32765 table local')
-        except Exception, e:
-            self.logger.info('%s' %str(e))
+                except Exception, e:
+                    self.logger.info('%s' %str(e))
+                    pass
 
         #Example ip rule
         #200: from all oif blue lookup blue
