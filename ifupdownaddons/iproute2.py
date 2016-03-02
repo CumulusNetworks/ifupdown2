@@ -67,8 +67,9 @@ class iproute2(utilsBase):
                 if citems[i] == 'mtu': linkattrs['mtu'] = citems[i+1]
                 elif citems[i] == 'state': linkattrs['state'] = citems[i+1]
                 elif citems[i] == 'link/ether': linkattrs['hwaddress'] = citems[i+1]
-                elif citems[i] == 'vlan' and citems[i+1] == 'id':
-                    linkattrs['linkinfo'] = {'vlanid' : citems[i+2]}
+                elif citems[i] == 'vlan':
+                    vidx = citems.index('id')
+                    linkattrs['linkinfo'] = {'vlanid' : citems[vidx+1]}
                     linkattrs['kind'] = 'vlan'
                 elif citems[i] == 'dummy':
                     linkattrs['kind'] = 'dummy'
@@ -590,7 +591,7 @@ class iproute2(utilsBase):
         self.exec_command('ip -6 route add ' + route)
 
     def get_vlandev_attrs(self, ifacename):
-        return (self._cache_get('link', [ifacename, 'linkinfo', 'link']),
+        return (self._cache_get('link', [ifacename, 'link']),
                 self._cache_get('link', [ifacename, 'linkinfo', 'vlanid']))
 
     def get_vxlandev_attrs(self, ifacename):
