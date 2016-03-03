@@ -297,7 +297,13 @@ class address(moduleBase):
                 self.ipcmd.route_del_gateway(ifaceobj.name,
                     ifaceobj.get_attr_value_first('gateway'),
                     ifaceobj.get_attr_value_first('metric'))
-                self.ipcmd.del_addr_all(ifaceobj.name)
+                if ifaceobj.get_attr_value_first('address-purge')=='no':
+                    addrlist = ifaceobj.get_attr_value('address')
+                    for addr in addrlist:
+                        self.ipcmd.addr_del(ifaceobj.name, addr)
+                    #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
+                else:
+                    self.ipcmd.del_addr_all(ifaceobj.name)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
                 self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
