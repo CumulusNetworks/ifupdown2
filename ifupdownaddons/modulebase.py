@@ -334,9 +334,17 @@ class moduleBase(object):
         return [x for x in a if x in b]
 
     def get_mod_attrs(self):
-        """ returns list of all module attrs defined in the module _modinfo dict"""
+        """ returns list of all module attrs defined in the module _modinfo
+            dict
+        """
         try:
-            return self._modinfo.get('attrs').keys()
+            retattrs = []
+            attrsdict = self._modinfo.get('attrs')
+            for attrname, attrvals in attrsdict.iteritems():
+                if not attrvals or attrvals.get('deprecated'):
+                    continue
+                retattrs.append(attrname)
+            return retattrs
         except:
             return None
 

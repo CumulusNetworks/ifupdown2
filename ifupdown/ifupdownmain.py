@@ -683,7 +683,15 @@ class ifupdownMain(ifupdownBase):
                 continue
             attrsdict = mdict.get('attrs')
             try:
-                if attrsdict.get(attrname):
+                a = attrsdict.get(attrname)
+                if a:
+                    if a.get('deprecated'):
+                        newa = a.get('new-attribute')
+                        if newa:
+                            self.logger.warn('attribute %s is deprecated. Use %s instead' %(attrname, newa))
+                        else:
+                            self.logger.warn('attribute %s is deprecated'
+                                             %attrname)
                     return True
             except AttributeError:
                 pass

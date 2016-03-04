@@ -61,11 +61,23 @@ class bond(moduleBase):
                      'bond-ad-sys-priority':
                          {'help' : '802.3ad system priority',
                           'default' : '65535',
-                          'example' : ['bond-ad-sys-priority 65535']},
+                          'example' : ['bond-ad-sys-priority 65535'],
+                          'deprecated' : True,
+                          'new-attribute' : 'bond-ad-actor-sys-prio'},
+                     'bond-ad-actor-sys-prio':
+                         {'help' : '802.3ad system priority',
+                          'default' : '65535',
+                          'example' : ['bond-ad-actor-sys-prio 65535']},
                      'bond-ad-sys-mac-addr':
                          {'help' : '802.3ad system mac address',
                           'default' : '00:00:00:00:00:00',
-                         'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00']},
+                         'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
+                         'deprecated' : True,
+                         'new-attribute' : 'bond-ad-actor-system'},
+                     'bond-ad-actor-system':
+                         {'help' : '802.3ad system mac address',
+                          'default' : '00:00:00:00:00:00',
+                         'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
                      'bond-lacp-bypass-allow':
                          {'help' : 'allow lacp bypass',
                           'validvals' : ['0', '1'],
@@ -174,8 +186,10 @@ class bond(moduleBase):
                                  ('bond-min-links' , 'min_links'),
                                  ('bond-num-grat-arp' , 'num_grat_arp'),
                                  ('bond-num-unsol-na' , 'num_unsol_na'),
-                                 ('bond-ad-sys-mac-addr' , 'ad_sys_mac_addr'),
-                                 ('bond-ad-sys-priority' , 'ad_sys_priority'),
+                                 ('bond-ad-sys-mac-addr' , 'ad_actor_system'),
+                                 ('bond-ad-actor-system' , 'ad_actor_system'),
+                                 ('bond-ad-sys-priority' , 'ad_actor_sys_prio'),
+                                 ('bond-ad-actor-sys-prio' , 'ad_actor_sys_prio'),
                                  ('bond-lacp-bypass-allow', 'lacp_bypass')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
@@ -306,14 +320,18 @@ class bond(moduleBase):
                             self.bondcmd.get_lacp_rate(bondname),
                      'bond-min-links' :
                             self.bondcmd.get_min_links(bondname),
-                     'bond-ad-sys-mac-addr' :
-                            self.bondcmd.get_ad_sys_mac_addr(bondname),
-                     'bond-ad-sys-priority' :
-                            self.bondcmd.get_ad_sys_priority(bondname),
+                     'bond-ad-actor-system' :
+                            self.bondcmd.get_ad_actor_system(bondname),
+                     'bond-ad-actor-sys-prio' :
+                            self.bondcmd.get_ad_actor_sys_prio(bondname),
                      'bond-xmit-hash-policy' :
                             self.bondcmd.get_xmit_hash_policy(bondname),
                      'bond-lacp-bypass-allow' :
-                            self.bondcmd.get_lacp_bypass_allow(bondname)}
+                            self.bondcmd.get_lacp_bypass_allow(bondname),
+                     'bond-num-unsol-na' :
+                            self.bondcmd.get_num_unsol_na(bondname),
+                     'bond-num-grat-arp' :
+                            self.bondcmd.get_num_grat_arp(bondname)}
         slaves = self.bondcmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves

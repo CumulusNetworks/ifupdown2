@@ -43,11 +43,11 @@ class bondutil(utilsBase):
             linkCache.set_attr([bondname, 'linkinfo', 'lacp_rate'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/lacp_rate'
                                        %bondname).split()[1])
-            linkCache.set_attr([bondname, 'linkinfo', 'ad_sys_priority'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_priority'
+            linkCache.set_attr([bondname, 'linkinfo', 'ad_actor_sys_prio'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/ad_actor_sys_prio'
                                        %bondname))
-            linkCache.set_attr([bondname, 'linkinfo', 'ad_sys_mac_addr'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_mac_addr'
+            linkCache.set_attr([bondname, 'linkinfo', 'ad_actor_system'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/ad_actor_system'
                                        %bondname))
             linkCache.set_attr([bondname, 'linkinfo', 'lacp_bypass'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/lacp_bypass'
@@ -270,11 +270,17 @@ class bondutil(utilsBase):
     def get_min_links(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'min_links'])
 
-    def get_ad_sys_mac_addr(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'ad_sys_mac_addr'])
+    def get_ad_actor_system(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'ad_actor_system'])
 
-    def get_ad_sys_priority(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'ad_sys_priority'])
+    def get_ad_actor_sys_prio(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'ad_actor_sys_prio'])
+
+    def get_num_unsol_na(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'num_unsol_na'])
+
+    def get_num_grat_arp(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'num_grat_arp'])
 
     def enslave_slave(self, bondname, slave, prehook=None, posthook=None):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
