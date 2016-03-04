@@ -124,6 +124,15 @@ start)
 	;;
 
 stop)
+	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
+        SYSRESET=0
+        systemctl list-jobs | egrep -q '(shutdown|reboot|halt|poweroff)\.target'
+        [ $? -eq 0 ] && SYSRESET=1
+        if [ $SYSRESET -eq 1 ]; then
+            echo ${NAME}':' "Skipping deconfiguring network interfaces"
+            exit 0
+        fi
+	fi
 	ifupdown_init
 	check_network_file_systems
 	check_network_swap
