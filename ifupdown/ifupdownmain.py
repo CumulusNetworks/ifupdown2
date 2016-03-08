@@ -1390,10 +1390,15 @@ class ifupdownMain(ifupdownBase):
             # populated. disable check shared dependents as an optimization.
             # these are saved interfaces and dependency for these
             # have been checked before they became part of saved state.
-            self.flags.CHECK_SHARED_DEPENDENTS = False 
-            self.populate_dependency_info(upops)
-            self.flags.CHECK_SHARED_DEPENDENTS = True
-
+            try:
+                self.flags.CHECK_SHARED_DEPENDENTS = False 
+                self.populate_dependency_info(upops)
+                self.flags.CHECK_SHARED_DEPENDENTS = True
+            except Exception, e:
+                self.logger.info("error generating dependency graph for "
+                                 "saved interfaces (%s)" %str(e))
+                pass
+            
             # make sure we pick up built-in interfaces
             # if config file had 'ifreload_down_changed' variable
             # set, also look for interfaces that changed to down them
@@ -1457,7 +1462,10 @@ class ifupdownMain(ifupdownBase):
                 self.dependency_graph = OrderedDict({})
 
                 # Generate dependency info for old config
+                self.flags.CHECK_SHARED_DEPENDENTS = False
                 self.populate_dependency_info(downops, ifacedownlist)
+                self.flags.CHECK_SHARED_DEPENDENTS = True
+
                 try:
                     # XXX: Hack to skip checking upperifaces during down.
                     # the dependency list is not complete here
