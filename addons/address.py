@@ -306,7 +306,7 @@ class address(moduleBase):
                     self.ipcmd.del_addr_all(ifaceobj.name)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
-                self.ipcmd.link_set(ifaceobj.name, 'alias', alias)
+                self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
             # XXX hwaddress reset cannot happen because we dont know last
             # address.
 
