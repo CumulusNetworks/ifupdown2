@@ -527,6 +527,16 @@ class iface():
                     if v != dstiface.config.get(k)): return False
         return True
 
+    def squash(self, newifaceobj):
+        """ This squashes the iface object """
+        for attrname, attrlist in newifaceobj.config.iteritems():
+            # if allready present add it to the list
+            # else add it to the end of the dictionary
+            # We need to maintain order.
+            if self.config.get(attrname):
+                self.config[attrname].extend(attrlist)
+            else:
+                self.config.update([(attrname, attrlist)])
 
     def __getstate__(self):
         odict = self.__dict__.copy()

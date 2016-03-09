@@ -262,6 +262,9 @@ class ifupdownMain(ifupdownBase):
                              'state changes will be delayed till the ' +
                              'masters admin state change.')
 
+        self._ifaceobj_squash = True if self.config.get(
+                            'ifaceobj_squash', '0') == '1' else False
+
         # initialize global config object with config passed by the user
         # This makes config available to addon modules
         ifupdownConfig.config = self.config
@@ -661,9 +664,14 @@ class ifupdownMain(ifupdownBase):
            ifaceobj.link_type = ifaceLinkType.LINK_NA
         currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
         if not currentifaceobjlist:
-           self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
-           ifaceobj.flags |= ifaceobj.YOUNGEST_SIBLING
-           return
+            self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
+            if not self._ifaceobj_squash:
+                ifaceobj.flags |= ifaceobj.YOUNGEST_SIBLING
+            return
+        if self._ifaceobj_squash:
+            # squash with old iface object
+            currentifaceobjlist[0].squash(ifaceobj)
+            return
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
