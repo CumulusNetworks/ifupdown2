@@ -99,8 +99,9 @@ class ifaceStatus():
 
     UNKNOWN = 0x1
     SUCCESS = 0x2
-    ERROR = 0x3
-    NOTFOUND = 0x4
+    WARNING = 0x3
+    ERROR = 0x4
+    NOTFOUND = 0x5
 
     @classmethod
     def to_str(cls, state):
@@ -384,7 +385,13 @@ class iface():
     def set_state_n_status(self, state, status):
         """ sets state and status of an interface """
         self.state = state
-        self.status = status
+        if status > self.status:
+            self.status = status
+
+    def set_status(self, status):
+        """ sets status of an interface """
+        if status > self.status:
+            self.status = status
 
     def set_flag(self, flag):
         self.flags |= flag
