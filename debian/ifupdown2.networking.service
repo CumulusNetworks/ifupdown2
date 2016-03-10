@@ -5,6 +5,7 @@ Description=ifupdown2 init script
 Type=oneshot
 ExecStart=/sbin/ifup -a
 ExecStop=/sbin/ifdown -a
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
