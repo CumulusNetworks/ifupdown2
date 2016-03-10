@@ -134,6 +134,10 @@ class ethtool(moduleBase,utilsBase):
         (the default will get set).
         """
         for attr in ['speed', 'duplex', 'autoneg']:
+            configured = ifaceobj.get_attr_value_first('link-%s'%attr)
+            # if there is nothing configured, do not check
+            if not configured:
+                continue
             default = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
@@ -144,13 +148,7 @@ class ethtool(moduleBase,utilsBase):
                 continue
             # autoneg comes from ethtool whereas speed and duplex from /sys/class
             running_attr = self.get_running_attr(attr, ifaceobj)
-
-            configured = ifaceobj.get_attr_value_first('link-%s'%attr)
-            # there is a case where there is no running config or
-            # (there is no default and it is not configured).
-            # In this case, we do nothing (e.g. eth0 has only a
-            # default duplex, lo has nothing)
-            if (not running_attr or (not configured and not default)):
+            if (not running_attr):
                 continue
 
             # we make sure we can get a running value first
