@@ -269,7 +269,8 @@ class vrf(moduleBase):
 
     def _create_cgroup(self, ifaceobj):
         try:
-            self.exec_command('cgcreate -g l3mdev:%s' %ifaceobj.name)
+            if not os.path.exists('/sys/fs/cgroup/l3mdev/%s' %ifaceobj.name):
+                self.exec_command('cgcreate -g l3mdev:%s' %ifaceobj.name)
             self.exec_command('cgset -r l3mdev.master-device=%s %s'
                               %(ifaceobj.name, ifaceobj.name))
         except Exception, e:
@@ -333,9 +334,10 @@ class vrf(moduleBase):
 
     def _delete_cgroup(self, ifaceobj):
         try:
-            self.exec_command('cgdelete -g l3mdev:%s' %ifaceobj.name)
+            if os.path.exists('/sys/fs/cgroup/l3mdev/%s' %ifaceobj.name):
+                self.exec_command('cgdelete -g l3mdev:%s' %ifaceobj.name)
         except Exception, e:
-            self.log_warn('%s: cgroup create failed (%s)\n'
+            self.log_warn('%s: cgroup delete failed (%s)\n'
                           %(ifaceobj.name, str(e)), ifaceobj)
 
     def _down_vrf_dev(self, ifaceobj, vrf_table):
