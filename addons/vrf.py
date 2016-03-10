@@ -267,29 +267,41 @@ class vrf(moduleBase):
                                       %(ifaceobj.name, s, str(e)))
                     pass
 
+    def _create_cgroup(self, ifaceobj):
+        try:
+            self.exec_command('cgcreate -g l3mdev:%s' %ifaceobj.name)
+            self.exec_command('cgset -r l3mdev.master-device=%s %s'
+                              %(ifaceobj.name, ifaceobj.name))
+        except Exception, e:
+            self.log_warn('%s: cgroup create failed (%s)\n'
+                          %(ifaceobj.name, str(e)), ifaceobj)
+
     def _up_vrf_dev(self, ifaceobj, vrf_table):
         if vrf_table == 'auto':
             vrf_table = _get_avail_vrf_table_id(ifaceobj.name)
 
-        try:
-            if not self.ipcmd.link_exists(ifaceobj.name):
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            try:
                 self.ipcmd.link_create(ifaceobj.name, 'vrf',
                                        {'table' : '%s' %vrf_table})
-            else:
-                # if the device exists, check if table id is same
-                vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
-                if vrfdev_attrs:
-                   running_table = vrfdev_attrs.get('table', None)
-                   if vrf_table != running_table:
-                       self.log_error("cannot change vrf table id,"
-                                      " running table id %s is different from config id %s)"
-                                      %(running_table, vrf_table))
+            except Exception, e:
+                self.log_error('%s: create failed (%s)\n'
+                               %(ifaceobj.name, str(e)))
+        else:
+            # if the device exists, check if table id is same
+            vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
+            if vrfdev_attrs:
+                running_table = vrfdev_attrs.get('table', None)
+                if vrf_table != running_table:
+                    self.log_error('%s: cannot change vrf table id,running table id %s is different from config id %s' %(running_table, vrf_table))
+
+        try:
             self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
             self._add_vrf_rules(ifaceobj.name, vrf_table)
             self._add_vrf_slaves(ifaceobj)
+            self._create_cgroup(ifaceobj)
         except Exception, e:
-            self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
-
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)))
 
     def _up_vrf_default_route(self, ifaceobj,  vrf_table):
         vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
@@ -319,6 +331,13 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_error(str(e))
 
+    def _delete_cgroup(self, ifaceobj):
+        try:
+            self.exec_command('cgdelete -g l3mdev:%s' %ifaceobj.name)
+        except Exception, e:
+            self.log_warn('%s: cgroup create failed (%s)\n'
+                          %(ifaceobj.name, str(e)), ifaceobj)
+
     def _down_vrf_dev(self, ifaceobj, vrf_table):
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
@@ -330,6 +349,7 @@ class vrf(moduleBase):
 
         try:
             self._iproute2_vrf_table_entry_del(vrf_table)
+            self._delete_cgroup(ifaceobj)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
