@@ -4,6 +4,8 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import os
+
 try:
     from ipaddr import IPNetwork
     from sets import Set
@@ -306,7 +308,9 @@ class address(moduleBase):
                     self.ipcmd.del_addr_all(ifaceobj.name)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
-                self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
+                filename = '/sys/class/net/%s/ifalias' %ifaceobj.name
+                self.logger.info('Executing echo "" > %s' %filename)
+                os.system('echo "" > %s' %filename)
             # XXX hwaddress reset cannot happen because we dont know last
             # address.
 
