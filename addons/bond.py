@@ -236,7 +236,11 @@ class bond(moduleBase):
             # If clag bond place the slave in a protodown state; clagd
             # will protoup it when it is ready
             if clag_bond:
-                rtnetlink_api.rtnl_api.link_set_protodown(slave, "on")
+                try:
+                    rtnetlink_api.rtnl_api.link_set_protodown(slave, "on")
+                except Exception, e:
+                    self.logger.error('%s: %s: clag bond, switching slave protodown state on: %s'
+                                      %(ifaceobj.name, slave, str(e)))
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
@@ -251,8 +255,12 @@ class bond(moduleBase):
                 if s not in slaves:
                     self.bondcmd.remove_slave(ifaceobj.name, s)
                     if clag_bond:
-                        rtnetlink_api.rtnl_api.link_set_protodown(s, "off")
-                    
+                        try:
+                            rtnetlink_api.rtnl_api.link_set_protodown(s, "off")
+                        except Exception, e:
+                            self.logger.error('%s: %s: clag bond, switching slave protodown state off: %s'
+                                      %(ifaceobj.name, s, str(e)))
+
     def _up(self, ifaceobj):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
