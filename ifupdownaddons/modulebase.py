@@ -34,19 +34,23 @@ class moduleBase(object):
         self.CACHE = kargs.get('cache', False)
         self.CACHE_FLAGS = kargs.get('cacheflags', 0x0)
 
-    def log_warn(self, str):
+    def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
         if not self.ignore_error(str):
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
             self.logger.warn(str)
+            if ifaceobj:
+                ifaceobj.set_status(ifaceStatus.WARNING)
         pass
 
-    def log_error(self, str):
+    def log_error(self, str, ifaceobj=None):
         """ log an err if err str is not one of which we should ignore and raise an exception """
         if not self.ignore_error(str):
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+            if ifaceobj:
+                ifaceobj.set_status(ifaceStatus.ERROR)
             raise Exception(str)
         else:
             pass
