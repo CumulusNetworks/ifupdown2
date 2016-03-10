@@ -175,23 +175,23 @@ class vrf(moduleBase):
         ip_rule_out_format = '%s: from all %s %s lookup %s'
         ip_rule_cmd = 'ip %s rule del pref %s %s %s table %s' 
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name, vrf_table)
             self.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name, vrf_table)
             self.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
                                      vrf_table)
             self.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_table)
