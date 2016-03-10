@@ -319,6 +319,13 @@ class vrf(moduleBase):
                     raise
                 pass
 
+            try:
+                self.exec_command('ip -6 route add table %s unreachable default' %vrf_table)
+            except OSError, e:
+                if e.errno != 17:
+                    raise
+                pass
+
     def _up(self, ifaceobj):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
