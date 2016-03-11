@@ -160,6 +160,36 @@ class policymanager():
 
         return val
 
+    def get_module_globals(self,module_name=None,attr=None):
+        '''
+        get_module_globals: Addon modules must use one of two types of access methods to
+        the default configs.   In this method, we expect the default to be in
+
+        [module]['module_globals'][attr] 
+
+        We first check the user_policy_array and return that value. But if
+        the user did not specify an override, we use the system_policy_array.
+        '''
+        if (not attr or not module_name):
+            return None
+        # users can specify defaults to override the systemwide settings
+        # look for user specific attribute defaults first
+        val = None
+        try:
+            # looks for user specified value
+            val = self.user_policy_array[module_name]['module_globals'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
+        try:
+            # failing that, look for system setting
+            val = self.system_policy_array[module_name]['module_globals'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
+
+        return val
+
     def get_module_default(self,module_name=None):
         '''
         get_module_default: Addon modules can also access the entire config
