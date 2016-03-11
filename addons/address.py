@@ -81,13 +81,8 @@ class address(moduleBase):
            return True
         return False
 
-    def _hwaddress_ether_support(self, hwaddress):
-        if hwaddress.startswith("ether"):
-            hwaddress = hwaddress[5:].strip()
-        return hwaddress
-
     def _process_bridge(self, ifaceobj, up):
-        hwaddress = self._hwaddress_ether_support(ifaceobj.get_attr_value_first('hwaddress'))
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         addrs = ifaceobj.get_attr_value_first('address')
         is_vlan_dev_on_vlan_aware_bridge = False
         is_bridge = self.ipcmd.is_bridge(ifaceobj.name)
@@ -262,11 +257,11 @@ class address(moduleBase):
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
         self.ipcmd.batch_commit()
 
-        hwaddress = self._hwaddress_ether_support(ifaceobj.get_attr_value_first('hwaddress'))
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         if hwaddress:
             running_hwaddress = None
             if not self.PERFMODE: # system is clean
-                running_hwaddress = self._hwaddress_ether_support(self.ipcmd.link_get_hwaddress(ifaceobj.name))
+                running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if hwaddress != running_hwaddress:
                 slave_down = False
                 rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "down")
@@ -368,9 +363,9 @@ class address(moduleBase):
         addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.ipcmd.link_get_mtu)
-        hwaddress = self._hwaddress_ether_support(ifaceobj.get_attr_value_first('hwaddress'))
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         if hwaddress:
-            rhwaddress = self._hwaddress_ether_support(self.ipcmd.link_get_hwaddress(ifaceobj.name))
+            rhwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if not rhwaddress  or rhwaddress != hwaddress:
                ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
                        1)
