@@ -113,7 +113,7 @@ class vrf(moduleBase):
         atexit.register(self.iproute2_vrf_map_write)
         self.vrf_fix_local_table = True
         self.vrf_count = 0
-        self.vrf_cgroup_create = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vf-cgroup-create')
+        self.vrf_cgroup_create = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-cgroup-create')
         if not self.vrf_cgroup_create:
             self.vrf_cgroup_create = False
         elif self.vrf_cgroup_create == 'yes':

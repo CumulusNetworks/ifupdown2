@@ -54,9 +54,10 @@ class policymanager():
                 self.logger.debug('reading %s system policy defaults config' \
                                   % filename)
             except Exception, e:
-                self.logger.debug('could not read %s system policy defaults config' \
+                self.logger.info('could not read %s system policy defaults config' \
                                   % filename)
-                self.logger.debug('    exception is %s' % str(e))
+                self.logger.info('    exception is %s' % str(e))
+
             for module in system_array.keys():
                 if self.system_policy_array.has_key(module):
                     self.logger.debug('warning: overwriting system module %s from file %s' \
@@ -170,6 +171,7 @@ class policymanager():
         We first check the user_policy_array and return that value. But if
         the user did not specify an override, we use the system_policy_array.
         '''
+
         if (not attr or not module_name):
             return None
         # users can specify defaults to override the systemwide settings
