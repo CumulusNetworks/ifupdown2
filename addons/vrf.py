@@ -100,7 +100,7 @@ class vrf(moduleBase):
         self.vrf_table_id_end = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-table-id-end')
         if not self.vrf_table_id_end:
             self.vrf_table_id_end = self.VRF_TABLE_END
-        self.vrf_max_count = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vf-max-count')
+        self.vrf_max_count = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-max-count')
 
         last_used_vrf_table = None
         for t in range(self.vrf_table_id_start,
