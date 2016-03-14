@@ -6,6 +6,7 @@
 
 from sets import Set
 from ifupdown.iface import *
+import ifupdown.policymanager as policymanager
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
@@ -211,6 +212,12 @@ class bridge(moduleBase):
         self._resv_vlan_range =  self._get_reserved_vlan_range()
         self.logger.debug('%s: using reserved vlan range %s'
                   %(self.__class__.__name__, str(self._resv_vlan_range)))
+        default_stp_attr = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__, attr='bridge-stp')
+        if (default_stp_attr and (default_stp_attr == 'on' or default_stp_attr == 'yes')):
+            self.default_stp_on = True
+        else:
+            self.default_stp_on = False
 
     def _is_bridge(self, ifaceobj):
         if ifaceobj.get_attr_value_first('bridge-ports'):
@@ -584,6 +591,8 @@ class bridge(moduleBase):
         """ Returns true if user specified stp state is on, else False """
 
         stp_attr = ifaceobj.get_attr_value_first('bridge-stp')
+        if not stp_attr:
+            return self.default_stp_on
         if (stp_attr and (stp_attr == 'on' or stp_attr == 'yes')):
             return True
         return False
