@@ -293,8 +293,8 @@ class vrf(moduleBase):
             return
         try:
             if not os.path.exists('/sys/fs/cgroup/l3mdev/%s' %ifaceobj.name):
-                self.exec_command('cgcreate -g l3mdev:%s' %ifaceobj.name)
-            self.exec_command('cgset -r l3mdev.master-device=%s %s'
+                self.exec_command('/usr/bin/cgcreate -g l3mdev:%s' %ifaceobj.name)
+            self.exec_command('/usr/bin/cgset -r l3mdev.master-device=%s %s'
                               %(ifaceobj.name, ifaceobj.name))
         except Exception, e:
             self.log_warn('%s: cgroup create failed (%s)\n'
