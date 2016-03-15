@@ -1,8 +1,8 @@
 ifupdown2 (1.0~git20160315-1) unstable; urgency=medium
 
-  * Fixing Debian Bug report - #813046 ifupdown2: No network connection on startup
+  * Fixing Debian Bug report - #813046 ifupdown2: No network connection on boot
   * ifupdownaddons: fix parsing of vlan attributes
-  * networkinterfaces: fix is_keyword to not match attribute names with keywords in them
+  * networkinterfaces: fix is_keyword to not match attribute names with keywords
   * debian: control: add julien as maintainer
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 15 Mar 2016 06:12:40 -0700
