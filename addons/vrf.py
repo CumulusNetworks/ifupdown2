@@ -14,6 +14,9 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
 
+class vrfPrivFlags:
+    PROCESSED = 0x1
+
 class vrf(moduleBase):
     """  ifupdown2 addon module to configure vrfs """
     _modinfo = { 'mhelp' : 'vrf configuration module',
@@ -41,6 +44,7 @@ class vrf(moduleBase):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.bondcmd = None
+        self.name = self.__class__.__name__
         try:
             ip_rules = self.exec_command('/sbin/ip rule show').splitlines()
             self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
@@ -148,6 +152,8 @@ class vrf(moduleBase):
         if not vrf_iface_name:
             return None
         ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
+        ifaceobj.link_kind |= ifaceLinkKind.VRF_SLAVE
+
         return [vrf_iface_name]
 
     def get_upper_ifacenames_running(self, ifaceobj):
@@ -184,10 +190,45 @@ class vrf(moduleBase):
                              %(table_id, str(e)))
             pass
 
-    def _up_vrf_slave(self, ifacename, vrfname):
+    def _handle_dhcp_slaves(self, ifacename, vrfname, ifaceobj,
+                            ifaceobj_getfunc):
+        """ If we have a vrf slave that has dhcp configured, bring up the
+            vrf master now. This is needed because vrf has special handling
+            in dhclient hook which requires the vrf master to be present """
+
+        if (not ifaceobj.addr_method or
+            (ifaceobj.addr_method != 'dhcp' and
+             ifaceobj.addr_method != 'dhcp6')):
+                return
+        vrf_master = ifaceobj.upperifaces[0]
+        if not vrf_master:
+            self.logger.warn('%s: vrf master not found' %ifacename)
+            return
+        if os.path.exists('/sys/class/net/%s' %vrf_master):
+            self.logger.info('%s: vrf master %s exists returning'
+                             %(ifacename, vrf_master))
+            return
+        vrf_master_objs = ifaceobj_getfunc(vrf_master)
+        if not vrf_master_objs:
+            self.logger.warn('%s: vrf master ifaceobj not found' %ifacename)
+            return
+        self.logger.info('%s: bringing up vrf master %s'
+                         %(ifacename, vrf_master))
+        for mobj in vrf_master_objs:
+            vrf_table = mobj.get_attr_value_first('vrf-table')
+            if vrf_table:
+                self._up_vrf_dev(mobj, vrf_table, False)
+        self.ipcmd.link_set(ifacename, 'master', vrfname)
+        return
+
+    def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
+                      ifaceobj_getfunc=None):
         try:
             if self.ipcmd.link_exists(vrfname):
                 self.ipcmd.link_set(ifacename, 'master', vrfname)
+            elif ifaceobj:
+                self._handle_dhcp_slaves(ifacename, vrfname, ifaceobj,
+                                         ifaceobj_getfunc)
         except Exception, e:
             self.logger.warn('%s: %s' %(ifacename, str(e)))
 
@@ -294,14 +335,27 @@ class vrf(moduleBase):
         try:
             if not os.path.exists('/sys/fs/cgroup/l3mdev/%s' %ifaceobj.name):
                 self.exec_command('/usr/bin/cgcreate -g l3mdev:%s' %ifaceobj.name)
+        except Exception, e:
+            self.log_error('%s: cgroup create failed (%s)\n'
+                           %(ifaceobj.name, str(e)), ifaceobj)
+        try:
             self.exec_command('/usr/bin/cgset -r l3mdev.master-device=%s %s'
                               %(ifaceobj.name, ifaceobj.name))
         except Exception, e:
-            self.log_warn('%s: cgroup create failed (%s)\n'
+            self.log_warn('%s: cgset failed (%s)\n'
                           %(ifaceobj.name, str(e)), ifaceobj)
 
-    def _up_vrf_dev(self, ifaceobj, vrf_table):
+    def _set_vrf_dev_processed_flag(self, ifaceobj):
+        ifaceobj.module_flags[self.name] = \
+                             ifaceobj.module_flags.setdefault(self.name, 0) | \
+                                        vrfPrivFlags.PROCESSED
 
+    def _check_vrf_dev_processed_flag(self, ifaceobj):
+        if (ifaceobj.module_flags.get(self.name, 0x0) & vrfPrivFlags.PROCESSED):
+            return True
+        return False
+
+    def _create_vrf_dev(self, ifaceobj, vrf_table):
         if not self.ipcmd.link_exists(ifaceobj.name):
             if vrf_table == 'auto':
                 vrf_table = self._get_avail_vrf_table_id()
@@ -339,24 +393,18 @@ class vrf(moduleBase):
                     self.log_error('%s: cannot change vrf table id,running table id %s is different from config id %s' %(ifaceobj.name,
                                          running_table, vrf_table))
 
-        try:
-            self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
-            self._add_vrf_rules(ifaceobj.name, vrf_table)
-            self._add_vrf_slaves(ifaceobj)
-            self._create_cgroup(ifaceobj)
-        except Exception, e:
-            self.log_error('%s: %s' %(ifaceobj.name, str(e)))
-
-    def _up_vrf_default_route(self, ifaceobj,  vrf_table):
+    def _add_vrf_default_route(self, ifaceobj,  vrf_table):
         vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
         if not vrf_default_route:
             vrf_default_route = policymanager.policymanager_api.get_attr_default(
-            module_name=self.__class__.__name__, attr='vrf-default-route')
+                                    module_name=self.__class__.__name__,
+                                    attr='vrf-default-route')
         if not vrf_default_route:
             return
         if str(vrf_default_route).lower() == "yes":
             try:
-                self.exec_command('ip route add table %s unreachable default' %vrf_table)
+                self.exec_command('ip route add table %s unreachable default'
+                                  %vrf_table)
             except OSError, e:
                 if e.errno != 17:
                     raise
@@ -369,7 +417,26 @@ class vrf(moduleBase):
                     raise
                 pass
 
-    def _up(self, ifaceobj):
+    def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True):
+
+        # if vrf dev is already processed return. This can happen
+        # if we had a dhcp slave. See self._handle_dhcp_slaves
+        if self._check_vrf_dev_processed_flag(ifaceobj):
+            return True
+
+        self._create_vrf_dev(ifaceobj, vrf_table)
+        try:
+            self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
+            self._add_vrf_rules(ifaceobj.name, vrf_table)
+            self._create_cgroup(ifaceobj)
+            if add_slaves:
+                self._add_vrf_slaves(ifaceobj)
+            self._add_vrf_default_route(ifaceobj, vrf_table)
+            self._set_vrf_dev_processed_flag(ifaceobj)
+        except Exception, e:
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)))
+
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
@@ -378,11 +445,11 @@ class vrf(moduleBase):
                                    'creating vrf' %(ifaceobj.name,
                                                     self.vrf_count))
                 self._up_vrf_dev(ifaceobj, vrf_table)
-                self._up_vrf_default_route(ifaceobj, vrf_table)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._up_vrf_slave(ifaceobj.name, vrf)
+                    self._up_vrf_slave(ifaceobj.name, vrf, ifaceobj,
+                                       ifaceobj_getfunc)
         except Exception, e:
             self.log_error(str(e))
 
@@ -422,7 +489,7 @@ class vrf(moduleBase):
         except Exception, e:
             self.logger.warn('%s: %s' %(ifacename, str(e)))
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
@@ -482,7 +549,7 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         try:
             kind = self.ipcmd.link_get_kind(ifaceobjrunning.name)
             if kind == 'vrf':
@@ -515,7 +582,8 @@ class vrf(moduleBase):
         if not self.bondcmd:
             self.bondcmd = bondutil(**flags)
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None,
+            ifaceobj_getfunc=None, **extra_args):
         """ run bond configuration on the interface object passed as argument
 
         Args:
@@ -539,4 +607,4 @@ class vrf(moduleBase):
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
