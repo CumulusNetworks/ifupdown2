@@ -1,4 +1,4 @@
-ifupdown2 (1.0~git20160315-1) unstable; urgency=medium
+ifupdown2 (1.0~git20160316-1) unstable; urgency=medium
 
   * Fixing Debian Bug report - #813046 ifupdown2: No network connection on boot
   * ifupdownaddons: fix parsing of vlan attributes
