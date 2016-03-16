@@ -73,14 +73,8 @@ class address(moduleBase):
            return True
         return False
 
-    def _get_hwaddress(self, ifaceobj):
-        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
-        if hwaddress and hwaddress.startswith("ether"):
-            hwaddress = hwaddress[5:].strip()
-        return hwaddress
-
     def _process_bridge(self, ifaceobj, up):
-        hwaddress = self._get_hwaddress(ifaceobj)
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         addrs = ifaceobj.get_attr_value_first('address')
         is_vlan_dev_on_vlan_aware_bridge = False
         is_bridge = self.ipcmd.is_bridge(ifaceobj.name)
@@ -189,9 +183,7 @@ class address(moduleBase):
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
-        self.ipcmd.batch_commit()
-
-        hwaddress = self._get_hwaddress(ifaceobj)
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         if hwaddress:
             self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
         self.ipcmd.batch_commit()
@@ -272,7 +264,7 @@ class address(moduleBase):
         addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.ipcmd.link_get_mtu)
-        hwaddress = self._get_hwaddress(ifaceobj)
+        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
         if hwaddress:
             rhwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if not rhwaddress  or rhwaddress != hwaddress:
