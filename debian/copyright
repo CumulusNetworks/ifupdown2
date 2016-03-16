@@ -1,6 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ifupdown2
-Upstream-Contact: Roopa Prabhu <roopa@cumulusnetworks.com>, Sam Tannous <stannous@cumulusnetworks.com>
+Upstream-Contact: Roopa Prabhu <roopa@cumulusnetworks.com>, Julien Fortin <julien@cumulusnetworks.com>
 Source: http://www.cumulusnetworks.com
 
 Files: *
