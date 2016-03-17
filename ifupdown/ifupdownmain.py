@@ -1528,6 +1528,7 @@ class ifupdownMain(ifupdownBase):
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
         if not new_ifaceobjdict:
+            self.logger.debug('no interfaces to up')
             return
 
         if auto:
