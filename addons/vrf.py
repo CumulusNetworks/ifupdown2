@@ -412,14 +412,15 @@ class vrf(moduleBase):
         if str(vrf_default_route).lower() == "yes":
             try:
                 self.exec_command('ip route add table %s unreachable default'
-                                  %vrf_table)
+                                  ' metric %d' %(vrf_table, 240))
             except OSError, e:
                 if e.errno != 17:
                     raise
                 pass
 
             try:
-                self.exec_command('ip -6 route add table %s unreachable default' %vrf_table)
+                self.exec_command('ip -6 route add table %s unreachable '
+                                  'default metric %d' %(vrf_table, 240))
             except OSError, e:
                 if e.errno != 17:
                     raise
