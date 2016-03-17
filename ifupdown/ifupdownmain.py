@@ -262,8 +262,17 @@ class ifupdownMain(ifupdownBase):
                              'state changes will be delayed till the ' +
                              'masters admin state change.')
 
+        # squash iface objects for same interface both internal and
+        # external representation. It is off by default.
         self._ifaceobj_squash = True if self.config.get(
                             'ifaceobj_squash', '0') == '1' else False
+
+        # squash iface objects for same interface internal
+        # representation only. External representation as seen by ifquery
+        # will continue to see multiple iface stanzas if it was specified
+        # that way by the user. It is on by default.
+        self._ifaceobj_squash_internal = True if self.config.get(
+                            'ifaceobj_squash_internal', '1') == '1' else False
 
         # initialize global config object with config passed by the user
         # This makes config available to addon modules
@@ -656,6 +665,23 @@ class ifupdownMain(ifupdownBase):
                 self._cache_no_repeats[k] = v
         return False
 
+    def _save_iface_squash(self, ifaceobj):
+        """ squash ifaceobjects belonging to same iface
+        into a single object """
+        if self._check_config_no_repeats(ifaceobj):
+           return
+        ifaceobj.priv_flags = ifacePrivFlags()
+        if not self._link_master_slave:
+           ifaceobj.link_type = ifaceLinkType.LINK_NA
+        currentifaceobjlist = self.ifaceobjdict.get(ifaceobj.name)
+        if not currentifaceobjlist:
+            self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
+            return
+        if ifaceobj.compare(currentifaceobjlist[0]):
+            self.logger.warn('duplicate interface %s found' %ifaceobj.name)
+            return
+        currentifaceobjlist[0].squash(ifaceobj)
+
     def _save_iface(self, ifaceobj):
         if self._check_config_no_repeats(ifaceobj):
            return
@@ -667,10 +693,6 @@ class ifupdownMain(ifupdownBase):
             self.ifaceobjdict[ifaceobj.name]= [ifaceobj]
             if not self._ifaceobj_squash:
                 ifaceobj.flags |= ifaceobj.YOUNGEST_SIBLING
-            return
-        if self._ifaceobj_squash:
-            # squash with old iface object
-            currentifaceobjlist[0].squash(ifaceobj)
             return
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
@@ -728,7 +750,10 @@ class ifupdownMain(ifupdownBase):
                         self.interfacesfileformat,
                         template_engine=self.config.get('template_engine'),
                 template_lookuppath=self.config.get('template_lookuppath'))
-        nifaces.subscribe('iface_found', self._save_iface)
+        if self._ifaceobj_squash or self._ifaceobj_squash_internal:
+            nifaces.subscribe('iface_found', self._save_iface_squash)
+        else:
+            nifaces.subscribe('iface_found', self._save_iface)
         nifaces.subscribe('validateifaceattr',
                           self._iface_configattr_syntax_checker)
         nifaces.subscribe('validateifaceobj', self._ifaceobj_syntax_checker)
@@ -1183,6 +1208,11 @@ class ifupdownMain(ifupdownBase):
         """ query an interface """
 
         self.set_type(type)
+
+        # Let us forget internal squashing when it comes to 
+        # ifquery. It can surprise people relying of ifquery
+        # output
+        self._ifaceobj_squash_internal = False
 
         if allow_classes:
             self.flags.IFACE_CLASS = True
