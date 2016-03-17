@@ -217,7 +217,15 @@ class vrf(moduleBase):
         for mobj in vrf_master_objs:
             vrf_table = mobj.get_attr_value_first('vrf-table')
             if vrf_table:
+                if vrf_table == 'auto':
+                    vrf_table = self._get_avail_vrf_table_id()
+                    if not vrf_table:
+                        self.log_error('%s: unable to get an auto table id'
+                                       %mobj.name)
+                    self.logger.info('%s: table id auto: selected table id %s\n'
+                                     %(mobj.name, vrf_table))
                 self._up_vrf_dev(mobj, vrf_table, False)
+                break
         self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
 
