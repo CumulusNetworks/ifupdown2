@@ -838,3 +838,12 @@ class iproute2(utilsBase):
             return [os.path.basename(l)[6:] for l in lowers]
         except:
             return []
+
+    def link_get_upper(self, ifacename):
+        try:
+            upper = glob.glob("/sys/class/net/%s/upper_*" %ifacename)
+            if not upper:
+                return None
+            return os.path.basename(upper[0])[6:]
+        except:
+            return None

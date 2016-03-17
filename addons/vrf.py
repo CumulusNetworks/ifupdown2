@@ -13,6 +13,7 @@ import ifupdown.rtnetlink_api as rtnetlink_api
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.dhclient import dhclient
 
 class vrfPrivFlags:
     PROCESSED = 0x1
@@ -44,7 +45,19 @@ class vrf(moduleBase):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.bondcmd = None
+        self.dhclientcmd = None
         self.name = self.__class__.__name__
+        if self.PERFMODE:
+            # if perf mode is set, remove vrf map file.
+            # start afresh. PERFMODE is set at boot
+            if os.path.exists(self.iproute2_vrf_filename):
+                try:
+                    self.logger.info('vrf: removing file %s'
+                                     %self.iproute2_vrf_filename)
+                    os.remove(self.iproute2_vrf_filename)
+                except Exception, e:
+                    self.logger.debug('vrf: removing file failed (%s)'
+                                      %str(e))
         try:
             ip_rules = self.exec_command('/sbin/ip rule show').splitlines()
             self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
@@ -190,16 +203,20 @@ class vrf(moduleBase):
                              %(table_id, str(e)))
             pass
 
+    def _is_dhcp_slave(self, ifaceobj):
+        if (not ifaceobj.addr_method or
+            (ifaceobj.addr_method != 'dhcp' and
+             ifaceobj.addr_method != 'dhcp6')):
+                return False
+        return True
+
     def _handle_dhcp_slaves(self, ifacename, vrfname, ifaceobj,
                             ifaceobj_getfunc):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
-
-        if (not ifaceobj.addr_method or
-            (ifaceobj.addr_method != 'dhcp' and
-             ifaceobj.addr_method != 'dhcp6')):
-                return
+        if not self._is_dhcp_slave(ifaceobj):
+            return False
         vrf_master = ifaceobj.upperifaces[0]
         if not vrf_master:
             self.logger.warn('%s: vrf master not found' %ifacename)
@@ -226,14 +243,26 @@ class vrf(moduleBase):
                                      %(mobj.name, vrf_table))
                 self._up_vrf_dev(mobj, vrf_table, False)
                 break
+        self._down_dhcp_slave(ifaceobj)
         self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
+
+    def _down_dhcp_slave(self, ifaceobj):
+        try:
+            self.dhclientcmd.release(ifaceobj.name)
+        except:
+            # ignore any dhclient release errors
+            pass
 
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None):
         try:
             if self.ipcmd.link_exists(vrfname):
-                self.ipcmd.link_set(ifacename, 'master', vrfname)
+                upper = self.ipcmd.link_get_upper(vrfname)
+                if upper and upper != vrfname:
+                    if self._is_dhcp_slave(ifaceobj):
+                        self._down_dhcp_slave(ifaceobj)
+                    self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:
                 self._handle_dhcp_slaves(ifacename, vrfname, ifaceobj,
                                          ifaceobj_getfunc)
@@ -590,6 +619,8 @@ class vrf(moduleBase):
             self.ipcmd = iproute2(**flags)
         if not self.bondcmd:
             self.bondcmd = bondutil(**flags)
+        if not self.dhclientcmd:
+            self.dhclientcmd = dhclient(**flags)
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):
