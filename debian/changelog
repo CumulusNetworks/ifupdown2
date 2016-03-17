@@ -1,9 +1,3 @@
-ifupdown2 (1.0~git20160316-1~bpo8+1) jessie-backports; urgency=medium
-
-  * Rebuild for jessie-backports.
-
- -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 18 Mar 2016 00:29:40 +0100
-
 ifupdown2 (1.0~git20160316-1) unstable; urgency=medium
 
   * Fixing Debian Bug report - #813046 ifupdown2: No network connection on boot
