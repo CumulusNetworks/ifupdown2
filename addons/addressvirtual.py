@@ -156,6 +156,9 @@ class addressvirtual(moduleBase):
                 av_idx += 1
                 continue
 
+            mac = av_attrs[0]
+            if not self.check_mac_address(ifaceobj, mac):
+                continue
             # Create a macvlan device on this device and set the virtual
             # router mac and ip on it
             link_created = False
@@ -164,7 +167,6 @@ class addressvirtual(moduleBase):
                 rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
                                                       ifaceobj.name)
                 link_created = True
-            mac = av_attrs[0]
             ips = av_attrs[1:]
             if mac != 'None':
                 mac = mac.lower()
@@ -236,6 +238,18 @@ class addressvirtual(moduleBase):
             av_idx += 1
         self.ipcmd.batch_commit()
         self._remove_addresses_from_bridge(ifaceobj, hwaddress)
+
+    def check_mac_address(self, ifaceobj, mac):
+        if mac == 'None':
+            return True 
+        mac = mac.lower()
+        try:
+            if int(mac.split(":")[0][1], 16) & 1 :
+                self.logger.error("%s: Multicast bit is set in the virtual mac address '%s'" %(ifaceobj.name, mac))
+                return False
+            return True
+        except Exception, e:
+            return False
 
     def _up(self, ifaceobj):
         address_virtual_list = ifaceobj.get_attr_value('address-virtual')
