@@ -902,7 +902,7 @@ class ifupdownMain(ifupdownBase):
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
                     self.dependency_graph)
-        return ifaceScheduler.sched_ifaces(self, ifacenames, ops,
+        ifaceScheduler.sched_ifaces(self, ifacenames, ops,
                         dependency_graph=self.dependency_graph,
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
@@ -910,6 +910,7 @@ class ifupdownMain(ifupdownBase):
                         followdependents=followdependents,
                         skipupperifaces=skipupperifaces,
                         sort=True if (sort or self.flags.IFACE_CLASS) else False)
+        return ifaceScheduler.get_sched_status()
 
     def _render_ifacename(self, ifacename):
         new_ifacenames = []
@@ -1130,13 +1131,17 @@ class ifupdownMain(ifupdownBase):
             return
 
         try:
-            self._sched_ifaces(filtered_ifacenames, ops,
-                    skipupperifaces=skipupperifaces,
-                    followdependents=True if self.flags.WITH_DEPENDS else False)
+            ret = self._sched_ifaces(filtered_ifacenames, ops,
+                                     skipupperifaces=skipupperifaces,
+                                     followdependents=True
+                                     if self.flags.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('up')
             if not self.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
+
+        if not iface_read_ret or not ret:
+            raise Exception()
 
     def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
              excludepats=None, printdependency=None, usecurrentconfig=False,
@@ -1265,7 +1270,7 @@ class ifupdownMain(ifupdownBase):
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
-        self._sched_ifaces(filtered_ifacenames, ops,
+        ret = self._sched_ifaces(filtered_ifacenames, ops,
                            followdependents=True
                            if self.flags.WITH_DEPENDS else False)
 
@@ -1362,12 +1367,15 @@ class ifupdownMain(ifupdownBase):
            return
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(interfaces_to_up))
-        self._sched_ifaces(interfaces_to_up, upops,
-                followdependents=True
-                if self.flags.WITH_DEPENDS else False)
+        ret = self._sched_ifaces(interfaces_to_up, upops,
+                                 followdependents=True
+                                 if self.flags.WITH_DEPENDS else False)
         if self.DRYRUN:
             return
         self._save_state()
+
+        if not iface_read_ret or not ret:
+            raise Exception()
 
     def _reload_default(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
@@ -1541,9 +1549,9 @@ class ifupdownMain(ifupdownBase):
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(new_filtered_ifacenames))
         try:
-            self._sched_ifaces(new_filtered_ifacenames, upops,
-                    followdependents=True
-                    if self.flags.WITH_DEPENDS else False)
+            ret = self._sched_ifaces(new_filtered_ifacenames, upops,
+                                     followdependents=True
+                                     if self.flags.WITH_DEPENDS else False)
         except Exception, e:
             self.logger.error(str(e))
             pass
@@ -1552,6 +1560,9 @@ class ifupdownMain(ifupdownBase):
         if self.DRYRUN:
             return
         self._save_state()
+
+        if not iface_read_ret or not ret:
+            raise Exception()
 
     def reload(self, *args, **kargs):
         """ reload interface config """

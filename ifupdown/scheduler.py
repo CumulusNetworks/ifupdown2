@@ -37,7 +37,11 @@ class ifaceScheduler():
 
     _STATE_CHECK = True
 
-    _SCHED_RETVAL = True
+    _SCHED_STATUS = True
+
+    @classmethod
+    def get_sched_status(cls):
+        return cls._SCHED_STATUS
 
     @classmethod
     def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv=None):
@@ -79,15 +83,15 @@ class ifaceScheduler():
             except Exception, e:
                 if not ifupdownobj.ignore_error(str(e)):
                    err = 1
-                   ifupdownobj.logger.warn(str(e))
+                   ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
                 pass
             finally:
                 if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                 ifaceStatus.ERROR)
-                    if 'up' in  op or 'down' in op:
-                        cls._SCHED_RETVAL = False
+                    if 'up' in  op or 'down' in op or 'query-checkcurr' in op:
+                        cls._SCHED_STATUS = False
                 else:
                     # Mark success only if the interface was not already
                     # marked with error
@@ -523,8 +527,8 @@ class ifaceScheduler():
         cls.run_iface_list(ifupdownobj, run_queue, ops,
                            parent=None, order=order,
                            followdependents=followdependents)
-        if not cls._SCHED_RETVAL:
-            raise Exception()
+        if cls._SCHED_STATUS:
+            return
 
         if (not skipupperifaces and
                 ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
