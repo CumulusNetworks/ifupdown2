@@ -267,7 +267,7 @@ class vrf(moduleBase):
                 self._handle_dhcp_slaves(ifacename, vrfname, ifaceobj,
                                          ifaceobj_getfunc)
         except Exception, e:
-            self.logger.warn('%s: %s' %(ifacename, str(e)))
+            self.log_error('%s: %s' %(ifacename, str(e)))
 
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
@@ -401,6 +401,11 @@ class vrf(moduleBase):
                                    %ifaceobj.name)
                 self.logger.info('%s: table id auto: selected table id %s\n'
                                  %(ifaceobj.name, vrf_table))
+
+            if not vrf_table.isdigit():
+                self.log_error('%s: vrf-table must be an integer or \'auto\''
+                               %(ifaceobj.name), ifaceobj)
+
             # XXX: If we decide to not allow vrf id usages out of
             # the reserved ifupdown range, then uncomment this code.
             #else:
@@ -429,6 +434,8 @@ class vrf(moduleBase):
                 if vrf_table != running_table:
                     self.log_error('%s: cannot change vrf table id,running table id %s is different from config id %s' %(ifaceobj.name,
                                          running_table, vrf_table))
+        if vrf_table != 'auto':
+            self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
 
     def _add_vrf_default_route(self, ifaceobj,  vrf_table):
         vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
@@ -464,7 +471,6 @@ class vrf(moduleBase):
 
         self._create_vrf_dev(ifaceobj, vrf_table)
         try:
-            self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
             self._add_vrf_rules(ifaceobj.name, vrf_table)
             self._create_cgroup(ifaceobj)
             if add_slaves:
