@@ -259,7 +259,7 @@ class vrf(moduleBase):
         try:
             if self.ipcmd.link_exists(vrfname):
                 upper = self.ipcmd.link_get_upper(vrfname)
-                if upper and upper != vrfname:
+                if not upper or upper != vrfname:
                     if self._is_dhcp_slave(ifaceobj):
                         self._down_dhcp_slave(ifaceobj)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
@@ -336,11 +336,14 @@ class vrf(moduleBase):
                                      vrf_table)
             self.exec_command(rule_cmd)
 
-    def _add_vrf_slaves(self, ifaceobj):
+    def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
         config_slaves = ifaceobj.lowerifaces
         if not config_slaves and not running_slaves:
             return
+
+        if not config_slaves: config_slaves = []
+        if not running_slaves: running_slaves = []
         add_slaves = set(config_slaves).difference(set(running_slaves))
         del_slaves = set(running_slaves).difference(set(config_slaves))
         if add_slaves:
@@ -353,6 +356,11 @@ class vrf(moduleBase):
         if del_slaves:
             for s in del_slaves:
                 try:
+                    if ifaceobj_getfunc:
+                        sobj = ifaceobj_getfunc(s)
+                        # if dhcp slave, release the dhcp lease
+                        if sobj and self._is_dhcp_slave(sobj[0]):
+                            self._down_dhcp_slave(sobj[0])
                     self._down_vrf_slave(s, ifaceobj.name)
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
@@ -422,10 +430,11 @@ class vrf(moduleBase):
                 self.log_error('%s: create failed (%s)\n'
                                %(ifaceobj.name, str(e)))
         else:
-            vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
-            if not vrf_table:
-                self.log_error('%s: unable to get vrf table id'
-                               %ifaceobj.name)
+            if vrf_table == 'auto':
+                vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
+                if not vrf_table:
+                    self.log_error('%s: unable to get vrf table id'
+                                   %ifaceobj.name)
 
             # if the device exists, check if table id is same
             vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
@@ -436,6 +445,8 @@ class vrf(moduleBase):
                                          running_table, vrf_table))
         if vrf_table != 'auto':
             self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
+
+        return vrf_table
 
     def _add_vrf_default_route(self, ifaceobj,  vrf_table):
         vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
@@ -462,19 +473,20 @@ class vrf(moduleBase):
                     raise
                 pass
 
-    def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True):
+    def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True,
+                    ifaceobj_getfunc=None):
 
         # if vrf dev is already processed return. This can happen
         # if we had a dhcp slave. See self._handle_dhcp_slaves
         if self._check_vrf_dev_processed_flag(ifaceobj):
             return True
 
-        self._create_vrf_dev(ifaceobj, vrf_table)
+        vrf_table = self._create_vrf_dev(ifaceobj, vrf_table)
         try:
             self._add_vrf_rules(ifaceobj.name, vrf_table)
             self._create_cgroup(ifaceobj)
             if add_slaves:
-                self._add_vrf_slaves(ifaceobj)
+                self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
             self._add_vrf_default_route(ifaceobj, vrf_table)
             self._set_vrf_dev_processed_flag(ifaceobj)
         except Exception, e:
@@ -488,7 +500,7 @@ class vrf(moduleBase):
                     self.log_error('%s: max vrf count %d hit...not '
                                    'creating vrf' %(ifaceobj.name,
                                                     self.vrf_count))
-                self._up_vrf_dev(ifaceobj, vrf_table)
+                self._up_vrf_dev(ifaceobj, vrf_table, True, ifaceobj_getfunc)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
