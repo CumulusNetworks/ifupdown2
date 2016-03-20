@@ -154,7 +154,8 @@ class networkInterfaces():
         if sourced_file:
             filenames = glob.glob(sourced_file)
             if not filenames:
-                self._parse_warn(self._currentfile, lineno,
+                if '*' not in sourced_file:
+                    self._parse_warn(self._currentfile, lineno,
                             'cannot find source file %s' %sourced_file)
                 return 0
             for f in filenames:
