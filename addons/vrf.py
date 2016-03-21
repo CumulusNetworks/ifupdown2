@@ -310,6 +310,13 @@ class vrf(moduleBase):
                 except Exception, e:
                     self.logger.info('%s' %str(e))
                     pass
+            if rule in self.ip6_rule_cache:
+                try:
+                    self.exec_command('ip -6 rule del pref 0')
+                    self.exec_command('ip -6 rule add pref 32765 table local')
+                except Exception, e:
+                    self.logger.info('%s' %str(e))
+                    pass
 
         #Example ip rule
         #200: from all oif blue lookup blue
