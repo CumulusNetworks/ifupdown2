@@ -285,13 +285,13 @@ class vrf(moduleBase):
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
-        if rule in self.ip_rule_cache:
+        if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
                                      vrf_table)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
-        if rule in self.ip_rule_cache:
+        if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_table)
             self.exec_command(rule_cmd)
@@ -326,12 +326,12 @@ class vrf(moduleBase):
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip_rule_cache:
+        if rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name, vrf_table)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip_rule_cache:
+        if rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_table)
             self.exec_command(rule_cmd)
