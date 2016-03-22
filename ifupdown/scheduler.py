@@ -527,7 +527,7 @@ class ifaceScheduler():
         cls.run_iface_list(ifupdownobj, run_queue, ops,
                            parent=None, order=order,
                            followdependents=followdependents)
-        if cls._SCHED_STATUS:
+        if not cls._SCHED_STATUS:
             return
 
         if (not skipupperifaces and
