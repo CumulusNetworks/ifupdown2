@@ -221,9 +221,10 @@ class ethtool(moduleBase,utilsBase):
             if not default_val:
                 continue
             running_attr = self.get_running_attr(attr, ifaceobj)
-            # if we can change it (have a default) then show it
-            # otherwise, customers will show the running and save it to startup
-            # which will result in errors (ethtool does not work on bonds, etc.)
+            # Only show the link attributes if they differ from defaults
+            # to see the defaults, we should implement another flag (--with-defaults)
+            if default_val == running_attr:
+                continue
             if running_attr:
                 ifaceobj.update_config('link-%s'%attr, running_attr)
 
