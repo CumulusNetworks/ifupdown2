@@ -102,7 +102,7 @@ class vrf(moduleBase):
         iproute2_vrf_map_pruned = {}
         for t, v in self.iproute2_vrf_map.iteritems():
             if os.path.exists('/sys/class/net/%s' %v):
-                iproute2_vrf_map_pruned[t] = v
+                iproute2_vrf_map_pruned[int(t)] = v
             else:
                 try:
                     # cleanup rules
@@ -126,6 +126,7 @@ class vrf(moduleBase):
                 break
             last_used_vrf_table = t
         self.last_used_vrf_table = last_used_vrf_table
+
         self.iproute2_write_vrf_map = False
         atexit.register(self.iproute2_vrf_map_write)
         self.vrf_fix_local_table = True
@@ -175,7 +176,7 @@ class vrf(moduleBase):
     def _get_iproute2_vrf_table(self, vrf_dev_name):
         for t, v in self.iproute2_vrf_map.iteritems():
             if v == vrf_dev_name:
-                return t
+                return str(t)
         return None
 
     def _get_avail_vrf_table_id(self):
@@ -191,12 +192,12 @@ class vrf(moduleBase):
         return None
 
     def _iproute2_vrf_table_entry_add(self, vrf_dev_name, table_id):
-        self.iproute2_vrf_map[table_id] = vrf_dev_name
+        self.iproute2_vrf_map[int(table_id)] = vrf_dev_name
         self.iproute2_write_vrf_map = True
 
     def _iproute2_vrf_table_entry_del(self, table_id):
         try:
-            del self.iproute2_vrf_map[table_id]
+            del self.iproute2_vrf_map[int(table_id)]
             self.iproute2_write_vrf_map = True
         except Exception, e:
             self.logger.info('vrf: iproute2 vrf map del failed for %d (%s)'
@@ -255,12 +256,12 @@ class vrf(moduleBase):
             pass
 
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
-                      ifaceobj_getfunc=None):
+                      ifaceobj_getfunc=None, vrf_exists=False):
         try:
-            if self.ipcmd.link_exists(vrfname):
-                upper = self.ipcmd.link_get_upper(vrfname)
+            if vrf_exists or self.ipcmd.link_exists(vrfname):
+                upper = self.ipcmd.link_get_upper(ifacename)
                 if not upper or upper != vrfname:
-                    if self._is_dhcp_slave(ifaceobj):
+                    if ifaceobj and self._is_dhcp_slave(ifaceobj):
                         self._down_dhcp_slave(ifaceobj)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:
@@ -356,7 +357,12 @@ class vrf(moduleBase):
         if add_slaves:
             for s in add_slaves:
                 try:
-                    self._up_vrf_slave(s, ifaceobj.name)
+                    sobj = None
+                    if ifaceobj_getfunc:
+                        sobj = ifaceobj_getfunc(s)
+                    self._up_vrf_slave(s, ifaceobj.name,
+                                       sobj[0] if sobj else None,
+                                       ifaceobj_getfunc, True)
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
 
@@ -503,6 +509,7 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
+                # This is a vrf device
                 if self.vrf_count == self.vrf_max_count:
                     self.log_error('%s: max vrf count %d hit...not '
                                    'creating vrf' %(ifaceobj.name,
@@ -511,6 +518,7 @@ class vrf(moduleBase):
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
+                    # This is a vrf slave
                     self._up_vrf_slave(ifaceobj.name, vrf, ifaceobj,
                                        ifaceobj_getfunc)
         except Exception, e:
