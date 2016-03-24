@@ -532,10 +532,18 @@ class vrf(moduleBase):
             self.log_info('%s: cgroup delete failed (%s)\n'
                           %(ifaceobj.name, str(e)), ifaceobj)
 
-    def _down_vrf_dev(self, ifaceobj, vrf_table):
+    def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
         try:
+            running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+            if running_slaves:
+                for s in running_slaves:
+                    if ifaceobj_getfunc:
+                        sobj = ifaceobj_getfunc(s)
+                        # if dhcp slave, release the dhcp lease
+                        if sobj and self._is_dhcp_slave(sobj[0]):
+                            self._down_dhcp_slave(sobj[0])
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
@@ -564,7 +572,7 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
-                self._down_vrf_dev(ifaceobj, vrf_table)
+                self._down_vrf_dev(ifaceobj, vrf_table, ifaceobj_getfunc)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
