@@ -571,6 +571,7 @@ class vrf(moduleBase):
     def _down_vrf_slave(self, ifacename, vrf):
         try:
             self.ipcmd.link_set(ifacename, 'nomaster')
+            rtnetlink_api.rtnl_api.link_set(ifacename, "down")
         except Exception, e:
             self.logger.warn('%s: %s' %(ifacename, str(e)))
 
