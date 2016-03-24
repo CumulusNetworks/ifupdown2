@@ -544,6 +544,17 @@ class vrf(moduleBase):
                         # if dhcp slave, release the dhcp lease
                         if sobj and self._is_dhcp_slave(sobj[0]):
                             self._down_dhcp_slave(sobj[0])
+        except Exception, e:
+            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+            pass
+
+        try:
+            self._del_vrf_rules(ifaceobj.name, vrf_table)
+        except Exception, e:
+            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+            pass
+
+        try:
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
@@ -556,11 +567,6 @@ class vrf(moduleBase):
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
-        try:
-            self._del_vrf_rules(ifaceobj.name, vrf_table)
-        except Exception, e:
-            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
 
     def _down_vrf_slave(self, ifacename, vrf):
         try:
