@@ -44,6 +44,10 @@ class ifaceScheduler():
         return cls._SCHED_STATUS
 
     @classmethod
+    def set_sched_status(cls, state):
+        cls._SCHED_STATUS = state
+
+    @classmethod
     def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv=None):
         """ Runs sub operation on an interface """
         ifacename = ifaceobj.name
@@ -91,7 +95,7 @@ class ifaceScheduler():
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                 ifaceStatus.ERROR)
                     if 'up' in  op or 'down' in op or 'query-checkcurr' in op:
-                        cls._SCHED_STATUS = False
+                        cls.set_sched_status(False)
                 else:
                     # Mark success only if the interface was not already
                     # marked with error
@@ -527,7 +531,7 @@ class ifaceScheduler():
         cls.run_iface_list(ifupdownobj, run_queue, ops,
                            parent=None, order=order,
                            followdependents=followdependents)
-        if not cls._SCHED_STATUS:
+        if not cls.get_sched_status():
             return
 
         if (not skipupperifaces and
@@ -539,6 +543,11 @@ class ifaceScheduler():
             # try and execute 'up' on the upperifaces
             ifupdownobj.logger.info('running upperifaces (parent interfaces) ' +
                                     'if available ..')
-            cls._STATE_CHECK = False
-            cls.run_upperifaces(ifupdownobj, ifacenames, ops)
-            cls._STATE_CHECK = True
+            try:
+                cls._STATE_CHECK = False
+                cls.run_upperifaces(ifupdownobj, ifacenames, ops)
+                cls._STATE_CHECK = True
+            finally:
+                # upperiface bringup is best effort, so dont propagate errors
+                # reset scheduler status to True
+                cls.set_sched_status(True)
