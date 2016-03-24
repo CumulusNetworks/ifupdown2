@@ -429,13 +429,13 @@ class vrf(moduleBase):
 
             # XXX: If we decide to not allow vrf id usages out of
             # the reserved ifupdown range, then uncomment this code.
-            #else:
-            #    if (int(vrf_table) < self.vrf_table_id_start or
-            #        int(vrf_table) > self.vrf_table_id_end):
-            #        self.log_error('%s: vrf table id %s out of reserved range [%d,%d]'
-            #                       %(ifaceobj.name, vrf_table,
-            #                         self.vrf_table_id_start,
-            #                         self.vrf_table_id_end))
+            else:
+                if (int(vrf_table) < self.vrf_table_id_start or
+                    int(vrf_table) > self.vrf_table_id_end):
+                    self.log_error('%s: vrf table id %s out of reserved range [%d,%d]'
+                                   %(ifaceobj.name, vrf_table,
+                                     self.vrf_table_id_start,
+                                     self.vrf_table_id_end))
             try:
                 self.ipcmd.link_create(ifaceobj.name, 'vrf',
                                        {'table' : '%s' %vrf_table})
