@@ -5,6 +5,8 @@
 #
 
 import os
+import signal
+import subprocess
 import atexit
 from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
@@ -244,6 +246,8 @@ class vrf(moduleBase):
                                      %(mobj.name, vrf_table))
                 self._up_vrf_dev(mobj, vrf_table, False)
                 break
+        if vrfname == 'mgmt':
+            self._kill_ssh(ifaceobj.name)
         self._down_dhcp_slave(ifaceobj)
         self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
@@ -257,10 +261,14 @@ class vrf(moduleBase):
 
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
+        self.logger.info("Roopa: ifacename = %s, vrfname = %s\n" %(ifacename, vrfname))
         try:
             if vrf_exists or self.ipcmd.link_exists(vrfname):
                 upper = self.ipcmd.link_get_upper(ifacename)
                 if not upper or upper != vrfname:
+                    self.logger.info("Roopa: vrfname = %s\n" %vrfname)
+                    if ifaceobj and vrfname == 'mgmt':
+                        self._kill_ssh(ifaceobj.name)
                     if ifaceobj and self._is_dhcp_slave(ifaceobj):
                         self._down_dhcp_slave(ifaceobj)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
@@ -372,6 +380,8 @@ class vrf(moduleBase):
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)
                         # if dhcp slave, release the dhcp lease
+                        if sobj and ifaceobj.name == 'mgmt':
+                            self._kill_ssh(sobj[0].name)
                         if sobj and self._is_dhcp_slave(sobj[0]):
                             self._down_dhcp_slave(sobj[0])
                     self._down_vrf_slave(s, ifaceobj.name)
@@ -505,6 +515,68 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)))
 
+    def _kill_ssh(self, ifacename):
+        # Fix this in the next version
+        # runningaddrsdict = self.ipcmd.addr_get(ifacename) 
+
+        try:
+            ip=[]
+            ip6=[]
+            proc=[]
+            #Example output:
+            #2: eth0    inet 10.0.1.84/22 brd 10.0.3.255 scope global eth0\
+            #valid_lft forever preferred_lft forever
+            for line in self.ipcmd.addr_show(ifacename=ifacename).splitlines():
+                citems = line.split()
+                if any(word in citems for word in ['inet','inet6']):
+                    if 'inet' in citems:
+                        ip.append(citems[citems.index('inet')+1].split('/')[0])
+                    else:
+                        ip6.append(citems[citems.index('inet6')+1].split('/')[0])
+            if not ip and not ip6:
+                return
+
+            #Example output:
+            #ESTAB      0      0      10.0.1.84:ssh       10.0.1.228:45186     
+            #users:(("sshd",pid=2528,fd=3))
+            cmdl = ['ss', '-t', '-p']
+            for line in subprocess.check_output(cmdl, stderr=subprocess.STDOUT,
+                                                shell=False).splitlines():
+                citems = line.split()
+                addr = None
+                if '%' in citems[3]:
+                    addr = citems[3].split('%')[0]
+                elif ':ssh' in citems[3]:
+                    addr = citems[3].split(':')[0]
+                if not addr:
+                    continue
+                if (addr in ip) or (addr in ip6):
+                    if len(citems) == 6:
+                        proc.append(citems[5].split(',')[1].split('=')[1])
+
+            if not proc:
+                return
+            pid = subprocess.check_output(['ps', '--no-headers',
+                                           '-fp', str(os.getppid())],
+                                           stderr=subprocess.STDOUT,
+                                           shell=False).split()[2]
+
+            for id in proc:
+                if id != pid:
+                    try:
+                        os.kill(int(id), signal.SIGTERM)
+                    except OSError as e:
+                        continue
+            if pid in proc:
+                os.setsid()
+                try:
+                    os.kill(int(pid), signal.SIGTERM)
+                    return
+                except OSError as e:
+                    return
+        except Exception, e:
+            self.logger.info('%s: %s' %(ifacename, str(e)))
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
@@ -533,6 +605,7 @@ class vrf(moduleBase):
                           %(ifaceobj.name, str(e)), ifaceobj)
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
+
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
         try:
@@ -541,6 +614,8 @@ class vrf(moduleBase):
                 for s in running_slaves:
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)
+                        if sobj and self.ipcmd.link_get_master(sobj[0].name) == 'mgmt':
+                            self._kill_ssh(sobj[0].name)
                         # if dhcp slave, release the dhcp lease
                         if sobj and self._is_dhcp_slave(sobj[0]):
                             self._down_dhcp_slave(sobj[0])
