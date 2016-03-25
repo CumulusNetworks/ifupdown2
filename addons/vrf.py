@@ -525,6 +525,10 @@ class vrf(moduleBase):
         # Fix this in the next version
         # runningaddrsdict = self.ipcmd.addr_get(ifacename) 
 
+        # XXX: Roopa: it is currently killing ifupdown2.
+        # so, until we fix it, lets not do anything
+        return
+
         try:
             ip=[]
             ip6=[]
