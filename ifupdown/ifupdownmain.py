@@ -140,6 +140,8 @@ class ifupdownMain(ifupdownBase):
     def run_down(self, ifaceobj):
         # Skip link sets on ifaceobjs of type 'vlan' (used for l2 attrs)
         # there is no real interface behind it
+        if ifaceobj.kind & ifaceLinkKind.VRF:
+            return
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return
         if (ifaceobj.addr_method and
