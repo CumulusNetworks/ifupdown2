@@ -6,6 +6,7 @@
 
 import os
 import signal
+import errno 
 import subprocess
 import atexit
 from ifupdown.iface import *
@@ -269,12 +270,10 @@ class vrf(moduleBase):
 
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
-        self.logger.info("Roopa: ifacename = %s, vrfname = %s\n" %(ifacename, vrfname))
         try:
             if vrf_exists or self.ipcmd.link_exists(vrfname):
                 upper = self.ipcmd.link_get_upper(ifacename)
                 if not upper or upper != vrfname:
-                    self.logger.info("Roopa: vrfname = %s\n" %vrfname)
                     if ifaceobj and vrfname == 'mgmt':
                         self._kill_ssh(ifaceobj.name)
                     if ifaceobj and self._is_dhcp_slave(ifaceobj):
@@ -570,7 +569,6 @@ class vrf(moduleBase):
                                            shell=False).split()[2]
             self.logger.info("%s: killing active ssh sessions: %s"
                              %(ifacename, str(proc)))
-            os.setsid()
             for id in proc:
                 if id != pid:
                     try:
@@ -578,6 +576,11 @@ class vrf(moduleBase):
                     except OSError as e:
                         continue
             if pid in proc:
+                try:
+                    os.setsid()
+                except OSError, (err_no, err_message):
+                    self.logger.info("os.setsid failed: errno=%d: %s" % (err_no, err_message))
+                    self.logger.info("pid=%d  pgid=%d" % (os.getpid(), os.getpgid(0)))
                 try:
                     self.logger.info("%s: killing our session: %s"
                                      %(ifacename, str(proc)))
