@@ -206,6 +206,14 @@ class vrf(moduleBase):
                              %(table_id, str(e)))
             pass
 
+    def _is_vrf_dev(self, ifacename):
+        # Look at iproute2 map for now.
+        # If it was a master we knew about,
+        # it is definately there
+        if ifacename in self.iproute2_vrf_map.values():
+            return True
+        return False
+
     def _is_dhcp_slave(self, ifaceobj):
         if (not ifaceobj.addr_method or
             (ifaceobj.addr_method != 'dhcp' and
@@ -377,14 +385,13 @@ class vrf(moduleBase):
         if del_slaves:
             for s in del_slaves:
                 try:
+                    sobj = None
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)
                         # if dhcp slave, release the dhcp lease
                         if sobj and ifaceobj.name == 'mgmt':
                             self._kill_ssh(sobj[0].name)
-                        if sobj and self._is_dhcp_slave(sobj[0]):
-                            self._down_dhcp_slave(sobj[0])
-                    self._down_vrf_slave(s, ifaceobj.name)
+                    self._down_vrf_slave(s, sobj[0] if sobj else None)
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
 
@@ -533,6 +540,7 @@ class vrf(moduleBase):
                         ip.append(citems[citems.index('inet')+1].split('/')[0])
                     else:
                         ip6.append(citems[citems.index('inet6')+1].split('/')[0])
+
             if not ip and not ip6:
                 return
 
@@ -560,17 +568,20 @@ class vrf(moduleBase):
                                            '-fp', str(os.getppid())],
                                            stderr=subprocess.STDOUT,
                                            shell=False).split()[2]
-
+            self.logger.info("%s: killing active ssh sessions: %s"
+                             %(ifacename, str(proc)))
+            os.setsid()
             for id in proc:
                 if id != pid:
                     try:
-                        os.kill(int(id), signal.SIGTERM)
+                        os.kill(int(id), signal.SIGINT)
                     except OSError as e:
                         continue
             if pid in proc:
-                os.setsid()
                 try:
-                    os.kill(int(pid), signal.SIGTERM)
+                    self.logger.info("%s: killing our session: %s"
+                                     %(ifacename, str(proc)))
+                    os.kill(int(pid), signal.SIGINT)
                     return
                 except OSError as e:
                     return
@@ -593,6 +604,12 @@ class vrf(moduleBase):
                     # This is a vrf slave
                     self._up_vrf_slave(ifaceobj.name, vrf, ifaceobj,
                                        ifaceobj_getfunc)
+                else:
+                    # check if we were a slave before
+                    master = self.ipcmd.link_get_master(ifaceobj.name)
+                    if master:
+                        if self._is_vrf_dev(master):
+                            self._down_vrf_slave(ifaceobj.name, ifaceobj)
         except Exception, e:
             self.log_error(str(e))
 
@@ -608,6 +625,13 @@ class vrf(moduleBase):
 
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
+
+        try:
+            self.exec_command('/usr/cumulus/bin/cl-vrf service disable %s' %ifaceobj.name)
+        except Exception, e:
+            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+            pass
+
         try:
             running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
             if running_slaves:
@@ -643,8 +667,10 @@ class vrf(moduleBase):
             pass
 
 
-    def _down_vrf_slave(self, ifacename, vrf):
+    def _down_vrf_slave(self, ifacename, ifaceobj=None):
         try:
+            if ifaceobj and self._is_dhcp_slave(ifaceobj):
+                self._down_dhcp_slave(ifaceobj)
             self.ipcmd.link_set(ifacename, 'nomaster')
             rtnetlink_api.rtnl_api.link_set(ifacename, "down")
         except Exception, e:
@@ -658,7 +684,7 @@ class vrf(moduleBase):
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._down_vrf_slave(ifaceobj.name, vrf)
+                    self._down_vrf_slave(ifaceobj.name, ifaceobj)
         except Exception, e:
             self.log_warn(str(e))
 
