@@ -1,2 +1,2 @@
 sbin/ifupdown2 /usr/share/ifupdown2/
-debian/networking.default /etc/default/networking
+debian/networking /etc/default/
