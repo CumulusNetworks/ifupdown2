@@ -3,7 +3,7 @@ set -e
 case "$1" in
     install|upgrade)
         if [ -f /etc/default/networking/networking.default ]; then
-            dpkg-maintscript-helper rm_conffile /etc/default/networking/networking.default 1$
+	    dpkg-maintscript-helper rm_conffile /etc/default/networking/networking.default 1.1 -- $@
             rm -rf /etc/default/networking
         fi
         ;;
