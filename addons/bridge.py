@@ -224,6 +224,13 @@ class bridge(moduleBase):
             return True
         return False
 
+    def _get_ifaceobj_bridge_ports(self, ifaceobj):
+        ports = ifaceobj.get_attr_value('bridge-ports')
+        if len(ports) > 1:
+            self.log_warn('%s: ignoring duplicate bridge-ports lines: %s'
+                          %(ifaceobj.name, ports[1:]))
+        return ports[0] if ports else None
+
     def _is_bridge_port(self, ifaceobj):
         if self.brctlcmd.is_bridge_port(ifaceobj.name):
             return True
@@ -241,8 +248,8 @@ class bridge(moduleBase):
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         return self.parse_port_list(ifaceobj.name,
-                                    ifaceobj.get_attr_value_first(
-                                    'bridge-ports'), ifacenames_all)
+                                    self._get_ifaceobj_bridge_ports(ifaceobj),
+                                    ifacenames_all)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
         self._init_command_handlers()
@@ -258,7 +265,7 @@ class bridge(moduleBase):
         port_list = ifaceobj.lowerifaces
         if port_list:
             return port_list
-        ports = ifaceobj.get_attr_value_first('bridge-ports')
+        ports = self._get_ifaceobj_bridge_ports(ifaceobj)
         if ports:
             return self.parse_port_list(ifaceobj.name, ports)
         else:
@@ -1064,7 +1071,7 @@ class bridge(moduleBase):
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            if ifaceobj.get_attr_value_first('bridge-ports'):
+            if self._get_ifaceobj_bridge_ports(ifaceobj):
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 self.brctlcmd.delete_bridge(ifaceobj.name)
                 if ports:
