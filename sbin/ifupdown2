@@ -384,7 +384,7 @@ def update_ifreload_argparser(argparser):
                 action='store_true',
                 help='Only run the interfaces file parser')
 
-def update_ifupdown2_argparser(argparser):
+def update_common_argparser(argparser):
     ''' general parsing rules '''
 
     package = pkg_resources.get_distribution("ifupdown2")
@@ -411,9 +411,7 @@ def parse_args(argsv, op):
             update_ifdown_argparser(argparser)
         elif op == 'query':
             update_ifquery_argparser(argparser)
-        elif op == 'reload':
-            update_ifreload_argparser(argparser)
-    update_ifupdown2_argparser(argparser)
+    update_common_argparser(argparser)
     argcomplete.autocomplete(argparser)
     return argparser.parse_args(argsv)
 
