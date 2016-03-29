@@ -226,7 +226,7 @@ class bridge(moduleBase):
 
     def _get_ifaceobj_bridge_ports(self, ifaceobj):
         ports = ifaceobj.get_attr_value('bridge-ports')
-        if len(ports) > 1:
+        if ports and len(ports) > 1:
             self.log_warn('%s: ignoring duplicate bridge-ports lines: %s'
                           %(ifaceobj.name, ports[1:]))
         return ports[0] if ports else None
