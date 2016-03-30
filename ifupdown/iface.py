@@ -26,10 +26,9 @@ class ifaceStatusUserStrs():
     UNKNOWN = "unknown"
 
 class ifaceType():
-    UNKNOWN = 0x0
-    IFACE = 0x1
-    BRIDGE_VLAN = 0x2
-
+    UNKNOWN =     0x00
+    IFACE =       0x01
+    BRIDGE_VLAN = 0x10
 
 class ifaceRole():
     """ ifaceRole is used to classify the ifaceobj.role of
@@ -37,9 +36,9 @@ class ifaceRole():
         with bond-slaves or bridge-ports.  A bond in a bridge
         is both a master and slave (0x3)
     """
-    UNKNOWN = 0x0
-    SLAVE = 0x1
-    MASTER = 0x2
+    UNKNOWN = 0x00
+    SLAVE =   0x01
+    MASTER =  0x10
 
 class ifaceLinkKind():
     """ ifaceLlinkKind is used to identify interfaces
@@ -47,16 +46,47 @@ class ifaceLinkKind():
         bond have an ifaceobj.role attribute of SLAVE and the bridge or
         bond itself has ifaceobj.role of MASTER.
     """
-    UNKNOWN = 0x0
-    BRIDGE = 0x1
-    BOND = 0x2
-    VLAN = 0x4
-    VXLAN = 0x8
-    BRIDGE_VLAN_AWARE = 0x10
-    BRIDGE_PORT = 0x20
-    BOND_SLAVE = 0x40
-    VRF = 0x80
-    VRF_SLAVE = 0x100
+    UNKNOWN = 0x000000
+    BRIDGE =  0x000001
+    BOND =    0x000010
+    VLAN =    0x000100
+    VXLAN =   0x001000
+    VRF =     0x010000
+
+class ifaceLinkPrivFlags():
+    """ This corresponds to kernel netdev->priv_flags
+        and can be BRIDGE_PORT, BOND_SLAVE etc """
+    UNKNOWN =           0x0000
+    BRIDGE_PORT =       0x0001
+    BOND_SLAVE =        0x0010
+    VRF_SLAVE =         0x0100
+    BRIDGE_VLAN_AWARE = 0x1000
+
+    @classmethod
+    def get_str(cls, flag):
+        if flag == cls.UNKNOWN:
+            return 'unknown'
+        elif flag == cls.BRIDGE_PORT:
+            return 'bridge port'
+        elif flag == cls.BOND_SLAVE:
+            return 'bond slave'
+        elif flag == cls.VRF_SLAVE:
+            return 'vrf slave'
+        elif flag == cls.BRIDGE_VLAN_AWARE:
+            return 'vlan aware bridge'
+
+    @classmethod
+    def get_all_str(cls, flags):
+        str = ''
+        if (flags & cls.BRIDGE_PORT):
+            str += 'bridgeport '
+        if (flags == cls.BOND_SLAVE):
+            str += 'bondslave '
+        elif flags == cls.VRF_SLAVE:
+            str += 'vrfslave '
+        elif flags == cls.BRIDGE_VLAN_AWARE:
+            str += 'vlanawarebridge '
+        return str
 
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0
@@ -344,6 +374,7 @@ class iface():
         self.realname = None
         self.link_type = ifaceLinkType.LINK_UNKNOWN
         self.link_kind = ifaceLinkKind.UNKNOWN
+        self.link_privflags = ifaceLinkPrivFlags.UNKNOWN
 
         # The below attribute is used to disambiguate between various
         # types of dependencies
@@ -561,6 +592,7 @@ class iface():
         del odict['env']
         del odict['link_type']
         del odict['link_kind']
+        del odict['link_privflags']
         del odict['role']
         del odict['dependency_type']
         del odict['blacklisted']
@@ -584,6 +616,7 @@ class iface():
         self.flags |= self._PICKLED
         self.link_type = ifaceLinkType.LINK_NA
         self.link_kind = ifaceLinkKind.UNKNOWN
+        self.link_privflags = ifaceLinkPrivFlags.UNKNOWN
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
 

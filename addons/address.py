@@ -128,8 +128,10 @@ class address(moduleBase):
             if not addrs:
                 continue
 
-            if ((ifaceobj.role & ifaceRole.SLAVE) or
-                (ifaceobj.link_kind & ifaceLinkKind.BRIDGE_VLAN_AWARE)):
+            if (((ifaceobj.role & ifaceRole.SLAVE) and
+                not (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)) or
+                ((ifaceobj.link_kind & ifaceLinkKind.BRIDGE) and
+                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE))):
                 # we must not configure an IP address if the interface is
                 # enslaved or is a VLAN AWARE BRIDGE
                 self.logger.info('%s: ignoring ip address. Interface is '

@@ -169,7 +169,7 @@ class vrf(moduleBase):
         if not vrf_iface_name:
             return None
         ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
-        ifaceobj.link_kind |= ifaceLinkKind.VRF_SLAVE
+        ifaceobj.link_privflags |= ifaceLinkPrivFlags.VRF_SLAVE
 
         return [vrf_iface_name]
 

@@ -140,7 +140,7 @@ class ifupdownMain(ifupdownBase):
     def run_down(self, ifaceobj):
         # Skip link sets on ifaceobjs of type 'vlan' (used for l2 attrs)
         # there is no real interface behind it
-        if ifaceobj.kind & ifaceLinkKind.VRF:
+        if ifaceobj.link_kind & ifaceLinkKind.VRF:
             return
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return
@@ -417,7 +417,7 @@ class ifupdownMain(ifupdownBase):
         return self.is_ifaceobj_noconfig(ifaceobj)
 
     def check_shared_dependents(self, ifaceobj, dlist):
-        """ Check if dlist intersects with any other
+        """ ABSOLETE: Check if dlist intersects with any other
             interface with slave dependents.
             example: bond and bridges.
             This function logs such errors """
@@ -439,22 +439,38 @@ class ifupdownMain(ifupdownBase):
                             %(ifaceobj.name, ifacename) +
                             'seem to share dependents/ports %s' %str(list(common)))
 
+    def _set_iface_role(self, ifaceobj, role):
+        if (self.flags.CHECK_SHARED_DEPENDENTS and
+            (ifaceobj.role & ifaceRole.SLAVE) and role == ifaceRole.SLAVE):
+		self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
+                                  %(ifaceobj.name,
+                                    ifaceLinkPrivFlags.get_all_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
+                ifaceobj.set_status(ifaceStatus.ERROR)
+                return
+        ifaceobj.role = role
+
     def _set_iface_role_n_kind(self, ifaceobj, upperifaceobj):
+
         if (upperifaceobj.link_kind & ifaceLinkKind.BOND):
-            ifaceobj.role |= ifaceRole.SLAVE
-            ifaceobj.link_kind |= ifaceLinkKind.BOND_SLAVE
+            self._set_iface_role(ifaceobj, ifaceRole.SLAVE)
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.BOND_SLAVE
+
         if (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
-            ifaceobj.role |= ifaceRole.SLAVE
-            ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_PORT
+            self._set_iface_role(ifaceobj, ifaceRole.SLAVE)
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_PORT
+
+        # vrf masters get processed after slaves, which means
+        # check both link_kind vrf and vrf slave
+        if ((upperifaceobj.link_kind & ifaceLinkKind.VRF) or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
+            self._set_iface_role(ifaceobj, ifaceRole.SLAVE)
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.VRF_SLAVE
         if self._link_master_slave:
             if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
                 ifaceobj.link_type = ifaceLinkType.LINK_SLAVE
         else:
             upperifaceobj.link_type = ifaceLinkType.LINK_NA
             ifaceobj.link_type = ifaceLinkType.LINK_NA
-	if (ifaceobj.link_kind == ifaceLinkKind.BOND_SLAVE and
-			len(ifaceobj.upperifaces) > 1):
-		self.logger.warn("misconfig..? bond slave \'%s\' is enslaved to multiple interfaces %s" %(ifaceobj.name, str(ifaceobj.upperifaces)))
 
     def dump_iface_dependency_info(self):
         """ debug funtion to print raw dependency 
@@ -484,10 +500,6 @@ class ifupdownMain(ifupdownBase):
                     present in the ifacesdict
         """
         del_list = []
-
-        if (upperifaceobj.dependency_type == ifaceDependencyType.MASTER_SLAVE
-                and self.flags.CHECK_SHARED_DEPENDENTS):
-            self.check_shared_dependents(upperifaceobj, dlist)
 
         for d in dlist:
             dilist = self.get_ifaceobjs(d)
@@ -630,6 +642,7 @@ class ifupdownMain(ifupdownBase):
             ifaceobj = self.get_ifaceobj_first(i)
             if not ifaceobj:
                 continue
+
             if ifaceobj.blacklisted and not ifaceobj.upperifaces:
                 # if blacklisted and was not picked up as a
                 # dependent of a upper interface, delete the
@@ -649,6 +662,7 @@ class ifupdownMain(ifupdownBase):
                             pass
                 self.logger.debug("populate_dependency_info: deleting blacklisted interface %s" %i)
                 del self.dependency_graph[i]
+                continue
 
     def _check_config_no_repeats(self, ifaceobj):
         """ check if object has an attribute that is

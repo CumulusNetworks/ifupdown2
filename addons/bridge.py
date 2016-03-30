@@ -244,7 +244,8 @@ class bridge(moduleBase):
         ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
         # for special vlan aware bridges, we need to add another bit
         if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
-            ifaceobj.link_kind |= ifaceLinkKind.BRIDGE_VLAN_AWARE
+            ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         return self.parse_port_list(ifaceobj.name,
@@ -987,7 +988,7 @@ class bridge(moduleBase):
         add_port = False
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         if (not bridgename and
-                (ifaceobj.link_kind & ifaceLinkKind.BRIDGE_PORT)):
+                (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)):
             # get bridgename and add port to bridge
             bridgename = self._get_bridgename(ifaceobj)
             add_port = True
