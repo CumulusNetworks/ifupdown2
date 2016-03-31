@@ -142,6 +142,8 @@ class vrf(moduleBase):
         else:
             self.vrf_cgroup_create = False
 
+        self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
+
     def iproute2_vrf_map_write(self):
         if not self.iproute2_write_vrf_map:
             return
@@ -222,13 +224,12 @@ class vrf(moduleBase):
                 return False
         return True
 
-    def _handle_dhcp_slaves(self, ifacename, vrfname, ifaceobj,
-                            ifaceobj_getfunc):
+    def _up_vrf_slave_without_master(self, ifacename, vrfname, ifaceobj,
+                                      ifaceobj_getfunc):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
-        if not self._is_dhcp_slave(ifaceobj):
-            return False
+
         vrf_master = ifaceobj.upperifaces[0]
         if not vrf_master:
             self.logger.warn('%s: vrf master not found' %ifacename)
@@ -255,9 +256,7 @@ class vrf(moduleBase):
                                      %(mobj.name, vrf_table))
                 self._up_vrf_dev(mobj, vrf_table, False)
                 break
-        if vrfname == 'mgmt':
-            self._kill_ssh(ifaceobj.name)
-        self._down_dhcp_slave(ifaceobj)
+        self._handle_existing_connections(ifaceobj, vrfname)
         self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
 
@@ -268,20 +267,27 @@ class vrf(moduleBase):
             # ignore any dhclient release errors
             pass
 
+    def _handle_existing_connections(self, ifaceobj, vrfname):
+        if not ifaceobj or self.PERFMODE:
+            return
+        if (self.vrf_mgmt_devname and
+            self.vrf_mgmt_devname == vrfname):
+            self._kill_ssh_connections(ifaceobj.name)
+        if self._is_dhcp_slave(ifaceobj):
+            self._down_dhcp_slave(ifaceobj)
+
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
         try:
             if vrf_exists or self.ipcmd.link_exists(vrfname):
                 upper = self.ipcmd.link_get_upper(ifacename)
                 if not upper or upper != vrfname:
-                    if ifaceobj and vrfname == 'mgmt':
-                        self._kill_ssh(ifaceobj.name)
-                    if ifaceobj and self._is_dhcp_slave(ifaceobj):
-                        self._down_dhcp_slave(ifaceobj)
+                    self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:
-                self._handle_dhcp_slaves(ifacename, vrfname, ifaceobj,
-                                         ifaceobj_getfunc)
+                self._up_vrf_slave_without_master(ifacename, vrfname, ifaceobj,
+                                                  ifaceobj_getfunc)
+            rtnetlink_api.rtnl_api.link_set(ifacename, "up")
         except Exception, e:
             self.log_error('%s: %s' %(ifacename, str(e)))
 
@@ -387,10 +393,8 @@ class vrf(moduleBase):
                     sobj = None
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)
-                        # if dhcp slave, release the dhcp lease
-                        if sobj and ifaceobj.name == 'mgmt':
-                            self._kill_ssh(sobj[0].name)
-                    self._down_vrf_slave(s, sobj[0] if sobj else None)
+                    self._down_vrf_slave(s, sobj[0] if sobj else None,
+                                         ifaceobj.name)
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
 
@@ -506,7 +510,8 @@ class vrf(moduleBase):
                     ifaceobj_getfunc=None):
 
         # if vrf dev is already processed return. This can happen
-        # if we had a dhcp slave. See self._handle_dhcp_slaves
+        # if we the slave was configured before.
+        # see self._up_vrf_slave_without_master
         if self._check_vrf_dev_processed_flag(ifaceobj):
             return True
 
@@ -518,39 +523,23 @@ class vrf(moduleBase):
                 self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
             self._add_vrf_default_route(ifaceobj, vrf_table)
             self._set_vrf_dev_processed_flag(ifaceobj)
+            rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)))
 
-    def _kill_ssh(self, ifacename):
-        # Fix this in the next version
-        # runningaddrsdict = self.ipcmd.addr_get(ifacename) 
-
-        # XXX: Roopa: it is currently killing ifupdown2.
-        # so, until we fix it, lets not do anything
-        return
-
+    def _kill_ssh_connections(self, ifacename):
         try:
-            ip=[]
-            ip6=[]
-            proc=[]
-            #Example output:
-            #2: eth0    inet 10.0.1.84/22 brd 10.0.3.255 scope global eth0\
-            #valid_lft forever preferred_lft forever
-            for line in self.ipcmd.addr_show(ifacename=ifacename).splitlines():
-                citems = line.split()
-                if any(word in citems for word in ['inet','inet6']):
-                    if 'inet' in citems:
-                        ip.append(citems[citems.index('inet')+1].split('/')[0])
-                    else:
-                        ip6.append(citems[citems.index('inet6')+1].split('/')[0])
-
-            if not ip and not ip6:
+            runningaddrsdict = self.ipcmd.addr_get(ifacename)
+            if not runningaddrsdict:
                 return
-
+            iplist = [i.split('/', 1)[0] for i in runningaddrsdict.keys()]
+            if not iplist:
+                return
+            proc=[]
             #Example output:
             #ESTAB      0      0      10.0.1.84:ssh       10.0.1.228:45186     
             #users:(("sshd",pid=2528,fd=3))
-            cmdl = ['ss', '-t', '-p']
+            cmdl = ['/bin/ss', '-t', '-p']
             for line in subprocess.check_output(cmdl, stderr=subprocess.STDOUT,
                                                 shell=False).splitlines():
                 citems = line.split()
@@ -561,13 +550,13 @@ class vrf(moduleBase):
                     addr = citems[3].split(':')[0]
                 if not addr:
                     continue
-                if (addr in ip) or (addr in ip6):
+                if addr in iplist:
                     if len(citems) == 6:
                         proc.append(citems[5].split(',')[1].split('=')[1])
 
             if not proc:
                 return
-            pid = subprocess.check_output(['ps', '--no-headers',
+            pid = subprocess.check_output(['/bin/ps', '--no-headers',
                                            '-fp', str(os.getppid())],
                                            stderr=subprocess.STDOUT,
                                            shell=False).split()[2]
@@ -579,12 +568,20 @@ class vrf(moduleBase):
                         os.kill(int(id), signal.SIGINT)
                     except OSError as e:
                         continue
+
+            # Kill current SSH client
             if pid in proc:
                 try:
-                    os.setsid()
-                except OSError, (err_no, err_message):
-                    self.logger.info("os.setsid failed: errno=%d: %s" % (err_no, err_message))
-                    self.logger.info("pid=%d  pgid=%d" % (os.getpid(), os.getpgid(0)))
+                    forkret = os.fork()
+                except OSError, e:
+                    self.logger.info("fork error : %s [%d]" % (e.strerror, e.errno))
+                if (forkret == 0):  # The first child.
+                    try:
+                        os.setsid()
+                        self.logger.info("%s: ifreload continuing in the background" %ifacename)
+                    except OSError, (err_no, err_message):
+                        self.logger.info("os.setsid failed: errno=%d: %s" % (err_no, err_message))
+                        self.logger.info("pid=%d  pgid=%d" % (os.getpid(), os.getpgid(0)))
                 try:
                     self.logger.info("%s: killing our session: %s"
                                      %(ifacename, str(proc)))
@@ -616,7 +613,8 @@ class vrf(moduleBase):
                     master = self.ipcmd.link_get_master(ifaceobj.name)
                     if master:
                         if self._is_vrf_dev(master):
-                            self._down_vrf_slave(ifaceobj.name, ifaceobj)
+                            self._down_vrf_slave(ifaceobj.name, ifaceobj,
+                                                 master)
         except Exception, e:
             self.log_error(str(e))
 
@@ -645,11 +643,8 @@ class vrf(moduleBase):
                 for s in running_slaves:
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)
-                        if sobj and self.ipcmd.link_get_master(sobj[0].name) == 'mgmt':
-                            self._kill_ssh(sobj[0].name)
-                        # if dhcp slave, release the dhcp lease
-                        if sobj and self._is_dhcp_slave(sobj[0]):
-                            self._down_dhcp_slave(sobj[0])
+                        self._handle_existing_connections(sobj[0] if sobj else None,
+                                                          ifaceobj.name)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
@@ -674,10 +669,9 @@ class vrf(moduleBase):
             pass
 
 
-    def _down_vrf_slave(self, ifacename, ifaceobj=None):
+    def _down_vrf_slave(self, ifacename, ifaceobj=None, vrfname=None):
         try:
-            if ifaceobj and self._is_dhcp_slave(ifaceobj):
-                self._down_dhcp_slave(ifaceobj)
+            self._handle_existing_connections(ifaceobj, vrfname)
             self.ipcmd.link_set(ifacename, 'nomaster')
             rtnetlink_api.rtnl_api.link_set(ifacename, "down")
         except Exception, e:
@@ -691,7 +685,7 @@ class vrf(moduleBase):
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._down_vrf_slave(ifaceobj.name, ifaceobj)
+                    self._down_vrf_slave(ifaceobj.name, ifaceobj, None)
         except Exception, e:
             self.log_warn(str(e))
 
