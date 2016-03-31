@@ -24,10 +24,16 @@ class iproute2(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        if self.CACHE and not iproute2._cache_fill_done:
+        if self.CACHE:
+            self._fill_cache()
+
+    def _fill_cache(self):
+        if not iproute2._cache_fill_done:
             self._link_fill()
             self._addr_fill()
             iproute2._cache_fill_done = True
+            return True
+        return False
         
     def _link_fill(self, ifacename=None, refresh=False):
         """ fills cache with link information
@@ -99,6 +105,7 @@ class iproute2(utilsBase):
                     vattrs = {'table' : citems[i+2]}
                     linkattrs['linkinfo'] = vattrs
                     linkattrs['kind'] = 'vrf'
+                    linkCache.vrfs[ifname] = vattrs
                     break
                 elif citems[i] == 'vrf_slave':
                     linkattrs['kind'] = 'vrf_slave'
@@ -173,10 +180,8 @@ class iproute2(utilsBase):
             if self.DRYRUN:
                 return False
             if self.CACHE:
-                if not iproute2._cache_fill_done: 
-                    self._link_fill()
-                    self._addr_fill()
-                    iproute2._cache_fill_done = True
+                if self._fill_cache():
+                    # if we filled the cache, return new data
                     return linkCache.get_attr(attrlist)
                 if not refresh:
                     return linkCache.get_attr(attrlist)
@@ -847,3 +852,7 @@ class iproute2(utilsBase):
             return os.path.basename(upper[0])[6:]
         except:
             return None
+
+    def link_get_vrfs(self):
+        self._fill_cache()
+        return linkCache.vrfs

@@ -81,38 +81,10 @@ class vrf(moduleBase):
         #self.logger.info("vrf: ip -6 rule cache")
         #self.logger.info(self.ip6_rule_cache)
 
-        # XXX: check for vrf reserved overlap in /etc/iproute2/rt_tables
+        self._iproute2_vrf_map_initialized = False
         self.iproute2_vrf_map = {}
-        # read or create /etc/iproute2/rt_tables.d/ifupdown2.vrf_map
-        if os.path.exists(self.iproute2_vrf_filename):
-            self.vrf_map_fd = open(self.iproute2_vrf_filename, 'a+')
-            lines = self.vrf_map_fd.readlines()
-            for l in lines:
-                l = l.strip()
-                if l[0] == '#':
-                    continue
-                try:
-                    (table, vrf_name) = l.strip().split()
-                    self.iproute2_vrf_map[table] = vrf_name
-                except Exception, e:
-                    self.logger.info('vrf: iproute2_vrf_map: unable to parse %s'
-                                     %l)
-                    pass
-        #self.logger.info("vrf: dumping iproute2_vrf_map")
-        #self.logger.info(self.iproute2_vrf_map)
-
-        # purge vrf table entries that are not around
-        iproute2_vrf_map_pruned = {}
-        for t, v in self.iproute2_vrf_map.iteritems():
-            if os.path.exists('/sys/class/net/%s' %v):
-                iproute2_vrf_map_pruned[int(t)] = v
-            else:
-                try:
-                    # cleanup rules
-                    self._del_vrf_rules(v, t)
-                except Exception:
-                    pass
-        self.iproute2_vrf_map = iproute2_vrf_map_pruned
+        self.iproute2_vrf_map_fd = None
+        self.iproute2_vrf_map_sync_to_disk = False
 
         self.vrf_table_id_start = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-table-id-start')
         if not self.vrf_table_id_start:
@@ -122,16 +94,6 @@ class vrf(moduleBase):
             self.vrf_table_id_end = self.VRF_TABLE_END
         self.vrf_max_count = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-max-count')
 
-        last_used_vrf_table = None
-        for t in range(self.vrf_table_id_start,
-                       self.vrf_table_id_end):
-            if not self.iproute2_vrf_map.get(t):
-                break
-            last_used_vrf_table = t
-        self.last_used_vrf_table = last_used_vrf_table
-
-        self.iproute2_write_vrf_map = False
-        atexit.register(self.iproute2_vrf_map_write)
         self.vrf_fix_local_table = True
         self.vrf_count = 0
         self.vrf_cgroup_create = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-cgroup-create')
@@ -141,19 +103,103 @@ class vrf(moduleBase):
             self.vrf_cgroup_create = True
         else:
             self.vrf_cgroup_create = False
-
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
 
-    def iproute2_vrf_map_write(self):
-        if not self.iproute2_write_vrf_map:
+    def _iproute2_vrf_map_initialize(self):
+        if self._iproute2_vrf_map_initialized:
             return
-        self.logger.info('vrf: writing table map to %s'
+
+        # XXX: check for vrf reserved overlap in /etc/iproute2/rt_tables
+        self.iproute2_vrf_map = {}
+        iproute2_vrf_map_force_rewrite = False
+        # read or create /etc/iproute2/rt_tables.d/ifupdown2.vrf_map
+        if os.path.exists(self.iproute2_vrf_filename):
+            vrf_map_fd = open(self.iproute2_vrf_filename, 'r+')
+            lines = vrf_map_fd.readlines()
+            for l in lines:
+                l = l.strip()
+                if l[0] == '#':
+                    continue
+                try:
+                    (table, vrf_name) = l.strip().split()
+                    if self.iproute2_vrf_map.get(int(table)):
+                        # looks like the existing file has
+                        # duplicate entries, force rewrite of the
+                        # file
+                        iproute2_vrf_map_force_rewrite = True
+                        continue
+                    self.iproute2_vrf_map[int(table)] = vrf_name
+                except Exception, e:
+                    self.logger.info('vrf: iproute2_vrf_map: unable to parse %s'
+                                     %l)
+                    pass
+
+        vrfs = self.ipcmd.link_get_vrfs()
+        running_vrf_map = {}
+        if vrfs:
+            for v, lattrs in vrfs.iteritems():
+                table = lattrs.get('table', None)
+                if table:
+                   running_vrf_map[int(table)] = v
+
+        if running_vrf_map and (running_vrf_map != self.iproute2_vrf_map):
+            self.iproute2_vrf_map = running_vrf_map
+            iproute2_vrf_map_force_rewrite = True
+
+        self.iproute2_vrf_map_fd = None
+        if iproute2_vrf_map_force_rewrite:
+            # reopen the file and rewrite the map
+            self._iproute2_vrf_map_open(True, False)
+        else:
+            self._iproute2_vrf_map_open(False, True)
+
+        self.iproute2_vrf_map_sync_to_disk = False
+        atexit.register(self._iproute2_vrf_map_sync_to_disk)
+
+        self.logger.info("vrf: dumping iproute2_vrf_map")
+        self.logger.info(self.iproute2_vrf_map)
+
+        last_used_vrf_table = None
+        for t in range(self.vrf_table_id_start,
+                       self.vrf_table_id_end):
+            if not self.iproute2_vrf_map.get(t):
+                break
+            last_used_vrf_table = t
+        self.last_used_vrf_table = last_used_vrf_table
+        self._iproute2_vrf_map_initialized = True
+
+    def _iproute2_vrf_map_sync_to_disk(self):
+        if not self.iproute2_vrf_map_sync_to_disk:
+            return
+        self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
         with open(self.iproute2_vrf_filename, 'w') as f:
             f.write(self.iproute2_vrf_filehdr %(self.vrf_table_id_start,
                     self.vrf_table_id_end))
             for t, v in self.iproute2_vrf_map.iteritems():
                 f.write('%s %s\n' %(t, v))
+            f.flush()
+
+    def _iproute2_vrf_map_open(self, sync_vrfs=False, append=False):
+        self.logger.info('vrf: syncing table map to %s'
+                         %self.iproute2_vrf_filename)
+        fmode = 'a+' if append else 'w'
+        try:
+            self.iproute2_vrf_map_fd = open(self.iproute2_vrf_filename,
+                                         '%s' %fmode)
+        except Exception, e:
+            self.log_warn('vrf: error opening %s (%s)'
+                          %(self.iproute2_vrf_filename, str(e)))
+            return
+
+        if not append:
+            # write file header
+            self.iproute2_vrf_map_fd.write(self.iproute2_vrf_filehdr
+                                           %(self.vrf_table_id_start,
+                                             self.vrf_table_id_end))
+            for t, v in self.iproute2_vrf_map.iteritems():
+                self.iproute2_vrf_map_fd.write('%s %s\n' %(t, v))
+            self.iproute2_vrf_map_fd.flush()
 
     def _is_vrf(self, ifaceobj):
         if ifaceobj.get_attr_value_first('vrf-table'):
@@ -197,13 +243,19 @@ class vrf(moduleBase):
         return None
 
     def _iproute2_vrf_table_entry_add(self, vrf_dev_name, table_id):
-        self.iproute2_vrf_map[int(table_id)] = vrf_dev_name
-        self.iproute2_write_vrf_map = True
+        old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
+        if not old_vrf_name or (old_vrf_name != vrf_dev_name):
+            self.iproute2_vrf_map[int(table_id)] = vrf_dev_name
+            if self.iproute2_vrf_map_fd:
+                self.iproute2_vrf_map_fd.write('%s %s\n'
+                                               %(table_id, vrf_dev_name))
+                self.iproute2_vrf_map_fd.flush()
 
     def _iproute2_vrf_table_entry_del(self, table_id):
         try:
+            # with any del of vrf map, we need to force sync to disk
+            self.iproute2_vrf_map_sync_to_disk = True
             del self.iproute2_vrf_map[int(table_id)]
-            self.iproute2_write_vrf_map = True
         except Exception, e:
             self.logger.info('vrf: iproute2 vrf map del failed for %d (%s)'
                              %(table_id, str(e)))
@@ -481,7 +533,7 @@ class vrf(moduleBase):
 
         return vrf_table
 
-    def _add_vrf_default_route(self, ifaceobj,  vrf_table):
+    def _add_del_vrf_default_route(self, ifaceobj,  vrf_table, add=True):
         vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
         if not vrf_default_route:
             vrf_default_route = policymanager.policymanager_api.get_attr_default(
@@ -491,19 +543,33 @@ class vrf(moduleBase):
             return
         if str(vrf_default_route).lower() == "yes":
             try:
-                self.exec_command('ip route add table %s unreachable default'
-                                  ' metric %d' %(vrf_table, 240))
+                if add:
+                    self.exec_command('ip route add table %s unreachable '
+                                      'default metric %d' %(vrf_table, 240))
+                else:
+                    self.exec_command('ip route del table %s unreachable '
+                                      'default metric %d' %(vrf_table, 240))
             except OSError, e:
-                if e.errno != 17:
+                if add and e.errno != 17:
                     raise
+                else:
+                    self.logger.info('%s: error deleting default route (%s)'
+                                     %(ifaceobj.name, str(e)))
                 pass
 
             try:
-                self.exec_command('ip -6 route add table %s unreachable '
-                                  'default metric %d' %(vrf_table, 240))
+                if add:
+                    self.exec_command('ip -6 route add table %s unreachable '
+                                      'default metric %d' %(vrf_table, 240))
+                else:
+                    self.exec_command('ip -6 route del table %s unreachable '
+                                      'default metric %d' %(vrf_table, 240))
             except OSError, e:
-                if e.errno != 17:
+                if add and e.errno != 17:
                     raise
+                else:
+                    self.logger.info('%s: error deleting default route (%s)'
+                                     %(ifaceobj.name, str(e)))
                 pass
 
     def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True,
@@ -521,7 +587,7 @@ class vrf(moduleBase):
             self._create_cgroup(ifaceobj)
             if add_slaves:
                 self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
-            self._add_vrf_default_route(ifaceobj, vrf_table)
+            self._add_del_vrf_default_route(ifaceobj, vrf_table)
             self._set_vrf_dev_processed_flag(ifaceobj)
             rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
@@ -596,6 +662,7 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
+                self._iproute2_vrf_map_initialize()
                 # This is a vrf device
                 if self.vrf_count == self.vrf_max_count:
                     self.log_error('%s: max vrf count %d hit...not '
@@ -605,6 +672,7 @@ class vrf(moduleBase):
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
+                    self._iproute2_vrf_map_initialize()
                     # This is a vrf slave
                     self._up_vrf_slave(ifaceobj.name, vrf, ifaceobj,
                                        ifaceobj_getfunc)
@@ -663,6 +731,7 @@ class vrf(moduleBase):
 
         try:
             self._iproute2_vrf_table_entry_del(vrf_table)
+            self._add_del_vrf_default_route(ifaceobj, vrf_table, False)
             self._delete_cgroup(ifaceobj)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
@@ -681,10 +750,12 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
+                self._iproute2_vrf_map_initialize()
                 self._down_vrf_dev(ifaceobj, vrf_table, ifaceobj_getfunc)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
+                    self._iproute2_vrf_map_initialize()
                     self._down_vrf_slave(ifaceobj.name, ifaceobj, None)
         except Exception, e:
             self.log_warn(str(e))
@@ -729,10 +800,12 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
+                self._iproute2_vrf_map_initialize()
                 self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
+                    self._iproute2_vrf_map_initialize()
                     self._query_check_vrf_slave(ifaceobj, ifaceobjcurr, vrf)
         except Exception, e:
             self.log_warn(str(e))
