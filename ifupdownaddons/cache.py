@@ -23,6 +23,8 @@ class linkCache():
                                         <ports> : {
                                                   } """
     links = {}
+    vrfs = {}
+
     @classmethod
     def get_attr(cls, mapList):
         return reduce(lambda d, k: d[k], mapList, linkCache.links)

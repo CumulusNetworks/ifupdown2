@@ -1440,6 +1440,8 @@ class ifupdownMain(ifupdownBase):
         else:
             # oldconfig not available, continue with 'up' with new config
             op = 'up'
+            new_ifaceobjdict = self.ifaceobjdict
+            new_dependency_graph = self.dependency_graph
 
         if op == 'reload' and ifacenames:
             ifacenames = self.ifaceobjdict.keys()
