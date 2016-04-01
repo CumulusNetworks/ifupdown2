@@ -988,15 +988,15 @@ class bridge(moduleBase):
         add_port = False
         bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
         if (not bridgename and
-                (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)):
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)):
             # get bridgename and add port to bridge
             bridgename = self._get_bridgename(ifaceobj)
             add_port = True
         if bridgename:
-           if add_port:
+           if self.ipcmd.bridge_is_vlan_aware(bridgename):
+              if add_port:
                 # add ifaceobj to bridge
                 self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
-           if self.ipcmd.bridge_is_vlan_aware(bridgename):
               bridge_vids = self._get_bridge_vids(bridgename,
                                                   ifaceobj_getfunc)
               bridge_pvid = self._get_bridge_pvid(bridgename,
