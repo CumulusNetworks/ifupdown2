@@ -764,7 +764,7 @@ class vrf(moduleBase):
         try:
             master = self.ipcmd.link_get_master(ifaceobj.name)
             if not master or master != vrf:
-                ifaceobjcurr.update_config_with_status('vrf', str(master), 1)
+                ifaceobjcurr.update_config_with_status('vrf', master, 1)
             else:
                 ifaceobjcurr.update_config_with_status('vrf', master, 0)
         except Exception, e:

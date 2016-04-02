@@ -244,7 +244,7 @@ class addressvirtual(moduleBase):
             return True 
         mac = mac.lower()
         try:
-            if int(mac.split(":")[0], 16) & 1 :
+            if int(mac.split(":")[0][1], 16) & 1 :
                 self.logger.error("%s: Multicast bit is set in the virtual mac address '%s'" %(ifaceobj.name, mac))
                 return False
             return True

@@ -116,9 +116,9 @@ class iproute2(utilsBase):
         [linkCache.update_attrdict([ifname], linkattrs)
                     for ifname, linkattrs in linkout.items()]
 
-    def _addr_filter(self, ifname, addr, scope=None):
+    def _addr_filter(self, addr, scope=None):
         default_addrs = ['127.0.0.1/8', '::1/128' , '0.0.0.0']
-        if ifname == 'lo' and addr in default_addrs:
+        if addr in default_addrs:
             return True
         if scope and scope == 'link':
             return True
@@ -158,14 +158,14 @@ class iproute2(utilsBase):
                 except KeyError:
                     linkout[ifname] = linkattrs
             if citems[2] == 'inet':
-                if self._addr_filter(citems[3], ifname, scope=citems[5]):
+                if self._addr_filter(citems[3], scope=citems[5]):
                     continue
                 addrattrs = {}
                 addrattrs['scope'] = citems[5]
                 addrattrs['type'] = 'inet'
                 linkout[ifname]['addrs'][citems[3]] = addrattrs
             elif citems[2] == 'inet6':
-                if self._addr_filter(citems[3], ifname, scope=citems[5]):
+                if self._addr_filter(citems[3], scope=citems[5]):
                     continue
                 if citems[5] == 'link': continue #skip 'link' addresses
                 addrattrs = {}
