@@ -132,10 +132,10 @@ class iproute2(utilsBase):
         """
 
         linkout = {}
-        if iproute2._cache_fill_done: return
+        if iproute2._cache_fill_done and not refresh: return
         try:
             # Check if ifacename is already full, in which case, return
-            if ifacename:
+            if ifacename and not refresh:
                 linkCache.get_attr([ifacename, 'addrs']) 
                 return
         except:
@@ -331,8 +331,9 @@ class iproute2(utilsBase):
             # ignore errors
             pass
 
-    def addr_get(self, ifacename, details=True):
-        addrs = self._cache_get('addr', [ifacename, 'addrs'])
+    def addr_get(self, ifacename, details=True, refresh=False):
+        addrs = self._cache_get('addr', [ifacename, 'addrs'],
+                                refresh=refresh)
         if not addrs:
             return None
         if details:
