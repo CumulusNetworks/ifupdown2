@@ -158,14 +158,14 @@ class iproute2(utilsBase):
                 except KeyError:
                     linkout[ifname] = linkattrs
             if citems[2] == 'inet':
-                if self._addr_filter(citems[3], ifname, scope=citems[5]):
+                if self._addr_filter(ifname, citems[3], scope=citems[5]):
                     continue
                 addrattrs = {}
                 addrattrs['scope'] = citems[5]
                 addrattrs['type'] = 'inet'
                 linkout[ifname]['addrs'][citems[3]] = addrattrs
             elif citems[2] == 'inet6':
-                if self._addr_filter(citems[3], ifname, scope=citems[5]):
+                if self._addr_filter(ifname, citems[3], scope=citems[5]):
                     continue
                 if citems[5] == 'link': continue #skip 'link' addresses
                 addrattrs = {}
