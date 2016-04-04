@@ -41,7 +41,7 @@ class rtnetlinkApi(RtNetlink):
         return ifindex
 
     def create_vlan(self, link, ifname, vlanid):
-        self.logger.info('rtnetlink: creating vlan interface %s' %ifname)
+        self.logger.info('rtnetlink: ip link add link %s name %s type vlan id %s' %(link, ifname, vlanid))
         if ifupdownmain.ifupdownFlags.DRYRUN:
             return
         try:
@@ -65,7 +65,7 @@ class rtnetlinkApi(RtNetlink):
         self.process_wait([token])
 
     def create_macvlan(self, ifname, link, mode='private'):
-        self.logger.info('rtnetlink: creating macvlan interface %s' %ifname)
+        self.logger.info('rtnetlink: ip link add link %s name %s type macvlan mode private' %(link, ifname))
         if ifupdownmain.ifupdownFlags.DRYRUN:
             return
         try:
@@ -90,7 +90,7 @@ class rtnetlinkApi(RtNetlink):
 
     def link_set(self, ifname, state):
         flags = 0
-        self.logger.info('rtnetlink: setting link %s %s' %(ifname, state))
+        self.logger.info('rtnetlink: ip link set dev %s %s' %(ifname, state))
         if ifupdownmain.ifupdownFlags.DRYRUN:
             return
 
@@ -122,7 +122,7 @@ class rtnetlinkApi(RtNetlink):
 
     def link_set_hwaddress(self, ifname, hwaddress):
         flags = 0
-        self.logger.info('rtnetlink: setting link hwaddress %s %s' %(ifname, hwaddress))
+        self.logger.info('rtnetlink: ip link set dev %s address %s' %(ifname, hwaddress))
         if ifupdownmain.ifupdownFlags.DRYRUN:
             return
 
