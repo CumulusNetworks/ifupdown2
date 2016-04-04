@@ -439,9 +439,10 @@ class ifupdownMain(ifupdownBase):
                             %(ifaceobj.name, ifacename) +
                             'seem to share dependents/ports %s' %str(list(common)))
 
-    def _set_iface_role(self, ifaceobj, role):
+    def _set_iface_role(self, ifaceobj, role, upperifaceobj):
         if (self.flags.CHECK_SHARED_DEPENDENTS and
-            (ifaceobj.role & ifaceRole.SLAVE) and role == ifaceRole.SLAVE):
+            (ifaceobj.role & ifaceRole.SLAVE) and
+            (role == ifaceRole.SLAVE) and (upperifaceobj.role == ifaceRole.MASTER)):
 		self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
                                   %(ifaceobj.name,
                                     ifaceLinkPrivFlags.get_all_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
@@ -452,18 +453,18 @@ class ifupdownMain(ifupdownBase):
     def _set_iface_role_n_kind(self, ifaceobj, upperifaceobj):
 
         if (upperifaceobj.link_kind & ifaceLinkKind.BOND):
-            self._set_iface_role(ifaceobj, ifaceRole.SLAVE)
+            self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BOND_SLAVE
 
         if (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
-            self._set_iface_role(ifaceobj, ifaceRole.SLAVE)
+            self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_PORT
 
         # vrf masters get processed after slaves, which means
         # check both link_kind vrf and vrf slave
         if ((upperifaceobj.link_kind & ifaceLinkKind.VRF) or
             (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
-            self._set_iface_role(ifaceobj, ifaceRole.SLAVE)
+            self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.VRF_SLAVE
         if self._link_master_slave:
             if upperifaceobj.link_type == ifaceLinkType.LINK_MASTER:
