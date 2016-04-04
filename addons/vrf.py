@@ -213,6 +213,7 @@ class vrf(moduleBase):
         if vrf_table:
             ifaceobj.link_type = ifaceLinkType.LINK_MASTER
             ifaceobj.link_kind |= ifaceLinkKind.VRF
+            ifaceobj.role |= ifaceRole.MASTER
         vrf_iface_name = ifaceobj.get_attr_value_first('vrf')
         if not vrf_iface_name:
             return None
