@@ -313,9 +313,13 @@ class vrf(moduleBase):
         self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
 
-    def _down_dhcp_slave(self, ifaceobj):
+    def _down_dhcp_slave(self, ifaceobj, vrfname):
         try:
-            self.dhclientcmd.release(ifaceobj.name)
+            dhclient_cmd_prefix = None
+            if vrfname and self.vrf_exec_cmd_prefix:
+                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix,
+                                                vrfname)
+            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
         except:
             # ignore any dhclient release errors
             pass
@@ -327,7 +331,7 @@ class vrf(moduleBase):
             self.vrf_mgmt_devname == vrfname):
             self._kill_ssh_connections(ifaceobj.name)
         if self._is_dhcp_slave(ifaceobj):
-            self._down_dhcp_slave(ifaceobj)
+            self._down_dhcp_slave(ifaceobj, vrfname)
 
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
@@ -681,6 +685,7 @@ class vrf(moduleBase):
                     # check if we were a slave before
                     master = self.ipcmd.link_get_master(ifaceobj.name)
                     if master:
+                        self._iproute2_vrf_map_initialize()
                         if self._is_vrf_dev(master):
                             self._down_vrf_slave(ifaceobj.name, ifaceobj,
                                                  master)
@@ -701,7 +706,7 @@ class vrf(moduleBase):
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
 
         try:
-            self.exec_command('/usr/cumulus/bin/cl-vrf service disable %s' %ifaceobj.name)
+            self.exec_command('/usr/bin/vrf service disable %s' %ifaceobj.name)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass

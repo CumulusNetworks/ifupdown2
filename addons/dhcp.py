@@ -31,9 +31,14 @@ class dhcp(moduleBase):
                              ifaceobj.name)
             return
         try:
+            dhclient_cmd_prefix = None
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
                 module_name=self.__class__.__name__, attr='dhcp-wait')
             wait = not str(dhcp_wait).lower() == "no"
+            vrf = ifaceobj.get_attr_value_first('vrf')
+            if vrf and self.vrf_exec_cmd_prefix:
+                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
                 try:
@@ -41,7 +46,8 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop(ifaceobj.name)
                 except:
                     pass
-                self.dhclientcmd.start(ifaceobj.name, wait=wait)
+                self.dhclientcmd.start(ifaceobj.name, wait=wait,
+                                       cmd_prefix=dhclient_cmd_prefix)
             elif ifaceobj.addr_family == 'inet6':
                 accept_ra = ifaceobj.get_attr_value_first('accept_ra')
                 if accept_ra:
@@ -57,12 +63,17 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop6(ifaceobj.name)
                     except:
                         pass
-                self.dhclientcmd.start6(ifaceobj.name, wait=wait)
+                self.dhclientcmd.start6(ifaceobj.name, wait=wait,
+                                        cmd_prefix=dhclient_cmd_prefix)
         except Exception, e:
             self.log_error(str(e))
 
     def _down(self, ifaceobj):
-        self.dhclientcmd.release(ifaceobj.name)
+        dhclient_cmd_prefix = None
+        vrf = ifaceobj.get_attr_value_first('vrf')
+        if vrf and self.vrf_exec_cmd_prefix:
+            dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+        self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
         self.ipcmd.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):

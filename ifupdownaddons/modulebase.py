@@ -15,6 +15,7 @@ import shlex
 
 from ifupdown.utils import utils
 from ifupdown.iface import *
+import ifupdown.policymanager as policymanager
 #from ifupdownaddons.iproute2 import *
 #from ifupdownaddons.dhclient import *
 #from ifupdownaddons.bridgeutils import *
@@ -37,6 +38,11 @@ class moduleBase(object):
         self.PERFMODE = kargs.get('perfmode', False)
         self.CACHE = kargs.get('cache', False)
         self.CACHE_FLAGS = kargs.get('cacheflags', 0x0)
+
+        # vrfs are a global concept and a vrf context can be applicable
+        # to all global vrf commands. Get the default vrf-exec-cmd-prefix
+        # here so that all modules can use it
+        self.vrf_exec_cmd_prefix = policymanager.policymanager_api.get_module_globals('vrf', attr='vrf-exec-cmd-prefix')
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
