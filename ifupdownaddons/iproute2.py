@@ -130,9 +130,9 @@ class iproute2(utilsBase):
         if ifacename argument given, fill cache for ifacename, else
         fill cache for all interfaces in the system
         """
-
         linkout = {}
         if iproute2._cache_fill_done and not refresh: return
+
         try:
             # Check if ifacename is already full, in which case, return
             if ifacename and not refresh:
@@ -226,6 +226,7 @@ class iproute2(utilsBase):
 
     def _cache_invalidate(self):
         linkCache.invalidate()
+        iproute2._cache_fill_done = False
 
     def batch_start(self):
         self.ipbatcbuf = ''
