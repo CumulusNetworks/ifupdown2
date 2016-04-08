@@ -76,8 +76,10 @@ class vxlan(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check_n_update(self, ifaceobjcurr, attrname, attrval,
+    def _query_check_n_update(self, ifaceobj, ifaceobjcurr, attrname, attrval,
                               running_attrval):
+        if not ifaceobj.get_attr_value_first(attrname):
+            return
         if running_attrval and attrval == running_attrval:
            ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
         else:
@@ -105,7 +107,7 @@ class vxlan(moduleBase):
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                     self.get_mod_attrs(), -1)
             return
-        self._query_check_n_update(ifaceobjcurr, 'vxlan-id',
+        self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-id',
                        ifaceobj.get_attr_value_first('vxlan-id'), 
                        vxlanattrs.get('vxlanid'))
 
@@ -114,16 +116,16 @@ class vxlan(moduleBase):
         if running_attrval == self._clagd_vxlan_anycast_ip:
             # if local ip is anycast_ip, then let query_check to go through
             attrval = self._clagd_vxlan_anycast_ip
-        self._query_check_n_update(ifaceobjcurr, 'vxlan-local-tunnelip',
+        self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-local-tunnelip',
                                    attrval, running_attrval)
 
-        self._query_check_n_update(ifaceobjcurr, 'vxlan-svcnodeip',
+        self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-svcnodeip',
                        ifaceobj.get_attr_value_first('vxlan-svcnodeip'),
                        vxlanattrs.get('svcnode'))
 
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
-            self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
+            self._query_check_n_update_addresses(ifaceobj, ifaceobjcurr, 'vxlan-remoteip',
                            ifaceobj.get_attr_value('vxlan-remoteip'),
                            vxlanattrs.get('remote', []))
 
@@ -140,7 +142,7 @@ class vxlan(moduleBase):
         ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
         if not ageing:
             ageing = self.get_mod_subattr('vxlan-ageing', 'default')
-        self._query_check_n_update(ifaceobjcurr, 'vxlan-ageing',
+        self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-ageing',
                        ageing, vxlanattrs.get('ageing'))
 
     def _query_running(self, ifaceobjrunning):
