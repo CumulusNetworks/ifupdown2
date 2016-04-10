@@ -6,6 +6,9 @@
 
 import subprocess
 import ifupdownaddons
+import signal
+
+from ifupdown.utils import utils
 
 class usercmds(ifupdownaddons.modulebase.moduleBase):
     """  ifupdown2 addon module to configure user specified commands """
@@ -42,11 +45,14 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
                     shell=True,
                     stderr=subprocess.STDOUT,
                     close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             cmd_returncode = ch.wait()
             cmdout = ch.communicate()[0]
         except Exception, e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(cmd, str(e)))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
             raise Exception(cmdout)
         return cmdout

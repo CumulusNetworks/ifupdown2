@@ -8,6 +8,10 @@ import logging
 import subprocess
 import re
 import io
+import signal
+import shlex
+
+from ifupdown.utils import utils
 from ifupdown.iface import *
 from cache import *
 
@@ -50,11 +54,14 @@ class utilsBase(object):
                     shell=False, env=cmdenv,
                     stderr=subprocess.STDOUT,
                     close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
         except OSError, e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(' '.join(cmdl), str(e)))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
             raise Exception('failed to execute cmd \'%s\''
                  %' '.join(cmdl) + '(' + cmdout.strip('\n ') + ')')
@@ -63,7 +70,7 @@ class utilsBase(object):
     def exec_command(self, cmd, cmdenv=None):
         """ Executes command given as string in the argument cmd """
 
-        return self.exec_commandl(cmd.split(), cmdenv)
+        return self.exec_commandl(shlex.split(cmd), cmdenv)
 
     def exec_command_talk_stdin(self, cmd, stdinbuf):
         """ Executes command and writes to stdin of the process """
@@ -73,17 +80,20 @@ class utilsBase(object):
             self.logger.info('executing %s [%s]' %(cmd, stdinbuf))
             if self.DRYRUN:
                 return cmdout
-            ch = subprocess.Popen(cmd.split(),
+            ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
                     stdin=subprocess.PIPE,
                     shell=False,
                     stderr=subprocess.STDOUT,
                     close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             cmdout = ch.communicate(input=stdinbuf)[0]
             cmd_returncode = ch.wait()
         except OSError, e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(cmd, str(e)))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
             raise Exception('failed to execute cmd \'%s [%s]\''
                 %(cmd, stdinbuf) + '(' + cmdout.strip('\n ') + ')')
@@ -115,10 +125,13 @@ class utilsBase(object):
                     shell=False,
                     stderr=None,
                     close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             cmd_returncode = ch.wait()
         except Exception, e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                             %(' '.join(cmdl), str(e)))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
             raise Exception('failed to execute cmd \'%s\''
                  %' '.join(cmdl))

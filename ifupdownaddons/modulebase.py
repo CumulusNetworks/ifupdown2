@@ -10,6 +10,10 @@ import io
 import logging
 import subprocess
 import traceback
+import signal
+import shlex
+
+from ifupdown.utils import utils
 from ifupdown.iface import *
 #from ifupdownaddons.iproute2 import *
 #from ifupdownaddons.dhclient import *
@@ -79,16 +83,19 @@ class moduleBase(object):
             self.logger.info('Executing ' + cmd)
             if self.DRYRUN:
                 return cmdout
-            ch = subprocess.Popen(cmd.split(),
+            ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
                     shell=False, env=cmdenv,
                     stderr=subprocess.STDOUT,
                     close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             cmdout = ch.communicate()[0]
             cmd_returncode = ch.wait()
         except OSError, e:
             raise Exception('could not execute ' + cmd +
                     '(' + str(e) + ')')
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
             raise Exception('error executing cmd \'%s\'' %cmd +
                 '(' + cmdout.strip('\n ') + ')')
@@ -109,17 +116,20 @@ class moduleBase(object):
             self.logger.info('Executing %s (stdin=%s)' %(cmd, stdinbuf))
             if self.DRYRUN:
                 return cmdout
-            ch = subprocess.Popen(cmd.split(),
+            ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
                     stdin=subprocess.PIPE,
                     shell=False, env=cmdenv,
                     stderr=subprocess.STDOUT,
                     close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             cmdout = ch.communicate(input=stdinbuf)[0]
             cmd_returncode = ch.wait()
         except OSError, e:
             raise Exception('could not execute ' + cmd +
                     '(' + str(e) + ')')
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
             raise Exception('error executing cmd \'%s (%s)\''
                     %(cmd, stdinbuf) + '(' + cmdout.strip('\n ') + ')')

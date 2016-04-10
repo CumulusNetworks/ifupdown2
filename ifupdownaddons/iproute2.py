@@ -6,6 +6,10 @@
 
 import os
 import glob
+import shlex
+import signal
+
+from ifupdown.utils import utils
 from collections import OrderedDict
 from utilsbase import *
 from systemutils import *
@@ -495,9 +499,11 @@ class iproute2(utilsBase):
         cmd = 'bridge fdb show brport %s' % dev
         cur_peers = []
         try:
-            ps = subprocess.Popen((cmd).split(), stdout=subprocess.PIPE, close_fds=True)
+            ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ps, signal.SIGINT)
             output = subprocess.check_output(('grep', '00:00:00:00:00:00'), stdin=ps.stdout)
             ps.wait()
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
             try:
                 ppat = re.compile('\s+dst\s+(\d+.\d+.\d+.\d+)\s+')
                 for l in output.split('\n'):
@@ -510,6 +516,8 @@ class iproute2(utilsBase):
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 self.logger.error(str(e))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         return cur_peers
 
