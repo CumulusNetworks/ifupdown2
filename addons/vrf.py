@@ -550,10 +550,10 @@ class vrf(moduleBase):
             try:
                 if add:
                     self.exec_command('ip route add table %s unreachable '
-                                      'default metric %d' %(vrf_table, 240))
+                                      'default metric %d' %(vrf_table, 8192))
                 else:
                     self.exec_command('ip route del table %s unreachable '
-                                      'default metric %d' %(vrf_table, 240))
+                                      'default metric %d' %(vrf_table, 8192))
             except OSError, e:
                 if add and e.errno != 17:
                     raise
@@ -565,10 +565,10 @@ class vrf(moduleBase):
             try:
                 if add:
                     self.exec_command('ip -6 route add table %s unreachable '
-                                      'default metric %d' %(vrf_table, 240))
+                                      'default metric %d' %(vrf_table, 8192))
                 else:
                     self.exec_command('ip -6 route del table %s unreachable '
-                                      'default metric %d' %(vrf_table, 240))
+                                      'default metric %d' %(vrf_table, 8192))
             except OSError, e:
                 if add and e.errno != 17:
                     raise
