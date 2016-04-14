@@ -168,10 +168,12 @@ class bond(moduleBase):
             if attrname == 'bond-mode' and attrval == '802.3ad':
                dattrname = 'bond-min-links'
                min_links = ifaceobj.get_attr_value_first(dattrname)
-               if not min_links or min_links == '0':
-                   self.logger.warn('%s: required attribute %s'
+               if not min_links:
+                   min_links = self.bondcmd.get_min_links(ifaceobj.name)
+               if min_links == '0':
+                   self.logger.warn('%s: attribute %s'
                         %(ifaceobj.name, dattrname) +
-                        ' not present or set to \'0\'')
+                        ' is set to \'0\'')
         elif policy_default_val:
             return policy_default_val
         return attrval

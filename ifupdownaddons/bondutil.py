@@ -68,11 +68,12 @@ class bondutil(utilsBase):
         [self._bond_linkinfo_fill_attrs(b) for b in bondstr.split()]
 
     def _bond_linkinfo_fill(self, bondname, refresh=False):
-        try:
-            linkCache.get_attr([bondname, 'linkinfo', 'slaves'])
-            return
-        except:
-            pass
+        if not refresh:
+            try:
+                linkCache.get_attr([bondname, 'linkinfo', 'slaves'])
+                return
+            except:
+                pass
         bondstr = self.read_file_oneline('/sys/class/net/bonding_masters')
         if (not bondstr or bondname not in bondstr.split()):
             raise Exception('bond %s not found' %bondname)
@@ -144,7 +145,8 @@ class bondutil(utilsBase):
             try:
                 if ((attrname not in ['lacp_rate',
                                       'lacp_bypass']) or
-                    ('mode', '802.3ad') in attrdict.items()):
+                    self._cache_check([bondname, 'linkinfo', 'mode'], '802.3ad',
+                                      True)):
                     self.write_file('/sys/class/net/%s/bonding/%s'
                                     %(bondname, attrname), attrval)
             except Exception, e:
