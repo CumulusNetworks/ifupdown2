@@ -993,38 +993,47 @@ class bridge(moduleBase):
             bridgename = self._get_bridgename(ifaceobj)
             add_port = True
         if bridgename:
-           if self.ipcmd.bridge_is_vlan_aware(bridgename):
-              if add_port:
-                # add ifaceobj to bridge
-                self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
-              bridge_vids = self._get_bridge_vids(bridgename,
-                                                  ifaceobj_getfunc)
-              bridge_pvid = self._get_bridge_pvid(bridgename,
-                                                   ifaceobj_getfunc)
-              self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
-                                                              bridge_vids,
-                                                              bridge_pvid)
-           self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
-           ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
+            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+                if add_port:
+                    # add ifaceobj to bridge
+                    self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
+                bridge_vids = self._get_bridge_vids(bridgename,
+                                                    ifaceobj_getfunc)
+                bridge_pvid = self._get_bridge_pvid(bridgename,
+                                                    ifaceobj_getfunc)
+                self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
+                                                                bridge_vids,
+                                                                bridge_pvid)
+            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
+            ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
                                               bridgeFlags.PORT_PROCESSED
-           return
+            return
         if not self._is_bridge(ifaceobj):
             return
         err = False
         errstr = ''
         running_ports = ''
+        bridge_just_created = False
         try:
             if not self.PERFMODE:
                 if not self.ipcmd.link_exists(ifaceobj.name):
                    self.ipcmd.link_create(ifaceobj.name, 'bridge')
+                   bridge_just_created = True
             else:
                 self.ipcmd.link_create(ifaceobj.name, 'bridge')
+                bridge_just_created = True
         except Exception, e:
             raise Exception(str(e))
 
         try:
             if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
-                self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1', False, "bridge")
+                if (bridge_just_created or
+                    not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
+                    self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1',
+                                        False, "bridge")
+                    if not bridge_just_created:
+                        ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
+
         except Exception, e:
             raise Exception(str(e))
 
