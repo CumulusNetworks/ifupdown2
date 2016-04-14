@@ -14,6 +14,7 @@ from collections import OrderedDict
 from utilsbase import *
 from systemutils import *
 from cache import *
+import ifupdown.ifupdownflags as ifupdownflags
 
 VXLAN_UDP_PORT = 4789
 
@@ -28,7 +29,7 @@ class iproute2(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        if self.CACHE:
+        if ifupdownflags.flags.CACHE:
             self._fill_cache()
 
     def _fill_cache(self):
@@ -181,9 +182,9 @@ class iproute2(utilsBase):
 
     def _cache_get(self, type, attrlist, refresh=False):
         try:
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return False
-            if self.CACHE:
+            if ifupdownflags.flags.CACHE:
                 if self._fill_cache():
                     # if we filled the cache, return new data
                     return linkCache.get_attr(attrlist)
@@ -215,14 +216,14 @@ class iproute2(utilsBase):
         return False
 
     def _cache_update(self, attrlist, value):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             linkCache.add_attr(attrlist, value)
         except:
             pass
 
     def _cache_delete(self, attrlist):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             linkCache.del_attr(attrlist)
         except:
@@ -590,7 +591,7 @@ class iproute2(utilsBase):
         self._cache_update([name], {})
 
     def link_exists(self, ifacename):
-        if self.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return True
         return os.path.exists('/sys/class/net/%s' %ifacename)
 

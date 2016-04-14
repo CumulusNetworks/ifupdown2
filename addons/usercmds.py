@@ -9,6 +9,7 @@ import ifupdownaddons
 import signal
 
 from ifupdown.utils import utils
+import ifupdown.ifupdownflags as ifupdownflags
 
 class usercmds(ifupdownaddons.modulebase.moduleBase):
     """  ifupdown2 addon module to configure user specified commands """
@@ -38,7 +39,7 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
         cmd_returncode = 0
         try:
             self.logger.info('executing %s' %cmd)
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return
             ch = subprocess.Popen(cmd,
                     stdout=subprocess.PIPE,

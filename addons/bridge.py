@@ -12,6 +12,7 @@ from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 from collections import Counter
 import ifupdown.rtnetlink_api as rtnetlink_api
+import ifupdown.ifupdownflags as ifupdownflags
 import itertools
 import re
 import time
@@ -347,7 +348,7 @@ class bridge(moduleBase):
         self._process_bridge_waitport(ifaceobj, bridgeports)
         self.ipcmd.batch_start()
         # Delete active ports not in the new port list
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if runningbridgeports:
                 for bport in runningbridgeports:
@@ -364,7 +365,8 @@ class bridge(moduleBase):
         newbridgeports = Set(bridgeports).difference(Set(runningbridgeports))
         for bridgeport in newbridgeports:
             try:
-                if not self.DRYRUN and not self.ipcmd.link_exists(bridgeport):
+                if (not ifupdownflags.flags.DRYRUN and
+                    not self.ipcmd.link_exists(bridgeport)):
                     self.log_warn('%s: bridge port %s does not exist'
                                    %(ifaceobj.name, bridgeport))
                     err += 1
@@ -476,7 +478,7 @@ class bridge(moduleBase):
         attrval = ifaceobj.get_attr_value_first('bridge-mcqv4src')
         if attrval:
             running_mcqv4src = {}
-            if not self.PERFMODE:
+            if not ifupdownflags.flags.PERFMODE:
                 running_mcqv4src = self.brctlcmd.get_mcqv4src(ifaceobj.name)
             mcqs = {}
             srclist = attrval.split()
@@ -1015,7 +1017,7 @@ class bridge(moduleBase):
         running_ports = ''
         bridge_just_created = False
         try:
-            if not self.PERFMODE:
+            if not ifupdownflags.flags.PERFMODE:
                 if not self.ipcmd.link_exists(ifaceobj.name):
                    self.ipcmd.link_create(ifaceobj.name, 'bridge')
                    bridge_just_created = True
@@ -1685,11 +1687,10 @@ class bridge(moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        flags = self.get_flags()
         if not self.ipcmd:
-            self.ipcmd = iproute2(**flags)
+            self.ipcmd = iproute2()
         if not self.brctlcmd:
-            self.brctlcmd = brctl(**flags)
+            self.brctlcmd = brctl()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None):

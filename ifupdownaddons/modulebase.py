@@ -16,11 +16,7 @@ import shlex
 from ifupdown.utils import utils
 from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
-#from ifupdownaddons.iproute2 import *
-#from ifupdownaddons.dhclient import *
-#from ifupdownaddons.bridgeutils import *
-#from ifupdownaddons.mstpctlutil import *
-#from ifupdownaddons.bondutil import *
+import ifupdown.ifupdownflags as ifupdownflags
 
 class moduleBase(object):
     """ Base class for ifupdown addon modules
@@ -30,14 +26,6 @@ class moduleBase(object):
     def __init__(self, *args, **kargs):
         modulename = self.__class__.__name__
         self.logger = logging.getLogger('ifupdown.' + modulename)
-        self.FORCE = kargs.get('force', False)
-        """force interface configuration"""
-        self.DRYRUN = kargs.get('dryrun', False)
-        """only predend you are applying configuration, dont really do it"""
-        self.NOWAIT = kargs.get('nowait', False)
-        self.PERFMODE = kargs.get('perfmode', False)
-        self.CACHE = kargs.get('cache', False)
-        self.CACHE_FLAGS = kargs.get('cacheflags', 0x0)
 
         # vrfs are a global concept and a vrf context can be applicable
         # to all global vrf commands. Get the default vrf-exec-cmd-prefix
@@ -87,7 +75,7 @@ class moduleBase(object):
 
         try:
             self.logger.info('Executing ' + cmd)
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return cmdout
             ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
@@ -120,7 +108,7 @@ class moduleBase(object):
 
         try:
             self.logger.info('Executing %s (stdin=%s)' %(cmd, stdinbuf))
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return cmdout
             ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
@@ -270,7 +258,7 @@ class moduleBase(object):
         return portlist
 
     def ignore_error(self, errmsg):
-        if (self.FORCE or re.search(r'exists', errmsg,
+        if (ifupdownflags.flags.FORCE or re.search(r'exists', errmsg,
             re.IGNORECASE | re.MULTILINE)):
             return True
         return False
@@ -280,7 +268,7 @@ class moduleBase(object):
         try:
             self.logger.info('writing \'%s\'' %strexpr +
                 ' to file %s' %filename)
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
@@ -389,11 +377,6 @@ class moduleBase(object):
             return self._modinfo
         except:
             return None
-
-    def get_flags(self):
-        return dict(force=self.FORCE, dryrun=self.DRYRUN, nowait=self.NOWAIT,
-                    perfmode=self.PERFMODE, cache=self.CACHE,
-                    cacheflags=self.CACHE_FLAGS)
 
     def _get_reserved_vlan_range(self):
         start = end = 0

@@ -9,6 +9,7 @@ from utilsbase import *
 import os
 import re
 import logging
+import ifupdown.ifupdownflags as ifupdownflags
 from cache import *
 
 class brctl(utilsBase):
@@ -19,7 +20,7 @@ class brctl(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        if self.CACHE and not brctl._cache_fill_done:
+        if ifupdownflags.flags.CACHE and not brctl._cache_fill_done:
             self._bridge_fill()
             brctl._cache_fill_done = True
 
@@ -147,9 +148,9 @@ class brctl(utilsBase):
 
     def _cache_get(self, attrlist, refresh=False):
         try:
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return None
-            if self.CACHE:
+            if ifupdownflags.flags.CACHE:
                 if not self._cache_fill_done: 
                     self._bridge_fill()
                     self._cache_fill_done = True
@@ -176,21 +177,21 @@ class brctl(utilsBase):
         return False
 
     def _cache_update(self, attrlist, value):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             linkCache.add_attr(attrlist, value)
         except:
             pass
 
     def _cache_delete(self, attrlist):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             linkCache.del_attr(attrlist)
         except:
             pass
 
     def _cache_invalidate(self):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         linkCache.invalidate()
 
     def create_bridge(self, bridgename):
@@ -230,7 +231,7 @@ class brctl(utilsBase):
                                        'ports', bridgeportname])
         if portattrs == None: portattrs = {}
         for k, v in attrdict.iteritems():
-            if self.CACHE:
+            if ifupdownflags.flags.CACHE:
                 curval = portattrs.get(k)
                 if curval and curval == v:
                     continue

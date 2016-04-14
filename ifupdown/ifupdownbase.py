@@ -17,7 +17,7 @@ import shlex
 
 from iface import *
 from ifupdown.utils import utils
-
+import ifupdownflags as ifupdownflags
 
 class ifupdownBase(object):
 
@@ -30,7 +30,7 @@ class ifupdownBase(object):
         cmdout = ''
         try:
             self.logger.info('executing ' + cmd)
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return cmdout
             ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
@@ -51,7 +51,7 @@ class ifupdownBase(object):
         return cmdout
 
     def ignore_error(self, errmsg):
-        if (self.FORCE == True or re.search(r'exists', errmsg,
+        if (ifupdownflags.flags.FORCE == True or re.search(r'exists', errmsg,
             re.IGNORECASE | re.MULTILINE) is not None):
             return True
         return False

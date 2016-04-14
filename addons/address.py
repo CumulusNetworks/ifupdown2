@@ -15,6 +15,7 @@ try:
     from ifupdownaddons.dhclient import dhclient
     import ifupdown.rtnetlink_api as rtnetlink_api
     import ifupdown.ifupdownconfig as ifupdownConfig
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -192,7 +193,7 @@ class address(moduleBase):
                                'iface stanzas, skip purging existing addresses')
             purge_addresses = 'no'
 
-        if not self.PERFMODE and purge_addresses == 'yes':
+        if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
             runningaddrs = self.ipcmd.addr_get(ifaceobj.name, details=False)
@@ -240,7 +241,7 @@ class address(moduleBase):
         addr_method = ifaceobj.addr_method
         try:
             # release any stale dhcp addresses if present
-            if (addr_method != "dhcp" and not self.PERFMODE and
+            if (addr_method != "dhcp" and not ifupdownflags.flags.PERFMODE and
                     not (ifaceobj.flags & iface.HAS_SIBLINGS)):
                 # if not running in perf mode and ifaceobj does not have
                 # any sibling iface objects, kill any stale dhclient
@@ -268,7 +269,7 @@ class address(moduleBase):
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
             running_hwaddress = None
-            if not self.PERFMODE: # system is clean
+            if not ifupdownflags.flags.PERFMODE: # system is clean
                 running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if hwaddress != running_hwaddress:
                 slave_down = False
@@ -478,7 +479,7 @@ class address(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument

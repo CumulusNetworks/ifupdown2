@@ -8,6 +8,7 @@
 #
 
 from statemanager import *
+import ifupdown.ifupdownflags as ifupdownflags
 from iface import *
 from graph import *
 from collections import deque
@@ -179,7 +180,7 @@ class ifaceScheduler():
         if (ifupdownobj.flags.SCHED_SKIP_CHECK_UPPERIFACES):
             return True
 
-        if (ifupdownobj.FORCE or
+        if (ifupdownflags.flags.FORCE or
                 not ifupdownobj.flags.ADDONS_ENABLE or
                 (not ifupdownobj.is_ifaceobj_noconfig(ifaceobj) and
                 ifupdownobj.config.get('warn_on_ifdown', '0') == '0' and

@@ -17,6 +17,7 @@ import copy
 import json
 import ifupdown.statemanager as statemanager
 import ifupdown.ifupdownconfig as ifupdownConfig
+import ifupdown.ifupdownflags as ifupdownflags
 from networkinterfaces import *
 from iface import *
 from scheduler import *
@@ -37,16 +38,6 @@ _tickmark = u'\u2713'
 _crossmark = u'\u2717'
 _success_sym = '(%s)' %_tickmark
 _error_sym = '(%s)' %_crossmark
-
-class ifupdownFlags():
-    FORCE = False
-    DRYRUN = False
-    NOWAIT = False
-    PERFMODE = False
-    CACHE = False
-
-    # Flags
-    CACHE_FLAGS = 0x0
 
 class ifupdownMainFlags():
     WITH_DEPENDS = False
@@ -195,13 +186,14 @@ class ifupdownMain(ifupdownBase):
             AttributeError, KeyError """
 
         self.logger = logging.getLogger('ifupdown')
-        self.FORCE = force
-        self.DRYRUN = dryrun
-        self.NOWAIT = nowait
-        self.PERFMODE = perfmode
-        self.CACHE = cache
+        ifupdownflags.flags.FORCE = force
+        ifupdownflags.flags.DRYRUN = dryrun
+        ifupdownflags.flags.NOWAIT = nowait
+        ifupdownflags.flags.PERFMODE = perfmode
+        ifupdownflags.flags.CACHE = cache
+
         # Can be used to provide hints for caching
-        self.CACHE_FLAGS = 0x0
+        ifupdownflags.flags.CACHE_FLAGS = 0x0
 
         self.flags = ifupdownMainFlags()
 
@@ -218,14 +210,6 @@ class ifupdownMain(ifupdownBase):
 
         self.flags.DELETE_DEPENDENT_IFACES_WITH_NOCONFIG = False
         self.flags.ADDONS_ENABLE = addons_enable
-
-        # Copy flags into ifupdownFlags
-        # XXX: before we transition fully to ifupdownFlags
-        ifupdownFlags.FORCE = force
-        ifupdownFlags.DRYRUN = dryrun
-        ifupdownFlags.NOWAIT = nowait
-        ifupdownFlags.PERFMODE = perfmode
-        ifupdownFlags.CACHE = cache
 
         self.ifaces = OrderedDict()
         self.njobs = njobs
@@ -826,12 +810,7 @@ class ifupdownMain(ifupdownBase):
                             mclass = getattr(m, mname)
                         except:
                             raise
-                        minstance = mclass(force=self.FORCE,
-                                        dryrun=self.DRYRUN,
-                                        nowait=self.NOWAIT,
-                                        perfmode=self.PERFMODE,
-                                        cache=self.CACHE,
-                                        cacheflags=self.CACHE_FLAGS)
+                        minstance = mclass()
                         self.modules[mname] = minstance
                         try:
                             self.module_attrs[mname] = minstance.get_modinfo()
@@ -1157,7 +1136,7 @@ class ifupdownMain(ifupdownBase):
                                      if self.flags.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('up')
-            if not self.DRYRUN and self.flags.ADDONS_ENABLE:
+            if not ifupdownflags.flags.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
         if not iface_read_ret or not ret:
@@ -1224,7 +1203,7 @@ class ifupdownMain(ifupdownBase):
                                if self.flags.WITH_DEPENDS else False)
         finally:
             self._process_delay_admin_state_queue('down')
-            if not self.DRYRUN and self.flags.ADDONS_ENABLE:
+            if not ifupdownflags.flags.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
     def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
@@ -1390,7 +1369,7 @@ class ifupdownMain(ifupdownBase):
         ret = self._sched_ifaces(interfaces_to_up, upops,
                                  followdependents=True
                                  if self.flags.WITH_DEPENDS else False)
-        if self.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         self._save_state()
 
@@ -1579,7 +1558,7 @@ class ifupdownMain(ifupdownBase):
             pass
         finally:
             self._process_delay_admin_state_queue('up')
-        if self.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         self._save_state()
 

@@ -12,10 +12,9 @@ import signal
 import shlex
 
 from ifupdown.utils import utils
+import ifupdown.ifupdownflags as ifupdownflags
 from ifupdown.iface import *
 from cache import *
-
-#import timeit
 import time
 import logging
 
@@ -34,11 +33,6 @@ class utilsBase(object):
     def __init__(self, *args, **kargs):
         modulename = self.__class__.__name__
         self.logger = logging.getLogger('ifupdown.' + modulename)
-        self.FORCE = kargs.get('force', False)
-        self.DRYRUN = kargs.get('dryrun', False)
-        self.NOWAIT = kargs.get('nowait', False)
-        self.PERFMODE = kargs.get('perfmode', False)
-        self.CACHE = kargs.get('cache', False)
 
     def exec_commandl(self, cmdl, cmdenv=None):
         """ Executes command """
@@ -47,7 +41,7 @@ class utilsBase(object):
         cmdout = ''
         try:
             self.logger.info('executing ' + ' '.join(cmdl))
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return cmdout
             ch = subprocess.Popen(cmdl,
                     stdout=subprocess.PIPE,
@@ -78,7 +72,7 @@ class utilsBase(object):
         cmdout = ''
         try:
             self.logger.info('executing %s [%s]' %(cmd, stdinbuf))
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return cmdout
             ch = subprocess.Popen(shlex.split(cmd),
                     stdout=subprocess.PIPE,
@@ -101,7 +95,7 @@ class utilsBase(object):
 
     def subprocess_check_output(self, cmdl):
         self.logger.info('executing ' + ' '.join(cmdl))
-        if self.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         try:
             return subprocess.check_output(cmdl, stderr=subprocess.STDOUT)
@@ -118,7 +112,7 @@ class utilsBase(object):
         cmd_returncode = 0
         try:
             self.logger.info('executing ' + ' '.join(cmdl))
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return
             ch = subprocess.Popen(cmdl,
                     stdout=None,
@@ -141,7 +135,7 @@ class utilsBase(object):
         try:
             self.logger.info('writing \'%s\'' %strexpr +
                 ' to file %s' %filename)
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)

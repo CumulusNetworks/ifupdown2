@@ -12,6 +12,7 @@ from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.mstpctlutil import mstpctlutil
 from ifupdownaddons.systemutils import systemUtils
+import ifupdown.ifupdownflags as ifupdownflags
 
 class mstpctlFlags:
     PORT_PROCESSED = 0x1
@@ -236,7 +237,7 @@ class mstpctl(moduleBase):
 
         runningbridgeports = []
         # Delete active ports not in the new port list
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if runningbridgeports:
                 [self.ipcmd.link_set(bport, 'nomaster')
@@ -249,7 +250,8 @@ class mstpctl(moduleBase):
         err = 0
         for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
             try:
-                if not self.DRYRUN and not self.ipcmd.link_exists(bridgeport):
+                if (not ifupdownflags.flags.DRYRUN and
+                    not self.ipcmd.link_exists(bridgeport)):
                     self.log_warn('%s: bridge port %s does not exist'
                             %(ifaceobj.name, bridgeport))
                     err += 1
@@ -263,7 +265,7 @@ class mstpctl(moduleBase):
             self.log_error('error configuring bridge (missing ports)')
 
     def _apply_bridge_settings(self, ifaceobj):
-        check = False if self.PERFMODE else True
+        check = False if ifupdownflags.flags.PERFMODE else True
         try:
             # set bridge attributes
             for attrname, dstattrname in self._attrs_map.items():
@@ -331,7 +333,7 @@ class mstpctl(moduleBase):
                                     bridgeifaceobj=None,
                                     stp_running_on=True,
                                     mstpd_running=True):
-        check = False if self.PERFMODE else True
+        check = False if ifupdownflags.flags.PERFMODE else True
         applied = False
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
@@ -446,7 +448,7 @@ class mstpctl(moduleBase):
                 # If bridge ports specified with mstpctl attr, create the
                 # bridge and also add its ports
                 self.ipcmd.batch_start()
-                if not self.PERFMODE:
+                if not ifupdownflags.flags.PERFMODE:
                     if not self.ipcmd.link_exists(ifaceobj.name):
                         self.ipcmd.link_create(ifaceobj.name, 'bridge')
                 else:
@@ -809,13 +811,12 @@ class mstpctl(moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        flags = self.get_flags()
         if not self.ipcmd:
-            self.ipcmd = iproute2(**flags)
+            self.ipcmd = iproute2()
         if not self.brctlcmd:
-            self.brctlcmd = brctl(**flags)
+            self.brctlcmd = brctl()
         if not self.mstpctlcmd:
-            self.mstpctlcmd = mstpctlutil(**flags)
+            self.mstpctlcmd = mstpctlutil()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):

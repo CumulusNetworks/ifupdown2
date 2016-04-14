@@ -8,6 +8,7 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.bridgeutils import brctl
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 
 class bridgevlan(moduleBase):
@@ -67,7 +68,7 @@ class bridgevlan(moduleBase):
             return
 
         running_mcqv4src = {}
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
         if running_mcqv4src:
             r_mcqv4src = running_mcqv4src.get(vlan)
@@ -137,9 +138,9 @@ class bridgevlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
         if not self.brctlcmd:
-            self.brctlcmd = brctl(**self.get_flags())
+            self.brctlcmd = brctl()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

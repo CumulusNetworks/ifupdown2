@@ -13,6 +13,7 @@ from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
 import ifupdownaddons
 import ifupdown.rtnetlink_api as rtnetlink_api
+import ifupdown.ifupdownflags as ifupdownflags
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
@@ -50,7 +51,7 @@ class vrf(moduleBase):
         self.bondcmd = None
         self.dhclientcmd = None
         self.name = self.__class__.__name__
-        if self.PERFMODE:
+        if ifupdownflags.flags.PERFMODE:
             # if perf mode is set, remove vrf map file.
             # start afresh. PERFMODE is set at boot
             if os.path.exists(self.iproute2_vrf_filename):
@@ -325,7 +326,7 @@ class vrf(moduleBase):
             pass
 
     def _handle_existing_connections(self, ifaceobj, vrfname):
-        if not ifaceobj or self.PERFMODE:
+        if not ifaceobj or ifupdownflags.flags.PERFMODE:
             return
         if (self.vrf_mgmt_devname and
             self.vrf_mgmt_devname == vrfname):
@@ -843,13 +844,12 @@ class vrf(moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        flags = self.get_flags()
         if not self.ipcmd:
-            self.ipcmd = iproute2(**flags)
+            self.ipcmd = iproute2()
         if not self.bondcmd:
-            self.bondcmd = bondutil(**flags)
+            self.bondcmd = bondutil()
         if not self.dhclientcmd:
-            self.dhclientcmd = dhclient(**flags)
+            self.dhclientcmd = dhclient()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):

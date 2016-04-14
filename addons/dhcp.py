@@ -12,6 +12,7 @@ try:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.iproute2 import iproute2
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -42,7 +43,7 @@ class dhcp(moduleBase):
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
                 try:
-                    if not self.PERFMODE:
+                    if not ifupdownflags.flags.PERFMODE:
                         self.dhclientcmd.stop(ifaceobj.name)
                 except:
                     pass
@@ -114,7 +115,7 @@ class dhcp(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run dhcp configuration on the interface object passed as argument
