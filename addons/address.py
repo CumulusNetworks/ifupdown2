@@ -13,6 +13,7 @@ try:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
+    import ifupdown.policymanager as policymanager
     import ifupdown.rtnetlink_api as rtnetlink_api
     import ifupdown.ifupdownconfig as ifupdownConfig
     import ifupdown.ifupdownflags as ifupdownflags
@@ -73,6 +74,7 @@ class address(moduleBase):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
+        self.default_mtu = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='mtu')
 
     def _address_valid(self, addrs):
         if not addrs:
@@ -261,6 +263,10 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+        elif self.default_mtu:
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if running_mtu != self.default_mtu:
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
@@ -315,6 +321,9 @@ class address(moduleBase):
                     #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
                 else:
                     self.ipcmd.del_addr_all(ifaceobj.name)
+            mtu = ifaceobj.get_attr_value_first('mtu')
+            if (mtu and self.default_mtu and (mtu != self.default_mtu)):
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
                 filename = '/sys/class/net/%s/ifalias' %ifaceobj.name
@@ -445,7 +454,7 @@ class address(moduleBase):
         if (dhclientcmd.is_running(ifaceobjrunning.name) or
                 dhclientcmd.is_running6(ifaceobjrunning.name)):
             # If dhcp is configured on the interface, we skip it
-            return 
+            return
         isloopback = self.ipcmd.link_isloopback(ifaceobjrunning.name)
         if isloopback:
             default_addrs = ['127.0.0.1/8', '::1/128']
@@ -465,7 +474,7 @@ class address(moduleBase):
                     mtu != self.get_mod_subattr('mtu', 'default'))):
                 ifaceobjrunning.update_config('mtu', mtu)
         alias = self.ipcmd.link_get_alias(ifaceobjrunning.name)
-        if alias: 
+        if alias:
             ifaceobjrunning.update_config('alias', alias)
 
     _run_ops = {'up' : _up,
