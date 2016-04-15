@@ -263,10 +263,20 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        elif self.default_mtu:
-            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
-            if running_mtu != self.default_mtu:
-                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+
+        # logical devices like bridges and vlan devices rely on mtu
+        # from their lower devices. ie mtu travels from
+        # lower devices to upper devices. For bonds mtu travels from
+        # upper to lower devices. running mtu depends on upper and
+        # lower device mtu. With all this implicit mtu
+        # config by the kernel in play, it becomes almost impossible
+        # to decide if the running mtu is valid. It will require
+        # some more thinking. Commenting this for now.
+        #elif self.default_mtu:
+        #    running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+        #    if running_mtu != self.default_mtu:
+        #        self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
