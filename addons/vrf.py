@@ -98,6 +98,7 @@ class vrf(moduleBase):
         self.vrf_fix_local_table = True
         self.vrf_count = 0
         self.vrf_cgroup_create = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-cgroup-create')
+
         if not self.vrf_cgroup_create:
             self.vrf_cgroup_create = False
         elif self.vrf_cgroup_create == 'yes':
@@ -105,6 +106,7 @@ class vrf(moduleBase):
         else:
             self.vrf_cgroup_create = False
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
+        self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
 
     def _iproute2_vrf_map_initialize(self):
         if self._iproute2_vrf_map_initialized:
@@ -244,14 +246,25 @@ class vrf(moduleBase):
                 return str(t)
         return None
 
+    def _iproute2_is_vrf_tableid_inuse(self, vrf_dev_name, table_id):
+        old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
+        if old_vrf_name and old_vrf_name != vrf_dev_name:
+            self.log_error('table id %s already assigned to vrf dev %s'
+                           %(table_id, old_vrf_name))
+
     def _iproute2_vrf_table_entry_add(self, vrf_dev_name, table_id):
         old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
-        if not old_vrf_name or (old_vrf_name != vrf_dev_name):
+        if not old_vrf_name:
             self.iproute2_vrf_map[int(table_id)] = vrf_dev_name
             if self.iproute2_vrf_map_fd:
                 self.iproute2_vrf_map_fd.write('%s %s\n'
                                                %(table_id, vrf_dev_name))
                 self.iproute2_vrf_map_fd.flush()
+            return
+
+        if old_vrf_name != vrf_dev_name:
+            self.log_error('table id %d already assigned to vrf dev %s'
+                           %(table_id, old_vrf_name))
 
     def _iproute2_vrf_table_entry_del(self, table_id):
         try:
@@ -308,7 +321,10 @@ class vrf(moduleBase):
                                        %mobj.name)
                     self.logger.info('%s: table id auto: selected table id %s\n'
                                      %(mobj.name, vrf_table))
-                self._up_vrf_dev(mobj, vrf_table, False)
+                try:
+                    self._up_vrf_dev(mobj, vrf_table, False)
+                except Exception:
+                    raise
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
         self.ipcmd.link_set(ifacename, 'master', vrfname)
@@ -356,24 +372,26 @@ class vrf(moduleBase):
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name, vrf_table)
+            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name, vrf_table)
+            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
-                                     vrf_table)
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
-                                     vrf_table)
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
@@ -404,23 +422,26 @@ class vrf(moduleBase):
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name, vrf_table)
+            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name, vrf_table)
+            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name, vrf_table)
+            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
-                                     vrf_table)
+                                     vrf_dev_name)
             self.exec_command(rule_cmd)
 
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
@@ -469,8 +490,7 @@ class vrf(moduleBase):
         if not self.vrf_cgroup_create:
             return
         try:
-            if not os.path.exists('/sys/fs/cgroup/l3mdev/%s' %ifaceobj.name):
-                self.exec_command('/usr/bin/cgcreate -g l3mdev:%s' %ifaceobj.name)
+            self.exec_command('/usr/bin/cgcreate -g l3mdev:%s' %ifaceobj.name)
         except Exception, e:
             self.log_error('%s: cgroup create failed (%s)\n'
                            %(ifaceobj.name, str(e)), ifaceobj)
@@ -487,7 +507,7 @@ class vrf(moduleBase):
                                         vrfPrivFlags.PROCESSED
 
     def _check_vrf_dev_processed_flag(self, ifaceobj):
-        if (ifaceobj.module_flags.get(self.name, 0x0) & vrfPrivFlags.PROCESSED):
+        if (ifaceobj.module_flags.get(self.name, 0) & vrfPrivFlags.PROCESSED):
             return True
         return False
 
@@ -500,6 +520,8 @@ class vrf(moduleBase):
                                    %ifaceobj.name)
                 self.logger.info('%s: table id auto: selected table id %s\n'
                                  %(ifaceobj.name, vrf_table))
+            else:
+                self._iproute2_is_vrf_tableid_inuse(ifaceobj.name, vrf_table)
 
             if not vrf_table.isdigit():
                 self.log_error('%s: vrf-table must be an integer or \'auto\''
@@ -520,6 +542,8 @@ class vrf(moduleBase):
             except Exception, e:
                 self.log_error('%s: create failed (%s)\n'
                                %(ifaceobj.name, str(e)))
+            if vrf_table != 'auto':
+                self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
         else:
             if vrf_table == 'auto':
                 vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
@@ -534,9 +558,6 @@ class vrf(moduleBase):
                 if vrf_table != running_table:
                     self.log_error('%s: cannot change vrf table id,running table id %s is different from config id %s' %(ifaceobj.name,
                                          running_table, vrf_table))
-        if vrf_table != 'auto':
-            self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
-
         return vrf_table
 
     def _add_del_vrf_default_route(self, ifaceobj,  vrf_table, add=True):
@@ -578,6 +599,11 @@ class vrf(moduleBase):
                                      %(ifaceobj.name, str(e)))
                 pass
 
+    def _up_vrf_helper(self, ifaceobj, vrf_table):
+        if self.vrf_helper:
+            self.exec_command('%s create %s %s' %(self.vrf_helper,
+                              ifaceobj.name, vrf_table))
+
     def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True,
                     ifaceobj_getfunc=None):
 
@@ -587,10 +613,15 @@ class vrf(moduleBase):
         if self._check_vrf_dev_processed_flag(ifaceobj):
             return True
 
-        vrf_table = self._create_vrf_dev(ifaceobj, vrf_table)
+        try:
+            vrf_table = self._create_vrf_dev(ifaceobj, vrf_table)
+        except Exception, e:
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)))
+        
         try:
             self._add_vrf_rules(ifaceobj.name, vrf_table)
             self._create_cgroup(ifaceobj)
+            #self._up_vrf_helper(ifaceobj, vrf_table)
             if add_slaves:
                 self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
             self._add_del_vrf_default_route(ifaceobj, vrf_table)
@@ -695,11 +726,15 @@ class vrf(moduleBase):
 
     def _delete_cgroup(self, ifaceobj):
         try:
-            if os.path.exists('/sys/fs/cgroup/l3mdev/%s' %ifaceobj.name):
-                self.exec_command('/usr/bin/cgdelete -g l3mdev:%s' %ifaceobj.name)
+            self.exec_command('/usr/bin/cgdelete -g l3mdev:%s' %ifaceobj.name)
         except Exception, e:
             self.log_info('%s: cgroup delete failed (%s)\n'
                           %(ifaceobj.name, str(e)), ifaceobj)
+
+    def _down_vrf_helper(self, ifaceobj, vrf_table):
+        if self.vrf_helper:
+            self.exec_command('%s delete %s %s' %(self.vrf_helper,
+                              ifaceobj.name, vrf_table))
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
@@ -724,6 +759,9 @@ class vrf(moduleBase):
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
+        self._delete_cgroup(ifaceobj)
+        #self._down_vrf_helper(ifaceobj, vrf_table)
+
         try:
             self._del_vrf_rules(ifaceobj.name, vrf_table)
         except Exception, e:
@@ -739,7 +777,6 @@ class vrf(moduleBase):
         try:
             self._iproute2_vrf_table_entry_del(vrf_table)
             self._add_del_vrf_default_route(ifaceobj, vrf_table, False)
-            self._delete_cgroup(ifaceobj)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
