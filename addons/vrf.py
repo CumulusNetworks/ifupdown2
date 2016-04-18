@@ -333,7 +333,8 @@ class vrf(moduleBase):
     def _down_dhcp_slave(self, ifaceobj, vrfname):
         try:
             dhclient_cmd_prefix = None
-            if vrfname and self.vrf_exec_cmd_prefix:
+            if (vrfname and self.vrf_exec_cmd_prefix and
+                self.ipcmd.link_exists(vrfname)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix,
                                                 vrfname)
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
@@ -486,21 +487,6 @@ class vrf(moduleBase):
                                       %(ifaceobj.name, s, str(e)))
                     pass
 
-    def _create_cgroup(self, ifaceobj):
-        if not self.vrf_cgroup_create:
-            return
-        try:
-            self.exec_command('/usr/bin/cgcreate -g l3mdev:%s' %ifaceobj.name)
-        except Exception, e:
-            self.log_error('%s: cgroup create failed (%s)\n'
-                           %(ifaceobj.name, str(e)), ifaceobj)
-        try:
-            self.exec_command('/usr/bin/cgset -r l3mdev.master-device=%s %s'
-                              %(ifaceobj.name, ifaceobj.name))
-        except Exception, e:
-            self.log_warn('%s: cgset failed (%s)\n'
-                          %(ifaceobj.name, str(e)), ifaceobj)
-
     def _set_vrf_dev_processed_flag(self, ifaceobj):
         ifaceobj.module_flags[self.name] = \
                              ifaceobj.module_flags.setdefault(self.name, 0) | \
@@ -560,45 +546,6 @@ class vrf(moduleBase):
                                          running_table, vrf_table))
         return vrf_table
 
-    def _add_del_vrf_default_route(self, ifaceobj,  vrf_table, add=True):
-        vrf_default_route = ifaceobj.get_attr_value_first('vrf-default-route')
-        if not vrf_default_route:
-            vrf_default_route = policymanager.policymanager_api.get_attr_default(
-                                    module_name=self.__class__.__name__,
-                                    attr='vrf-default-route')
-        if not vrf_default_route:
-            return
-        if str(vrf_default_route).lower() == "yes":
-            try:
-                if add:
-                    self.exec_command('ip route add table %s unreachable '
-                                      'default metric %d' %(vrf_table, 8192))
-                else:
-                    self.exec_command('ip route del table %s unreachable '
-                                      'default metric %d' %(vrf_table, 8192))
-            except OSError, e:
-                if add and e.errno != 17:
-                    raise
-                else:
-                    self.logger.info('%s: error deleting default route (%s)'
-                                     %(ifaceobj.name, str(e)))
-                pass
-
-            try:
-                if add:
-                    self.exec_command('ip -6 route add table %s unreachable '
-                                      'default metric %d' %(vrf_table, 8192))
-                else:
-                    self.exec_command('ip -6 route del table %s unreachable '
-                                      'default metric %d' %(vrf_table, 8192))
-            except OSError, e:
-                if add and e.errno != 17:
-                    raise
-                else:
-                    self.logger.info('%s: error deleting default route (%s)'
-                                     %(ifaceobj.name, str(e)))
-                pass
-
     def _up_vrf_helper(self, ifaceobj, vrf_table):
         if self.vrf_helper:
             self.exec_command('%s create %s %s' %(self.vrf_helper,
@@ -620,11 +567,9 @@ class vrf(moduleBase):
         
         try:
             self._add_vrf_rules(ifaceobj.name, vrf_table)
-            self._create_cgroup(ifaceobj)
-            #self._up_vrf_helper(ifaceobj, vrf_table)
+            self._up_vrf_helper(ifaceobj, vrf_table)
             if add_slaves:
                 self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
-            self._add_del_vrf_default_route(ifaceobj, vrf_table)
             self._set_vrf_dev_processed_flag(ifaceobj)
             rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
@@ -724,13 +669,6 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_error(str(e))
 
-    def _delete_cgroup(self, ifaceobj):
-        try:
-            self.exec_command('/usr/bin/cgdelete -g l3mdev:%s' %ifaceobj.name)
-        except Exception, e:
-            self.log_info('%s: cgroup delete failed (%s)\n'
-                          %(ifaceobj.name, str(e)), ifaceobj)
-
     def _down_vrf_helper(self, ifaceobj, vrf_table):
         if self.vrf_helper:
             self.exec_command('%s delete %s %s' %(self.vrf_helper,
@@ -759,8 +697,7 @@ class vrf(moduleBase):
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
-        self._delete_cgroup(ifaceobj)
-        #self._down_vrf_helper(ifaceobj, vrf_table)
+        self._down_vrf_helper(ifaceobj, vrf_table)
 
         try:
             self._del_vrf_rules(ifaceobj.name, vrf_table)
@@ -776,7 +713,6 @@ class vrf(moduleBase):
 
         try:
             self._iproute2_vrf_table_entry_del(vrf_table)
-            self._add_del_vrf_default_route(ifaceobj, vrf_table, False)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
