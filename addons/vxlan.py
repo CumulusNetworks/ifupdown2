@@ -125,7 +125,7 @@ class vxlan(moduleBase):
 
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
-            self._query_check_n_update_addresses(ifaceobj, ifaceobjcurr, 'vxlan-remoteip',
+            self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
                            ifaceobj.get_attr_value('vxlan-remoteip'),
                            vxlanattrs.get('remote', []))
 
