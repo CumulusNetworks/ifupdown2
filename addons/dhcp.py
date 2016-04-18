@@ -37,7 +37,8 @@ class dhcp(moduleBase):
                 module_name=self.__class__.__name__, attr='dhcp-wait')
             wait = not str(dhcp_wait).lower() == "no"
             vrf = ifaceobj.get_attr_value_first('vrf')
-            if vrf and self.vrf_exec_cmd_prefix:
+            if (vrf and self.vrf_exec_cmd_prefix and
+                self.ipcmd.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
             if ifaceobj.addr_family == 'inet':
@@ -72,7 +73,8 @@ class dhcp(moduleBase):
     def _down(self, ifaceobj):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
-        if vrf and self.vrf_exec_cmd_prefix:
+        if (vrf and self.vrf_exec_cmd_prefix and
+            self.ipcmd.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
         self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
         self.ipcmd.link_down(ifaceobj.name)
