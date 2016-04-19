@@ -62,7 +62,7 @@ class mstpctlutil(utilsBase):
             bridgeattrs['treeprio'] = int(bridgeattrs.get('bridgeid',
                                      '').split('.')[0], base=16) * 4096
         except Exception, e:
-            self.logger.info(str(e))
+            self.logger.warn(str(e))
             pass
         return bridgeattrs
 
@@ -78,7 +78,7 @@ class mstpctlutil(utilsBase):
             showall_output = self.subprocess_check_output(['/sbin/mstpctl',
                          'showportdetail', bridgename, 'json'])
         except Exception as e:
-            self.logger.warn(str(e))
+            self.logger.info(str(e))
             return
         if not showall_output or showall_output == '':
             return
