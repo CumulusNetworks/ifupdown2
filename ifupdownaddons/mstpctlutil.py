@@ -62,7 +62,7 @@ class mstpctlutil(utilsBase):
             bridgeattrs['treeprio'] = int(bridgeattrs.get('bridgeid',
                                      '').split('.')[0], base=16) * 4096
         except Exception, e:
-            self.logger.warn(str(e))
+            self.logger.info(str(e))
             pass
         return bridgeattrs
 
