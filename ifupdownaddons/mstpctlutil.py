@@ -77,8 +77,9 @@ class mstpctlutil(utilsBase):
         try:
             showall_output = self.subprocess_check_output(['/sbin/mstpctl',
                          'showportdetail', bridgename, 'json'])
-        except:
-            pass
+        except Exception as e:
+            self.logger.warn(str(e))
+            return
         if not showall_output or showall_output == '':
             return
         showall_output = showall_output.strip('\n')

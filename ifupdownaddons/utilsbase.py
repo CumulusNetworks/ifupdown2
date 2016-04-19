@@ -99,9 +99,12 @@ class utilsBase(object):
             return
         try:
             return subprocess.check_output(cmdl, stderr=subprocess.STDOUT)
-        except Exception, e:
+        except subprocess.CalledProcessError as e:
             raise Exception('failed to execute cmd \'%s\' (%s)'
                         %(' '.join(cmdl), e.output))
+        except Exception as e:
+            raise Exception('failed to execute cmd \'%s\' (%s)'
+                        %(' '.join(cmdl), str(e)))
 
     def subprocess_check_call(self, cmdl):
         """ subprocess check_call implementation using popen
