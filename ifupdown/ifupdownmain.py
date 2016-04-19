@@ -895,13 +895,13 @@ class ifupdownMain(ifupdownBase):
                 # continue reading
                 pass
 
-    def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
-                      followdependents=True, sort=False):
+    def _sched_ifaces(self, ifacenames, ops, withdefaults=False,
+                      skipupperifaces=False, followdependents=True, sort=False):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
                     self.dependency_graph)
-        ifaceScheduler.sched_ifaces(self, ifacenames, ops,
+        ifaceScheduler.sched_ifaces(self, ifacenames, ops, withdefaults,
                         dependency_graph=self.dependency_graph,
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
@@ -1209,7 +1209,7 @@ class ifupdownMain(ifupdownBase):
     def query(self, ops, auto=False, format_list=False, allow_classes=None,
               ifacenames=None,
               excludepats=None, printdependency=None,
-              format='native', type=None):
+              format='native', type=None, withdefaults=False):
         """ query an interface """
 
         self.set_type(type)
@@ -1273,7 +1273,7 @@ class ifupdownMain(ifupdownBase):
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
-        ret = self._sched_ifaces(filtered_ifacenames, ops,
+        ret = self._sched_ifaces(filtered_ifacenames, ops, withdefaults,
                            followdependents=True
                            if self.flags.WITH_DEPENDS else False)
 

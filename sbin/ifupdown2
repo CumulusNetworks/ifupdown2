@@ -107,6 +107,8 @@ def run_query(args):
             qop = 'query-dependency'
         elif args.printsavedstate:
             qop = 'query-savedstate'
+        elif args.withdefaults:
+            qop = 'query-withdefaults'
         else:
             qop='query'
         cachearg=(False if (iflist or args.nocache or
@@ -130,7 +132,8 @@ def run_query(args):
         ifupdown_handle.query([qop], args.all, args.list, args.CLASS, iflist,
                               excludepats=args.excludepats,
                               printdependency=args.printdependency,
-                              format=args.format, type=args.type)
+                              format=args.format, type=args.type,
+                              withdefaults=args.withdefaults)
     except:
         raise
 
@@ -333,6 +336,11 @@ def update_ifquery_argparser(argparser):
     argparser.add_argument('-s', '--syntax-help', action='store_true',
                            dest='syntaxhelp',
                            help='print supported interface config syntax')
+    argparser.add_argument('--with-defaults', action='store_true',
+                           dest='withdefaults',
+                           help='check policy default file contents, ' +
+                                'for unconfigured attributes, against ' +
+                                'running state of an interface')
 
 def update_ifreload_argparser(argparser):
     """ parser for ifreload """

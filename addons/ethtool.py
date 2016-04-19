@@ -123,7 +123,7 @@ class ethtool(moduleBase,utilsBase):
     def _pre_down(self, ifaceobj):
         pass #self._post_up(ifaceobj,operation="_pre_down")
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, withdefaults):
         """
         _query_check() needs to compare the configured (or running)
         attribute with the running attribute.
@@ -133,11 +133,13 @@ class ethtool(moduleBase,utilsBase):
         This is because a reboot will lose their running attribute
         (the default will get set).
         """
+        # Add default attributes if --with-defaults is set
         for attr in ['speed', 'duplex', 'autoneg']:
             configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             # if there is nothing configured, do not check
             if not configured:
-                continue
+                if not withdefaults:
+                    continue
             default = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
@@ -266,6 +268,7 @@ class ethtool(moduleBase,utilsBase):
         self._init_command_handlers()
 
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj,
+                       extra_args['withdefaults'] if 'withdefaults' in extra_args else False)
         else:
             op_handler(self, ifaceobj)

@@ -49,7 +49,7 @@ class ifaceScheduler():
         cls._SCHED_STATUS = state
 
     @classmethod
-    def run_iface_op(cls, ifupdownobj, ifaceobj, op, cenv=None):
+    def run_iface_op(cls, ifupdownobj, ifaceobj, op, withdefaults=False, cenv=None):
         """ Runs sub operation on an interface """
         ifacename = ifaceobj.name
 
@@ -80,11 +80,11 @@ class ifaceScheduler():
                             continue
                         ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op, query_ifaceobj,
-                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
+                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs, withdefaults=withdefaults)
                     else:
                         ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op,
-                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
+                              ifaceobj_getfunc=ifupdownobj.get_ifaceobjs, withdefaults=withdefaults)
             except Exception, e:
                 if not ifupdownobj.ignore_error(str(e)):
                    err = 1
@@ -117,7 +117,7 @@ class ifaceScheduler():
                     ifupdownobj.log_error(str(e))
 
     @classmethod
-    def run_iface_list_ops(cls, ifupdownobj, ifaceobjs, ops):
+    def run_iface_list_ops(cls, ifupdownobj, ifaceobjs, ops, withdefaults=False):
         """ Runs all operations on a list of interface
             configurations for the same interface
         """
@@ -151,7 +151,7 @@ class ifaceScheduler():
                                    %(ifaceobjs[0].name, str(e)))
                     pass
             for ifaceobj in ifaceobjs:
-                cls.run_iface_op(ifupdownobj, ifaceobj, op,
+                cls.run_iface_op(ifupdownobj, ifaceobj, op, withdefaults,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
                         if ifupdownobj.config.get('addon_scripts_support',
                             '0') == '1' else None)
@@ -212,8 +212,8 @@ class ifaceScheduler():
         return True
 
     @classmethod
-    def run_iface_graph(cls, ifupdownobj, ifacename, ops, parent=None,
-                        order=ifaceSchedulerFlags.POSTORDER,
+    def run_iface_graph(cls, ifupdownobj, ifacename, ops, withdefaults=False,
+                        parent=None, order=ifaceSchedulerFlags.POSTORDER,
                         followdependents=True):
         """ runs interface by traversing all nodes rooted at itself """
 
@@ -235,7 +235,7 @@ class ifaceScheduler():
 
         # If inorder, run the iface first and then its dependents
         if order == ifaceSchedulerFlags.INORDER:
-            cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
+            cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops, False)
 
         for ifaceobj in ifaceobjs:
             # Run lowerifaces or dependents
@@ -254,11 +254,12 @@ class ifaceScheduler():
                                     if ifupdownobj.is_iface_noconfig(d)]
                         if new_dlist:
                             cls.run_iface_list(ifupdownobj, new_dlist, ops,
-                                           ifacename, order, followdependents,
+                                           withdefaults, ifacename, order,
+                                           followdependents,
                                            continueonfailure=False)
                     else:
                         cls.run_iface_list(ifupdownobj, dlist, ops,
-                                            ifacename, order,
+                                            withdefaults, ifacename, order,
                                             followdependents,
                                             continueonfailure=False)
                 except Exception, e:
@@ -270,18 +271,17 @@ class ifaceScheduler():
                                                 ifaceStatus.ERROR)
                         raise
         if order == ifaceSchedulerFlags.POSTORDER:
-            cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
+            cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops, withdefaults)
 
     @classmethod
-    def run_iface_list(cls, ifupdownobj, ifacenames,
-                       ops, parent=None, order=ifaceSchedulerFlags.POSTORDER,
+    def run_iface_list(cls, ifupdownobj, ifacenames, ops, withdefaults=False,
+                       parent=None, order=ifaceSchedulerFlags.POSTORDER,
                        followdependents=True, continueonfailure=True):
         """ Runs interface list """
-
         for ifacename in ifacenames:
             try:
-              cls.run_iface_graph(ifupdownobj, ifacename, ops, parent,
-                      order, followdependents)
+              cls.run_iface_graph(ifupdownobj, ifacename, ops, withdefaults,
+                      parent, order, followdependents)
             except Exception, e:
                 if continueonfailure:
                     if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
@@ -311,7 +311,7 @@ class ifaceScheduler():
 
         if not skip_root:
             # run the iface first and then its upperifaces
-            cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
+            cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops, False)
         for ifaceobj in ifaceobjs:
             # Run upperifaces
             ulist = ifaceobj.upperifaces
@@ -405,7 +405,7 @@ class ifaceScheduler():
                 ifaceobjs = ifupdownobj.get_ifaceobjs(u)
                 if not ifaceobjs:
                    continue
-                cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
+                cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops, False)
             except Exception, e:
                 if continueonfailure:
                    self.logger.warn('%s' %str(e))
@@ -434,7 +434,7 @@ class ifaceScheduler():
         return ifacenames_sorted
 
     @classmethod
-    def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
+    def sched_ifaces(cls, ifupdownobj, ifacenames, ops, withdefaults=False,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
                 followdependents=True, skipupperifaces=False, sort=False):
@@ -529,7 +529,7 @@ class ifaceScheduler():
                 run_queue.reverse()
 
         # run interface list
-        cls.run_iface_list(ifupdownobj, run_queue, ops,
+        cls.run_iface_list(ifupdownobj, run_queue, ops, withdefaults,
                            parent=None, order=order,
                            followdependents=followdependents)
         if not cls.get_sched_status():

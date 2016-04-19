@@ -744,7 +744,8 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table):
+    def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table,
+                             withdefaults):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.logger.info('%s: vrf: does not exist' %(ifaceobj.name))
@@ -767,15 +768,28 @@ class vrf(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vrf-table',
                                                        running_table, 0)
+            if not withdefaults:
+                return
+            if self.vrf_helper:
+                ret_vrfhelper = self.exec_command('%s verify %s %s'
+                                                  %(self.vrf_helper,
+                                                  ifaceobj.name, vrf_table))
+                if 'default routes are installed' not in ret_vrfhelper:
+                    ifaceobjcurr.update_config_with_status('vrf-default-route',
+                                                           'no', 1)
+                else:
+                    ifaceobjcurr.update_config_with_status('vrf-default-route',
+                                                           'yes',0)
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, withdefaults):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
                 self._iproute2_vrf_map_initialize()
-                self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table)
+                self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table,
+                                          withdefaults)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
@@ -841,6 +855,7 @@ class vrf(moduleBase):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj,
+                       extra_args['withdefaults'] if 'withdefaults' in extra_args else False)
         else:
             op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
