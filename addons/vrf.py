@@ -145,7 +145,7 @@ class vrf(moduleBase):
                 if table:
                    running_vrf_map[int(table)] = v
 
-        if running_vrf_map and (running_vrf_map != self.iproute2_vrf_map):
+        if (not running_vrf_map or (running_vrf_map != self.iproute2_vrf_map)):
             self.iproute2_vrf_map = running_vrf_map
             iproute2_vrf_map_force_rewrite = True
 
