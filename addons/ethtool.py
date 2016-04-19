@@ -241,7 +241,7 @@ class ethtool(moduleBase,utilsBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run ethtool configuration on the interface object passed as

@@ -10,6 +10,7 @@ try:
     from ifupdown.iface import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
+    import ifupdown.ifupdownflags as ifupdownflags
     import os
     import glob
     import logging
@@ -70,7 +71,7 @@ class vrrpd(moduleBase):
         """ up vrrpd -n -D -i $IFACE -v 1 -p 20 10.0.1.254
             up ifplugd -i $IFACE -b -f -u0 -d1 -I -p -q """
 
-        if (not self.DRYRUN and
+        if (not ifupdownflags.flags.DRYRUN and
             not os.path.exists('/sys/class/net/%s' %ifaceobj.name)):
             return
 

@@ -12,6 +12,7 @@ from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
 import ifupdown.policymanager as policymanager
+import ifupdown.ifupdownflags as ifupdownflags
 
 class bond(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
@@ -167,10 +168,12 @@ class bond(moduleBase):
             if attrname == 'bond-mode' and attrval == '802.3ad':
                dattrname = 'bond-min-links'
                min_links = ifaceobj.get_attr_value_first(dattrname)
-               if not min_links or min_links == '0':
-                   self.logger.warn('%s: required attribute %s'
+               if not min_links:
+                   min_links = self.bondcmd.get_min_links(ifaceobj.name)
+               if min_links == '0':
+                   self.logger.warn('%s: attribute %s'
                         %(ifaceobj.name, dattrname) +
-                        ' not present or set to \'0\'')
+                        ' is set to \'0\'')
         elif policy_default_val:
             return policy_default_val
         return attrval
@@ -219,13 +222,14 @@ class bond(moduleBase):
             self.logger.debug('%s: no slaves found' %ifaceobj.name)
             return
 
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             runningslaves = self.bondcmd.get_slaves(ifaceobj.name);
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
         for slave in Set(slaves).difference(Set(runningslaves)):
-            if not self.PERFMODE and not self.ipcmd.link_exists(slave):
+            if (not ifupdownflags.flags.PERFMODE and
+                not self.ipcmd.link_exists(slave)):
                     self.log_warn('%s: skipping slave %s, does not exist'
                                   %(ifaceobj.name, slave))
                     continue
@@ -365,11 +369,10 @@ class bond(moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        flags = self.get_flags()
         if not self.ipcmd:
-            self.ipcmd = iproute2(**flags)
+            self.ipcmd = iproute2()
         if not self.bondcmd:
-            self.bondcmd = bondutil(**flags)
+            self.bondcmd = bondutil()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run bond configuration on the interface object passed as argument

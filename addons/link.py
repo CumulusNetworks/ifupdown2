@@ -9,6 +9,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 
 class link(moduleBase):
@@ -32,7 +33,8 @@ class link(moduleBase):
                                ifaceobj.get_attr_value_first('link-type'))
 
     def _down(self, ifaceobj):
-        if not self.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
+        if (not ifupdownflags.flags.PERFMODE and
+            not self.ipcmd.link_exists(ifaceobj.name)):
            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
@@ -60,7 +62,7 @@ class link(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)

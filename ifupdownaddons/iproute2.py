@@ -6,10 +6,15 @@
 
 import os
 import glob
+import shlex
+import signal
+
+from ifupdown.utils import utils
 from collections import OrderedDict
 from utilsbase import *
 from systemutils import *
 from cache import *
+import ifupdown.ifupdownflags as ifupdownflags
 
 VXLAN_UDP_PORT = 4789
 
@@ -24,7 +29,7 @@ class iproute2(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        if self.CACHE:
+        if ifupdownflags.flags.CACHE:
             self._fill_cache()
 
     def _fill_cache(self):
@@ -130,9 +135,9 @@ class iproute2(utilsBase):
         if ifacename argument given, fill cache for ifacename, else
         fill cache for all interfaces in the system
         """
-
         linkout = {}
         if iproute2._cache_fill_done and not refresh: return
+
         try:
             # Check if ifacename is already full, in which case, return
             if ifacename and not refresh:
@@ -177,9 +182,9 @@ class iproute2(utilsBase):
 
     def _cache_get(self, type, attrlist, refresh=False):
         try:
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return False
-            if self.CACHE:
+            if ifupdownflags.flags.CACHE:
                 if self._fill_cache():
                     # if we filled the cache, return new data
                     return linkCache.get_attr(attrlist)
@@ -211,14 +216,14 @@ class iproute2(utilsBase):
         return False
 
     def _cache_update(self, attrlist, value):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             linkCache.add_attr(attrlist, value)
         except:
             pass
 
     def _cache_delete(self, attrlist):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             linkCache.del_attr(attrlist)
         except:
@@ -226,6 +231,7 @@ class iproute2(utilsBase):
 
     def _cache_invalidate(self):
         linkCache.invalidate()
+        iproute2._cache_fill_done = False
 
     def batch_start(self):
         self.ipbatcbuf = ''
@@ -494,9 +500,11 @@ class iproute2(utilsBase):
         cmd = 'bridge fdb show brport %s' % dev
         cur_peers = []
         try:
-            ps = subprocess.Popen((cmd).split(), stdout=subprocess.PIPE, close_fds=True)
+            ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=True)
+            utils.enable_subprocess_signal_forwarding(ps, signal.SIGINT)
             output = subprocess.check_output(('grep', '00:00:00:00:00:00'), stdin=ps.stdout)
             ps.wait()
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
             try:
                 ppat = re.compile('\s+dst\s+(\d+.\d+.\d+.\d+)\s+')
                 for l in output.split('\n'):
@@ -509,6 +517,8 @@ class iproute2(utilsBase):
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 self.logger.error(str(e))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         return cur_peers
 
@@ -581,7 +591,7 @@ class iproute2(utilsBase):
         self._cache_update([name], {})
 
     def link_exists(self, ifacename):
-        if self.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return True
         return os.path.exists('/sys/class/net/%s' %ifacename)
 

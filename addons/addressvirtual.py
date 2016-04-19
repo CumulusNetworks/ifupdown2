@@ -9,6 +9,8 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.statemanager as statemanager
 import ifupdown.rtnetlink_api as rtnetlink_api
+import ifupdown.ifupdownflags as ifupdownflags
+
 from ipaddr import IPNetwork
 import logging
 import os
@@ -142,7 +144,7 @@ class addressvirtual(moduleBase):
         return maclist
 
     def _apply_address_config(self, ifaceobj, address_virtual_list):
-        purge_existing = False if self.PERFMODE else True
+        purge_existing = False if ifupdownflags.flags.PERFMODE else True
 
         hwaddress = []
         self.ipcmd.batch_start()
@@ -338,7 +340,7 @@ class addressvirtual(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

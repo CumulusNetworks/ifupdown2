@@ -6,6 +6,7 @@
 
 import os
 import re
+import ifupdown.ifupdownflags as ifupdownflags
 from ifupdown.iface import *
 from utilsbase import *
 from iproute2 import *
@@ -19,7 +20,7 @@ class bondutil(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        if self.CACHE and not self._cache_fill_done:
+        if ifupdownflags.flags.CACHE and not self._cache_fill_done:
             self._bond_linkinfo_fill_all()
             self._cache_fill_done = True
 
@@ -67,11 +68,12 @@ class bondutil(utilsBase):
         [self._bond_linkinfo_fill_attrs(b) for b in bondstr.split()]
 
     def _bond_linkinfo_fill(self, bondname, refresh=False):
-        try:
-            linkCache.get_attr([bondname, 'linkinfo', 'slaves'])
-            return
-        except:
-            pass
+        if not refresh:
+            try:
+                linkCache.get_attr([bondname, 'linkinfo', 'slaves'])
+                return
+            except:
+                pass
         bondstr = self.read_file_oneline('/sys/class/net/bonding_masters')
         if (not bondstr or bondname not in bondstr.split()):
             raise Exception('bond %s not found' %bondname)
@@ -79,9 +81,9 @@ class bondutil(utilsBase):
 
     def _cache_get(self, attrlist, refresh=False):
         try:
-            if self.DRYRUN:
+            if ifupdownflags.flags.DRYRUN:
                 return None
-            if self.CACHE:
+            if ifupdownflags.flags.CACHE:
                 if not bondutil._cache_fill_done: 
                     self._bond_linkinfo_fill_all()
                     bondutil._cache_fill_done = True
@@ -108,7 +110,7 @@ class bondutil(utilsBase):
         return False
 
     def _cache_update(self, attrlist, value):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             if attrlist[-1] == 'slaves':
                 linkCache.add_to_attrlist(attrlist, value)
@@ -118,7 +120,7 @@ class bondutil(utilsBase):
             pass
 
     def _cache_delete(self, attrlist, value=None):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         try:
             if attrlist[-1] == 'slaves':
                 linkCache.remove_from_attrlist(attrlist, value)
@@ -128,7 +130,7 @@ class bondutil(utilsBase):
             pass
 
     def _cache_invalidate(self):
-        if self.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN: return
         linkCache.invalidate()
 
     def set_attrs(self, bondname, attrdict, prehook):
@@ -143,11 +145,12 @@ class bondutil(utilsBase):
             try:
                 if ((attrname not in ['lacp_rate',
                                       'lacp_bypass']) or
-                    ('mode', '802.3ad') in attrdict.items()):
+                    self._cache_check([bondname, 'linkinfo', 'mode'], '802.3ad',
+                                      True)):
                     self.write_file('/sys/class/net/%s/bonding/%s'
                                     %(bondname, attrname), attrval)
             except Exception, e:
-                if self.FORCE:
+                if ifupdownflags.flags.FORCE:
                     self.logger.warn(str(e))
                     pass
                 else:
@@ -323,7 +326,7 @@ class bondutil(utilsBase):
             try:
                 self.remove_slave(bondname, slave)
             except Exception, e:
-                if not self.FORCE:
+                if not ifupdownflags.flags.FORCE:
                     raise Exception('error removing slave %s'
                         %slave + ' from bond %s' %bondname +
                         '(%s)' %str(e))

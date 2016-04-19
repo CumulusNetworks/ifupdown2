@@ -9,6 +9,15 @@
 import os
 import fcntl
 import re
+import signal
+
+from functools import partial
+
+def signal_handler_f(ps, sig, frame):
+    if ps:
+        ps.send_signal(sig)
+    if sig == signal.SIGINT:
+        raise KeyboardInterrupt
 
 class utils():
 
@@ -57,4 +66,12 @@ class utils():
             return True
         else:
             return False
+
+    @classmethod
+    def enable_subprocess_signal_forwarding(cls, ps, sig):
+        signal.signal(sig, partial(signal_handler_f, ps))
+
+    @classmethod
+    def disable_subprocess_signal_forwarding(cls, sig):
+        signal.signal(sig, signal.SIG_DFL)
 

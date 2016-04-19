@@ -12,7 +12,7 @@ from socket import AF_BRIDGE
 from iff import IFF_UP
 from rtnetlink import *
 import os
-import ifupdownmain
+import ifupdownflags as ifupdownflags
 
 class rtnetlinkApi(RtNetlink):
 
@@ -42,7 +42,7 @@ class rtnetlinkApi(RtNetlink):
 
     def create_vlan(self, link, ifname, vlanid):
         self.logger.info('rtnetlink: ip link add link %s name %s type vlan id %s' %(link, ifname, vlanid))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         try:
             ifindex = self.get_ifindex(link)
@@ -66,7 +66,7 @@ class rtnetlinkApi(RtNetlink):
 
     def create_macvlan(self, ifname, link, mode='private'):
         self.logger.info('rtnetlink: ip link add link %s name %s type macvlan mode private' %(link, ifname))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         try:
             ifindex = self.get_ifindex(link)
@@ -91,7 +91,7 @@ class rtnetlinkApi(RtNetlink):
     def link_set(self, ifname, state):
         flags = 0
         self.logger.info('rtnetlink: ip link set dev %s %s' %(ifname, state))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
 
         if state == "up":
@@ -106,9 +106,8 @@ class rtnetlinkApi(RtNetlink):
         self.process_wait([token])
 
     def link_set_protodown(self, ifname, state):
-        flags = 0
         self.logger.info('rtnetlink: setting link %s protodown %s' %(ifname, state))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
 
         protodown = 1 if state == "on" else 0
@@ -123,7 +122,7 @@ class rtnetlinkApi(RtNetlink):
     def link_set_hwaddress(self, ifname, hwaddress):
         flags = 0
         self.logger.info('rtnetlink: ip link set dev %s address %s' %(ifname, hwaddress))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
 
         flags &= ~IFF_UP
@@ -139,7 +138,7 @@ class rtnetlinkApi(RtNetlink):
     def addr_add(self, ifname, address, broadcast=None, peer=None, scope=None,
                  preferred_lifetime=None):
         self.logger.info('rtnetlink: setting address')
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
 
         try:
@@ -176,7 +175,7 @@ class rtnetlinkApi(RtNetlink):
         ifi_change = IFF_UP
         rtas = {}
         self.logger.info('rtnetlink: setting link %s %s' %(ifname, state))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         if not ifattrs:
            return
@@ -214,7 +213,7 @@ class rtnetlinkApi(RtNetlink):
                          %(vid, 'untagged' if untagged else '',
                            'pvid' if pvid else '', dev,
                            'self' if not master else ''))
-        if ifupdownmain.ifupdownFlags.DRYRUN:
+        if ifupdownflags.flags.DRYRUN:
             return
         try:
             ifindex = self.get_ifindex(dev)

@@ -13,8 +13,10 @@ try:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
+    import ifupdown.policymanager as policymanager
     import ifupdown.rtnetlink_api as rtnetlink_api
     import ifupdown.ifupdownconfig as ifupdownConfig
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -72,6 +74,7 @@ class address(moduleBase):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
+        self.default_mtu = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='mtu')
 
     def _address_valid(self, addrs):
         if not addrs:
@@ -192,7 +195,7 @@ class address(moduleBase):
                                'iface stanzas, skip purging existing addresses')
             purge_addresses = 'no'
 
-        if not self.PERFMODE and purge_addresses == 'yes':
+        if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
             runningaddrs = self.ipcmd.addr_get(ifaceobj.name, details=False)
@@ -240,7 +243,7 @@ class address(moduleBase):
         addr_method = ifaceobj.addr_method
         try:
             # release any stale dhcp addresses if present
-            if (addr_method != "dhcp" and not self.PERFMODE and
+            if (addr_method != "dhcp" and not ifupdownflags.flags.PERFMODE and
                     not (ifaceobj.flags & iface.HAS_SIBLINGS)):
                 # if not running in perf mode and ifaceobj does not have
                 # any sibling iface objects, kill any stale dhclient
@@ -260,6 +263,20 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+
+        # logical devices like bridges and vlan devices rely on mtu
+        # from their lower devices. ie mtu travels from
+        # lower devices to upper devices. For bonds mtu travels from
+        # upper to lower devices. running mtu depends on upper and
+        # lower device mtu. With all this implicit mtu
+        # config by the kernel in play, it becomes almost impossible
+        # to decide if the running mtu is valid. It will require
+        # some more thinking. Commenting this for now.
+        #elif self.default_mtu:
+        #    running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+        #    if running_mtu != self.default_mtu:
+        #        self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
@@ -268,7 +285,7 @@ class address(moduleBase):
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
             running_hwaddress = None
-            if not self.PERFMODE: # system is clean
+            if not ifupdownflags.flags.PERFMODE: # system is clean
                 running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if hwaddress != running_hwaddress:
                 slave_down = False
@@ -314,10 +331,13 @@ class address(moduleBase):
                     #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
                 else:
                     self.ipcmd.del_addr_all(ifaceobj.name)
+            mtu = ifaceobj.get_attr_value_first('mtu')
+            if (mtu and self.default_mtu and (mtu != self.default_mtu)):
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
                 filename = '/sys/class/net/%s/ifalias' %ifaceobj.name
-                self.logger.info('Executing echo "" > %s' %filename)
+                self.logger.info('executing echo "" > %s' %filename)
                 os.system('echo "" > %s' %filename)
             # XXX hwaddress reset cannot happen because we dont know last
             # address.
@@ -444,7 +464,7 @@ class address(moduleBase):
         if (dhclientcmd.is_running(ifaceobjrunning.name) or
                 dhclientcmd.is_running6(ifaceobjrunning.name)):
             # If dhcp is configured on the interface, we skip it
-            return 
+            return
         isloopback = self.ipcmd.link_isloopback(ifaceobjrunning.name)
         if isloopback:
             default_addrs = ['127.0.0.1/8', '::1/128']
@@ -464,7 +484,7 @@ class address(moduleBase):
                     mtu != self.get_mod_subattr('mtu', 'default'))):
                 ifaceobjrunning.update_config('mtu', mtu)
         alias = self.ipcmd.link_get_alias(ifaceobjrunning.name)
-        if alias: 
+        if alias:
             ifaceobjrunning.update_config('alias', alias)
 
     _run_ops = {'up' : _up,
@@ -478,7 +498,7 @@ class address(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument

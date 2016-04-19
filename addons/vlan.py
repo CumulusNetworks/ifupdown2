@@ -8,6 +8,7 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.rtnetlink_api as rtnetlink_api
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import re
 
@@ -132,7 +133,7 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             if not self.ipcmd.link_exists(vlanrawdevice):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
@@ -151,7 +152,8 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
-        if not self.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
+        if (not ifupdownflags.flags.PERFMODE and
+            not self.ipcmd.link_exists(ifaceobj.name)):
            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
@@ -203,9 +205,8 @@ class vlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
         
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 

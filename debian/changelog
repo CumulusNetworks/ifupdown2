@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u2) UNRELEASED; urgency=medium
+
+  * Dry-run upgrade test, will be replaced with proper text at the release time. 
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Tue, 19 Apr 2016 14:35:52 -0700
+
 ifupdown2 (1.1-cl3u1) unstable; urgency=low
 
   * Initial release.
