@@ -1369,7 +1369,8 @@ class bridge(moduleBase):
         if attrval:
             ifaceobjcurr.update_config_with_status('bridge-vids', attrval, -1)
 
-    def _query_check_bridge(self, ifaceobj, ifaceobjcurr, withdefaults):
+    def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
+                            ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
             return
         if not self.brctlcmd.bridge_exists(ifaceobj.name):
@@ -1379,7 +1380,7 @@ class bridge(moduleBase):
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self.get_mod_attrs())
         #Add default attributes if --with-defaults is set
-        if withdefaults and 'bridge-stp' not in ifaceattrs:
+        if ifupdownflags.flags.WITHDEFAULTS and 'bridge-stp' not in ifaceattrs:
             ifaceattrs.append('bridge-stp')
         if not ifaceattrs:
             return
@@ -1398,13 +1399,16 @@ class bridge(moduleBase):
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
             if not v:
-               if withdefaults and k == 'bridge-stp':
-                   v = 'on' if self.default_stp_on else 'off'
-               else:
-                   continue
+                if ifupdownflags.flags.WITHDEFAULTS and k == 'bridge-stp':
+                    v = 'on' if self.default_stp_on else 'off'
+                else:
+                    continue
             rv = runningattrs.get(k[7:])
             if k == 'bridge-mcqv4src':
                continue
+            if k == 'bridge-maxwait' or k == 'bridge-waitport':
+                ifaceobjcurr.update_config_with_status(k, v, 0)
+                continue
             if k == 'bridge-vlan-aware':
                 rv = self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)
                 if (rv and v == 'yes') or (not rv and v == 'no'):
@@ -1424,7 +1428,7 @@ class bridge(moduleBase):
                                rv, 0)
                else:
                     ifaceobjcurr.update_config_with_status('bridge-stp',
-                                rv, 1)
+                               rv, 1)
             elif k == 'bridge-ports':
                # special case ports because it can contain regex or glob
                running_port_list = rv.keys() if rv else []
@@ -1443,7 +1447,7 @@ class bridge(moduleBase):
             elif (k == 'bridge-pathcosts' or
                   k == 'bridge-portprios' or k == 'bridge-portmcrouter'
                   or k == 'bridge-portmcfl'):
-               brctlcmdattrname = k[11:].rstrip('s')
+               brctlcmdattrname = k[7:].rstrip('s')
                # for port attributes, the attributes are in a list
                # <portname>=<portattrvalue>
                status = 0
@@ -1468,7 +1472,7 @@ class bridge(moduleBase):
                    pass
                ifaceobjcurr.update_config_with_status(k, currstr, status)
             elif not rv:
-               if k == 'bridge-pvid' or k == 'bridge-vids':
+               if k == 'bridge-pvid' or k == 'bridge-vids' or k == 'bridge-allow-untagged':
                    # bridge-pvid and bridge-vids on a bridge does
                    # not correspond directly to a running config
                    # on the bridge. They correspond to default
@@ -1606,10 +1610,9 @@ class bridge(moduleBase):
             except Exception, e:
                 self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr, withdefaults,
-                     ifaceobj_getfunc=None):
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if self._is_bridge(ifaceobj):
-            self._query_check_bridge(ifaceobj, ifaceobjcurr, withdefaults)
+            self._query_check_bridge(ifaceobj, ifaceobjcurr)
         else:
             self._query_check_bridge_port(ifaceobj, ifaceobjcurr,
                                           ifaceobj_getfunc)
@@ -1699,7 +1702,7 @@ class bridge(moduleBase):
             self.brctlcmd = brctl()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
-            ifaceobj_getfunc=None, **extra_args):
+            ifaceobj_getfunc=None):
         """ run bridge configuration on the interface object passed as
             argument. Can create bridge interfaces if they dont exist already
 
@@ -1724,7 +1727,6 @@ class bridge(moduleBase):
         self._flush_running_vidinfo()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
-                       extra_args['withdefaults'] if 'withdefaults' in extra_args else False,
                        ifaceobj_getfunc=ifaceobj_getfunc)
         else:
             op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)

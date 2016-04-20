@@ -107,8 +107,6 @@ def run_query(args):
             qop = 'query-dependency'
         elif args.printsavedstate:
             qop = 'query-savedstate'
-        elif args.withdefaults:
-            qop = 'query-withdefaults'
         else:
             qop='query'
         cachearg=(False if (iflist or args.nocache or
@@ -125,15 +123,15 @@ def run_query(args):
                                        cache=cachearg,
                                        interfacesfile=interfacesfilename,
                                        interfacesfileiobuf=interfacesfileiobuf,
-                                       interfacesfileformat=args.interfacesfileformat)
+                                       interfacesfileformat=args.interfacesfileformat,
+                                       withdefaults=args.withdefaults)
         # list implies all auto interfaces (this is how ifupdown behaves)
         if args.list:
             args.all = True
         ifupdown_handle.query([qop], args.all, args.list, args.CLASS, iflist,
                               excludepats=args.excludepats,
                               printdependency=args.printdependency,
-                              format=args.format, type=args.type,
-                              withdefaults=args.withdefaults)
+                              format=args.format, type=args.type)
     except:
         raise
 

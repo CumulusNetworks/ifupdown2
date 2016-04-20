@@ -30,10 +30,6 @@ class vrf(moduleBase):
                          {'help' : 'vrf device table id. key to ' +
                                    'creating a vrf device',
                           'example': ['vrf-table-id 1']},
-                    'vrf-default-route':
-                         {'help' : 'vrf device default route ' +
-                                   'to avoid communication outside the vrf device',
-                          'example': ['vrf-default-route yes/no']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
                           'example': ['vrf blue']}}}
@@ -97,14 +93,6 @@ class vrf(moduleBase):
 
         self.vrf_fix_local_table = True
         self.vrf_count = 0
-        self.vrf_cgroup_create = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-cgroup-create')
-
-        if not self.vrf_cgroup_create:
-            self.vrf_cgroup_create = False
-        elif self.vrf_cgroup_create == 'yes':
-            self.vrf_cgroup_create = True
-        else:
-            self.vrf_cgroup_create = False
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
 
@@ -744,8 +732,7 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table,
-                             withdefaults):
+    def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.logger.info('%s: vrf: does not exist' %(ifaceobj.name))
@@ -768,28 +755,34 @@ class vrf(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vrf-table',
                                                        running_table, 0)
-            if not withdefaults:
+            if not ifupdownflags.flags.WITHDEFAULTS:
                 return
             if self.vrf_helper:
-                ret_vrfhelper = self.exec_command('%s verify %s %s'
-                                                  %(self.vrf_helper,
-                                                  ifaceobj.name, vrf_table))
-                if 'default routes are installed' not in ret_vrfhelper:
-                    ifaceobjcurr.update_config_with_status('vrf-default-route',
-                                                           'no', 1)
-                else:
-                    ifaceobjcurr.update_config_with_status('vrf-default-route',
-                                                           'yes',0)
+                try:
+                    self.exec_command('%s verify %s %s'
+                                      %(self.vrf_helper,
+                                      ifaceobj.name, config_table))
+                    ifaceobjcurr.update_config_with_status('vrf-helper',
+                                                           '%s create %s %s'
+                                                           %(self.vrf_helper,
+                                                           ifaceobj.name,
+                                                           config_table), 0)
+                except Exception, e:
+                    ifaceobjcurr.update_config_with_status('vrf-helper',
+                                                           '%s create %s %s'
+                                                           %(self.vrf_helper,
+                                                           ifaceobj.name,
+                                                           config_table), 1)
+                    pass
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr, withdefaults):
+    def _query_check(self, ifaceobj, ifaceobjcurr):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
                 self._iproute2_vrf_map_initialize()
-                self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table,
-                                          withdefaults)
+                self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
@@ -855,7 +848,6 @@ class vrf(moduleBase):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj,
-                       extra_args['withdefaults'] if 'withdefaults' in extra_args else False)
+            op_handler(self, ifaceobj, query_ifaceobj)
         else:
             op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)

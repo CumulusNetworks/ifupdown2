@@ -78,6 +78,12 @@ class brctl(utilsBase):
             battrs['fd'] = broutlines[6].split(
                                     'bridge forward delay')[1].strip(
                                             ).replace('.00', '')
+            battrs['ageing'] = broutlines[7].split(
+                                    'ageing time')[1].strip().replace('.00', '')
+            battrs['mcrouter'] = broutlines[12].split(
+                                    'mc router')[1].strip().split('\t\t\t')[0]
+            battrs['bridgeprio'] = self.read_file_oneline(
+                         '/sys/class/net/%s/bridge/priority' %bridgename)
             battrs.update(self._bridge_get_mcattrs_from_sysfs(bridgename))
 
             # XXX: comment this out until mc attributes become available
@@ -94,7 +100,6 @@ class brctl(utilsBase):
             pass
 
         linkCache.update_attrdict([bridgename, 'linkinfo'], battrs)
-
         for cidx in range(1, len(chunks)):
             bpout = chunks[cidx].lstrip('\n')
             if not bpout or bpout[0] == ' ':
@@ -107,11 +112,12 @@ class brctl(utilsBase):
                                             'path cost')[1].strip()
                 bportattrs['fdelay'] = bplines[4].split(
                                             'forward delay timer')[1].strip()
-                bportattrs['mcrouter'] = self.read_file_oneline(
+                bportattrs['portmcrouter'] = self.read_file_oneline(
                          '/sys/class/net/%s/brport/multicast_router' %pname)
-                bportattrs['mcfl'] = self.read_file_oneline(
+                bportattrs['portmcfl'] = self.read_file_oneline(
                          '/sys/class/net/%s/brport/multicast_fast_leave' %pname)
-
+                bportattrs['portprio'] = self.read_file_oneline(
+                         '/sys/class/net/%s/brport/priority' %pname)
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
             except Exception, e:

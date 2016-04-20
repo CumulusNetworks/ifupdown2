@@ -171,7 +171,8 @@ class ifupdownMain(ifupdownBase):
                  cache=False, addons_enable=True, statemanager_enable=True,
                  interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None,
-                 interfacesfileformat='native'):
+                 interfacesfileformat='native',
+                 withdefaults=False):
         """This member function initializes the ifupdownmain object.
 
         Kwargs:
@@ -188,6 +189,7 @@ class ifupdownMain(ifupdownBase):
         self.logger = logging.getLogger('ifupdown')
         ifupdownflags.flags.FORCE = force
         ifupdownflags.flags.DRYRUN = dryrun
+        ifupdownflags.flags.WITHDEFAULTS = withdefaults
         ifupdownflags.flags.NOWAIT = nowait
         ifupdownflags.flags.PERFMODE = perfmode
         ifupdownflags.flags.CACHE = cache
@@ -895,13 +897,13 @@ class ifupdownMain(ifupdownBase):
                 # continue reading
                 pass
 
-    def _sched_ifaces(self, ifacenames, ops, withdefaults=False,
-                      skipupperifaces=False, followdependents=True, sort=False):
+    def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
+                      followdependents=True, sort=False):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
                     self.dependency_graph)
-        ifaceScheduler.sched_ifaces(self, ifacenames, ops, withdefaults,
+        ifaceScheduler.sched_ifaces(self, ifacenames, ops,
                         dependency_graph=self.dependency_graph,
                         order=ifaceSchedulerFlags.INORDER
                             if 'down' in ops[0]
@@ -1209,7 +1211,7 @@ class ifupdownMain(ifupdownBase):
     def query(self, ops, auto=False, format_list=False, allow_classes=None,
               ifacenames=None,
               excludepats=None, printdependency=None,
-              format='native', type=None, withdefaults=False):
+              format='native', type=None):
         """ query an interface """
 
         self.set_type(type)
@@ -1273,7 +1275,7 @@ class ifupdownMain(ifupdownBase):
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
 
-        ret = self._sched_ifaces(filtered_ifacenames, ops, withdefaults,
+        ret = self._sched_ifaces(filtered_ifacenames, ops,
                            followdependents=True
                            if self.flags.WITH_DEPENDS else False)
 

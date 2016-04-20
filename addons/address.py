@@ -500,8 +500,7 @@ class address(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2()
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None,
-            ifaceobj_getfunc=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument
 
         Args:
