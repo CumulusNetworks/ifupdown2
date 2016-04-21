@@ -1206,7 +1206,8 @@ class ifupdownMain(ifupdownBase):
             if not ifupdownflags.flags.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
-    def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
+    def query(self, ops, auto=False, format_list=False, allow_classes=None,
+              ifacenames=None,
               excludepats=None, printdependency=None,
               format='native', type=None):
         """ query an interface """
@@ -1263,6 +1264,9 @@ class ifupdownMain(ifupdownBase):
         if ops[0] == 'query-dependency' and printdependency:
             self.print_dependency(filtered_ifacenames, printdependency)
             return
+
+        if format_list and (ops[0] == 'query' or ops[0] == 'query-raw'):
+            return self.print_ifaceobjs_list(filtered_ifacenames)
 
         if ops[0] == 'query':
             return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
@@ -1593,6 +1597,10 @@ class ifupdownMain(ifupdownBase):
                 self.get_iface_refcnt(i)}),
                 self.dependency_graph.keys())
             graph.generate_dots(self.dependency_graph, indegrees)
+
+    def print_ifaceobjs_list(self, ifacenames):
+        for i in ifacenames:
+            print i
 
     def print_ifaceobjs_raw(self, ifacenames):
         """ prints raw lines for ifaces from config file """

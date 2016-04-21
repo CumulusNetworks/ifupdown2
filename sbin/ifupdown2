@@ -124,8 +124,10 @@ def run_query(args):
                                        interfacesfile=interfacesfilename,
                                        interfacesfileiobuf=interfacesfileiobuf,
                                        interfacesfileformat=args.interfacesfileformat)
-
-        ifupdown_handle.query([qop], args.all, args.CLASS, iflist,
+        # list implies all auto interfaces (this is how ifupdown behaves)
+        if args.list:
+            args.all = True
+        ifupdown_handle.query([qop], args.all, args.list, args.CLASS, iflist,
                               excludepats=args.excludepats,
                               printdependency=args.printdependency,
                               format=args.format, type=args.type)
@@ -307,8 +309,8 @@ def update_ifquery_argparser(argparser):
     """ arg parser for ifquery options """
 
     # -l is same as '-a', only here for backward compatibility
-    argparser.add_argument('-l', '--list', action='store_true', dest='all',
-                help=argparse.SUPPRESS)
+    argparser.add_argument('-l', '--list', action='store_true', dest='list',
+                           help='list all matching known interfaces')
     group = argparser.add_mutually_exclusive_group(required=False)
     group.add_argument('-r', '--running', dest='running',
                        action='store_true',
@@ -425,7 +427,7 @@ def validate_args(op, args):
     #    if args.iflist or args.all:
     #        print 'ignoring interface options ..'
     #    return True
-    if op == 'query' and args.syntaxhelp:
+    if op == 'query' and (args.syntaxhelp or args.list):
         return True
     if op == 'reload':
         if not args.all and not args.currentlyup and not args.CLASS:
