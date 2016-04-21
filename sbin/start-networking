@@ -99,6 +99,14 @@ ifup_hotplug () {
     fi
 }
 
+ifup_mgmt () {
+	ifaces=$(ifquery --list --allow=mgmt 2>/dev/null)
+	if [ -n "$ifaces" ]; then
+		echo "bringing up mgmt class interfaces"
+		ifup --allow=mgmt
+	fi
+}
+
 ifupdown_init() {
 	# remove state file at boot
 	[ ! -e ${IFSTATE_LOCKFILE} ] && rm -f ${IFSTATE_FILE}
@@ -120,9 +128,9 @@ start)
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
 	echo ${NAME}':' "Configuring network interfaces"
+	ifup_mgmt
 	ifup -a $EXTRA_ARGS $exclusions $perfoptions
 	;;
-
 stop)
 	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
         SYSRESET=0
