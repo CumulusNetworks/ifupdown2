@@ -680,12 +680,6 @@ class vrf(moduleBase):
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
 
         try:
-            self.exec_command('/usr/bin/vrf service disable %s' %ifaceobj.name)
-        except Exception, e:
-            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
-
-        try:
             running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
             if running_slaves:
                 for s in running_slaves:
