@@ -535,9 +535,12 @@ class vrf(moduleBase):
         return vrf_table
 
     def _up_vrf_helper(self, ifaceobj, vrf_table):
+        mode = ""
+        if ifupdownflags.flags.PERFMODE:
+            mode = "boot"
         if self.vrf_helper:
-            self.exec_command('%s create %s %s' %(self.vrf_helper,
-                              ifaceobj.name, vrf_table))
+            self.exec_command('%s create %s %s %s' %(self.vrf_helper,
+                              ifaceobj.name, vrf_table, mode))
 
     def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True,
                     ifaceobj_getfunc=None):
@@ -658,9 +661,12 @@ class vrf(moduleBase):
             self.log_error(str(e))
 
     def _down_vrf_helper(self, ifaceobj, vrf_table):
+        mode = ""
+        if ifupdownflags.flags.PERFMODE:
+            mode = "boot"
         if self.vrf_helper:
-            self.exec_command('%s delete %s %s' %(self.vrf_helper,
-                              ifaceobj.name, vrf_table))
+            self.exec_command('%s delete %s %s %s' %(self.vrf_helper,
+                              ifaceobj.name, vrf_table, mode))
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
