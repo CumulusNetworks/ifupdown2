@@ -112,6 +112,8 @@ class ifupdownMain(ifupdownBase):
         # there is no real interface behind it
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return
+        if ifaceobj.link_kind & ifaceLinkKind.VRF:
+            return
         if (ifaceobj.addr_method and
             ifaceobj.addr_method == 'manual'):
             return

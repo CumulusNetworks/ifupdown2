@@ -158,6 +158,7 @@ class vrf(moduleBase):
             last_used_vrf_table = t
         self.last_used_vrf_table = last_used_vrf_table
         self._iproute2_vrf_map_initialized = True
+        self.vrf_count = len(self.iproute2_vrf_map)
 
     def _iproute2_vrf_map_sync_to_disk(self):
         if not self.iproute2_vrf_map_sync_to_disk:
@@ -248,6 +249,7 @@ class vrf(moduleBase):
                 self.iproute2_vrf_map_fd.write('%s %s\n'
                                                %(table_id, vrf_dev_name))
                 self.iproute2_vrf_map_fd.flush()
+                self.vrf_count += 1
             return
 
         if old_vrf_name != vrf_dev_name:
@@ -487,6 +489,10 @@ class vrf(moduleBase):
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
         if not self.ipcmd.link_exists(ifaceobj.name):
+            if self.vrf_count == self.vrf_max_count:
+                self.log_error('%s: max vrf count %d hit...not '
+                               'creating vrf' %(ifaceobj.name,
+                                                self.vrf_count))
             if vrf_table == 'auto':
                 vrf_table = self._get_avail_vrf_table_id()
                 if not vrf_table:
@@ -637,10 +643,6 @@ class vrf(moduleBase):
             if vrf_table:
                 self._iproute2_vrf_map_initialize()
                 # This is a vrf device
-                if self.vrf_count == self.vrf_max_count:
-                    self.log_error('%s: max vrf count %d hit...not '
-                                   'creating vrf' %(ifaceobj.name,
-                                                    self.vrf_count))
                 self._up_vrf_dev(ifaceobj, vrf_table, True, ifaceobj_getfunc)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
