@@ -512,17 +512,21 @@ class bridge(moduleBase):
         # Supports old style vlan vid info format
         # for compatibility
         #
+        bridge_port_pvids = ifaceobj.get_attr_value_first('bridge-port-pvids')
+        bridge_port_vids = ifaceobj.get_attr_value_first('bridge-port-vids')
+        if not bridge_port_pvids and not bridge_port_vids:
+            return
 
         # Handle bridge vlan attrs
         running_vidinfo = self._get_running_vidinfo()
 
         # Install pvids
-        attrval = ifaceobj.get_attr_value_first('bridge-port-pvids')
-        if attrval:
-            portlist = self.parse_port_list(ifaceobj.name, attrval)
+        if bridge_port_pvids:
+            portlist = self.parse_port_list(ifaceobj.name, bridge_port_pvids)
             if not portlist:
                 self.log_warn('%s: could not parse \'%s %s\''
-                              %(ifaceobj.name, attrname, attrval))
+                              %(ifaceobj.name, 'bridge-port-pvids',
+                                bridge_port_pvids))
                 return
             for p in portlist:
                 try:
@@ -539,12 +543,11 @@ class bridge(moduleBase):
                             %(ifaceobj.name, p, str(e)))
 
         # install port vids
-        attrval = ifaceobj.get_attr_value_first('bridge-port-vids')
-        if attrval:
-            portlist = self.parse_port_list(ifaceobj.name, attrval)
+        if bridge_port_vids:
+            portlist = self.parse_port_list(ifaceobj.name, bridge_port_vids)
             if not portlist:
-                self.log_warn('%s: could not parse \'%s %s\''
-                          %(ifaceobj.name, attrname, attrval))
+                self.log_warn('%s: could not parse \'%s %s\'' %(ifaceobj.name,
+                              'bridge-port-vids', bridge_port_vids))
                 return
             for p in portlist:
                 try:
