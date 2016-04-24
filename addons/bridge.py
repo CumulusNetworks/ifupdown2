@@ -306,14 +306,17 @@ class bridge(moduleBase):
             self.log_warn('%s: unable to process waitport: %s'
                     %(ifaceobj.name, str(e)))
 
-    def _ports_enable_disable_ipv6(self, ports, enable='1'):
+    def _enable_disable_ipv6(self, port, enable='1'):
+        try:
+            self.write_file('/proc/sys/net/ipv6/conf/%s/disable_ipv6' % port, enable)
+        except Exception, e:
+            self.logger.info(str(e))
+
+    def handle_ipv6(self, ports, state, ifaceobj=None):
+        if ifaceobj and (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN):
+            self._enable_disable_ipv6(ifaceobj.name, state)
         for p in ports:
-            try:
-                self.write_file('/proc/sys/net/ipv6/conf/%s' %p +
-                                '/disable_ipv6', enable)
-            except Exception, e:
-                self.logger.info(str(e))
-                pass
+            self._enable_disable_ipv6(p, state)
 
     def _pretty_print_add_ports_error(self, errstr, bridgename, bridgeports):
         """ pretty print bridge port add errors.
@@ -395,7 +398,7 @@ class bridge(moduleBase):
             pass
 
         # enable ipv6 for ports that were removed
-        self._ports_enable_disable_ipv6(removedbridgeports, '0')
+        self.handle_ipv6(removedbridgeports, '0')
         if err:
             self.log_error('bridge configuration failed (missing ports)')
 
@@ -1061,7 +1064,7 @@ class bridge(moduleBase):
             if not running_ports:
                return
             # disable ipv6 for ports that were added to bridge
-            self._ports_enable_disable_ipv6(running_ports, '1')
+            self.handle_ipv6(running_ports, '1', ifaceobj=ifaceobj)
             self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
@@ -1090,7 +1093,7 @@ class bridge(moduleBase):
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 self.brctlcmd.delete_bridge(ifaceobj.name)
                 if ports:
-                    self._ports_enable_disable_ipv6(ports, '0')
+                    self.handle_ipv6(ports, '0', ifaceobj=ifaceobj)
                     if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                         map(lambda p: rtnetlink_api.rtnl_api.link_set(p,
                                     "down"), ports)

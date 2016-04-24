@@ -56,11 +56,12 @@ class ifaceLinkKind():
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
         and can be BRIDGE_PORT, BOND_SLAVE etc """
-    UNKNOWN =           0x0000
-    BRIDGE_PORT =       0x0001
-    BOND_SLAVE =        0x0010
-    VRF_SLAVE =         0x0100
-    BRIDGE_VLAN_AWARE = 0x1000
+    UNKNOWN =           0x00000
+    BRIDGE_PORT =       0x00001
+    BOND_SLAVE =        0x00010
+    VRF_SLAVE =         0x00100
+    BRIDGE_VLAN_AWARE = 0x01000
+    BRIDGE_VXLAN =      0x10000
 
     @classmethod
     def get_str(cls, flag):
@@ -74,18 +75,22 @@ class ifaceLinkPrivFlags():
             return 'vrf slave'
         elif flag == cls.BRIDGE_VLAN_AWARE:
             return 'vlan aware bridge'
+        elif flag == cls.BRIDGE_VXLAN:
+            return 'vxlan bridge'
 
     @classmethod
     def get_all_str(cls, flags):
         str = ''
-        if (flags & cls.BRIDGE_PORT):
+        if flags & cls.BRIDGE_PORT:
             str += 'bridgeport '
-        if (flags == cls.BOND_SLAVE):
+        if flags & cls.BOND_SLAVE:
             str += 'bondslave '
-        elif flags == cls.VRF_SLAVE:
+        if flags & cls.VRF_SLAVE:
             str += 'vrfslave '
-        elif flags == cls.BRIDGE_VLAN_AWARE:
+        if flags & cls.BRIDGE_VLAN_AWARE:
             str += 'vlanawarebridge '
+        if flags & cls.BRIDGE_VXLAN:
+            str += 'vxlanbridge '
         return str
 
 class ifaceLinkType():

@@ -448,6 +448,10 @@ class ifupdownMain(ifupdownBase):
             self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_PORT
 
+        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN) \
+                and (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+            upperifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
+
         # vrf masters get processed after slaves, which means
         # check both link_kind vrf and vrf slave
         if ((upperifaceobj.link_kind & ifaceLinkKind.VRF) or
