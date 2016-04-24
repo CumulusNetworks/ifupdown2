@@ -231,7 +231,7 @@ class moduleBase(object):
         if not port_expr:
             return None
         exprs = re.split(r'[\s\t]\s*', port_expr)
-        self.logger.info('%s: evaluating port expr \'%s\''
+        self.logger.debug('%s: evaluating port expr \'%s\''
                          %(ifacename, str(exprs)))
         for expr in exprs:
             if expr == 'noregex':
