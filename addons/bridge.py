@@ -1692,10 +1692,16 @@ class bridge(moduleBase):
         elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
             self._query_running_bridge_port(ifaceobjrunning, ifaceobj_getfunc)
 
+    def _query(self, ifaceobj, **kwargs):
+        """ add default policy attributes supported by the module """
+        if self.default_stp_on:
+            ifaceobj.update_config('bridge-stp', 'yes')
+
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
                'query-checkcurr' : _query_check,
-               'query-running' : _query_running}
+               'query-running' : _query_running,
+               'query' : _query}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

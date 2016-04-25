@@ -1276,7 +1276,7 @@ class ifupdownMain(ifupdownBase):
         if format_list and (ops[0] == 'query' or ops[0] == 'query-raw'):
             return self.print_ifaceobjs_list(filtered_ifacenames)
 
-        if ops[0] == 'query':
+        if ops[0] == 'query' and not ifupdownflags.flags.WITHDEFAULTS:
             return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
@@ -1285,7 +1285,9 @@ class ifupdownMain(ifupdownBase):
                            followdependents=True
                            if self.flags.WITH_DEPENDS else False)
 
-        if ops[0] == 'query-checkcurr':
+        if ops[0] == 'query' and ifupdownflags.flags.WITHDEFAULTS:
+            return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
+        elif ops[0] == 'query-checkcurr':
             ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames, format)
             if ret != 0:
                 # if any of the object has an error, signal that silently
