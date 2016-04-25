@@ -261,6 +261,11 @@ class addressvirtual(moduleBase):
             self._remove_address_config(ifaceobj, address_virtual_list)
             return
 
+        if ifaceobj.upperifaces:
+            self.log_error('%s: invalid placement of address-virtual lines (must be configured under an interface with no upper interfaces or parent interfaces)'
+                % (ifaceobj.name), ifaceobj)
+            return
+
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
         self._apply_address_config(ifaceobj, address_virtual_list)
