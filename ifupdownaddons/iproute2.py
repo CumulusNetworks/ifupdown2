@@ -437,21 +437,27 @@ class iproute2(utilsBase):
     def link_get_status(self, ifacename):
         return self._cache_get('link', [ifacename, 'ifflag'], refresh=True)
 
-    def route_add_gateway(self, ifacename, gateway, metric=None):
+    def route_add_gateway(self, ifacename, gateway, vrf=None, metric=None):
         if not gateway:
            return
-        cmd = 'ip route add default via %s' %gateway
+        if not vrf:
+            cmd = 'ip route add default via %s' %gateway
+        else:
+            cmd = 'ip route add table %s default via %s' %(vrf, gateway)
         # Add metric
         if metric:
             cmd += 'metric %s' %metric
         cmd += ' dev %s' %ifacename
         self.exec_command(cmd)
 
-    def route_del_gateway(self, ifacename, gateway, metric=None):
+    def route_del_gateway(self, ifacename, gateway, vrf=None, metric=None):
         # delete default gw
         if not gateway:
             return
-        cmd = 'ip route del default via %s' %gateway
+        if not vrf:
+            cmd = 'ip route del default via %s' %gateway
+        else:
+            cmd = 'ip route del table %s default via %s' %(vrf, gateway)
         if metric:
             cmd += ' metric %s' %metric
         cmd += ' dev %s' %ifacename
