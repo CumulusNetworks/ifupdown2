@@ -1563,6 +1563,7 @@ class ifupdownMain(ifupdownBase):
 
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(new_filtered_ifacenames))
+        ifupdownflags.flags.CACHE = True
         try:
             ret = self._sched_ifaces(new_filtered_ifacenames, upops,
                                      followdependents=True
