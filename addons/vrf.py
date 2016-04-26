@@ -816,10 +816,18 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
+    def _query(self, ifaceobj, **kwargs):
+        if not self.vrf_helper:
+            return
+        if (ifaceobj.link_kind & ifaceLinkKind.VRF):
+            ifaceobj.update_config('vrf-helper', '%s %s' %(self.vrf_helper,
+                                   ifaceobj.name))
+
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
                'query-running' : _query_running,
-               'query-checkcurr' : _query_check}
+               'query-checkcurr' : _query_check,
+               'query' : _query}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

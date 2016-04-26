@@ -1694,7 +1694,8 @@ class bridge(moduleBase):
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
-        if not (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+        if (not (ifaceobj.link_kind & ifaceLinkKind.BRIDGE) or
+            ifaceobj.get_attr_value_first('bridge-stp')):
             return
         if self.default_stp_on:
             ifaceobj.update_config('bridge-stp', 'yes')
