@@ -1093,7 +1093,7 @@ class bridge(moduleBase):
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 self.brctlcmd.delete_bridge(ifaceobj.name)
                 if ports:
-                    self.handle_ipv6(ports, '0', ifaceobj=ifaceobj)
+                    self.handle_ipv6(ports, '0')
                     if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                         map(lambda p: rtnetlink_api.rtnl_api.link_set(p,
                                     "down"), ports)
