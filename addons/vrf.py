@@ -41,6 +41,9 @@ class vrf(moduleBase):
     VRF_TABLE_START = 1001
     VRF_TABLE_END = 5000
 
+    system_reserved_rt_tables = {'255' : 'local', '254' : 'main', 
+                                 '253' : 'default', '0' : 'unspec'}
+
     def __init__(self, *args, **kargs):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
@@ -489,6 +492,9 @@ class vrf(moduleBase):
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
         if not self.ipcmd.link_exists(ifaceobj.name):
+            if ifaceobj.name in self.system_reserved_rt_tables.values():
+                self.log_error('cannot use system reserved %s vrf names'
+                                %( str(self.system_reserved_rt_tables.values())))
             if self.vrf_count == self.vrf_max_count:
                 self.log_error('%s: max vrf count %d hit...not '
                                'creating vrf' %(ifaceobj.name,
@@ -502,6 +508,9 @@ class vrf(moduleBase):
                                  %(ifaceobj.name, vrf_table))
             else:
                 self._iproute2_is_vrf_tableid_inuse(ifaceobj.name, vrf_table)
+                if ifaceobj.name in self.system_reserved_rt_tables.keys():
+                    self.log_error('cannot use system reserved %s table ids'
+                                  %(str(self.system_reserved_rt_tables.keys())))
 
             if not vrf_table.isdigit():
                 self.log_error('%s: vrf-table must be an integer or \'auto\''
