@@ -99,7 +99,7 @@ class vrf(moduleBase):
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
 
-    def _iproute2_vrf_map_initialize(self):
+    def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
             return
 
@@ -141,11 +141,12 @@ class vrf(moduleBase):
             iproute2_vrf_map_force_rewrite = True
 
         self.iproute2_vrf_map_fd = None
-        if iproute2_vrf_map_force_rewrite:
-            # reopen the file and rewrite the map
-            self._iproute2_vrf_map_open(True, False)
-        else:
-            self._iproute2_vrf_map_open(False, True)
+        if writetodisk:
+            if iproute2_vrf_map_force_rewrite:
+                # reopen the file and rewrite the map
+                self._iproute2_vrf_map_open(True, False)
+            else:
+                self._iproute2_vrf_map_open(False, True)
 
         self.iproute2_vrf_map_sync_to_disk = False
         atexit.register(self._iproute2_vrf_map_sync_to_disk)
@@ -164,7 +165,8 @@ class vrf(moduleBase):
         self.vrf_count = len(self.iproute2_vrf_map)
 
     def _iproute2_vrf_map_sync_to_disk(self):
-        if not self.iproute2_vrf_map_sync_to_disk:
+        if (ifupdownflags.flags.DRYRUN or
+            not self.iproute2_vrf_map_sync_to_disk):
             return
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
@@ -178,6 +180,8 @@ class vrf(moduleBase):
     def _iproute2_vrf_map_open(self, sync_vrfs=False, append=False):
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
+        if ifupdownflags.flags.DRYRUN:
+            return
         fmode = 'a+' if append else 'w'
         try:
             self.iproute2_vrf_map_fd = open(self.iproute2_vrf_filename,
@@ -798,12 +802,12 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
-                self._iproute2_vrf_map_initialize()
+                self._iproute2_vrf_map_initialize(writetodisk=False)
                 self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._iproute2_vrf_map_initialize()
+                    self._iproute2_vrf_map_initialize(writetodisk=False)
                     self._query_check_vrf_slave(ifaceobj, ifaceobjcurr, vrf)
         except Exception, e:
             self.log_warn(str(e))
