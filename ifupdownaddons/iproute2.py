@@ -39,7 +39,7 @@ class iproute2(utilsBase):
             iproute2._cache_fill_done = True
             return True
         return False
-        
+
     def _link_fill(self, ifacename=None, refresh=False):
         """ fills cache with link information
        
@@ -141,7 +141,7 @@ class iproute2(utilsBase):
         try:
             # Check if ifacename is already full, in which case, return
             if ifacename and not refresh:
-                linkCache.get_attr([ifacename, 'addrs']) 
+                linkCache.get_attr([ifacename, 'addrs'])
                 return
         except:
             pass
@@ -418,6 +418,13 @@ class iproute2(utilsBase):
         self.link_up(ifacename)
         self._cache_update([ifacename, 'hwaddress'], hwaddress)
 
+    def link_set_mtu(self, ifacename, mtu):
+        if not mtu or not ifacename: return
+
+        with open('/sys/class/net/%s/mtu' % ifacename, 'w') as f:
+            f.write(mtu)
+        self._cache_update([ifacename, 'mtu'], mtu)
+
     def link_set_alias(self, ifacename, alias):
         self.exec_commandl(['ip', 'link', 'set', 'dev',
                     ifacename, 'alias', alias])
@@ -487,7 +494,7 @@ class iproute2(utilsBase):
         v = vlan_device_name.split('.')
         if len(v) != 2:
             self.logger.warn('invalid vlan device name %s' %vlan_device_name)
-            return 
+            return
         self.link_create_vlan(vlan_device_name, v[0], v[1])
 
     def link_create_macvlan(self, name, linkdev, mode='private'):
@@ -622,8 +629,8 @@ class iproute2(utilsBase):
     def link_get_linkinfo_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
-    def link_get_mtu(self, ifacename):
-        return self._cache_get('link', [ifacename, 'mtu'])
+    def link_get_mtu(self, ifacename, refresh=False):
+        return self._cache_get('link', [ifacename, 'mtu'], refresh=refresh)
 
     def link_get_kind(self, ifacename):
         return self._cache_get('link', [ifacename, 'kind'])
@@ -767,7 +774,7 @@ class iproute2(utilsBase):
         vlan_str = ''
         if vlan:
             vlan_str = 'vlan %s ' % vlan
- 
+
         dst_str = ''
         if remote:
             dst_str = 'dst %s ' % remote
@@ -834,7 +841,7 @@ class iproute2(utilsBase):
             iflags = int(flags, 16)
             if (iflags & 0x0001):
                 ret = True
-        except: 
+        except:
             ret = False
             pass
         return ret

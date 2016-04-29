@@ -96,7 +96,7 @@ class brctl(utilsBase):
             ##battrs['mcsnoop'] = broutlines[12].split('mc snooping')[1].strip()
             #battrs['mclmt'] = broutlines[13].split('mc last member timer')[1].split()[0].strip()
         except Exception, e:
-            self.logger.warn(str(e))
+            self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             pass
 
         linkCache.update_attrdict([bridgename, 'linkinfo'], battrs)
@@ -121,8 +121,7 @@ class brctl(utilsBase):
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
             except Exception, e:
-                self.logger.warn(str(e))
-                pass
+                self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             bports[pname] = bportattrs
             linkCache.update_attrdict([bridgename, 'linkinfo', 'ports'], bports)
 

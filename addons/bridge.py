@@ -1036,7 +1036,7 @@ class bridge(moduleBase):
         try:
             if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
                 if (bridge_just_created or
-                    not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
+                        not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
                     self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1',
                                         False, "bridge")
                     if not bridge_just_created:

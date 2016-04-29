@@ -7,6 +7,8 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+
+import ifupdown.ifupdownconfig as ifupdownConfig
 import ifupdown.statemanager as statemanager
 import ifupdown.rtnetlink_api as rtnetlink_api
 import ifupdown.ifupdownflags as ifupdownflags
@@ -146,6 +148,11 @@ class addressvirtual(moduleBase):
     def _apply_address_config(self, ifaceobj, address_virtual_list):
         purge_existing = False if ifupdownflags.flags.PERFMODE else True
 
+        lower_iface_mtu = update_mtu = None
+        if ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0':
+            if ifaceobj.lowerifaces and address_virtual_list:
+                update_mtu = True
+
         hwaddress = []
         self.ipcmd.batch_start()
         av_idx = 0
@@ -177,10 +184,18 @@ class addressvirtual(moduleBase):
                 hwaddress.append(mac)
             self.ipcmd.addr_add_multiple(macvlan_ifacename, ips,
                                          purge_existing)
+
             # If link existed before, flap the link
             if not link_created:
                 self._fix_connected_route(ifaceobj, macvlan_ifacename,
                                           ips[0])
+                if update_mtu:
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    update_mtu = False
+
+                if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
+                    self.ipcmd.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
+
             av_idx += 1
         self.ipcmd.batch_commit()
 
