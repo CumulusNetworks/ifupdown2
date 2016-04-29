@@ -1137,6 +1137,7 @@ class ifupdownMain(ifupdownBase):
                 raise Exception()
             return
 
+        ret = None
         try:
             ret = self._sched_ifaces(filtered_ifacenames, ops,
                                      skipupperifaces=skipupperifaces,
@@ -1569,8 +1570,8 @@ class ifupdownMain(ifupdownBase):
                                      followdependents=True
                                      if self.flags.WITH_DEPENDS else False)
         except Exception, e:
+            ret = None
             self.logger.error(str(e))
-            pass
         finally:
             self._process_delay_admin_state_queue('up')
         if ifupdownflags.flags.DRYRUN:

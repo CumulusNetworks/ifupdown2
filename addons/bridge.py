@@ -220,6 +220,12 @@ class bridge(moduleBase):
         else:
             self.default_stp_on = False
 
+        should_warn = policymanager.policymanager_api.\
+            get_module_globals(module_name=self.__class__.__name__,
+                               attr='warn_on_untagged_bridge_absence')
+        self.warn_on_untagged_bridge_absence = should_warn == 'yes'
+
+
     def _is_bridge(self, ifaceobj):
         if ifaceobj.get_attr_value_first('bridge-ports'):
             return True
@@ -915,12 +921,7 @@ class bridge(moduleBase):
     def _apply_bridge_port_settings_all(self, ifaceobj,
                                         ifaceobj_getfunc=None):
         err = False
-        bridge_vlan_aware = ifaceobj.get_attr_value_first(
-                                           'bridge-vlan-aware')
-        if bridge_vlan_aware and bridge_vlan_aware == 'yes':
-           bridge_vlan_aware = True
-        else:
-           bridge_vlan_aware = False
+        bridge_vlan_aware = ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes'
 
         if (ifaceobj.get_attr_value_first('bridge-port-vids') and
                 ifaceobj.get_attr_value_first('bridge-port-pvids')):
@@ -978,12 +979,22 @@ class bridge(moduleBase):
                                 bportifaceobj, bridge_vids, bridge_pvid)
                         self._apply_bridge_port_settings(bportifaceobj,
                                                  bridgeifaceobj=ifaceobj)
+                    elif self.warn_on_untagged_bridge_absence:
+                        self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
                 except Exception, e:
                     err = True
                     self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
                     pass
         if err:
            raise Exception('%s: errors applying port settings' %ifaceobj.name)
+
+    def _check_untagged_bridge(self, bridgename, bridgeportifaceobj, ifaceobj_getfunc):
+        if bridgeportifaceobj.link_kind & ifaceLinkKind.VLAN:
+            lower_ifaceobj_list = ifaceobj_getfunc(bridgeportifaceobj.lowerifaces[0])
+            if lower_ifaceobj_list and lower_ifaceobj_list[0] and \
+                    not lower_ifaceobj_list[0].link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+                self.logger.warn('%s: untagged bridge not found. Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.' % bridgename)
+                self.warn_on_untagged_bridge_absence = False
 
     def _get_bridgename(self, ifaceobj):
         for u in ifaceobj.upperifaces:
