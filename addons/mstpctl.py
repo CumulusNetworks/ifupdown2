@@ -28,7 +28,9 @@ class mstpctl(moduleBase):
                    'mstpctl-stp' :
                         {'help': 'bridge stp yes/no',
                          'compat' : True,
-                         'default' : 'no'},
+                         'default' : 'no',
+                         'deprecated': True,
+                         'new-attribute': 'bridge-stp'},
                    'mstpctl-treeprio' :
                         {'help': 'tree priority',
                          'default' : '32768',
