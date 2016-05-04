@@ -78,6 +78,12 @@ class brctl(utilsBase):
             battrs['fd'] = broutlines[6].split(
                                     'bridge forward delay')[1].strip(
                                             ).replace('.00', '')
+            battrs['ageing'] = broutlines[7].split(
+                                    'ageing time')[1].strip().replace('.00', '')
+            battrs['mcrouter'] = broutlines[12].split(
+                                    'mc router')[1].strip().split('\t\t\t')[0]
+            battrs['bridgeprio'] = self.read_file_oneline(
+                         '/sys/class/net/%s/bridge/priority' %bridgename)
             battrs.update(self._bridge_get_mcattrs_from_sysfs(bridgename))
 
             # XXX: comment this out until mc attributes become available
@@ -90,11 +96,10 @@ class brctl(utilsBase):
             ##battrs['mcsnoop'] = broutlines[12].split('mc snooping')[1].strip()
             #battrs['mclmt'] = broutlines[13].split('mc last member timer')[1].split()[0].strip()
         except Exception, e:
-            self.logger.warn(str(e))
+            self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             pass
 
         linkCache.update_attrdict([bridgename, 'linkinfo'], battrs)
-
         for cidx in range(1, len(chunks)):
             bpout = chunks[cidx].lstrip('\n')
             if not bpout or bpout[0] == ' ':
@@ -107,16 +112,16 @@ class brctl(utilsBase):
                                             'path cost')[1].strip()
                 bportattrs['fdelay'] = bplines[4].split(
                                             'forward delay timer')[1].strip()
-                bportattrs['mcrouter'] = self.read_file_oneline(
+                bportattrs['portmcrouter'] = self.read_file_oneline(
                          '/sys/class/net/%s/brport/multicast_router' %pname)
-                bportattrs['mcfl'] = self.read_file_oneline(
+                bportattrs['portmcfl'] = self.read_file_oneline(
                          '/sys/class/net/%s/brport/multicast_fast_leave' %pname)
-
+                bportattrs['portprio'] = self.read_file_oneline(
+                         '/sys/class/net/%s/brport/priority' %pname)
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
             except Exception, e:
-                self.logger.warn(str(e))
-                pass
+                self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             bports[pname] = bportattrs
             linkCache.update_attrdict([bridgename, 'linkinfo', 'ports'], bports)
 

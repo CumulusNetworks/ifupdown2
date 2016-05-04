@@ -13,6 +13,7 @@ try:
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -137,7 +138,8 @@ class ethtool(moduleBase,utilsBase):
             configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             # if there is nothing configured, do not check
             if not configured:
-                continue
+                if not ifupdownflags.flags.WITHDEFAULTS:
+                    continue
             default = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
@@ -230,10 +232,26 @@ class ethtool(moduleBase,utilsBase):
 
         return
 
+    def _query(self, ifaceobj, **kwargs):
+        """ add default policy attributes supported by the module """
+        if ifaceobj.link_kind:
+            return
+        for attr in ['speed', 'duplex', 'autoneg']:
+            if ifaceobj.get_attr_value_first('link-%s'%attr):
+                continue
+            default = policymanager.policymanager_api.get_iface_default(
+                        module_name='ethtool',
+                        ifname=ifaceobj.name,
+                        attr='link-%s' %attr)
+            if not default:
+                continue
+            ifaceobj.update_config('link-%s' %attr, default)
+
     _run_ops = {'pre-down' : _pre_down,
                 'post-up' : _post_up,
                 'query-checkcurr' : _query_check,
-                'query-running' : _query_running }
+                'query-running' : _query_running,
+                'query' : _query}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

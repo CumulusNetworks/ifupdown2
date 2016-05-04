@@ -28,7 +28,9 @@ class mstpctl(moduleBase):
                    'mstpctl-stp' :
                         {'help': 'bridge stp yes/no',
                          'compat' : True,
-                         'default' : 'no'},
+                         'default' : 'no',
+                         'deprecated': True,
+                         'new-attribute': 'bridge-stp'},
                    'mstpctl-treeprio' :
                         {'help': 'tree priority',
                          'default' : '32768',
@@ -425,10 +427,6 @@ class mstpctl(moduleBase):
         if bridgename:
             mstpd_running = self.mstpd_running
             stp_running_on = self._is_running_userspace_stp_state_on(bridgename)
-            # initialize all the mstpctl attributes cache with
-            # the command mstpctl showportdetail bridge json
-            # since we are about to loop over all the ports below
-            self.mstpctlcmd.cache_bridgeport_attrs(bridgename)
             applied = self._apply_bridge_port_settings(ifaceobj, bridgename,
                                                        None, stp_running_on,
                                                        mstpd_running)
@@ -474,10 +472,6 @@ class mstpctl(moduleBase):
                stp = self.brctlcmd.get_stp(ifaceobj.name)
             if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
-                # initialize all the mstpctl attributes cache with
-                # the command mstpctl showportdetail bridge json
-                # since we are about to loop over all the ports below
-                self.mstpctlcmd.cache_bridgeport_attrs(ifaceobj.name)
                 self._apply_bridge_settings(ifaceobj)
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)

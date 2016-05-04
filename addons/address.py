@@ -313,7 +313,8 @@ class address(moduleBase):
 
         if addr_method != "dhcp":
             self.ipcmd.route_add_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'))
+                    ifaceobj.get_attr_value_first('gateway'),
+                    ifaceobj.get_attr_value_first('vrf'))
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
@@ -323,6 +324,7 @@ class address(moduleBase):
             if addr_method != "dhcp":
                 self.ipcmd.route_del_gateway(ifaceobj.name,
                     ifaceobj.get_attr_value_first('gateway'),
+                    ifaceobj.get_attr_value_first('vrf'),
                     ifaceobj.get_attr_value_first('metric'))
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')

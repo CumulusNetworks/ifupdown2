@@ -30,10 +30,6 @@ class vrf(moduleBase):
                          {'help' : 'vrf device table id. key to ' +
                                    'creating a vrf device',
                           'example': ['vrf-table-id 1']},
-                    'vrf-default-route':
-                         {'help' : 'vrf device default route ' +
-                                   'to avoid communication outside the vrf device',
-                          'example': ['vrf-default-route yes/no']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
                           'example': ['vrf blue']}}}
@@ -44,6 +40,9 @@ class vrf(moduleBase):
                            '# Reserved table range %s %s\n'
     VRF_TABLE_START = 1001
     VRF_TABLE_END = 5000
+
+    system_reserved_rt_tables = {'255' : 'local', '254' : 'main', 
+                                 '253' : 'default', '0' : 'unspec'}
 
     def __init__(self, *args, **kargs):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
@@ -97,18 +96,10 @@ class vrf(moduleBase):
 
         self.vrf_fix_local_table = True
         self.vrf_count = 0
-        self.vrf_cgroup_create = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-cgroup-create')
-
-        if not self.vrf_cgroup_create:
-            self.vrf_cgroup_create = False
-        elif self.vrf_cgroup_create == 'yes':
-            self.vrf_cgroup_create = True
-        else:
-            self.vrf_cgroup_create = False
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
 
-    def _iproute2_vrf_map_initialize(self):
+    def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
             return
 
@@ -145,16 +136,17 @@ class vrf(moduleBase):
                 if table:
                    running_vrf_map[int(table)] = v
 
-        if running_vrf_map and (running_vrf_map != self.iproute2_vrf_map):
+        if (not running_vrf_map or (running_vrf_map != self.iproute2_vrf_map)):
             self.iproute2_vrf_map = running_vrf_map
             iproute2_vrf_map_force_rewrite = True
 
         self.iproute2_vrf_map_fd = None
-        if iproute2_vrf_map_force_rewrite:
-            # reopen the file and rewrite the map
-            self._iproute2_vrf_map_open(True, False)
-        else:
-            self._iproute2_vrf_map_open(False, True)
+        if writetodisk:
+            if iproute2_vrf_map_force_rewrite:
+                # reopen the file and rewrite the map
+                self._iproute2_vrf_map_open(True, False)
+            else:
+                self._iproute2_vrf_map_open(False, True)
 
         self.iproute2_vrf_map_sync_to_disk = False
         atexit.register(self._iproute2_vrf_map_sync_to_disk)
@@ -170,9 +162,11 @@ class vrf(moduleBase):
             last_used_vrf_table = t
         self.last_used_vrf_table = last_used_vrf_table
         self._iproute2_vrf_map_initialized = True
+        self.vrf_count = len(self.iproute2_vrf_map)
 
     def _iproute2_vrf_map_sync_to_disk(self):
-        if not self.iproute2_vrf_map_sync_to_disk:
+        if (ifupdownflags.flags.DRYRUN or
+            not self.iproute2_vrf_map_sync_to_disk):
             return
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
@@ -186,6 +180,8 @@ class vrf(moduleBase):
     def _iproute2_vrf_map_open(self, sync_vrfs=False, append=False):
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
+        if ifupdownflags.flags.DRYRUN:
+            return
         fmode = 'a+' if append else 'w'
         try:
             self.iproute2_vrf_map_fd = open(self.iproute2_vrf_filename,
@@ -260,6 +256,7 @@ class vrf(moduleBase):
                 self.iproute2_vrf_map_fd.write('%s %s\n'
                                                %(table_id, vrf_dev_name))
                 self.iproute2_vrf_map_fd.flush()
+                self.vrf_count += 1
             return
         if old_vrf_name != vrf_dev_name:
             self.log_error('table id %d already assigned to vrf dev %s'
@@ -498,6 +495,13 @@ class vrf(moduleBase):
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
         if not self.ipcmd.link_exists(ifaceobj.name):
+            if ifaceobj.name in self.system_reserved_rt_tables.values():
+                self.log_error('cannot use system reserved %s vrf names'
+                                %( str(self.system_reserved_rt_tables.values())))
+            if self.vrf_count == self.vrf_max_count:
+                self.log_error('%s: max vrf count %d hit...not '
+                               'creating vrf' %(ifaceobj.name,
+                                                self.vrf_count))
             if vrf_table == 'auto':
                 vrf_table = self._get_avail_vrf_table_id()
                 if not vrf_table:
@@ -507,6 +511,9 @@ class vrf(moduleBase):
                                  %(ifaceobj.name, vrf_table))
             else:
                 self._iproute2_is_vrf_tableid_inuse(ifaceobj.name, vrf_table)
+                if ifaceobj.name in self.system_reserved_rt_tables.keys():
+                    self.log_error('cannot use system reserved %s table ids'
+                                  %(str(self.system_reserved_rt_tables.keys())))
 
             if not vrf_table.isdigit():
                 self.log_error('%s: vrf-table must be an integer or \'auto\''
@@ -546,9 +553,12 @@ class vrf(moduleBase):
         return vrf_table
 
     def _up_vrf_helper(self, ifaceobj, vrf_table):
+        mode = ""
+        if ifupdownflags.flags.PERFMODE:
+            mode = "boot"
         if self.vrf_helper:
-            self.exec_command('%s create %s %s' %(self.vrf_helper,
-                              ifaceobj.name, vrf_table))
+            self.exec_command('%s create %s %s %s' %(self.vrf_helper,
+                              ifaceobj.name, vrf_table, mode))
 
     def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True,
                     ifaceobj_getfunc=None):
@@ -645,10 +655,6 @@ class vrf(moduleBase):
             if vrf_table:
                 self._iproute2_vrf_map_initialize()
                 # This is a vrf device
-                if self.vrf_count == self.vrf_max_count:
-                    self.log_error('%s: max vrf count %d hit...not '
-                                   'creating vrf' %(ifaceobj.name,
-                                                    self.vrf_count))
                 self._up_vrf_dev(ifaceobj, vrf_table, True, ifaceobj_getfunc)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
@@ -669,20 +675,17 @@ class vrf(moduleBase):
             self.log_error(str(e))
 
     def _down_vrf_helper(self, ifaceobj, vrf_table):
+        mode = ""
+        if ifupdownflags.flags.PERFMODE:
+            mode = "boot"
         if self.vrf_helper:
-            self.exec_command('%s delete %s %s' %(self.vrf_helper,
-                              ifaceobj.name, vrf_table))
+            self.exec_command('%s delete %s %s %s' %(self.vrf_helper,
+                              ifaceobj.name, vrf_table, mode))
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
-
-        try:
-            self.exec_command('/usr/bin/vrf service disable %s' %ifaceobj.name)
-        except Exception, e:
-            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
 
         try:
             running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
@@ -772,6 +775,25 @@ class vrf(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vrf-table',
                                                        running_table, 0)
+            if not ifupdownflags.flags.WITHDEFAULTS:
+                return
+            if self.vrf_helper:
+                try:
+                    self.exec_command('%s verify %s %s'
+                                      %(self.vrf_helper,
+                                      ifaceobj.name, config_table))
+                    ifaceobjcurr.update_config_with_status('vrf-helper',
+                                                           '%s create %s %s'
+                                                           %(self.vrf_helper,
+                                                           ifaceobj.name,
+                                                           config_table), 0)
+                except Exception, e:
+                    ifaceobjcurr.update_config_with_status('vrf-helper',
+                                                           '%s create %s %s'
+                                                           %(self.vrf_helper,
+                                                           ifaceobj.name,
+                                                           config_table), 1)
+                    pass
         except Exception, e:
             self.log_warn(str(e))
 
@@ -779,12 +801,12 @@ class vrf(moduleBase):
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
-                self._iproute2_vrf_map_initialize()
+                self._iproute2_vrf_map_initialize(writetodisk=False)
                 self._query_check_vrf_dev(ifaceobj, ifaceobjcurr, vrf_table)
             else:
                 vrf = ifaceobj.get_attr_value_first('vrf')
                 if vrf:
-                    self._iproute2_vrf_map_initialize()
+                    self._iproute2_vrf_map_initialize(writetodisk=False)
                     self._query_check_vrf_slave(ifaceobj, ifaceobjcurr, vrf)
         except Exception, e:
             self.log_warn(str(e))
@@ -806,10 +828,18 @@ class vrf(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
+    def _query(self, ifaceobj, **kwargs):
+        if not self.vrf_helper:
+            return
+        if (ifaceobj.link_kind & ifaceLinkKind.VRF):
+            ifaceobj.update_config('vrf-helper', '%s %s' %(self.vrf_helper,
+                                   ifaceobj.name))
+
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
                'query-running' : _query_running,
-               'query-checkcurr' : _query_check}
+               'query-checkcurr' : _query_check,
+               'query' : _query}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

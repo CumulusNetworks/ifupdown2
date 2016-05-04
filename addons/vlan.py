@@ -7,6 +7,8 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+import ifupdown.ifupdownconfig as ifupdownConfig
+
 import ifupdown.rtnetlink_api as rtnetlink_api
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
@@ -92,7 +94,7 @@ class vlan(moduleBase):
         if vlan_raw_device:
             return vlan_raw_device
         return self._get_vlan_raw_device_from_ifacename(ifaceobj.name)
-        
+
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
         if not self._is_vlan_device(ifaceobj):
             return None
@@ -128,8 +130,6 @@ class vlan(moduleBase):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
-        if self._handle_reserved_vlan(vlanid, ifaceobj.name):
-           return
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
@@ -138,6 +138,10 @@ class vlan(moduleBase):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
+                if ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0' and len(ifaceobj.lowerifaces):
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
+                        self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
                 return
         rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
                     ifaceobj.name, vlanid)
@@ -206,7 +210,7 @@ class vlan(moduleBase):
     def _init_command_handlers(self):
         if not self.ipcmd:
             self.ipcmd = iproute2()
-        
+
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 

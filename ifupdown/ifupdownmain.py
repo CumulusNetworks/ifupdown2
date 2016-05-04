@@ -112,6 +112,8 @@ class ifupdownMain(ifupdownBase):
         # there is no real interface behind it
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return
+        if ifaceobj.link_kind & ifaceLinkKind.VRF:
+            return
         if (ifaceobj.addr_method and
             ifaceobj.addr_method == 'manual'):
             return
@@ -171,7 +173,8 @@ class ifupdownMain(ifupdownBase):
                  cache=False, addons_enable=True, statemanager_enable=True,
                  interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None,
-                 interfacesfileformat='native'):
+                 interfacesfileformat='native',
+                 withdefaults=False):
         """This member function initializes the ifupdownmain object.
 
         Kwargs:
@@ -188,6 +191,7 @@ class ifupdownMain(ifupdownBase):
         self.logger = logging.getLogger('ifupdown')
         ifupdownflags.flags.FORCE = force
         ifupdownflags.flags.DRYRUN = dryrun
+        ifupdownflags.flags.WITHDEFAULTS = withdefaults
         ifupdownflags.flags.NOWAIT = nowait
         ifupdownflags.flags.PERFMODE = perfmode
         ifupdownflags.flags.CACHE = cache
@@ -443,6 +447,10 @@ class ifupdownMain(ifupdownBase):
         if (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
             self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_PORT
+
+        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN) \
+                and (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+            upperifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
 
         # vrf masters get processed after slaves, which means
         # check both link_kind vrf and vrf slave
@@ -1129,6 +1137,7 @@ class ifupdownMain(ifupdownBase):
                 raise Exception()
             return
 
+        ret = None
         try:
             ret = self._sched_ifaces(filtered_ifacenames, ops,
                                      skipupperifaces=skipupperifaces,
@@ -1206,7 +1215,8 @@ class ifupdownMain(ifupdownBase):
             if not ifupdownflags.flags.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
-    def query(self, ops, auto=False, allow_classes=None, ifacenames=None,
+    def query(self, ops, auto=False, format_list=False, allow_classes=None,
+              ifacenames=None,
               excludepats=None, printdependency=None,
               format='native', type=None):
         """ query an interface """
@@ -1264,7 +1274,10 @@ class ifupdownMain(ifupdownBase):
             self.print_dependency(filtered_ifacenames, printdependency)
             return
 
-        if ops[0] == 'query':
+        if format_list and (ops[0] == 'query' or ops[0] == 'query-raw'):
+            return self.print_ifaceobjs_list(filtered_ifacenames)
+
+        if ops[0] == 'query' and not ifupdownflags.flags.WITHDEFAULTS:
             return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
         elif ops[0] == 'query-raw':
             return self.print_ifaceobjs_raw(filtered_ifacenames)
@@ -1273,7 +1286,9 @@ class ifupdownMain(ifupdownBase):
                            followdependents=True
                            if self.flags.WITH_DEPENDS else False)
 
-        if ops[0] == 'query-checkcurr':
+        if ops[0] == 'query' and ifupdownflags.flags.WITHDEFAULTS:
+            return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
+        elif ops[0] == 'query-checkcurr':
             ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames, format)
             if ret != 0:
                 # if any of the object has an error, signal that silently
@@ -1549,13 +1564,14 @@ class ifupdownMain(ifupdownBase):
 
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(new_filtered_ifacenames))
+        ifupdownflags.flags.CACHE = True
         try:
             ret = self._sched_ifaces(new_filtered_ifacenames, upops,
                                      followdependents=True
                                      if self.flags.WITH_DEPENDS else False)
         except Exception, e:
+            ret = None
             self.logger.error(str(e))
-            pass
         finally:
             self._process_delay_admin_state_queue('up')
         if ifupdownflags.flags.DRYRUN:
@@ -1593,6 +1609,10 @@ class ifupdownMain(ifupdownBase):
                 self.get_iface_refcnt(i)}),
                 self.dependency_graph.keys())
             graph.generate_dots(self.dependency_graph, indegrees)
+
+    def print_ifaceobjs_list(self, ifacenames):
+        for i in ifacenames:
+            print i
 
     def print_ifaceobjs_raw(self, ifacenames):
         """ prints raw lines for ifaces from config file """

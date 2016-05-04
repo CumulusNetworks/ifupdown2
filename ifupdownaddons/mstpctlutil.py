@@ -4,6 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+from cache import MSTPAttrsCache
 from utilsbase import *
 from ifupdown.iface import *
 from cache import *
@@ -66,50 +67,43 @@ class mstpctlutil(utilsBase):
             pass
         return bridgeattrs
 
-    def cache_bridgeport_attrs(self,bridgename):
-        '''
-        This method grab output of a mstpctl showportdetail json and caches
-        it this should save on the overhead of checking each attribute
-        for every port in the bridge.
-        '''
-        self.mstpctl_bridgeport_attrs_dict = {}
-        self.mstpctl_bridgeport_attrs_dict[bridgename] = {}
-        try:
-            showall_output = self.subprocess_check_output(['/sbin/mstpctl',
-                         'showportdetail', bridgename, 'json'])
-        except Exception as e:
-            self.logger.info(str(e))
-            return
-        if not showall_output or showall_output == '':
-            return
-        showall_output = showall_output.strip('\n')
-        mstpctl_bridge_cache = json.loads(showall_output)
-        for portname in mstpctl_bridge_cache.keys():
-            # we will ignore the portid for now and just index
-            # by bridgename, portname, and json attribute
-            for portid in mstpctl_bridge_cache[portname].keys():
-                self.mstpctl_bridgeport_attrs_dict[bridgename][portname] = {}
-                for jsonAttr in mstpctl_bridge_cache[portname][portid].keys():
-                    jsonVal = mstpctl_bridge_cache[portname][portid][jsonAttr]
-                    self.mstpctl_bridgeport_attrs_dict[bridgename][portname]\
-                                               [jsonAttr] = str(jsonVal)
+    def _get_mstpctl_bridgeport_attr_from_cache(self, bridgename):
+        attrs = MSTPAttrsCache.get(bridgename)
+        if not attrs:
+            try:
+                cmd = ['/sbin/mstpctl', 'showportdetail', bridgename, 'json']
+                output = self.subprocess_check_output(cmd)
+                if not output:
+                    return None
+            except Exception as e:
+                self.logger.info(str(e))
+                return None
+            mstpctl_bridgeport_attrs_dict = {}
+            try:
+                mstpctl_bridge_cache = json.loads(output.strip('\n'))
+                for portname in mstpctl_bridge_cache.keys():
+                    # we will ignore the portid for now and just index
+                    # by bridgename, portname, and json attribute
+                    for portid in mstpctl_bridge_cache[portname].keys():
+                        mstpctl_bridgeport_attrs_dict[portname] = {}
+                        for jsonAttr in mstpctl_bridge_cache[portname][portid].keys():
+                            jsonVal = mstpctl_bridge_cache[portname][portid][jsonAttr]
+                            mstpctl_bridgeport_attrs_dict[portname][jsonAttr] = str(jsonVal)
+                MSTPAttrsCache.set(bridgename, mstpctl_bridgeport_attrs_dict)
+                return mstpctl_bridgeport_attrs_dict
+            except Exception as e:
+                self.logger.info('%s: cannot fetch mstpctl bridge port attributes: %s', str(e))
+        return attrs
 
-    def get_mstpctl_bridgeport_attr(self,bridgename=None, portname=None,
-                                    jsonAttr=None):
-        '''
-        Just return the JSON attribute we cached earlier making
-        sure to convert integers to strings for later comparison.
-        '''
-        if not bridgename or not portname or not jsonAttr:
-            return
-        # just return the value or None if there is no JSON attr defined the
-        # output will not show anything if the value is no so we default to no
-        val = self.mstpctl_bridgeport_attrs_dict.get(bridgename,{}).get(portname,{}).\
-              get(jsonAttr,'no')
-        if val == 'True':
-            val = 'yes'
-         # some values are integers so we need to return only strings
-        return str(val)
+    def get_mstpctl_bridgeport_attr(self, bridgename, portname, attr):
+        attrs = self._get_mstpctl_bridgeport_attr_from_cache(bridgename)
+        if not attrs:
+            return 'no'
+        else:
+            val = attrs.get(portname,{}).get(attr, 'no')
+            if val == 'True':
+                val = 'yes'
+            return str(val)
 
     def set_bridgeport_attrs(self, bridgename, bridgeportname, attrdict,
                              check=True):
