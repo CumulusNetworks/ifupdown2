@@ -33,16 +33,22 @@ import subprocess
 def get_swp_interfaces():
     porttab_path = '/var/lib/cumulus/porttab'
     ports = []
-
-    ptfile = open(porttab_path, 'r')
-    for line in ptfile.readlines():
-        line = line.strip()
-        if '#' in line:
-            continue
-        try:
-            ports.append(line.split()[0])
-        except ValueError:
-            continue
+    try:
+        with open(porttab_path, 'r') as f:
+            for line in f.readlines():
+                line = line.strip()
+                if '#' in line:
+                    continue
+                try:
+                    ports.append(line.split()[0])
+                except ValueError:
+                    continue
+    except Exception as e:
+        print 'Error: Unsupported script: %s' % str(e)
+        exit(1)
+    if not ports:
+        print 'Error: No ports found in %s' % porttab_path
+        exit(1)
     return ports
 
 def print_swp_defaults_header():
@@ -138,9 +144,6 @@ if args.bridgedefault and args.mergefile:
     exit(1)
 
 swp_intfs = get_swp_interfaces()
-if not swp_intfs:
-    print 'error: no ports found'
-    exit(1)
 
 if args.swpdefaults:
     interfaces_print_swp_defaults(swp_intfs)
