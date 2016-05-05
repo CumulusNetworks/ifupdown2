@@ -263,19 +263,20 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-
-        # logical devices like bridges and vlan devices rely on mtu
-        # from their lower devices. ie mtu travels from
-        # lower devices to upper devices. For bonds mtu travels from
-        # upper to lower devices. running mtu depends on upper and
-        # lower device mtu. With all this implicit mtu
-        # config by the kernel in play, it becomes almost impossible
-        # to decide if the running mtu is valid. It will require
-        # some more thinking. Commenting this for now.
-        #elif self.default_mtu:
-        #    running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
-        #    if running_mtu != self.default_mtu:
-        #        self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+        elif (not ifaceobj.link_kind and
+              not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+              self.default_mtu):
+            # logical devices like bridges and vlan devices rely on mtu
+            # from their lower devices. ie mtu travels from
+            # lower devices to upper devices. For bonds mtu travels from
+            # upper to lower devices. running mtu depends on upper and
+            # lower device mtu. With all this implicit mtu
+            # config by the kernel in play, we try to be cautious here
+            # on which devices we want to reset mtu to default.
+            # essentially only physical interfaces which are not bond slaves
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if running_mtu != self.default_mtu:
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
 
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
@@ -334,7 +335,8 @@ class address(moduleBase):
                 else:
                     self.ipcmd.del_addr_all(ifaceobj.name)
             mtu = ifaceobj.get_attr_value_first('mtu')
-            if (mtu and self.default_mtu and (mtu != self.default_mtu)):
+            if (not ifaceobj.link_kind and mtu and
+                self.default_mtu and (mtu != self.default_mtu)):
                 self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
