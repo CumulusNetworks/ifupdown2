@@ -688,17 +688,24 @@ class vrf(moduleBase):
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
 
-        try:
-            running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
-            if running_slaves:
-                for s in running_slaves:
-                    if ifaceobj_getfunc:
-                        sobj = ifaceobj_getfunc(s)
-                        self._handle_existing_connections(sobj[0] if sobj else None,
+        running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+        if running_slaves:
+            for s in running_slaves:
+                if ifaceobj_getfunc:
+                    sobj = ifaceobj_getfunc(s)
+                    try:
+                        self._handle_existing_connections(sobj[0]
+                                                          if sobj else None,
                                                           ifaceobj.name)
-        except Exception, e:
-            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
+                    except Exception, e:
+                        self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+                        pass
+                try:
+                    self.ipcmd.addr_flush(s)
+                    rtnetlink_api.rtnl_api.link_set(s, "down")
+                except Exception, e:
+                    self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+                    pass
 
         self._down_vrf_helper(ifaceobj, vrf_table)
 
