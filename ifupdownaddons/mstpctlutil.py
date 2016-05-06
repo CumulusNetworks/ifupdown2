@@ -111,7 +111,7 @@ class mstpctlutil(utilsBase):
             if not v:
                 continue
             try:
-                self.set_bridgeport_attr(self, bridgename, bridgeportname,
+                self.set_bridgeport_attr(bridgename, bridgeportname,
                         k, v, check)
             except Exception, e:
                 self.logger.warn(str(e))
