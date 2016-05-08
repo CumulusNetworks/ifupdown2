@@ -731,9 +731,9 @@ class ifupdownMain(ifupdownBase):
                     if a.get('deprecated'):
                         newa = a.get('new-attribute')
                         if newa:
-                            self.logger.warn('attribute %s is deprecated. use %s instead' %(attrname, newa))
+                            self.logger.warn('attribute %s is deprecated. use %s instead.' %(attrname, newa))
                         else:
-                            self.logger.warn('attribute %s is deprecated'
+                            self.logger.warn('attribute %s is deprecated.'
                                              %attrname)
                     return True
             except AttributeError:
