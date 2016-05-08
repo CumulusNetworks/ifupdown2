@@ -459,10 +459,10 @@ class mstpctl(moduleBase):
                     pass
                 finally:
                     self.ipcmd.batch_commit()
-            running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
-            if running_ports:
-                # disable ipv6 for ports that were added to bridge
-                self._ports_enable_disable_ipv6(running_ports, '1')
+                running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+                if running_ports:
+                    # disable ipv6 for ports that were added to bridge
+                    self._ports_enable_disable_ipv6(running_ports, '1')
 
             stp = ifaceobj.get_attr_value_first('mstpctl-stp')
             if stp:
