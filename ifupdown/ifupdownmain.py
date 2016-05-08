@@ -386,8 +386,9 @@ class ifupdownMain(ifupdownBase):
         The following are currently considered builtin ifaces:
             - vlan interfaces in the format <ifacename>.<vlanid>
         """
-
-        return (ifaceobj.priv_flags and ifaceobj.priv_flags.BUILTIN)
+        if (ifaceobj.priv_flags and ifaceobj.priv_flags.BUILTIN):
+            return True
+        return False
 
     def is_ifaceobj_noconfig(self, ifaceobj):
         """ Returns true if iface object did not have a user defined config.
@@ -730,9 +731,9 @@ class ifupdownMain(ifupdownBase):
                     if a.get('deprecated'):
                         newa = a.get('new-attribute')
                         if newa:
-                            self.logger.warn('attribute %s is deprecated. Use %s instead' %(attrname, newa))
+                            self.logger.warn('attribute %s is deprecated. use %s instead.' %(attrname, newa))
                         else:
-                            self.logger.warn('attribute %s is deprecated'
+                            self.logger.warn('attribute %s is deprecated.'
                                              %attrname)
                     return True
             except AttributeError:
@@ -1498,9 +1499,9 @@ class ifupdownMain(ifupdownBase):
                 # and just print a warning
                 if (self.is_ifaceobj_noconfig(newifaceobjlist[0]) and
                     not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
-                    lastifaceobjlist[0].is_config_present()):
-                    self.logger.warn('%s: misconfig ? removed but still exists as a dependency of %s' %(newifaceobjlist[objidx].name,
-                         str(newifaceobjlist[objidx].upperifaces)))
+                    lastifaceobjlist[0].is_config_present() and
+                    lastifaceobjlist[0].link_kind):
+                    self.logger.warn('%s: misconfig ? removed but still exists as a dependency of %s' %(newifaceobjlist[objidx].name, str(newifaceobjlist[objidx].upperifaces)))
                 if not down_changed:
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
