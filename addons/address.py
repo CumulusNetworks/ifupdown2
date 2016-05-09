@@ -249,10 +249,10 @@ class address(moduleBase):
                 # any sibling iface objects, kill any stale dhclient
                 # processes
                 dhclientcmd = dhclient()
-                if dhclient.is_running(ifaceobj.name):
+                if dhclientcmd.is_running(ifaceobj.name):
                     # release any dhcp leases
                     dhclientcmd.release(ifaceobj.name)
-                elif dhclient.is_running6(ifaceobj.name):
+                elif dhclientcmd.is_running6(ifaceobj.name):
                     dhclientcmd.release6(ifaceobj.name)
         except:
             pass
