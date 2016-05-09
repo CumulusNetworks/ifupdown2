@@ -24,7 +24,9 @@ class mstpctl(moduleBase):
                 'attrs' : {
                    'mstpctl-ports' :
                         {'help' : 'mstp ports',
-                         'compat' : True},
+                         'compat' : True,
+                         'deprecated': True,
+                         'new-attribute': 'bridge-ports'},
                    'mstpctl-stp' :
                         {'help': 'bridge stp yes/no',
                          'compat' : True,
