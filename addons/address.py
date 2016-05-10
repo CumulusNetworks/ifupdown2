@@ -166,7 +166,26 @@ class address(moduleBase):
                     newaddr_attrs[newaddr]= attrs
         return (True, newaddrs, newaddr_attrs)
 
-    def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None):
+    def _inet_address_list_config(self, ifaceobj, newaddrs, newaddr_attrs):
+        for addr_index in range(0, len(newaddrs)):
+            try:
+                if newaddr_attrs:
+                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('broadcast'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('pointopoint'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('scope'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('preferred-lifetime'))
+                else:
+                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
+            except Exception, e:
+                self.log_error(str(e))
+
+    def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None,
+                             force_reapply=False):
         squash_addr_config = (True if \
                               ifupdownConfig.config.get('addr_config_squash', \
                               '0')  == '1' else False)
@@ -207,6 +226,8 @@ class address(moduleBase):
             if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
                 newaddrs.append(anycast_addr)
             if newaddrs == runningaddrs:
+                if force_reapply:
+                    self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
                 return
             try:
                 # if primary address is not same, there is no need to keep any.
@@ -220,27 +241,13 @@ class address(moduleBase):
                 self.log_warn(str(e))
         if not newaddrs:
             return
-        for addr_index in range(0, len(newaddrs)):
-            try:
-                if newaddr_attrs:
-                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('broadcast'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('pointopoint'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('scope'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('preferred-lifetime'))
-                else:
-                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
-            except Exception, e:
-                self.log_error(str(e))
+        self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
         addr_method = ifaceobj.addr_method
+        force_reapply = False
         try:
             # release any stale dhcp addresses if present
             if (addr_method != "dhcp" and not ifupdownflags.flags.PERFMODE and
@@ -252,14 +259,17 @@ class address(moduleBase):
                 if dhclientcmd.is_running(ifaceobj.name):
                     # release any dhcp leases
                     dhclientcmd.release(ifaceobj.name)
+                    force_reapply = True
                 elif dhclientcmd.is_running6(ifaceobj.name):
                     dhclientcmd.release6(ifaceobj.name)
+                    force_reapply = True
         except:
             pass
 
         self.ipcmd.batch_start()
         if addr_method != "dhcp":
-            self._inet_address_config(ifaceobj, ifaceobj_getfunc)
+            self._inet_address_config(ifaceobj, ifaceobj_getfunc,
+                                      force_reapply)
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
