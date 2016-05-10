@@ -502,7 +502,7 @@ class iproute2(utilsBase):
         if not gateway:
             return
         return self.exec_command('ip -6 route del default via %s' %gateway +
-                                 'dev %s' %ifacename)
+                                 ' dev %s' %ifacename)
 
     def link_create_vlan(self, vlan_device_name, vlan_raw_device, vlanid):
         if self.link_exists(vlan_device_name):
@@ -714,7 +714,7 @@ class iproute2(utilsBase):
         [self.exec_command('bridge vlan del vid %s dev %s'
                           %(v, bridgeportname)) for v in vids]
 
-    def bridge_port_vids_flush(self, bridgeportname):
+    def bridge_port_vids_flush(self, bridgeportname, vid):
         self.exec_command('bridge vlan del vid %s dev %s'
                           %(vid, bridgeportname))
 
@@ -725,7 +725,7 @@ class iproute2(utilsBase):
         if not bridgeout: return []
         brvlanlines = bridgeout.readlines()[2:]
         vids = [l.strip() for l in brvlanlines]
-        return [vid for v in vids if vid]
+        return [v for v in vids if v]
 
     def bridge_port_vids_get_all(self):
         brvlaninfo = {}

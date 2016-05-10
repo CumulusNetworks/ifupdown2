@@ -308,7 +308,7 @@ class bondutil(utilsBase):
         self._cache_delete([bondname, 'linkinfo', 'slaves'], slave) 
 
     def remove_slaves_all(self, bondname):
-        if not _self._cache_get([bondname, 'linkinfo', 'slaves']):
+        if not self._cache_get([bondname, 'linkinfo', 'slaves']):
             return
         slaves = None
         sysfs_bond_path = ('/sys/class/net/%s' %bondname +
