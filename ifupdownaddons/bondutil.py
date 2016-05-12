@@ -241,8 +241,7 @@ class bondutil(utilsBase):
         return self._cache_get([bondname, 'linkinfo', 'lacp_rate'])
 
     def set_lacp_bypass_allow(self, bondname, allow, prehook=None, posthook=None):
-        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass'],
-                lacp_bypass)):
+        if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass'], allow)):
             return
         if prehook:
             prehook(bondname)

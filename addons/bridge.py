@@ -1315,8 +1315,8 @@ class bridge(moduleBase):
             running_bridge_port_vids = ''
             portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
-                self.log_warn('%s: could not parse \'%s %s\''
-                          %(ifaceobj.name, attrname, attrval))
+                self.log_warn('%s: could not parse \'bridge-port-vids %s\''
+                          %(ifaceobj.name, attrval))
                 return
             err = 0
             for p in portlist:
@@ -1347,8 +1347,8 @@ class bridge(moduleBase):
         if attrval:
             portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
-                self.log_warn('%s: could not parse \'%s %s\''
-                              %(ifaceobj.name, attrname, attrval))
+                self.log_warn('%s: could not parse \'bridge-port-pvids %s\''
+                              %(ifaceobj.name, attrval))
                 return
             running_bridge_port_pvids = ''
             err = 0

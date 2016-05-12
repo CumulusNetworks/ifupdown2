@@ -408,7 +408,7 @@ class ifaceScheduler():
                 cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
             except Exception, e:
                 if continueonfailure:
-                   self.logger.warn('%s' %str(e))
+                    ifupdownobj.logger.warn('%s' %str(e))
 
     @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
