@@ -8,10 +8,7 @@ import os
 import re
 import io
 import logging
-import subprocess
 import traceback
-import signal
-import shlex
 
 from ifupdown.utils import utils
 from ifupdown.iface import *
@@ -56,79 +53,11 @@ class moduleBase(object):
 
     def is_process_running(self, procName):
         try:
-            self.exec_command('/bin/pidof -x %s' % procName)
+            utils.exec_command('/bin/pidof -x %s' % procName)
         except:
             return False
         else:
             return True
-
-    def exec_command(self, cmd, cmdenv=None):
-        """ execute command passed as argument.
-
-        Args:
-            cmd (str): command to execute
-
-        Kwargs:
-            cmdenv (dict): environment variable name value pairs
-        """
-        cmd_returncode = 0
-        cmdout = ''
-
-        try:
-            self.logger.info('Executing ' + cmd)
-            if ifupdownflags.flags.DRYRUN:
-                return cmdout
-            ch = subprocess.Popen(shlex.split(cmd),
-                    stdout=subprocess.PIPE,
-                    shell=False, env=cmdenv,
-                    stderr=subprocess.STDOUT,
-                    close_fds=True)
-            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
-            cmdout = ch.communicate()[0]
-            cmd_returncode = ch.wait()
-        except OSError, e:
-            raise Exception('could not execute ' + cmd +
-                    '(' + str(e) + ')')
-        finally:
-            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
-        if cmd_returncode != 0:
-            raise Exception('error executing cmd \'%s\'' %cmd +
-                '(' + cmdout.strip('\n ') + ')')
-        return cmdout
-
-    def exec_command_talk_stdin(self, cmd, stdinbuf):
-        """ execute command passed as argument and write contents of stdinbuf
-        into stdin of the cmd
-
-        Args:
-            cmd (str): command to execute
-            stdinbuf (str): string to write to stdin of the cmd process
-        """
-        cmd_returncode = 0
-        cmdout = ''
-
-        try:
-            self.logger.info('Executing %s (stdin=%s)' %(cmd, stdinbuf))
-            if ifupdownflags.flags.DRYRUN:
-                return cmdout
-            ch = subprocess.Popen(shlex.split(cmd),
-                    stdout=subprocess.PIPE,
-                    stdin=subprocess.PIPE,
-                    shell=False, env=cmdenv,
-                    stderr=subprocess.STDOUT,
-                    close_fds=True)
-            utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
-            cmdout = ch.communicate(input=stdinbuf)[0]
-            cmd_returncode = ch.wait()
-        except OSError, e:
-            raise Exception('could not execute ' + cmd +
-                    '(' + str(e) + ')')
-        finally:
-            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
-        if cmd_returncode != 0:
-            raise Exception('error executing cmd \'%s (%s)\''
-                    %(cmd, stdinbuf) + '(' + cmdout.strip('\n ') + ')')
-        return cmdout
 
     def get_ifaces_from_proc(self):
         ifacenames = []
@@ -301,11 +230,11 @@ class moduleBase(object):
 
     def sysctl_set(self, variable, value):
         """ set sysctl variable to value passed as argument """
-        self.exec_command('sysctl %s=' %variable + '%s' %value)
+        utils.exec_command('sysctl %s=%s' % (variable, value))
 
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
-        return self.exec_command('sysctl %s' %variable).split('=')[1].strip()
+        return utils.exec_command('sysctl %s' % variable).split('=')[1].strip()
 
     def set_iface_attr(self, ifaceobj, attr_name, attr_valsetfunc,
                        prehook=None, prehookargs=None):
@@ -385,7 +314,7 @@ class moduleBase(object):
         if not os.path.exists(get_resvvlan):
             return (start, end)
         try:
-            (s, e) = self.exec_command(get_resvvlan).strip('\n').split('-')
+            (s, e) = utils.exec_command(get_resvvlan).strip('\n').split('-')
             start = int(s)
             end = int(e)
         except Exception, e:

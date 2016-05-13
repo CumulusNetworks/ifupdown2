@@ -408,9 +408,8 @@ class networkInterfaces():
         self._filestack.append(filename)
         self.logger.info('processing interfaces file %s' %filename)
         try:
-            f = open(filename)
-            filedata = f.read()
-            f.close()
+            with open(filename) as f:
+                filedata = f.read()
         except Exception, e:
             self.logger.warn('error processing file %s (%s)',
                              filename, str(e))
@@ -424,8 +423,8 @@ class networkInterfaces():
                               #object_hook=ifaceJsonDecoder.json_object_hook)
         elif filename:
             self.logger.info('processing interfaces file %s' %filename)
-            fp = open(filename)
-            ifacedicts = json.load(fp)
+            with open(filename) as fp:
+                ifacedicts = json.load(fp)
                             #object_hook=ifaceJsonDecoder.json_object_hook)
 
         # we need to handle both lists and non lists formats (e.g. {{}})

@@ -8,6 +8,7 @@ import os
 import glob
 import shlex
 import signal
+import subprocess
 
 from ifupdown.utils import utils
 from collections import OrderedDict
@@ -275,9 +276,8 @@ class iproute2(utilsBase):
             self.ipbatch_pause = False
             return
         try:
-            self.exec_command_talk_stdin('ip -force -batch -',
-                    stdinbuf=self.ipbatchbuf)
-        except Exception:
+            utils.exec_command('ip -force -batch -', stdin=self.ipbatchbuf)
+        except:
             raise
         finally:
             self.ipbatchbuf = ''
@@ -288,17 +288,17 @@ class iproute2(utilsBase):
         if ifacename:
             if not self.link_exists(ifacename):
                 return
-            return self.exec_commandl(['ip','-o', 'addr', 'show', 'dev',
-                    '%s' %ifacename])
+            return utils.exec_commandl(['ip', '-o', 'addr', 'show', 'dev',
+                                        ifacename])
         else:
-            return self.exec_commandl(['ip', '-o', 'addr', 'show'])
+            return utils.exec_commandl(['ip', '-o', 'addr', 'show'])
 
     def link_show(self, ifacename=None):
         if ifacename:
-            return self.exec_commandl(['ip', '-o', '-d', 'link',
-                    'show', 'dev', '%s' %ifacename])
+            return utils.exec_commandl(['ip', '-o', '-d', 'link', 'show', 'dev',
+                                        ifacename])
         else:
-            return self.exec_commandl(['ip', '-o', '-d', 'link', 'show'])
+            return utils.exec_commandl(['ip', '-o', '-d', 'link', 'show'])
 
     def addr_add(self, ifacename, address, broadcast=None,
                     peer=None, scope=None, preferred_lifetime=None):
@@ -317,7 +317,7 @@ class iproute2(utilsBase):
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip ' + cmd)
+            utils.exec_command('ip %s' % cmd)
         self._cache_update([ifacename, 'addrs', address], {})
 
     def addr_del(self, ifacename, address, broadcast=None,
@@ -335,7 +335,7 @@ class iproute2(utilsBase):
         if scope:
             cmd += 'scope %s' %scope
         cmd += ' dev %s' %ifacename
-        self.exec_command('ip ' + cmd)
+        utils.exec_command('ip %s' % cmd)
         self._cache_delete([ifacename, 'addrs', address])
 
     def addr_flush(self, ifacename):
@@ -343,7 +343,7 @@ class iproute2(utilsBase):
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip ' + cmd)
+            utils.exec_command('ip %s' % cmd)
         self._cache_delete([ifacename, 'addrs'])
 
     def del_addr_all(self, ifacename, skip_addrs=[]):
@@ -400,7 +400,7 @@ class iproute2(utilsBase):
         if self.ipbatch:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip ' + cmd)
+            utils.exec_command('ip %s' % cmd)
 
     def link_up(self, ifacename):
         self._link_set_ifflag(ifacename, 'UP')
@@ -422,7 +422,7 @@ class iproute2(utilsBase):
         if self.ipbatch:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip ' + cmd)
+            utils.exec_command('ip %s' % cmd)
         if key not in ['master', 'nomaster']:
             self._cache_update([ifacename, key], value)
 
@@ -435,7 +435,7 @@ class iproute2(utilsBase):
         if self.ipbatch:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip ' + cmd)
+            utils.exec_command('ip %s' % cmd)
         self.link_up(ifacename)
         self._cache_update([ifacename, 'hwaddress'], hwaddress)
 
@@ -448,8 +448,8 @@ class iproute2(utilsBase):
         self._cache_update([ifacename, 'mtu'], mtu)
 
     def link_set_alias(self, ifacename, alias):
-        self.exec_commandl(['ip', 'link', 'set', 'dev',
-                    ifacename, 'alias', alias])
+        utils.exec_commandl(['ip', 'link', 'set', 'dev', ifacename,
+                             'alias', alias])
 
     def link_get_alias(self, ifacename):
         return self.read_file_oneline('/sys/class/net/%s/ifalias'
@@ -477,7 +477,7 @@ class iproute2(utilsBase):
         if metric:
             cmd += 'metric %s' %metric
         cmd += ' dev %s' %ifacename
-        self.exec_command(cmd)
+        utils.exec_command(cmd)
 
     def route_del_gateway(self, ifacename, gateway, vrf=None, metric=None):
         # delete default gw
@@ -490,26 +490,25 @@ class iproute2(utilsBase):
         if metric:
             cmd += ' metric %s' %metric
         cmd += ' dev %s' %ifacename
-        self.exec_command(cmd)
+        utils.exec_command(cmd)
 
     def route6_add_gateway(self, ifacename, gateway):
         if not gateway:
             return
-        return self.exec_command('ip -6 route add default via %s' %gateway +
-                                 ' dev %s' %ifacename)
+        return utils.exec_command('ip -6 route add default via %s dev %s' %
+                                  (gateway, ifacename))
 
     def route6_del_gateway(self, ifacename, gateway):
         if not gateway:
             return
-        return self.exec_command('ip -6 route del default via %s' %gateway +
-                                 ' dev %s' %ifacename)
+        return utils.exec_command('ip -6 route del default via %s dev %s' %
+                                  (gateway, ifacename))
 
     def link_create_vlan(self, vlan_device_name, vlan_raw_device, vlanid):
         if self.link_exists(vlan_device_name):
             return
-        self.exec_command('ip link add link %s' %vlan_raw_device +
-                          ' name %s' %vlan_device_name +
-                          ' type vlan id %d' %vlanid)
+        utils.exec_command('ip link add link %s name %s type vlan id %d' %
+                           (vlan_raw_device, vlan_device_name, vlanid))
         self._cache_update([vlan_device_name], {})
 
     def link_create_vlan_from_name(self, vlan_device_name):
@@ -528,14 +527,14 @@ class iproute2(utilsBase):
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip %s' %cmd)
+            utils.exec_command('ip %s' % cmd)
         self._cache_update([name], {})
 
     def get_vxlan_peers(self, dev, svcnodeip):
         cmd = 'bridge fdb show brport %s' % dev
         cur_peers = []
         try:
-            ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=True)
+            ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=False)
             utils.enable_subprocess_signal_forwarding(ps, signal.SIGINT)
             output = subprocess.check_output(('grep', '00:00:00:00:00:00'), stdin=ps.stdout)
             ps.wait()
@@ -596,7 +595,7 @@ class iproute2(utilsBase):
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip %s' %cmd)
+            utils.exec_command('ip %s' % cmd)
 
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             #figure out the diff for remotes and do the bridge fdb updates
@@ -636,10 +635,10 @@ class iproute2(utilsBase):
         return False
 
     def route_add(self, route):
-        self.exec_command('ip route add ' + route)
+        utils.exec_command('ip route add %s' % route)
 
     def route6_add(self, route):
-        self.exec_command('ip -6 route add ' + route)
+        utils.exec_command('ip -6 route add %s' % route)
 
     def get_vlandev_attrs(self, ifacename):
         return (self._cache_get('link', [ifacename, 'link']),
@@ -680,7 +679,7 @@ class iproute2(utilsBase):
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip %s' %cmd)
+            utils.exec_command('ip %s' % cmd)
         self._cache_update([ifacename], {})
 
     def link_delete(self, ifacename):
@@ -690,7 +689,7 @@ class iproute2(utilsBase):
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            self.exec_command('ip %s' %cmd)
+            utils.exec_command('ip %s' % cmd)
         self._cache_invalidate()
 
     def link_get_master(self, ifacename):
@@ -705,23 +704,23 @@ class iproute2(utilsBase):
             return self._cache_get('link', [ifacename, 'master'])
 
     def bridge_port_vids_add(self, bridgeportname, vids):
-        [self.exec_command('bridge vlan add vid %s dev %s'
-                          %(v, bridgeportname)) for v in vids]
+        [utils.exec_command('bridge vlan add vid %s dev %s' %
+                            (v, bridgeportname)) for v in vids]
 
     def bridge_port_vids_del(self, bridgeportname, vids):
         if not vids:
             return
-        [self.exec_command('bridge vlan del vid %s dev %s'
-                          %(v, bridgeportname)) for v in vids]
+        [utils.exec_command('bridge vlan del vid %s dev %s' %
+                            (v, bridgeportname)) for v in vids]
 
     def bridge_port_vids_flush(self, bridgeportname, vid):
-        self.exec_command('bridge vlan del vid %s dev %s'
-                          %(vid, bridgeportname))
+        utils.exec_command('bridge vlan del vid %s dev %s' %
+                           (vid, bridgeportname))
 
     def bridge_port_vids_get(self, bridgeportname):
-        self.exec_command('/sbin/bridge vlan show %s' %bridgeportname)
-        bridgeout = self.exec_command('/sbin/bridge vlan show dev %s'
-                                      %bridgeportname)
+        utils.exec_command('/sbin/bridge vlan show %s' % bridgeportname)
+        bridgeout = utils.exec_command('/sbin/bridge vlan show dev %s' %
+                                       bridgeportname)
         if not bridgeout: return []
         brvlanlines = bridgeout.readlines()[2:]
         vids = [l.strip() for l in brvlanlines]
@@ -729,7 +728,7 @@ class iproute2(utilsBase):
 
     def bridge_port_vids_get_all(self):
         brvlaninfo = {}
-        bridgeout = self.exec_command('/sbin/bridge -c vlan show')
+        bridgeout = utils.exec_command('/sbin/bridge -c vlan show')
         if not bridgeout: return brvlaninfo
         brvlanlines = bridgeout.splitlines()
         brportname=None
@@ -757,12 +756,12 @@ class iproute2(utilsBase):
         return brvlaninfo
 
     def bridge_port_pvid_add(self, bridgeportname, pvid):
-        self.exec_command('bridge vlan add vid %s untagged pvid dev %s'
-                          %(pvid, bridgeportname))
+        utils.exec_command('bridge vlan add vid %s untagged pvid dev %s' %
+                           (pvid, bridgeportname))
 
     def bridge_port_pvid_del(self, bridgeportname, pvid):
-        self.exec_command('bridge vlan del vid %s untagged pvid dev %s'
-                          %(pvid, bridgeportname))
+        utils.exec_command('bridge vlan del vid %s untagged pvid dev %s' %
+                           (pvid, bridgeportname))
 
     def bridge_port_pvids_get(self, bridgeportname):
         return self.read_file_oneline('/sys/class/net/%s/brport/pvid'
@@ -770,13 +769,13 @@ class iproute2(utilsBase):
 
     def bridge_vids_add(self, bridgeportname, vids, bridge=True):
         target = 'self' if bridge else ''
-        [self.exec_command('bridge vlan add vid %s dev %s %s'
-                          %(v, bridgeportname, target)) for v in vids]
+        [utils.exec_command('bridge vlan add vid %s dev %s %s' %
+                            (v, bridgeportname, target)) for v in vids]
 
     def bridge_vids_del(self, bridgeportname, vids, bridge=True):
         target = 'self' if bridge else ''
-        [self.exec_command('bridge vlan del vid %s dev %s %s'
-                          %(v, bridgeportname, target)) for v in vids]
+        [utils.exec_command('bridge vlan del vid %s dev %s %s' %
+                            (v, bridgeportname, target)) for v in vids]
 
     def bridge_fdb_add(self, dev, address, vlan=None, bridge=True, remote=None):
         target = 'self' if bridge else ''
@@ -788,8 +787,8 @@ class iproute2(utilsBase):
         if remote:
             dst_str = 'dst %s ' % remote
 
-        self.exec_command('bridge fdb replace %s dev %s %s %s %s'
-                          %(address, dev, vlan_str, target, dst_str))
+        utils.exec_command('bridge fdb replace %s dev %s %s %s %s' %
+                           (address, dev, vlan_str, target, dst_str))
 
     def bridge_fdb_append(self, dev, address, vlan=None, bridge=True, remote=None):
         target = 'self' if bridge else ''
@@ -801,8 +800,8 @@ class iproute2(utilsBase):
         if remote:
             dst_str = 'dst %s ' % remote
 
-        self.exec_command('bridge fdb append %s dev %s %s %s %s'
-                          %(address, dev, vlan_str, target, dst_str))
+        utils.exec_command('bridge fdb append %s dev %s %s %s %s' %
+                           (address, dev, vlan_str, target, dst_str))
 
     def bridge_fdb_del(self, dev, address, vlan=None, bridge=True, remote=None):
         target = 'self' if bridge else ''
@@ -813,8 +812,8 @@ class iproute2(utilsBase):
         dst_str = ''
         if remote:
             dst_str = 'dst %s ' % remote
-        self.exec_command('bridge fdb del %s dev %s %s %s %s'
-                          %(address, dev, vlan_str, target, dst_str))
+        utils.exec_command('bridge fdb del %s dev %s %s %s %s' %
+                           (address, dev, vlan_str, target, dst_str))
 
     def bridge_is_vlan_aware(self, bridgename):
         filename = '/sys/class/net/%s/bridge/vlan_filtering' %bridgename
@@ -839,7 +838,7 @@ class iproute2(utilsBase):
     def bridge_fdb_show_dev(self, dev):
         try:
             fdbs = {}
-            output = self.exec_command('bridge fdb show dev %s' %dev)
+            output = utils.exec_command('bridge fdb show dev %s' % dev)
             if output:
                 for fdb_entry in output.splitlines():
                     try:
@@ -870,7 +869,7 @@ class iproute2(utilsBase):
 
     def ip_route_get_dev(self, prefix):
         try:
-            output = self.exec_command('ip route get %s' %prefix)
+            output = utils.exec_command('ip route get %s' % prefix)
             if output:
                rline = output.splitlines()[0]
                if rline:

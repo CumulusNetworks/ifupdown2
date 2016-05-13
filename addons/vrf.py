@@ -6,10 +6,11 @@
 
 import os
 import signal
-import errno 
-import subprocess
+import errno
+import fcntl
 import atexit
 from ifupdown.iface import *
+from ifupdown.utils import utils
 import ifupdown.policymanager as policymanager
 import ifupdownaddons
 import ifupdown.rtnetlink_api as rtnetlink_api
@@ -64,18 +65,18 @@ class vrf(moduleBase):
                     self.logger.debug('vrf: removing file failed (%s)'
                                       %str(e))
         try:
-            ip_rules = self.exec_command('/sbin/ip rule show').splitlines()
+            ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
             self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip_rule_cache = []
-            self.logger.warn('%s' %str(e))
+            self.logger.warn('vrf: cache v4: %s' % str(e))
 
         try:
-            ip_rules = self.exec_command('/sbin/ip -6 rule show').splitlines()
+            ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
             self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip6_rule_cache = []
-            self.logger.warn('%s' %str(e))
+            self.logger.warn('vrf: cache v6: %s' % str(e))
 
         #self.logger.debug("vrf: ip rule cache")
         #self.logger.info(self.ip_rule_cache)
@@ -110,25 +111,25 @@ class vrf(moduleBase):
         iproute2_vrf_map_force_rewrite = False
         # read or create /etc/iproute2/rt_tables.d/ifupdown2.vrf_map
         if os.path.exists(self.iproute2_vrf_filename):
-            vrf_map_fd = open(self.iproute2_vrf_filename, 'r+')
-            lines = vrf_map_fd.readlines()
-            for l in lines:
-                l = l.strip()
-                if l[0] == '#':
-                    continue
-                try:
-                    (table, vrf_name) = l.strip().split()
-                    if self.iproute2_vrf_map.get(int(table)):
-                        # looks like the existing file has
-                        # duplicate entries, force rewrite of the
-                        # file
-                        iproute2_vrf_map_force_rewrite = True
+            with open(self.iproute2_vrf_filename, 'r+') as vrf_map_fd:
+                lines = vrf_map_fd.readlines()
+                for l in lines:
+                    l = l.strip()
+                    if l[0] == '#':
                         continue
-                    self.iproute2_vrf_map[int(table)] = vrf_name
-                except Exception, e:
-                    self.logger.info('vrf: iproute2_vrf_map: unable to parse %s'
-                                     %l)
-                    pass
+                    try:
+                        (table, vrf_name) = l.strip().split()
+                        if self.iproute2_vrf_map.get(int(table)):
+                            # looks like the existing file has
+                            # duplicate entries, force rewrite of the
+                            # file
+                            iproute2_vrf_map_force_rewrite = True
+                            continue
+                        self.iproute2_vrf_map[int(table)] = vrf_name
+                    except Exception, e:
+                        self.logger.info('vrf: iproute2_vrf_map: unable to parse %s'
+                                         %l)
+                        pass
 
         vrfs = self.ipcmd.link_get_vrfs()
         running_vrf_map = {}
@@ -188,6 +189,7 @@ class vrf(moduleBase):
         try:
             self.iproute2_vrf_map_fd = open(self.iproute2_vrf_filename,
                                          '%s' %fmode)
+            fcntl.fcntl(self.iproute2_vrf_map_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
         except Exception, e:
             self.log_warn('vrf: error opening %s (%s)'
                           %(self.iproute2_vrf_filename, str(e)))
@@ -381,25 +383,25 @@ class vrf(moduleBase):
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
@@ -410,17 +412,17 @@ class vrf(moduleBase):
             rule = '0: from all lookup local'
             if rule in self.ip_rule_cache:
                 try:
-                    self.exec_command('ip rule del pref 0')
-                    self.exec_command('ip rule add pref 32765 table local')
+                    utils.exec_command('ip rule del pref 0')
+                    utils.exec_command('ip rule add pref 32765 table local')
                 except Exception, e:
-                    self.logger.info('%s' %str(e))
+                    self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
             if rule in self.ip6_rule_cache:
                 try:
-                    self.exec_command('ip -6 rule del pref 0')
-                    self.exec_command('ip -6 rule add pref 32765 table local')
+                    utils.exec_command('ip -6 rule del pref 0')
+                    utils.exec_command('ip -6 rule add pref 32765 table local')
                 except Exception, e:
-                    self.logger.info('%s' %str(e))
+                    self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
 
         #Example ip rule
@@ -431,25 +433,25 @@ class vrf(moduleBase):
         if rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
-            self.exec_command(rule_cmd)
+            utils.exec_command(rule_cmd)
 
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
@@ -572,8 +574,11 @@ class vrf(moduleBase):
         if ifupdownflags.flags.PERFMODE:
             mode = "boot"
         if self.vrf_helper:
-            self.exec_command('%s create %s %s %s' %(self.vrf_helper,
-                              ifaceobj.name, vrf_table, mode))
+            utils.exec_command('%s create %s %s %s' %
+                               (self.vrf_helper,
+                                ifaceobj.name,
+                                vrf_table,
+                                mode))
 
     def _up_vrf_dev(self, ifaceobj, vrf_table, add_slaves=True,
                     ifaceobj_getfunc=None):
@@ -612,8 +617,7 @@ class vrf(moduleBase):
             #ESTAB      0      0      10.0.1.84:ssh       10.0.1.228:45186     
             #users:(("sshd",pid=2528,fd=3))
             cmdl = ['/bin/ss', '-t', '-p']
-            for line in subprocess.check_output(cmdl, stderr=subprocess.STDOUT,
-                                                shell=False).splitlines():
+            for line in utils.exec_commandl(cmdl).splitlines():
                 citems = line.split()
                 addr = None
                 if '%' in citems[3]:
@@ -628,10 +632,8 @@ class vrf(moduleBase):
 
             if not proc:
                 return
-            pid = subprocess.check_output(['/bin/ps', '--no-headers',
-                                           '-fp', str(os.getppid())],
-                                           stderr=subprocess.STDOUT,
-                                           shell=False).split()[2]
+            cmdl = ['/bin/ps', '--no-headers', '-fp', str(os.getppid())]
+            pid = utils.exec_commandl(cmdl).split()[2]
             self.logger.info("%s: killing active ssh sessions: %s"
                              %(ifacename, str(proc)))
 
@@ -697,8 +699,11 @@ class vrf(moduleBase):
         if ifupdownflags.flags.PERFMODE:
             mode = "boot"
         if self.vrf_helper:
-            self.exec_command('%s delete %s %s %s' %(self.vrf_helper,
-                              ifaceobj.name, vrf_table, mode))
+            utils.exec_command('%s delete %s %s %s' %
+                               (self.vrf_helper,
+                                ifaceobj.name,
+                                vrf_table,
+                                mode))
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
@@ -804,7 +809,7 @@ class vrf(moduleBase):
                 return
             if self.vrf_helper:
                 try:
-                    self.exec_command('%s verify %s %s'
+                    utils.exec_command('%s verify %s %s'
                                       %(self.vrf_helper,
                                       ifaceobj.name, config_table))
                     ifaceobjcurr.update_config_with_status('vrf-helper',

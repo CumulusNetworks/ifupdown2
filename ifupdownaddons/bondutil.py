@@ -7,6 +7,7 @@
 import os
 import re
 import ifupdown.ifupdownflags as ifupdownflags
+from ifupdown.utils import utils
 from ifupdown.iface import *
 from utilsbase import *
 from iproute2 import *
@@ -314,9 +315,8 @@ class bondutil(utilsBase):
                            '/bonding/slaves')
         ipcmd = iproute2()
         try:
-            f = open(sysfs_bond_path, 'r')
-            slaves = f.readline().strip().split()
-            f.close()
+            with open(sysfs_bond_path, 'r') as f:
+                slaves = f.readline().strip().split()
         except IOError, e:
             raise Exception('error reading slaves of bond %s' %bondname
                 + '(' + str(e) + ')')
@@ -334,7 +334,7 @@ class bondutil(utilsBase):
         self._cache_del([bondname, 'linkinfo', 'slaves'])
 
     def load_bonding_module(self):
-        return self.exec_command('modprobe -q bonding')
+        return utils.exec_command('modprobe -q bonding')
 
     def create_bond(self, bondname):
         if self.bond_exists(bondname):

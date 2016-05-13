@@ -457,7 +457,8 @@ def validate_args(op, args):
 def read_config(args):
     global configmap_g
 
-    config = open(configfile, 'r').read()
+    with open(configfile, 'r') as f:
+        config = f.read()
     configStr = '[ifupdown2]\n' + config
     configFP =  StringIO.StringIO(configStr)
     parser = ConfigParser.RawConfigParser()

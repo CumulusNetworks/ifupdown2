@@ -7,6 +7,7 @@
 from cache import MSTPAttrsCache
 from utilsbase import *
 from ifupdown.iface import *
+from ifupdown.utils import utils
 from cache import *
 import re
 import json
@@ -40,7 +41,7 @@ class mstpctlutil(utilsBase):
 
     def is_mstpd_running(self):
         try:
-            self.exec_command('/bin/pidof mstpd')
+            utils.exec_command('/bin/pidof mstpd')
         except:
             return False
         else:
@@ -48,9 +49,9 @@ class mstpctlutil(utilsBase):
 
     def get_bridgeport_attr(self, bridgename, portname, attrname):
         try:
-            return self.subprocess_check_output(['/sbin/mstpctl',
-                       'showportdetail', '%s' %bridgename, '%s' %portname,
-                       self._bridgeportattrmap[attrname]]).strip('\n')
+            cmdl = ['/sbin/mstpctl', 'showportdetail', bridgename, portname,
+                    self._bridgeportattrmap[attrname]]
+            return utils.exec_commandl(cmdl).strip('\n')
         except Exception, e:
             pass
         return None
@@ -72,7 +73,7 @@ class mstpctlutil(utilsBase):
         if not attrs:
             try:
                 cmd = ['/sbin/mstpctl', 'showportdetail', bridgename, 'json']
-                output = self.subprocess_check_output(cmd)
+                output = utils.exec_commandl(cmd)
                 if not output:
                     return None
             except Exception as e:
@@ -124,11 +125,13 @@ class mstpctlutil(utilsBase):
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
         if attrname == 'treeportcost' or attrname == 'treeportprio':
-            self.subprocess_check_output(['/sbin/mstpctl', 'set%s' %attrname,
-                  '%s' %bridgename, '%s' %bridgeportname, '0', '%s' %attrvalue])
+            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+                                 '%s' % bridgename, '%s' % bridgeportname, '0',
+                                 '%s' % attrvalue])
         else:
-            self.subprocess_check_output(['/sbin/mstpctl', 'set%s' %attrname,
-                  '%s' %bridgename, '%s' %bridgeportname, '%s' %attrvalue])
+            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+                                 '%s' % bridgename, '%s' % bridgeportname,
+                                 '%s' % attrvalue])
 
     def get_bridge_attrs(self, bridgename):
         bridgeattrs = {}
@@ -146,9 +149,9 @@ class mstpctlutil(utilsBase):
 
     def get_bridge_attr(self, bridgename, attrname):
         try:
-            return self.subprocess_check_output(['/sbin/mstpctl',
-                       'showbridge', '%s' %bridgename,
-                       self._bridgeattrmap[attrname]]).strip('\n')
+            cmdl = ['/sbin/mstpctl', 'showbridge', bridgename,
+                    self._bridgeattrmap[attrname]]
+            return utils.exec_commandl(cmdl).strip('\n')
         except Exception, e:
             pass
         return None
@@ -160,11 +163,13 @@ class mstpctlutil(utilsBase):
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
         if attrname == 'treeprio':
-            self.subprocess_check_call(['/sbin/mstpctl', 'set%s' %attrname,
-                        '%s' %bridgename, '0',  '%s' %attrvalue])
+            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+                                 '%s' % bridgename, '0', '%s' % attrvalue],
+                                stdout=False, stderr=None)
         else:
-            self.subprocess_check_call(['/sbin/mstpctl', 'set%s' %attrname,
-                        '%s' %bridgename, '%s' %attrvalue])
+            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+                                 '%s' % bridgename, '%s' % attrvalue],
+                                stdout=False, stderr=None)
 
     def set_bridge_attrs(self, bridgename, attrdict, check=True):
         for k, v in attrdict.iteritems():
@@ -178,9 +183,12 @@ class mstpctlutil(utilsBase):
 
     def get_bridge_treeprio(self, bridgename):
         try:
-            bridgeid = subprocess.check_output(['/sbin/mstpctl',
-                       'showbridge', '%s' %bridgename,
-                       self._bridgeattrmap['bridgeid']]).strip('\n')
+            cmdl = ['/sbin/mstpctl',
+                    'showbridge',
+                    bridgename,
+                    self._bridgeattrmap['bridgeid']]
+
+            bridgeid = utils.exec_commandl(cmdl).strip('\n')
             return '%d' %(int(bridgeid.split('.')[0], base=16) * 4096)
         except:
             pass
@@ -191,21 +199,21 @@ class mstpctlutil(utilsBase):
             attrvalue_curr = self.get_bridge_treeprio(bridgename)
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
-        self.subprocess_check_output(['/sbin/mstpctl', 'settreeprio',
-                        '%s' %bridgename, '0',  '%s' %attrvalue])
+        utils.exec_commandl(['/sbin/mstpctl', 'settreeprio', bridgename, '0',
+                             str(attrvalue)])
 
     def showbridge(self, bridgename=None):
         if bridgename:
-            return self.exec_command('/sbin/mstpctl showbridge %s' %bridgename)
+            return utils.exec_command('/sbin/mstpctl showbridge %s' % bridgename)
         else:
-            return self.exec_command('/sbin/mstpctl showbridge')
+            return utils.exec_command('/sbin/mstpctl showbridge')
 
     def showportdetail(self, bridgename):
-        return self.exec_command('/sbin/mstpctl showportdetail %s' %bridgename)
+        return utils.exec_command('/sbin/mstpctl showportdetail %s' % bridgename)
 
     def mstpbridge_exists(self, bridgename):
         try:
-            subprocess.check_call('mstpctl showbridge %s' %bridgename)
+            utils.exec_command('mstpctl showbridge %s' % bridgename, stdout=False)
             return True
         except:
             return False

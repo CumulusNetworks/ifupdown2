@@ -10,6 +10,7 @@ try:
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
+    from ifupdown.utils import utils
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
@@ -114,7 +115,7 @@ class ethtool(moduleBase,utilsBase):
                 # something.  this prevents unconfigured ifaces from resetting to default
                 self.ifaceobjs_modified_configs.append(ifaceobj.name)
                 cmd = 'ethtool -s %s %s' %(ifaceobj.name, cmd)
-                self.exec_command(cmd)
+                utils.exec_command(cmd)
             except Exception, e:
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
@@ -188,16 +189,16 @@ class ethtool(moduleBase,utilsBase):
         running_attr = None
         try:
             if attr == 'autoneg':
-                output=self.exec_commandl(['ethtool', ifaceobj.name])
+                output = utils.exec_commandl(['ethtool', ifaceobj.name])
                 running_attr = self.get_autoneg(ethtool_output=output)
             else:
                 running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
                                                       (ifaceobj.name, attr))
-        except:
+        except Exception as e:
             # for nonexistent interfaces, we get an error (rc = 256 or 19200)
             self.logger.debug('ethtool: problems calling ethtool or reading'
-                              ' /sys/class on iface %s for attr %s' % \
-                              (ifaceobj.name,attr))
+                              ' /sys/class on iface %s for attr %s: %s' %
+                              (ifaceobj.name, attr, str(e)))
         return running_attr
 
 
