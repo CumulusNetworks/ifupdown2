@@ -620,6 +620,9 @@ class vrf(moduleBase):
                                            shell=False).split()[2]
             self.logger.info("%s: killing active ssh sessions: %s"
                              %(ifacename, str(proc)))
+
+            if ifupdownflags.flags.DRYRUN:
+                return
             for id in proc:
                 if id != pid:
                     try:
