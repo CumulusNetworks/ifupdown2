@@ -184,7 +184,7 @@ class ifaceScheduler():
                 not ifupdownobj.flags.ADDONS_ENABLE or
                 (not ifupdownobj.is_ifaceobj_noconfig(ifaceobj) and
                 ifupdownobj.config.get('warn_on_ifdown', '0') == '0' and
-                not ifupdownobj.flags.ALL)):
+                not ifupdownflags.flags.ALL)):
             return True
 
         ulist = ifaceobj.upperifaces
@@ -201,7 +201,7 @@ class ifaceScheduler():
         # return false to the caller to skip this interface
         for u in tmpulist:
             if ifupdownobj.link_exists(u):
-                if not ifupdownobj.flags.ALL:
+                if not ifupdownflags.flags.ALL:
                     if ifupdownobj.is_ifaceobj_noconfig(ifaceobj):
                         ifupdownobj.logger.info('%s: skipping interface down,'
                             %ifaceobj.name + ' upperiface %s still around ' %u)
@@ -423,7 +423,7 @@ class ifaceScheduler():
         ifacenames_all_sorted = graph.topological_sort_graphs_all(
                                         dependency_graph, indegrees)
         # if ALL was set, return all interfaces
-        if ifupdownobj.flags.ALL:
+        if ifupdownflags.flags.ALL:
             return ifacenames_all_sorted
 
         # else return ifacenames passed as argument in sorted order
@@ -480,7 +480,7 @@ class ifaceScheduler():
             for ifacename in dependency_graph.keys():
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
-        if not ifupdownobj.flags.ALL:
+        if not ifupdownflags.flags.ALL:
             if 'up' in ops[0]:
                 # If there is any interface that does not exist, maybe it
                 # is a logical interface and we have to followupperifaces
@@ -537,7 +537,7 @@ class ifaceScheduler():
 
         if (not skipupperifaces and
                 ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
-                ((not ifupdownobj.flags.ALL and followdependents) or
+                ((not ifupdownflags.flags.ALL and followdependents) or
                 followupperifaces) and
                 'up' in ops[0]):
             # If user had given a set of interfaces to bring up
