@@ -143,7 +143,8 @@ def run_reload(args):
         ifupdown_handle = ifupdownMain(config=configmap_g,
                                        interfacesfile=interfacesfilename,
                                        withdepends=args.withdepends,
-                                       perfmode=args.perfmode)
+                                       perfmode=args.perfmode,
+                                       dryrun=args.noact)
         ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                ['pre-down', 'down', 'post-down'],
                                auto=args.all, allow=args.CLASS, ifacenames=None,
@@ -354,7 +355,8 @@ def update_ifreload_argparser(argparser):
     argparser.add_argument('iflist', metavar='IFACE',
                 nargs='*', help=argparse.SUPPRESS)
     argparser.add_argument('-n', '--no-act', dest='noact',
-                action='store_true', help=argparse.SUPPRESS)
+                action='store_true', help='print out what would happen,' +
+                'but don\'t do it')
     argparser.add_argument('-v', '--verbose', dest='verbose',
                 action='store_true', help='verbose')
     argparser.add_argument('-d', '--debug', dest='debug',

@@ -350,15 +350,22 @@ class vrf(moduleBase):
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
         try:
+            master_exists = True
             if vrf_exists or self.ipcmd.link_exists(vrfname):
                 upper = self.ipcmd.link_get_upper(ifacename)
                 if not upper or upper != vrfname:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
-            elif ifaceobj:
+            elif ifupdownflags.flags.ALL and ifaceobj:
                 self._up_vrf_slave_without_master(ifacename, vrfname, ifaceobj,
                                                   ifaceobj_getfunc)
-            rtnetlink_api.rtnl_api.link_set(ifacename, "up")
+            else:
+                master_exists = False
+            if master_exists:
+                rtnetlink_api.rtnl_api.link_set(ifacename, "up")
+            else:
+                self.log_error('vrf %s not around, skipping vrf config'
+                               %(vrfname))
         except Exception, e:
             self.log_error('%s: %s' %(ifacename, str(e)))
 
@@ -454,6 +461,8 @@ class vrf(moduleBase):
         if add_slaves:
             for s in add_slaves:
                 try:
+                    if not self.ipcmd.link_exists(s):
+                        continue
                     sobj = None
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)
@@ -619,6 +628,9 @@ class vrf(moduleBase):
                                            shell=False).split()[2]
             self.logger.info("%s: killing active ssh sessions: %s"
                              %(ifacename, str(proc)))
+
+            if ifupdownflags.flags.DRYRUN:
+                return
             for id in proc:
                 if id != pid:
                     try:

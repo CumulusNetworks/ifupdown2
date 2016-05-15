@@ -323,6 +323,14 @@ class addressvirtual(moduleBase):
                av_idx += 1
                continue
             raddrs = raddrs.keys()
+            try:
+                av_attrs[0] = ':'.join([i if len(i) == 2 else '0%s' % i
+                                        for i in av_attrs[0].split(':')])
+            except:
+                self.logger.info('%s: %s: invalid value for address-virtual (%s)'
+                                 % (ifaceobj.name,
+                                    macvlan_ifacename,
+                                    ' '.join(av_attrs)))
             if (rhwaddress == av_attrs[0] and raddrs == av_attrs[1:] and
                     self._check_addresses_in_bridge(ifaceobj, av_attrs[0])):
                ifaceobjcurr.update_config_with_status('address-virtual',

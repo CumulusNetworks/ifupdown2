@@ -63,7 +63,9 @@ class bridge(moduleBase):
                         # XXX: recheck values
                         { 'help' : 'bridge garbage collection interval in secs',
                           'example' : ['bridge-gcint 4'],
-                          'default' : '4'},
+                          'default' : '4',
+                          'compat' : True,
+                          'deprecated': True},
                    'bridge-hello' :
                         { 'help' : 'bridge set hello time',
                           'example' : ['bridge-hello 2'],
@@ -644,8 +646,6 @@ class bridge(moduleBase):
                                                         'bridge-bridgeprio'),
                               'fd' :
                                 ifaceobj.get_attr_value_first('bridge-fd'),
-                              'gcint' :
-                                ifaceobj.get_attr_value_first('bridge-gcint'),
                               'hello' :
                                 ifaceobj.get_attr_value_first('bridge-hello'),
                               'maxage' :
