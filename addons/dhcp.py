@@ -68,7 +68,7 @@ class dhcp(moduleBase):
                 self.dhclientcmd.start6(ifaceobj.name, wait=wait,
                                         cmd_prefix=dhclient_cmd_prefix)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj):
         dhclient_cmd_prefix = None
