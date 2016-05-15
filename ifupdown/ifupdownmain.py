@@ -1136,6 +1136,8 @@ class ifupdownMain(ifupdownBase):
         if syntaxcheck:
             if not iface_read_ret:
                 raise Exception()
+            elif self._any_iface_errors(filtered_ifacenames):
+                raise Exception()
             return
 
         ret = None
@@ -1591,6 +1593,16 @@ class ifupdownMain(ifupdownBase):
             self._reload_currentlyup(*args, **kargs)
         else:
             self._reload_default(*args, **kargs)
+
+    def _any_iface_errors(self, ifacenames):
+        for i in ifacenames:
+            ifaceobjs = self.get_ifaceobjs(i)
+            if not ifaceobjs: continue
+            for ifaceobj in ifaceobjs:
+                if (ifaceobj.status == ifaceStatus.NOTFOUND or
+                    ifaceobj.status == ifaceStatus.ERROR):
+                    return True
+        return False
 
     def _pretty_print_ordered_dict(self, prefix, argdict):
         outbuf = prefix + ' {\n'
