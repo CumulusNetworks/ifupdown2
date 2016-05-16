@@ -116,8 +116,7 @@ class ethtool(moduleBase,utilsBase):
                 cmd = 'ethtool -s %s %s' %(ifaceobj.name, cmd)
                 self.exec_command(cmd)
             except Exception, e:
-                ifaceobj.status = ifaceStatus.ERROR
-                self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
 

@@ -182,7 +182,7 @@ class address(moduleBase):
                 else:
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
             except Exception, e:
-                self.log_error(str(e))
+                self.log_error(str(e), ifaceobj)
 
     def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None,
                              force_reapply=False):
@@ -319,7 +319,7 @@ class address(moduleBase):
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
         except Exception, e:
-            self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
             pass
 
         if addr_method != "dhcp":

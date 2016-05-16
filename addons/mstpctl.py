@@ -263,7 +263,7 @@ class mstpctl(moduleBase):
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
             except Exception, e:
-                self.log_error(str(e))
+                self.log_error(str(e), ifaceobj)
 
         if err:
             self.log_error('error configuring bridge (missing ports)')
@@ -299,6 +299,8 @@ class mstpctl(moduleBase):
                         if default_val and jsonAttr:
                             bridgeports = self._get_bridge_port_list(ifaceobj)
                             for port in bridgeports:
+                                if not self.brctlcmd.is_bridge_port(port):
+                                    continue
                                 running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(ifaceobj.name,
                                                               port, jsonAttr)
                                 if running_val != default_val:
@@ -313,8 +315,8 @@ class mstpctl(moduleBase):
 
                 portlist = self.parse_port_list(ifaceobj.name, config_val)
                 if not portlist:
-                    self.log_warn('%s: error parsing \'%s %s\''
-                         %(ifaceobj.name, attrname, config_val))
+                    self.log_error('%s: error parsing \'%s %s\''
+                         %(ifaceobj.name, attrname, config_val), ifaceobj)
                     continue
                 # there was a configured value so we need to parse it
                 # and set the attribute for each port configured
@@ -327,8 +329,9 @@ class mstpctl(moduleBase):
                         self.mstpctlcmd.set_bridgeport_attr(ifaceobj.name,
                                 port, dstattrname, val, check)
                     except Exception, e:
-                        self.log_warn('%s: error setting %s (%s)'
-                                %(ifaceobj.name, attrname, str(e)))
+                        self.log_error('%s: error setting %s (%s)'
+                                       %(ifaceobj.name, attrname, str(e)),
+                                       ifaceobj, raise_error=False)
         except Exception, e:
             self.log_warn(str(e))
             pass
@@ -380,8 +383,9 @@ class mstpctl(moduleBase):
                            ifaceobj.name, dstattrname, config_val, check)
                applied = True
             except Exception, e:
-               self.log_warn('%s: error setting %s (%s)'
-                             %(ifaceobj.name, attrname, str(e)))
+               self.log_error('%s: error setting %s (%s)'
+                              %(ifaceobj.name, attrname, str(e)), ifaceobj,
+                               raise_error=False)
         return applied
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
@@ -478,7 +482,7 @@ class mstpctl(moduleBase):
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error(str(e), ifaceobj)
         if porterr:
             raise Exception(porterrstr)
 
@@ -494,7 +498,7 @@ class mstpctl(moduleBase):
                     self._ports_enable_disable_ipv6(ports, '0')
                 self.brctlcmd.delete_bridge(ifaceobj.name)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error(str(e), ifaceobj)
 
     def _query_running_attrs(self, ifaceobjrunning):
         bridgeattrdict = {}

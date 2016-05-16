@@ -242,23 +242,23 @@ class vrf(moduleBase):
                 return str(t)
         return None
 
-    def _iproute2_is_vrf_tableid_inuse(self, vrf_dev_name, table_id):
+    def _iproute2_is_vrf_tableid_inuse(self, vrfifaceobj, table_id):
         old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
-        if old_vrf_name and old_vrf_name != vrf_dev_name:
+        if old_vrf_name and old_vrf_name != vrfifaceobj.name:
             self.log_error('table id %s already assigned to vrf dev %s'
-                           %(table_id, old_vrf_name))
+                           %(table_id, old_vrf_name), vrfifaceobj)
 
-    def _iproute2_vrf_table_entry_add(self, vrf_dev_name, table_id):
+    def _iproute2_vrf_table_entry_add(self, vrfifaceobj, table_id):
         old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
         if not old_vrf_name:
-            self.iproute2_vrf_map[int(table_id)] = vrf_dev_name
+            self.iproute2_vrf_map[int(table_id)] = vrfifaceobj.name
             if self.iproute2_vrf_map_fd:
                 self.iproute2_vrf_map_fd.write('%s %s\n'
-                                               %(table_id, vrf_dev_name))
+                                               %(table_id, vrfifaceobj.name))
                 self.iproute2_vrf_map_fd.flush()
                 self.vrf_count += 1
             return
-        if old_vrf_name != vrf_dev_name:
+        if old_vrf_name != vrfifaceobj.name:
             self.log_error('table id %d already assigned to vrf dev %s'
                            %(table_id, old_vrf_name))
 
@@ -314,7 +314,7 @@ class vrf(moduleBase):
                     vrf_table = self._get_avail_vrf_table_id()
                     if not vrf_table:
                         self.log_error('%s: unable to get an auto table id'
-                                       %mobj.name)
+                                       %mobj.name, ifaceobj)
                     self.logger.info('%s: table id auto: selected table id %s\n'
                                      %(mobj.name, vrf_table))
                 try:
@@ -365,9 +365,9 @@ class vrf(moduleBase):
                 rtnetlink_api.rtnl_api.link_set(ifacename, "up")
             else:
                 self.log_error('vrf %s not around, skipping vrf config'
-                               %(vrfname))
+                               %(vrfname), ifaceobj)
         except Exception, e:
-            self.log_error('%s: %s' %(ifacename, str(e)))
+            self.log_error('%s: %s' %(ifacename, str(e)), ifaceobj)
 
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
@@ -506,23 +506,25 @@ class vrf(moduleBase):
         if not self.ipcmd.link_exists(ifaceobj.name):
             if ifaceobj.name in self.system_reserved_rt_tables.values():
                 self.log_error('cannot use system reserved %s vrf names'
-                                %( str(self.system_reserved_rt_tables.values())))
+                                %(str(self.system_reserved_rt_tables.values())),
+                                ifaceobj)
             if self.vrf_count == self.vrf_max_count:
                 self.log_error('%s: max vrf count %d hit...not '
                                'creating vrf' %(ifaceobj.name,
-                                                self.vrf_count))
+                                                self.vrf_count), ifaceobj)
             if vrf_table == 'auto':
                 vrf_table = self._get_avail_vrf_table_id()
                 if not vrf_table:
                     self.log_error('%s: unable to get an auto table id'
-                                   %ifaceobj.name)
+                                   %ifaceobj.name, ifaceobj)
                 self.logger.info('%s: table id auto: selected table id %s\n'
                                  %(ifaceobj.name, vrf_table))
             else:
-                self._iproute2_is_vrf_tableid_inuse(ifaceobj.name, vrf_table)
+                self._iproute2_is_vrf_tableid_inuse(ifaceobj, vrf_table)
                 if ifaceobj.name in self.system_reserved_rt_tables.keys():
                     self.log_error('cannot use system reserved %s table ids'
-                                  %(str(self.system_reserved_rt_tables.keys())))
+                                  %(str(self.system_reserved_rt_tables.keys())),
+                                  ifaceobj)
 
             if not vrf_table.isdigit():
                 self.log_error('%s: vrf-table must be an integer or \'auto\''
@@ -536,21 +538,21 @@ class vrf(moduleBase):
                     self.log_error('%s: vrf table id %s out of reserved range [%d,%d]'
                                    %(ifaceobj.name, vrf_table,
                                      self.vrf_table_id_start,
-                                     self.vrf_table_id_end))
+                                     self.vrf_table_id_end), ifaceobj)
             try:
                 self.ipcmd.link_create(ifaceobj.name, 'vrf',
                                        {'table' : '%s' %vrf_table})
             except Exception, e:
                 self.log_error('%s: create failed (%s)\n'
-                               %(ifaceobj.name, str(e)))
+                               %(ifaceobj.name, str(e)), ifaceobj)
             if vrf_table != 'auto':
-                self._iproute2_vrf_table_entry_add(ifaceobj.name, vrf_table)
+                self._iproute2_vrf_table_entry_add(ifaceobj, vrf_table)
         else:
             if vrf_table == 'auto':
                 vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
                 if not vrf_table:
                     self.log_error('%s: unable to get vrf table id'
-                                   %ifaceobj.name)
+                                   %ifaceobj.name, ifaceobj)
 
             # if the device exists, check if table id is same
             vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
@@ -558,7 +560,8 @@ class vrf(moduleBase):
                 running_table = vrfdev_attrs.get('table', None)
                 if vrf_table != running_table:
                     self.log_error('%s: cannot change vrf table id,running table id %s is different from config id %s' %(ifaceobj.name,
-                                         running_table, vrf_table))
+                                         running_table, vrf_table),
+                                         ifaceobj)
         return vrf_table
 
     def _up_vrf_helper(self, ifaceobj, vrf_table):
@@ -581,7 +584,7 @@ class vrf(moduleBase):
         try:
             vrf_table = self._create_vrf_dev(ifaceobj, vrf_table)
         except Exception, e:
-            self.log_error('%s: %s' %(ifaceobj.name, str(e)))
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         
         try:
             self._add_vrf_rules(ifaceobj.name, vrf_table)
@@ -591,7 +594,7 @@ class vrf(moduleBase):
             self._set_vrf_dev_processed_flag(ifaceobj)
             rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
-            self.log_error('%s: %s' %(ifaceobj.name, str(e)))
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
     def _kill_ssh_connections(self, ifacename):
         try:
@@ -684,7 +687,7 @@ class vrf(moduleBase):
                             self._down_vrf_slave(ifaceobj.name, ifaceobj,
                                                  master)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error(str(e), ifaceobj)
 
     def _down_vrf_helper(self, ifaceobj, vrf_table):
         mode = ""
@@ -769,7 +772,7 @@ class vrf(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vrf', master, 0)
         except Exception, e:
-            self.log_warn(str(e))
+            self.log_error(str(e), ifaceobjcurr)
 
     def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table):
         try:

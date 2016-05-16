@@ -160,8 +160,9 @@ class addressvirtual(moduleBase):
         for av in address_virtual_list:
             av_attrs = av.split()
             if len(av_attrs) < 2:
-                self.logger.warn("%s: incorrect address-virtual attrs '%s'"
-                             %(ifaceobj.name,  av))
+                self.log_error("%s: incorrect address-virtual attrs '%s'"
+                               %(ifaceobj.name,  av), ifaceobj,
+                               raise_error=False)
                 av_idx += 1
                 continue
 
@@ -242,8 +243,9 @@ class addressvirtual(moduleBase):
         for av in address_virtual_list:
             av_attrs = av.split()
             if len(av_attrs) < 2:
-                self.logger.warn("%s: incorrect address-virtual attrs '%s'"
-                             %(ifaceobj.name,  av))
+                self.log_error("%s: incorrect address-virtual attrs '%s'"
+                               %(ifaceobj.name,  av), ifaceobj,
+                               raise_error=False)
                 av_idx += 1
                 continue
 

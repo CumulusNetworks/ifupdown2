@@ -42,14 +42,15 @@ class moduleBase(object):
                 ifaceobj.set_status(ifaceStatus.WARNING)
         pass
 
-    def log_error(self, str, ifaceobj=None):
+    def log_error(self, str, ifaceobj=None, raise_error=True):
         """ log an err if err str is not one of which we should ignore and raise an exception """
         if not self.ignore_error(str):
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
             if ifaceobj:
                 ifaceobj.set_status(ifaceStatus.ERROR)
-            raise Exception(str)
+            if raise_error:
+                raise Exception(str)
         else:
             pass
 

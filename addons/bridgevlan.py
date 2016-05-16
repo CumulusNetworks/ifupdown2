@@ -58,8 +58,8 @@ class bridgevlan(moduleBase):
             (bridgename, vlan) = self._get_bridge_n_vlan(ifaceobj)
             vlanid = int(vlan, 10)
         except:
-            self.logger.warn('%s: bridge vlan interface name ' %ifaceobj.name +
-                    'does not correspond to format (eg. br0.100)')
+            self.log_error('%s: bridge vlan interface name ' %ifaceobj.name +
+                    'does not correspond to format (eg. br0.100)', ifaceobj)
             raise
 
         if not self.ipcmd.link_exists(bridgename):

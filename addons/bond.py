@@ -230,8 +230,9 @@ class bond(moduleBase):
         for slave in Set(slaves).difference(Set(runningslaves)):
             if (not ifupdownflags.flags.PERFMODE and
                 not self.ipcmd.link_exists(slave)):
-                    self.log_warn('%s: skipping slave %s, does not exist'
-                                  %(ifaceobj.name, slave))
+                    self.log_error('%s: skipping slave %s, does not exist'
+                                   %(ifaceobj.name, slave), ifaceobj,
+                                     raise_error=False)
                     continue
             link_up = False
             if self.ipcmd.is_link_up(slave):
@@ -274,7 +275,7 @@ class bond(moduleBase):
             if ifaceobj.addr_method == 'manual':
                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj):
         try:
