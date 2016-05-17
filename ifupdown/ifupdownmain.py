@@ -1301,14 +1301,14 @@ class ifupdownMain(ifupdownBase):
             self.print_ifaceobjsrunning_pretty(filtered_ifacenames, format)
             return
 
-    def _reload_currentlyup(self, upops, downops, auto=True, allow=None,
+    def _reload_currentlyup(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
             syntaxcheck=False, **extra_args):
         """ reload currently up interfaces """
         new_ifaceobjdict = {}
 
-        # Override auto to true
-        auto = True
+        self.logger.info('reloading interfaces that are currently up ..')
+
         try:
             iface_read_ret = self.read_iface_config()
         except:
@@ -1318,20 +1318,6 @@ class ifupdownMain(ifupdownBase):
             return
         already_up_ifacenames = []
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
-        filtered_ifacenames = [i for i in ifacenames
-                               if self._iface_whitelisted(auto, allow,
-                               excludepats, i)]
-
-        # generate dependency graph of interfaces
-        self.populate_dependency_info(upops)
-
-        # If only syntax check was requested, return here.
-        # return here because we want to make sure most
-        # errors above are caught and reported.
-        if syntaxcheck:
-            if not iface_read_ret:
-                raise Exception()
-            return
 
         if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):
@@ -1343,8 +1329,21 @@ class ifupdownMain(ifupdownBase):
         already_up_ifacenames_still_present = Set(
                         already_up_ifacenames).difference(
                         already_up_ifacenames_not_present)
-        interfaces_to_up = Set(already_up_ifacenames_still_present).union(
-                                            filtered_ifacenames)
+
+        interfaces_to_up = already_up_ifacenames_still_present
+
+        # generate dependency graph of interfaces
+        self.populate_dependency_info(upops, interfaces_to_up)
+
+        # If only syntax check was requested, return here.
+        # return here because we want to make sure most
+        # errors above are caught and reported.
+        if syntaxcheck:
+            if not iface_read_ret:
+                raise Exception()
+            elif self._any_iface_errors(interfaces_to_up):
+                raise Exception()
+            return
 
         if (already_up_ifacenames_not_present and
                 self.config.get('ifreload_currentlyup_down_notpresent') == '1'):
@@ -1369,7 +1368,7 @@ class ifupdownMain(ifupdownBase):
            self._sched_ifaces(falready_up_ifacenames_not_present, downops,
                               followdependents=False, sort=True)
         else:
-           self.logger.debug('no interfaces to down ..')
+           self.logger.info('no interfaces to down ..')
 
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
@@ -1382,7 +1381,8 @@ class ifupdownMain(ifupdownBase):
             self.dependency_graph = new_dependency_graph
 
         if not self.ifaceobjdict:
-           return
+            self.logger.info('no interfaces to up')
+            return
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(interfaces_to_up))
         ret = self._sched_ifaces(interfaces_to_up, upops,
@@ -1422,6 +1422,8 @@ class ifupdownMain(ifupdownBase):
         # errors above are caught and reported.
         if syntaxcheck:
             if not iface_read_ret:
+                raise Exception()
+            elif self._any_iface_errors(new_filtered_ifacenames):
                 raise Exception()
             return
 
@@ -1551,7 +1553,7 @@ class ifupdownMain(ifupdownBase):
                     self.flags.SCHED_SKIP_CHECK_UPPERIFACES = False
                     self._process_delay_admin_state_queue('down')
             else:
-                self.logger.debug('no interfaces to down ..')
+                self.logger.info('no interfaces to down ..')
 
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
