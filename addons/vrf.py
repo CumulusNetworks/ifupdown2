@@ -729,7 +729,11 @@ class vrf(moduleBase):
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
                     pass
 
-        self._down_vrf_helper(ifaceobj, vrf_table)
+        try:
+            self._down_vrf_helper(ifaceobj, vrf_table)
+        except Exception, e:
+            self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
+            pass
 
         try:
             self._del_vrf_rules(ifaceobj.name, vrf_table)
