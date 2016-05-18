@@ -281,7 +281,7 @@ class ifaceJsonDecoder():
     @classmethod
     def json_to_ifaceobj(cls, ifaceattrdict):
         ifaceattrdict['config'] = OrderedDict([(k, (v if isinstance(v, list)
-                                                else [v]))
+                                                else [v.strip()]))
                                 for k,v in ifaceattrdict.get('config',
                                             OrderedDict()).items()])
         return iface(attrsdict=ifaceattrdict)
