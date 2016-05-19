@@ -153,6 +153,11 @@ class address(moduleBase):
                     prefixlen = IPNetwork('%s' %addr +
                                 '/%s' %netmask).prefixlen
                     newaddr = addr + '/%s' %prefixlen
+                else:
+                    # we are here because there is no slash (/xx) and no netmask
+                    # just let IPNetwork handle the ipv4 or ipv6 address mask
+                    prefixlen = IPNetwork(addr).prefixlen
+                    newaddr = addr + '/%s' %prefixlen
                 newaddrs.append(newaddr)
 
                 attrs = {}
