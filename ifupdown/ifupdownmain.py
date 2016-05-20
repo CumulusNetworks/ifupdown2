@@ -794,7 +794,7 @@ class ifupdownMain(ifupdownBase):
                     mname = litems[1]
                     self.module_ops[operation].append(mname)
                 except Exception, e:
-                    self.logger.warn('error reading line \'%s\'' %(l, str(e)))
+                    self.logger.warn('error reading line \'%s\' %s:' %(l, str(e)))
                     continue
 
     def load_addon_modules(self, modules_dir):
