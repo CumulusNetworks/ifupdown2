@@ -27,9 +27,11 @@ class vrf(moduleBase):
     _modinfo = { 'mhelp' : 'vrf configuration module',
                     'attrs' : {
                     'vrf-table':
-                         {'help' : 'vrf device table id. key to ' +
-                                   'creating a vrf device',
-                          'example': ['vrf-table-id 1']},
+                         {'help' : 'vrf device routing table id. key to ' +
+                                   'creating a vrf device. ' +
+                                   'Table id is either \'auto\' or '+
+                                   '\'valid routing table id\'',
+                          'example': ['vrf-table auto', 'vrf-table 1001']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
                           'example': ['vrf blue']}}}
