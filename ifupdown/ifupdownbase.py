@@ -10,6 +10,7 @@
 import logging
 import re
 import os
+import traceback
 import rtnetlink_api as rtnetlink_api
 
 from iface import *
