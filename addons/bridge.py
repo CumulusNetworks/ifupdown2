@@ -472,12 +472,15 @@ class bridge(moduleBase):
                         for start, end in self._ints_to_ranges(vids2_diff)]
         return (vids_to_del, vids_to_add)
 
-    def _compare_vids(self, vids1, vids2):
+    def _compare_vids(self, vids1, vids2, pvid=None):
         """ Returns true if the vids are same else return false """
 
         vids1_ints = self._ranges_to_ints(vids1)
         vids2_ints = self._ranges_to_ints(vids2)
-        if Set(vids1_ints).symmetric_difference(vids2_ints):
+        set_diff = Set(vids1_ints).symmetric_difference(vids2_ints)
+        if pvid:
+            set_diff = set_diff.remove(pvid)
+        if set_diff:
             return False
         else:
             return True
@@ -1557,6 +1560,21 @@ class bridge(moduleBase):
                ifaceobjcurr.update_config_with_status(attr_name, vids, 0)
            return
 
+        running_pvid = running_vidinfo.get(ifaceobj.name,
+                                           {}).get('pvid')
+        attr_name = 'bridge-pvid'
+        pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
+        if pvid:
+           if running_pvid and running_pvid == pvid:
+              ifaceobjcurr.update_config_with_status(attr_name,
+                                                     running_pvid, 0)
+           else:
+              ifaceobjcurr.update_config_with_status(attr_name,
+                                                     running_pvid, 1)
+        elif not running_pvid or running_pvid != '1':
+           ifaceobjcurr.status = ifaceStatus.ERROR
+           ifaceobjcurr.status_str = 'bridge pvid error'
+
         attr_name = 'bridge-vids'
         vids = ifaceobj.get_attr_value_first(attr_name)
         if vids:
@@ -1575,24 +1593,9 @@ class bridge(moduleBase):
            running_vids = running_vidinfo.get(ifaceobj.name,
                                               {}).get('vlan')
            if (bridge_vids and (not running_vids  or
-                   not self._compare_vids(bridge_vids, running_vids))):
+                   not self._compare_vids(bridge_vids, running_vids, pvid))):
               ifaceobjcurr.status = ifaceStatus.ERROR
               ifaceobjcurr.status_str = 'bridge vid error'
-
-        running_pvid = running_vidinfo.get(ifaceobj.name,
-                                           {}).get('pvid')
-        attr_name = 'bridge-pvid'
-        pvid = ifaceobj.get_attr_value_first(attr_name)
-        if pvid:
-           if running_pvid and running_pvid == pvid:
-              ifaceobjcurr.update_config_with_status(attr_name,
-                                                     running_pvid, 0)
-           else:
-              ifaceobjcurr.update_config_with_status(attr_name,
-                                                     running_pvid, 1)
-        elif not running_pvid or running_pvid != '1':
-           ifaceobjcurr.status = ifaceStatus.ERROR
-           ifaceobjcurr.status_str = 'bridge pvid error'
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr,
                                  ifaceobj_getfunc):
