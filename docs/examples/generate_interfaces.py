@@ -3,6 +3,7 @@
 import argparse
 import sys
 import subprocess
+import os
 
 """ This script prints to stdout /etc/network/interfaces entries for
     requested interfaces.
@@ -30,6 +31,25 @@ import subprocess
 
 """
 
+def get_pci_interfaces():
+    ports = []
+    FNULL = open(os.devnull, 'w')
+    try:
+        cmd = '(ip -o link show | grep -v "@" | cut -d" " -f2 | sed \'s/:$//\')'
+        output = subprocess.check_output(cmd, shell=True).split()
+        for interface in output:
+            cmd = 'udevadm info -a -p /sys/class/net/%s | grep \'SUBSYSTEMS=="pci"\'' % interface
+            try:
+                subprocess.check_call(cmd, shell=True, stdout=FNULL)
+                ports.append(interface)
+            except:
+                pass
+    except:
+        pass
+    finally:
+        FNULL.close()
+    return ports
+
 def get_swp_interfaces():
     porttab_path = '/var/lib/cumulus/porttab'
     ports = []
@@ -43,9 +63,12 @@ def get_swp_interfaces():
                     ports.append(line.split()[0])
                 except ValueError:
                     continue
-    except Exception as e:
-        print 'Error: Unsupported script: %s' % str(e)
-        exit(1)
+    except:
+        try:
+            ports = get_pci_interfaces()
+        except Exception as e:
+            print 'Error: Unsupported script: %s' % str(e)
+            exit(1)
     if not ports:
         print 'Error: No ports found in %s' % porttab_path
         exit(1)
