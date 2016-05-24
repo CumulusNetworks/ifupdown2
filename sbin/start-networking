@@ -130,6 +130,7 @@ start)
 	echo ${NAME}':' "Configuring network interfaces"
 	ifup_mgmt
 	ifup -a $EXTRA_ARGS $exclusions $perfoptions
+	ifup_hotplug $HOTPLUG_ARGS $EXTRA_ARGS $exclusions
 	;;
 stop)
 	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
