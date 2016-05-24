@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20160525-1) unstable; urgency=medium
+
+  * Fix incorrect install location of networking default file
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 25 May 2016 01:04:31 +0200
+
 ifupdown2 (1.0~git20160316-1) unstable; urgency=medium
 
   * Fixing Debian Bug report - #813046 ifupdown2: No network connection on boot
