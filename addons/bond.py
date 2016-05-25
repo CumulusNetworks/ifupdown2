@@ -44,12 +44,16 @@ class bond(moduleBase):
                           'default' : '0',
                           'example' : ['bond-miimon 0']},
                      'bond-mode' :
-                         {'help' : 'bond mode',
-                          'validvals' : ['balance-rr', 'active-backup',
-                                          'balance-xor', 'broadcast', '802.3ad',
-                                          'balance-tlb', 'balance-alb'],
-                          'default' : 'balance-rr',
-                          'example' : ['bond-mode 802.3ad']},
+                         {'help': 'bond mode',
+                          'validvals': ['0', 'balance-rr',
+                                        '1', 'active-backup',
+                                        '2', 'balance-xor',
+                                        '3', 'broadcast',
+                                        '4', '802.3ad',
+                                        '5', 'balance-tlb',
+                                        '6', 'balance-alb'],
+                          'default': 'balance-rr',
+                          'example': ['bond-mode 802.3ad']},
                      'bond-lacp-rate':
                          {'help' : 'bond lacp rate',
                           'validvals' : ['0', '1'],
@@ -90,6 +94,34 @@ class bond(moduleBase):
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
                                       'bond-slaves regex (swp[1|2)']}}}
+
+    _bond_mode_num = {'0': 'balance-rr',
+                      '1': 'active-backup',
+                      '2': 'balance-xor',
+                      '3': 'broadcast',
+                      '4': '802.3ad',
+                      '5': 'balance-tlb',
+                      '6': 'balance-alb'}
+
+    _bond_mode_string = {'balance-rr': '0',
+                         'active-backup': '1',
+                         'balance-xor': '2',
+                         'broadcast': '3',
+                         '802.3ad': '4',
+                         'balance-tlb': '5',
+                         'balance-alb': '6'}
+
+    @staticmethod
+    def _get_readable_bond_mode(mode):
+        if mode in bond._bond_mode_num:
+            return bond._bond_mode_num[mode]
+        return mode
+
+    @staticmethod
+    def _get_num_bond_mode(mode):
+        if mode in bond._bond_mode_string:
+            return bond._bond_mode_string[mode]
+        return mode
 
     def __init__(self, *args, **kargs):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
@@ -165,15 +197,17 @@ class bond(moduleBase):
                         int(attrval) > int(validrange[1])):
                     raise Exception(msg + ' Valid range is [%s,%s]'
                                     %(validrange[0], validrange[1]))
-            if attrname == 'bond-mode' and attrval == '802.3ad':
-               dattrname = 'bond-min-links'
-               min_links = ifaceobj.get_attr_value_first(dattrname)
-               if not min_links:
-                   min_links = self.bondcmd.get_min_links(ifaceobj.name)
-               if min_links == '0':
-                   self.logger.warn('%s: attribute %s'
-                        %(ifaceobj.name, dattrname) +
-                        ' is set to \'0\'')
+            if attrname == 'bond-mode':
+                attrval = bond._get_readable_bond_mode(attrval)
+                if attrval == '802.3ad':
+                   dattrname = 'bond-min-links'
+                   min_links = ifaceobj.get_attr_value_first(dattrname)
+                   if not min_links:
+                       min_links = self.bondcmd.get_min_links(ifaceobj.name)
+                   if min_links == '0':
+                       self.logger.warn('%s: attribute %s'
+                            %(ifaceobj.name, dattrname) +
+                            ' is set to \'0\'')
         elif policy_default_val:
             return policy_default_val
         return attrval
@@ -295,6 +329,12 @@ class bond(moduleBase):
                                           self.get_mod_attrs())
         if not ifaceattrs: return
         runningattrs = self._query_running_attrs(ifaceobj.name)
+
+        # support for numerical bond-mode
+        mode = ifaceobj.get_attr_value_first('bond-mode')
+        if mode in bond._bond_mode_num:
+            if 'bond-mode' in runningattrs:
+                runningattrs['bond-mode'] = bond._get_num_bond_mode(runningattrs['bond-mode'])
 
         for k in ifaceattrs:
             v = ifaceobj.get_attr_value_first(k)
