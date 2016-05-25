@@ -19,6 +19,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.dhclient import dhclient
+from ifupdownaddons.utilsbase import *
 
 class vrfPrivFlags:
     PROCESSED = 0x1
@@ -632,8 +633,18 @@ class vrf(moduleBase):
 
             if not proc:
                 return
-            cmdl = ['/bin/ps', '--no-headers', '-fp', str(os.getppid())]
-            pid = utils.exec_commandl(cmdl).split()[2]
+            pid = None
+            # outpt of '/usr/bin/pstree -Aps <pid>':
+            # 'systemd(1)---sshd(990)---sshd(16112)---sshd(16126)---bash(16127)---sudo(16756)---ifreload(16761)---pstree(16842)\n'
+            # get the above output to following format
+            # ['systemd(1)', 'sshd(990)', 'sshd(16112)', 'sshd(16126)', 'bash(16127)', 'sudo(16756)', 'ifreload(16761)', 'pstree(16850)']
+            pstree = list(reversed(utils.exec_command('/usr/bin/pstree -Aps %s' %os.getpid()).strip().split('---')))
+            for index, process in enumerate(pstree):
+                # check the parent of SSH process to make sure
+                # we don't kill SSH server or systemd process
+                if 'sshd' in process and 'sshd' in pstree[index + 1]:
+                    pid = filter(lambda x: x.isdigit(), process)
+                    break
             self.logger.info("%s: killing active ssh sessions: %s"
                              %(ifacename, str(proc)))
 
