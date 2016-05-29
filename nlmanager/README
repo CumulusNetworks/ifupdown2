@@ -1,0 +1,6 @@
+DO NOT EDIT NLMANAGER SOURCES.
+This is a mirror copy of python-nlmanager sources.
+It was extracted and directly included here to support some usecases where
+user don't have python-nlmanager already installed on their system. So we
+decided to have local copy and build with it. It is the mainter responsability
+to keep an updated version of nlmanager.
