@@ -11,7 +11,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 from collections import Counter
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 import itertools
 import re
@@ -1097,14 +1097,14 @@ class bridge(moduleBase):
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
                     try:
-                        rtnetlink_api.rtnl_api.link_set(p, "up")
+                        netlink.link_set_updown(p, "up")
                     except Exception, e:
                         self.logger.debug('%s: %s: link set up (%s)'
                                           %(ifaceobj.name, p, str(e)))
                         pass
 
             if ifaceobj.addr_method == 'manual':
-               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                netlink.link_set_updown(ifaceobj.name, "up")
         if err:
             raise Exception(errstr)
 
@@ -1116,8 +1116,8 @@ class bridge(moduleBase):
                 if ports:
                     self.handle_ipv6(ports, '0')
                     if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                        map(lambda p: rtnetlink_api.rtnl_api.link_set(p,
-                                    "down"), ports)
+                        map(lambda p: netlink.link_set_updown(p, "down"),
+                            ports)
         except Exception, e:
             self.log_error(str(e))
 

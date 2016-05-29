@@ -11,7 +11,7 @@ import logging
 import re
 import os
 import traceback
-import rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 
 from iface import *
 import ifupdownflags as ifupdownflags
@@ -46,7 +46,7 @@ class ifupdownBase(object):
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
     def link_up(self, ifacename):
-        rtnetlink_api.rtnl_api.link_set(ifacename, "up")
+        netlink.link_set_updown(ifacename, "up")
 
     def link_down(self, ifacename):
-        rtnetlink_api.rtnl_api.link_set(ifacename, "down")
+        netlink.link_set_updown(ifacename, "down")

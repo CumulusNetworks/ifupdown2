@@ -4,7 +4,8 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.systemutils import systemUtils
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import os
 from sets import Set
@@ -68,7 +69,7 @@ class vxlan(moduleBase):
             ageing=ifaceobj.get_attr_value_first('vxlan-ageing'),
             anycastip=self._clagd_vxlan_anycast_ip)
             if ifaceobj.addr_method == 'manual':
-               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                netlink.link_set_updown(ifaceobj.name, "up")
 
     def _down(self, ifaceobj):
         try:

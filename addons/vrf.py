@@ -13,7 +13,7 @@ from ifupdown.iface import *
 from ifupdown.utils import utils
 import ifupdown.policymanager as policymanager
 import ifupdownaddons
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
@@ -492,10 +492,9 @@ class vrf(moduleBase):
         if ifaceobj.link_type == ifaceLinkType.LINK_MASTER:
             for s in config_slaves:
                 try:
-                    rtnetlink_api.rtnl_api.link_set(s, "up")
+                    netlink.link_set_updown(s, "up")
                 except Exception, e:
-                    self.logger.debug('%s: %s: link set up (%s)'
-                                      %(ifaceobj.name, s, str(e)))
+                    self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
 
     def _set_vrf_dev_processed_flag(self, ifaceobj):
@@ -601,7 +600,7 @@ class vrf(moduleBase):
             if add_slaves:
                 self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
             self._set_vrf_dev_processed_flag(ifaceobj)
-            rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+            netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
@@ -735,7 +734,7 @@ class vrf(moduleBase):
                         pass
                 try:
                     self.ipcmd.addr_flush(s)
-                    rtnetlink_api.rtnl_api.link_set(s, "down")
+                    netlink.link_set_updown(s, "down")
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
                     pass
@@ -769,7 +768,7 @@ class vrf(moduleBase):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
             self.ipcmd.link_set(ifacename, 'nomaster')
-            rtnetlink_api.rtnl_api.link_set(ifacename, "down")
+            netlink.link_set_updown(ifacename, "down")
         except Exception, e:
             self.logger.warn('%s: %s' %(ifacename, str(e)))
 

@@ -14,7 +14,7 @@ try:
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
     import ifupdown.policymanager as policymanager
-    import ifupdown.rtnetlink_api as rtnetlink_api
+    from ifupdown.netlink import netlink
     import ifupdown.ifupdownconfig as ifupdownConfig
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
@@ -305,20 +305,20 @@ class address(moduleBase):
                 running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if hwaddress != running_hwaddress:
                 slave_down = False
-                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "down")
+                netlink.link_set_updown(ifaceobj.name, "down")
                 if ifaceobj.link_kind & ifaceLinkKind.BOND:
                     # if bond, down all the slaves
                     if ifaceobj.lowerifaces:
                         for l in ifaceobj.lowerifaces:
-                            rtnetlink_api.rtnl_api.link_set(l, "down")
+                            netlink.link_set_updown(l, "down")
                         slave_down = True
                 try:
                     self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
                 finally:
-                    rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                    netlink.link_set_updown(ifaceobj.name, "up")
                     if slave_down:
                         for l in ifaceobj.lowerifaces:
-                            rtnetlink_api.rtnl_api.link_set(l, "up")
+                            netlink.link_set_updown(l, "up")
 
         try:
             # Handle special things on a bridge

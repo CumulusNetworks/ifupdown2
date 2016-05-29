@@ -9,7 +9,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import ifupdown.ifupdownconfig as ifupdownConfig
 
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import re
@@ -107,11 +107,9 @@ class vlan(moduleBase):
         to the bridge """
         if self.ipcmd.bridge_is_vlan_aware(bridgename):
            if add:
-              rtnetlink_api.rtnl_api.bridge_vlan(add=True, dev=bridgename,
-                                                 vid=vlanid, master=False)
+               netlink.link_add_bridge_vlan(bridgename, vlanid)
            else:
-              rtnetlink_api.rtnl_api.bridge_vlan(add=False, dev=bridgename,
-                                                 vid=vlanid, master=False)
+               netlink.link_del_bridge_vlan(bridgename, vlanid)
 
     def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
         """ If the lower device is a vlan aware bridge, check if the vlanid
@@ -143,11 +141,10 @@ class vlan(moduleBase):
                     if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
                         self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
                 return
-        rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
-                    ifaceobj.name, vlanid)
+        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
         if ifaceobj.addr_method == 'manual':
-           rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+            netlink.link_set_updown(ifaceobj.name, "up")
 
     def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)

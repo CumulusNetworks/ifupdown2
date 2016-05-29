@@ -10,7 +10,7 @@ from ifupdownaddons.iproute2 import iproute2
 
 import ifupdown.ifupdownconfig as ifupdownConfig
 import ifupdown.statemanager as statemanager
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 
 from ipaddr import IPNetwork
@@ -174,8 +174,7 @@ class addressvirtual(moduleBase):
             link_created = False
             macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
-                rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
-                                                      ifaceobj.name)
+                netlink.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
             ips = av_attrs[1:]
             if mac != 'None':

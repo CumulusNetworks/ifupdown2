@@ -10,7 +10,7 @@ import ifupdownaddons
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.policymanager as policymanager
 import ifupdown.ifupdownflags as ifupdownflags
 
@@ -270,23 +270,21 @@ class bond(moduleBase):
                     continue
             link_up = False
             if self.ipcmd.is_link_up(slave):
-               rtnetlink_api.rtnl_api.link_set(slave, "down")
-               link_up = True
+                netlink.link_set_updown(slave, "down")
+                link_up = True
             # If clag bond place the slave in a protodown state; clagd
             # will protoup it when it is ready
             if clag_bond:
                 try:
-                    rtnetlink_api.rtnl_api.link_set_protodown(slave, "on")
+                    netlink.link_set_protodown(slave, "on")
                 except Exception, e:
-                    self.logger.error('%s: %s: clag bond, switching slave protodown state on: %s'
-                                      %(ifaceobj.name, slave, str(e)))
+                    self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
-                    rtnetlink_api.rtnl_api.link_set(slave, "up")
+                    netlink.link_set_updown(slave, "up")
                except Exception, e:
-                    self.logger.debug('%s: %s: link set up (%s)'
-                                      %(ifaceobj.name, slave, str(e)))
+                    self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
 
         if runningslaves:
@@ -295,10 +293,9 @@ class bond(moduleBase):
                     self.bondcmd.remove_slave(ifaceobj.name, s)
                     if clag_bond:
                         try:
-                            rtnetlink_api.rtnl_api.link_set_protodown(s, "off")
+                            netlink.link_set_protodown(s, "off")
                         except Exception, e:
-                            self.logger.error('%s: %s: clag bond, switching slave protodown state off: %s'
-                                      %(ifaceobj.name, s, str(e)))
+                            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
     def _up(self, ifaceobj):
         try:
@@ -307,7 +304,7 @@ class bond(moduleBase):
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
             if ifaceobj.addr_method == 'manual':
-               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
