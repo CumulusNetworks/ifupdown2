@@ -8,6 +8,7 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.bridgeutils import brctl
+from ipaddr import IPv4Address
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
 
@@ -24,6 +25,7 @@ class bridgevlan(moduleBase):
                         'bridge-igmp-querier-src' :
                             { 'help' : 'bridge igmp querier src. Must be ' +
                                    'specified under the vlan interface',
+                              'validvals' : [IPv4Address, ],
                               'example' : ['bridge-igmp-querier-src 172.16.101.1']}}}
 
     def __init__(self, *args, **kargs):

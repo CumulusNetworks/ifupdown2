@@ -7,13 +7,12 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
-
 import ifupdown.ifupdownconfig as ifupdownConfig
 import ifupdown.statemanager as statemanager
 from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 
-from ipaddr import IPNetwork
+from ipaddr import IPNetwork, IPv4Network
 import logging
 import os
 import glob
@@ -27,7 +26,8 @@ class addressvirtual(moduleBase):
                 'attrs' : {
                     'address-virtual' :
                         { 'help' : 'bridge router virtual mac and ip',
-                          'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.254/24 11.0.1.254/24']}
+                          'validvals' : [('<mac>', IPv4Network), ],
+                          'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24']}
                  }}
 
 

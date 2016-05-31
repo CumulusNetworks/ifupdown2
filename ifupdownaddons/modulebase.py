@@ -29,6 +29,12 @@ class moduleBase(object):
         # here so that all modules can use it
         self.vrf_exec_cmd_prefix = policymanager.policymanager_api.get_module_globals('vrf', attr='vrf-exec-cmd-prefix')
 
+        # explanations are shown in parse_glob
+        self.glob_regexs = [re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\]([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)"),
+                            re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
+                            re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
+
+
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
         if not self.ignore_error(str):
@@ -93,15 +99,21 @@ class moduleBase(object):
                 raise Exception('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, ifacename, str(e)))
 
+    def ifname_is_glob(self, ifname):
+        """
+        Used by iface where ifname could be swp7 or swp[1-10].300
+        """
+        if (self.glob_regexs[0].match(ifname) or
+            self.glob_regexs[1].match(ifname) or
+            self.glob_regexs[2].match(ifname)):
+            return True
+        return False
+
     def parse_glob(self, ifacename, expr):
         errmsg = ('error parsing glob expression \'%s\'' %expr +
                     ' (supported glob syntax: swp1-10.300 or swp[1-10].300' +
                     '  or swp[1-10]sub[0-4].300')
-
-        # explanations are shown below in each if clause
-        regexs = [re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\]([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)"),
-                  re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
-                  re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
+        regexs = self.glob_regexs
 
         if regexs[0].match(expr):
             # the first regex checks for exactly two levels of ranges defined only with square brackets

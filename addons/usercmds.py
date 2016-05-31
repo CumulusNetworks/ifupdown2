@@ -15,17 +15,23 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
     _modinfo = {'mhelp' : 'user commands for interfaces',
                 'attrs' : {
                    'pre-up' :
-                        {'help' : 'run command before bringing the interface up'},
+                        {'help' : 'run command before bringing the interface up',
+                         'multiline' : True},
                    'up' :
-                        {'help' : 'run command at interface bring up'},
+                        {'help' : 'run command at interface bring up',
+                         'multiline' : True},
                    'post-up' :
-                        {'help' : 'run command after interface bring up'},
+                        {'help' : 'run command after interface bring up',
+                         'multiline' : True},
                    'pre-down' :
-                        {'help' : 'run command before bringing the interface down'},
+                        {'help' : 'run command before bringing the interface down',
+                         'multiline' : True},
                    'down' :
-                        {'help' : 'run command at interface down'},
+                        {'help' : 'run command at interface down',
+                         'multiline' : True},
                    'post-down' :
-                        {'help' : 'run command after bringing interface down'}}}
+                        {'help' : 'run command after bringing interface down',
+                         'multiline' : True}}}
 
     def _run_command(self, ifaceobj, op):
         cmd_list = ifaceobj.get_attr_value(op)

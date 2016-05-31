@@ -5,6 +5,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.systemutils import systemUtils
 from ifupdown.netlink import netlink
+from ipaddr import IPv4Address
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import os
@@ -15,23 +16,29 @@ class vxlan(moduleBase):
                 'attrs' : {
                         'vxlan-id' :
                             {'help' : 'vxlan id',
+                             'validrange' : ['0', '4096'],
                              'required' : True,
                              'example': ['vxlan-id 100']},
                         'vxlan-local-tunnelip' :
                             {'help' : 'vxlan local tunnel ip',
+                             'validvals' : [IPv4Address, ],
                              'example': ['vxlan-local-tunnelip 172.16.20.103']},
                         'vxlan-svcnodeip' :
                             {'help' : 'vxlan id',
+                             'validvals' : [IPv4Address, ],
                              'example': ['vxlan-svcnodeip 172.16.22.125']},
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
+                             'validvals' : [IPv4Address, ],
                              'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning on/off',
+                             'validvals' : ['on', 'off'],
                              'example': ['vxlan-learning off'],
                              'default': 'on'},
                         'vxlan-ageing' :
                             {'help' : 'vxlan aging timer',
+                             'validrange' : ['0', '4096'],
                              'example': ['vxlan-ageing 300'],
                              'default': '300'},
                 }}

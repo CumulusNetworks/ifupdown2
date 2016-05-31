@@ -7,7 +7,7 @@
 import os
 
 try:
-    from ipaddr import IPNetwork
+    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
     from sets import Set
     from ifupdown.iface import *
     from ifupdownaddons.modulebase import moduleBase
@@ -28,34 +28,44 @@ class address(moduleBase):
                 'attrs': {
                       'address' :
                             {'help' : 'ipv4 or ipv6 addresses',
+                             'validvals' : [IPv4Network, IPv6Network],
+                             'multiline' : True,
                              'example' : ['address 10.0.12.3/24',
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
+                             'validvals' : [IPv4Address, ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
                             {'help': 'broadcast address',
+                             'validvals' : [IPv4Address, ],
                              'example' : ['broadcast 10.0.1.255']},
                       'scope' :
                             {'help': 'scope',
+                             'validvals' : ['universe', 'site', 'link', 'host', 'nowhere'],
                              'example' : ['scope host']},
                       'preferred-lifetime' :
                             {'help': 'preferred lifetime',
+                              'validrange' : ['0', '65535'],
                              'example' : ['preferred-lifetime forever',
                                           'preferred-lifetime 10']},
                       'gateway' :
                             {'help': 'default gateway',
+                             'validvals' : [IPv4Address, IPv6Address],
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
+                              'validrange' : ['552', '9216'],
                               'example' : ['mtu 1600'],
                               'default' : '1500'},
                       'hwaddress' :
                             {'help' : 'hw address',
+                             'validvals' : ['<mac>',],
                              'example': ['hwaddress 44:38:39:00:27:b8']},
                       'alias' :
                             { 'help': 'description/alias',
+                              'validvals' : ['<text>',],
                               'example' : ['alias testnetwork']},
                       'address-purge' :
                             { 'help': 'purge existing addresses. By default ' +
@@ -63,11 +73,13 @@ class address(moduleBase):
                               'purged to match persistant addresses in the ' +
                               'interfaces file. Set this attribute to \'no\'' +
                               'if you want to preserve existing addresses',
+                              'validvals' : ['yes', 'no'],
                               'default' : 'yes',
                               'example' : ['address-purge yes/no']},
                       'clagd-vxlan-anycast-ip' :
                             { 'help'     : 'Anycast local IP address for ' +
                               'dual connected VxLANs',
+                              'validvals' : [IPv4Address, ],
                               'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
 
     def __init__(self, *args, **kargs):

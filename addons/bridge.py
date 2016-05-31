@@ -35,9 +35,11 @@ class bridge(moduleBase):
                         {'help' : 'vlan aware bridge. Setting this ' +
                                   'attribute to yes enables vlan filtering' +
                                   ' on the bridge',
+                         'validvals' : ['yes', 'no'],
                          'example' : ['bridge-vlan-aware yes/no']},
                    'bridge-ports' :
                         {'help' : 'bridge ports',
+                         'multivalue' : True,
                          'required' : True,
                          'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
                                       'bridge-ports glob swp1-3.100',
@@ -49,109 +51,137 @@ class bridge(moduleBase):
                          'default' : 'no'},
                    'bridge-bridgeprio' :
                         {'help': 'bridge priority',
+                         'validrange' : ['0', '65535'],
                          'example' : ['bridge-bridgeprio 32768'],
                          'default' : '32768'},
                    'bridge-ageing' :
                        {'help': 'bridge ageing',
+                         'validrange' : ['0', '65535'],
                          'example' : ['bridge-ageing 300'],
                          'default' : '300'},
                    'bridge-fd' :
                         { 'help' : 'bridge forward delay',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-fd 15'],
                           'default' : '15'},
                    'bridge-gcint' :
                         # XXX: recheck values
                         { 'help' : 'bridge garbage collection interval in secs',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-gcint 4'],
                           'default' : '4',
                           'compat' : True,
                           'deprecated': True},
                    'bridge-hello' :
                         { 'help' : 'bridge set hello time',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-hello 2'],
                           'default' : '2'},
                    'bridge-maxage' :
                         { 'help' : 'bridge set maxage',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-maxage 20'],
                           'default' : '20'},
                    'bridge-pathcosts' :
                         { 'help' : 'bridge set port path costs',
-                          'example' : ['bridge-pathcosts swp1=100 swp2=100'],
+                          'validrange' : ['0', '65535'],
+                          'example' : ['under the bridge: bridge-pathcosts swp1=100 swp2=100',
+                                       'under the port (recommended): bridge-pathcosts 100'],
                           'default' : '100'},
                    'bridge-portprios' :
                         { 'help' : 'bridge port prios',
-                          'example' : ['bridge-portprios swp1=32 swp2=32'],
+                          'validrange' : ['0', '65535'],
+                          'example' : ['under the bridge: bridge-portprios swp1=32 swp2=32',
+                                       'under the port (recommended): bridge-portprios 32'],
                           'default' : '32'},
                    'bridge-mclmc' :
                         { 'help' : 'set multicast last member count',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-mclmc 2'],
                           'default' : '2'},
                     'bridge-mcrouter' :
                         { 'help' : 'set multicast router',
+                          'validvals' : ['0', '1'],
                           'default' : '1',
                           'example' : ['bridge-mcrouter 1']},
                     'bridge-mcsnoop' :
                         { 'help' : 'set multicast snooping',
+                          'validvals' : ['0', '1'],
                           'default' : '1',
                           'example' : ['bridge-mcsnoop 1']},
                     'bridge-mcsqc' :
                         { 'help' : 'set multicast startup query count',
+                          'validrange' : ['0', '255'],
                           'default' : '2',
                           'example' : ['bridge-mcsqc 2']},
                     'bridge-mcqifaddr' :
                         { 'help' : 'set multicast query to use ifaddr',
+                          'validvals' : ['0', '1'],
                           'default' : '0',
                           'example' : ['bridge-mcqifaddr 0']},
                     'bridge-mcquerier' :
                         { 'help' : 'set multicast querier',
+                          'validvals' : ['0', '1'],
                           'default' : '0',
                           'example' : ['bridge-mcquerier 0']},
                     'bridge-hashel' :
                         { 'help' : 'set hash elasticity',
+                          'validrange' : ['0', '4096'],
                           'default' : '4096',
                           'example' : ['bridge-hashel 4096']},
                     'bridge-hashmax' :
                         { 'help' : 'set hash max',
+                          'validrange' : ['0', '4096'],
                           'default' : '4096',
                           'example' : ['bridge-hashmax 4096']},
                     'bridge-mclmi' :
                         { 'help' : 'set multicast last member interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '1',
                           'example' : ['bridge-mclmi 1']},
                     'bridge-mcmi' :
                         { 'help' : 'set multicast membership interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '260',
                           'example' : ['bridge-mcmi 260']},
                     'bridge-mcqpi' :
                         { 'help' : 'set multicast querier interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '255',
                           'example' : ['bridge-mcqpi 255']},
                     'bridge-mcqi' :
                         { 'help' : 'set multicast query interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '125',
                           'example' : ['bridge-mcqi 125']},
                     'bridge-mcqri' :
                         { 'help' : 'set multicast query response interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '10',
                           'example' : ['bridge-mcqri 10']},
                     'bridge-mcsqi' :
                         { 'help' : 'set multicast startup query interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '31',
                           'example' : ['bridge-mcsqi 31']},
                     'bridge-mcqv4src' :
                         { 'help' : 'set per VLAN v4 multicast querier source address',
+                          'validvals' : ['<number-ipv4-list>', ],
+                          'multivalue' : True,
                           'compat' : True,
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
                     'bridge-portmcrouter' :
                         { 'help' : 'set port multicast routers',
+                          'validvals' : ['0', '1'],
                           'default' : '1',
                           'example' : ['under the bridge: bridge-portmcrouter swp1=1 swp2=1',
-                                       'under the port: bridge-portmcrouter 1']},
+                                       'under the port (recommended): bridge-portmcrouter 1']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
+                          'validrange' : ['0', '65535'],
                           'default' : '0',
                           'example' : ['under the bridge: bridge-portmcfl swp1=0 swp2=0',
-                                       'under the port: bridge-portmcfl 0']},
+                                       'under the port (recommended): bridge-portmcfl 0']},
                     'bridge-waitport' :
                         { 'help' : 'wait for a max of time secs for the' +
                                 ' specified ports to become available,' +
@@ -165,11 +195,12 @@ class bridge(moduleBase):
                           'example' : ['bridge-waitport 4 swp1 swp2']},
                     'bridge-maxwait' :
                         { 'help' : 'forces to time seconds the maximum time ' +
-                                'that the Debian bridge setup  scripts will ' +
+                                'that the Debian bridge setup scripts will ' +
                                 'wait for the bridge ports to get to the ' +
                                 'forwarding status, doesn\'t allow factional ' +
                                 'part. If it is equal to 0 then no waiting' +
                                 ' is done',
+                          'validrange' : ['0', '255'],
                           'default' : '0',
                           'example' : ['bridge-maxwait 3']},
                     'bridge-vids' :
@@ -177,22 +208,25 @@ class bridge(moduleBase):
                                    'under the bridge or under the port. ' +
                                    'If specified under the bridge the ports ' +
                                    'inherit it unless overridden by a ' +
-                                   'bridge-vids attribuet under the port',
+                                   'bridge-vids attribute under the port',
                           'example' : ['bridge-vids 4000',
                                        'bridge-vids 2000 2200-3000']},
                     'bridge-pvid' :
                         { 'help' : 'bridge port pvid. Must be specified under' +
                                    ' the bridge port',
+                          'validrange' : ['0', '4096'],
                           'example' : ['bridge-pvid 1']},
                     'bridge-access' :
                         { 'help' : 'bridge port access vlan. Must be ' +
                                    'specified under the bridge port',
+                          'validrange' : ['0', '4096'],
                           'example' : ['bridge-access 300']},
                     'bridge-allow-untagged' :
                         { 'help' : 'indicate if the bridge port accepts ' +
                                    'untagged packets or not.  Must be ' +
                                    'specified under the bridge port. ' +
                                    'Default is \'yes\'',
+                          'validvals' : ['yes', 'no'],
                           'example' : ['bridge-allow-untagged yes'],
                           'default' : 'yes'},
                     'bridge-port-vids' :

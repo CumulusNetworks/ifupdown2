@@ -30,6 +30,7 @@ class mstpctl(moduleBase):
                          'new-attribute': 'bridge-ports'},
                    'mstpctl-stp' :
                         {'help': 'bridge stp yes/no',
+                         'validvals' : ['yes', 'no'],
                          'compat' : True,
                          'default' : 'no',
                          'deprecated': True,
@@ -42,47 +43,56 @@ class mstpctl(moduleBase):
                          'example' : ['mstpctl-treeprio 32768']},
                    'mstpctl-ageing' :
                         {'help': 'ageing time',
+                         'validrange' : ['0', '4096'],
                          'default' : '300',
                          'required' : False,
                          'example' : ['mstpctl-ageing 300']},
                     'mstpctl-maxage' :
                         { 'help' : 'max message age',
+                          'validrange' : ['0', '255'],
                           'default' : '20',
                           'required' : False,
                           'example' : ['mstpctl-maxage 20']},
                     'mstpctl-fdelay' :
                         { 'help' : 'set forwarding delay',
+                          'validrange' : ['0', '255'],
                           'default' : '15',
                           'required' : False,
                           'example' : ['mstpctl-fdelay 15']},
                     'mstpctl-maxhops' :
                         { 'help' : 'bridge max hops',
+                          'validrange' : ['0', '255'],
                           'default' : '15',
                           'required' : False,
                           'example' : ['mstpctl-maxhops 15']},
                     'mstpctl-txholdcount' :
                         { 'help' : 'bridge transmit holdcount',
+                          'validrange' : ['0', '255'],
                           'default' : '6',
                           'required' : False,
                           'example' : ['mstpctl-txholdcount 6']},
                     'mstpctl-forcevers' :
                         { 'help' : 'bridge force stp version',
+                          'validvals' : ['rstp', ],
                           'default' : 'rstp',
                           'required' : False,
                           'example' : ['mstpctl-forcevers rstp']},
                     'mstpctl-portpathcost' :
                         { 'help' : 'bridge port path cost',
+                          'validrange' : ['0', '65535'],
                           'default' : '0',
                           'jsonAttr' : 'adminExtPortCost',
                           'required' : False,
-                          'example' : ['mstpctl-portpathcost swp1=0 swp2=1']},
+                          'example' : ['under the bridge: mstpctl-portpathcost swp1=0 swp2=1',
+                                       'under the port (recommended): mstpctl-portpathcost 0']},
                     'mstpctl-portp2p' :
                         { 'help' : 'bridge port p2p detection mode',
                           'default' : 'auto',
                           'jsonAttr' : 'adminPointToPoint',
                           'validvals' : ['yes', 'no', 'auto'],
                           'required' : False,
-                          'example' : ['mstpctl-portp2p swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portp2p swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portp2p yes']},
                     'mstpctl-portrestrrole' :
                         { 'help' :
                           'enable/disable port ability to take root role of the port',
@@ -90,7 +100,8 @@ class mstpctl(moduleBase):
                           'jsonAttr' : 'restrictedRole',
                           'validvals' : ['yes', 'no'],
                           'required' : False,
-                          'example' : ['mstpctl-portrestrrole swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portrestrrole swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portrestrrole yes']},
                     'mstpctl-portrestrtcn' :
                         { 'help' :
                           'enable/disable port ability to propagate received topology change notification of the port',
@@ -98,7 +109,8 @@ class mstpctl(moduleBase):
                           'jsonAttr' : 'restrictedTcn',
                           'validvals' : ['yes', 'no'],
                           'required' : False,
-                          'example' : ['mstpctl-portrestrtcn swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portrestrtcn swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portrestrtcn yes']},
                     'mstpctl-bpduguard' :
                         { 'help' :
                           'enable/disable bpduguard',
@@ -106,16 +118,19 @@ class mstpctl(moduleBase):
                           'jsonAttr' : 'bpduGuardPort',
                           'validvals' : ['yes', 'no'],
                           'required' : False,
-                          'example' : ['mstpctl-bpduguard swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-bpduguard swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-bpduguard yes']},
                     'mstpctl-treeportprio' : 
                         { 'help' :
                           'port priority for MSTI instance',
                           'default' : '128',
                           'validrange' : ['0', '240'],
                           'required' : False,
-                          'example' : ['mstpctl-treeportprio swp1=128 swp2=128']},
+                          'example' : ['under the bridge: mstpctl-treeportprio swp1=128 swp2=128',
+                                       'under the port (recommended): mstpctl-treeportprio 128']},
                     'mstpctl-hello' :
                         { 'help' : 'set hello time',
+                          'validrange' : ['0', '255'],
                           'default' : '2',
                           'required' : False,
                           'example' : ['mstpctl-hello 2']},
@@ -125,23 +140,27 @@ class mstpctl(moduleBase):
                           'default' : 'no',
                           'jsonAttr' : 'networkPort',
                           'required' : False,
-                          'example' : ['mstpctl-portnetwork swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portnetwork swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portnetwork yes']},
                     'mstpctl-portadminedge' : 
                         { 'help' : 'enable/disable initial edge state of the port',
                           'validvals' : ['yes', 'no'],
                           'default' : 'no',
                           'jsonAttr' : 'adminEdgePort',
                           'required' : False,
-                          'example' : ['mstpctl-portadminedge swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portadminedge swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portadminedge yes']},
                     'mstpctl-portautoedge' : 
                         { 'help' : 'enable/disable auto transition to/from edge state of the port',
                           'validvals' : ['yes', 'no'],
                           'default' : 'yes',
                           'jsonAttr' : 'autoEdgePort',
                           'required' : False,
-                          'example' : ['mstpctl-portautoedge swp1=yes swp2=yes']},
+                          'example' : ['under the bridge: mstpctl-portautoedge swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portautoedge yes']},
                     'mstpctl-treeportcost' : 
                         { 'help' : 'port tree cost',
+                          'validrange' : ['0', '255'],
                           'required' : False},
                     'mstpctl-portbpdufilter' : 
                         { 'help' : 'enable/disable bpdu filter on a port. ' +

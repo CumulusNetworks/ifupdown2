@@ -25,6 +25,7 @@ class ethtool(moduleBase,utilsBase):
                 'attrs': {
                       'link-speed' :
                             {'help' : 'set link speed',
+                             'validvals' : ['100', '1000', '10000', '40000', '100000'],
                              'example' : ['link-speed 1000'],
                              'default' : 'varies by platform and port'},
                       'link-duplex' :

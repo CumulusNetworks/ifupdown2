@@ -24,9 +24,11 @@ class vlan(moduleBase):
                         'attributes',
                 'attrs' : {
                         'vlan-raw-device' :
-                            {'help' : 'vlan raw device'},
+                            {'help' : 'vlan raw device',
+                             'validvals' : ['<interface>' ,]},
                         'vlan-id' :
-                            {'help' : 'vlan id'}}}
+                            {'help' : 'vlan id',
+                             'validrange' : ['0', '4096']}}}
 
 
     def __init__(self, *args, **kargs):

@@ -17,6 +17,7 @@ class link(moduleBase):
                 'attrs' : {
                    'link-type' :
                         {'help' : 'type of link as in \'ip link\' command.',
+                         'validvals' : ['dummy', 'veth'],
                          'example' : ['link-type <dummy|veth>']}}}
 
     def __init__(self, *args, **kargs):

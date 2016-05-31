@@ -27,12 +27,15 @@ class vrrpd(moduleBase):
                 'attrs': {
                       'vrrp-id' :
                             {'help' : 'vrrp instance id',
+                             'validrange' : ['1', '4096'],
                              'example' : ['vrrp-id 1']},
                       'vrrp-priority' :
                             {'help': 'set vrrp priority',
+                             'validrange' : ['0', '255'],
                              'example' : ['vrrp-priority 20']},
                       'vrrp-virtual-ip' :
                             {'help': 'set vrrp virtual ip',
+                             'validvals' : [IPv4Address, ],
                              'example' : ['vrrp-virtual-ip 10.0.1.254']}}}
 
     def __init__(self, *args, **kargs):

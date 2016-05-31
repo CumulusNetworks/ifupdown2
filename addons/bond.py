@@ -62,25 +62,30 @@ class bond(moduleBase):
                      'bond-min-links':
                          {'help' : 'bond min links',
                           'default' : '0',
+                          'validrange' : ['0', '255'],
                           'example' : ['bond-min-links 0']},
                      'bond-ad-sys-priority':
                          {'help' : '802.3ad system priority',
                           'default' : '65535',
+                          'validrange' : ['0', '65535'],
                           'example' : ['bond-ad-sys-priority 65535'],
                           'deprecated' : True,
                           'new-attribute' : 'bond-ad-actor-sys-prio'},
                      'bond-ad-actor-sys-prio':
                          {'help' : '802.3ad system priority',
                           'default' : '65535',
+                          'validrange' : ['0', '65535'],
                           'example' : ['bond-ad-actor-sys-prio 65535']},
                      'bond-ad-sys-mac-addr':
                          {'help' : '802.3ad system mac address',
+                          'validvals' : ['<mac>',],
                           'default' : '00:00:00:00:00:00',
                          'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
                          'deprecated' : True,
                          'new-attribute' : 'bond-ad-actor-system'},
                      'bond-ad-actor-system':
                          {'help' : '802.3ad system mac address',
+                          'validvals' : ['<mac>',],
                           'default' : '00:00:00:00:00:00',
                          'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
                      'bond-lacp-bypass-allow':
@@ -91,6 +96,7 @@ class bond(moduleBase):
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
+                         'multivalue' : True,
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
                                       'bond-slaves regex (swp[1|2)']}}}
