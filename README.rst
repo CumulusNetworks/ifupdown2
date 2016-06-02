@@ -55,8 +55,7 @@ build
 - get source
 
 - install build dependencies:
-    apt-get install python-stdeb
-    apt-get install python-docutils
+    apt-get install python-stdeb python-docutils
 
 - cd <python-ifupdown2 sourcedir> && ./build.sh
 
