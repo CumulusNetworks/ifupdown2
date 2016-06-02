@@ -40,6 +40,17 @@ class iproute2(utilsBase):
             return True
         return False
 
+    def _get_vland_id(self, citems, i, warn):
+        try:
+            sub = citems[i:]
+            index = sub.index('id')
+            int(sub[index + 1])
+            return sub[index + 1]
+        except:
+            if warn:
+                raise Exception('invalid use of \'vlan\' keyword')
+            return None
+
     def _link_fill(self, ifacename=None, refresh=False):
         """ fills cache with link information
        
@@ -47,6 +58,7 @@ class iproute2(utilsBase):
         fill cache for all interfaces in the system
         """
 
+        warn = True
         linkout = {}
         if iproute2._cache_fill_done and not refresh: return
         try:
@@ -75,46 +87,55 @@ class iproute2(utilsBase):
             linkattrs['flags'] = flags
             linkattrs['ifflag'] = 'UP' if 'UP' in flags else 'DOWN'
             for i in range(0, len(citems)):
-                if citems[i] == 'mtu': linkattrs['mtu'] = citems[i+1]
-                elif citems[i] == 'state': linkattrs['state'] = citems[i+1]
-                elif citems[i] == 'link/ether': linkattrs['hwaddress'] = citems[i+1]
-                elif citems[i] == 'vlan':
-                    vidx = citems.index('id')
-                    linkattrs['linkinfo'] = {'vlanid' : citems[vidx+1]}
-                    linkattrs['kind'] = 'vlan'
-                elif citems[i] == 'dummy':
-                    linkattrs['kind'] = 'dummy'
-                elif citems[i] == 'vxlan' and citems[i+1] == 'id':
-                    linkattrs['kind'] = 'vxlan'
-                    vattrs = {'vxlanid' : citems[i+2],
-                              'svcnode' : None,
-                              'remote'  : [],
-                              'ageing' : citems[i+2],
-                              'learning': 'on'}
-                    for j in range(i+2, len(citems)):
-                        if citems[j] == 'local':
-                            vattrs['local'] = citems[j+1]
-                        elif citems[j] == 'remote':
-                            vattrs['svcnode'] = citems[j+1]
-                        elif citems[j] == 'ageing':
-                            vattrs['ageing'] = citems[j+1]
-                        elif citems[j] == 'nolearning':
-                            vattrs['learning'] = 'off'
-                    # get vxlan peer nodes
-                    peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
-                    if peers:
-                        vattrs['remote'] = peers
-                    linkattrs['linkinfo'] = vattrs
-                    break
-                elif citems[i] == 'vrf' and citems[i+1] == 'table':
-                    vattrs = {'table' : citems[i+2]}
-                    linkattrs['linkinfo'] = vattrs
-                    linkattrs['kind'] = 'vrf'
-                    linkCache.vrfs[ifname] = vattrs
-                    break
-                elif citems[i] == 'vrf_slave':
-                    linkattrs['kind'] = 'vrf_slave'
-                    break
+                try:
+                    if citems[i] == 'mtu':
+                        linkattrs['mtu'] = citems[i + 1]
+                    elif citems[i] == 'state':
+                        linkattrs['state'] = citems[i + 1]
+                    elif citems[i] == 'link/ether':
+                        linkattrs['hwaddress'] = citems[i + 1]
+                    elif citems[i] == 'vlan':
+                        vlanid = self._get_vland_id(citems, i, warn)
+                        if vlanid:
+                            linkattrs['linkinfo'] = {'vlanid': vlanid}
+                            linkattrs['kind'] = 'vlan'
+                    elif citems[i] == 'dummy':
+                        linkattrs['kind'] = 'dummy'
+                    elif citems[i] == 'vxlan' and citems[i + 1] == 'id':
+                        linkattrs['kind'] = 'vxlan'
+                        vattrs = {'vxlanid': citems[i + 2],
+                                  'svcnode': None,
+                                  'remote': [],
+                                  'ageing': citems[i + 2],
+                                  'learning': 'on'}
+                        for j in range(i + 2, len(citems)):
+                            if citems[j] == 'local':
+                                vattrs['local'] = citems[j + 1]
+                            elif citems[j] == 'remote':
+                                vattrs['svcnode'] = citems[j + 1]
+                            elif citems[j] == 'ageing':
+                                vattrs['ageing'] = citems[j + 1]
+                            elif citems[j] == 'nolearning':
+                                vattrs['learning'] = 'off'
+                        # get vxlan peer nodes
+                        peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
+                        if peers:
+                            vattrs['remote'] = peers
+                        linkattrs['linkinfo'] = vattrs
+                        break
+                    elif citems[i] == 'vrf' and citems[i + 1] == 'table':
+                        vattrs = {'table': citems[i + 2]}
+                        linkattrs['linkinfo'] = vattrs
+                        linkattrs['kind'] = 'vrf'
+                        linkCache.vrfs[ifname] = vattrs
+                        break
+                    elif citems[i] == 'vrf_slave':
+                        linkattrs['kind'] = 'vrf_slave'
+                        break
+                except Exception as e:
+                    if warn:
+                        self.logger.debug('%s: parsing error: id, mtu, state, link/ether, vlan, dummy, vxlan, local, remote, ageing, nolearning, vrf, table, vrf_slave are reserved keywords: %s' % (ifname, str(e)))
+                        warn = False
             #linkattrs['alias'] = self.read_file_oneline(
             #            '/sys/class/net/%s/ifalias' %ifname)
             linkout[ifname] = linkattrs
