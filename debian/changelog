@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u3) RELEASED; urgency=medium
+
+  * Closes: CM-11214. Interface configuration parsing error when keyword vlan is the interface name.
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Sun, 05 Jun 2016 08:55:50 -0700
+
 ifupdown2 (1.1-cl3u2) RELEASED; urgency=medium
 
   * Closes: CM-10478. checks for invalid address-virtual attributes
