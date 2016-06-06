@@ -43,20 +43,21 @@ class policymanager():
         # the defaults_policy is checked first
         user_files = glob.glob('/etc/network/ifupdown2/policy.d/*.json')
         # grab the default module files
-        default_files = glob.glob('/var/lib/ifupdownaddons/policy.d/*.json')
+        default_files = glob.glob('/var/lib/ifupdown2/policy.d/*.json')
         # keep an array of defaults indexed by module name
         self.system_policy_array = {}
         for filename in default_files:
             system_array  = {}
             try:
-                fd = open(filename,'r')
-                system_array = json.load(fd)
+                with open(filename, 'r') as fd:
+                    system_array = json.load(fd)
                 self.logger.debug('reading %s system policy defaults config' \
                                   % filename)
             except Exception, e:
-                self.logger.debug('could not read %s system policy defaults config' \
+                self.logger.info('could not read %s system policy defaults config' \
                                   % filename)
-                self.logger.debug('    exception is %s' % str(e))
+                self.logger.info('    exception is %s' % str(e))
+
             for module in system_array.keys():
                 if self.system_policy_array.has_key(module):
                     self.logger.debug('warning: overwriting system module %s from file %s' \
@@ -68,8 +69,8 @@ class policymanager():
         for filename in user_files:
             user_array  = {}
             try:
-                fd = open(filename,'r')
-                user_array = json.load(fd)
+                with open(filename, 'r') as fd:
+                    user_array = json.load(fd)
                 self.logger.debug('reading %s policy user defaults config' \
                                   % filename)
             except Exception, e:
@@ -106,25 +107,25 @@ class policymanager():
             # looks for user specified value
             val = self.user_policy_array[module_name]['iface_defaults'][ifname][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
         try:
             # failing that, there may be a user default for all intefaces
             val = self.user_policy_array[module_name]['defaults'][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
         try:
             # failing that, look for  system setting for the interface
             val = self.system_policy_array[module_name]['iface_defaults'][ifname][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
         try:
             # failing that, look for  system setting for all interfaces
             val = self.system_policy_array[module_name]['defaults'][attr]
             return val
-        except:
+        except (TypeError, KeyError, IndexError):
             pass
 
         # could not find any system or user default so return Non
@@ -135,7 +136,7 @@ class policymanager():
         get_attr_default: Addon modules must use one of two types of access methods to
         the default configs.   In this method, we expect the default to be in
 
-        [module][attr] 
+        [module]['defaults'][attr] 
 
         We first check the user_policy_array and return that value. But if
         the user did not specify an override, we use the system_policy_array.
@@ -143,14 +144,51 @@ class policymanager():
         if (not attr or not module_name):
             return None
         # users can specify defaults to override the systemwide settings
-        # look for user specific interface attribute iface_defaults first
+        # look for user specific attribute defaults first
         val = None
-        if self.user_policy_array.get(module_name):
-            val = self.user_policy_array[module_name].get(attr)
+        try:
+            # looks for user specified value
+            val = self.user_policy_array[module_name]['defaults'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
+        try:
+            # failing that, look for system setting
+            val = self.system_policy_array[module_name]['defaults'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
 
-        if not val:
-            if self.system_policy_array.get(module_name):
-                val = self.system_policy_array[module_name].get(attr)
+        return val
+
+    def get_module_globals(self,module_name=None,attr=None):
+        '''
+        get_module_globals: Addon modules must use one of two types of access methods to
+        the default configs.   In this method, we expect the default to be in
+
+        [module]['module_globals'][attr] 
+
+        We first check the user_policy_array and return that value. But if
+        the user did not specify an override, we use the system_policy_array.
+        '''
+
+        if (not attr or not module_name):
+            return None
+        # users can specify defaults to override the systemwide settings
+        # look for user specific attribute defaults first
+        val = None
+        try:
+            # looks for user specified value
+            val = self.user_policy_array[module_name]['module_globals'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
+        try:
+            # failing that, look for system setting
+            val = self.system_policy_array[module_name]['module_globals'][attr]
+            return val
+        except (TypeError, KeyError, IndexError):
+            pass
 
         return val
 

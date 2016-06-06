@@ -64,6 +64,9 @@ class networkInterfaces():
         self._currentfile_has_template = False
         self._ws_split_regex = re.compile(r'[\s\t]\s*')
 
+        self.errors = 0
+        self.warns = 0
+
     @property
     def _currentfile(self):
         try:
@@ -76,12 +79,14 @@ class networkInterfaces():
             self.logger.error('%s: %s' %(filename, msg))
         else:
             self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
+        self.errors += 1
 
     def _parse_warn(self, filename, lineno, msg):
         if lineno == -1 or self._currentfile_has_template:
             self.logger.warn('%s: %s' %(filename, msg))
         else:
             self.logger.warn('%s: line%d: %s' %(filename, lineno, msg))
+        self.warns += 1
 
     def _validate_addr_family(self, ifaceobj, lineno=-1):
         if ifaceobj.addr_family:
@@ -149,7 +154,8 @@ class networkInterfaces():
         if sourced_file:
             filenames = glob.glob(sourced_file)
             if not filenames:
-                self._parse_warn(self._currentfile, lineno,
+                if '*' not in sourced_file:
+                    self._parse_warn(self._currentfile, lineno,
                             'cannot find source file %s' %sourced_file)
                 return 0
             for f in filenames:
@@ -218,6 +224,10 @@ class networkInterfaces():
         iface_line = lines[cur_idx].strip(whitespaces)
         iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
+
+        if utils.check_ifname_size_invalid(ifacename):
+            self._parse_warn(self._currentfile, lineno,
+                             '%s: interface name too long' %ifacename)
 
         # in cases where mako is unable to render the template
         # or incorrectly renders it due to user template
@@ -327,8 +337,8 @@ class networkInterfaces():
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword
-        tmp_str = str.split('-')[0]
-        if tmp_str in self.network_elems.keys():
+        if (str in self.network_elems.keys() or
+            str.split('-')[0] == 'allow'):
             return 1
         return 0
 
@@ -397,9 +407,13 @@ class networkInterfaces():
             return
         self._filestack.append(filename)
         self.logger.info('processing interfaces file %s' %filename)
-        f = open(filename)
-        filedata = f.read()
-        f.close()
+        try:
+            with open(filename) as f:
+                filedata = f.read()
+        except Exception, e:
+            self.logger.warn('error processing file %s (%s)',
+                             filename, str(e))
+            return
         self.read_filedata(filedata)
         self._filestack.pop()
 
@@ -409,20 +423,23 @@ class networkInterfaces():
                               #object_hook=ifaceJsonDecoder.json_object_hook)
         elif filename:
             self.logger.info('processing interfaces file %s' %filename)
-            fp = open(filename)
-            ifacedicts = json.load(fp)
+            with open(filename) as fp:
+                ifacedicts = json.load(fp)
                             #object_hook=ifaceJsonDecoder.json_object_hook)
 
         # we need to handle both lists and non lists formats (e.g. {{}})
         if not isinstance(ifacedicts,list):
             ifacedicts = [ifacedicts]
 
+        errors = 0
         for ifacedict in ifacedicts:
             ifaceobj = ifaceJsonDecoder.json_to_ifaceobj(ifacedict)
             if ifaceobj:
                 self._validate_addr_family(ifaceobj)
-                self.callbacks.get('validateifaceobj')(ifaceobj)
+                if not self.callbacks.get('validateifaceobj')(ifaceobj):
+                    errors += 1
                 self.callbacks.get('iface_found')(ifaceobj)
+        self.errors += errors
         
     def load(self):
         """ This member function loads the networkinterfaces file.
@@ -430,6 +447,12 @@ class networkInterfaces():
         Assumes networkinterfaces parser object is initialized with the
         parser arguments
         """
+        if not self.interfacesfile and not self.interfacesfileiobuf:
+            self.logger.warn('no terminal line stdin used or ')
+            self.logger.warn('no network interfaces file defined.')
+            self.warns += 1
+            return
+
         if self.interfacesfileformat == 'json':
             return self.read_file_json(self.interfacesfile,
                                        self.interfacesfileiobuf)

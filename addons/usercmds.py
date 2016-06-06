@@ -4,8 +4,10 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import subprocess
 import ifupdownaddons
+
+from ifupdown.utils import utils
+import ifupdown.ifupdownflags as ifupdownflags
 
 class usercmds(ifupdownaddons.modulebase.moduleBase):
     """  ifupdown2 addon module to configure user specified commands """
@@ -13,55 +15,34 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
     _modinfo = {'mhelp' : 'user commands for interfaces',
                 'attrs' : {
                    'pre-up' :
-                        {'help' : 'run command before bringing the interface up'},
+                        {'help' : 'run command before bringing the interface up',
+                         'multiline' : True},
                    'up' :
-                        {'help' : 'run command at interface bring up'},
+                        {'help' : 'run command at interface bring up',
+                         'multiline' : True},
                    'post-up' :
-                        {'help' : 'run command after interface bring up'},
+                        {'help' : 'run command after interface bring up',
+                         'multiline' : True},
                    'pre-down' :
-                        {'help' : 'run command before bringing the interface down'},
+                        {'help' : 'run command before bringing the interface down',
+                         'multiline' : True},
                    'down' :
-                        {'help' : 'run command at interface down'},
+                        {'help' : 'run command at interface down',
+                         'multiline' : True},
                    'post-down' :
-                        {'help' : 'run command after bringing interface down'}}}
-
-    def _exec_user_cmd(self, cmd):
-        """ exec's commands using subprocess Popen
-
-        special wrapper using use closefds=True and shell=True
-        for user commands
-        """
-
-        cmd_returncode = 0
-        try:
-            self.logger.info('executing %s' %cmd)
-            if self.DRYRUN:
-                return
-            ch = subprocess.Popen(cmd,
-                    stdout=subprocess.PIPE,
-                    shell=True,
-                    stderr=subprocess.STDOUT,
-                    close_fds=True)
-            cmd_returncode = ch.wait()
-            cmdout = ch.communicate()[0]
-        except Exception, e:
-            raise Exception('failed to execute cmd \'%s\' (%s)'
-                            %(cmd, str(e)))
-        if cmd_returncode != 0:
-            raise Exception(cmdout)
-        return cmdout
+                        {'help' : 'run command after bringing interface down',
+                         'multiline' : True}}}
 
     def _run_command(self, ifaceobj, op):
         cmd_list = ifaceobj.get_attr_value(op)
         if cmd_list:
             for cmd in cmd_list:
-                self.logger.info('executing cmd \'%s\'' %cmd)
                 try:
-                    self._exec_user_cmd(cmd)
+                    utils.exec_user_command(cmd)
                 except Exception, e:
                     if not self.ignore_error(str(e)):
-                        self.logger.warn('%s: %s cmd \'%s\' failed (%s)'
-                                %(ifaceobj.name, op, cmd, str(e).strip('\n')))
+                        self.logger.warn('%s: %s %s' % (ifaceobj.name, op,
+                                                        str(e).strip('\n')))
                     pass
 
     _run_ops = {'pre-up' : _run_command,

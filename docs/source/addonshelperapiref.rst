@@ -15,15 +15,26 @@ Helper module to work with bridgeutil commands
 
 .. autoclass:: brctl
 
+<<<<<<< HEAD
 ifenslaveutil
 =============
+=======
+bondutil
+========
+>>>>>>> cumulus/dev
 
 Helper module to interact with linux api to create bonds.
 Currently this is via sysfs.
 
+<<<<<<< HEAD
 .. automodule:: ifenslaveutil
 
 .. autoclass:: ifenslaveutil
+=======
+.. automodule:: bondutil
+
+.. autoclass:: bondutil
+>>>>>>> cumulus/dev
 
 dhclient
 ========

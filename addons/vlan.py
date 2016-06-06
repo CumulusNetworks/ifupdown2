@@ -7,7 +7,10 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
-import ifupdown.rtnetlink_api as rtnetlink_api
+import ifupdown.ifupdownconfig as ifupdownConfig
+
+from ifupdown.netlink import netlink
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import re
 
@@ -21,9 +24,11 @@ class vlan(moduleBase):
                         'attributes',
                 'attrs' : {
                         'vlan-raw-device' :
-                            {'help' : 'vlan raw device'},
+                            {'help' : 'vlan raw device',
+                             'validvals' : ['<interface>' ,]},
                         'vlan-id' :
-                            {'help' : 'vlan id'}}}
+                            {'help' : 'vlan id',
+                             'validrange' : ['0', '4096']}}}
 
 
     def __init__(self, *args, **kargs):
@@ -91,7 +96,7 @@ class vlan(moduleBase):
         if vlan_raw_device:
             return vlan_raw_device
         return self._get_vlan_raw_device_from_ifacename(ifaceobj.name)
-        
+
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
         if not self._is_vlan_device(ifaceobj):
             return None
@@ -104,11 +109,9 @@ class vlan(moduleBase):
         to the bridge """
         if self.ipcmd.bridge_is_vlan_aware(bridgename):
            if add:
-              rtnetlink_api.rtnl_api.bridge_vlan(add=True, dev=bridgename,
-                                                 vid=vlanid, master=False)
+               netlink.link_add_bridge_vlan(bridgename, vlanid)
            else:
-              rtnetlink_api.rtnl_api.bridge_vlan(add=False, dev=bridgename,
-                                                 vid=vlanid, master=False)
+               netlink.link_del_bridge_vlan(bridgename, vlanid)
 
     def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
         """ If the lower device is a vlan aware bridge, check if the vlanid
@@ -127,22 +130,23 @@ class vlan(moduleBase):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
             raise Exception('could not determine vlanid')
-        if self._handle_reserved_vlan(vlanid, ifaceobj.name):
-           return
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             if not self.ipcmd.link_exists(vlanrawdevice):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
+                if ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0' and len(ifaceobj.lowerifaces):
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
+                        self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
                 return
-        rtnetlink_api.rtnl_api.create_vlan(vlanrawdevice,
-                    ifaceobj.name, vlanid)
+        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
         if ifaceobj.addr_method == 'manual':
-           rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+            netlink.link_set_updown(ifaceobj.name, "up")
 
     def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)
@@ -151,7 +155,8 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
-        if not self.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
+        if (not ifupdownflags.flags.PERFMODE and
+            not self.ipcmd.link_exists(ifaceobj.name)):
            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
@@ -203,8 +208,7 @@ class vlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
-        
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

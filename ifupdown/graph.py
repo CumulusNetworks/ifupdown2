@@ -18,9 +18,7 @@ except ImportError, e:
 class graph():
     """ graph functions to sort and print interface graph """
 
-    def __init__(self):
-        self.logger = logging.getLogger('ifupdown.' +
-                    self.__class__.__name__)
+    logger = logging.getLogger('ifupdown.graph')
 
     @classmethod
     def topological_sort_graphs_all(cls, dependency_graphs, indegrees_arg):
@@ -51,7 +49,12 @@ class graph():
                 continue
 
             for y in dlist:
-                indegrees[y] = indegrees.get(y) - 1
+                try:
+                    indegrees[y] = indegrees.get(y) - 1
+                except:
+                    cls.logger.debug('topological_sort_graphs_all: did not find %s' %y)
+                    indegrees[y] = 0
+                    pass
                 if indegrees.get(y) == 0:
                     Q.append(y)
 

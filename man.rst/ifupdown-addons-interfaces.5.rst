@@ -58,12 +58,21 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: off
 
         **validvals**: on,off
 
         **example**:
             link-autoneg on
+=======
+        **default**: no
+
+        **validvals**: yes,no
+
+        **example**:
+            link-autoneg yes
+>>>>>>> cumulus/dev
 
 
       **link-speed**
@@ -182,10 +191,19 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: 0
 
         **example**:
             bridge-mcquerier 0
+=======
+        **default**: no
+
+        **validvals**: yes,no
+
+        **example**:
+            bridge-mcquerier no
+>>>>>>> cumulus/dev
 
 
       **bridge-mclmc**
@@ -221,10 +239,19 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: 1
 
         **example**:
             bridge-mcrouter 1
+=======
+        **default**: yes
+
+        **validvals**: yes,no
+
+        **example**:
+            bridge-mcrouter yes
+>>>>>>> cumulus/dev
 
 
       **bridge-stp**
@@ -321,6 +348,11 @@ EXAMPLES
 
             bridge-ports glob swp1-3.100
 
+<<<<<<< HEAD
+=======
+            bridge-ports glob swp[1-3]s[0-4].100
+
+>>>>>>> cumulus/dev
             bridge-ports regex (swp[1|2|3].100)
 
 
@@ -331,10 +363,19 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: 0
 
         **example**:
             bridge-mcqifaddr 0
+=======
+        **default**: no
+
+        **validvals**: yes,no
+
+        **example**:
+            bridge-mcqifaddr no
+>>>>>>> cumulus/dev
 
 
       **bridge-waitport**
@@ -439,10 +480,19 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: 1
 
         **example**:
             bridge-mcsnoop 1
+=======
+        **default**: yes
+
+        **validvals**: yes,no
+
+        **example**:
+            bridge-mcsnoop yes
+>>>>>>> cumulus/dev
 
 
       **bridge-access**
@@ -966,7 +1016,11 @@ EXAMPLES
 
 
 
+<<<<<<< HEAD
     **ifenslave**: bond configuration module
+=======
+    **bond**: bond configuration module
+>>>>>>> cumulus/dev
 
 
       **bond-use-carrier**
@@ -976,12 +1030,21 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: 1
 
         **validvals**: 0,1
 
         **example**:
             bond-use-carrier 1
+=======
+        **default**: yes
+
+        **validvals**: yes,no
+
+        **example**:
+            bond-use-carrier yes
+>>>>>>> cumulus/dev
 
 
       **bond-lacp-bypass-period**
@@ -1075,12 +1138,21 @@ EXAMPLES
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: 0
 
         **validvals**: 0,1
 
         **example**:
             bond-lacp-bypass-allow 0
+=======
+        **default**: no
+
+        **validvals**: yes,no
+
+        **example**:
+            bond-lacp-bypass-allow no
+>>>>>>> cumulus/dev
 
 
       **bond-mode**
@@ -1306,15 +1378,28 @@ EXAMPLES
 
       **vxlan-learning**
 
+<<<<<<< HEAD
         **help**: vxlan learning on/off
+=======
+        **help**: vxlan learning yes/no
+>>>>>>> cumulus/dev
 
 
         **required**: False
 
+<<<<<<< HEAD
         **default**: on
 
         **example**:
             vxlan-learning off
+=======
+        **default**: yes
+
+        **validvals**: yes,no
+
+        **example**:
+            vxlan-learning no
+>>>>>>> cumulus/dev
 
 
       **vxlan-id**

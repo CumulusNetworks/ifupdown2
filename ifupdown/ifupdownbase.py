@@ -8,11 +8,13 @@
 #
 
 import logging
-import subprocess
 import re
 import os
+import traceback
+from ifupdown.netlink import netlink
+
 from iface import *
-import rtnetlink_api as rtnetlink_api
+import ifupdownflags as ifupdownflags
 
 class ifupdownBase(object):
 
@@ -20,30 +22,8 @@ class ifupdownBase(object):
         modulename = self.__class__.__name__
         self.logger = logging.getLogger('ifupdown.' + modulename)
 
-    def exec_command(self, cmd, cmdenv=None, nowait=False):
-        cmd_returncode = 0
-        cmdout = ''
-        try:
-            self.logger.info('Executing ' + cmd)
-            if self.DRYRUN:
-                return cmdout
-            ch = subprocess.Popen(cmd.split(),
-                    stdout=subprocess.PIPE,
-                    shell=False, env=cmdenv,
-                    stderr=subprocess.STDOUT,
-                    close_fds=True)
-            cmdout = ch.communicate()[0]
-            cmd_returncode = ch.wait()
-        except OSError, e:
-            raise Exception('could not execute ' + cmd +
-                    '(' + str(e) + ')')
-        if cmd_returncode != 0:
-            raise Exception('error executing cmd \'%s\'' %cmd +
-                '\n(' + cmdout.strip('\n ') + ')')
-        return cmdout
-
     def ignore_error(self, errmsg):
-        if (self.FORCE == True or re.search(r'exists', errmsg,
+        if (ifupdownflags.flags.FORCE == True or re.search(r'exists', errmsg,
             re.IGNORECASE | re.MULTILINE) is not None):
             return True
         return False
@@ -66,7 +46,7 @@ class ifupdownBase(object):
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
     def link_up(self, ifacename):
-        rtnetlink_api.rtnl_api.link_set(ifacename, "up")
+        netlink.link_set_updown(ifacename, "up")
 
     def link_down(self, ifacename):
-        rtnetlink_api.rtnl_api.link_set(ifacename, "down")
+        netlink.link_set_updown(ifacename, "down")

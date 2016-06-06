@@ -25,7 +25,11 @@ iface spine-bond
       bond-slaves glob swp19-22
       bond-mode 802.3ad
       bond-miimon 100
+<<<<<<< HEAD
       bond-use-carrier 1
+=======
+      bond-use-carrier yes
+>>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
@@ -38,7 +42,11 @@ iface peer-bond
       bond-slaves glob swp23-24
       bond-mode 802.3ad
       bond-miimon 100
+<<<<<<< HEAD
       bond-use-carrier 1
+=======
+      bond-use-carrier yes
+>>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
@@ -61,7 +69,11 @@ iface host-bond-01
       bond-slaves swp1
       bond-mode 802.3ad
       bond-miimon 100
+<<<<<<< HEAD
       bond-use-carrier 1
+=======
+      bond-use-carrier yes
+>>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
@@ -72,7 +84,11 @@ iface host-bond-02
       bond-slaves swp2
       bond-mode 802.3ad
       bond-miimon 100
+<<<<<<< HEAD
       bond-use-carrier 1
+=======
+      bond-use-carrier yes
+>>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4

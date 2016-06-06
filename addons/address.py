@@ -4,13 +4,19 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import os
+
 try:
-    from ipaddr import IPNetwork
+    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
     from sets import Set
     from ifupdown.iface import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
+    import ifupdown.policymanager as policymanager
+    from ifupdown.netlink import netlink
+    import ifupdown.ifupdownconfig as ifupdownConfig
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -22,34 +28,44 @@ class address(moduleBase):
                 'attrs': {
                       'address' :
                             {'help' : 'ipv4 or ipv6 addresses',
+                             'validvals' : [IPv4Network, IPv6Network],
+                             'multiline' : True,
                              'example' : ['address 10.0.12.3/24',
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
+                             'validvals' : [IPv4Address, ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
                             {'help': 'broadcast address',
+                             'validvals' : [IPv4Address, ],
                              'example' : ['broadcast 10.0.1.255']},
                       'scope' :
                             {'help': 'scope',
+                             'validvals' : ['universe', 'site', 'link', 'host', 'nowhere'],
                              'example' : ['scope host']},
                       'preferred-lifetime' :
                             {'help': 'preferred lifetime',
+                              'validrange' : ['0', '65535'],
                              'example' : ['preferred-lifetime forever',
                                           'preferred-lifetime 10']},
                       'gateway' :
                             {'help': 'default gateway',
+                             'validvals' : [IPv4Address, IPv6Address],
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
+                              'validrange' : ['552', '9216'],
                               'example' : ['mtu 1600'],
                               'default' : '1500'},
                       'hwaddress' :
                             {'help' : 'hw address',
+                             'validvals' : ['<mac>',],
                              'example': ['hwaddress 44:38:39:00:27:b8']},
                       'alias' :
                             { 'help': 'description/alias',
+                              'validvals' : ['<text>',],
                               'example' : ['alias testnetwork']},
                       'address-purge' :
                             { 'help': 'purge existing addresses. By default ' +
@@ -57,13 +73,20 @@ class address(moduleBase):
                               'purged to match persistant addresses in the ' +
                               'interfaces file. Set this attribute to \'no\'' +
                               'if you want to preserve existing addresses',
+                              'validvals' : ['yes', 'no'],
                               'default' : 'yes',
-                              'example' : ['address-purge yes/no']}}}
+                              'example' : ['address-purge yes/no']},
+                      'clagd-vxlan-anycast-ip' :
+                            { 'help'     : 'Anycast local IP address for ' +
+                              'dual connected VxLANs',
+                              'validvals' : [IPv4Address, ],
+                              'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
+        self.default_mtu = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='mtu')
 
     def _address_valid(self, addrs):
         if not addrs:
@@ -75,7 +98,7 @@ class address(moduleBase):
 
     def _get_hwaddress(self, ifaceobj):
         hwaddress = ifaceobj.get_attr_value_first('hwaddress')
-        if hwaddress and hwaddress.startswith('ether'):
+        if hwaddress and hwaddress.startswith("ether"):
             hwaddress = hwaddress[5:].strip()
         return hwaddress
 
@@ -103,40 +126,125 @@ class address(moduleBase):
            else:
               self.ipcmd.bridge_fdb_del(bridgename, hwaddress, vlan)
 
-    def _inet_address_config(self, ifaceobj):
-        purge_addresses = ifaceobj.get_attr_value_first('address-purge')
-        if not purge_addresses:
-           purge_addresses = 'yes'
+    def _get_anycast_addr(self, ifaceobjlist):
+        for ifaceobj in ifaceobjlist:
+            anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
+            if anycast_addr:
+                anycast_addr = anycast_addr+'/32'
+                return anycast_addr
+        return None
+
+    def _inet_address_convert_to_cidr(self, ifaceobjlist):
         newaddrs = []
-        addrs = ifaceobj.get_attr_value('address')
-        if addrs:
-            if ifaceobj.role & ifaceRole.SLAVE:
-                # we must not configure an IP address if the interface is enslaved
-                self.log_warn('interface %s is enslaved and cannot have an IP Address' % \
-                              (ifaceobj.name))
-                return
+        newaddr_attrs = {}
+
+        for ifaceobj in ifaceobjlist:
+            addrs = ifaceobj.get_attr_value('address')
+            if not addrs:
+                continue
+
+            if (((ifaceobj.role & ifaceRole.SLAVE) and
+                not (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)) or
+                ((ifaceobj.link_kind & ifaceLinkKind.BRIDGE) and
+                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE))):
+                # we must not configure an IP address if the interface is
+                # enslaved or is a VLAN AWARE BRIDGE
+                self.logger.info('%s: ignoring ip address. Interface is '
+                                 'enslaved or a vlan aware bridge and cannot'
+                                 ' have an IP Address' %(ifaceobj.name))
+                return (False, newaddrs, newaddr_attrs)
             # If user address is not in CIDR notation, convert them to CIDR
             for addr_index in range(0, len(addrs)):
                 addr = addrs[addr_index]
                 if '/' in addr:
                     newaddrs.append(addr)
                     continue
+                newaddr = addr
                 netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
                 if netmask:
                     prefixlen = IPNetwork('%s' %addr +
                                 '/%s' %netmask).prefixlen
-                    newaddrs.append(addr + '/%s' %prefixlen)
+                    newaddr = addr + '/%s' %prefixlen
                 else:
-                    newaddrs.append(addr)
+                    # we are here because there is no slash (/xx) and no netmask
+                    # just let IPNetwork handle the ipv4 or ipv6 address mask
+                    prefixlen = IPNetwork(addr).prefixlen
+                    newaddr = addr + '/%s' %prefixlen
+                newaddrs.append(newaddr)
 
-        if (not self.PERFMODE and
-                not (ifaceobj.flags & iface.HAS_SIBLINGS) and
-                purge_addresses == 'yes'):
-            # if perfmode is not set and also if iface has no sibling
-            # objects, purge addresses that are not present in the new
-            # config
+                attrs = {}
+                for a in ['broadcast', 'pointopoint', 'scope',
+                        'preferred-lifetime']:
+                    aval = ifaceobj.get_attr_value_n(a, addr_index)
+                    if aval:
+                        attrs[a] = aval
+
+                if attrs:
+                    newaddr_attrs[newaddr]= attrs
+        return (True, newaddrs, newaddr_attrs)
+
+    def _inet_address_list_config(self, ifaceobj, newaddrs, newaddr_attrs):
+        for addr_index in range(0, len(newaddrs)):
+            try:
+                if newaddr_attrs:
+                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('broadcast'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('pointopoint'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('scope'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('preferred-lifetime'))
+                else:
+                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
+            except Exception, e:
+                self.log_error(str(e), ifaceobj)
+
+    def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None,
+                             force_reapply=False):
+        squash_addr_config = (True if \
+                              ifupdownConfig.config.get('addr_config_squash', \
+                              '0')  == '1' else False)
+
+        if (squash_addr_config and
+            not (ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING)):
+            return
+
+        purge_addresses = ifaceobj.get_attr_value_first('address-purge')
+        if not purge_addresses:
+           purge_addresses = 'yes'
+
+        if squash_addr_config and ifaceobj.flags & iface.HAS_SIBLINGS:
+            ifaceobjlist = ifaceobj_getfunc(ifaceobj.name)
+        else:
+            ifaceobjlist = [ifaceobj]
+
+        (addr_supported, newaddrs, newaddr_attrs) = self._inet_address_convert_to_cidr(ifaceobjlist)
+        if not addr_supported:
+            return
+        if (not squash_addr_config and (ifaceobj.flags & iface.HAS_SIBLINGS)):
+            # if youngest sibling and squash addr is not set
+            # print a warning that addresses will not be purged
+            if (ifaceobj.flags & iface.YOUNGEST_SIBLING):
+                self.logger.warn('%s: interface has multiple ' %ifaceobj.name +
+                               'iface stanzas, skip purging existing addresses')
+            purge_addresses = 'no'
+
+        if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
+            # if perfmode is not set and purge addresses is not set to 'no'
+            # lets purge addresses not in the config
             runningaddrs = self.ipcmd.addr_get(ifaceobj.name, details=False)
+
+            # if anycast address is configured on 'lo' and is in running config
+            # add it to newaddrs so that ifreload doesn't wipe it out
+            anycast_addr = self._get_anycast_addr(ifaceobjlist)
+
+            if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
+                newaddrs.append(anycast_addr)
             if newaddrs == runningaddrs:
+                if force_reapply:
+                    self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
                 return
             try:
                 # if primary address is not same, there is no need to keep any.
@@ -150,62 +258,93 @@ class address(moduleBase):
                 self.log_warn(str(e))
         if not newaddrs:
             return
-        for addr_index in range(0, len(newaddrs)):
-            try:
-                self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
-                    ifaceobj.get_attr_value_n('broadcast', addr_index),
-                    ifaceobj.get_attr_value_n('pointopoint',addr_index),
-                    ifaceobj.get_attr_value_n('scope', addr_index),
-                    ifaceobj.get_attr_value_n('preferred-lifetime', addr_index))
-            except Exception, e:
-                self.log_error(str(e))
+        self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
 
-    def _up(self, ifaceobj):
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
         addr_method = ifaceobj.addr_method
+        force_reapply = False
         try:
             # release any stale dhcp addresses if present
-            if (addr_method != "dhcp" and not self.PERFMODE and
+            if (addr_method != "dhcp" and not ifupdownflags.flags.PERFMODE and
                     not (ifaceobj.flags & iface.HAS_SIBLINGS)):
                 # if not running in perf mode and ifaceobj does not have
                 # any sibling iface objects, kill any stale dhclient
                 # processes
                 dhclientcmd = dhclient()
-                if dhclient.is_running(ifaceobj.name):
+                if dhclientcmd.is_running(ifaceobj.name):
                     # release any dhcp leases
                     dhclientcmd.release(ifaceobj.name)
-                elif dhclient.is_running6(ifaceobj.name):
+                    force_reapply = True
+                elif dhclientcmd.is_running6(ifaceobj.name):
                     dhclientcmd.release6(ifaceobj.name)
+                    force_reapply = True
         except:
             pass
 
         self.ipcmd.batch_start()
         if addr_method != "dhcp":
-            self._inet_address_config(ifaceobj)
+            self._inet_address_config(ifaceobj, ifaceobj_getfunc,
+                                      force_reapply)
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+        elif (not ifaceobj.link_kind and
+              not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+              self.default_mtu):
+            # logical devices like bridges and vlan devices rely on mtu
+            # from their lower devices. ie mtu travels from
+            # lower devices to upper devices. For bonds mtu travels from
+            # upper to lower devices. running mtu depends on upper and
+            # lower device mtu. With all this implicit mtu
+            # config by the kernel in play, we try to be cautious here
+            # on which devices we want to reset mtu to default.
+            # essentially only physical interfaces which are not bond slaves
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if running_mtu != self.default_mtu:
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
+        self.ipcmd.batch_commit()
+
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
-            self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
-        self.ipcmd.batch_commit()
+            running_hwaddress = None
+            if not ifupdownflags.flags.PERFMODE: # system is clean
+                running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
+            if hwaddress != running_hwaddress:
+                slave_down = False
+                netlink.link_set_updown(ifaceobj.name, "down")
+                if ifaceobj.link_kind & ifaceLinkKind.BOND:
+                    # if bond, down all the slaves
+                    if ifaceobj.lowerifaces:
+                        for l in ifaceobj.lowerifaces:
+                            netlink.link_set_updown(l, "down")
+                        slave_down = True
+                try:
+                    self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
+                finally:
+                    netlink.link_set_updown(ifaceobj.name, "up")
+                    if slave_down:
+                        for l in ifaceobj.lowerifaces:
+                            netlink.link_set_updown(l, "up")
 
         try:
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
         except Exception, e:
-            self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+            self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
             pass
 
         if addr_method != "dhcp":
             self.ipcmd.route_add_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'))
+                    ifaceobj.get_attr_value_first('gateway'),
+                    ifaceobj.get_attr_value_first('vrf'))
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 return
@@ -213,11 +352,24 @@ class address(moduleBase):
             if addr_method != "dhcp":
                 self.ipcmd.route_del_gateway(ifaceobj.name,
                     ifaceobj.get_attr_value_first('gateway'),
+                    ifaceobj.get_attr_value_first('vrf'),
                     ifaceobj.get_attr_value_first('metric'))
-                self.ipcmd.del_addr_all(ifaceobj.name)
+                if ifaceobj.get_attr_value_first('address-purge')=='no':
+                    addrlist = ifaceobj.get_attr_value('address')
+                    for addr in addrlist:
+                        self.ipcmd.addr_del(ifaceobj.name, addr)
+                    #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
+                else:
+                    self.ipcmd.del_addr_all(ifaceobj.name)
+            mtu = ifaceobj.get_attr_value_first('mtu')
+            if (not ifaceobj.link_kind and mtu and
+                self.default_mtu and (mtu != self.default_mtu)):
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
-                self.ipcmd.link_set(ifaceobj.name, 'alias', "\'\'")
+                filename = '/sys/class/net/%s/ifalias' %ifaceobj.name
+                self.logger.info('executing echo "" > %s' %filename)
+                os.system('echo "" > %s' %filename)
             # XXX hwaddress reset cannot happen because we dont know last
             # address.
 
@@ -262,7 +414,7 @@ class address(moduleBase):
                    return False
         return True
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         runningaddrsdict = None
         if not self.ipcmd.link_exists(ifaceobj.name):
             self.logger.debug('iface %s not found' %ifaceobj.name)
@@ -291,6 +443,13 @@ class address(moduleBase):
            return
         addrs = self._get_iface_addresses(ifaceobj)
         runningaddrsdict = self.ipcmd.addr_get(ifaceobj.name)
+        # if anycast address is configured on 'lo' and is in running config
+        # add it to addrs so that query_check doesn't fail
+        anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
+        if anycast_addr:
+            anycast_addr = anycast_addr+'/32'
+        if runningaddrsdict and anycast_addr and runningaddrsdict.get(anycast_addr):
+            addrs.append(anycast_addr)
 
         # Set ifaceobjcurr method and family
         ifaceobjcurr.addr_method = ifaceobj.addr_method
@@ -328,7 +487,7 @@ class address(moduleBase):
         #XXXX Check broadcast address, scope, etc
         return
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             self.logger.debug('iface %s not found' %ifaceobjrunning.name)
             return
@@ -336,7 +495,7 @@ class address(moduleBase):
         if (dhclientcmd.is_running(ifaceobjrunning.name) or
                 dhclientcmd.is_running6(ifaceobjrunning.name)):
             # If dhcp is configured on the interface, we skip it
-            return 
+            return
         isloopback = self.ipcmd.link_isloopback(ifaceobjrunning.name)
         if isloopback:
             default_addrs = ['127.0.0.1/8', '::1/128']
@@ -356,7 +515,7 @@ class address(moduleBase):
                     mtu != self.get_mod_subattr('mtu', 'default'))):
                 ifaceobjrunning.update_config('mtu', mtu)
         alias = self.ipcmd.link_get_alias(ifaceobjrunning.name)
-        if alias: 
+        if alias:
             ifaceobjrunning.update_config('alias', alias)
 
     _run_ops = {'up' : _up,
@@ -370,9 +529,9 @@ class address(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument
 
         Args:
@@ -395,6 +554,8 @@ class address(moduleBase):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj,
+                       ifaceobj_getfunc=ifaceobj_getfunc)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj,
+                       ifaceobj_getfunc=ifaceobj_getfunc)

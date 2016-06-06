@@ -1,0 +1,168 @@
+#!/bin/bash
+
+# This replaces the old init.d script, and is run from the networking.service
+# Only has start, stop, reload, because that's all systemd has.
+# restart is implemented in systemd by stop then start.
+
+PATH="/sbin:/bin"
+RUN_DIR="/run/network"
+IFSTATE_LOCKFILE="${RUN_DIR}/ifstatelock"
+
+STATE_DIR="/var/tmp/network"
+IFSTATE_FILE="${STATE_DIR}/ifstatenew"
+
+NAME=networking
+
+[ -x /sbin/ifup ] || exit 0
+[ -x /sbin/ifdown ] || exit 0
+
+CONFIGURE_INTERFACES=yes
+
+EXTRA_ARGS=
+
+[ -f /etc/default/networking ] && . /etc/default/networking
+
+[ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+[ "$DEBUG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+[ "$SYSLOG" = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
+
+perf_options() {
+    # At bootup lets set perfmode
+    [ -f ${IFSTATE_LOCKFILE} ] && echo -n "" && return
+
+    echo -n "--perfmode"
+}
+
+process_exclusions() {
+    set -- $EXCLUDE_INTERFACES
+    exclusions=""
+    for d
+    do
+	exclusions="-X $d $exclusions"
+    done
+    echo $exclusions
+}
+
+check_network_file_systems() {
+    [ -e /proc/mounts ] || return 0
+
+    if [ -e /etc/iscsi/iscsi.initramfs ]; then
+	echo ${NAME}':' "not deconfiguring network interfaces: iSCSI root is mounted."
+	exit 0
+    fi
+
+    while read DEV MTPT FSTYPE REST; do
+	case $DEV in
+	/dev/nbd*|/dev/nd[a-z]*|/dev/etherd/e*)
+	    echo ${NAME}':' "not deconfiguring network interfaces: network devices still mounted."
+	    exit 0
+	    ;;
+	esac
+	case $FSTYPE in
+	nfs|nfs4|smbfs|ncp|ncpfs|cifs|coda|ocfs2|gfs|pvfs|pvfs2|fuse.httpfs|fuse.curlftpfs)
+	    echo ${NAME}':' "not deconfiguring network interfaces: network file systems still mounted."
+	    exit 0
+	    ;;
+	esac
+    done < /proc/mounts
+}
+
+check_network_swap() {
+    [ -e /proc/swaps ] || return 0
+
+    while read DEV MTPT FSTYPE REST; do
+	case $DEV in
+	/dev/nbd*|/dev/nd[a-z]*|/dev/etherd/e*)
+	    echo ${NAME}':' "not deconfiguring network interfaces: network swap still mounted."
+	    exit 0
+	    ;;
+	esac
+    done < /proc/swaps
+}
+
+ifup_hotplug () {
+    if [ -d /sys/class/net ]
+    then
+	    ifaces=$(for iface in $(ifquery --list --allow=hotplug 2>/dev/null)
+			    do
+				    link=${iface##:*}
+				    link=${link##.*}
+				    if [ -e "/sys/class/net/$link" ] && [ "$(cat /sys/class/net/$link/operstate)" = up ]
+				    then
+					    echo "$iface"
+				    fi
+			    done)
+	    if [ -n "$ifaces" ]
+	    then
+		ifup $ifaces "$@" || true
+	    fi
+    fi
+}
+
+ifup_mgmt () {
+	ifaces=$(ifquery --list --allow=mgmt 2>/dev/null)
+	if [ -n "$ifaces" ]; then
+		echo "bringing up mgmt class interfaces"
+		ifup --allow=mgmt
+	fi
+}
+
+ifupdown_init() {
+	# remove state file at boot
+	[ ! -e ${IFSTATE_LOCKFILE} ] && rm -f ${IFSTATE_FILE}
+
+	[ ! -e /run/network ] && mkdir -p /run/network &>/dev/null
+	[ ! -e /etc/network/run ] && \
+		ln -sf /run/network /etc/network/run &>/dev/null
+}
+
+case "$1" in
+start)
+	ifupdown_init
+	if [ "$CONFIGURE_INTERFACES" = no ]
+	then
+	    echo ${NAME}':' "Not configuring network interfaces, see /etc/default/networking"
+	    exit 0
+	fi
+	set -f
+	exclusions=$(process_exclusions)
+	perfoptions=$(perf_options)
+	echo ${NAME}':' "Configuring network interfaces"
+	ifup_mgmt
+	ifup -a $EXTRA_ARGS $exclusions $perfoptions
+	ifup_hotplug $HOTPLUG_ARGS $EXTRA_ARGS $exclusions
+	;;
+stop)
+	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
+        SYSRESET=0
+        systemctl list-jobs | egrep -q '(shutdown|reboot|halt|poweroff)\.target'
+        [ $? -eq 0 ] && SYSRESET=1
+        if [ $SYSRESET -eq 1 ]; then
+            echo ${NAME}':' "Skipping deconfiguring network interfaces"
+            exit 0
+        fi
+	fi
+	ifupdown_init
+	check_network_file_systems
+	check_network_swap
+	exclusions=$(process_exclusions)
+
+	echo ${NAME}':' "Deconfiguring network interfaces"
+	ifdown -a $EXTRA_ARGS
+	;;
+
+reload)
+
+	ifupdown_init
+	echo ${NAME}':' "Reloading network interfaces configuration"
+
+	ifreload -a $EXTRA_ARGS
+	;;
+
+*)
+	echo ${NAME}':' "Usage: $0 {start|stop|reload}"
+	exit 1
+	;;
+esac
+
+exit 0

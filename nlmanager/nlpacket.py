@@ -1,0 +1,2612 @@
+# Copyright (c) 2009-2013, Exa Networks Limited
+# Copyright (c) 2009-2013, Thomas Mangin
+# Copyright (c) 2015 Cumulus Networks, Inc.
+#
+# All rights reserved.
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+#
+# Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+#
+# The names of the Exa Networks Limited, Cumulus Networks, Inc. nor the names
+# of its contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import logging
+import struct
+from ipaddr import IPv4Address, IPv6Address
+from binascii import hexlify
+from pprint import pformat
+from socket import AF_INET, AF_INET6, AF_BRIDGE
+from string import printable
+from struct import pack, unpack, calcsize
+
+log = logging.getLogger(__name__)
+
+# Netlink message types
+NLMSG_NOOP    = 0x01
+NLMSG_ERROR   = 0x02
+NLMSG_DONE    = 0x03
+NLMSG_OVERRUN = 0x04
+
+RTM_NEWLINK   = 0x10  # Create a new network interface
+RTM_DELLINK   = 0x11  # Destroy a network interface
+RTM_GETLINK   = 0x12  # Retrieve information about a network interface(ifinfomsg)
+RTM_SETLINK   = 0x13  #
+
+RTM_NEWADDR   = 0x14
+RTM_DELADDR   = 0x15
+RTM_GETADDR   = 0x16
+
+RTM_NEWNEIGH  = 0x1C
+RTM_DELNEIGH  = 0x1D
+RTM_GETNEIGH  = 0x1E
+
+RTM_NEWROUTE  = 0x18
+RTM_DELROUTE  = 0x19
+RTM_GETROUTE  = 0x1A
+
+RTM_NEWQDISC  = 0x24
+RTM_DELQDISC  = 0x25
+RTM_GETQDISC  = 0x26
+
+# Netlink message flags
+NLM_F_REQUEST = 0x01  # It is query message.
+NLM_F_MULTI   = 0x02  # Multipart message, terminated by NLMSG_DONE
+NLM_F_ACK     = 0x04  # Reply with ack, with zero or error code
+NLM_F_ECHO    = 0x08  # Echo this query
+
+# Modifiers to GET query
+NLM_F_ROOT   = 0x100  # specify tree root
+NLM_F_MATCH  = 0x200  # return all matching
+NLM_F_DUMP   = NLM_F_ROOT | NLM_F_MATCH
+NLM_F_ATOMIC = 0x400  # atomic GET
+
+# Modifiers to NEW query
+NLM_F_REPLACE = 0x100  # Override existing
+NLM_F_EXCL    = 0x200  # Do not touch, if it exists
+NLM_F_CREATE  = 0x400  # Create, if it does not exist
+NLM_F_APPEND  = 0x800  # Add to end of list
+
+NLA_F_NESTED        = 0x8000
+NLA_F_NET_BYTEORDER = 0x4000
+NLA_TYPE_MASK       = ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
+
+# Groups
+RTMGRP_LINK          = 0x1
+RTMGRP_NOTIFY        = 0x2
+RTMGRP_NEIGH         = 0x4
+RTMGRP_TC            = 0x8
+RTMGRP_IPV4_IFADDR   = 0x10
+RTMGRP_IPV4_MROUTE   = 0x20
+RTMGRP_IPV4_ROUTE    = 0x40
+RTMGRP_IPV4_RULE     = 0x80
+RTMGRP_IPV6_IFADDR   = 0x100
+RTMGRP_IPV6_MROUTE   = 0x200
+RTMGRP_IPV6_ROUTE    = 0x400
+RTMGRP_IPV6_IFINFO   = 0x800
+RTMGRP_DECnet_IFADDR = 0x1000
+RTMGRP_DECnet_ROUTE  = 0x4000
+RTMGRP_IPV6_PREFIX   = 0x20000
+
+RTMGRP_ALL = (RTMGRP_LINK | RTMGRP_NOTIFY | RTMGRP_NEIGH | RTMGRP_TC |
+              RTMGRP_IPV4_IFADDR | RTMGRP_IPV4_MROUTE | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_RULE |
+              RTMGRP_IPV6_IFADDR | RTMGRP_IPV6_MROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFINFO |
+              RTMGRP_DECnet_IFADDR | RTMGRP_DECnet_ROUTE |
+              RTMGRP_IPV6_PREFIX)
+
+# Colors for logging
+red    = 91
+green  = 92
+yellow = 93
+blue   = 94
+
+
+def zfilled_hex(value, digits):
+    return '0x' + hex(value)[2:].zfill(digits)
+
+
+def remove_trailing_null(line):
+    """
+    Remove the last character if it is a NULL...having that NULL
+    causes python to print a garbage character
+    """
+
+    if ord(line[-1]) == 0:
+        line = line[:-1]
+
+    return line
+
+
+def mac_int_to_str(mac_int):
+    """
+    Return an integer in MAC string format
+    """
+
+    # [2:] to remove the leading 0x, then fill out to 12 zeroes, then uppercase
+    all_caps = hex(int(mac_int))[2:].zfill(12).upper()
+
+    if all_caps[-1] == 'L':
+        all_caps = all_caps[:-1]
+        all_caps = all_caps.zfill(12).upper()
+
+    return "%s.%s.%s" % (all_caps[0:4], all_caps[4:8], all_caps[8:12])
+
+
+def data_to_color_text(line_number, color, data, extra=''):
+    (c1, c2, c3, c4) = unpack('BBBB', data[0:4])
+    in_ascii = []
+
+    for c in (c1, c2, c3, c4):
+        char_c = chr(c)
+
+        if char_c in printable[:-5]:
+            in_ascii.append(char_c)
+        else:
+            in_ascii.append('.')
+
+    return '  %2d: \033[%dm0x%02x%02x%02x%02x\033[0m  %s  %s' % (line_number, color, c1, c2, c3, c4, ''.join(in_ascii), extra)
+
+
+def padded_length(length):
+    return int((length + 3) / 4) * 4
+
+
+class Attribute(object):
+
+    def __init__(self, atype, string, logger):
+        self.atype = atype
+        self.string = string
+        self.HEADER_PACK = '=HH'
+        self.HEADER_LEN = calcsize(self.HEADER_PACK)
+        self.PACK = None
+        self.LEN = None
+        self.value = None
+        self.nested = False
+        self.net_byteorder = False
+        self.log = logger
+
+    def __str__(self):
+        return self.string
+
+    def pad_bytes_needed(self, length):
+        """
+        Return the number of bytes that should be added to align on a 4-byte boundry
+        """
+        remainder = length % 4
+
+        if remainder:
+            return 4 - remainder
+
+        return 0
+
+    def pad(self, length, raw):
+        pad = self.pad_bytes_needed(length)
+
+        if pad:
+            raw += '\0' * pad
+
+        return raw
+
+    def encode(self):
+        length = self.HEADER_LEN + self.LEN
+        attr_type_with_flags = self.atype
+
+        if self.nested:
+            attr_type_with_flags = attr_type_with_flags | NLA_F_NESTED
+
+        if self.net_byteorder:
+            attr_type_with_flags = attr_type_with_flags | NLA_F_NET_BYTEORDER
+
+        raw = pack(self.HEADER_PACK, length, attr_type_with_flags) + pack(self.PACK, self.value)
+        raw = self.pad(length, raw)
+        return raw
+
+    def decode_length_type(self, data):
+        """
+        The first two bytes of an attribute are the length, the next two bytes are the type
+        """
+        self.data = data
+        prev_atype = self.atype
+        (data1, data2) = unpack(self.HEADER_PACK, data[:self.HEADER_LEN])
+        self.length = int(data1)
+        self.atype = int(data2)
+        self.attr_end = padded_length(self.length)
+
+        self.nested = True if self.atype & NLA_F_NESTED else False
+        self.net_byteorder = True if self.atype & NLA_F_NET_BYTEORDER else False
+        self.atype = self.atype & NLA_TYPE_MASK
+
+        # Should never happen
+        assert self.atype == prev_atype, "This object changes attribute type from %d to %d, this is bad" % (prev_atype, self.atype)
+
+    def dump_first_line(self, dump_buffer, line_number, color):
+        """
+        Add the "Length....Type..." line to the dump buffer
+        """
+        if self.attr_end == self.length:
+            padded_to = ', '
+        else:
+            padded_to = ' padded to %d, ' % self.attr_end
+
+        extra = 'Length %s (%d)%sType %s%s%s (%d) %s' % \
+                 (zfilled_hex(self.length, 4), self.length,
+                  padded_to,
+                  zfilled_hex(self.atype, 4),
+                  " (NLA_F_NESTED set)" if self.nested else "",
+                  " (NLA_F_NET_BYTEORDER set)" if self.net_byteorder else "",
+                  self.atype,
+                  self)
+
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[0:4], extra))
+        return line_number + 1
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+
+        for x in xrange(1, self.attr_end/4):
+            start = x * 4
+            end = start + 4
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[start:end], ''))
+            line_number += 1
+
+        return line_number
+
+    def get_pretty_value(self):
+        return self.value
+
+
+class AttributeFourByteValue(Attribute):
+
+    def __init__(self, atype, string, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = '=L'
+        self.LEN = calcsize(self.PACK)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        assert self.attr_end == 8, "Attribute length for %s must be 8, it is %d" % (self, self.attr_end)
+
+        try:
+            self.value = int(unpack(self.PACK, self.data[4:])[0])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
+        return line_number + 1
+
+
+class AttributeString(Attribute):
+
+    def __init__(self, atype, string, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = None
+        self.LEN = None
+
+    def encode(self):
+        # some interface names come from JSON unicode strings
+        # and cannot be packed as is so we must convert them to strings
+        if isinstance(self.value, unicode):
+            self.value = str(self.value)
+        self.PACK = '%ds' % len(self.value)
+        self.LEN = calcsize(self.PACK)
+
+        length = self.HEADER_LEN + self.LEN
+        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value)
+        raw = self.pad(length, raw)
+        return raw
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        self.PACK = '%ds' % (self.length - 4)
+        self.LEN = calcsize(self.PACK)
+
+        try:
+            self.value = remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:self.length])))
+            raise
+
+
+class AttributeIPAddress(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.value_int = None
+        self.value_int_str = None
+        self.family = family
+
+        if self.family == AF_INET:
+            self.PACK = '>L'
+
+        elif self.family == AF_INET6:
+            self.PACK = '>QQ'
+
+        elif self.family == AF_BRIDGE:
+            self.PACK = '>L'
+
+        else:
+            raise Exception("%s is not a supported address family" % self.family)
+
+        self.LEN = calcsize(self.PACK)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+
+        try:
+            if self.family == AF_INET:
+                self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
+
+            elif self.family == AF_INET6:
+                (data1, data2) = unpack(self.PACK, self.data[4:])
+                self.value = IPv6Address(data1 << 64 | data2)
+
+            elif self.family == AF_BRIDGE:
+                self.value = unpack(self.PACK, self.data[4:])[0]
+
+            self.value_int = int(self.value)
+            self.value_int_str = str(self.value_int)
+
+        except struct.error:
+            self.value = None
+            self.value_int = None
+            self.value_int_str = None
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+
+        if self.family == AF_INET:
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
+            line_number += 1
+
+        elif self.family == AF_INET6:
+
+            for x in xrange(1, self.attr_end/4):
+                start = x * 4
+                end = start + 4
+                dump_buffer.append(data_to_color_text(line_number, color, self.data[start:end], self.value))
+                line_number += 1
+
+        elif self.family == AF_BRIDGE:
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
+            line_number += 1
+
+        return line_number
+
+
+class AttributeMACAddress(Attribute):
+
+    def __init__(self, atype, string, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = '>LHxx'
+        self.LEN = calcsize(self.PACK)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+
+        try:
+            (data1, data2) = unpack(self.PACK, self.data[4:])
+            self.value = mac_int_to_str(data1 << 16 | data2)
+
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+    def encode(self):
+        length = self.HEADER_LEN + self.LEN
+        mac_raw = int(self.value.replace('.', '').replace(':', ''), 16)
+        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, mac_raw >> 16, mac_raw & 0x0000FF)
+        raw = self.pad(length, raw)
+        return raw
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12], self.value))
+        return line_number + 1
+
+
+class AttributeGeneric(Attribute):
+
+    def __init__(self, atype, string, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = None
+        self.LEN = None
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        wordcount = (self.attr_end - 4)/4
+        self.PACK = '=%dL' % wordcount
+        self.LEN = calcsize(self.PACK)
+
+        try:
+            self.value = ''.join(map(str, unpack(self.PACK, self.data[4:])))
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+
+class AttributeIFLA_AF_SPEC(Attribute):
+    """
+    value will be a dictionary such as:
+    {
+        Link.IFLA_BRIDGE_FLAGS: flags,
+        Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
+    }
+    """
+
+    def encode(self):
+        pack_layout = [self.HEADER_PACK]
+        payload = [0, self.atype]
+        attr_length_index = 0
+
+        # For now this assumes that all data will be packed in the native endian
+        # order (=). If a field is added that needs to be packed via network
+        # order (>) then some smarts will need to be added to split the pack_layout
+        # string at the >, split the payload and make the needed pack() calls.
+        #
+        # Until we cross that bridge though we will keep things nice and simple and
+        # pack everything via a single pack() call.
+        for (sub_attr_type, sub_attr_value) in self.value.iteritems():
+            sub_attr_pack_layout = ['=', 'HH']
+            sub_attr_payload = [0, sub_attr_type]
+            sub_attr_length_index = 0
+
+            if sub_attr_type == Link.IFLA_BRIDGE_FLAGS:
+                sub_attr_pack_layout.append('H')
+                sub_attr_payload.append(sub_attr_value)
+
+            elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_INFO:
+                sub_attr_pack_layout.append('HH')
+                sub_attr_payload.append(sub_attr_value[0])
+                sub_attr_payload.append(sub_attr_value[1])
+
+            else:
+                self.log.debug('Add support for encoding IFLA_AF_SPEC sub-attribute type %d' % sub_attr_type)
+                continue
+
+            sub_attr_length = calcsize(''.join(sub_attr_pack_layout))
+            sub_attr_payload[sub_attr_length_index] = sub_attr_length
+
+            # add padding
+            for x in xrange(self.pad_bytes_needed(sub_attr_length)):
+                sub_attr_pack_layout.append('x')
+
+            # The [1:] is to remove the leading = so that when we do the ''.join() later
+            # we do not end up with an = in the middle of the pack layout string. There
+            # will be an = at the beginning via self.HEADER_PACK
+            sub_attr_pack_layout = sub_attr_pack_layout[1:]
+
+            # Now extend the ovarall attribute pack_layout/payload to include this sub-attribute
+            pack_layout.extend(sub_attr_pack_layout)
+            payload.extend(sub_attr_payload)
+
+        pack_layout = ''.join(pack_layout)
+
+        # Fill in the length field
+        length = calcsize(pack_layout)
+        payload[attr_length_index] = length
+
+        raw = pack(pack_layout, *payload)
+        raw = self.pad(length, raw)
+        return raw
+
+    def decode(self, parent_msg, data):
+        """
+        value is a dictionary such as:
+        {
+            Link.IFLA_BRIDGE_FLAGS: flags,
+            Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
+        }
+        """
+        self.decode_length_type(data)
+        self.value = {}
+
+        data = self.data[4:]
+
+        while data:
+            (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+            sub_attr_end = padded_length(sub_attr_length)
+
+            if not sub_attr_length:
+                self.log.error('parsed a zero length sub-attr')
+                return
+
+            sub_attr_data = data[4:sub_attr_end]
+
+            if sub_attr_type == Link.IFLA_BRIDGE_FLAGS:
+                self.value[Link.IFLA_BRIDGE_FLAGS] = unpack("=H", sub_attr_data[0:2])[0]
+
+            elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_INFO:
+                self.value[Link.IFLA_INFO_DATA] = tuple(unpack("=HH", sub_attr_data[0:4]))
+
+            else:
+                self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute type %s (%d), length %d, padded to %d' %
+                               (parent_msg.get_ifla_bridge_af_spec_to_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
+
+            data = data[sub_attr_end:]
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        extra = ''
+
+        next_sub_attr_line = 0
+        sub_attr_line = True
+
+        for x in xrange(1, self.attr_end/4):
+            start = x * 4
+            end = start + 4
+
+            if line_number == next_sub_attr_line:
+                sub_attr_line = True
+
+            if sub_attr_line:
+                sub_attr_line = False
+
+                (sub_attr_length, sub_attr_type) = unpack('=HH', self.data[start:start+4])
+                sub_attr_end = padded_length(sub_attr_length)
+
+                next_sub_attr_line = line_number + (sub_attr_end/4)
+
+                if sub_attr_end == sub_attr_length:
+                    padded_to = ', '
+                else:
+                    padded_to = ' padded to %d, ' % sub_attr_end
+
+                extra = 'Nested Attribute - Length %s (%d)%s Type %s (%d) %s' % \
+                        (zfilled_hex(sub_attr_length, 4), sub_attr_length,
+                         padded_to,
+                         zfilled_hex(sub_attr_type, 4), sub_attr_type,
+                         Link.ifla_bridge_af_spec_to_string.get(sub_attr_type))
+            else:
+                extra = ''
+
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[start:end], extra))
+            line_number += 1
+
+        return line_number
+
+    def get_pretty_value(self):
+        # We do this so we can print a more human readable dictionary
+        # with the names of the nested keys instead of their numbers
+        value_pretty = {}
+
+        for (sub_key, sub_value) in self.value.iteritems():
+            sub_key_pretty = "(%2d) % s" % (sub_key, Link.ifla_bridge_af_spec_to_string.get(sub_key))
+            value_pretty[sub_key_pretty] = sub_value
+
+        return value_pretty
+
+
+
+class AttributeRTA_MULTIPATH(Attribute):
+    """
+/* RTA_MULTIPATH --- array of struct rtnexthop.
+ *
+ * "struct rtnexthop" describes all necessary nexthop information,
+ * i.e. parameters of path to a destination via this nexthop.
+ *
+ * At the moment it is impossible to set different prefsrc, mtu, window
+ * and rtt for different paths from multipath.
+ */
+
+struct rtnexthop {
+    unsigned short rtnh_len;
+    unsigned char  rtnh_flags;
+    unsigned char  rtnh_hops;
+    int            rtnh_ifindex;
+};
+    """
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.family = family
+        self.PACK = None
+        self.LEN = None
+        self.RTNH_PACK = '=HBBL'  # rtnh_len, flags, hops, ifindex
+        self.RTNH_LEN = calcsize(self.RTNH_PACK)
+        self.IPV4_LEN = 4
+        self.IPV6_LEN = 16
+
+    def encode(self):
+
+        # Calculate the length
+        if self.family == AF_INET:
+            ip_len = self.IPV4_LEN
+        elif self.family == AF_INET6:
+            ip_len = self.IPV6_LEN
+
+        # Attribute header
+        length = self.HEADER_LEN + ((self.RTNH_LEN + self.HEADER_LEN + ip_len) * len(self.value))
+        raw = pack(self.HEADER_PACK, length, self.atype)
+
+        rtnh_flags = 0
+        rtnh_hops = 0
+        rtnh_len = self.RTNH_LEN + self.HEADER_LEN + ip_len
+
+        for (nexthop, rtnh_ifindex) in self.value:
+
+            # rtnh structure
+            raw += pack(self.RTNH_PACK, rtnh_len, rtnh_flags, rtnh_hops, rtnh_ifindex)
+
+            # Gateway
+            raw += pack(self.HEADER_PACK, self.HEADER_LEN + ip_len, Route.RTA_GATEWAY)
+
+            if self.family == AF_INET:
+                raw += pack('>L', nexthop)
+            elif self.family == AF_INET6:
+                raw += pack('>QQ', nexthop >> 64, nexthop & 0x0000000000000000FFFFFFFFFFFFFFFF)
+
+        raw = self.pad(length, raw)
+        return raw
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        self.value = []
+
+        data = self.data[4:]
+
+        while data:
+            (rtnh_len, rtnh_flags, rtnh_hops, rtnh_ifindex) = unpack(self.RTNH_PACK, data[:self.RTNH_LEN])
+            data = data[self.RTNH_LEN:]
+
+            (attr_type, attr_length) = unpack(self.HEADER_PACK, self.data[:self.HEADER_LEN])
+            data = data[self.HEADER_LEN:]
+
+            if self.family == AF_INET:
+                nexthop = IPv4Address(unpack('>L', data[:self.IPV4_LEN])[0])
+                self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
+                data = data[self.IPV4_LEN:]
+
+            elif self.family == AF_INET6:
+                (data1, data2) = unpack('>QQ', data[:self.IPV6_LEN])
+                nexthop = IPv6Address(data1 << 64 | data2)
+                self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
+                data = data[self.IPV6_LEN:]
+
+        self.value = tuple(self.value)
+
+
+class AttributeIFLA_LINKINFO(Attribute):
+    """
+    value is a dictionary such as:
+
+    {
+        Link.IFLA_INFO_KIND : 'vlan',
+        Link.IFLA_INFO_DATA : {
+            Link.IFLA_VLAN_ID : vlanid,
+        }
+    }
+    """
+    def encode(self):
+        pack_layout = [self.HEADER_PACK]
+        payload = [0, self.atype]
+        attr_length_index = 0
+
+        kind = self.value[Link.IFLA_INFO_KIND]
+
+        if kind not in ('vlan', 'macvlan'):
+            raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
+
+        # For now this assumes that all data will be packed in the native endian
+        # order (=). If a field is added that needs to be packed via network
+        # order (>) then some smarts will need to be added to split the pack_layout
+        # string at the >, split the payload and make the needed pack() calls.
+        #
+        # Until we cross that bridge though we will keep things nice and simple and
+        # pack everything via a single pack() call.
+        for (sub_attr_type, sub_attr_value) in self.value.iteritems():
+            sub_attr_pack_layout = ['=', 'HH']
+            sub_attr_payload = [0, sub_attr_type]
+            sub_attr_length_index = 0
+
+            if sub_attr_type == Link.IFLA_INFO_KIND:
+                sub_attr_pack_layout.append('%ds' % len(sub_attr_value))
+                sub_attr_payload.append(sub_attr_value)
+
+            elif sub_attr_type == Link.IFLA_INFO_DATA:
+
+                for (info_data_type, info_data_value) in sub_attr_value.iteritems():
+
+                    if kind == 'vlan':
+                        if info_data_type == Link.IFLA_VLAN_ID:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # The vlan-id
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(info_data_value)
+
+                            # pad 2 bytes
+                            sub_attr_pack_layout.extend('xx')
+
+                        else:
+                            self.log.debug('Add support for encoding IFLA_INFO_DATA vlan sub-attribute type %d' % info_data_type)
+
+                    elif kind == 'macvlan':
+                        if info_data_type == Link.IFLA_MACVLAN_MODE:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # macvlan mode
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(info_data_value)
+
+                        else:
+                            self.log.debug('Add support for encoding IFLA_INFO_DATA macvlan sub-attribute type %d' % info_data_type)
+
+            else:
+                self.log.debug('Add support for encoding IFLA_LINKINFO sub-attribute type %d' % sub_attr_type)
+                continue
+
+            sub_attr_length = calcsize(''.join(sub_attr_pack_layout))
+            sub_attr_payload[sub_attr_length_index] = sub_attr_length
+
+            # add padding
+            for x in xrange(self.pad_bytes_needed(sub_attr_length)):
+                sub_attr_pack_layout.append('x')
+
+            # The [1:] is to remove the leading = so that when we do the ''.join() later
+            # we do not end up with an = in the middle of the pack layout string. There
+            # will be an = at the beginning via self.HEADER_PACK
+            sub_attr_pack_layout = sub_attr_pack_layout[1:]
+
+            # Now extend the ovarall attribute pack_layout/payload to include this sub-attribute
+            pack_layout.extend(sub_attr_pack_layout)
+            payload.extend(sub_attr_payload)
+
+        pack_layout = ''.join(pack_layout)
+
+        # Fill in the length field
+        length = calcsize(pack_layout)
+        payload[attr_length_index] = length
+
+        raw = pack(pack_layout, *payload)
+        raw = self.pad(length, raw)
+        return raw
+
+    def decode(self, parent_msg, data):
+        """
+        value is a dictionary such as:
+
+        {
+            Link.IFLA_INFO_KIND : 'vlan',
+            Link.IFLA_INFO_DATA : {
+                Link.IFLA_VLAN_ID : vlanid,
+            }
+        }
+        """
+        self.decode_length_type(data)
+        self.value = {}
+
+        data = self.data[4:]
+
+        # IFLA_MACVLAN_MODE and IFLA_VLAN_ID both have a value of 1 and both are
+        # valid IFLA_INFO_DATA entries :( The sender must TX IFLA_INFO_KIND
+        # first in order for us to know if "1" is IFLA_MACVLAN_MODE vs IFLA_VLAN_ID.
+        while data:
+            (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+            sub_attr_end = padded_length(sub_attr_length)
+
+            if not sub_attr_length:
+                self.log.error('parsed a zero length sub-attr')
+                return
+
+            if sub_attr_type == Link.IFLA_INFO_KIND:
+                self.value[Link.IFLA_INFO_KIND] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+
+            elif sub_attr_type == Link.IFLA_INFO_DATA:
+
+                sub_attr_data = data[4:sub_attr_end]
+                self.value[Link.IFLA_INFO_DATA] = {}
+
+                while sub_attr_data:
+                    (info_data_length, info_data_type) = unpack('=HH', sub_attr_data[:4])
+                    info_data_end = padded_length(info_data_length)
+                    # self.log.info('sub attr length %d, end %d, type %d' % (info_data_length, info_data_end, info_data_type))
+
+                    if not sub_attr_data:
+                        self.log.error('RXed zero length sub-attribute')
+                        break
+
+                    if Link.IFLA_INFO_KIND not in self.value:
+                        self.log.warning('IFLA_INFO_KIND is not known...we cannot parse IFLA_INFO_DATA')
+
+                    elif self.value[Link.IFLA_INFO_KIND] == 'vlan':
+                        if info_data_type == Link.IFLA_VLAN_ID:
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+                        else:
+                            self.log.debug('Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
+                                           (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                    elif self.value[Link.IFLA_INFO_KIND] == 'macvlan':
+                        if info_data_type == Link.IFLA_MACVLAN_MODE:
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+                        else:
+                            self.log.debug('Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
+                                           (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                    elif self.value[Link.IFLA_INFO_KIND] == 'vxlan':
+
+                        # IPv4Address
+                        if info_data_type in (Link.IFLA_VXLAN_GROUP,
+                                              Link.IFLA_VXLAN_LOCAL):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack('>L', sub_attr_data[4:8])[0])
+
+                        # 4-byte int
+                        elif info_data_type in (Link.IFLA_VXLAN_ID,
+                                                Link.IFLA_VXLAN_LINK,
+                                                Link.IFLA_VXLAN_AGEING,
+                                                Link.IFLA_VXLAN_LIMIT,
+                                                Link.IFLA_VXLAN_PORT_RANGE):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                        # 2-byte int
+                        elif info_data_type in (Link.IFLA_VXLAN_PORT, ):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                        # 1-byte int
+                        elif info_data_type in (Link.IFLA_VXLAN_TTL,
+                                                Link.IFLA_VXLAN_TOS,
+                                                Link.IFLA_VXLAN_LEARNING,
+                                                Link.IFLA_VXLAN_PROXY,
+                                                Link.IFLA_VXLAN_RSC,
+                                                Link.IFLA_VXLAN_L2MISS,
+                                                Link.IFLA_VXLAN_L3MISS,
+                                                Link.IFLA_VXLAN_UDP_CSUM,
+                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
+                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
+                                                Link.IFLA_VXLAN_REMCSUM_TX,
+                                                Link.IFLA_VXLAN_REMCSUM_RX,
+                                                Link.IFLA_VXLAN_REPLICATION_TYPE):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                        else:
+                            # sub_attr_end = padded_length(sub_attr_length)
+                            self.log.debug('Add support for decoding IFLA_INFO_KIND vxlan type %s (%d), length %d, padded to %d' %
+                                           (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                    elif self.value[Link.IFLA_INFO_KIND] == 'bond':
+                        self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
+                                       (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                    elif self.value[Link.IFLA_INFO_KIND] == 'bridge':
+
+                        if info_data_type in (Link.IFLA_BRPORT_STATE,
+                                              Link.IFLA_BRPORT_PRIORITY,
+                                              Link.IFLA_BRPORT_COST):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                        elif info_data_type in (Link.IFLA_BRPORT_FAST_LEAVE, ):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                        else:
+                            self.log.debug('Add support for decoding IFLA_INFO_KIND bridge type %s (%d), length %d, padded to %d' %
+                                           (parent_msg.get_ifla_bridge_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                    else:
+                        self.log.debug("Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
+                                        (self.value[Link.IFLA_INFO_KIND], info_data_type, info_data_length, info_data_end))
+
+                    sub_attr_data = sub_attr_data[info_data_end:]
+
+            elif sub_attr_type == Link.IFLA_INFO_SLAVE_KIND:
+                self.value[Link.IFLA_INFO_SLAVE_KIND] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+
+            else:
+                self.log.debug('Add support for decoding IFLA_LINKINFO sub-attribute type %s (%d), length %d, padded to %d' %
+                               (parent_msg.get_ifla_info_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
+
+            data = data[sub_attr_end:]
+
+        # self.log.info('IFLA_LINKINFO values %s' % pformat(self.value))
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        extra = ''
+
+        next_sub_attr_line = 0
+        sub_attr_line = True
+
+        for x in xrange(1, self.attr_end/4):
+            start = x * 4
+            end = start + 4
+
+            if line_number == next_sub_attr_line:
+                sub_attr_line = True
+
+            if sub_attr_line:
+                sub_attr_line = False
+
+                (sub_attr_length, sub_attr_type) = unpack('=HH', self.data[start:start+4])
+                sub_attr_end = padded_length(sub_attr_length)
+
+                next_sub_attr_line = line_number + (sub_attr_end/4)
+
+                if sub_attr_end == sub_attr_length:
+                    padded_to = ', '
+                else:
+                    padded_to = ' padded to %d, ' % sub_attr_end
+
+                extra = 'Nested Attribute - Length %s (%d)%s Type %s (%d) %s' % \
+                        (zfilled_hex(sub_attr_length, 4), sub_attr_length,
+                         padded_to,
+                         zfilled_hex(sub_attr_type, 4), sub_attr_type,
+                         Link.ifla_info_to_string.get(sub_attr_type))
+            else:
+                extra = ''
+
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[start:end], extra))
+            line_number += 1
+
+        return line_number
+
+    def get_pretty_value(self):
+        value_pretty = self.value
+        ifla_info_kind = self.value.get(Link.IFLA_INFO_KIND)
+
+        # We do this so we can print a more human readable dictionary
+        # with the names of the nested keys instead of their numbers
+
+        # Most of these are placeholders...we need to add support
+        # for more human readable dictionaries for bond, bridge, etc
+        if ifla_info_kind == 'bond':
+            pass
+
+        elif ifla_info_kind == 'bridge':
+            pass
+
+        elif ifla_info_kind == 'macvlan':
+            pass
+
+        elif ifla_info_kind == 'vlan':
+            pass
+
+        elif ifla_info_kind == 'vxlan':
+            value_pretty = {}
+
+            for (sub_key, sub_value) in self.value.iteritems():
+                sub_key_pretty = "(%2d) % s" % (sub_key, Link.ifla_info_to_string[sub_key])
+                sub_value_pretty = sub_value
+
+                if sub_key == Link.IFLA_INFO_DATA:
+                    sub_value_pretty = {}
+
+                    for (sub_sub_key, sub_sub_value) in sub_value.iteritems():
+                        sub_sub_key_pretty = "(%2d) %s" % (sub_sub_key, Link.ifla_vxlan_to_string[sub_sub_key])
+                        sub_value_pretty[sub_sub_key_pretty] = sub_sub_value
+
+                value_pretty[sub_key_pretty] = sub_value_pretty
+
+        return value_pretty
+
+
+class NetlinkPacket(object):
+    """
+    Netlink Header
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          Length                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |            Type              |           Flags              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Sequence Number                        |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Process ID (PID)                       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+
+    header_PACK = 'IHHII'
+    header_LEN  = calcsize(header_PACK)
+
+    # Netlink packet types
+    # /usr/include/linux/rtnetlink.h
+    type_to_string = {
+        NLMSG_NOOP    : 'NLMSG_NOOP',
+        NLMSG_ERROR   : 'NLMSG_ERROR',
+        NLMSG_DONE    : 'NLMSG_DONE',
+        NLMSG_OVERRUN : 'NLMSG_OVERRUN',
+        RTM_NEWLINK   : 'RTM_NEWLINK',
+        RTM_DELLINK   : 'RTM_DELLINK',
+        RTM_GETLINK   : 'RTM_GETLINK',
+        RTM_SETLINK   : 'RTM_SETLINK',
+        RTM_NEWADDR   : 'RTM_NEWADDR',
+        RTM_DELADDR   : 'RTM_DELADDR',
+        RTM_GETADDR   : 'RTM_GETADDR',
+        RTM_NEWNEIGH  : 'RTM_NEWNEIGH',
+        RTM_DELNEIGH  : 'RTM_DELNEIGH',
+        RTM_GETNEIGH  : 'RTM_GETNEIGH',
+        RTM_NEWROUTE  : 'RTM_NEWROUTE',
+        RTM_DELROUTE  : 'RTM_DELROUTE',
+        RTM_GETROUTE  : 'RTM_GETROUTE',
+        RTM_NEWQDISC  : 'RTM_NEWQDISC',
+        RTM_DELQDISC  : 'RTM_DELQDISC',
+        RTM_GETQDISC  : 'RTM_GETQDISC'
+    }
+
+    def __init__(self, msgtype, debug, owner_logger=None):
+        self.msgtype     = msgtype
+        self.attributes  = {}
+        self.dump_buffer = ['']
+        self.line_number = 1
+        self.debug       = debug
+        self.message     = None
+
+        if owner_logger:
+            self.log = owner_logger
+        else:
+            self.log = log
+
+    def __str__(self):
+        return self.get_type_string()
+
+    def get_string(self, to_string, index):
+        """
+        Used to do lookups in all of the various FOO_to_string dictionaries
+        but returns 'UNKNOWN' if the key is bogus
+        """
+        if index in to_string:
+            return to_string[index]
+        return 'UNKNOWN'
+
+    def get_type_string(self, msgtype=None):
+        if not msgtype:
+            msgtype = self.msgtype
+        return self.get_string(self.type_to_string, msgtype)
+
+    def get_flags_string(self):
+        foo = []
+
+        for (flag, flag_string) in self.flag_to_string.iteritems():
+            if self.flags & flag:
+                foo.append(flag_string)
+
+        return ', '.join(foo)
+
+    def decode_packet(self, length, flags, seq, pid, data):
+        self.length      = length
+        self.flags       = flags
+        self.seq         = seq
+        self.pid         = pid
+        self.header_data = data[0:self.header_LEN]
+        self.msg_data    = data[self.header_LEN:length]
+
+        self.decode_netlink_header()
+        self.decode_service_header()
+
+        # NLMSG_ERROR is special case, it does not have attributes to decode
+        if self.msgtype != NLMSG_ERROR:
+            self.decode_attributes()
+
+    def get_netlink_header_flags_string(self, msg_type, flags):
+        foo = []
+
+        if flags & NLM_F_REQUEST:
+            foo.append('NLM_F_REQUEST')
+
+        if flags & NLM_F_MULTI:
+            foo.append('NLM_F_MULTI')
+
+        if flags & NLM_F_ACK:
+            foo.append('NLM_F_ACK')
+
+        if flags & NLM_F_ECHO:
+            foo.append('NLM_F_ECHO')
+
+        # Modifiers to GET query
+        if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC):
+            if flags & NLM_F_ROOT:
+                foo.append('NLM_F_ROOT')
+
+            if flags & NLM_F_MATCH:
+                foo.append('NLM_F_MATCH')
+
+            if flags & NLM_F_DUMP:
+                foo.append('NLM_F_DUMP')
+
+            if flags & NLM_F_ATOMIC:
+                foo.append('NLM_F_ATOMIC')
+
+        # Modifiers to NEW query
+        elif msg_type in (RTM_NEWLINK, RTM_NEWADDR, RTM_NEWNEIGH, RTM_NEWROUTE, RTM_NEWQDISC):
+            if flags & NLM_F_REPLACE:
+                foo.append('NLM_F_REPLACE')
+
+            if flags & NLM_F_EXCL:
+                foo.append('NLM_F_EXCL')
+
+            if flags & NLM_F_CREATE:
+                foo.append('NLM_F_CREATE')
+
+            if flags & NLM_F_APPEND:
+                foo.append('NLM_F_APPEND')
+
+        return ', '.join(foo)
+
+    # When we first RXed the netlink message we had to decode the header to
+    # determine what type of netlink message we were dealing with.  So the
+    # header has actually already been decoded...what we do here is
+    # populate the dump_buffer lines with the header content.
+    def decode_netlink_header(self):
+
+        if not self.debug:
+            return
+
+        header_data = self.header_data
+
+        # Print the netlink header in red
+        color = red
+        netlink_header_length = 16
+        self.dump_buffer.append("  \033[%dmNetlink Header\033[0m" % color)
+
+        for x in range(0, netlink_header_length/4):
+            start = x * 4
+            end = start + 4
+
+            if self.line_number == 1:
+                data = unpack('=L', header_data[start:end])[0]
+                extra = "Length %s (%d)" % (zfilled_hex(data, 8), data)
+
+            elif self.line_number == 2:
+                (data1, data2) = unpack('HH', header_data[start:end])
+                extra = "Type %s (%d - %s), Flags %s (%s)" % \
+                    (zfilled_hex(data1, 4), data1, self.get_type_string(data1),
+                     zfilled_hex(data2, 4), self.get_netlink_header_flags_string(data1, data2))
+
+            elif self.line_number == 3:
+                data = unpack('=L', header_data[start:end])[0]
+                extra = "Sequence Number %s (%d)" % (zfilled_hex(data, 8), data)
+
+            elif self.line_number == 4:
+                data = unpack('=L', header_data[start:end])[0]
+                extra = "Process ID %s (%d)" % (zfilled_hex(data, 8), data)
+            else:
+                extra = "Unexpected line number %d" % self.line_number
+
+            self.dump_buffer.append(data_to_color_text(self.line_number, color, header_data[start:end], extra))
+            self.line_number += 1
+
+    def decode_attributes(self):
+        """
+        Decode the attributes and populate the dump_buffer
+        """
+
+        if self.debug:
+            self.dump_buffer.append("  Attributes")
+            color = green
+
+        data = self.msg_data[self.LEN:]
+
+        while data:
+            (length, attr_type) = unpack('=HH', data[:4])
+
+            # If this is zero we will stay in this loop for forever
+            if not length:
+                self.log.error('Length is zero')
+                return
+
+            if len(data) < length:
+                self.log.error("Buffer underrun %d < %d" % (len(data), length))
+                return
+
+            attr = self.add_attribute(attr_type, None)
+
+            # Find the end of 'data' for this attribute and decode our section
+            # of 'data'. attributes are padded for alignment thus the attr_end.
+            #
+            # How the attribute is decoded/unpacked is specific per AttributeXXXX class.
+            attr_end = padded_length(length)
+            attr.decode(self, data[0:attr_end])
+
+            if self.debug:
+                self.line_number = attr.dump_lines(self.dump_buffer, self.line_number, color)
+
+                # Alternate back and forth between green and blue
+                if color == green:
+                    color = blue
+                else:
+                    color = green
+
+            data = data[attr_end:]
+
+    def add_attribute(self, attr_type, value):
+        nested = True if attr_type & NLA_F_NESTED else False
+        net_byteorder = True if attr_type & NLA_F_NET_BYTEORDER else False
+        attr_type = attr_type & NLA_TYPE_MASK
+
+        # Given an attr_type (say RTA_DST) find the type of AttributeXXXX class
+        # that we will use to store this attribute...AttributeIPAddress in the
+        # case of RTA_DST.
+        if attr_type in self.attribute_to_class:
+            (attr_string, attr_class) = self.attribute_to_class[attr_type]
+        else:
+            attr_string = "UNKNOWN_ATTRIBUTE_%d" % attr_type
+            attr_class = AttributeGeneric
+            self.log.debug("Attribute %d is not defined in %s.attribute_to_class, assuming AttributeGeneric" %
+                           (attr_type, self.__class__.__name__))
+
+        # A few attribute classes must know self.family (family was extracted from
+        # the service header)
+        if attr_class == AttributeIPAddress or attr_class == AttributeRTA_MULTIPATH:
+            attr = attr_class(attr_type, attr_string, self.family, self.log)
+        else:
+            attr = attr_class(attr_type, attr_string, self.log)
+
+        attr.value = value
+        attr.nested = nested
+        attr.net_byteorder = net_byteorder
+
+        # self.attributes is a dictionary keyed by the attribute type where
+        # the value is an instance of the corresponding AttributeXXXX class.
+        self.attributes[attr_type] = attr
+
+        return attr
+
+    def get_attribute_value(self, attr_type):
+        if attr_type not in self.attributes:
+            return None
+
+        return self.attributes[attr_type].value
+
+    def get_attr_string(self, attr_type):
+        """
+        Example: If attr_type is Address.IFA_CACHEINFO return the string 'IFA_CACHEINFO'
+        """
+        if attr_type in self.attribute_to_class:
+            (attr_string, attr_class) = self.attribute_to_class[attr_type]
+            return attr_string
+        return str(attr_type)
+
+    def build_message(self, seq, pid):
+        self.seq = seq
+        self.pid = pid
+        attrs = ''
+
+        for attr in self.attributes.itervalues():
+            attrs += attr.encode()
+
+        self.length = self.header_LEN + len(self.body) + len(attrs)
+        self.header_data = pack(self.header_PACK, self.length, self.msgtype, self.flags, self.seq, self.pid)
+        self.msg_data = self.body + attrs
+        self.message = self.header_data + self.msg_data
+
+        if self.debug:
+            self.decode_netlink_header()
+            self.decode_service_header()
+            self.decode_attributes()
+            self.dump("TXed %s, length %d, seq %d, pid %d, flags 0x%x (%s)" %
+                      (self, self.length, self.seq, self.pid, self.flags,
+                       self.get_netlink_header_flags_string(self.msgtype, self.flags)))
+
+    # Print the netlink message in hex. This is only used for debugging.
+    def dump(self, desc=None):
+        attr_string = {}
+
+        if desc is None:
+            desc = "RXed %s, length %d, seq %d, pid %d, flags 0x%x" % (self, self.length, self.seq, self.pid, self.flags)
+
+        for (attr_type, attr_obj) in self.attributes.iteritems():
+            key_string = "(%2d) %s" % (attr_type, self.get_attr_string(attr_type))
+            attr_string[key_string] = attr_obj.get_pretty_value()
+
+        self.log.debug("%s\n%s\n\nAttributes Summary\n%s\n" %
+                       (desc, '\n'.join(self.dump_buffer), pformat(attr_string)))
+
+
+class Address(NetlinkPacket):
+    """
+    Service Header
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   Family    |     Length    |     Flags     |    Scope      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Interface Index                         |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+
+    # Address attributes
+    # /usr/include/linux/if_addr.h
+    IFA_UNSPEC    = 0x00
+    IFA_ADDRESS   = 0x01
+    IFA_LOCAL     = 0x02
+    IFA_LABEL     = 0x03
+    IFA_BROADCAST = 0x04
+    IFA_ANYCAST   = 0x05
+    IFA_CACHEINFO = 0x06
+    IFA_MULTICAST = 0x07
+    IFA_FLAGS     = 0x08
+
+    attribute_to_class = {
+        IFA_UNSPEC    : ('IFA_UNSPEC', AttributeGeneric),
+        IFA_ADDRESS   : ('IFA_ADDRESS', AttributeIPAddress),
+        IFA_LOCAL     : ('IFA_LOCAL', AttributeIPAddress),
+        IFA_LABEL     : ('IFA_LABEL', AttributeString),
+        IFA_BROADCAST : ('IFA_BROADCAST', AttributeIPAddress),
+        IFA_ANYCAST   : ('IFA_ANYCAST', AttributeIPAddress),
+        IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeGeneric),
+        IFA_MULTICAST : ('IFA_MULTICAST', AttributeIPAddress),
+        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric)
+    }
+
+    # Address flags
+    # /usr/include/linux/if_addr.h
+    IFA_F_SECONDARY   = 0x01
+    IFA_F_NODAD       = 0x02
+    IFA_F_OPTIMISTIC  = 0x04
+    IFA_F_DADFAILED   = 0x08
+    IFA_F_HOMEADDRESS = 0x10
+    IFA_F_DEPRECATED  = 0x20
+    IFA_F_TENTATIVE   = 0x40
+    IFA_F_PERMANENT   = 0x80
+
+    flag_to_string = {
+        IFA_F_SECONDARY   : 'IFA_F_SECONDARY',
+        IFA_F_NODAD       : 'IFA_F_NODAD',
+        IFA_F_OPTIMISTIC  : 'IFA_F_OPTIMISTIC',
+        IFA_F_DADFAILED   : 'IFA_F_DADFAILED',
+        IFA_F_HOMEADDRESS : 'IFA_F_HOMEADDRESS',
+        IFA_F_DEPRECATED  : 'IFA_F_DEPRECATED',
+        IFA_F_TENTATIVE   : 'IFA_F_TENTATIVE',
+        IFA_F_PERMANENT   : 'IFA_F_PERMANENT'
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None):
+        NetlinkPacket.__init__(self, msgtype, debug, logger)
+        self.PACK = '4Bi'
+        self.LEN = calcsize(self.PACK)
+
+    def decode_service_header(self):
+
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        (self.family, self.prefixlen, self.flags, self.scope,
+         self.ifindex) = \
+            unpack(self.PACK, self.msg_data[:self.LEN])
+
+        if self.debug:
+            color = yellow
+            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+
+            for x in range(0, self.LEN/4):
+                if self.line_number == 5:
+                    extra = "Family %s (%d), Length %s (%d), Flags %s, Scope %s (%d)" % \
+                            (zfilled_hex(self.family, 2), self.family,
+                             zfilled_hex(self.prefixlen, 2), self.prefixlen,
+                             zfilled_hex(self.flags, 2),
+                             zfilled_hex(self.scope, 2), self.scope)
+                elif self.line_number == 6:
+                    extra = "Interface Index %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)
+                else:
+                    extra = "Unexpected line number %d" % self.line_number
+
+                start = x * 4
+                end = start + 4
+                self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
+                self.line_number += 1
+
+
+class Error(NetlinkPacket):
+
+    # Error codes
+    # /include/netlink/errno.h
+    NLE_SUCCESS           = 0x00
+    NLE_FAILURE           = 0x01
+    NLE_INTR              = 0x02
+    NLE_BAD_SOCK          = 0x03
+    NLE_AGAIN             = 0x04
+    NLE_NOMEM             = 0x05
+    NLE_EXIST             = 0x06
+    NLE_INVAL             = 0x07
+    NLE_RANGE             = 0x08
+    NLE_MSGSIZE           = 0x09
+    NLE_OPNOTSUPP         = 0x0A
+    NLE_AF_NOSUPPORT      = 0x0B
+    NLE_OBJ_NOTFOUND      = 0x0C
+    NLE_NOATTR            = 0x0D
+    NLE_MISSING_ATTR      = 0x0E
+    NLE_AF_MISMATCH       = 0x0F
+    NLE_SEQ_MISMATCH      = 0x10
+    NLE_MSG_OVERFLOW      = 0x11
+    NLE_MSG_TRUNC         = 0x12
+    NLE_NOADDR            = 0x13
+    NLE_SRCRT_NOSUPPORT   = 0x14
+    NLE_MSG_TOOSHORT      = 0x15
+    NLE_MSGTYPE_NOSUPPORT = 0x16
+    NLE_OBJ_MISMATCH      = 0x17
+    NLE_NOCACHE           = 0x18
+    NLE_BUSY              = 0x19
+    NLE_PROTO_MISMATCH    = 0x1A
+    NLE_NOACCESS          = 0x1B
+    NLE_PERM              = 0x1C
+    NLE_PKTLOC_FILE       = 0x1D
+    NLE_PARSE_ERR         = 0x1E
+    NLE_NODEV             = 0x1F
+    NLE_IMMUTABLE         = 0x20
+    NLE_DUMP_INTR         = 0x21
+
+    error_to_string = {
+        NLE_SUCCESS           : 'NLE_SUCCESS',
+        NLE_FAILURE           : 'NLE_FAILURE',
+        NLE_INTR              : 'NLE_INTR',
+        NLE_BAD_SOCK          : 'NLE_BAD_SOCK',
+        NLE_AGAIN             : 'NLE_AGAIN',
+        NLE_NOMEM             : 'NLE_NOMEM',
+        NLE_EXIST             : 'NLE_EXIST',
+        NLE_INVAL             : 'NLE_INVAL',
+        NLE_RANGE             : 'NLE_RANGE',
+        NLE_MSGSIZE           : 'NLE_MSGSIZE',
+        NLE_OPNOTSUPP         : 'NLE_OPNOTSUPP',
+        NLE_AF_NOSUPPORT      : 'NLE_AF_NOSUPPORT',
+        NLE_OBJ_NOTFOUND      : 'NLE_OBJ_NOTFOUND',
+        NLE_NOATTR            : 'NLE_NOATTR',
+        NLE_MISSING_ATTR      : 'NLE_MISSING_ATTR',
+        NLE_AF_MISMATCH       : 'NLE_AF_MISMATCH',
+        NLE_SEQ_MISMATCH      : 'NLE_SEQ_MISMATCH',
+        NLE_MSG_OVERFLOW      : 'NLE_MSG_OVERFLOW',
+        NLE_MSG_TRUNC         : 'NLE_MSG_TRUNC',
+        NLE_NOADDR            : 'NLE_NOADDR',
+        NLE_SRCRT_NOSUPPORT   : 'NLE_SRCRT_NOSUPPORT',
+        NLE_MSG_TOOSHORT      : 'NLE_MSG_TOOSHORT',
+        NLE_MSGTYPE_NOSUPPORT : 'NLE_MSGTYPE_NOSUPPORT',
+        NLE_OBJ_MISMATCH      : 'NLE_OBJ_MISMATCH',
+        NLE_NOCACHE           : 'NLE_NOCACHE',
+        NLE_BUSY              : 'NLE_BUSY',
+        NLE_PROTO_MISMATCH    : 'NLE_PROTO_MISMATCH',
+        NLE_NOACCESS          : 'NLE_NOACCESS',
+        NLE_PERM              : 'NLE_PERM',
+        NLE_PKTLOC_FILE       : 'NLE_PKTLOC_FILE',
+        NLE_PARSE_ERR         : 'NLE_PARSE_ERR',
+        NLE_NODEV             : 'NLE_NODEV',
+        NLE_IMMUTABLE         : 'NLE_IMMUTABLE',
+        NLE_DUMP_INTR         : 'NLE_DUMP_INTR'
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None):
+        NetlinkPacket.__init__(self, msgtype, debug, logger)
+        self.PACK = '=iLHHLL'
+        self.LEN = calcsize(self.PACK)
+
+    def decode_service_header(self):
+
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        (self.negative_errno, self.bad_msg_len, self.bad_msg_type,
+         self.bad_msg_flag, self.bad_msg_seq, self.bad_msg_pid) =\
+            unpack(self.PACK, self.msg_data[:self.LEN])
+
+        if self.debug:
+            color = yellow
+            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+
+            for x in range(0, self.LEN/4):
+
+                if self.line_number == 5:
+                    extra = "Error Number %s is %s" % (self.negative_errno, self.error_to_string.get(abs(self.negative_errno)))
+                    # zfilled_hex(self.negative_errno, 2)
+
+                elif self.line_number == 6:
+                    extra = "Length %s (%d)" % (zfilled_hex(self.bad_msg_len, 8), self.bad_msg_len)
+
+                elif self.line_number == 7:
+                    extra = "Type %s (%d - %s), Flags %s (%s)" % \
+                        (zfilled_hex(self.bad_msg_type, 4), self.bad_msg_type, self.get_type_string(self.bad_msg_type),
+                         zfilled_hex(self.bad_msg_flag, 4), self.get_netlink_header_flags_string(self.bad_msg_type, self.bad_msg_flag))
+
+                elif self.line_number == 8:
+                    extra = "Sequence Number %s (%d)" % (zfilled_hex(self.bad_msg_seq, 8), self.bad_msg_seq)
+
+                elif self.line_number == 9:
+                    extra = "Process ID %s (%d)" % (zfilled_hex(self.bad_msg_pid, 8), self.bad_msg_pid)
+
+                else:
+                    extra = "Unexpected line number %d" % self.line_number
+
+                start = x * 4
+                end = start + 4
+                self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
+                self.line_number += 1
+
+
+class Link(NetlinkPacket):
+    """
+    Service Header
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   Family    |   Reserved  |          Device Type              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Interface Index                           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Device Flags                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Change Mask                              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+
+    # Link attributes
+    # /usr/include/linux/if_link.h
+    IFLA_UNSPEC          = 0
+    IFLA_ADDRESS         = 1
+    IFLA_BROADCAST       = 2
+    IFLA_IFNAME          = 3
+    IFLA_MTU             = 4
+    IFLA_LINK            = 5
+    IFLA_QDISC           = 6
+    IFLA_STATS           = 7
+    IFLA_COST            = 8
+    IFLA_PRIORITY        = 9
+    IFLA_MASTER          = 10
+    IFLA_WIRELESS        = 11
+    IFLA_PROTINFO        = 12
+    IFLA_TXQLEN          = 13
+    IFLA_MAP             = 14
+    IFLA_WEIGHT          = 15
+    IFLA_OPERSTATE       = 16
+    IFLA_LINKMODE        = 17
+    IFLA_LINKINFO        = 18
+    IFLA_NET_NS_PID      = 19
+    IFLA_IFALIAS         = 20
+    IFLA_NUM_VF          = 21
+    IFLA_VFINFO_LIST     = 22
+    IFLA_STATS64         = 23
+    IFLA_VF_PORTS        = 24
+    IFLA_PORT_SELF       = 25
+    IFLA_AF_SPEC         = 26
+    IFLA_GROUP           = 27
+    IFLA_NET_NS_FD       = 28
+    IFLA_EXT_MASK        = 29
+    IFLA_PROMISCUITY     = 30
+    IFLA_NUM_TX_QUEUES   = 31
+    IFLA_NUM_RX_QUEUES   = 32
+    IFLA_CARRIER         = 33
+    IFLA_PHYS_PORT_ID    = 34
+    IFLA_CARRIER_CHANGES = 35
+    IFLA_PHYS_SWITCH_ID  = 36
+    IFLA_LINK_NETNSID    = 37
+    IFLA_PHYS_PORT_NAME  = 38
+    IFLA_PROTO_DOWN      = 39
+    IFLA_LINKPROTODOWN   = 200
+
+    attribute_to_class = {
+        IFLA_UNSPEC          : ('IFLA_UNSPEC', AttributeGeneric),
+        IFLA_ADDRESS         : ('IFLA_ADDRESS', AttributeMACAddress),
+        IFLA_BROADCAST       : ('IFLA_BROADCAST', AttributeMACAddress),
+        IFLA_IFNAME          : ('IFLA_IFNAME', AttributeString),
+        IFLA_MTU             : ('IFLA_MTU', AttributeFourByteValue),
+        IFLA_LINK            : ('IFLA_LINK', AttributeFourByteValue),
+        IFLA_QDISC           : ('IFLA_QDISC', AttributeString),
+        IFLA_STATS           : ('IFLA_STATS', AttributeGeneric),
+        IFLA_COST            : ('IFLA_COST', AttributeGeneric),
+        IFLA_PRIORITY        : ('IFLA_PRIORITY', AttributeGeneric),
+        IFLA_MASTER          : ('IFLA_MASTER', AttributeFourByteValue),
+        IFLA_WIRELESS        : ('IFLA_WIRELESS', AttributeGeneric),
+        IFLA_PROTINFO        : ('IFLA_PROTINFO', AttributeGeneric),
+        IFLA_TXQLEN          : ('IFLA_TXQLEN', AttributeFourByteValue),
+        IFLA_MAP             : ('IFLA_MAP', AttributeGeneric),
+        IFLA_WEIGHT          : ('IFLA_WEIGHT', AttributeGeneric),
+        IFLA_OPERSTATE       : ('IFLA_OPERSTATE', AttributeFourByteValue),
+        IFLA_LINKMODE        : ('IFLA_LINKMODE', AttributeFourByteValue),
+        IFLA_LINKINFO        : ('IFLA_LINKINFO', AttributeIFLA_LINKINFO),
+        IFLA_NET_NS_PID      : ('IFLA_NET_NS_PID', AttributeGeneric),
+        IFLA_IFALIAS         : ('IFLA_IFALIAS', AttributeGeneric),
+        IFLA_NUM_VF          : ('IFLA_NUM_VF', AttributeGeneric),
+        IFLA_VFINFO_LIST     : ('IFLA_VFINFO_LIST', AttributeGeneric),
+        IFLA_STATS64         : ('IFLA_STATS64', AttributeGeneric),
+        IFLA_VF_PORTS        : ('IFLA_VF_PORTS', AttributeGeneric),
+        IFLA_PORT_SELF       : ('IFLA_PORT_SELF', AttributeGeneric),
+        IFLA_AF_SPEC         : ('IFLA_AF_SPEC', AttributeIFLA_AF_SPEC),
+        IFLA_GROUP           : ('IFLA_GROUP', AttributeFourByteValue),
+        IFLA_NET_NS_FD       : ('IFLA_NET_NS_FD', AttributeGeneric),
+        IFLA_EXT_MASK        : ('IFLA_EXT_MASK', AttributeGeneric),
+        IFLA_PROMISCUITY     : ('IFLA_PROMISCUITY', AttributeGeneric),
+        IFLA_NUM_TX_QUEUES   : ('IFLA_NUM_TX_QUEUES', AttributeGeneric),
+        IFLA_NUM_RX_QUEUES   : ('IFLA_NUM_RX_QUEUES', AttributeGeneric),
+        IFLA_CARRIER         : ('IFLA_CARRIER', AttributeGeneric),
+        IFLA_PHYS_PORT_ID    : ('IFLA_PHYS_PORT_ID', AttributeGeneric),
+        IFLA_CARRIER_CHANGES : ('IFLA_CARRIER_CHANGES', AttributeGeneric),
+        IFLA_PHYS_SWITCH_ID  : ('IFLA_PHYS_SWITCH_ID', AttributeGeneric),
+        IFLA_LINK_NETNSID    : ('IFLA_LINK_NETNSID', AttributeGeneric),
+        IFLA_PHYS_PORT_NAME  : ('IFLA_PHYS_PORT_NAME', AttributeGeneric),
+        IFLA_PROTO_DOWN      : ('IFLA_PROTO_DOWN', AttributeGeneric),
+        IFLA_LINKPROTODOWN   : ('IFLA_LINKPROTODOWN', AttributeGeneric)
+    }
+
+    # Link flags
+    # /usr/include/linux/if.h
+    IFF_UP          = 0x0001     # Interface is administratively up.
+    IFF_BROADCAST   = 0x0002     # Valid broadcast address set.
+    IFF_DEBUG       = 0x0004     # Internal debugging flag.
+    IFF_LOOPBACK    = 0x0008     # Interface is a loopback interface.
+    IFF_POINTOPOINT = 0x0010     # Interface is a point-to-point link.
+    IFF_NOTRAILERS  = 0x0020     # Avoid use of trailers.
+    IFF_RUNNING     = 0x0040     # Interface is operationally up.
+    IFF_NOARP       = 0x0080     # No ARP protocol needed for this interface.
+    IFF_PROMISC     = 0x0100     # Interface is in promiscuous mode.
+    IFF_ALLMULTI    = 0x0200     # Receive all multicast packets.
+    IFF_MASTER      = 0x0400     # Master of a load balancing bundle.
+    IFF_SLAVE       = 0x0800     # Slave of a load balancing bundle.
+    IFF_MULTICAST   = 0x1000     # Supports multicast.
+    IFF_PORTSEL     = 0x2000     # Is able to select media type via ifmap.
+    IFF_AUTOMEDIA   = 0x4000     # Auto media selection active.
+    IFF_DYNAMIC     = 0x8000     # Interface was dynamically created.
+    IFF_LOWER_UP    = 0x10000    # driver signals L1 up
+    IFF_DORMANT     = 0x20000    # driver signals dormant
+    IFF_ECHO        = 0x40000    # echo sent packet
+    IFF_PROTO_DOWN  = 0x1000000  # protocol is down on the interface
+
+    flag_to_string = {
+        IFF_UP          : 'IFF_UP',
+        IFF_BROADCAST   : 'IFF_BROADCAST',
+        IFF_DEBUG       : 'IFF_DEBUG',
+        IFF_LOOPBACK    : 'IFF_LOOPBACK',
+        IFF_POINTOPOINT : 'IFF_POINTOPOINT',
+        IFF_NOTRAILERS  : 'IFF_NOTRAILERS',
+        IFF_RUNNING     : 'IFF_RUNNING',
+        IFF_NOARP       : 'IFF_NOARP',
+        IFF_PROMISC     : 'IFF_PROMISC',
+        IFF_ALLMULTI    : 'IFF_ALLMULTI',
+        IFF_MASTER      : 'IFF_MASTER',
+        IFF_SLAVE       : 'IFF_SLAVE',
+        IFF_MULTICAST   : 'IFF_MULTICAST',
+        IFF_PORTSEL     : 'IFF_PORTSEL',
+        IFF_AUTOMEDIA   : 'IFF_AUTOMEDIA',
+        IFF_DYNAMIC     : 'IFF_DYNAMIC',
+        IFF_LOWER_UP    : 'IFF_LOWER_UP',
+        IFF_DORMANT     : 'IFF_DORMANT',
+        IFF_ECHO        : 'IFF_ECHO',
+        IFF_PROTO_DOWN  : 'IFF_PROTO_DOWN'
+    }
+
+    # RFC 2863 operational status
+    IF_OPER_UNKNOWN        = 0
+    IF_OPER_NOTPRESENT     = 1
+    IF_OPER_DOWN           = 2
+    IF_OPER_LOWERLAYERDOWN = 3
+    IF_OPER_TESTING        = 4
+    IF_OPER_DORMANT        = 5
+    IF_OPER_UP             = 6
+
+    oper_to_string = {
+        IF_OPER_UNKNOWN        : 'IF_OPER_UNKNOWN',
+        IF_OPER_NOTPRESENT     : 'IF_OPER_NOTPRESENT',
+        IF_OPER_DOWN           : 'IF_OPER_DOWN',
+        IF_OPER_LOWERLAYERDOWN : 'IF_OPER_LOWERLAYERDOWN',
+        IF_OPER_TESTING        : 'IF_OPER_TESTING',
+        IF_OPER_DORMANT        : 'IF_OPER_DORMANT',
+        IF_OPER_UP             : 'IF_OPER_UP'
+    }
+
+    # Link types
+    # /usr/include/linux/if_arp.h
+    # ARP protocol HARDWARE identifiers
+    ARPHRD_NETROM             = 0      # from KA9Q: NET/ROM pseudo
+    ARPHRD_ETHER              = 1      # Ethernet 10Mbps
+    ARPHRD_EETHER             = 2      # Experimental Ethernet
+    ARPHRD_AX25               = 3      # AX.25 Level 2
+    ARPHRD_PRONET             = 4      # PROnet token ring
+    ARPHRD_CHAOS              = 5      # Chaosnet
+    ARPHRD_IEEE802            = 6      # IEEE 802.2 Ethernet/TR/TB
+    ARPHRD_ARCNET             = 7      # ARCnet
+    ARPHRD_APPLETLK           = 8      # APPLEtalk
+    ARPHRD_DLCI               = 15     # Frame Relay DLCI
+    ARPHRD_ATM                = 19     # ATM
+    ARPHRD_METRICOM           = 23     # Metricom STRIP (new IANA id)
+    ARPHRD_IEEE1394           = 24     # IEEE 1394 IPv4 - RFC 2734
+    ARPHRD_EUI64              = 27     # EUI-64
+    ARPHRD_INFINIBAND         = 32     # InfiniBand
+    # Dummy types for non ARP hardware
+    ARPHRD_SLIP               = 256
+    ARPHRD_CSLIP              = 257
+    ARPHRD_SLIP6              = 258
+    ARPHRD_CSLIP6             = 259
+    ARPHRD_RSRVD              = 260    # Notional KISS type
+    ARPHRD_ADAPT              = 264
+    ARPHRD_ROSE               = 270
+    ARPHRD_X25                = 271    # CCITT X.25
+    ARPHRD_HWX25              = 272    # Boards with X.25 in firmware
+    ARPHRD_CAN                = 280    # Controller Area Network
+    ARPHRD_PPP                = 512
+    ARPHRD_CISCO              = 513    # Cisco HDLC
+    ARPHRD_HDLC               = ARPHRD_CISCO
+    ARPHRD_LAPB               = 516    # LAPB
+    ARPHRD_DDCMP              = 517    # Digital's DDCMP protocol
+    ARPHRD_RAWHDLC            = 518    # Raw HDLC
+    ARPHRD_TUNNEL             = 768    # IPIP tunnel
+    ARPHRD_TUNNEL6            = 769    # IP6IP6 tunnel
+    ARPHRD_FRAD               = 770    # Frame Relay Access Device
+    ARPHRD_SKIP               = 771    # SKIP vif
+    ARPHRD_LOOPBACK           = 772    # Loopback device
+    ARPHRD_LOCALTLK           = 773    # Localtalk device
+    ARPHRD_FDDI               = 774    # Fiber Distributed Data Interface
+    ARPHRD_BIF                = 775    # AP1000 BIF
+    ARPHRD_SIT                = 776    # sit0 device - IPv6-in-IPv4
+    ARPHRD_IPDDP              = 777    # IP over DDP tunneller
+    ARPHRD_IPGRE              = 778    # GRE over IP
+    ARPHRD_PIMREG             = 779    # PIMSM register interface
+    ARPHRD_HIPPI              = 780    # High Performance Parallel Interface
+    ARPHRD_ASH                = 781    # Nexus 64Mbps Ash
+    ARPHRD_ECONET             = 782    # Acorn Econet
+    ARPHRD_IRDA               = 783    # Linux-IrDA
+    ARPHRD_FCPP               = 784    # Point to point fibrechannel
+    ARPHRD_FCAL               = 785    # Fibrechannel arbitrated loop
+    ARPHRD_FCPL               = 786    # Fibrechannel public loop
+    ARPHRD_FCFABRIC           = 787    # Fibrechannel fabric
+    # 787->799 reserved for fibrechannel media types
+    ARPHRD_IEEE802_TR         = 800    # Magic type ident for TR
+    ARPHRD_IEEE80211          = 801    # IEEE 802.11
+    ARPHRD_IEEE80211_PRISM    = 802    # IEEE 802.11 + Prism2 header
+    ARPHRD_IEEE80211_RADIOTAP = 803    # IEEE 802.11 + radiotap header
+    ARPHRD_IEEE802154         = 804
+    ARPHRD_PHONET             = 820    # PhoNet media type
+    ARPHRD_PHONET_PIPE        = 821    # PhoNet pipe header
+    ARPHRD_CAIF               = 822    # CAIF media type
+    ARPHRD_VOID               = 0xFFFF  # Void type, nothing is known
+    ARPHRD_NONE               = 0xFFFE  # zero header length
+
+    link_type_to_string = {
+        ARPHRD_NETROM             : 'ARPHRD_NETROM',
+        ARPHRD_ETHER              : 'ARPHRD_ETHER',
+        ARPHRD_EETHER             : 'ARPHRD_EETHER',
+        ARPHRD_AX25               : 'ARPHRD_AX25',
+        ARPHRD_PRONET             : 'ARPHRD_PRONET',
+        ARPHRD_CHAOS              : 'ARPHRD_CHAOS',
+        ARPHRD_IEEE802            : 'ARPHRD_IEEE802',
+        ARPHRD_ARCNET             : 'ARPHRD_ARCNET',
+        ARPHRD_APPLETLK           : 'ARPHRD_APPLETLK',
+        ARPHRD_DLCI               : 'ARPHRD_DLCI',
+        ARPHRD_ATM                : 'ARPHRD_ATM',
+        ARPHRD_METRICOM           : 'ARPHRD_METRICOM',
+        ARPHRD_IEEE1394           : 'ARPHRD_IEEE1394',
+        ARPHRD_EUI64              : 'ARPHRD_EUI64',
+        ARPHRD_INFINIBAND         : 'ARPHRD_INFINIBAND',
+        ARPHRD_SLIP               : 'ARPHRD_SLIP',
+        ARPHRD_CSLIP              : 'ARPHRD_CSLIP',
+        ARPHRD_SLIP6              : 'ARPHRD_SLIP6',
+        ARPHRD_CSLIP6             : 'ARPHRD_CSLIP6',
+        ARPHRD_RSRVD              : 'ARPHRD_RSRVD',
+        ARPHRD_ADAPT              : 'ARPHRD_ADAPT',
+        ARPHRD_ROSE               : 'ARPHRD_ROSE',
+        ARPHRD_X25                : 'ARPHRD_X25',
+        ARPHRD_HWX25              : 'ARPHRD_HWX25',
+        ARPHRD_CAN                : 'ARPHRD_CAN',
+        ARPHRD_PPP                : 'ARPHRD_PPP',
+        ARPHRD_CISCO              : 'ARPHRD_CISCO',
+        ARPHRD_HDLC               : 'ARPHRD_HDLC',
+        ARPHRD_LAPB               : 'ARPHRD_LAPB',
+        ARPHRD_DDCMP              : 'ARPHRD_DDCMP',
+        ARPHRD_RAWHDLC            : 'ARPHRD_RAWHDLC',
+        ARPHRD_TUNNEL             : 'ARPHRD_TUNNEL',
+        ARPHRD_TUNNEL6            : 'ARPHRD_TUNNEL6',
+        ARPHRD_FRAD               : 'ARPHRD_FRAD',
+        ARPHRD_SKIP               : 'ARPHRD_SKIP',
+        ARPHRD_LOOPBACK           : 'ARPHRD_LOOPBACK',
+        ARPHRD_LOCALTLK           : 'ARPHRD_LOCALTLK',
+        ARPHRD_FDDI               : 'ARPHRD_FDDI',
+        ARPHRD_BIF                : 'ARPHRD_BIF',
+        ARPHRD_SIT                : 'ARPHRD_SIT',
+        ARPHRD_IPDDP              : 'ARPHRD_IPDDP',
+        ARPHRD_IPGRE              : 'ARPHRD_IPGRE',
+        ARPHRD_PIMREG             : 'ARPHRD_PIMREG',
+        ARPHRD_HIPPI              : 'ARPHRD_HIPPI',
+        ARPHRD_ASH                : 'ARPHRD_ASH',
+        ARPHRD_ECONET             : 'ARPHRD_ECONET',
+        ARPHRD_IRDA               : 'ARPHRD_IRDA',
+        ARPHRD_FCPP               : 'ARPHRD_FCPP',
+        ARPHRD_FCAL               : 'ARPHRD_FCAL',
+        ARPHRD_FCPL               : 'ARPHRD_FCPL',
+        ARPHRD_FCFABRIC           : 'ARPHRD_FCFABRIC',
+        ARPHRD_IEEE802_TR         : 'ARPHRD_IEEE802_TR',
+        ARPHRD_IEEE80211          : 'ARPHRD_IEEE80211',
+        ARPHRD_IEEE80211_PRISM    : 'ARPHRD_IEEE80211_PRISM',
+        ARPHRD_IEEE80211_RADIOTAP : 'ARPHRD_IEEE80211_RADIOTAP',
+        ARPHRD_IEEE802154         : 'ARPHRD_IEEE802154',
+        ARPHRD_PHONET             : 'ARPHRD_PHONET',
+        ARPHRD_PHONET_PIPE        : 'ARPHRD_PHONET_PIPE',
+        ARPHRD_CAIF               : 'ARPHRD_CAIF',
+        ARPHRD_VOID               : 'ARPHRD_VOID',
+        ARPHRD_NONE               : 'ARPHRD_NONE'
+    }
+
+    # =========================================
+    # IFLA_LINKINFO attributes
+    # =========================================
+    IFLA_INFO_UNSPEC     = 0
+    IFLA_INFO_KIND       = 1
+    IFLA_INFO_DATA       = 2
+    IFLA_INFO_XSTATS     = 3
+    IFLA_INFO_SLAVE_KIND = 4
+    IFLA_INFO_SLAVE_DATA = 5
+    IFLA_INFO_MAX        = 6
+
+    ifla_info_to_string = {
+        IFLA_INFO_UNSPEC     : 'IFLA_INFO_UNSPEC',
+        IFLA_INFO_KIND       : 'IFLA_INFO_KIND',
+        IFLA_INFO_DATA       : 'IFLA_INFO_DATA',
+        IFLA_INFO_XSTATS     : 'IFLA_INFO_XSTATS',
+        IFLA_INFO_SLAVE_KIND : 'IFLA_INFO_SLAVE_KIND',
+        IFLA_INFO_SLAVE_DATA : 'IFLA_INFO_SLAVE_DATA',
+        IFLA_INFO_MAX        : 'IFLA_INFO_MAX'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vlan
+    # =========================================
+    IFLA_VLAN_UNSPEC      = 0
+    IFLA_VLAN_ID          = 1
+    IFLA_VLAN_FLAGS       = 2
+    IFLA_VLAN_EGRESS_QOS  = 3
+    IFLA_VLAN_INGRESS_QOS = 4
+    IFLA_VLAN_PROTOCOL    = 5
+
+    ifla_vlan_to_string = {
+        IFLA_VLAN_UNSPEC      : 'IFLA_VLAN_UNSPEC',
+        IFLA_VLAN_ID          : 'IFLA_VLAN_ID',
+        IFLA_VLAN_FLAGS       : 'IFLA_VLAN_FLAGS',
+        IFLA_VLAN_EGRESS_QOS  : 'IFLA_VLAN_EGRESS_QOS',
+        IFLA_VLAN_INGRESS_QOS : 'IFLA_VLAN_INGRESS_QOS',
+        IFLA_VLAN_PROTOCOL    : 'IFLA_VLAN_PROTOCOL'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for macvlan
+    # =========================================
+    IFLA_MACVLAN_UNSPEC = 0
+    IFLA_MACVLAN_MODE   = 1
+
+    ifla_macvlan_to_string = {
+        IFLA_MACVLAN_UNSPEC : 'IFLA_MACVLAN_UNSPEC',
+        IFLA_MACVLAN_MODE   : 'IFLA_MACVLAN_MODE'
+    }
+
+    # macvlan modes
+    MACVLAN_MODE_PRIVATE  = 1
+    MACVLAN_MODE_VEPA     = 2
+    MACVLAN_MODE_BRIDGE   = 3
+    MACVLAN_MODE_PASSTHRU = 4
+
+    macvlan_mode_to_string = {
+        MACVLAN_MODE_PRIVATE  : 'MACVLAN_MODE_PRIVATE',
+        MACVLAN_MODE_VEPA     : 'MACVLAN_MODE_VEPA',
+        MACVLAN_MODE_BRIDGE   : 'MACVLAN_MODE_BRIDGE',
+        MACVLAN_MODE_PASSTHRU : 'MACVLAN_MODE_PASSTHRU'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vxlan
+    # =========================================
+    IFLA_VXLAN_UNSPEC            = 0
+    IFLA_VXLAN_ID                = 1
+    IFLA_VXLAN_GROUP             = 2
+    IFLA_VXLAN_LINK              = 3
+    IFLA_VXLAN_LOCAL             = 4
+    IFLA_VXLAN_TTL               = 5
+    IFLA_VXLAN_TOS               = 6
+    IFLA_VXLAN_LEARNING          = 7
+    IFLA_VXLAN_AGEING            = 8
+    IFLA_VXLAN_LIMIT             = 9
+    IFLA_VXLAN_PORT_RANGE        = 10
+    IFLA_VXLAN_PROXY             = 11
+    IFLA_VXLAN_RSC               = 12
+    IFLA_VXLAN_L2MISS            = 13
+    IFLA_VXLAN_L3MISS            = 14
+    IFLA_VXLAN_PORT              = 15
+    IFLA_VXLAN_GROUP6            = 16
+    IFLA_VXLAN_LOCAL6            = 17
+    IFLA_VXLAN_UDP_CSUM          = 18
+    IFLA_VXLAN_UDP_ZERO_CSUM6_TX = 19
+    IFLA_VXLAN_UDP_ZERO_CSUM6_RX = 20
+    IFLA_VXLAN_REMCSUM_TX        = 21
+    IFLA_VXLAN_REMCSUM_RX        = 22
+    IFLA_VXLAN_GBP               = 23
+    IFLA_VXLAN_REMCSUM_NOPARTIAL = 24
+    IFLA_VXLAN_COLLECT_METADATA  = 25
+    IFLA_VXLAN_REPLICATION_NODE  = 253
+    IFLA_VXLAN_REPLICATION_TYPE  = 254
+
+    ifla_vxlan_to_string = {
+        IFLA_VXLAN_UNSPEC            : 'IFLA_VXLAN_UNSPEC',
+        IFLA_VXLAN_ID                : 'IFLA_VXLAN_ID',
+        IFLA_VXLAN_GROUP             : 'IFLA_VXLAN_GROUP',
+        IFLA_VXLAN_LINK              : 'IFLA_VXLAN_LINK',
+        IFLA_VXLAN_LOCAL             : 'IFLA_VXLAN_LOCAL',
+        IFLA_VXLAN_TTL               : 'IFLA_VXLAN_TTL',
+        IFLA_VXLAN_TOS               : 'IFLA_VXLAN_TOS',
+        IFLA_VXLAN_LEARNING          : 'IFLA_VXLAN_LEARNING',
+        IFLA_VXLAN_AGEING            : 'IFLA_VXLAN_AGEING',
+        IFLA_VXLAN_LIMIT             : 'IFLA_VXLAN_LIMIT',
+        IFLA_VXLAN_PORT_RANGE        : 'IFLA_VXLAN_PORT_RANGE',
+        IFLA_VXLAN_PROXY             : 'IFLA_VXLAN_PROXY',
+        IFLA_VXLAN_RSC               : 'IFLA_VXLAN_RSC',
+        IFLA_VXLAN_L2MISS            : 'IFLA_VXLAN_L2MISS',
+        IFLA_VXLAN_L3MISS            : 'IFLA_VXLAN_L3MISS',
+        IFLA_VXLAN_PORT              : 'IFLA_VXLAN_PORT',
+        IFLA_VXLAN_GROUP6            : 'IFLA_VXLAN_GROUP6',
+        IFLA_VXLAN_LOCAL6            : 'IFLA_VXLAN_LOCAL6',
+        IFLA_VXLAN_UDP_CSUM          : 'IFLA_VXLAN_UDP_CSUM',
+        IFLA_VXLAN_UDP_ZERO_CSUM6_TX : 'IFLA_VXLAN_UDP_ZERO_CSUM6_TX',
+        IFLA_VXLAN_UDP_ZERO_CSUM6_RX : 'IFLA_VXLAN_UDP_ZERO_CSUM6_RX',
+        IFLA_VXLAN_REMCSUM_TX        : 'IFLA_VXLAN_REMCSUM_TX',
+        IFLA_VXLAN_REMCSUM_RX        : 'IFLA_VXLAN_REMCSUM_RX',
+        IFLA_VXLAN_GBP               : 'IFLA_VXLAN_GBP',
+        IFLA_VXLAN_REMCSUM_NOPARTIAL : 'IFLA_VXLAN_REMCSUM_NOPARTIAL',
+        IFLA_VXLAN_COLLECT_METADATA  : 'IFLA_VXLAN_COLLECT_METADATA',
+        IFLA_VXLAN_REPLICATION_NODE  : 'IFLA_VXLAN_REPLICATION_NODE',
+        IFLA_VXLAN_REPLICATION_TYPE  : 'IFLA_VXLAN_REPLICATION_TYPE'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for bonds
+    # =========================================
+    IFLA_BOND_UNSPEC                    = 0
+    IFLA_BOND_MODE                      = 1
+    IFLA_BOND_ACTIVE_SLAVE              = 2
+    IFLA_BOND_MIIMON                    = 3
+    IFLA_BOND_UPDELAY                   = 4
+    IFLA_BOND_DOWNDELAY                 = 5
+    IFLA_BOND_USE_CARRIER               = 6
+    IFLA_BOND_ARP_INTERVAL              = 7
+    IFLA_BOND_ARP_IP_TARGET             = 8
+    IFLA_BOND_ARP_VALIDATE              = 9
+    IFLA_BOND_ARP_ALL_TARGETS           = 10
+    IFLA_BOND_PRIMARY                   = 11
+    IFLA_BOND_PRIMARY_RESELECT          = 12
+    IFLA_BOND_FAIL_OVER_MAC             = 13
+    IFLA_BOND_XMIT_HASH_POLICY          = 14
+    IFLA_BOND_RESEND_IGMP               = 15
+    IFLA_BOND_NUM_PEER_NOTIF            = 16
+    IFLA_BOND_ALL_SLAVES_ACTIVE         = 17
+    IFLA_BOND_MIN_LINKS                 = 18
+    IFLA_BOND_LP_INTERVAL               = 19
+    IFLA_BOND_PACKETS_PER_SLAVE         = 20
+    IFLA_BOND_AD_LACP_RATE              = 21
+    IFLA_BOND_AD_SELECT                 = 22
+    IFLA_BOND_AD_INFO                   = 23
+    IFLA_BOND_AD_ACTOR_SYS_PRIO         = 24
+    IFLA_BOND_AD_USER_PORT_KEY          = 25
+    IFLA_BOND_AD_ACTOR_SYSTEM           = 26
+    IFLA_BOND_CL_LACP_BYPASS_ALLOW      = 100
+    IFLA_BOND_CL_LACP_BYPASS_ACTIVE     = 101
+    IFLA_BOND_CL_LACP_BYPASS_PERIOD     = 102
+    IFLA_BOND_CL_CLAG_ENABLE            = 103
+    IFLA_BOND_CL_LACP_BYPASS_ALL_ACTIVE = 104
+
+    ifla_bond_to_string = {
+        IFLA_BOND_UNSPEC                    : 'IFLA_BOND_UNSPEC',
+        IFLA_BOND_MODE                      : 'IFLA_BOND_MODE',
+        IFLA_BOND_ACTIVE_SLAVE              : 'IFLA_BOND_ACTIVE_SLAVE',
+        IFLA_BOND_MIIMON                    : 'IFLA_BOND_MIIMON',
+        IFLA_BOND_UPDELAY                   : 'IFLA_BOND_UPDELAY',
+        IFLA_BOND_DOWNDELAY                 : 'IFLA_BOND_DOWNDELAY',
+        IFLA_BOND_USE_CARRIER               : 'IFLA_BOND_USE_CARRIER',
+        IFLA_BOND_ARP_INTERVAL              : 'IFLA_BOND_ARP_INTERVAL',
+        IFLA_BOND_ARP_IP_TARGET             : 'IFLA_BOND_ARP_IP_TARGET',
+        IFLA_BOND_ARP_VALIDATE              : 'IFLA_BOND_ARP_VALIDATE',
+        IFLA_BOND_ARP_ALL_TARGETS           : 'IFLA_BOND_ARP_ALL_TARGETS',
+        IFLA_BOND_PRIMARY                   : 'IFLA_BOND_PRIMARY',
+        IFLA_BOND_PRIMARY_RESELECT          : 'IFLA_BOND_PRIMARY_RESELECT',
+        IFLA_BOND_FAIL_OVER_MAC             : 'IFLA_BOND_FAIL_OVER_MAC',
+        IFLA_BOND_XMIT_HASH_POLICY          : 'IFLA_BOND_XMIT_HASH_POLICY',
+        IFLA_BOND_RESEND_IGMP               : 'IFLA_BOND_RESEND_IGMP',
+        IFLA_BOND_NUM_PEER_NOTIF            : 'IFLA_BOND_NUM_PEER_NOTIF',
+        IFLA_BOND_ALL_SLAVES_ACTIVE         : 'IFLA_BOND_ALL_SLAVES_ACTIVE',
+        IFLA_BOND_MIN_LINKS                 : 'IFLA_BOND_MIN_LINKS',
+        IFLA_BOND_LP_INTERVAL               : 'IFLA_BOND_LP_INTERVAL',
+        IFLA_BOND_PACKETS_PER_SLAVE         : 'IFLA_BOND_PACKETS_PER_SLAVE',
+        IFLA_BOND_AD_LACP_RATE              : 'IFLA_BOND_AD_LACP_RATE',
+        IFLA_BOND_AD_SELECT                 : 'IFLA_BOND_AD_SELECT',
+        IFLA_BOND_AD_INFO                   : 'IFLA_BOND_AD_INFO',
+        IFLA_BOND_AD_ACTOR_SYS_PRIO         : 'IFLA_BOND_AD_ACTOR_SYS_PRIO',
+        IFLA_BOND_AD_USER_PORT_KEY          : 'IFLA_BOND_AD_USER_PORT_KEY',
+        IFLA_BOND_AD_ACTOR_SYSTEM           : 'IFLA_BOND_AD_ACTOR_SYSTEM',
+        IFLA_BOND_CL_LACP_BYPASS_ALLOW      : 'IFLA_BOND_CL_LACP_BYPASS_ALLOW',
+        IFLA_BOND_CL_LACP_BYPASS_ACTIVE     : 'IFLA_BOND_CL_LACP_BYPASS_ACTIVE',
+        IFLA_BOND_CL_LACP_BYPASS_PERIOD     : 'IFLA_BOND_CL_LACP_BYPASS_PERIOD',
+        IFLA_BOND_CL_CLAG_ENABLE            : 'IFLA_BOND_CL_CLAG_ENABLE',
+        IFLA_BOND_CL_LACP_BYPASS_ALL_ACTIVE : 'IFLA_BOND_CL_LACP_BYPASS_ALL_ACTIVE'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for bridges
+    # =========================================
+    IFLA_BRPORT_UNSPEC              = 0
+    IFLA_BRPORT_STATE               = 1
+    IFLA_BRPORT_PRIORITY            = 2
+    IFLA_BRPORT_COST                = 3
+    IFLA_BRPORT_MODE                = 4
+    IFLA_BRPORT_GUARD               = 5
+    IFLA_BRPORT_PROTECT             = 6
+    IFLA_BRPORT_FAST_LEAVE          = 7
+    IFLA_BRPORT_LEARNING            = 8
+    IFLA_BRPORT_UNICAST_FLOOD       = 9
+    IFLA_BRPORT_PROXYARP            = 10
+    IFLA_BRPORT_LEARNING_SYNC       = 11
+    IFLA_BRPORT_PROXYARP_WIFI       = 12
+    IFLA_BRPORT_ROOT_ID             = 13
+    IFLA_BRPORT_BRIDGE_ID           = 14
+    IFLA_BRPORT_DESIGNATED_PORT     = 15
+    IFLA_BRPORT_DESIGNATED_COST     = 16
+    IFLA_BRPORT_ID                  = 17
+    IFLA_BRPORT_NO                  = 18
+    IFLA_BRPORT_TOPOLOGY_CHANGE_ACK = 19
+    IFLA_BRPORT_CONFIG_PENDING      = 20
+    IFLA_BRPORT_MESSAGE_AGE_TIMER   = 21
+    IFLA_BRPORT_FORWARD_DELAY_TIMER = 22
+    IFLA_BRPORT_HOLD_TIMER          = 23
+    IFLA_BRPORT_FLUSH               = 24
+    IFLA_BRPORT_MULTICAST_ROUTER    = 25
+    IFLA_BRPORT_PEER_LINK           = 150
+    IFLA_BRPORT_DUAL_LINK           = 151
+
+    ifla_bridge_to_string = {
+        IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
+        IFLA_BRPORT_STATE               : 'IFLA_BRPORT_STATE',
+        IFLA_BRPORT_PRIORITY            : 'IFLA_BRPORT_PRIORITY',
+        IFLA_BRPORT_COST                : 'IFLA_BRPORT_COST',
+        IFLA_BRPORT_MODE                : 'IFLA_BRPORT_MODE',
+        IFLA_BRPORT_GUARD               : 'IFLA_BRPORT_GUARD',
+        IFLA_BRPORT_PROTECT             : 'IFLA_BRPORT_PROTECT',
+        IFLA_BRPORT_FAST_LEAVE          : 'IFLA_BRPORT_FAST_LEAVE',
+        IFLA_BRPORT_LEARNING            : 'IFLA_BRPORT_LEARNING',
+        IFLA_BRPORT_UNICAST_FLOOD       : 'IFLA_BRPORT_UNICAST_FLOOD',
+        IFLA_BRPORT_PROXYARP            : 'IFLA_BRPORT_PROXYARP',
+        IFLA_BRPORT_LEARNING_SYNC       : 'IFLA_BRPORT_LEARNING_SYNC',
+        IFLA_BRPORT_PROXYARP_WIFI       : 'IFLA_BRPORT_PROXYARP_WIFI',
+        IFLA_BRPORT_ROOT_ID             : 'IFLA_BRPORT_ROOT_ID',
+        IFLA_BRPORT_BRIDGE_ID           : 'IFLA_BRPORT_BRIDGE_ID',
+        IFLA_BRPORT_DESIGNATED_PORT     : 'IFLA_BRPORT_DESIGNATED_PORT',
+        IFLA_BRPORT_DESIGNATED_COST     : 'IFLA_BRPORT_DESIGNATED_COST',
+        IFLA_BRPORT_ID                  : 'IFLA_BRPORT_ID',
+        IFLA_BRPORT_NO                  : 'IFLA_BRPORT_NO',
+        IFLA_BRPORT_TOPOLOGY_CHANGE_ACK : 'IFLA_BRPORT_TOPOLOGY_CHANGE_ACK',
+        IFLA_BRPORT_CONFIG_PENDING      : 'IFLA_BRPORT_CONFIG_PENDING',
+        IFLA_BRPORT_MESSAGE_AGE_TIMER   : 'IFLA_BRPORT_MESSAGE_AGE_TIMER',
+        IFLA_BRPORT_FORWARD_DELAY_TIMER : 'IFLA_BRPORT_FORWARD_DELAY_TIMER',
+        IFLA_BRPORT_HOLD_TIMER          : 'IFLA_BRPORT_HOLD_TIMER',
+        IFLA_BRPORT_FLUSH               : 'IFLA_BRPORT_FLUSH',
+        IFLA_BRPORT_MULTICAST_ROUTER    : 'IFLA_BRPORT_MULTICAST_ROUTER',
+        IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
+        IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK'
+    }
+
+    # BRIDGE IFLA_AF_SPEC attributes
+    IFLA_BRIDGE_FLAGS     = 0
+    IFLA_BRIDGE_MODE      = 1
+    IFLA_BRIDGE_VLAN_INFO = 2
+
+    ifla_bridge_af_spec_to_string = {
+        IFLA_BRIDGE_FLAGS     : 'IFLA_BRIDGE_FLAGS',
+        IFLA_BRIDGE_MODE      : 'IFLA_BRIDGE_MODE',
+        IFLA_BRIDGE_VLAN_INFO : 'IFLA_BRIDGE_VLAN_INFO'
+    }
+
+    # BRIDGE_VLAN_INFO flags
+    BRIDGE_VLAN_INFO_MASTER   = 1
+    BRIDGE_VLAN_INFO_PVID     = 2
+    BRIDGE_VLAN_INFO_UNTAGGED = 4
+
+    bridge_vlan_to_string = {
+        BRIDGE_VLAN_INFO_MASTER   : 'BRIDGE_VLAN_INFO_MASTER',
+        BRIDGE_VLAN_INFO_PVID     : 'BRIDGE_VLAN_INFO_PVID',
+        BRIDGE_VLAN_INFO_UNTAGGED : 'BRIDGE_VLAN_INFO_UNTAGGED'
+    }
+
+    # Bridge flags
+    BRIDGE_FLAGS_MASTER = 1
+    BRIDGE_FLAGS_SELF   = 2
+
+    bridge_flags_to_string = {
+        BRIDGE_FLAGS_MASTER : 'BRIDGE_FLAGS_MASTER',
+        BRIDGE_FLAGS_SELF   : 'BRIDGE_FLAGS_SELF'
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None):
+        NetlinkPacket.__init__(self, msgtype, debug, logger)
+        self.PACK = 'BxHiII'
+        self.LEN  = calcsize(self.PACK)
+
+    def get_link_type_string(self, index):
+        return self.get_string(self.link_type_to_string, index)
+
+    def get_ifla_bridge_af_spec_to_string(self, index):
+        return self.get_string(self.ifla_bridge_af_spec_to_string, index)
+
+    def get_ifla_info_string(self, index):
+        return self.get_string(self.ifla_info_to_string, index)
+
+    def get_ifla_vlan_string(self, index):
+        return self.get_string(self.ifla_vlan_to_string, index)
+
+    def get_ifla_vxlan_string(self, index):
+        return self.get_string(self.ifla_vxlan_to_string, index)
+
+    def get_ifla_macvlan_string(self, index):
+        return self.get_string(self.ifla_macvlan_to_string, index)
+
+    def get_macvlan_mode_string(self, index):
+        return self.get_string(self.macvlan_mode_to_string, index)
+
+    def get_ifla_bond_string(self, index):
+        return self.get_string(self.ifla_bond_to_string, index)
+
+    def get_ifla_bridge_string(self, index):
+        return self.get_string(self.ifla_bridge_to_string, index)
+
+    def get_bridge_vlan_string(self, index):
+        return self.get_string(self.bridge_vlan_to_string, index)
+
+    def get_bridge_flags_string(self, index):
+        return self.get_string(self.bridge_flags_to_string, index)
+
+    def decode_service_header(self):
+
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        (self.family, self.device_type,
+         self.ifindex,
+         self.flags,
+         self.change_mask) = \
+            unpack(self.PACK, self.msg_data[:self.LEN])
+
+        if self.debug:
+            color = yellow
+            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            for x in range(0, self.LEN/4):
+                if self.line_number == 5:
+                    extra = "Family %s (%d), Device Type %s (%d - %s)" % \
+                            (zfilled_hex(self.family, 2), self.family,
+                             zfilled_hex(self.device_type, 4), self.device_type, self.get_link_type_string(self.device_type))
+                elif self.line_number == 6:
+                    extra = "Interface Index %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)
+                elif self.line_number == 7:
+                    extra = "Device Flags %s (%s)" % (zfilled_hex(self.flags, 8), self.get_flags_string())
+                elif self.line_number == 8:
+                    extra = "Change Mask %s" % zfilled_hex(self.change_mask, 8)
+                else:
+                    extra = "Unexpected line number %d" % self.line_number
+
+                start = x * 4
+                end = start + 4
+                self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
+                self.line_number += 1
+
+    def is_up(self):
+        if self.flags & Link.IFF_UP:
+            return True
+        return False
+
+
+class Neighbor(NetlinkPacket):
+    """
+    Service Header
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   Family    |    Reserved1  |           Reserved2           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Interface Index                         |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |           State             |     Flags     |     Type      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+
+    # Neighbor attributes
+    # /usr/include/linux/neighbour.h
+    NDA_UNSPEC       = 0x00  # Unknown type
+    NDA_DST          = 0x01  # A neighbour cache network. layer destination address
+    NDA_LLADDR       = 0x02  # A neighbor cache link layer address.
+    NDA_CACHEINFO    = 0x03  # Cache statistics
+    NDA_PROBES       = 0x04
+    NDA_VLAN         = 0x05
+    NDA_PORT         = 0x06
+    NDA_VNI          = 0x07
+    NDA_IFINDEX      = 0x08
+    NDA_MASTER       = 0x09
+    NDA_LINK_NETNSID = 0x0A
+
+    attribute_to_class = {
+        NDA_UNSPEC       : ('NDA_UNSPEC', AttributeGeneric),
+        NDA_DST          : ('NDA_DST', AttributeIPAddress),
+        NDA_LLADDR       : ('NDA_LLADDR', AttributeMACAddress),
+        NDA_CACHEINFO    : ('NDA_CACHEINFO', AttributeGeneric),
+        NDA_PROBES       : ('NDA_PROBES', AttributeFourByteValue),
+        NDA_VLAN         : ('NDA_VLAN', AttributeGeneric),
+        NDA_PORT         : ('NDA_PORT', AttributeGeneric),
+        NDA_VNI          : ('NDA_VNI', AttributeGeneric),
+        NDA_IFINDEX      : ('NDA_IFINDEX', AttributeGeneric),
+        NDA_MASTER       : ('NDA_MASTER', AttributeGeneric),
+        NDA_LINK_NETNSID : ('NDA_LINK_NETNSID', AttributeGeneric)
+    }
+
+    # Neighbor flags
+    # /usr/include/linux/neighbour.h
+    NTF_USE    = 0x01
+    NTF_PROXY  = 0x08  # A proxy ARP entry
+    NTF_ROUTER = 0x80  # An IPv6 router
+
+    flag_to_string = {
+        NTF_USE    : 'NTF_USE',
+        NTF_PROXY  : 'NTF_PROXY',
+        NTF_ROUTER : 'NTF_ROUTER'
+    }
+
+    # Neighbor states
+    # /usr/include/linux/neighbour.h
+    NUD_NONE       = 0x00
+    NUD_INCOMPLETE = 0x01  # Still attempting to resolve
+    NUD_REACHABLE  = 0x02  # A confirmed working cache entry
+    NUD_STALE      = 0x04  # an expired cache entry
+    NUD_DELAY      = 0x08  # Neighbor no longer reachable.  Traffic sent, waiting for confirmatio.
+    NUD_PROBE      = 0x10  # A cache entry that is currently being re-solicited
+    NUD_FAILED     = 0x20  # An invalid cache entry
+    NUD_NOARP      = 0x40  # A device which does not do neighbor discovery(ARP)
+    NUD_PERMANENT  = 0x80  # A static entry
+
+    state_to_string = {
+        NUD_NONE       : 'NUD_NONE',
+        NUD_INCOMPLETE : 'NUD_INCOMPLETE',
+        NUD_REACHABLE  : 'NUD_REACHABLE',
+        NUD_STALE      : 'NUD_STALE',
+        NUD_DELAY      : 'NUD_DELAY',
+        NUD_PROBE      : 'NUD_PROBE',
+        NUD_FAILED     : 'NUD_FAILED',
+        NUD_NOARP      : 'NUD_NOARP',
+        NUD_PERMANENT  : 'NUD_PERMANENT'
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None):
+        NetlinkPacket.__init__(self, msgtype, debug, logger)
+        self.PACK = 'BxxxiHBB'
+        self.LEN = calcsize(self.PACK)
+
+    def get_state_string(self, index):
+        return self.get_string(self.state_to_string, index)
+
+    def decode_service_header(self):
+
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        (self.family,
+         self.ifindex,
+         self.state, self.flags, self.neighbor_type) = \
+            unpack(self.PACK, self.msg_data[:self.LEN])
+
+        if self.debug:
+            color = yellow
+            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+
+            for x in range(0, self.LEN/4):
+                if self.line_number == 5:
+                    extra = "Family %s (%d)" % (zfilled_hex(self.family, 2), self.family)
+                elif self.line_number == 6:
+                    extra = "Interface Index %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)
+                elif self.line_number == 7:
+                    extra = "State %s (%d), Flags %s, Type %s (%d)" % \
+                        (zfilled_hex(self.state, 4), self.state,
+                         zfilled_hex(self.flags, 2),
+                         zfilled_hex(self.neighbor_type, 4), self.neighbor_type)
+                else:
+                    extra = "Unexpected line number %d" % self.line_number
+
+                start = x * 4
+                end = start + 4
+                self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
+                self.line_number += 1
+
+
+class Route(NetlinkPacket):
+    """
+    Service Header
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   Family    |  Dest length  |   Src length  |     TOS       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  Table ID   |   Protocol    |     Scope     |     Type      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          Flags                              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+
+    # Route attributes
+    # /usr/include/linux/rtnetlink.h
+    RTA_UNSPEC    = 0x00  # Ignored.
+    RTA_DST       = 0x01  # Protocol address for route destination address.
+    RTA_SRC       = 0x02  # Protocol address for route source address.
+    RTA_IIF       = 0x03  # Input interface index.
+    RTA_OIF       = 0x04  # Output interface index.
+    RTA_GATEWAY   = 0x05  # Protocol address for the gateway of the route
+    RTA_PRIORITY  = 0x06  # Priority of broker.
+    RTA_PREFSRC   = 0x07  # Preferred source address in cases where more than one source address could be used.
+    RTA_METRICS   = 0x08  # Route metrics attributed to route and associated protocols(e.g., RTT, initial TCP window, etc.).
+    RTA_MULTIPATH = 0x09  # Multipath route next hop's attributes.
+    RTA_PROTOINFO = 0x0A  # Firewall based policy routing attribute.
+    RTA_FLOW      = 0x0B  # Route realm.
+    RTA_CACHEINFO = 0x0C  # Cached route information.
+    RTA_SESSION   = 0x0D
+    RTA_MP_ALGO   = 0x0E
+    RTA_TABLE     = 0x0F
+    RTA_MARK      = 0x10
+
+    attribute_to_class = {
+        RTA_UNSPEC    : ('RTA_UNSPEC', AttributeGeneric),
+        RTA_DST       : ('RTA_DST', AttributeIPAddress),
+        RTA_SRC       : ('RTA_SRC', AttributeIPAddress),
+        RTA_IIF       : ('RTA_IIF', AttributeFourByteValue),
+        RTA_OIF       : ('RTA_OIF', AttributeFourByteValue),
+        RTA_GATEWAY   : ('RTA_GATEWAY', AttributeIPAddress),
+        RTA_PRIORITY  : ('RTA_PRIORITY', AttributeFourByteValue),
+        RTA_PREFSRC   : ('RTA_PREFSRC', AttributeIPAddress),
+        RTA_METRICS   : ('RTA_METRICS', AttributeGeneric),
+        RTA_MULTIPATH : ('RTA_MULTIPATH', AttributeRTA_MULTIPATH),
+        RTA_PROTOINFO : ('RTA_PROTOINFO', AttributeGeneric),
+        RTA_FLOW      : ('RTA_FLOW', AttributeGeneric),
+        RTA_CACHEINFO : ('RTA_CACHEINFO', AttributeGeneric),
+        RTA_SESSION   : ('RTA_SESSION', AttributeGeneric),
+        RTA_MP_ALGO   : ('RTA_MP_ALGO', AttributeGeneric),
+        RTA_TABLE     : ('RTA_TABLE', AttributeFourByteValue),
+        RTA_MARK      : ('RTA_MARK', AttributeGeneric)
+    }
+
+    # Route tables
+    # /usr/include/linux/rtnetlink.h
+    RT_TABLE_UNSPEC  = 0x00  # An unspecified routing table
+    RT_TABLE_COMPAT  = 0xFC
+    RT_TABLE_DEFAULT = 0xFD  # The default table
+    RT_TABLE_MAIN    = 0xFE  # The main table
+    RT_TABLE_LOCAL   = 0xFF  # The local table
+
+    table_to_string = {
+        RT_TABLE_UNSPEC  : 'RT_TABLE_UNSPEC',
+        RT_TABLE_COMPAT  : 'RT_TABLE_COMPAT',
+        RT_TABLE_DEFAULT : 'RT_TABLE_DEFAULT',
+        RT_TABLE_MAIN    : 'RT_TABLE_MAIN',
+        RT_TABLE_LOCAL   : 'RT_TABLE_LOCAL'
+    }
+
+    # Route scope
+    # /usr/include/linux/rtnetlink.h
+    RT_SCOPE_UNIVERSE = 0x00  # Global route
+    RT_SCOPE_SITE     = 0xC8  # Interior route in the local autonomous system
+    RT_SCOPE_LINK     = 0xFD  # Route on this link
+    RT_SCOPE_HOST     = 0xFE  # Route on the local host
+    RT_SCOPE_NOWHERE  = 0xFF  # Destination does not exist
+
+    scope_to_string = {
+        RT_SCOPE_UNIVERSE : 'RT_SCOPE_UNIVERSE',
+        RT_SCOPE_SITE     : 'RT_SCOPE_SITE',
+        RT_SCOPE_LINK     : 'RT_SCOPE_LINK',
+        RT_SCOPE_HOST     : 'RT_SCOPE_HOST',
+        RT_SCOPE_NOWHERE  : 'RT_SCOPE_NOWHERE'
+    }
+
+    # Routing stack
+    # /usr/include/linux/rtnetlink.h
+    RT_PROT_UNSPEC   = 0x00  # Identifies what/who added the route
+    RT_PROT_REDIRECT = 0x01  # By an ICMP redirect
+    RT_PROT_KERNEL   = 0x02  # By the kernel
+    RT_PROT_BOOT     = 0x03  # During bootup
+    RT_PROT_STATIC   = 0x04  # By the administrator
+    RT_PROT_GATED    = 0x08  # GateD
+    RT_PROT_RA       = 0x09  # RDISC/ND router advertissements
+    RT_PROT_MRT      = 0x0A  # Merit MRT
+    RT_PROT_ZEBRA    = 0x0B  # ZEBRA
+    RT_PROT_BIRD     = 0x0C  # BIRD
+    RT_PROT_DNROUTED = 0x0D  # DECnet routing daemon
+    RT_PROT_XORP     = 0x0E  # XORP
+    RT_PROT_NTK      = 0x0F  # Netsukuku
+    RT_PROT_DHCP     = 0x10  # DHCP client
+    RT_PROT_EXABGP   = 0x11  # Exa Networks ExaBGP
+
+    prot_to_string = {
+        RT_PROT_UNSPEC   : 'RT_PROT_UNSPEC',
+        RT_PROT_REDIRECT : 'RT_PROT_REDIRECT',
+        RT_PROT_KERNEL   : 'RT_PROT_KERNEL',
+        RT_PROT_BOOT     : 'RT_PROT_BOOT',
+        RT_PROT_STATIC   : 'RT_PROT_STATIC',
+        RT_PROT_GATED    : 'RT_PROT_GATED',
+        RT_PROT_RA       : 'RT_PROT_RA',
+        RT_PROT_MRT      : 'RT_PROT_MRT',
+        RT_PROT_ZEBRA    : 'RT_PROT_ZEBRA',
+        RT_PROT_BIRD     : 'RT_PROT_BIRD',
+        RT_PROT_DNROUTED : 'RT_PROT_DNROUTED',
+        RT_PROT_XORP     : 'RT_PROT_XORP',
+        RT_PROT_NTK      : 'RT_PROT_NTK',
+        RT_PROT_DHCP     : 'RT_PROT_DHCP',
+        RT_PROT_EXABGP   : 'RT_PROT_EXABGP'
+    }
+
+    # Route types
+    # /usr/include/linux/rtnetlink.h
+    RTN_UNSPEC      = 0x00  # Unknown broker.
+    RTN_UNICAST     = 0x01  # A gateway or direct broker.
+    RTN_LOCAL       = 0x02  # A local interface broker.
+    RTN_BROADCAST   = 0x03  # A local broadcast route(sent as a broadcast).
+    RTN_ANYCAST     = 0x04  # An anycast broker.
+    RTN_MULTICAST   = 0x05  # A multicast broker.
+    RTN_BLACKHOLE   = 0x06  # A silent packet dropping broker.
+    RTN_UNREACHABLE = 0x07  # An unreachable destination.  Packets dropped and
+                            # host unreachable ICMPs are sent to the originator.
+    RTN_PROHIBIT    = 0x08  # A packet rejection broker.  Packets are dropped and
+                            # communication prohibited ICMPs are sent to the originator.
+    RTN_THROW       = 0x09  # When used with policy routing, continue routing lookup
+                            # in another table.  Under normal routing, packets are
+                            # dropped and net unreachable ICMPs are sent to the originator.
+    RTN_NAT         = 0x0A  # A network address translation rule.
+    RTN_XRESOLVE    = 0x0B  # Refer to an external resolver(not implemented).
+
+    rt_type_to_string = {
+        RTN_UNSPEC      : 'RTN_UNSPEC',
+        RTN_UNICAST     : 'RTN_UNICAST',
+        RTN_LOCAL       : 'RTN_LOCAL',
+        RTN_BROADCAST   : 'RTN_BROADCAST',
+        RTN_ANYCAST     : 'RTN_ANYCAST',
+        RTN_MULTICAST   : 'RTN_MULTICAST',
+        RTN_BLACKHOLE   : 'RTN_BLACKHOLE',
+        RTN_UNREACHABLE : 'RTN_UNREACHABLE',
+        RTN_PROHIBIT    : 'RTN_PROHIBIT',
+        RTN_THROW       : 'RTN_THROW',
+        RTN_NAT         : 'RTN_NAT',
+        RTN_XRESOLVE    : 'RTN_XRESOLVE'
+    }
+
+    # Route flags
+    # /usr/include/linux/rtnetlink.h
+    RTM_F_NOTIFY   = 0x100  # If the route changes, notify the user
+    RTM_F_CLONED   = 0x200  # Route is cloned from another route
+    RTM_F_EQUALIZE = 0x400  # Allow randomization of next hop path in multi-path routing(currently not implemented)
+    RTM_F_PREFIX   = 0x800  # Prefix Address
+
+    flag_to_string = {
+        RTM_F_NOTIFY   : 'RTM_F_NOTIFY',
+        RTM_F_CLONED   : 'RTM_F_CLONED',
+        RTM_F_EQUALIZE : 'RTM_F_EQUALIZE',
+        RTM_F_PREFIX   : 'RTM_F_PREFIX'
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None):
+        NetlinkPacket.__init__(self, msgtype, debug, logger)
+        self.PACK = '=8BI'  # or is it 8Bi ?
+        self.LEN = calcsize(self.PACK)
+        self.family = None
+
+    def get_prefix_string(self):
+        dst = self.get_attribute_value(self.RTA_DST)
+
+        if dst:
+            return "%s/%d" % (dst, self.src_len)
+        else:
+            if self.family == AF_INET:
+                return "0.0.0.0/0"
+            elif self.family == AF_INET6:
+                return "::/0"
+
+    def get_protocol_string(self, index=None):
+        if index is None:
+            index = self.protocol
+        return self.get_string(self.prot_to_string, index)
+
+    def get_rt_type_string(self, index=None):
+        if index is None:
+            index = self.route_type
+        return self.get_string(self.rt_type_to_string, index)
+
+    def get_scope_string(self, index=None):
+        if index is None:
+            index = self.scope
+        return self.get_string(self.scope_to_string, index)
+
+    def get_table_id_string(self, index=None):
+        if index is None:
+            index = self.table_id
+        return self.get_string(self.table_to_string, index)
+
+    def _get_ifname_from_index(self, ifindex, ifname_by_index):
+        if ifindex:
+            ifname = ifname_by_index.get(ifindex)
+
+            if ifname is None:
+                ifname = str(ifindex)
+        else:
+            ifname = None
+
+        return ifname
+
+    def get_nexthops(self, ifname_by_index={}):
+        nexthop = self.get_attribute_value(self.RTA_GATEWAY)
+        multipath = self.get_attribute_value(self.RTA_MULTIPATH)
+        nexthops = []
+
+        if nexthop:
+            rta_oif = self.get_attribute_value(self.RTA_OIF)
+            ifname = self._get_ifname_from_index(rta_oif, ifname_by_index)
+            nexthops.append((nexthop, ifname))
+
+        elif multipath:
+            for (nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops) in multipath:
+                ifname = self._get_ifname_from_index(rtnh_ifindex, ifname_by_index)
+                nexthops.append((nexthop, ifname))
+
+        return nexthops
+
+    def get_nexthops_string(self, ifname_by_index={}):
+        output = []
+
+        for (nexthop, ifname) in self.get_nexthops(ifname_by_index):
+            output.append(" via %s on %s" % (nexthop, ifname))
+
+        return ",".join(output)
+
+    def decode_service_header(self):
+
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        (self.family, self.src_len, self.dst_len, self.tos,
+         self.table_id, self.protocol, self.scope, self.route_type,
+         self.flags) = \
+            unpack(self.PACK, self.msg_data[:self.LEN])
+
+        if self.debug:
+            color = yellow
+            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+
+            for x in range(0, self.LEN/4):
+                if self.line_number == 5:
+                    extra = "Family %s (%d), Source Length %s (%d), Destination Length %s (%d), TOS %s (%d)" % \
+                            (zfilled_hex(self.family, 2), self.family,
+                             zfilled_hex(self.src_len, 2), self.src_len,
+                             zfilled_hex(self.dst_len, 2), self.dst_len,
+                             zfilled_hex(self.tos, 2), self.tos)
+                elif self.line_number == 6:
+                    extra = "Table ID %s (%d - %s), Protocol %s (%d - %s), Scope %s (%d - %s), Type %s (%d - %s)" % \
+                            (zfilled_hex(self.table_id, 2), self.table_id, self.get_table_id_string(),
+                             zfilled_hex(self.protocol, 2), self.protocol, self.get_protocol_string(),
+                             zfilled_hex(self.scope, 2), self.scope, self.get_scope_string(),
+                             zfilled_hex(self.route_type, 2), self.route_type, self.get_rt_type_string())
+                elif self.line_number == 7:
+                    extra = "Flags %s" % zfilled_hex(self.flags, 8)
+                else:
+                    extra = "Unexpected line number %d" % self.line_number
+
+                start = x * 4
+                end = start + 4
+                self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
+                self.line_number += 1

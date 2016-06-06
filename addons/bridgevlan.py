@@ -8,6 +8,8 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.bridgeutils import brctl
+from ipaddr import IPv4Address
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 
 class bridgevlan(moduleBase):
@@ -23,6 +25,7 @@ class bridgevlan(moduleBase):
                         'bridge-igmp-querier-src' :
                             { 'help' : 'bridge igmp querier src. Must be ' +
                                    'specified under the vlan interface',
+                              'validvals' : [IPv4Address, ],
                               'example' : ['bridge-igmp-querier-src 172.16.101.1']}}}
 
     def __init__(self, *args, **kargs):
@@ -57,8 +60,8 @@ class bridgevlan(moduleBase):
             (bridgename, vlan) = self._get_bridge_n_vlan(ifaceobj)
             vlanid = int(vlan, 10)
         except:
-            self.logger.warn('%s: bridge vlan interface name ' %ifaceobj.name +
-                    'does not correspond to format (eg. br0.100)')
+            self.log_error('%s: bridge vlan interface name ' %ifaceobj.name +
+                    'does not correspond to format (eg. br0.100)', ifaceobj)
             raise
 
         if not self.ipcmd.link_exists(bridgename):
@@ -67,7 +70,7 @@ class bridgevlan(moduleBase):
             return
 
         running_mcqv4src = {}
-        if not self.PERFMODE:
+        if not ifupdownflags.flags.PERFMODE:
             running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
         if running_mcqv4src:
             r_mcqv4src = running_mcqv4src.get(vlan)
@@ -137,9 +140,9 @@ class bridgevlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
         if not self.brctlcmd:
-            self.brctlcmd = brctl(**self.get_flags())
+            self.brctlcmd = brctl()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

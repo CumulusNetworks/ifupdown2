@@ -9,6 +9,7 @@
 import cPickle
 from collections import OrderedDict
 import logging
+import exceptions
 import os
 from iface import *
 
@@ -58,6 +59,12 @@ class stateManager():
     state_filename = 'ifstatenew'
     """name of the satefile """
 
+    state_rundir = '/run/network/'
+    """name of the state run dir """
+
+    state_runlockfile = 'ifstatelock'
+    """name of the state run lock file """
+
     def __init__(self):
         """ Initializes statemanager internal state
 
@@ -68,6 +75,8 @@ class stateManager():
                     self.__class__.__name__)
         if not os.path.exists(self.state_dir):
             os.mkdir(self.state_dir)
+        if not os.path.exists(self.state_rundir):
+            os.mkdir(self.state_rundir)
         self.state_file = self.state_dir + self.state_filename
 
     def save_ifaceobj(self, ifaceobj):
@@ -146,6 +155,7 @@ class stateManager():
                 self.logger.debug('saving state ..')
                 for ifaceobjs in self.ifaceobjdict.values():
                     [pickling.save_obj(f, i) for i in ifaceobjs]
+            open('%s/%s' %(self.state_rundir, self.state_runlockfile), 'w').close()
         except:
             raise
 
@@ -168,9 +178,11 @@ class stateManager():
             for i in ifacenames:
                 ifaceobj = self.ifaces.get(i)
                 if ifaceobj is None:
-                    raise ifaceNotFoundError('ifname %s'
+                    raise exceptions.ifaceNotFoundError('ifname %s'
                         %i + ' not found')
                 ifaceobj.dump(self.logger)
         else:
             for ifacename, ifaceobjs in self.ifaceobjdict.items():
                 [i.dump(self.logger) for i in ifaceobjs]
+
+statemanager_api = stateManager()

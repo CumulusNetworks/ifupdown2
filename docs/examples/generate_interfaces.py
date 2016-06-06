@@ -3,6 +3,10 @@
 import argparse
 import sys
 import subprocess
+<<<<<<< HEAD
+=======
+import os
+>>>>>>> cumulus/dev
 
 """ This script prints to stdout /etc/network/interfaces entries for
     requested interfaces.
@@ -30,6 +34,7 @@ import subprocess
 
 """
 
+<<<<<<< HEAD
 def get_swp_interfaces():
     porttab_path = '/var/lib/cumulus/porttab'
     ports = []
@@ -43,6 +48,49 @@ def get_swp_interfaces():
             ports.append(line.split()[0])
         except ValueError:
             continue
+=======
+def get_pci_interfaces():
+    ports = []
+    FNULL = open(os.devnull, 'w')
+    try:
+        cmd = '(ip -o link show | grep -v "@" | cut -d" " -f2 | sed \'s/:$//\')'
+        output = subprocess.check_output(cmd, shell=True).split()
+        for interface in output:
+            cmd = 'udevadm info -a -p /sys/class/net/%s | grep \'SUBSYSTEMS=="pci"\'' % interface
+            try:
+                subprocess.check_call(cmd, shell=True, stdout=FNULL)
+                ports.append(interface)
+            except:
+                pass
+    except:
+        pass
+    finally:
+        FNULL.close()
+    return ports
+
+def get_swp_interfaces():
+    porttab_path = '/var/lib/cumulus/porttab'
+    ports = []
+    try:
+        with open(porttab_path, 'r') as f:
+            for line in f.readlines():
+                line = line.strip()
+                if '#' in line:
+                    continue
+                try:
+                    ports.append(line.split()[0])
+                except ValueError:
+                    continue
+    except:
+        try:
+            ports = get_pci_interfaces()
+        except Exception as e:
+            print 'Error: Unsupported script: %s' % str(e)
+            exit(1)
+    if not ports:
+        print 'Error: No ports found in %s' % porttab_path
+        exit(1)
+>>>>>>> cumulus/dev
     return ports
 
 def print_swp_defaults_header():
@@ -138,9 +186,12 @@ if args.bridgedefault and args.mergefile:
     exit(1)
 
 swp_intfs = get_swp_interfaces()
+<<<<<<< HEAD
 if not swp_intfs:
     print 'error: no ports found'
     exit(1)
+=======
+>>>>>>> cumulus/dev
 
 if args.swpdefaults:
     interfaces_print_swp_defaults(swp_intfs)

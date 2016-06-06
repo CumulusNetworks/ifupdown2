@@ -23,7 +23,11 @@ iface uplink1
     bond-slaves swp32
     bond-mode 802.3ad
     bond-miimon 100
+<<<<<<< HEAD
     bond-use-carrier 1
+=======
+    bond-use-carrier yes
+>>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit-hash-policy layer2
@@ -35,7 +39,11 @@ iface peerlink
     bond-slaves swp30 swp31
     bond-mode 802.3ad
     bond-miimon 100
+<<<<<<< HEAD
     bond-use-carrier 1
+=======
+    bond-use-carrier yes
+>>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit-hash-policy layer3+4
@@ -47,7 +55,11 @@ iface downlink
     bond-slaves swp1
     bond-mode 802.3ad
     bond-miimon 100
+<<<<<<< HEAD
     bond-use-carrier 1
+=======
+    bond-use-carrier yes
+>>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit-hash-policy layer3+4

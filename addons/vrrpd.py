@@ -8,13 +8,14 @@ try:
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
+    from ifupdown.utils import utils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
+    import ifupdown.ifupdownflags as ifupdownflags
     import os
     import glob
     import logging
     import signal
-    import subprocess
     import re
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
@@ -26,12 +27,15 @@ class vrrpd(moduleBase):
                 'attrs': {
                       'vrrp-id' :
                             {'help' : 'vrrp instance id',
+                             'validrange' : ['1', '4096'],
                              'example' : ['vrrp-id 1']},
                       'vrrp-priority' :
                             {'help': 'set vrrp priority',
+                             'validrange' : ['0', '255'],
                              'example' : ['vrrp-priority 20']},
                       'vrrp-virtual-ip' :
                             {'help': 'set vrrp virtual ip',
+                             'validvals' : [IPv4Address, ],
                              'example' : ['vrrp-virtual-ip 10.0.1.254']}}}
 
     def __init__(self, *args, **kargs):
@@ -42,8 +46,8 @@ class vrrpd(moduleBase):
         targetpids = []
         pidstr = ''
         try:
-            pidstr = subprocess.check_output(['/bin/pidof',
-                                             '%s' %cmdname]).strip('\n')
+            cmdl = ['/bin/pidof', cmdname]
+            pidstr = utils.exec_commandl(cmdl, stderr=None).strip('\n')
         except:
             pass
         if not pidstr:
@@ -70,7 +74,7 @@ class vrrpd(moduleBase):
         """ up vrrpd -n -D -i $IFACE -v 1 -p 20 10.0.1.254
             up ifplugd -i $IFACE -b -f -u0 -d1 -I -p -q """
 
-        if (not self.DRYRUN and
+        if (not ifupdownflags.flags.DRYRUN and
             not os.path.exists('/sys/class/net/%s' %ifaceobj.name)):
             return
 
@@ -94,13 +98,13 @@ class vrrpd(moduleBase):
                     '(virtual ip not found)')
             return
         cmd = '/usr/sbin/vrrpd -n -D -i %s %s' %(ifaceobj.name, cmd)
-        self.exec_command(cmd)
+        utils.exec_command(cmd)
 
         cmd = '/usr/sbin/ifplugd -i %s -b -f -u0 -d1 -I -p -q' %ifaceobj.name
         if self._check_if_process_is_running('/usr/sbin/ifplugd', cmd):
            self.logger.info('%s: ifplugd already running' %ifaceobj.name)
            return
-        self.exec_command(cmd)
+        utils.exec_command(cmd)
 
     def _kill_pid_from_file(self, pidfilename):
         if os.path.exists(pidfilename):
@@ -115,7 +119,7 @@ class vrrpd(moduleBase):
         if not attrval:
             return
         try:
-            self.exec_command('/usr/sbin/ifplugd -k -i %s' %ifaceobj.name)
+            utils.exec_command('/usr/sbin/ifplugd -k -i %s' % ifaceobj.name)
         except Exception, e:
             self.logger.debug('%s: ifplugd down error (%s)'
                               %(ifaceobj.name, str(e)))

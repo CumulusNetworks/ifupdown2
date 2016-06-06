@@ -1,0 +1,351 @@
+#!/usr/bin/python
+
+import sys
+import os
+import re
+import argparse
+from collections import OrderedDict
+
+lockfile="/run/network/.lock"
+modules_configfile='/var/lib/ifupdownaddons/addons.conf'
+modules_dir='/usr/share/ifupdownaddons'
+
+addon_config = OrderedDict([('pre-up', []),
+                            ('up', []),
+                            ('post-up', []),
+                            ('pre-down', []),
+                            ('down', []),
+                            ('post-down', [])])
+
+def read_modules_config():
+    with open(modules_configfile, 'r') as f:
+        lines = f.readlines()
+        for l in lines:
+            litems = l.rstrip(' \n').split(',')
+            operation = litems[0]
+            mname = litems[1]
+            addon_config[operation].append(mname)
+
+def man_rst_header():
+    print '=========================='
+    print 'ifupdown-addons-interfaces'
+    print '=========================='
+
+    print '---------------------------------------------------------'
+    print 'ifupdown2 addon modules interface configuration'
+    print '---------------------------------------------------------'
+
+    print ':Author: roopa@cumulusnetworks.com'
+    print ':Date:   2013-09-25'
+    print ':Copyright: Copyright 2013 Cumulus Networks, Inc.  All rights reserved.'
+    print ':Version: 0.1'
+    print ':Manual section: 5'
+    print '\n'
+
+def man_rst_body():
+
+    print 'DESCRIPTION'
+    print '==========='
+
+    print ('''    ifupdown2 addon modules add incremental functionality to
+    core ifupdown2 tool.
+           
+    All installed addon modules are executed on every interface
+    listed in the interfaces file. Addon modules are installed under
+    /usr/share/ifupdownaddons. To see the list of active addon
+    modules, see ifaddon(8).
+
+    Addon modules add new attributes to the interfaces(5) file.
+    Below is a list of attribute options provided by each module.
+    These can be listed under each iface section in the interfaces(5)
+    file.  ''')
+
+    print '\n'
+
+def get_addon_modinfo(modules_dir):
+    """ load python modules from modules_dir
+
+    Default modules_dir is /usr/share/ifupdownmodules
+
+    """
+    if not modules_dir in sys.path:
+        sys.path.append(modules_dir)
+    read_modules_config()
+    modinfo = {}
+    try:
+        for op, mlist in addon_config.items():
+            for mname in mlist:
+                if mname in modinfo.keys(): continue
+                mpath = modules_dir + '/' + mname + '.py'
+                if os.path.exists(mpath):
+                    try:
+                        m = __import__(mname)
+                        mclass = getattr(m, mname)
+                    except:
+                        pass
+                        continue
+                    minstance = mclass()
+                    if hasattr(minstance, 'get_modinfo'):
+                       modinfo[mname] = minstance.get_modinfo()
+    except: 
+        raise
+
+    return modinfo
+
+def print_long_string(indent, strarg):
+    slen = 70 - len(indent)
+    tmphelpstr = strarg
+    l = len(strarg)
+    while l > 0:
+        rem = slen if l >= slen else l
+        print('%s%s' %(indent, tmphelpstr[:rem]))
+        tmphelpstr = tmphelpstr[rem:].strip()
+        l -= rem
+
+def man_rst_examples():
+    print 'EXAMPLES'
+    print '========'
+    print '''    Listed below are addon modules and their supported attributes.
+    The attributes if applicable go under the iface section in the
+    interfaces(5) file.\n'''
+
+    indent = '    '
+    modinfo = get_addon_modinfo(modules_dir)
+    for m, mdict in modinfo.items():
+        aindent = indent + '  '
+        aindentplus = aindent + '  '
+        if not mdict:
+            continue
+        print_long_string(indent, '**%s**: %s' %(m, mdict.get('mhelp', '')))
+        attrdict = mdict.get('attrs')
+        if not attrdict:
+            continue
+        print '\n'
+        try:
+            for attrname, attrvaldict in attrdict.items():
+                if attrvaldict.get('compat', False):
+                    continue
+                print('%s**%s**\n' %(aindent, attrname))
+                print_long_string(aindentplus, '**help**: %s'
+                        %(attrvaldict.get('help', '')))
+                print '\n'
+                print('%s**required**: %s\n' %(aindentplus,
+                            attrvaldict.get('required', False)))
+                default = attrvaldict.get('default')
+                if default:
+                    print('%s**default**: %s\n' %(aindentplus, default))
+                validrange = attrvaldict.get('validrange')
+                if validrange:
+                    print('%svalidrange: %s\n'
+                          %(aindentplus, '-'.join(validrange)))
+                validvals = attrvaldict.get('validvals')
+                if validvals:
+                    print('%s**validvals**: %s\n'
+                              %(aindentplus, ','.join(validvals)))
+                examples = attrvaldict.get('example')
+                if not examples:
+                    continue
+                print '%s**example**:' %(aindentplus)
+                for e in examples:
+                    print '%s%s\n' %(aindentplus + indent, e)
+                print ''
+        except Exception, e:
+            print "Roopa: m = %s, str(e) = %s\n"  %(m, str(e))
+            pass
+        print ''
+
+def man_rst_see_also():
+    print 'SEE ALSO'
+    print '========'
+    print '''    interfaces(5),
+    ifup(8),
+    ip(8),
+    mstpctl(8),
+    brctl(8),
+    ethtool(8),
+    clagctl(8)'''
+
+def show_man_rst():
+    man_rst_header()
+    man_rst_body()
+    man_rst_examples()
+    man_rst_see_also()
+
+def show():
+    for operation, mlist in addon_config.items():
+        postion = 1
+        for m in mlist:
+            print '%d. %s' %(postion, m)
+            postion += 1
+
+def write_modules_config():
+    with open(modules_configfile, 'w') as f:
+        for op, mlist in addon_config.items():
+            [f.write('%s,%s\n' %(op, m)) for m in mlist]
+
+def process_add_cmd(args):
+    op = args.operation
+    module = args.module
+    position = args.position
+    if not op:
+        for k, vlist in addon_config.items():
+            if module not in vlist:
+                addon_config[k].append(module)
+            else:
+                print '%s: module %s already present' %(k, module)
+        return
+    if module in addon_config.get(op):
+        print 'module already present'
+        return
+    if position:
+       try:
+            addon_config[op].insert(position, module)
+       except Exception, e:
+           print ('error inserting module %s at postion %s (%s)'
+                    %(module, position, str(e)))
+           raise
+    else:
+       addon_config[op].append(module)
+
+
+def process_del_cmd(args):
+    op = args.operation
+    module = args.module
+
+    if op:
+        del addon_config[op]
+    else:
+       try:
+            [addon_config[op].remove(module) for op in addon_config.keys()]
+       except ValueError:
+           pass
+
+def process_move_cmd(args):
+    op = args.operation
+    module = args.module
+    pos = 0
+
+    try:
+        pos = int(args.position)
+        if pos < 0 or pos > len(addon_config.get(op)):
+            raise Exception('invalid value for position')
+    except:
+        raise
+
+    if addon_config[op].index(module) == pos:
+        print '%s module %s already at location %d' %(op, module, pos)
+        return
+
+    addon_config[op].remove(module)
+    addon_config[op].insert(pos, module)
+
+def print_mlist(mlist, indent):
+    for idx, val in enumerate(mlist):
+        print '%s%d. %s' %(indent, idx, val)
+
+def process_show_cmd(args):
+    indent = '   '
+    op = args.operation
+
+    if args.man:
+        show_man_rst()
+        return
+
+    if op:
+        mlist = addon_config[op]
+        print '%s:' %op
+        print_mlist(mlist, indent)
+    else:
+        for op, mlist in addon_config.items():
+            print '%s:' %op
+            print_mlist(mlist, indent)
+            print ''
+
+cmdhandlers = {'add' : process_add_cmd,
+               'del' : process_del_cmd,
+               'move' : process_move_cmd,
+               'show' : process_show_cmd}
+
+def update_subparser_add(subparser):
+    subparser.add_argument('module', metavar='MODULE', help='module name')
+    subparser.add_argument('operation', metavar='OPERATION',
+                           choices=['pre-up', 'up', 'post-up',
+                                    'pre-down', 'down', 'post-down'],
+                                    help='operations', nargs='?')
+    subparser.add_argument('position', metavar='POSITION', nargs='?',
+                           help='position')
+    subparser.set_defaults(func=process_add_cmd)
+
+def update_subparser_del(subparser):
+    subparser.add_argument('module', metavar='MODULE', help='module name')
+    subparser.add_argument('operation', metavar='OPERATION',
+                           choices=['pre-up', 'up', 'post-up',
+                                    'pre-down', 'down', 'post-down'],
+                                    help='operations', nargs='?')
+    subparser.add_argument('position', metavar='POSITION', nargs='?',
+                           help='position')
+    subparser.set_defaults(func=process_del_cmd)
+
+def update_subparser_move(subparser):
+    subparser.add_argument('module', metavar='MODULE', help='module name')
+    subparser.add_argument('operation', metavar='OPERATION',
+                           choices=['pre-up', 'up', 'post-up',
+                                    'pre-down', 'down', 'post-down'],
+                                    help='operations')
+    subparser.add_argument('position', metavar='POSITION',
+                           help='position')
+    subparser.set_defaults(func=process_move_cmd)
+
+
+def update_subparser_show(subparser):
+    subparser.add_argument('--man', action='store_true',
+                           help=argparse.SUPPRESS)
+    subparser.add_argument('operation', metavar='OPERATION',
+                           choices=addon_config.keys(),
+                           help='operations %s' %str(addon_config.keys()),
+                           nargs='?')
+    subparser.set_defaults(func=process_show_cmd)
+
+def update_argparser(argparser):
+    subparsers = argparser.add_subparsers(help='sub-command help')
+
+    parser_add = subparsers.add_parser('add')
+    update_subparser_add(parser_add)
+
+    parser_del = subparsers.add_parser('del', help='del help')
+    update_subparser_del(parser_del)
+
+    parser_move = subparsers.add_parser('move', help='move help')
+    update_subparser_move(parser_move)
+
+    parser_show = subparsers.add_parser('show', help='show help')
+    update_subparser_show(parser_show)
+
+def parse_args(argsv):
+    descr = 'ifupdown addon modules management command.\n \
+            This command helps add/del/display/reorder modules \n \
+            in all ifupdown module categories'
+
+    argparser = argparse.ArgumentParser(description=descr)
+    update_argparser(argparser)
+
+    args = argparser.parse_args(argsv)
+    return args
+
+def main(argv):
+    """ main function """
+    try:
+        # Command line arg parser
+        args = parse_args(argv[1:])
+        read_modules_config()
+        args.func(args)
+        write_modules_config()
+    except Exception, e:
+        print 'error processing command (%s)' %str(e)
+
+if __name__ == "__main__":
+    if not os.geteuid() == 0:
+        print 'Error: Must be root to run this command'
+        exit(1)
+
+    main(sys.argv)

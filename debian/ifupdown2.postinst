@@ -1,0 +1,76 @@
+#!/bin/sh
+# postinst script for ifupdown2
+#
+# see: dh_installdeb(1)
+
+set -e
+
+# summary of how this script can be called:
+#        * <postinst> `configure' <most-recently-configured-version>
+#        * <old-postinst> `abort-upgrade' <new version>
+#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
+#          <new-version>
+#        * <postinst> `abort-remove'
+#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
+#          <failed-install-package> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see http://www.debian.org/doc/debian-policy/ or
+# the debian-policy package
+
+process_udev()
+{
+    # override default udev bridge and hotplug rules because they interfere with
+    # networking init script
+    udev_user_rulesdir=/etc/udev/rules.d/
+    udev_sys_rulesdir=/lib/udev/rules.d/
+    if [ -e $udev_user_rulesdir ]; then
+        udev_ifupdown2_overrides="80-networking.rules
+        60-bridge-network-interface.rules"
+        for u in ${udev_ifupdown2_overrides}
+        do
+            if [ -e ${udev_sys_rulesdir}/$u -a ! -e ${udev_user_rulesdir}/$u ]; then
+                (cd ${udev_user_rulesdir} && ln -sf /dev/null $u)
+            fi
+        done
+    fi
+}
+
+MYNAME="${0##*/}"
+
+report() { echo "${MYNAME}: $*" ; }
+report_warn() { report "Warning: $*" >&2 ; }
+report_err() { report "Error: $*" >&2 ; }
+
+case "$1" in
+    configure)
+
+        # Generic stuff done on all configurations
+        if [ -f /etc/network/interfaces ] ; then
+            if ! grep -q "^[[:space:]]*iface[[:space:]]\+lo0\?[[:space:]]\+inet[[:space:]]\+loopback\>" /etc/network/interfaces ; then
+                report_warn "No 'iface lo' definition found in /etc/network/interfaces"
+            fi
+
+            if ! grep -q "^[[:space:]]*\(allow-\|\)auto[[:space:]]\+\(.*[[:space:]]\+\|\)lo0\?\([[:space:]]\+\|$\)" /etc/network/interfaces ; then
+                report_warn "No 'auto lo' statement found in /etc/network/interfaces"
+            fi
+        else  # ! -f /etc/network/interfaces
+            if [ -z "$2" ]; then
+                echo "Creating /etc/network/interfaces."
+                echo "# interfaces(5) file used by ifup(8) and ifdown(8)" > /etc/network/interfaces
+                echo "auto lo" >> /etc/network/interfaces
+                    echo "iface lo inet loopback" >> /etc/network/interfaces
+            else
+                    report_warn "/etc/network/interfaces does not exist"
+            fi
+        fi
+
+        process_udev
+        ;;
+
+  purge)
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,26 @@
+ifupdown2 (1.1-cl3u3) RELEASED; urgency=medium
+
+  * Closes: CM-11214. Interface configuration parsing error when keyword vlan is the interface name.
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Sun, 05 Jun 2016 08:55:50 -0700
+
+ifupdown2 (1.1-cl3u2) RELEASED; urgency=medium
+
+  * Closes: CM-10478. checks for invalid address-virtual attributes
+  * New. Deprecated: `mstpctl-stp` attribute
+  * New. Deprecated: lacp parameters: bond-ad-sys-priority, bond-ad-sys-mac-addr
+  * New. Enabled: addon module for configuring vrf
+  * New. Enabled: bridge: display warning when (in vlan unware bridge) an untagged bridge is not configured
+  * New. Enabled: adjusting MTU for vlan devices depending on lower device mtu
+  * New. Enabled: introduce checks for reserved vrf table names
+  * New. Enabled: ifquery: new option '--with-defaults' to include default attributes
+  * New. Enabled: bridge: disabling ipv6 on bridge if any VXLAN port
+  * New. Enabled: vrf awareness in dhcp addon module
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Tue, 3 May 2016 14:42:42 -0700
+
+ifupdown2 (1.1-cl3u1) unstable; urgency=low
+
+  * Initial release.
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Thu, 20 Aug 2015 06:14:24 -0700

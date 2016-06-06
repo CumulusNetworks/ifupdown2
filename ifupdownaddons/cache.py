@@ -5,7 +5,26 @@
 #
 
 import pprint
-from collections import OrderedDict
+
+
+class MSTPAttrsCache():
+    bridges = {}
+
+    @classmethod
+    def get(cls, bridgename, default=None):
+        if bridgename in MSTPAttrsCache.bridges:
+            return MSTPAttrsCache.bridges[bridgename]
+        else:
+            return default
+
+    @classmethod
+    def set(cls, bridgename, attrs):
+        MSTPAttrsCache.bridges[bridgename] = attrs
+
+    @classmethod
+    def invalidate(cls):
+        MSTPAttrsCache.bridges = {}
+
 
 class linkCache():
     """ This class contains methods and instance variables to cache
@@ -23,6 +42,8 @@ class linkCache():
                                         <ports> : {
                                                   } """
     links = {}
+    vrfs = {}
+
     @classmethod
     def get_attr(cls, mapList):
         return reduce(lambda d, k: d[k], mapList, linkCache.links)
@@ -85,6 +106,6 @@ class linkCache():
 
     @classmethod
     def dump_link(cls, linkname):
-        print 'Dumping link %s' %linkname
+        print 'Dumping link %s' % linkname
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(cls.links.get(linkname))

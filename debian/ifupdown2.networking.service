@@ -1,0 +1,15 @@
+[Unit]
+Description=ifupdown2 networking initialization
+Documentation=man:interfaces(5) man:ifup(8) man:ifdown(8)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+SyslogIdentifier=networking
+TimeoutStopSec=30s
+ExecStart=/usr/share/ifupdown2/sbin/start-networking start
+ExecStop=/usr/share/ifupdown2/sbin/start-networking stop
+ExecReload=/usr/share/ifupdown2/sbin/start-networking reload
+
+[Install]
+WantedBy=basic.target network.target

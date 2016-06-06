@@ -8,9 +8,11 @@ try:
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
+    import ifupdown.policymanager as policymanager
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.iproute2 import iproute2
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -23,15 +25,31 @@ class dhcp(moduleBase):
         self.ipcmd = None
 
     def _up(self, ifaceobj):
+        # if dhclient is already running do not stop and start it
+        if self.dhclientcmd.is_running(ifaceobj.name) or \
+               self.dhclientcmd.is_running6(ifaceobj.name):
+            self.logger.info('dhclient already running on %s.  Not restarting.' % \
+                             ifaceobj.name)
+            return
         try:
+            dhclient_cmd_prefix = None
+            dhcp_wait = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__, attr='dhcp-wait')
+            wait = not str(dhcp_wait).lower() == "no"
+            vrf = ifaceobj.get_attr_value_first('vrf')
+            if (vrf and self.vrf_exec_cmd_prefix and
+                self.ipcmd.link_exists(vrf)):
+                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
                 try:
-                    if not self.PERFMODE:
+                    if not ifupdownflags.flags.PERFMODE:
                         self.dhclientcmd.stop(ifaceobj.name)
                 except:
                     pass
-                self.dhclientcmd.start(ifaceobj.name)
+                self.dhclientcmd.start(ifaceobj.name, wait=wait,
+                                       cmd_prefix=dhclient_cmd_prefix)
             elif ifaceobj.addr_family == 'inet6':
                 accept_ra = ifaceobj.get_attr_value_first('accept_ra')
                 if accept_ra:
@@ -47,12 +65,18 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop6(ifaceobj.name)
                     except:
                         pass
-                self.dhclientcmd.start6(ifaceobj.name)
+                self.dhclientcmd.start6(ifaceobj.name, wait=wait,
+                                        cmd_prefix=dhclient_cmd_prefix)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj):
-        self.dhclientcmd.release(ifaceobj.name)
+        dhclient_cmd_prefix = None
+        vrf = ifaceobj.get_attr_value_first('vrf')
+        if (vrf and self.vrf_exec_cmd_prefix and
+            self.ipcmd.link_exists(vrf)):
+            dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+        self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
         self.ipcmd.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
@@ -93,7 +117,7 @@ class dhcp(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2(**self.get_flags())
+            self.ipcmd = iproute2()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run dhcp configuration on the interface object passed as argument

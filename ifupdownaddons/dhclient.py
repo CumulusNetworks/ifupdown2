@@ -4,11 +4,10 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+from ifupdown.utils import utils
 from utilsbase import *
-import subprocess
 import os
 
-FNULL = open(os.devnull, 'w')
 
 class dhclient(utilsBase):
     """ This class contains helper methods to interact with the dhclient
@@ -29,7 +28,18 @@ class dhclient(utilsBase):
     def is_running6(self, ifacename):
         return self._pid_exists('/run/dhclient6.%s.pid' %ifacename)
 
-    def stop(self, ifacename):
+    def _run_dhclient_cmd(self, cmd, cmd_prefix=None):
+        if not cmd_prefix:
+            cmd_aslist = []
+        else:
+            cmd_aslist = cmd_prefix.split()
+        if cmd_aslist:
+            cmd_aslist.extend(cmd)
+        else:
+            cmd_aslist = cmd
+        utils.exec_commandl(cmd_aslist, stdout=None, stderr=None)
+
+    def stop(self, ifacename, cmd_prefix=None):
         if os.path.exists('/sbin/dhclient3'):
             cmd = ['/sbin/dhclient3', '-x', '-pf',
                    '/run/dhclient.%s.pid' %ifacename, '-lf',
@@ -40,21 +50,24 @@ class dhclient(utilsBase):
                    '/run/dhclient.%s.pid' %ifacename,
                    '-lf', '/var/lib/dhcp/dhclient.%s.leases' %ifacename,
                    '%s' %ifacename]
-        self.subprocess_check_call(cmd)
+        self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def start(self, ifacename):
+    def start(self, ifacename, wait=True, cmd_prefix=None):
         if os.path.exists('/sbin/dhclient3'):
             cmd = ['/sbin/dhclient3', '-pf',
                    '/run/dhclient.%s.pid' %ifacename,
                    '-lf', '/var/lib/dhcp3/dhclient.%s.leases' %ifacename,
                    '%s' %ifacename]
         else:
-            cmd = ['/sbin/dhclient', '-pf', '/run/dhclient.%s.pid' %ifacename,
-                   '-lf', '/var/lib/dhcp/dhclient.%s.leases' %ifacename,
+            cmd = ['/sbin/dhclient', '-pf',
+                   '/run/dhclient.%s.pid' %ifacename, '-lf',
+                   '/var/lib/dhcp/dhclient.%s.leases' %ifacename,
                    '%s' %ifacename]
-        self.subprocess_check_call(cmd)
+        if not wait:
+            cmd.append('-nw')
+        self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def release(self, ifacename):
+    def release(self, ifacename, cmd_prefix=None):
         if os.path.exists('/sbin/dhclient3'):
             cmd = ['/sbin/dhclient3', '-r', '-pf',
                    '/run/dhclient.%s.pid' %ifacename, '-lf',
@@ -65,22 +78,27 @@ class dhclient(utilsBase):
                    '/run/dhclient.%s.pid' %ifacename,
                    '-lf', '/var/lib/dhcp/dhclient.%s.leases' %ifacename,
                    '%s' %ifacename]
-        self.subprocess_check_call(cmd)
+        self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def start6(self, ifacename):
-        self.subprocess_check_call(['dhclient', '-6', '-pf',
+    def start6(self, ifacename, wait=True, cmd_prefix=None):
+        cmd = ['/sbin/dhclient', '-6', '-pf',
                 '/run/dhclient6.%s.pid' %ifacename, '-lf',
                 '/var/lib/dhcp/dhclient.%s.leases ' %ifacename,
-                '%s' %ifacename])
+                '%s' %ifacename]
+        if not wait:
+            cmd.append('-nw')
+        self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def stop6(self, ifacename):
-        self.subprocess_check_call(['dhclient', '-6', '-x', '-pf',
-                '/run/dhclient.%s.pid' %ifacename, '-lf',
-                '/var/lib/dhcp/dhclient.%s.leases ' %ifacename,
-                '%s' %ifacename])
+    def stop6(self, ifacename, cmd_prefix=None):
+        cmd = ['/sbin/dhclient', '-6', '-x', '-pf',
+               '/run/dhclient.%s.pid' %ifacename, '-lf',
+               '/var/lib/dhcp/dhclient.%s.leases ' %ifacename,
+               '%s' %ifacename]
+        self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def release6(self, ifacename):
-        self.subprocess_check_call(['dhclient', '-6', '-r', '-pf',
-                '/run/dhclient6.%s.pid' %ifacename, '-lf',
-                '/var/lib/dhcp/dhclient6.%s.leases' %ifacename,
-                '%s' %ifacename])
+    def release6(self, ifacename, cmd_prefix=None):
+        cmd = ['/sbin/dhclient', '-6', '-r', '-pf',
+               '/run/dhclient6.%s.pid' %ifacename, '-lf',
+               '/var/lib/dhcp/dhclient6.%s.leases' %ifacename,
+               '%s' %ifacename]
+        self._run_dhclient_cmd(cmd, cmd_prefix)

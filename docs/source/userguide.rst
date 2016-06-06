@@ -66,7 +66,11 @@ Man Pages
 Configuration Files
 ===================
 
+<<<<<<< HEAD
 * /etc/network/interfaces
+=======
+* config file defined in ifupdown2.conf (default /etc/network/interfaces)
+>>>>>>> cumulus/dev
 
     
 ifupdown Built-in Interfaces
@@ -109,7 +113,11 @@ following example configuration::
         bond-slaves swp29 swp30
         bond-mode 802.3ad
         bond-miimon 100
+<<<<<<< HEAD
         bond-use-carrier 1
+=======
+        bond-use-carrier yes
+>>>>>>> cumulus/dev
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -120,7 +128,11 @@ following example configuration::
         bond-slaves swp31 swp32
         bond-mode 802.3ad
         bond-miimon 100
+<<<<<<< HEAD
         bond-use-carrier 1
+=======
+        bond-use-carrier yes
+>>>>>>> cumulus/dev
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -298,7 +310,11 @@ The contents of the sourced file used above are::
         bond-slaves swp25 swp26
         bond-mode 802.3ad
         bond-miimon 100
+<<<<<<< HEAD
         bond-use-carrier 1
+=======
+        bond-use-carrier yes
+>>>>>>> cumulus/dev
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -317,6 +333,13 @@ bridge ports and bond slaves::
     iface br1
         bridge-ports glob swp7-9.100  swp11.100 glob swp15-18.100
 
+<<<<<<< HEAD
+=======
+    auto br2
+    iface br2
+        bridge-ports glob swp[1-6]s[0-3].100
+
+>>>>>>> cumulus/dev
 Using Templates
 ===============
 
@@ -359,7 +382,11 @@ file, run::
         bond-slaves swp25 swp26
         bond-mode 802.3ad
         bond-miimon 100
+<<<<<<< HEAD
         bond-use-carrier 1
+=======
+        bond-use-carrier yes
+>>>>>>> cumulus/dev
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -375,7 +402,11 @@ does not match::
     iface bond0
             bond-mode 802.3ad  (✓)
             bond-miimon 100  (✓)
+<<<<<<< HEAD
             bond-use-carrier 1  (✓)
+=======
+            bond-use-carrier yes  (✓)
+>>>>>>> cumulus/dev
             bond-lacp-rate 1  (✓)
             bond-min-links 1  (✓)
             bond-xmit-hash-policy layer3+4  (✓)
@@ -413,10 +444,17 @@ the ``interfaces`` file. For complete syntax on the ``interfaces`` file, see
     {
         "auto": true, 
         "config": {
+<<<<<<< HEAD
             "bond-use-carrier": "1", 
             "bond-xmit-hash-policy": "layer3+4", 
             "bond-miimon": "100", 
             "bond-lacp-rate": "1", 
+=======
+            "bond-use-carrier": "yes",
+            "bond-xmit-hash-policy": "layer3+4", 
+            "bond-miimon": "100", 
+            "bond-lacp-rate": "1",
+>>>>>>> cumulus/dev
             "bond-min-links": "1", 
             "bond-slaves": "swp25 swp26", 
             "bond-mode": "802.3ad", 
