@@ -21,7 +21,7 @@ iface swp30
     alias "test network"
     link-duplex full
     link-speed 1000
-    link-autoneg off
+    link-autoneg no
 
 # bond interface
 auto bond3
@@ -29,7 +29,7 @@ iface bond3 inet static
     bond-slaves swp1 swp2
     bond-mode 802.3ad
     bond-miimon 100
-    bond-use-carrier 1
+    bond-use-carrier yes
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit_hash_policy layer3+4
@@ -40,12 +40,12 @@ iface bond4 inet static
     bond-slaves swp3 swp4
     bond-mode 802.3ad
     bond-miimon 100
-    bond-use-carrier 1
+    bond-use-carrier yes
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit_hash_policy layer3+4
 
-# bond interface
+# bridge interface
 auto br0
 iface br0
     address 12.0.0.4/24

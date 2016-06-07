@@ -36,7 +36,7 @@ class ethtool(moduleBase,utilsBase):
                       'link-autoneg' :
                             {'help': 'set autonegotiation',
                              'example' : ['link-autoneg on'],
-                             'validvals' : ['on', 'off'],
+                             'validvals' : ['yes', 'no', 'on', 'off'],
                              'default' : 'varies by platform and port'}}}
 
     def __init__(self, *args, **kargs):
@@ -67,6 +67,10 @@ class ethtool(moduleBase,utilsBase):
                 continue
             # check running values
             running_val = self.get_running_attr(attr, ifaceobj)
+
+            if attr == 'autoneg':
+                config_val = utils.get_onoff_bool(config_val)
+
             # we need to track if an interface has a configured value
             # this will be used if there are duplicate iface stanza and
             # the configured interface will always take precedence.
@@ -153,6 +157,12 @@ class ethtool(moduleBase,utilsBase):
             running_attr = self.get_running_attr(attr, ifaceobj)
             if (not running_attr):
                 continue
+
+            if attr == 'autoneg':
+                if configured == 'yes' and running_attr == 'on':
+                    running_attr = 'yes'
+                elif configured == 'no' and running_attr == 'off':
+                    running_attr = 'no'
 
             # we make sure we can get a running value first
             if (running_attr and configured and running_attr == configured):

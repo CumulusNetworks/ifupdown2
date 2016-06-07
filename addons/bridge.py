@@ -7,6 +7,7 @@
 from sets import Set
 from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
+from ifupdown.utils import utils
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
@@ -101,14 +102,14 @@ class bridge(moduleBase):
                           'default' : '2'},
                     'bridge-mcrouter' :
                         { 'help' : 'set multicast router',
-                          'validvals' : ['0', '1'],
-                          'default' : '1',
-                          'example' : ['bridge-mcrouter 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example' : ['bridge-mcrouter yes']},
                     'bridge-mcsnoop' :
                         { 'help' : 'set multicast snooping',
-                          'validvals' : ['0', '1'],
-                          'default' : '1',
-                          'example' : ['bridge-mcsnoop 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example' : ['bridge-mcsnoop yes']},
                     'bridge-mcsqc' :
                         { 'help' : 'set multicast startup query count',
                           'validrange' : ['0', '255'],
@@ -116,14 +117,14 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcsqc 2']},
                     'bridge-mcqifaddr' :
                         { 'help' : 'set multicast query to use ifaddr',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bridge-mcqifaddr 0']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['bridge-mcqifaddr no']},
                     'bridge-mcquerier' :
                         { 'help' : 'set multicast querier',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bridge-mcquerier 0']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['bridge-mcquerier no']},
                     'bridge-hashel' :
                         { 'help' : 'set hash elasticity',
                           'validrange' : ['0', '4096'],
@@ -172,10 +173,10 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
                     'bridge-portmcrouter' :
                         { 'help' : 'set port multicast routers',
-                          'validvals' : ['0', '1'],
-                          'default' : '1',
-                          'example' : ['under the bridge: bridge-portmcrouter swp1=1 swp2=1',
-                                       'under the port (recommended): bridge-portmcrouter 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example' : ['under the bridge: bridge-portmcrouter swp1=yes swp2=yes',
+                                       'under the port (recommended): bridge-portmcrouter yes']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
                           'validrange' : ['0', '65535'],
@@ -721,6 +722,10 @@ class bridge(moduleBase):
                                }.items()
                             if v }
             if bridgeattrs:
+                utils.support_yesno_attrs(bridgeattrs, ['mcqifaddr',
+                                                        'mcquerier',
+                                                        'mcrouter',
+                                                        'mcsnoop'])
                 self.brctlcmd.set_bridge_attrs(ifaceobj.name, bridgeattrs)
             portattrs = {}
             for attrname, dstattrname in {'bridge-pathcosts' : 'pathcost',
@@ -741,7 +746,10 @@ class bridge(moduleBase):
                         (port, val) = p.split('=')
                         if not portattrs.get(port):
                             portattrs[port] = {}
-                        portattrs[port].update({dstattrname : val})
+                        if attrname == 'bridge-portmcrouter':
+                            portattrs[port].update({dstattrname: utils.boolean_support_binary(val)})
+                        else:
+                            portattrs[port].update({dstattrname : val})
                     except Exception, e:
                         self.log_error('%s: could not parse %s (%s)'
                                        %(ifaceobj.name, attrname, str(e)),
@@ -1454,6 +1462,9 @@ class bridge(moduleBase):
         except Exception, e:
             self.logger.warn(str(e))
             runningattrs = {}
+
+        self._query_check_support_yesno_attrs(runningattrs, ifaceobj)
+
         filterattrs = ['bridge-vids', 'bridge-port-vids',
                        'bridge-port-pvids']
         for k in Set(ifaceattrs).difference(filterattrs):
@@ -1662,6 +1673,12 @@ class bridge(moduleBase):
             try:
                 running_attrval = self.brctlcmd.get_bridgeport_attr(
                                        bridgename, ifaceobj.name, dstattr)
+
+                if dstattr == 'mcrouter':
+                    if not utils.is_binary_bool(attrval) and running_attrval:
+                        running_attrval = utils.get_yesno_boolean(
+                            utils.get_boolean_from_string(running_attrval))
+
                 if running_attrval != attrval:
                     ifaceobjcurr.update_config_with_status(attr,
                                             running_attrval, 1)
@@ -1754,6 +1771,29 @@ class bridge(moduleBase):
             return
         if self.default_stp_on:
             ifaceobj.update_config('bridge-stp', 'yes')
+
+    def _query_check_support_yesno_attrs(self, runningattrs, ifaceobj):
+        for attrl in [['mcqifaddr', 'bridge-mcqifaddr'],
+                     ['mcquerier', 'bridge-mcquerier'],
+                     ['mcrouter', 'bridge-mcrouter'],
+                     ['mcsnoop', 'bridge-mcsnoop']]:
+            value = ifaceobj.get_attr_value_first(attrl[1])
+            if value and not utils.is_binary_bool(value):
+                if attrl[0] in runningattrs:
+                    bool = utils.get_boolean_from_string(runningattrs[attrl[0]])
+                    runningattrs[attrl[0]] = utils.get_yesno_boolean(bool)
+        attrval = ifaceobj.get_attr_value_first('bridge-portmcrouter')
+        if attrval:
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
+            if portlist:
+                to_convert = []
+                for p in portlist:
+                    (port, val) = p.split('=')
+                    if not utils.is_binary_bool(val):
+                        to_convert.append(port)
+                for port in to_convert:
+                    runningattrs['ports'][port]['portmcrouter'] = utils.get_yesno_boolean(
+                        utils.get_boolean_from_string(runningattrs['ports'][port]['portmcrouter']))
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,

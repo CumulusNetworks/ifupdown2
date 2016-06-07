@@ -58,12 +58,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: off
+        **default**: no
 
-        **validvals**: on,off
+        **validvals**: yes,no
 
         **example**:
-            link-autoneg on
+            link-autoneg yes
 
 
       **link-speed**
@@ -182,10 +182,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: 0
+        **default**: no
+
+        **validvals**: yes,no
 
         **example**:
-            bridge-mcquerier 0
+            bridge-mcquerier no
 
 
       **bridge-mclmc**
@@ -221,10 +223,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: 1
+        **default**: yes
+
+        **validvals**: yes,no
 
         **example**:
-            bridge-mcrouter 1
+            bridge-mcrouter yes
 
 
       **bridge-stp**
@@ -333,10 +337,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: 0
+        **default**: no
+
+        **validvals**: yes,no
 
         **example**:
-            bridge-mcqifaddr 0
+            bridge-mcqifaddr no
 
 
       **bridge-waitport**
@@ -441,10 +447,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: 1
+        **default**: yes
+
+        **validvals**: yes,no
 
         **example**:
-            bridge-mcsnoop 1
+            bridge-mcsnoop yes
 
 
       **bridge-access**
@@ -978,12 +986,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: 1
+        **default**: yes
 
-        **validvals**: 0,1
+        **validvals**: yes,no
 
         **example**:
-            bond-use-carrier 1
+            bond-use-carrier yes
 
 
       **bond-lacp-bypass-period**
@@ -1077,27 +1085,12 @@ EXAMPLES
 
         **required**: False
 
-        **default**: 0
+        **default**: no
 
-        **validvals**: 0,1
-
-        **example**:
-            bond-lacp-bypass-allow 0
-
-
-      **bond-lacp-bypass-allow-all-active**
-
-        **help**: allow all slaves to be active in lacp bypass irrespective of priority
-
-
-        **required**: False
-
-        **default**: 0
-
-        **validvals**: 0,1
+        **validvals**: yes,no
 
         **example**:
-            bond-lacp-bypass-all-active 1
+            bond-lacp-bypass-allow no
 
 
       **bond-mode**
@@ -1323,15 +1316,17 @@ EXAMPLES
 
       **vxlan-learning**
 
-        **help**: vxlan learning on/off
+        **help**: vxlan learning yes/no
 
 
         **required**: False
 
-        **default**: on
+        **default**: yes
+
+        **validvals**: yes,no
 
         **example**:
-            vxlan-learning off
+            vxlan-learning no
 
 
       **vxlan-id**

@@ -31,11 +31,11 @@ iface br-300 inet static
            mstpctl-hello 2
            mstpctl-portnetwork swp13.300=no
            bridge-mclmc 3
-           bridge-mcrouter 0
-           bridge-mcsnoop  1
+           bridge-mcrouter no
+           bridge-mcsnoop  yes
            bridge-mcsqc    3
-           bridge-mcqifaddr 1
-           bridge-mcquerier 1
+           bridge-mcqifaddr yes
+           bridge-mcquerier yes
            bridge-hashel 3
            bridge-hashmax 4
            bridge-mclmi 3

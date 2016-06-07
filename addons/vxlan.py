@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from ifupdown.iface import *
+from ifupdown.utils import utils
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.systemutils import systemUtils
@@ -32,10 +33,10 @@ class vxlan(moduleBase):
                              'validvals' : [IPv4Address, ],
                              'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
-                            {'help' : 'vxlan learning on/off',
-                             'validvals' : ['on', 'off'],
-                             'example': ['vxlan-learning off'],
-                             'default': 'on'},
+                            {'help' : 'vxlan learning yes/no',
+                             'validvals' : ['yes', 'no', 'on', 'off'],
+                             'example': ['vxlan-learning no'],
+                             'default': 'yes'},
                         'vxlan-ageing' :
                             {'help' : 'vxlan aging timer',
                              'validrange' : ['0', '4096'],
@@ -72,7 +73,7 @@ class vxlan(moduleBase):
             localtunnelip=ifaceobj.get_attr_value_first('vxlan-local-tunnelip'),
             svcnodeip=ifaceobj.get_attr_value_first('vxlan-svcnodeip'),
             remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
-            learning=ifaceobj.get_attr_value_first('vxlan-learning'),
+            learning=utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning')),
             ageing=ifaceobj.get_attr_value_first('vxlan-ageing'),
             anycastip=self._clagd_vxlan_anycast_ip)
             if ifaceobj.addr_method == 'manual':
@@ -140,7 +141,13 @@ class vxlan(moduleBase):
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
         if not learning:
             learning = 'on'
+
         running_learning = vxlanattrs.get('learning')
+        if learning == 'yes' and running_learning == 'on':
+            running_learning = 'yes'
+        elif learning == 'no' and running_learning == 'off':
+            running_learning = 'no'
+
         if learning == running_learning:
            ifaceobjcurr.update_config_with_status('vxlan-learning',
                                                   running_learning, 0)

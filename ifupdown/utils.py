@@ -28,6 +28,68 @@ class utils():
     logger = logging.getLogger('ifupdown')
     DEVNULL = open(os.devnull, 'w')
 
+    _string_values = {
+        "on": True,
+        "yes": True,
+        "1": True,
+        "off": False,
+        "no": False,
+        "0": False,
+    }
+
+    _binary_bool = {
+        True: "1",
+        False: "0",
+    }
+
+    _yesno_bool = {
+        True: 'yes',
+        False: 'no'
+    }
+
+    _onoff_bool = {
+        'yes': 'on',
+        'no': 'off'
+    }
+
+    @staticmethod
+    def get_onoff_bool(value):
+        if value in utils._onoff_bool:
+            return utils._onoff_bool[value]
+        return value
+
+    @staticmethod
+    def get_boolean_from_string(value):
+        if value in utils._string_values:
+            return utils._string_values[value]
+        return False
+
+    @staticmethod
+    def get_yesno_boolean(bool):
+        return utils._yesno_bool[bool]
+
+    @staticmethod
+    def boolean_support_binary(value):
+        return utils._binary_bool[utils.get_boolean_from_string(value)]
+
+    @staticmethod
+    def is_binary_bool(value):
+        return value == '0' or value == '1'
+
+    @staticmethod
+    def support_yesno_attrs(attrsdict, attrslist, ifaceobj=None):
+        if ifaceobj:
+            for attr in attrslist:
+                value = ifaceobj.get_attr_value_first(attr)
+                if value and not utils.is_binary_bool(value):
+                    if attr in attrsdict:
+                        bool = utils.get_boolean_from_string(attrsdict[attr])
+                        attrsdict[attr] = utils.get_yesno_boolean(bool)
+        else:
+            for attr in attrslist:
+                if attr in attrsdict:
+                    attrsdict[attr] = utils.boolean_support_binary(attrsdict[attr])
+
     @classmethod
     def importName(cls, modulename, name):
         """ Import a named object """

@@ -13,6 +13,7 @@ from ifupdownaddons.iproute2 import iproute2
 from ifupdown.netlink import netlink
 import ifupdown.policymanager as policymanager
 import ifupdown.ifupdownflags as ifupdownflags
+from ifupdown.utils import utils
 
 class bond(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
@@ -20,9 +21,9 @@ class bond(moduleBase):
                     'attrs' : {
                     'bond-use-carrier':
                          {'help' : 'bond use carrier',
-                          'validvals' : ['0', '1'],
-                          'default' : '1',
-                          'example': ['bond-use-carrier 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example': ['bond-use-carrier yes']},
                      'bond-num-grat-arp':
                          {'help' : 'bond use carrier',
                           'validrange' : ['0', '255'],
@@ -90,9 +91,9 @@ class bond(moduleBase):
                          'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
                      'bond-lacp-bypass-allow':
                          {'help' : 'allow lacp bypass',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-bypass-allow 0']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['bond-lacp-bypass-allow no']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
@@ -245,6 +246,10 @@ class bond(moduleBase):
                     attrstoset[dstk] = v
             if not attrstoset:
                 return
+
+            # support yes/no attrs
+            utils.support_yesno_attrs(attrstoset, ['use_carrier', 'lacp_bypass'])
+
             have_attrs_to_set = 1
             self.bondcmd.set_attrs(ifaceobj.name, attrstoset,
                     self.ipcmd.link_down if linkup else None)
@@ -332,6 +337,11 @@ class bond(moduleBase):
                                           self.get_mod_attrs())
         if not ifaceattrs: return
         runningattrs = self._query_running_attrs(ifaceobj.name)
+
+        # support yes/no attributes
+        utils.support_yesno_attrs(runningattrs, ['bond-use-carrier',
+                                                 'bond-lacp-bypass-allow'],
+                                  ifaceobj=ifaceobj)
 
         # support for numerical bond-mode
         mode = ifaceobj.get_attr_value_first('bond-mode')
