@@ -368,7 +368,7 @@ class vrf(moduleBase):
             else:
                 master_exists = False
             if master_exists:
-                rtnetlink_api.rtnl_api.link_set(ifacename, "up")
+                netlink.link_set_updown(ifacename, "up")
             elif ifupdownflags.flags.ALL:
                 self.log_error('vrf %s not around, skipping vrf config'
                                %(vrfname), ifaceobj)
