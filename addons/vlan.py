@@ -176,11 +176,13 @@ class vlan(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vlan-raw-device',
                         vlanrawdev, 0)
-            if vlanid != ifaceobj.get_attr_value_first('vlan-id'):
+            vlanid_config = ifaceobj.get_attr_value_first('vlan-id')
+            if not vlanid_config:
+                vlanid_config = str(self._get_vlan_id(ifaceobj))
+            if vlanid != vlanid_config:
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 1)
             else:
-                ifaceobjcurr.update_config_with_status('vlan-id',
-                        vlanid, 0)
+                ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 0)
             self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, vlanid)
 
     def _query_running(self, ifaceobjrunning):
