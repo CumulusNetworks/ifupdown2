@@ -4,7 +4,6 @@ from ipaddr import IPv4Address, IPv6Address
 from nlpacket import *
 from select import select
 from struct import pack, unpack
-from tabulate import tabulate
 import logging
 import os
 import socket
@@ -391,21 +390,20 @@ class NetlinkManager(object):
 
     def routes_print(self, routes):
         """
-        Use tabulate to print a table of 'routes'
+        Print a table of 'routes'
         """
-        header = ['Prefix', 'nexthop', 'ifindex']
-        table = []
+        print "Prefix            Nexthop           ifindex"
 
         for x in routes:
             if Route.RTA_DST not in x.attributes:
                 log.warning("Route is missing RTA_DST")
                 continue
 
-            table.append(('%s/%d' % (x.attributes[Route.RTA_DST].value, x.src_len),
-                          str(x.attributes[Route.RTA_GATEWAY].value) if Route.RTA_GATEWAY in x.attributes else None,
-                          x.attributes[Route.RTA_OIF].value))
-
-        print tabulate(table, header, tablefmt='simple') + '\n'
+            ip = "%s/%d" % (x.attributes[Route.RTA_DST].value, x.src_len)
+            print "%-15s   %-15s   %s" %\
+                (ip,
+                 str(x.attributes[Route.RTA_GATEWAY].value) if Route.RTA_GATEWAY in x.attributes else None,
+                 x.attributes[Route.RTA_OIF].value)
 
     # =====
     # Links

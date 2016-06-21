@@ -267,7 +267,7 @@ class NetlinkManagerWithListener(NetlinkManager):
                  (msg.get_prefix_string(), msg.get_nexthops_string(self.ifname_by_index)))
 
     def rx_rtm_delroute(self, msg):
-        log.info("RX RTM_NEWROUTE for %s%s" %
+        log.info("RX RTM_DELROUTE for %s%s" %
                  (msg.get_prefix_string(), msg.get_nexthops_string(self.ifname_by_index)))
 
     # Note that tx_nlpacket_ack_on_listener will block until NetlinkListener has RXed
