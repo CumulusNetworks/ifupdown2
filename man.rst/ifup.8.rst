@@ -22,11 +22,7 @@ SYNOPSIS
 ========
 
     ifup [-h] [-a] [-v] [-d] [--allow CLASS] [--with-depends]
-<<<<<<< HEAD
-       **[-X EXCLUDEPATS] [-f] [-n] [--print-dependency {list,dot}]**
-=======
        **[-X EXCLUDEPATS] [-f] [-n] [-s] [--print-dependency {list,dot}]**
->>>>>>> cumulus/dev
        **[IFACE [IFACE ...]]**
 
     ifdown [-h] [-a] [-v] [-d] [--allow CLASS] [--with-depends]
@@ -37,22 +33,13 @@ DESCRIPTION
 ===========
     **ifup** and **ifdown** commands can be used to configure (or, respectively,
     deconfigure) network interfaces based on interface definitions in the
-<<<<<<< HEAD
-    file **/etc/network/interfaces/** file.
-=======
     config file ifupdown2.conf (defaults to **/etc/network/interfaces/** file).
->>>>>>> cumulus/dev
 
     **ifquery(8)** maybe used in conjunction with **ifup** and **ifdown**
     commands to query and validate applied/running configuration.
 
-<<<<<<< HEAD
-    **ifup** always works on the current **interfaces(5)** file under
-    **/etc/network/interfaces**. **ifdown** works on the last applied interface
-=======
     **ifup** always works on the current **interfaces(5)** file defined in ifupdown2.conf
     (default **/etc/network/interfaces**). **ifdown** works on the last applied interface
->>>>>>> cumulus/dev
     configuration.
 
     **ifup** on an already ifup'ed interface will re-apply the configuration,
@@ -95,12 +82,6 @@ OPTIONS
     -X EXCLUDEPATS, --exclude EXCLUDEPATS
                           Exclude interfaces from the list of interfaces to
                           operate on. Can be specified multiple times
-<<<<<<< HEAD
-
-    -i INTERFACESFILE, --interfaces INTERFACESFILE
-                          Use interfaces file instead of default
-                          /etc/network/interfaces
-=======
                           If the excluded interface has dependent interfaces,
                           (e.g. a bridge or a bond with multiple enslaved interfaces)
                           then each dependent interface must be specified in order
@@ -112,7 +93,6 @@ OPTIONS
 			  Also in ifupdown2.conf, users are not allowed to specify their own
 			  interfaces file unless disable_cli_interfacesfile is set to 0
 			  (default is 1).
->>>>>>> cumulus/dev
 
     -t {native,json}, --interfaces-format {native,json}
                           interfaces file format
@@ -135,11 +115,8 @@ OPTIONS
                           your state file is corrupted or you want down to use
                           the latest from the interfaces file
 
-<<<<<<< HEAD
-=======
     -s, --syntax-check    Only run the interfaces file parser
 
->>>>>>> cumulus/dev
 EXAMPLES
 ========
     # bringing up all interfaces

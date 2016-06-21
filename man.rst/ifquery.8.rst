@@ -33,12 +33,8 @@ DESCRIPTION
 
     **ifquery** always works on the current **interfaces(5)** file
     **/etc/network/interfaces** unless an alternate interfaces file is
-<<<<<<< HEAD
-    provided with the **-i** option.
-=======
     defined in ifupdown2.conf or provided with the **-i** option.
     Note: the -i option is disabled by default in ifupdown2.conf.
->>>>>>> cumulus/dev
 
 OPTIONS
 =======
@@ -65,12 +61,6 @@ OPTIONS
     -X EXCLUDEPATS, --exclude EXCLUDEPATS
                           Exclude interfaces from the list of interfaces to
                           operate on. Can be specified multiple times
-<<<<<<< HEAD
-
-    -i INTERFACESFILE, --interfaces INTERFACESFILE
-                          Use interfaces file instead of default
-                          /etc/network/interfaces
-=======
                           If the excluded interface has dependent interfaces,
                           (e.g. a bridge or a bond with multiple enslaved interfaces)
                           then each dependent interface must be specified in order
@@ -79,7 +69,6 @@ OPTIONS
     -i INTERFACESFILE, --interfaces INTERFACESFILE
                           Use interfaces file instead of default
                           defined in ifupdown2.conf (default /etc/network/interfaces)
->>>>>>> cumulus/dev
 
     -t {native,json}, --interfaces-format {native,json}
                           interfaces file format

@@ -14,20 +14,12 @@ reload network interface configuration
 
 SYNOPSIS
 ========
-<<<<<<< HEAD
-    ifreload [-h] (-a|-c) [-v] [-d] [-f] [-n] 
-
-DESCRIPTION
-===========
-    reloads network **interfaces(5)** file **/etc/network/interfaces**.
-=======
     ifreload [-h] (-a|-c) [-v] [-d] [-f] [-n] [-s]
 
 DESCRIPTION
 ===========
     reloads network **interfaces(5)** file **/etc/network/interfaces**
     or config file defined in ifupdown2.conf file.
->>>>>>> cumulus/dev
 
     Runs **ifdown** on interfaces that were removed from the file and
     subsequently runs **ifup** on all interfaces.
@@ -64,15 +56,12 @@ OPTIONS
     -X EXCLUDEPATS, --exclude EXCLUDEPATS
                           Exclude interfaces from the list of interfaces to
                           operate on. Can be specified multiple times
-<<<<<<< HEAD
-=======
                           If the excluded interface has dependent interfaces,
                           (e.g. a bridge or a bond with multiple enslaved interfaces)
                           then each dependent interface must be specified in order
                           to be excluded.
 
     -s, --syntax-check    Only run the interfaces file parser
->>>>>>> cumulus/dev
 
 
 EXAMPLES

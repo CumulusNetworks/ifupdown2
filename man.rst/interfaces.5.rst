@@ -14,14 +14,9 @@ network interface configuration for ifupdown
 
 DESCRIPTION
 ===========
-<<<<<<< HEAD
-    **/etc/network/interfaces** contains network interface configuration
-    information for the **ifup(8)**, **ifdown(8)** and **ifquery(8)** commands.
-=======
     By default, ifupdown2.conf sets **/etc/network/interfaces** as the
     network interface configuration file.  This file contains information
     for the **ifup(8)**, **ifdown(8)** and **ifquery(8)** commands.
->>>>>>> cumulus/dev
 
     This is where you configure how your system is connected to the network.
 
@@ -151,11 +146,7 @@ EXAMPLES
 
 FILES
 =====
-<<<<<<< HEAD
-    /etc/network/interfaces
-=======
     configuration file defined in ifupdown2.conf (default /etc/network/interfaces)
->>>>>>> cumulus/dev
 
 SEE ALSO
 ========
