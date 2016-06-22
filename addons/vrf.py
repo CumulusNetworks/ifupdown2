@@ -9,6 +9,7 @@ import signal
 import errno
 import fcntl
 import atexit
+import re
 from ifupdown.iface import *
 from ifupdown.utils import utils
 import ifupdown.policymanager as policymanager
@@ -85,6 +86,15 @@ class vrf(moduleBase):
         #self.logger.info("vrf: ip -6 rule cache")
         #self.logger.info(self.ip6_rule_cache)
 
+        self.l3mdev_checked = False
+        self.l3mdev4_rule = False
+        if self._l3mdev_rule(self.ip_rule_cache):
+            self.l3mdev4_rule = True
+            self.l3mdev_checked = True
+        self.l3mdev6_rule = False
+        if self._l3mdev_rule(self.ip6_rule_cache):
+            self.l3mdev6_rule = True
+            self.l3mdev_checked = True
         self._iproute2_vrf_map_initialized = False
         self.iproute2_vrf_map = {}
         self.iproute2_vrf_map_fd = None
@@ -404,6 +414,22 @@ class vrf(moduleBase):
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
+    def _l3mdev_rule(self, ip_rules):
+        for rule in ip_rules:
+            if not re.search(r"\d.*from\s+all\s+lookup\s+\W?l3mdev-table\W?",
+                             rule):
+                continue
+            return True
+        return False
+
+    def _rule_cache_fill(self):
+        ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
+        self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
+        self.l3mdev4_rule = self._l3mdev_rule(self.ip_rule_cache)
+        ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
+        self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
+        self.l3mdev6_rule = self._l3mdev_rule(self.ip6_rule_cache)
+
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
@@ -426,30 +452,33 @@ class vrf(moduleBase):
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
 
+        if not self.l3mdev_checked:
+            self._rule_cache_fill()
+            self.l3mdev_checked = True
         #Example ip rule
         #200: from all oif blue lookup blue
         #200: from all iif blue lookup blue
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip_rule_cache:
+        if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip_rule_cache:
+        if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip6_rule_cache:
+        if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip6_rule_cache:
+        if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
