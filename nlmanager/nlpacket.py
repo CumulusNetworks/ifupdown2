@@ -2363,6 +2363,12 @@ class Route(NetlinkPacket):
     RTA_MP_ALGO   = 0x0E
     RTA_TABLE     = 0x0F
     RTA_MARK      = 0x10
+    RTA_MFC_STATS = 0x11
+    RTA_VIA       = 0x12
+    RTA_NEWDST    = 0x13
+    RTA_PREF      = 0x14
+    RTA_ENCAP_TYPE= 0x15
+    RTA_ENCAP     = 0x16
 
     attribute_to_class = {
         RTA_UNSPEC    : ('RTA_UNSPEC', AttributeGeneric),
@@ -2381,7 +2387,13 @@ class Route(NetlinkPacket):
         RTA_SESSION   : ('RTA_SESSION', AttributeGeneric),
         RTA_MP_ALGO   : ('RTA_MP_ALGO', AttributeGeneric),
         RTA_TABLE     : ('RTA_TABLE', AttributeFourByteValue),
-        RTA_MARK      : ('RTA_MARK', AttributeGeneric)
+        RTA_MARK      : ('RTA_MARK', AttributeGeneric),
+        RTA_MFC_STATS : ('RTA_MFC_STATS', AttributeGeneric),
+        RTA_VIA       : ('RTA_VIA', AttributeGeneric),
+        RTA_NEWDST    : ('RTA_NEWDST', AttributeGeneric),
+        RTA_PREF      : ('RTA_PREF', AttributeGeneric),
+        RTA_ENCAP_TYPE: ('RTA_ENCAP_TYPE', AttributeGeneric),
+        RTA_ENCAP     : ('RTA_ENCAP', AttributeGeneric)
     }
 
     # Route tables
