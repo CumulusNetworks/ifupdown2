@@ -213,7 +213,7 @@ class NetlinkManager(object):
                             else:
                                 raise NetlinkError(debug_str)
                         else:
-                            log.info(debug_str + '...this is an ACK')
+                            log.debug(debug_str + '...this is an ACK')
                             return msgs
 
                     # No ACK...create a nlpacket object and append it to msgs
