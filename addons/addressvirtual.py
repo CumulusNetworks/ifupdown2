@@ -196,6 +196,12 @@ class addressvirtual(moduleBase):
                 if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
                     self.ipcmd.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
 
+            # Disable IPv6 duplicate address detection on VRR interfaces
+            for key, sysval in { 'accept_dad' : '0', 'dad_transmits' : '0' }.iteritems():
+                syskey = 'net.ipv6.conf.%s.%s' % (macvlan_ifacename, key)
+                if self.sysctl_get(syskey) != sysval:
+                    self.sysctl_set(syskey, sysval)
+
             av_idx += 1
         self.ipcmd.batch_commit()
 
