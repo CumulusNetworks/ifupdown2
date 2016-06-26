@@ -205,6 +205,10 @@ class Attribute(object):
         return raw
 
     def encode(self):
+
+        if not self.LEN:
+            raise Exception('Please define an encode() method in your child attribute class, or do not use AttributeGeneric')
+
         length = self.HEADER_LEN + self.LEN
         attr_type_with_flags = self.atype
 
@@ -445,6 +449,14 @@ class AttributeGeneric(Attribute):
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
+
+
+class AttributeOneByteValue(AttributeGeneric):
+
+    def __init__(self, atype, string, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = '=B'
+        self.LEN = calcsize(self.PACK)
 
 
 class AttributeIFLA_AF_SPEC(Attribute):
@@ -1638,7 +1650,7 @@ class Link(NetlinkPacket):
         IFLA_PHYS_SWITCH_ID  : ('IFLA_PHYS_SWITCH_ID', AttributeGeneric),
         IFLA_LINK_NETNSID    : ('IFLA_LINK_NETNSID', AttributeGeneric),
         IFLA_PHYS_PORT_NAME  : ('IFLA_PHYS_PORT_NAME', AttributeGeneric),
-        IFLA_PROTO_DOWN      : ('IFLA_PROTO_DOWN', AttributeGeneric),
+        IFLA_PROTO_DOWN      : ('IFLA_PROTO_DOWN', AttributeOneByteValue),
         IFLA_LINKPROTODOWN   : ('IFLA_LINKPROTODOWN', AttributeGeneric)
     }
 
