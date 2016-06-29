@@ -1663,9 +1663,9 @@ class bridge(moduleBase):
                                                   ifaceobj_getfunc,
                                                   bridgename)
         for attr, dstattr in {'bridge-pathcosts' : 'pathcost',
-                              'bridge-portprios' : 'priority',
-                              'bridge-portmcrouter' : 'mcrouter',
-                              'bridge-portmcfl' : 'mcfl' }.items():
+                              'bridge-portprios' : 'portprio',
+                              'bridge-portmcrouter' : 'portmcrouter',
+                              'bridge-portmcfl' : 'portmcfl' }.items():
             attrval = ifaceobj.get_attr_value_first(attr)
             if not attrval:
                 continue
@@ -1674,7 +1674,7 @@ class bridge(moduleBase):
                 running_attrval = self.brctlcmd.get_bridgeport_attr(
                                        bridgename, ifaceobj.name, dstattr)
 
-                if dstattr == 'mcrouter':
+                if dstattr == 'portmcrouter':
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_yesno_boolean(
                             utils.get_boolean_from_string(running_attrval))
