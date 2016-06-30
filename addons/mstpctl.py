@@ -579,7 +579,9 @@ class mstpctl(moduleBase):
 
         ports = self.brctlcmd.get_bridge_ports(ifaceobjrunning.name)
         if ports:
-            portconfig = {'mstpctl-portnetwork' : '',
+            portconfig = {'mstpctl-portautoedge' : '',
+                          'mstpctl-portbpdufilter' : '',
+                          'mstpctl-portnetwork' : '',
                           'mstpctl-portpathcost' : '',
                           'mstpctl-portadminedge' : '',
                           'mstpctl-portautoedge' : '',
@@ -591,6 +593,16 @@ class mstpctl(moduleBase):
                           'mstpctl-treeportcost' : ''}
 
             for p in ports:
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portautoedge')
+                if v and v != 'no':
+                    portconfig['mstpctl-portautoedge'] += ' %s=%s' %(p, v)
+
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portbpdufilter')
+                if v and v != 'no':
+                    portconfig['mstpctl-portbpdufilter'] += ' %s=%s' %(p, v)
+
                 v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
                             p, 'portnetwork')
                 if v and v != 'no':
@@ -634,11 +646,17 @@ class mstpctl(moduleBase):
                 #                                   'default'):
                 #    portconfig['mstpctl-treeportprio'] += ' %s=%s' %(p, v)
 
-                #v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                #            p, 'treecost')
-                #if v and v != self.get_mod_subattr('mstpctl-treeportcost',
-                #                                   'default'):
-                #    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portpathcost')
+                if v and v != self.get_mod_subattr('mstpctl-portpathcost',
+                                                   'default'):
+                    portconfig['mstpctl-portpathcost'] += ' %s=%s' %(p, v)
+
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'treeportcost')
+                if v and v != self.get_mod_subattr('mstpctl-treeportcost',
+                                                   'default'):
+                    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
@@ -893,11 +911,38 @@ class mstpctl(moduleBase):
         # if userspace stp not set, return
         if self.sysctl_get('net.bridge.bridge-stp-user-space') != '1':
            return
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portautoedge')
+        if v and v != 'no':
+            ifaceobjrunning.update_config('mstpctl-portautoedge', v)
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portbpdufilter')
+        if v and v != 'no':
+            ifaceobjrunning.update_config('mstpctl-portbpdufilter', v)
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portpathcost')
+        if v and v != self.get_mod_subattr('mstpctl-portpathcost',
+                                           'default'):
+            ifaceobjrunning.update_config('mstpctl-portpathcost', v)
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'treeportcost')
+        if v and v != self.get_mod_subattr('mstpctl-treeportcost',
+                                           'default'):
+            ifaceobjrunning.update_config('mstpctl-treeportcost', v)
+
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                                 ifaceobjrunning.name,
                                                 'portnetwork')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-network', v)
+           ifaceobjrunning.update_config('mstpctl-portnetwork', v)
 
         # XXX: Can we really get path cost of a port ???
         #v = self.mstpctlcmd.get_portpathcost(ifaceobjrunning.name, p)
@@ -921,7 +966,7 @@ class mstpctl(moduleBase):
            ifaceobjrunning.update_config('mstpctl-portrestrrole', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                            ifaceobjrunning.name, 'restrtcn')
+                            ifaceobjrunning.name, 'portrestrtcn')
         if v and v != 'no':
            ifaceobjrunning.update_config('mstpctl-portrestrtcn', v)
 

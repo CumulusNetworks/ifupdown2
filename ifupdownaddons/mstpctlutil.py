@@ -34,7 +34,9 @@ class mstpctlutil(utilsBase):
                      'bpduguard' : 'bpdu-guard-port',
                      'portautoedge' : 'auto-edge-port',
                      'portnetwork' : 'network-port',
-                     'portbpdufilter' : 'bpdufilter-port'}
+                     'portbpdufilter' : 'bpdufilter-port',
+                     'portpathcost' : 'external-port-cost',
+                     'treeportcost' : 'internal-port-cost'}
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
