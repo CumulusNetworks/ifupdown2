@@ -709,26 +709,18 @@ class iproute2(utilsBase):
         brvlanlines = bridgeout.splitlines()
         brportname=None
         for l in brvlanlines[1:]:
-            if l and l[0] not in [' ', '\t']:
-                brportname = None
-            l=l.strip()
-            if not l:
-                brportname=None
-                continue
-            if 'PVID' in l:
-		        attrs = l.split()
-		        brportname = attrs[0]
-		        brvlaninfo[brportname] = {'pvid' : attrs[1],
-					                      'vlan' : []}
-            elif brportname:
-                if 'Egress Untagged' not in l:
-		            brvlaninfo[brportname]['vlan'].append(l)
-            elif not brportname:
+            if l and not l.startswith(' ') and not l.startswith('\t'):
                 attrs = l.split()
-                if attrs[1] == 'None' or 'Egress Untagged' in attrs[1]:
-                    continue
-                brportname = attrs[0]
-                brvlaninfo[brportname] = {'vlan' : [attrs[1]]}
+                brportname = attrs[0].strip()
+                brvlaninfo[brportname] = {'pvid' : None, 'vlan' : []}
+                l = ' '.join(attrs[1:])
+            if not brportname or not l:
+                continue
+            l = l.strip()
+            if 'PVID' in l:
+                brvlaninfo[brportname]['pvid'] = l.split()[0]
+            elif 'Egress Untagged' not in l:
+                brvlaninfo[brportname]['vlan'].append(l)
         return brvlaninfo
 
     def bridge_port_pvid_add(self, bridgeportname, pvid):
