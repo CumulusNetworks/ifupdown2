@@ -597,30 +597,6 @@ class iproute2(utilsBase):
         else:
             utils.exec_command('ip %s' % cmd)
 
-        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-            #figure out the diff for remotes and do the bridge fdb updates
-            #only if provisioned by user and not by vxrd
-            cur_peers = set(self.get_vxlan_peers(name, svcnodeip))
-            if remoteips:
-                new_peers = set(remoteips)
-                del_list = cur_peers.difference(new_peers)
-                add_list = new_peers.difference(cur_peers)
-            else:
-                del_list = cur_peers
-                add_list = []
-
-            try:
-                for addr in del_list:
-                    self.bridge_fdb_del(name, '00:00:00:00:00:00', None, True, addr)
-            except:
-                pass
-
-            try:
-                for addr in add_list:
-                    self.bridge_fdb_append(name, '00:00:00:00:00:00', None, True, addr)
-            except:
-                pass
-
         # XXX: update linkinfo correctly
         self._cache_update([name], {})
 
