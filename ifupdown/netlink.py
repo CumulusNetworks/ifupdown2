@@ -5,7 +5,6 @@
 #
 
 try:
-
     from ifupdownaddons.utilsbase import utilsBase
     from nlmanager.nlmanager import NetlinkManager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -14,6 +13,8 @@ except ImportError, e:
 
 
 class Netlink(utilsBase):
+    VXLAN_UDP_PORT = 4789
+
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
         self._nlmanager_api = NetlinkManager()
@@ -87,5 +88,22 @@ class Netlink(utilsBase):
         except Exception as e:
             raise Exception('netlink: %s: cannot remove bridge vlan %s: %s'
                             % (ifacename, vlanid, str(e)))
+
+    def link_add_vxlan(self, ifacename, vxlanid, local=None, dstport=VXLAN_UDP_PORT,
+                       group=None, learning='on', ageing=None):
+        self.logger.info('netlink: %s: creating vxlan %s'
+                         % (ifacename, vxlanid))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            return self._nlmanager_api.link_add_vxlan(ifacename,
+                                                      vxlanid,
+                                                      dstport=dstport,
+                                                      local=local,
+                                                      group=group,
+                                                      learning=learning,
+                                                      ageing=ageing)
+        except Exception as e:
+            raise Exception('netlink: %s: cannot create vxlan %s: %s'
+                            % (ifacename, vxlanid, str(e)))
 
 netlink = Netlink()
