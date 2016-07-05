@@ -718,7 +718,7 @@ class AttributeIFLA_LINKINFO(Attribute):
 
         kind = self.value[Link.IFLA_INFO_KIND]
 
-        if kind not in ('vlan', 'macvlan'):
+        if kind not in ('vlan', 'macvlan', 'vxlan'):
             raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
 
         # For now this assumes that all data will be packed in the native endian
@@ -769,6 +769,64 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                         else:
                             self.log.debug('Add support for encoding IFLA_INFO_DATA macvlan sub-attribute type %d' % info_data_type)
+
+                    elif kind == 'vxlan':
+                        if info_data_type in (Link.IFLA_VXLAN_ID,
+                                              Link.IFLA_VXLAN_LINK,
+                                              Link.IFLA_VXLAN_AGEING,
+                                              Link.IFLA_VXLAN_LIMIT,
+                                              Link.IFLA_VXLAN_PORT_RANGE):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(info_data_value)
+
+                        elif info_data_type in (Link.IFLA_VXLAN_GROUP,
+                                                Link.IFLA_VXLAN_LOCAL):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+
+                            reorder = unpack('<L', IPv4Address(info_data_value).packed)[0]
+                            sub_attr_payload.append(IPv4Address(reorder))
+
+                        elif info_data_type in (Link.IFLA_VXLAN_PORT,):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(info_data_value)
+
+                            sub_attr_pack_layout.extend('xx')
+
+                        elif info_data_type in (Link.IFLA_VXLAN_TTL,
+                                                Link.IFLA_VXLAN_TOS,
+                                                Link.IFLA_VXLAN_LEARNING,
+                                                Link.IFLA_VXLAN_PROXY,
+                                                Link.IFLA_VXLAN_RSC,
+                                                Link.IFLA_VXLAN_L2MISS,
+                                                Link.IFLA_VXLAN_L3MISS,
+                                                Link.IFLA_VXLAN_UDP_CSUM,
+                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
+                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
+                                                Link.IFLA_VXLAN_REMCSUM_TX,
+                                                Link.IFLA_VXLAN_REMCSUM_RX,
+                                                Link.IFLA_VXLAN_REPLICATION_TYPE):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(info_data_value)
+                            sub_attr_pack_layout.extend('xxx')
+
+                        else:
+                            self.log.debug('Add support for encoding IFLA_INFO_DATA vxlan sub-attribute type %d' % info_data_type)
 
             else:
                 self.log.debug('Add support for encoding IFLA_LINKINFO sub-attribute type %d' % sub_attr_type)

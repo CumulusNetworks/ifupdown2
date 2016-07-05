@@ -587,3 +587,42 @@ class NetlinkManager(object):
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket(nbr)
+
+    def link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None,
+                       group=None, learning='on', ageing=None):
+
+        debug = RTM_NEWLINK in self.debug
+
+        info_data = {Link.IFLA_VXLAN_ID: int(vxlanid)}
+        if dstport:
+            info_data[Link.IFLA_VXLAN_PORT] = int(dstport)
+        if local:
+            info_data[Link.IFLA_VXLAN_LOCAL] = local
+        if group:
+            info_data[Link.IFLA_VXLAN_GROUP] = group
+
+        learning = 0 if learning == 'off' else 1
+        info_data[Link.IFLA_VXLAN_LEARNING] = learning
+
+        ifindex = self.get_iface_index(ifname)
+        if ifindex:
+            info_data[Link.IFLA_VXLAN_LINK] = ifindex
+
+        if ageing:
+            info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
+
+        link = Link(RTM_NEWLINK, debug)
+        link.flags = NLM_F_CREATE | NLM_F_REQUEST
+        link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        link.add_attribute(Link.IFLA_IFNAME, ifname)
+
+        if ifindex:
+            link.add_attribute(Link.IFLA_LINK, ifindex)
+
+        link.add_attribute(Link.IFLA_LINKINFO, {
+            Link.IFLA_INFO_KIND: "vxlan",
+            Link.IFLA_INFO_DATA: info_data
+        })
+
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket(link)
