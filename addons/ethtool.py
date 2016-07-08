@@ -93,11 +93,12 @@ class ethtool(moduleBase,utilsBase):
                 (ifaceobj.name in self.ifaceobjs_modified_configs)):
                 continue
 
-            # if we are not the oldest and we have no configs, do not change anything
-            # the only way a non-oldest sibling would change values is if it
-            # had configured settings
-            if (not ((ifaceobj.flags & iface.HAS_SIBLINGS) and
-                     (ifaceobj.flags & iface.OLDEST_SIBLING)) and
+            # If we have siblings AND are not the oldest AND we have no configs,
+            # do not change anything. The only way a non-oldest sibling would
+            # change values is if it had configured settings. iface stanzas may
+            # not be squashed if addr_config_squash is not set so we still need this.
+            if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+                not (ifaceobj.flags & iface.OLDEST_SIBLING) and
                 not config_val):
                 continue
 
