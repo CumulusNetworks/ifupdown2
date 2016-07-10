@@ -1005,6 +1005,7 @@ class bridge(moduleBase):
         if not bridgeports:
            self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
            return
+        self.ipcmd.batch_start()
         for bport in bridgeports:
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
@@ -1037,6 +1038,7 @@ class bridge(moduleBase):
                     err = True
                     self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
                     pass
+        self.ipcmd.bridge_batch_commit()
         if err:
            raise Exception('%s: errors applying port settings' %ifaceobj.name)
 
