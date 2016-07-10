@@ -800,7 +800,10 @@ class AttributeIFLA_LINKINFO(Attribute):
                             sub_attr_payload.append(info_data_type)
 
                             sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(info_data_value)
+
+                            # byte swap
+                            swaped = pack(">H", info_data_value)
+                            sub_attr_payload.append(unpack("<H", swaped)[0])
 
                             sub_attr_pack_layout.extend('xx')
 
