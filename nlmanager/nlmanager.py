@@ -137,7 +137,7 @@ class NetlinkManager(object):
         # packet via the decode_packet call...so avoid printing
         # two messages for one packet.
         if not nlpacket.debug:
-            log.info("TXed %12s, pid %d, seq %d, %d bytes" %
+            log.debug("TXed %12s, pid %d, seq %d, %d bytes" %
                      (nlpacket.get_type_string(), nlpacket.pid, nlpacket.seq, nlpacket.length))
 
         header_PACK = NetlinkPacket.header_PACK
