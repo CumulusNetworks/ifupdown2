@@ -604,10 +604,6 @@ class NetlinkManager(object):
         learning = 0 if learning == 'off' else 1
         info_data[Link.IFLA_VXLAN_LEARNING] = learning
 
-        ifindex = self.get_iface_index(ifname)
-        if ifindex:
-            info_data[Link.IFLA_VXLAN_LINK] = ifindex
-
         if ageing:
             info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
 
@@ -615,10 +611,6 @@ class NetlinkManager(object):
         link.flags = NLM_F_CREATE | NLM_F_REQUEST
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
-
-        if ifindex:
-            link.add_attribute(Link.IFLA_LINK, ifindex)
-
         link.add_attribute(Link.IFLA_LINKINFO, {
             Link.IFLA_INFO_KIND: "vxlan",
             Link.IFLA_INFO_DATA: info_data
