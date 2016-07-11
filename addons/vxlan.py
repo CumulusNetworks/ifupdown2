@@ -17,7 +17,7 @@ class vxlan(moduleBase):
                 'attrs' : {
                         'vxlan-id' :
                             {'help' : 'vxlan id',
-                             'validrange' : ['0', '4096'],
+                             'validrange' : ['1', '16777214'],
                              'required' : True,
                              'example': ['vxlan-id 100']},
                         'vxlan-local-tunnelip' :
