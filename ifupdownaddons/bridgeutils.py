@@ -22,7 +22,8 @@ class brctl(utilsBase):
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
         if ifupdownflags.flags.CACHE and not brctl._cache_fill_done:
-            self._bridge_fill()
+            if os.path.exists('/sbin/brctl'):
+                self._bridge_fill()
             brctl._cache_fill_done = True
 
 
