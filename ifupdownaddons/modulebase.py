@@ -15,6 +15,9 @@ from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
 import ifupdown.ifupdownflags as ifupdownflags
 
+class NotSupported(Exception):
+    pass
+
 class moduleBase(object):
     """ Base class for ifupdown addon modules
 
