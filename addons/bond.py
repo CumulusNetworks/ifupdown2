@@ -79,12 +79,14 @@ class bond(moduleBase):
                           'example' : ['bond-ad-actor-sys-prio 65535']},
                      'bond-ad-sys-mac-addr':
                          {'help' : '802.3ad system mac address',
+                          'validvals' : ['<mac>',],
                           'default' : '00:00:00:00:00:00',
                          'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
                          'deprecated' : True,
                          'new-attribute' : 'bond-ad-actor-system'},
                      'bond-ad-actor-system':
                          {'help' : '802.3ad system mac address',
+                          'validvals' : ['<mac>',],
                           'default' : '00:00:00:00:00:00',
                          'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
                      'bond-lacp-bypass-allow':
