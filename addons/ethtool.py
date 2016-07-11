@@ -7,12 +7,14 @@ import json
 import ifupdown.policymanager as policymanager
 
 try:
+    import os
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
+    from ifupdown.exceptions import moduleNotSupported
     from ifupdown.utils import utils
     from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.modulebase import moduleBase, NotSupported
     from ifupdownaddons.iproute2 import iproute2
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
@@ -41,6 +43,8 @@ class ethtool(moduleBase,utilsBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
+        if not os.path.exists('/sbin/ethtool'):
+            raise moduleNotSupported('module init failed: no /sbin/ethtool found')
         self.ipcmd = None
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
