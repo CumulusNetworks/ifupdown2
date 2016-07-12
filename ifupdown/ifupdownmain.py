@@ -720,6 +720,16 @@ class ifupdownMain(ifupdownBase):
         ifaceobj.flags |= ifaceobj.OLDEST_SIBLING
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
+    def _module_syntax_check(self, filtered_ifacenames):
+        for ifacename in filtered_ifacenames:
+            for module in self.modules.values():
+                try:
+                    if hasattr(module, 'syntax_check') \
+                            and callable(module.syntax_check):
+                        module.syntax_check(self.get_ifaceobjs(ifacename))
+                except Exception, e:
+                    pass #self.logger.warn('%s: %s' % (ifacename, str(e)))
+
     def _iface_configattr_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
             if not mdict:
@@ -1134,6 +1144,7 @@ class ifupdownMain(ifupdownBase):
         # return here because we want to make sure most
         # errors above are caught and reported.
         if syntaxcheck:
+            self._module_syntax_check(filtered_ifacenames)
             if not iface_read_ret:
                 raise Exception()
             elif self._any_iface_errors(filtered_ifacenames):
@@ -1339,6 +1350,7 @@ class ifupdownMain(ifupdownBase):
         # return here because we want to make sure most
         # errors above are caught and reported.
         if syntaxcheck:
+            self._module_syntax_check(interfaces_to_up)
             if not iface_read_ret:
                 raise Exception()
             elif self._any_iface_errors(interfaces_to_up):
@@ -1421,6 +1433,7 @@ class ifupdownMain(ifupdownBase):
         # return here because we want to make sure most
         # errors above are caught and reported.
         if syntaxcheck:
+            self._module_syntax_check(new_filtered_ifacenames)
             if not iface_read_ret:
                 raise Exception()
             elif self._any_iface_errors(new_filtered_ifacenames):
