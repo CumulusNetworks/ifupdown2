@@ -1611,18 +1611,22 @@ class bridge(moduleBase):
                                            {}).get('pvid')
         attr_name = 'bridge-pvid'
         pvid = ifaceobj.get_attr_value_first('bridge-pvid')
-        if not pvid:
-            pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
         if pvid:
-           if running_pvid and running_pvid == pvid:
-              ifaceobjcurr.update_config_with_status(attr_name,
+            if running_pvid and running_pvid == pvid:
+                ifaceobjcurr.update_config_with_status(attr_name,
                                                      running_pvid, 0)
-           else:
-              ifaceobjcurr.update_config_with_status(attr_name,
+            else:
+                ifaceobjcurr.update_config_with_status(attr_name,
                                                      running_pvid, 1)
-        elif not running_pvid or running_pvid != '1':
-           ifaceobjcurr.status = ifaceStatus.ERROR
-           ifaceobjcurr.status_str = 'bridge pvid error'
+        else:
+            pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
+            if pvid:
+                if not running_pvid or running_pvid != pvid:
+                    ifaceobjcurr.status = ifaceStatus.ERROR
+                    ifaceobjcurr.status_str = 'bridge pvid error'
+            elif not running_pvid or running_pvid != '1':
+                ifaceobjcurr.status = ifaceStatus.ERROR
+                ifaceobjcurr.status_str = 'bridge pvid error'
 
         attr_name = 'bridge-vids'
         vids = ifaceobj.get_attr_value_first(attr_name)
