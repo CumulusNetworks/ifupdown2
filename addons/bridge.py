@@ -1610,7 +1610,9 @@ class bridge(moduleBase):
         running_pvid = running_vidinfo.get(ifaceobj.name,
                                            {}).get('pvid')
         attr_name = 'bridge-pvid'
-        pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
+        pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+        if not pvid:
+            pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
         if pvid:
            if running_pvid and running_pvid == pvid:
               ifaceobjcurr.update_config_with_status(attr_name,
@@ -1640,7 +1642,7 @@ class bridge(moduleBase):
            running_vids = running_vidinfo.get(ifaceobj.name,
                                               {}).get('vlan')
            if (bridge_vids and (not running_vids  or
-                   not self._compare_vids(bridge_vids, running_vids, pvid))):
+                   not self._compare_vids(bridge_vids, running_vids, running_pvid))):
               ifaceobjcurr.status = ifaceStatus.ERROR
               ifaceobjcurr.status_str = 'bridge vid error'
 
