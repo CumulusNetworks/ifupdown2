@@ -283,7 +283,8 @@ class addressvirtual(moduleBase):
             self._remove_address_config(ifaceobj, address_virtual_list)
             return
 
-        if ifaceobj.upperifaces:
+        if ifaceobj.upperifaces and \
+           not ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
             self.log_error('%s: invalid placement of address-virtual lines (must be configured under an interface with no upper interfaces or parent interfaces)'
                 % (ifaceobj.name), ifaceobj)
             return
