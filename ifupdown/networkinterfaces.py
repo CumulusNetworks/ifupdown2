@@ -390,9 +390,10 @@ class networkInterfaces():
         # run through template engine
         if filedata and '%' in filedata:
             try:
-                self._template_engine = templateEngine(
-                    self._template_engine_name,
-                    self._template_engine_path)
+                if not self._template_engine:
+                    self._template_engine = templateEngine(
+                        self._template_engine_name,
+                        self._template_engine_path)
                 rendered_filedata = self._template_engine.render(filedata)
                 if rendered_filedata is filedata:
                     self._currentfile_has_template = False
