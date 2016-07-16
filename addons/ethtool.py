@@ -250,8 +250,6 @@ class ethtool(moduleBase,utilsBase):
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
-        if ifaceobj.link_kind:
-            return
         for attr in ['speed', 'duplex', 'autoneg']:
             if ifaceobj.get_attr_value_first('link-%s'%attr):
                 continue
@@ -294,6 +292,8 @@ class ethtool(moduleBase,utilsBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
+        if ifaceobj.link_kind:
+            return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
