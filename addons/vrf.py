@@ -483,6 +483,23 @@ class vrf(moduleBase):
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
+    def _is_address_virtual_slaves(self, vrfobj, config_vrfslaves,
+                                   vrfslave):
+        # Address virtual lines on a vrf slave will create
+        # macvlan devices on the vrf slave and enslave them
+        # to the vrf master. This function checks if the
+        # vrf slave is such a macvlan interface.
+        # XXX: additional possible checks that can be done here
+        # are:
+        #  - check if it is also a macvlan device of the
+        #    format <vrf_slave>-v<int> created by the 
+        #    address virtual module
+        vrfslave_lowers = self.ipcmd.link_get_lowers(vrfslave)
+        if vrfslave_lowers:
+            if vrfslave_lowers[0] in config_vrfslaves:
+                return True
+        return False
+
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
         config_slaves = ifaceobj.lowerifaces
@@ -510,6 +527,9 @@ class vrf(moduleBase):
         if del_slaves:
             for s in del_slaves:
                 try:
+                    if self._is_address_virtual_slaves(ifaceobj,
+                                                       config_slaves, s):
+                        continue
                     sobj = None
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)

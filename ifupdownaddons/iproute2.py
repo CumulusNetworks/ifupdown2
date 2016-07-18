@@ -133,6 +133,8 @@ class iproute2(utilsBase):
                     elif citems[i] == 'vrf_slave':
                         linkattrs['kind'] = 'vrf_slave'
                         break
+                    elif citems[i] == 'macvlan' and citems[i + 1] == 'mode':
+                        linkattrs['kind'] = 'macvlan'
                 except Exception as e:
                     if warn:
                         self.logger.debug('%s: parsing error: id, mtu, state, link/ether, vlan, dummy, vxlan, local, remote, ageing, nolearning, vrf, table, vrf_slave are reserved keywords: %s' % (ifname, str(e)))
