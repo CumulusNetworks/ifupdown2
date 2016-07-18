@@ -223,7 +223,7 @@ class NetlinkManager(object):
                         # packet via the decode_packet call...so avoid printing
                         # two messages for one packet.
                         if not nlpacket.debug:
-                            log.info(debug_str)
+                            log.debug(debug_str)
 
                         if msgtype == RTM_NEWLINK or msgtype == RTM_DELLINK:
                             msg = Link(msgtype, nlpacket.debug)
