@@ -4,7 +4,6 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
 import ifupdownaddons
 
 from ifupdown.utils import utils
@@ -37,10 +36,6 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
     def _run_command(self, ifaceobj, op):
         cmd_list = ifaceobj.get_attr_value(op)
         if cmd_list:
-            os.environ['IFACE'] = ifaceobj.name
-            os.environ['LOGICAL'] = ifaceobj.name
-            os.environ['METHOD'] = ifaceobj.addr_method
-            os.environ['ADDRFAM'] = ifaceobj.addr_family
             for cmd in cmd_list:
                 try:
                     utils.exec_user_command(cmd)
