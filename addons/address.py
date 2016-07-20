@@ -17,6 +17,7 @@ try:
     from ifupdown.netlink import netlink
     import ifupdown.ifupdownconfig as ifupdownConfig
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.statemanager as statemanager
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -260,6 +261,30 @@ class address(moduleBase):
             return
         self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
 
+    def _add_delete_gateway(self, ifaceobj, gateways=[], prev_gw=[]):
+        vrf = ifaceobj.get_attr_value_first('vrf')
+        metric = ifaceobj.get_attr_value_first('metric')
+        for del_gw in list(set(prev_gw) - set(gateways)):
+            try:
+                self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
+            except:
+                pass
+        for add_gw in list(set(gateways) - set(prev_gw)):
+            try:
+                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
+            except:
+                pass
+
+    def _get_prev_gateway(self, ifaceobj, gateways):
+        ipv = []
+        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
+        if not saved_ifaceobjs:
+            return ipv
+        prev_gateways = saved_ifaceobjs[0].get_attr_value('gateway')
+        if not prev_gateways:
+            return ipv
+        return prev_gateways
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -340,9 +365,12 @@ class address(moduleBase):
             pass
 
         if addr_method != "dhcp":
-            self.ipcmd.route_add_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'),
-                    ifaceobj.get_attr_value_first('vrf'))
+            gateways = ifaceobj.get_attr_value('gateway')
+            if not gateways:
+                gateways = []
+            prev_gw = self._get_prev_gateway(ifaceobj, gateways)
+            self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+        return
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
@@ -350,10 +378,6 @@ class address(moduleBase):
                 return
             addr_method = ifaceobj.addr_method
             if addr_method != "dhcp":
-                self.ipcmd.route_del_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'),
-                    ifaceobj.get_attr_value_first('vrf'),
-                    ifaceobj.get_attr_value_first('metric'))
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist:
