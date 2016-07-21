@@ -69,12 +69,26 @@ class vxlan(moduleBase):
     def _vxlan_create(self, ifaceobj):
         vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
         if vxlanid:
+            anycastip = self._clagd_vxlan_anycast_ip
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
+            local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+            ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
+            learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
+
+            if self.ipcmd.link_exists(ifaceobj.name):
+                vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
+                # on ifreload do not overwrite anycast_ip to individual ip
+                # if clagd has modified
+                if vxlanattrs:
+                    running_localtunnelip = vxlanattrs.get('local')
+                    if (anycastip and running_localtunnelip and
+                                anycastip == running_localtunnelip):
+                        local = running_localtunnelip
 
             netlink.link_add_vxlan(ifaceobj.name, vxlanid,
-                                   local=ifaceobj.get_attr_value_first('vxlan-local-tunnelip'),
-                                   learning=utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning')),
-                                   ageing=ifaceobj.get_attr_value_first('vxlan-ageing'),
+                                   local=local,
+                                   learning=learning,
+                                   ageing=ageing,
                                    group=group)
 
             remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
