@@ -312,6 +312,8 @@ class mstpctl(moduleBase):
                     self.logger.warn('%s' %str(e))
                     pass
 
+            if self.ipcmd.bridge_is_vlan_aware(ifaceobj.name):
+                return
             # set bridge port attributes
             for attrname, dstattrname in self._port_attrs_map.items():
                 config_val = ifaceobj.get_attr_value_first(attrname)
