@@ -513,7 +513,7 @@ class bridge(moduleBase):
         vids1_ints = self._ranges_to_ints(vids1)
         vids2_ints = self._ranges_to_ints(vids2)
         set_diff = Set(vids1_ints).symmetric_difference(vids2_ints)
-        if pvid:
+        if pvid and int(pvid) in set_diff:
             set_diff = set_diff.remove(int(pvid))
         if set_diff:
             return False
