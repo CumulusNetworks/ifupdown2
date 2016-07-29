@@ -562,7 +562,7 @@ class mstpctl(moduleBase):
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
-    def _query_running_attrs(self, ifaceobjrunning):
+    def _query_running_attrs(self, ifaceobjrunning, bridge_vlan_aware=False):
         bridgeattrdict = {}
 
         tmpbridgeattrdict = self.mstpctlcmd.get_bridge_attrs(ifaceobjrunning.name)
@@ -576,11 +576,13 @@ class mstpctl(moduleBase):
                 ports = v.keys()
                 continue
             attrname = 'mstpctl-' + k
-            if v and v != self.get_mod_subattr(attrname, 'default'):
+            if (v and v != self.get_mod_subattr(attrname, 'default')
+                and attrname != 'mstpctl-maxhops'):
                 bridgeattrdict[attrname] = [v]
 
         ports = self.brctlcmd.get_bridge_ports(ifaceobjrunning.name)
-        if ports:
+        # Do this only for vlan-UNAWARE-bridge
+        if ports and not bridge_vlan_aware:
             portconfig = {'mstpctl-portautoedge' : '',
                           'mstpctl-portbpdufilter' : '',
                           'mstpctl-portnetwork' : '',
@@ -917,7 +919,8 @@ class mstpctl(moduleBase):
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                                 ifaceobjrunning.name,
                                                 'portautoedge')
-        if v and v != 'no':
+        if v and v != self.get_mod_subattr('mstpctl-portautoedge',
+                                           'default'):
             ifaceobjrunning.update_config('mstpctl-portautoedge', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
@@ -925,20 +928,6 @@ class mstpctl(moduleBase):
                                                 'portbpdufilter')
         if v and v != 'no':
             ifaceobjrunning.update_config('mstpctl-portbpdufilter', v)
-
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                                                ifaceobjrunning.name,
-                                                'portpathcost')
-        if v and v != self.get_mod_subattr('mstpctl-portpathcost',
-                                           'default'):
-            ifaceobjrunning.update_config('mstpctl-portpathcost', v)
-
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                                                ifaceobjrunning.name,
-                                                'treeportcost')
-        if v and v != self.get_mod_subattr('mstpctl-treeportcost',
-                                           'default'):
-            ifaceobjrunning.update_config('mstpctl-treeportcost', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                                 ifaceobjrunning.name,
@@ -1000,8 +989,12 @@ class mstpctl(moduleBase):
         # Check if mstp really knows about this bridge
         if not self.mstpctlcmd.mstpbridge_exists(ifaceobjrunning.name):
             return
+        bridge_vlan_aware = False
+        if ifaceobjrunning.get_attr_value_first('bridge-vlan-aware') == 'yes':
+            bridge_vlan_aware = True
         ifaceobjrunning.update_config_dict(self._query_running_attrs(
-                                           ifaceobjrunning))
+                                           ifaceobjrunning,
+                                           bridge_vlan_aware))
 
     def _query_running(self, ifaceobjrunning, **extra_args):
         if self.brctlcmd.bridge_exists(ifaceobjrunning.name):

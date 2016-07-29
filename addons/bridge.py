@@ -1293,6 +1293,7 @@ class bridge(moduleBase):
         if  stp == 'yes' and userspace_stp:
             skip_kernel_stp_attrs = 1
 
+        bool2str = {'0': 'no', '1': 'yes'}
         # pick all other attributes
         for k,v in tmpbridgeattrdict.items():
             if not v:
@@ -1304,7 +1305,11 @@ class bridge(moduleBase):
                 # only include igmp attributes if kernel stp is off
                 continue
             attrname = 'bridge-' + k
-            if v != self.get_mod_subattr(attrname, 'default'):
+            mod_default = self.get_mod_subattr(attrname, 'default')
+            if v != mod_default:
+                # convert '0|1' running values to 'no|yes'
+                if v in bool2str.keys() and bool2str[v] == mod_default:
+                    continue
                 bridgeattrdict[attrname] = [v]
 
         if bridge_vlan_aware:
@@ -1325,7 +1330,8 @@ class bridge(moduleBase):
         if skip_kernel_stp_attrs:
             return bridgeattrdict
 
-        if ports:
+        # Do this only for vlan-UNAWARE-bridge
+        if ports and not bridge_vlan_aware:
             portconfig = {'bridge-pathcosts' : '',
                           'bridge-portprios' : ''}
             for p, v in ports.items():
