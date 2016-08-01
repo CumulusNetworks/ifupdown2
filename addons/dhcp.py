@@ -13,6 +13,9 @@ try:
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.iproute2 import iproute2
     import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.utils import utils
+    import time
+    from ifupdown.netlink import netlink
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -65,6 +68,9 @@ class dhcp(moduleBase):
                         self.dhclientcmd.stop6(ifaceobj.name)
                     except:
                         pass
+                #add delay before starting IPv6 dhclient to
+                #make sure the configured interface/link is up.
+                time.sleep(2)
                 self.dhclientcmd.start6(ifaceobj.name, wait=wait,
                                         cmd_prefix=dhclient_cmd_prefix)
         except Exception, e:
@@ -76,7 +82,10 @@ class dhcp(moduleBase):
         if (vrf and self.vrf_exec_cmd_prefix and
             self.ipcmd.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
-        self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+        if ifaceobj.addr_family == 'inet6':
+            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
+        else:
+            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
         self.ipcmd.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
@@ -108,6 +117,7 @@ class dhcp(moduleBase):
 
     _run_ops = {'up' : _up,
                'down' : _down,
+               'pre-down' : _down,
                'query-checkcurr' : _query_check,
                'query-running' : _query_running }
 

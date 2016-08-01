@@ -4,11 +4,10 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+from ifupdown.utils import utils
 from utilsbase import *
-import subprocess
 import os
 
-FNULL = open(os.devnull, 'w')
 
 class dhclient(utilsBase):
     """ This class contains helper methods to interact with the dhclient
@@ -38,7 +37,7 @@ class dhclient(utilsBase):
             cmd_aslist.extend(cmd)
         else:
             cmd_aslist = cmd
-        self.subprocess_check_call(cmd_aslist)
+        utils.exec_commandl(cmd_aslist, stdout=None, stderr=None)
 
     def stop(self, ifacename, cmd_prefix=None):
         if os.path.exists('/sbin/dhclient3'):
@@ -99,7 +98,6 @@ class dhclient(utilsBase):
 
     def release6(self, ifacename, cmd_prefix=None):
         cmd = ['/sbin/dhclient', '-6', '-r', '-pf',
-               '/run/dhclient6.%s.pid' %ifacename, '-lf',
-               '/var/lib/dhcp/dhclient6.%s.leases' %ifacename,
+               '/run/dhclient6.%s.pid' %ifacename,
                '%s' %ifacename]
         self._run_dhclient_cmd(cmd, cmd_prefix)

@@ -14,12 +14,15 @@ from utils import *
 class templateEngine():
     """ provides template rendering methods """
 
-    def __init__(self, template_engine, template_lookuppath=None):
+    def __init__(self, template_engine, template_enable='0',
+                 template_lookuppath=None):
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
         self.tclass = None
         self.tclassargs = {}
         self.render = self._render_default
+        if template_enable == '0':
+            return
         if template_engine == 'mako':
             try:
                 self.tclass = utils.importName('mako.template', 'Template')

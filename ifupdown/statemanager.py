@@ -9,6 +9,7 @@
 import cPickle
 from collections import OrderedDict
 import logging
+import exceptions
 import os
 from iface import *
 
@@ -177,7 +178,7 @@ class stateManager():
             for i in ifacenames:
                 ifaceobj = self.ifaces.get(i)
                 if ifaceobj is None:
-                    raise ifaceNotFoundError('ifname %s'
+                    raise exceptions.ifaceNotFoundError('ifname %s'
                         %i + ' not found')
                 ifaceobj.dump(self.logger)
         else:

@@ -32,7 +32,8 @@ class networkInterfaces():
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
-                 template_engine=None, template_lookuppath=None):
+                 template_enable='0', template_engine=None,
+                 template_lookuppath=None):
         """This member function initializes the networkinterfaces parser object.
 
         Kwargs:
@@ -59,8 +60,11 @@ class networkInterfaces():
         self.interfacesfileiobuf = interfacesfileiobuf
         self.interfacesfileformat = interfacesfileformat
         self._filestack = [self.interfacesfile]
-        self._template_engine = templateEngine(template_engine,
-                                    template_lookuppath)
+
+        self._template_engine = None
+        self._template_engine_name = template_engine
+        self._template_engine_path = template_lookuppath
+
         self._currentfile_has_template = False
         self._ws_split_regex = re.compile(r'[\s\t]\s*')
 
@@ -384,22 +388,26 @@ class networkInterfaces():
     def read_filedata(self, filedata):
         self._currentfile_has_template = False
         # run through template engine
-        try:
-            rendered_filedata = self._template_engine.render(filedata)
-            if rendered_filedata is filedata:
-                self._currentfile_has_template = False
-            else:
-                self._currentfile_has_template = True
-        except Exception, e:
-            self._parse_error(self._currentfile, -1,
-                    'failed to render template (%s). ' %str(e) +
-                    'Continue without template rendering ...')
-            rendered_filedata = None
-            pass
-        if rendered_filedata:
-            self.process_interfaces(rendered_filedata)
-        else:
-            self.process_interfaces(filedata)
+        if filedata and '%' in filedata:
+            try:
+                if not self._template_engine:
+                    self._template_engine = templateEngine(
+                        self._template_engine_name,
+                        self._template_engine_path)
+                rendered_filedata = self._template_engine.render(filedata)
+                if rendered_filedata is filedata:
+                    self._currentfile_has_template = False
+                else:
+                    self._currentfile_has_template = True
+            except Exception, e:
+                self._parse_error(self._currentfile, -1,
+                                  'failed to render template (%s). Continue without template rendering ...'
+                                  % str(e))
+                rendered_filedata = None
+            if rendered_filedata:
+                self.process_interfaces(rendered_filedata)
+                return
+        self.process_interfaces(filedata)
 
     def read_file(self, filename, fileiobuf=None):
         if fileiobuf:
@@ -408,9 +416,8 @@ class networkInterfaces():
         self._filestack.append(filename)
         self.logger.info('processing interfaces file %s' %filename)
         try:
-            f = open(filename)
-            filedata = f.read()
-            f.close()
+            with open(filename) as f:
+                filedata = f.read()
         except Exception, e:
             self.logger.warn('error processing file %s (%s)',
                              filename, str(e))
@@ -424,8 +431,8 @@ class networkInterfaces():
                               #object_hook=ifaceJsonDecoder.json_object_hook)
         elif filename:
             self.logger.info('processing interfaces file %s' %filename)
-            fp = open(filename)
-            ifacedicts = json.load(fp)
+            with open(filename) as fp:
+                ifacedicts = json.load(fp)
                             #object_hook=ifaceJsonDecoder.json_object_hook)
 
         # we need to handle both lists and non lists formats (e.g. {{}})

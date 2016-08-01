@@ -6,6 +6,7 @@
 
 import os
 from utilsbase import *
+from ifupdown.utils import utils
 
 class systemUtils():
     @classmethod
@@ -22,7 +23,7 @@ class systemUtils():
 
         if procname:
             try:
-                utilsobj.exec_command('/bin/pidof %s' %procname)
+                utils.exec_command('/bin/pidof %s' % procname, stdout=False)
             except:
                 return False
             else:
@@ -34,10 +35,9 @@ class systemUtils():
     def check_service_status(cls, servicename=None):
         if not servicename:
             return False
-        utilsobj = utilsBase()
         try:
-            utilsobj.subprocess_check_call(['/usr/sbin/service',
-                                           '%s' %servicename, 'status'])
+            utils.exec_commandl(['/usr/sbin/service', servicename, 'status'],
+                                stdout=False)
         except Exception:
             # XXX: check for subprocess errors vs os error
             return False
@@ -47,9 +47,8 @@ class systemUtils():
     def is_process_running(self, processname):
         if not processname:
             return False
-        utilsobj = utilsBase()
         try:
-            utilsobj.exec_command('/bin/pidof %s' %processname)
+            utils.exec_command('/bin/pidof %s' % processname, stdout=False)
         except:
             return False
         else:

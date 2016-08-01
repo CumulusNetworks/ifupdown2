@@ -20,6 +20,7 @@ from graph import *
 from collections import deque
 from threading import *
 from ifupdownbase import *
+from ifupdown.utils import utils
 from sets import Set
 
 class ifaceSchedulerFlags():
@@ -112,9 +113,9 @@ class ifaceScheduler():
                 ifupdownobj.logger.debug('%s: %s : running script %s'
                     %(ifacename, op, mname))
                 try:
-                    ifupdownobj.exec_command(mname, cmdenv=cenv)
+                    utils.exec_command(mname, env=cenv)
                 except Exception, e:
-                    ifupdownobj.log_error(str(e))
+                    ifupdownobj.log_error('%s: %s %s' % (ifacename, op, str(e)))
 
     @classmethod
     def run_iface_list_ops(cls, ifupdownobj, ifaceobjs, ops):
@@ -408,7 +409,7 @@ class ifaceScheduler():
                 cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
             except Exception, e:
                 if continueonfailure:
-                   self.logger.warn('%s' %str(e))
+                    ifupdownobj.logger.warn('%s' %str(e))
 
     @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,

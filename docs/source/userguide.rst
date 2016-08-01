@@ -109,7 +109,7 @@ following example configuration::
         bond-slaves swp29 swp30
         bond-mode 802.3ad
         bond-miimon 100
-        bond-use-carrier 1
+        bond-use-carrier yes
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -120,7 +120,7 @@ following example configuration::
         bond-slaves swp31 swp32
         bond-mode 802.3ad
         bond-miimon 100
-        bond-use-carrier 1
+        bond-use-carrier yes
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -298,7 +298,7 @@ The contents of the sourced file used above are::
         bond-slaves swp25 swp26
         bond-mode 802.3ad
         bond-miimon 100
-        bond-use-carrier 1
+        bond-use-carrier yes
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -363,7 +363,7 @@ file, run::
         bond-slaves swp25 swp26
         bond-mode 802.3ad
         bond-miimon 100
-        bond-use-carrier 1
+        bond-use-carrier yes
         bond-lacp-rate 1
         bond-min-links 1
         bond-xmit-hash-policy layer3+4
@@ -379,7 +379,7 @@ does not match::
     iface bond0
             bond-mode 802.3ad  (✓)
             bond-miimon 100  (✓)
-            bond-use-carrier 1  (✓)
+            bond-use-carrier yes  (✓)
             bond-lacp-rate 1  (✓)
             bond-min-links 1  (✓)
             bond-xmit-hash-policy layer3+4  (✓)
@@ -417,10 +417,10 @@ the ``interfaces`` file. For complete syntax on the ``interfaces`` file, see
     {
         "auto": true, 
         "config": {
-            "bond-use-carrier": "1", 
+            "bond-use-carrier": "yes",
             "bond-xmit-hash-policy": "layer3+4", 
             "bond-miimon": "100", 
-            "bond-lacp-rate": "1", 
+            "bond-lacp-rate": "1",
             "bond-min-links": "1", 
             "bond-slaves": "swp25 swp26", 
             "bond-mode": "802.3ad", 

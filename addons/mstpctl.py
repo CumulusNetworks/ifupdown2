@@ -13,6 +13,7 @@ from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.mstpctlutil import mstpctlutil
 from ifupdownaddons.systemutils import systemUtils
 import ifupdown.ifupdownflags as ifupdownflags
+import ifupdown.policymanager as policymanager
 
 class mstpctlFlags:
     PORT_PROCESSED = 0x1
@@ -29,6 +30,7 @@ class mstpctl(moduleBase):
                          'new-attribute': 'bridge-ports'},
                    'mstpctl-stp' :
                         {'help': 'bridge stp yes/no',
+                         'validvals' : ['yes', 'no', 'on', 'off'],
                          'compat' : True,
                          'default' : 'no',
                          'deprecated': True,
@@ -41,112 +43,132 @@ class mstpctl(moduleBase):
                          'example' : ['mstpctl-treeprio 32768']},
                    'mstpctl-ageing' :
                         {'help': 'ageing time',
+                         'validrange' : ['0', '4096'],
                          'default' : '300',
                          'required' : False,
                          'example' : ['mstpctl-ageing 300']},
                     'mstpctl-maxage' :
                         { 'help' : 'max message age',
+                          'validrange' : ['0', '255'],
                           'default' : '20',
                           'required' : False,
                           'example' : ['mstpctl-maxage 20']},
                     'mstpctl-fdelay' :
                         { 'help' : 'set forwarding delay',
+                          'validrange' : ['0', '255'],
                           'default' : '15',
                           'required' : False,
                           'example' : ['mstpctl-fdelay 15']},
                     'mstpctl-maxhops' :
                         { 'help' : 'bridge max hops',
+                          'validrange' : ['0', '255'],
                           'default' : '15',
                           'required' : False,
                           'example' : ['mstpctl-maxhops 15']},
                     'mstpctl-txholdcount' :
                         { 'help' : 'bridge transmit holdcount',
+                          'validrange' : ['0', '255'],
                           'default' : '6',
                           'required' : False,
                           'example' : ['mstpctl-txholdcount 6']},
                     'mstpctl-forcevers' :
                         { 'help' : 'bridge force stp version',
+                          'validvals' : ['rstp', ],
                           'default' : 'rstp',
                           'required' : False,
                           'example' : ['mstpctl-forcevers rstp']},
                     'mstpctl-portpathcost' :
                         { 'help' : 'bridge port path cost',
+                          'validvals': ['<interface-range-list>'],
+                          'validrange' : ['0', '65535'],
                           'default' : '0',
                           'jsonAttr' : 'adminExtPortCost',
                           'required' : False,
-                          'example' : ['mstpctl-portpathcost swp1=0 swp2=1']},
+                          'example' : ['under the bridge: mstpctl-portpathcost swp1=0 swp2=1',
+                                       'under the port (recommended): mstpctl-portpathcost 0']},
                     'mstpctl-portp2p' :
                         { 'help' : 'bridge port p2p detection mode',
                           'default' : 'auto',
                           'jsonAttr' : 'adminPointToPoint',
-                          'validvals' : ['yes', 'no', 'auto'],
+                          'validvals' : ['<interface-yes-no-auto-list>'],
                           'required' : False,
-                          'example' : ['mstpctl-portp2p swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portp2p swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portp2p yes']},
                     'mstpctl-portrestrrole' :
                         { 'help' :
                           'enable/disable port ability to take root role of the port',
                           'default' : 'no',
                           'jsonAttr' : 'restrictedRole',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'required' : False,
-                          'example' : ['mstpctl-portrestrrole swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portrestrrole swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portrestrrole yes']},
                     'mstpctl-portrestrtcn' :
                         { 'help' :
                           'enable/disable port ability to propagate received topology change notification of the port',
                           'default' : 'no',
                           'jsonAttr' : 'restrictedTcn',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'required' : False,
-                          'example' : ['mstpctl-portrestrtcn swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portrestrtcn swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portrestrtcn yes']},
                     'mstpctl-bpduguard' :
                         { 'help' :
                           'enable/disable bpduguard',
                           'default' : 'no',
                           'jsonAttr' : 'bpduGuardPort',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'required' : False,
-                          'example' : ['mstpctl-bpduguard swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-bpduguard swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-bpduguard yes']},
                     'mstpctl-treeportprio' : 
                         { 'help' :
                           'port priority for MSTI instance',
                           'default' : '128',
+                          'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '240'],
                           'required' : False,
-                          'example' : ['mstpctl-treeportprio swp1=128 swp2=128']},
+                          'example' : ['under the bridge: mstpctl-treeportprio swp1=128 swp2=128',
+                                       'under the port (recommended): mstpctl-treeportprio 128']},
                     'mstpctl-hello' :
                         { 'help' : 'set hello time',
+                          'validrange' : ['0', '255'],
                           'default' : '2',
                           'required' : False,
                           'example' : ['mstpctl-hello 2']},
                     'mstpctl-portnetwork' : 
                         { 'help' : 'enable/disable bridge assurance capability for a port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'default' : 'no',
                           'jsonAttr' : 'networkPort',
                           'required' : False,
-                          'example' : ['mstpctl-portnetwork swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portnetwork swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portnetwork yes']},
                     'mstpctl-portadminedge' : 
                         { 'help' : 'enable/disable initial edge state of the port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'default' : 'no',
                           'jsonAttr' : 'adminEdgePort',
                           'required' : False,
-                          'example' : ['mstpctl-portadminedge swp1=no swp2=no']},
+                          'example' : ['under the bridge: mstpctl-portadminedge swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portadminedge yes']},
                     'mstpctl-portautoedge' : 
                         { 'help' : 'enable/disable auto transition to/from edge state of the port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'default' : 'yes',
                           'jsonAttr' : 'autoEdgePort',
                           'required' : False,
-                          'example' : ['mstpctl-portautoedge swp1=yes swp2=yes']},
+                          'example' : ['under the bridge: mstpctl-portautoedge swp1=yes swp2=no',
+                                       'under the port (recommended): mstpctl-portautoedge yes']},
                     'mstpctl-treeportcost' : 
                         { 'help' : 'port tree cost',
+                          'validrange' : ['0', '255'],
                           'required' : False},
                     'mstpctl-portbpdufilter' : 
                         { 'help' : 'enable/disable bpdu filter on a port. ' +
                                 'syntax varies when defined under a bridge ' +
                                 'vs under a port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'jsonAttr' : 'bpduFilterPort',
                           'default' : 'no',
                           'required' : False,
@@ -187,6 +209,11 @@ class mstpctl(moduleBase):
         self.mstpctlcmd = None
         self.mstpd_running = (True if systemUtils.is_process_running('mstpd')
                              else False)
+        self.default_vxlan_ports_set_bpduparams = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='mstpctl-vxlan-always-set-bpdu-params')
+        if self.default_vxlan_ports_set_bpduparams == 'yes':
+            self.default_vxlan_ports_set_bpduparams = True
+        else:
+            self.default_vxlan_ports_set_bpduparams = False
 
     def _is_bridge(self, ifaceobj):
         if (ifaceobj.get_attr_value_first('mstpctl-ports') or
@@ -287,6 +314,8 @@ class mstpctl(moduleBase):
                     self.logger.warn('%s' %str(e))
                     pass
 
+            if self.ipcmd.bridge_is_vlan_aware(ifaceobj.name):
+                return
             # set bridge port attributes
             for attrname, dstattrname in self._port_attrs_map.items():
                 config_val = ifaceobj.get_attr_value_first(attrname)
@@ -336,6 +365,26 @@ class mstpctl(moduleBase):
             self.log_warn(str(e))
             pass
 
+    def _get_default_val(self, attr, ifaceobj, bridgeifaceobj):
+        if ((attr == 'mstpctl-portbpdufilter' or
+            attr == 'mstpctl-bpduguard') and
+            self.default_vxlan_ports_set_bpduparams and
+            (ifaceobj.link_kind & ifaceLinkKind.VXLAN)):
+            try:
+                config_val = bridgeifaceobj.get_attr_value_first(attr)
+            except Exception, e:
+                config_val = None
+            if config_val:
+                if ifaceobj.name not in [v.split('=')[0] for v in config_val.split()]:
+                    return 'yes'
+                else:
+                    index = [v.split('=')[0] for v in config_val.split()].index(ifaceobj.name)
+                    return [v.split('=')[1] for v in config_val.split()][index]
+            else:
+                return 'yes'
+        else:
+            return self.get_mod_subattr(attr,'default')
+
     def _apply_bridge_port_settings(self, ifaceobj, bridgename=None,
                                     bridgeifaceobj=None,
                                     stp_running_on=True,
@@ -351,15 +400,29 @@ class mstpctl(moduleBase):
                              %(ifaceobj.name) +
                              ' (stp on bridge %s is not on yet)' %bridgename)
             return applied
+        bvlan_aware = self.ipcmd.bridge_is_vlan_aware(bridgename)
         if (not mstpd_running or
             not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name) or
-            not self.ipcmd.bridge_is_vlan_aware(bridgename)):
-               return applied
+            not bvlan_aware):
+                if (not bvlan_aware and
+                    self.default_vxlan_ports_set_bpduparams and
+                    (ifaceobj.link_kind & ifaceLinkKind.VXLAN)):
+                    for attr in ['mstpctl-portbpdufilter',
+                                 'mstpctl-bpduguard']:
+                        config_val = self._get_default_val(attr, ifaceobj, bridgeifaceobj)
+                        try:
+                            self.mstpctlcmd.set_bridgeport_attr(bridgename,
+                                    ifaceobj.name, self._port_attrs_map[attr],
+                                    config_val, check)
+                        except Exception, e:
+                            self.log_warn('%s: error setting %s (%s)'
+                                          %(ifaceobj.name, attr, str(e)))
+                return applied
         # set bridge port attributes
         for attrname, dstattrname in self._port_attrs_map.items():
             attrval = ifaceobj.get_attr_value_first(attrname)
             config_val = ifaceobj.get_attr_value_first(attrname)
-            default_val = self.get_mod_subattr(attrname,'default')
+            default_val = self._get_default_val(attrname, ifaceobj, bridgeifaceobj)
             jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
             # to see the running value, stp would have to be on
             # so we would have parsed mstpctl showportdetail json output
@@ -413,9 +476,10 @@ class mstpctl(moduleBase):
                     mstpctlFlags.PORT_PROCESSED):
                     continue
                 try:
-                    self._apply_bridge_port_settings(bportifaceobj, 
+                    self._apply_bridge_port_settings(bportifaceobj,
                                             ifaceobj.name, ifaceobj)
                 except Exception, e:
+                    pass
                     self.log_warn(str(e))
 
     def _is_running_userspace_stp_state_on(self, bridgename):
@@ -500,7 +564,7 @@ class mstpctl(moduleBase):
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
-    def _query_running_attrs(self, ifaceobjrunning):
+    def _query_running_attrs(self, ifaceobjrunning, bridge_vlan_aware=False):
         bridgeattrdict = {}
 
         tmpbridgeattrdict = self.mstpctlcmd.get_bridge_attrs(ifaceobjrunning.name)
@@ -514,12 +578,16 @@ class mstpctl(moduleBase):
                 ports = v.keys()
                 continue
             attrname = 'mstpctl-' + k
-            if v and v != self.get_mod_subattr(attrname, 'default'):
+            if (v and v != self.get_mod_subattr(attrname, 'default')
+                and attrname != 'mstpctl-maxhops'):
                 bridgeattrdict[attrname] = [v]
 
         ports = self.brctlcmd.get_bridge_ports(ifaceobjrunning.name)
-        if ports:
-            portconfig = {'mstpctl-portnetwork' : '',
+        # Do this only for vlan-UNAWARE-bridge
+        if ports and not bridge_vlan_aware:
+            portconfig = {'mstpctl-portautoedge' : '',
+                          'mstpctl-portbpdufilter' : '',
+                          'mstpctl-portnetwork' : '',
                           'mstpctl-portpathcost' : '',
                           'mstpctl-portadminedge' : '',
                           'mstpctl-portautoedge' : '',
@@ -531,6 +599,16 @@ class mstpctl(moduleBase):
                           'mstpctl-treeportcost' : ''}
 
             for p in ports:
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portautoedge')
+                if v and v != 'no':
+                    portconfig['mstpctl-portautoedge'] += ' %s=%s' %(p, v)
+
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portbpdufilter')
+                if v and v != 'no':
+                    portconfig['mstpctl-portbpdufilter'] += ' %s=%s' %(p, v)
+
                 v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
                             p, 'portnetwork')
                 if v and v != 'no':
@@ -574,17 +652,24 @@ class mstpctl(moduleBase):
                 #                                   'default'):
                 #    portconfig['mstpctl-treeportprio'] += ' %s=%s' %(p, v)
 
-                #v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                #            p, 'treecost')
-                #if v and v != self.get_mod_subattr('mstpctl-treeportcost',
-                #                                   'default'):
-                #    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portpathcost')
+                if v and v != self.get_mod_subattr('mstpctl-portpathcost',
+                                                   'default'):
+                    portconfig['mstpctl-portpathcost'] += ' %s=%s' %(p, v)
+
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'treeportcost')
+                if v and v != self.get_mod_subattr('mstpctl-treeportcost',
+                                                   'default'):
+                    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
         return bridgeattrdict
 
-    def _query_check_bridge(self, ifaceobj, ifaceobjcurr):
+    def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
+                            ifaceobj_getfunc=None):
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-portpathcost',
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
@@ -593,15 +678,73 @@ class mstpctl(moduleBase):
             return
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self.get_mod_attrs())
+        if self.default_vxlan_ports_set_bpduparams:
+            for attr in ['mstpctl-portbpdufilter', 'mstpctl-bpduguard']:
+                if attr not in ifaceattrs:
+                    ifaceattrs.append(attr)
         if not ifaceattrs:
             return
         runningattrs = self.mstpctlcmd.get_bridge_attrs(ifaceobj.name)
         if not runningattrs:
             runningattrs = {}
+        running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
         for k in ifaceattrs:
             # for all mstpctl options
             if k in blacklistedattrs:
                 continue
+            if ((k == 'mstpctl-portbpdufilter' or
+                 k == 'mstpctl-bpduguard')):
+                #special case, 'ifquery --check --with-defaults' on a VLAN
+                #unaware bridge
+                if not running_port_list:
+                    continue
+                v = ifaceobj.get_attr_value_first(k)
+                config_val = {}
+                running_val = {}
+                result = 0
+                bridge_ports = {}
+                state = ''
+                if v:
+                    for bportval in v.split():
+                        config_val[bportval.split('=')[0]] = bportval.split('=')[1]
+                #for bport in bridgeports:
+                for bport in running_port_list:
+                    bportifaceobjlist = ifaceobj_getfunc(bport)
+                    if not bportifaceobjlist:
+                        continue
+                    for bportifaceobj in bportifaceobjlist:
+                        if (bport not in config_val):
+                            if (bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
+                                if (not ifupdownflags.flags.WITHDEFAULTS or
+                                    (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                                    continue
+                                conf = 'yes'
+                            else:
+                                continue
+                        else:
+                            if ((bportifaceobj.link_kind & ifaceLinkKind.VXLAN) and
+                                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                                continue
+                            conf = config_val[bport]
+                        jsonAttr =  self.get_mod_subattr(k, 'jsonAttr')
+                        try:
+                            running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(ifaceobj.name, bport, jsonAttr)
+                        except:
+                            self.logger.info('%s %s: could not get running %s value'
+                                    %(ifaceobj.name, bport, attr))
+                            running_val = None
+                        if conf != running_val:
+                            result = 1
+                        bridge_ports.update({bport : running_val})
+                for port, val in bridge_ports.items():
+                    #running state format
+                    #mstpctl-portbpdufilter swp2=yes swp1=yes vx-14567101=yes    [pass]
+                    #mstpctl-bpduguard swp2=yes swp1=yes vx-14567101=yes         [pass]
+                    state += port + '=' + val + ' '
+                if state:
+                    ifaceobjcurr.update_config_with_status(k, state, result)
+                continue
+
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
             if not v:
@@ -626,7 +769,6 @@ class mstpctl(moduleBase):
                 # special case ports because it can contain regex or glob
                 # XXX: We get all info from mstputils, which means if
                 # mstpd is down, we will not be returning any bridge bridgeports
-                running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 bridge_port_list = self._get_bridge_port_list(ifaceobj)
                 if not running_port_list and not bridge_port_list:
                     continue
@@ -674,6 +816,46 @@ class mstpctl(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status(k, rv, 0)
 
+    def _query_check_bridge_vxlan_port(self, ifaceobj, ifaceobjcurr,
+                            ifaceobj_getfunc=None):
+        masters = ifaceobj.upperifaces
+        if not masters:
+            return
+        for bridge in masters:
+            bifaceobjlist = ifaceobj_getfunc(bridge)
+            for bifaceobj in bifaceobjlist:
+                if (self._is_bridge(bifaceobj) and
+                    self.default_vxlan_ports_set_bpduparams and
+                    (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                        for attr in ['mstpctl-portbpdufilter',
+                                     'mstpctl-bpduguard']:
+                            jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
+                            config_val = bifaceobj.get_attr_value_first(attr)
+                            if config_val:
+                                if ifaceobj.name not in [v.split('=')[0] for v in config_val.split()]:
+                                    if not ifupdownflags.flags.WITHDEFAULTS:
+                                        continue
+                                    config_val = 'yes'
+                                else:
+                                    index = [v.split('=')[0] for v in config_val.split()].index(ifaceobj.name)
+                                    config_val = [v.split('=')[1] for v in config_val.split()][index]
+                            else:
+                                if not ifupdownflags.flags.WITHDEFAULTS:
+                                    continue
+                                config_val = 'yes'
+                            try:
+                                running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(bifaceobj.name,
+                                                    ifaceobj.name, jsonAttr)
+                            except:
+                                self.logger.info('%s %s: could not get running %s value'
+                                        %(bifaceobj.name, ifaceobj.name, attr))
+                                running_val = None
+                            ifaceobjcurr.update_config_with_status(attr,
+                                        running_val,
+                                        0 if running_val == config_val else 1)
+                        return
+
+
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
             #self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
@@ -715,7 +897,10 @@ class mstpctl(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if self._is_bridge(ifaceobj):
-            self._query_check_bridge(ifaceobj, ifaceobjcurr)
+            self._query_check_bridge(ifaceobj, ifaceobjcurr, ifaceobj_getfunc)
+        elif ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            self._query_check_bridge_vxlan_port(ifaceobj, ifaceobjcurr,
+                                              ifaceobj_getfunc)
         else:
             self._query_check_bridge_port(ifaceobj, ifaceobjcurr)
 
@@ -732,11 +917,25 @@ class mstpctl(moduleBase):
         # if userspace stp not set, return
         if self.sysctl_get('net.bridge.bridge-stp-user-space') != '1':
            return
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portautoedge')
+        if v and v != self.get_mod_subattr('mstpctl-portautoedge',
+                                           'default'):
+            ifaceobjrunning.update_config('mstpctl-portautoedge', v)
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portbpdufilter')
+        if v and v != 'no':
+            ifaceobjrunning.update_config('mstpctl-portbpdufilter', v)
+
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                                 ifaceobjrunning.name,
                                                 'portnetwork')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-network', v)
+           ifaceobjrunning.update_config('mstpctl-portnetwork', v)
 
         # XXX: Can we really get path cost of a port ???
         #v = self.mstpctlcmd.get_portpathcost(ifaceobjrunning.name, p)
@@ -760,7 +959,7 @@ class mstpctl(moduleBase):
            ifaceobjrunning.update_config('mstpctl-portrestrrole', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                            ifaceobjrunning.name, 'restrtcn')
+                            ifaceobjrunning.name, 'portrestrtcn')
         if v and v != 'no':
            ifaceobjrunning.update_config('mstpctl-portrestrtcn', v)
 
@@ -792,8 +991,12 @@ class mstpctl(moduleBase):
         # Check if mstp really knows about this bridge
         if not self.mstpctlcmd.mstpbridge_exists(ifaceobjrunning.name):
             return
+        bridge_vlan_aware = False
+        if ifaceobjrunning.get_attr_value_first('bridge-vlan-aware') == 'yes':
+            bridge_vlan_aware = True
         ifaceobjrunning.update_config_dict(self._query_running_attrs(
-                                           ifaceobjrunning))
+                                           ifaceobjrunning,
+                                           bridge_vlan_aware))
 
     def _query_running(self, ifaceobjrunning, **extra_args):
         if self.brctlcmd.bridge_exists(ifaceobjrunning.name):
@@ -801,10 +1004,59 @@ class mstpctl(moduleBase):
         elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
             self._query_running_bridge_port(ifaceobjrunning)
 
+    def _query(self, ifaceobj, ifaceobj_getfunc=None, **kwargs):
+        """ add default policy attributes supported by the module """
+        if not self._is_bridge(ifaceobj):
+            return
+        lowerinfs = ifaceobj.lowerifaces
+        if not lowerinfs:
+            return
+        if ifaceobj.get_attr_value_first('bridge-vlan-aware') != 'yes':
+            for attr in ['mstpctl-portbpdufilter', 'mstpctl-bpduguard']:
+                state = ''
+                config = ifaceobj.get_attr_value_first(attr)
+                for port in lowerinfs:
+                    bportobjlist = ifaceobj_getfunc(port)
+                    for bportobj in bportobjlist:
+                        if bportobj.get_attr_value_first('vxlan-id'):
+                            if config:
+                                if port not in [v.split('=')[0] for v in config.split()]:
+                                    config += ' %s=yes' %port
+                            else:
+                                state += '%s=yes ' %port
+                ifaceobj.replace_config(attr, config if config else state)
+        else:
+            for attr in ['mstpctl-portbpdufilter', 'mstpctl-bpduguard']:
+                state = ''
+                config = ifaceobj.get_attr_value_first(attr)
+                for port in lowerinfs:
+                    bportobjlist = ifaceobj_getfunc(port)
+                    for bportobj in bportobjlist:
+                        if bportobj.get_attr_value_first('vxlan-id'):
+                            if config:
+                                if port not in [v.split('=')[0] for v in config.split()]:
+                                    bportobj.update_config(attr, 'yes')
+                                else:
+                                    index = [v.split('=')[0] for v in config.split()].index(port)
+                                    state = [v.split('=')[1] for v in config.split()][index]
+                                    bportobj.update_config(attr, '%s' %state)
+                                    v = config.split()
+                                    del v[index]
+                                    config = ' '.join(v)
+                            else:
+                                bportobj.update_config(attr, 'yes')
+                if config:
+                    ifaceobj.replace_config(attr, config)
+                else:
+                    ifaceobj.replace_config(attr, '')
+
+
+
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
                'query-checkcurr' : _query_check,
-               'query-running' : _query_running}
+               'query-running' : _query_running,
+               'query' : _query}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

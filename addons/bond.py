@@ -10,9 +10,10 @@ import ifupdownaddons
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bondutil import bondutil
 from ifupdownaddons.iproute2 import iproute2
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.policymanager as policymanager
 import ifupdown.ifupdownflags as ifupdownflags
+from ifupdown.utils import utils
 
 class bond(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
@@ -20,9 +21,9 @@ class bond(moduleBase):
                     'attrs' : {
                     'bond-use-carrier':
                          {'help' : 'bond use carrier',
-                          'validvals' : ['0', '1'],
-                          'default' : '1',
-                          'example': ['bond-use-carrier 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example': ['bond-use-carrier yes']},
                      'bond-num-grat-arp':
                          {'help' : 'bond use carrier',
                           'validrange' : ['0', '255'],
@@ -44,12 +45,16 @@ class bond(moduleBase):
                           'default' : '0',
                           'example' : ['bond-miimon 0']},
                      'bond-mode' :
-                         {'help' : 'bond mode',
-                          'validvals' : ['balance-rr', 'active-backup',
-                                          'balance-xor', 'broadcast', '802.3ad',
-                                          'balance-tlb', 'balance-alb'],
-                          'default' : 'balance-rr',
-                          'example' : ['bond-mode 802.3ad']},
+                         {'help': 'bond mode',
+                          'validvals': ['0', 'balance-rr',
+                                        '1', 'active-backup',
+                                        '2', 'balance-xor',
+                                        '3', 'broadcast',
+                                        '4', '802.3ad',
+                                        '5', 'balance-tlb',
+                                        '6', 'balance-alb'],
+                          'default': 'balance-rr',
+                          'example': ['bond-mode 802.3ad']},
                      'bond-lacp-rate':
                          {'help' : 'bond lacp rate',
                           'validvals' : ['0', '1'],
@@ -58,38 +63,73 @@ class bond(moduleBase):
                      'bond-min-links':
                          {'help' : 'bond min links',
                           'default' : '0',
+                          'validrange' : ['0', '255'],
                           'example' : ['bond-min-links 0']},
                      'bond-ad-sys-priority':
                          {'help' : '802.3ad system priority',
                           'default' : '65535',
+                          'validrange' : ['0', '65535'],
                           'example' : ['bond-ad-sys-priority 65535'],
                           'deprecated' : True,
                           'new-attribute' : 'bond-ad-actor-sys-prio'},
                      'bond-ad-actor-sys-prio':
                          {'help' : '802.3ad system priority',
                           'default' : '65535',
+                          'validrange' : ['0', '65535'],
                           'example' : ['bond-ad-actor-sys-prio 65535']},
                      'bond-ad-sys-mac-addr':
                          {'help' : '802.3ad system mac address',
                           'default' : '00:00:00:00:00:00',
+                          'validvals': ['<mac>', ],
                          'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
                          'deprecated' : True,
                          'new-attribute' : 'bond-ad-actor-system'},
                      'bond-ad-actor-system':
                          {'help' : '802.3ad system mac address',
                           'default' : '00:00:00:00:00:00',
+                          'validvals': ['<mac>', ],
                          'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
                      'bond-lacp-bypass-allow':
                          {'help' : 'allow lacp bypass',
-                          'validvals' : ['0', '1'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-bypass-allow 0']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['bond-lacp-bypass-allow no']},
                      'bond-slaves' :
                         {'help' : 'bond slaves',
                          'required' : True,
+                         'multivalue' : True,
+                         'validvals': ['<interface-list>'],
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
                                       'bond-slaves regex (swp[1|2)']}}}
+
+    _bond_mode_num = {'0': 'balance-rr',
+                      '1': 'active-backup',
+                      '2': 'balance-xor',
+                      '3': 'broadcast',
+                      '4': '802.3ad',
+                      '5': 'balance-tlb',
+                      '6': 'balance-alb'}
+
+    _bond_mode_string = {'balance-rr': '0',
+                         'active-backup': '1',
+                         'balance-xor': '2',
+                         'broadcast': '3',
+                         '802.3ad': '4',
+                         'balance-tlb': '5',
+                         'balance-alb': '6'}
+
+    @staticmethod
+    def _get_readable_bond_mode(mode):
+        if mode in bond._bond_mode_num:
+            return bond._bond_mode_num[mode]
+        return mode
+
+    @staticmethod
+    def _get_num_bond_mode(mode):
+        if mode in bond._bond_mode_string:
+            return bond._bond_mode_string[mode]
+        return mode
 
     def __init__(self, *args, **kargs):
         ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
@@ -151,29 +191,17 @@ class bond(moduleBase):
                                                ifname=ifaceobj.name,
                                                attr=attrname)
         if attrval:
-            msg = ('%s: invalid value %s for attr %s.'
-                    %(ifaceobj.name, attrval, attrname))
-            optiondict = self.get_mod_attr(attrname)
-            if not optiondict:
-                return None
-            validvals = optiondict.get('validvals')
-            if validvals and attrval not in validvals:
-                raise Exception(msg + ' Valid values are %s' %str(validvals))
-            validrange = optiondict.get('validrange')
-            if validrange:
-                if (int(attrval) < int(validrange[0]) or
-                        int(attrval) > int(validrange[1])):
-                    raise Exception(msg + ' Valid range is [%s,%s]'
-                                    %(validrange[0], validrange[1]))
-            if attrname == 'bond-mode' and attrval == '802.3ad':
-               dattrname = 'bond-min-links'
-               min_links = ifaceobj.get_attr_value_first(dattrname)
-               if not min_links:
-                   min_links = self.bondcmd.get_min_links(ifaceobj.name)
-               if min_links == '0':
-                   self.logger.warn('%s: attribute %s'
-                        %(ifaceobj.name, dattrname) +
-                        ' is set to \'0\'')
+            if attrname == 'bond-mode':
+                attrval = bond._get_readable_bond_mode(attrval)
+                if attrval == '802.3ad':
+                   dattrname = 'bond-min-links'
+                   min_links = ifaceobj.get_attr_value_first(dattrname)
+                   if not min_links:
+                       min_links = self.bondcmd.get_min_links(ifaceobj.name)
+                   if min_links == '0':
+                       self.logger.warn('%s: attribute %s'
+                            %(ifaceobj.name, dattrname) +
+                            ' is set to \'0\'')
         elif policy_default_val:
             return policy_default_val
         return attrval
@@ -205,6 +233,10 @@ class bond(moduleBase):
                     attrstoset[dstk] = v
             if not attrstoset:
                 return
+
+            # support yes/no attrs
+            utils.support_yesno_attrs(attrstoset, ['use_carrier', 'lacp_bypass'])
+
             have_attrs_to_set = 1
             self.bondcmd.set_attrs(ifaceobj.name, attrstoset,
                     self.ipcmd.link_down if linkup else None)
@@ -236,23 +268,21 @@ class bond(moduleBase):
                     continue
             link_up = False
             if self.ipcmd.is_link_up(slave):
-               rtnetlink_api.rtnl_api.link_set(slave, "down")
-               link_up = True
+                netlink.link_set_updown(slave, "down")
+                link_up = True
             # If clag bond place the slave in a protodown state; clagd
             # will protoup it when it is ready
             if clag_bond:
                 try:
-                    rtnetlink_api.rtnl_api.link_set_protodown(slave, "on")
+                    netlink.link_set_protodown(slave, "on")
                 except Exception, e:
-                    self.logger.error('%s: %s: clag bond, switching slave protodown state on: %s'
-                                      %(ifaceobj.name, slave, str(e)))
+                    self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
-                    rtnetlink_api.rtnl_api.link_set(slave, "up")
+                    netlink.link_set_updown(slave, "up")
                except Exception, e:
-                    self.logger.debug('%s: %s: link set up (%s)'
-                                      %(ifaceobj.name, slave, str(e)))
+                    self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
 
         if runningslaves:
@@ -261,10 +291,9 @@ class bond(moduleBase):
                     self.bondcmd.remove_slave(ifaceobj.name, s)
                     if clag_bond:
                         try:
-                            rtnetlink_api.rtnl_api.link_set_protodown(s, "off")
+                            netlink.link_set_protodown(s, "off")
                         except Exception, e:
-                            self.logger.error('%s: %s: clag bond, switching slave protodown state off: %s'
-                                      %(ifaceobj.name, s, str(e)))
+                            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
     def _up(self, ifaceobj):
         try:
@@ -273,7 +302,7 @@ class bond(moduleBase):
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
             if ifaceobj.addr_method == 'manual':
-               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
@@ -295,6 +324,17 @@ class bond(moduleBase):
                                           self.get_mod_attrs())
         if not ifaceattrs: return
         runningattrs = self._query_running_attrs(ifaceobj.name)
+
+        # support yes/no attributes
+        utils.support_yesno_attrs(runningattrs, ['bond-use-carrier',
+                                                 'bond-lacp-bypass-allow'],
+                                  ifaceobj=ifaceobj)
+
+        # support for numerical bond-mode
+        mode = ifaceobj.get_attr_value_first('bond-mode')
+        if mode in bond._bond_mode_num:
+            if 'bond-mode' in runningattrs:
+                runningattrs['bond-mode'] = bond._get_num_bond_mode(runningattrs['bond-mode'])
 
         for k in ifaceattrs:
             v = ifaceobj.get_attr_value_first(k)

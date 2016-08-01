@@ -49,8 +49,8 @@ class policymanager():
         for filename in default_files:
             system_array  = {}
             try:
-                fd = open(filename,'r')
-                system_array = json.load(fd)
+                with open(filename, 'r') as fd:
+                    system_array = json.load(fd)
                 self.logger.debug('reading %s system policy defaults config' \
                                   % filename)
             except Exception, e:
@@ -69,8 +69,8 @@ class policymanager():
         for filename in user_files:
             user_array  = {}
             try:
-                fd = open(filename,'r')
-                user_array = json.load(fd)
+                with open(filename, 'r') as fd:
+                    user_array = json.load(fd)
                 self.logger.debug('reading %s policy user defaults config' \
                                   % filename)
             except Exception, e:

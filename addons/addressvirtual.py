@@ -7,13 +7,12 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
-
 import ifupdown.ifupdownconfig as ifupdownConfig
 import ifupdown.statemanager as statemanager
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 
-from ipaddr import IPNetwork
+from ipaddr import IPNetwork, IPv4Network
 import logging
 import os
 import glob
@@ -26,8 +25,9 @@ class addressvirtual(moduleBase):
                           'every mac ip address-virtual line',
                 'attrs' : {
                     'address-virtual' :
-                        { 'help' : 'bridge router virtual mac and ip',
-                          'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.254/24 11.0.1.254/24']}
+                        { 'help' : 'bridge router virtual mac and ips',
+                          'validvals' : ['<mac-ipaddr/prefixlen-list>',],
+                          'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24']}
                  }}
 
 
@@ -125,6 +125,11 @@ class addressvirtual(moduleBase):
                               %str(e))
             pass
 
+    def _handle_vrf_slaves(self, macvlan_ifacename, ifaceobj):
+        vrfname = self.ipcmd.link_get_master(ifaceobj.name)
+        if vrfname:
+            self.ipcmd.link_set(macvlan_ifacename, 'master', vrfname)
+
     def _get_macs_from_old_config(self, ifaceobj=None):
         """ This method returns a list of the mac addresses
         in the address-virtual attribute for the bridge. """
@@ -174,8 +179,7 @@ class addressvirtual(moduleBase):
             link_created = False
             macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
-                rtnetlink_api.rtnl_api.create_macvlan(macvlan_ifacename,
-                                                      ifaceobj.name)
+                netlink.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
             ips = av_attrs[1:]
             if mac != 'None':
@@ -196,6 +200,16 @@ class addressvirtual(moduleBase):
 
                 if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
                     self.ipcmd.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
+
+            # handle vrf slaves
+            if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
+                self._handle_vrf_slaves(macvlan_ifacename, ifaceobj)
+
+            # Disable IPv6 duplicate address detection on VRR interfaces
+            for key, sysval in { 'accept_dad' : '0', 'dad_transmits' : '0' }.iteritems():
+                syskey = 'net.ipv6.conf.%s.%s' % (macvlan_ifacename, key)
+                if self.sysctl_get(syskey) != sysval:
+                    self.sysctl_set(syskey, sysval)
 
             av_idx += 1
         self.ipcmd.batch_commit()
@@ -278,7 +292,8 @@ class addressvirtual(moduleBase):
             self._remove_address_config(ifaceobj, address_virtual_list)
             return
 
-        if ifaceobj.upperifaces:
+        if (ifaceobj.upperifaces and
+            not ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
             self.log_error('%s: invalid placement of address-virtual lines (must be configured under an interface with no upper interfaces or parent interfaces)'
                 % (ifaceobj.name), ifaceobj)
             return

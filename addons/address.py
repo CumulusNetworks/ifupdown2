@@ -7,16 +7,17 @@
 import os
 
 try:
-    from ipaddr import IPNetwork
+    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
     from sets import Set
     from ifupdown.iface import *
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
     import ifupdown.policymanager as policymanager
-    import ifupdown.rtnetlink_api as rtnetlink_api
+    from ifupdown.netlink import netlink
     import ifupdown.ifupdownconfig as ifupdownConfig
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.statemanager as statemanager
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -28,34 +29,44 @@ class address(moduleBase):
                 'attrs': {
                       'address' :
                             {'help' : 'ipv4 or ipv6 addresses',
+                             'validvals' : ['<ipv4/prefixlen>', '<ipv6/prefixlen>'],
+                             'multiline' : True,
                              'example' : ['address 10.0.12.3/24',
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
+                             'validvals' : ['<ipv4>', ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
                             {'help': 'broadcast address',
+                             'validvals' : ['<ipv4>', ],
                              'example' : ['broadcast 10.0.1.255']},
                       'scope' :
                             {'help': 'scope',
+                             'validvals' : ['universe', 'site', 'link', 'host', 'nowhere'],
                              'example' : ['scope host']},
                       'preferred-lifetime' :
                             {'help': 'preferred lifetime',
+                              'validrange' : ['0', '65535'],
                              'example' : ['preferred-lifetime forever',
                                           'preferred-lifetime 10']},
                       'gateway' :
                             {'help': 'default gateway',
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
+                              'validrange' : ['552', '9216'],
                               'example' : ['mtu 1600'],
                               'default' : '1500'},
                       'hwaddress' :
                             {'help' : 'hw address',
+                             'validvals' : ['<mac>',],
                              'example': ['hwaddress 44:38:39:00:27:b8']},
                       'alias' :
                             { 'help': 'description/alias',
+                              'validvals' : ['<text>',],
                               'example' : ['alias testnetwork']},
                       'address-purge' :
                             { 'help': 'purge existing addresses. By default ' +
@@ -63,11 +74,13 @@ class address(moduleBase):
                               'purged to match persistant addresses in the ' +
                               'interfaces file. Set this attribute to \'no\'' +
                               'if you want to preserve existing addresses',
+                              'validvals' : ['yes', 'no'],
                               'default' : 'yes',
                               'example' : ['address-purge yes/no']},
                       'clagd-vxlan-anycast-ip' :
                             { 'help'     : 'Anycast local IP address for ' +
                               'dual connected VxLANs',
+                              'validvals' : ['<ipv4>', ],
                               'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
 
     def __init__(self, *args, **kargs):
@@ -152,6 +165,11 @@ class address(moduleBase):
                 if netmask:
                     prefixlen = IPNetwork('%s' %addr +
                                 '/%s' %netmask).prefixlen
+                    newaddr = addr + '/%s' %prefixlen
+                else:
+                    # we are here because there is no slash (/xx) and no netmask
+                    # just let IPNetwork handle the ipv4 or ipv6 address mask
+                    prefixlen = IPNetwork(addr).prefixlen
                     newaddr = addr + '/%s' %prefixlen
                 newaddrs.append(newaddr)
 
@@ -243,6 +261,30 @@ class address(moduleBase):
             return
         self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
 
+    def _add_delete_gateway(self, ifaceobj, gateways=[], prev_gw=[]):
+        vrf = ifaceobj.get_attr_value_first('vrf')
+        metric = ifaceobj.get_attr_value_first('metric')
+        for del_gw in list(set(prev_gw) - set(gateways)):
+            try:
+                self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
+            except:
+                pass
+        for add_gw in list(set(gateways) - set(prev_gw)):
+            try:
+                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
+            except:
+                pass
+
+    def _get_prev_gateway(self, ifaceobj, gateways):
+        ipv = []
+        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
+        if not saved_ifaceobjs:
+            return ipv
+        prev_gateways = saved_ifaceobjs[0].get_attr_value('gateway')
+        if not prev_gateways:
+            return ipv
+        return prev_gateways
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -300,20 +342,20 @@ class address(moduleBase):
                 running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
             if hwaddress != running_hwaddress:
                 slave_down = False
-                rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "down")
+                netlink.link_set_updown(ifaceobj.name, "down")
                 if ifaceobj.link_kind & ifaceLinkKind.BOND:
                     # if bond, down all the slaves
                     if ifaceobj.lowerifaces:
                         for l in ifaceobj.lowerifaces:
-                            rtnetlink_api.rtnl_api.link_set(l, "down")
+                            netlink.link_set_updown(l, "down")
                         slave_down = True
                 try:
                     self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
                 finally:
-                    rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                    netlink.link_set_updown(ifaceobj.name, "up")
                     if slave_down:
                         for l in ifaceobj.lowerifaces:
-                            rtnetlink_api.rtnl_api.link_set(l, "up")
+                            netlink.link_set_updown(l, "up")
 
         try:
             # Handle special things on a bridge
@@ -323,9 +365,12 @@ class address(moduleBase):
             pass
 
         if addr_method != "dhcp":
-            self.ipcmd.route_add_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'),
-                    ifaceobj.get_attr_value_first('vrf'))
+            gateways = ifaceobj.get_attr_value('gateway')
+            if not gateways:
+                gateways = []
+            prev_gw = self._get_prev_gateway(ifaceobj, gateways)
+            self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+        return
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
@@ -333,10 +378,6 @@ class address(moduleBase):
                 return
             addr_method = ifaceobj.addr_method
             if addr_method != "dhcp":
-                self.ipcmd.route_del_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'),
-                    ifaceobj.get_attr_value_first('vrf'),
-                    ifaceobj.get_attr_value_first('metric'))
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist:

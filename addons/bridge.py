@@ -7,11 +7,12 @@
 from sets import Set
 from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
+from ifupdown.utils import utils
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
 from collections import Counter
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 import itertools
 import re
@@ -35,10 +36,13 @@ class bridge(moduleBase):
                         {'help' : 'vlan aware bridge. Setting this ' +
                                   'attribute to yes enables vlan filtering' +
                                   ' on the bridge',
+                         'validvals' : ['yes', 'no'],
                          'example' : ['bridge-vlan-aware yes/no']},
                    'bridge-ports' :
                         {'help' : 'bridge ports',
+                         'multivalue' : True,
                          'required' : True,
+                         'validvals': ['<interface-list>'],
                          'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
                                       'bridge-ports glob swp1-3.100',
                                       'bridge-ports regex (swp[1|2|3].100)']},
@@ -49,109 +53,140 @@ class bridge(moduleBase):
                          'default' : 'no'},
                    'bridge-bridgeprio' :
                         {'help': 'bridge priority',
+                         'validrange' : ['0', '65535'],
                          'example' : ['bridge-bridgeprio 32768'],
                          'default' : '32768'},
                    'bridge-ageing' :
                        {'help': 'bridge ageing',
+                         'validrange' : ['0', '65535'],
                          'example' : ['bridge-ageing 300'],
                          'default' : '300'},
                    'bridge-fd' :
                         { 'help' : 'bridge forward delay',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-fd 15'],
                           'default' : '15'},
                    'bridge-gcint' :
                         # XXX: recheck values
                         { 'help' : 'bridge garbage collection interval in secs',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-gcint 4'],
                           'default' : '4',
                           'compat' : True,
                           'deprecated': True},
                    'bridge-hello' :
                         { 'help' : 'bridge set hello time',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-hello 2'],
                           'default' : '2'},
                    'bridge-maxage' :
                         { 'help' : 'bridge set maxage',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-maxage 20'],
                           'default' : '20'},
                    'bridge-pathcosts' :
                         { 'help' : 'bridge set port path costs',
-                          'example' : ['bridge-pathcosts swp1=100 swp2=100'],
+                          'validvals': ['<interface-range-list>'],
+                          'validrange' : ['0', '65535'],
+                          'example' : ['under the bridge: bridge-pathcosts swp1=100 swp2=100',
+                                       'under the port (recommended): bridge-pathcosts 100'],
                           'default' : '100'},
                    'bridge-portprios' :
                         { 'help' : 'bridge port prios',
-                          'example' : ['bridge-portprios swp1=32 swp2=32'],
+                          'validvals': ['<interface-range-list>'],
+                          'validrange' : ['0', '65535'],
+                          'example' : ['under the bridge: bridge-portprios swp1=32 swp2=32',
+                                       'under the port (recommended): bridge-portprios 32'],
                           'default' : '32'},
                    'bridge-mclmc' :
                         { 'help' : 'set multicast last member count',
+                          'validrange' : ['0', '255'],
                           'example' : ['bridge-mclmc 2'],
                           'default' : '2'},
                     'bridge-mcrouter' :
                         { 'help' : 'set multicast router',
-                          'default' : '1',
-                          'example' : ['bridge-mcrouter 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example' : ['bridge-mcrouter yes']},
                     'bridge-mcsnoop' :
                         { 'help' : 'set multicast snooping',
-                          'default' : '1',
-                          'example' : ['bridge-mcsnoop 1']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'yes',
+                          'example' : ['bridge-mcsnoop yes']},
                     'bridge-mcsqc' :
                         { 'help' : 'set multicast startup query count',
+                          'validrange' : ['0', '255'],
                           'default' : '2',
                           'example' : ['bridge-mcsqc 2']},
                     'bridge-mcqifaddr' :
                         { 'help' : 'set multicast query to use ifaddr',
-                          'default' : '0',
-                          'example' : ['bridge-mcqifaddr 0']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['bridge-mcqifaddr no']},
                     'bridge-mcquerier' :
                         { 'help' : 'set multicast querier',
-                          'default' : '0',
-                          'example' : ['bridge-mcquerier 0']},
+                          'validvals' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['bridge-mcquerier no']},
                     'bridge-hashel' :
                         { 'help' : 'set hash elasticity',
+                          'validrange' : ['0', '4096'],
                           'default' : '4096',
                           'example' : ['bridge-hashel 4096']},
                     'bridge-hashmax' :
                         { 'help' : 'set hash max',
+                          'validrange' : ['0', '4096'],
                           'default' : '4096',
                           'example' : ['bridge-hashmax 4096']},
                     'bridge-mclmi' :
                         { 'help' : 'set multicast last member interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '1',
                           'example' : ['bridge-mclmi 1']},
                     'bridge-mcmi' :
                         { 'help' : 'set multicast membership interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '260',
                           'example' : ['bridge-mcmi 260']},
                     'bridge-mcqpi' :
                         { 'help' : 'set multicast querier interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '255',
                           'example' : ['bridge-mcqpi 255']},
                     'bridge-mcqi' :
                         { 'help' : 'set multicast query interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '125',
                           'example' : ['bridge-mcqi 125']},
                     'bridge-mcqri' :
                         { 'help' : 'set multicast query response interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '10',
                           'example' : ['bridge-mcqri 10']},
                     'bridge-mcsqi' :
                         { 'help' : 'set multicast startup query interval (in secs)',
+                          'validrange' : ['0', '255'],
                           'default' : '31',
                           'example' : ['bridge-mcsqi 31']},
                     'bridge-mcqv4src' :
                         { 'help' : 'set per VLAN v4 multicast querier source address',
+                          'validvals' : ['<number-ipv4-list>', ],
+                          'multivalue' : True,
                           'compat' : True,
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
                     'bridge-portmcrouter' :
                         { 'help' : 'set port multicast routers',
-                          'default' : '1',
-                          'example' : ['under the bridge: bridge-portmcrouter swp1=1 swp2=1',
-                                       'under the port: bridge-portmcrouter 1']},
+                          'validvals' : ['<interface-yes-no-0-1-list>'],
+                          'default' : 'yes',
+                          'example' : ['under the bridge: bridge-portmcrouter swp1=yes swp2=yes',
+                                       'under the port (recommended): bridge-portmcrouter yes']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
+                          'validvals': ['<interface-range-list>'],
+                          'validrange' : ['0', '65535'],
                           'default' : '0',
                           'example' : ['under the bridge: bridge-portmcfl swp1=0 swp2=0',
-                                       'under the port: bridge-portmcfl 0']},
+                                       'under the port (recommended): bridge-portmcfl 0']},
                     'bridge-waitport' :
                         { 'help' : 'wait for a max of time secs for the' +
                                 ' specified ports to become available,' +
@@ -162,14 +197,16 @@ class bridge(moduleBase):
                                 'regex or \"all\" on bridge_ports,' +
                                 'as it wouldnt work.',
                           'default' : '0',
+                          'validvals': ['<number-interface-list>'],
                           'example' : ['bridge-waitport 4 swp1 swp2']},
                     'bridge-maxwait' :
                         { 'help' : 'forces to time seconds the maximum time ' +
-                                'that the Debian bridge setup  scripts will ' +
+                                'that the Debian bridge setup scripts will ' +
                                 'wait for the bridge ports to get to the ' +
                                 'forwarding status, doesn\'t allow factional ' +
                                 'part. If it is equal to 0 then no waiting' +
                                 ' is done',
+                          'validrange' : ['0', '255'],
                           'default' : '0',
                           'example' : ['bridge-maxwait 3']},
                     'bridge-vids' :
@@ -177,22 +214,26 @@ class bridge(moduleBase):
                                    'under the bridge or under the port. ' +
                                    'If specified under the bridge the ports ' +
                                    'inherit it unless overridden by a ' +
-                                   'bridge-vids attribuet under the port',
+                                   'bridge-vids attribute under the port',
+                          'validvals': ['<number-range-list>'],
                           'example' : ['bridge-vids 4000',
                                        'bridge-vids 2000 2200-3000']},
                     'bridge-pvid' :
                         { 'help' : 'bridge port pvid. Must be specified under' +
                                    ' the bridge port',
+                          'validrange' : ['0', '4096'],
                           'example' : ['bridge-pvid 1']},
                     'bridge-access' :
                         { 'help' : 'bridge port access vlan. Must be ' +
                                    'specified under the bridge port',
+                          'validrange' : ['0', '4096'],
                           'example' : ['bridge-access 300']},
                     'bridge-allow-untagged' :
                         { 'help' : 'indicate if the bridge port accepts ' +
                                    'untagged packets or not.  Must be ' +
                                    'specified under the bridge port. ' +
                                    'Default is \'yes\'',
+                          'validvals' : ['yes', 'no'],
                           'example' : ['bridge-allow-untagged yes'],
                           'default' : 'yes'},
                     'bridge-port-vids' :
@@ -472,12 +513,15 @@ class bridge(moduleBase):
                         for start, end in self._ints_to_ranges(vids2_diff)]
         return (vids_to_del, vids_to_add)
 
-    def _compare_vids(self, vids1, vids2):
+    def _compare_vids(self, vids1, vids2, pvid=None):
         """ Returns true if the vids are same else return false """
 
         vids1_ints = self._ranges_to_ints(vids1)
         vids2_ints = self._ranges_to_ints(vids2)
-        if Set(vids1_ints).symmetric_difference(vids2_ints):
+        set_diff = Set(vids1_ints).symmetric_difference(vids2_ints)
+        if pvid and int(pvid) in set_diff:
+            set_diff = set_diff.remove(int(pvid))
+        if set_diff:
             return False
         else:
             return True
@@ -684,6 +728,10 @@ class bridge(moduleBase):
                                }.items()
                             if v }
             if bridgeattrs:
+                utils.support_yesno_attrs(bridgeattrs, ['mcqifaddr',
+                                                        'mcquerier',
+                                                        'mcrouter',
+                                                        'mcsnoop'])
                 self.brctlcmd.set_bridge_attrs(ifaceobj.name, bridgeattrs)
             portattrs = {}
             for attrname, dstattrname in {'bridge-pathcosts' : 'pathcost',
@@ -704,7 +752,10 @@ class bridge(moduleBase):
                         (port, val) = p.split('=')
                         if not portattrs.get(port):
                             portattrs[port] = {}
-                        portattrs[port].update({dstattrname : val})
+                        if attrname == 'bridge-portmcrouter':
+                            portattrs[port].update({dstattrname: utils.boolean_support_binary(val)})
+                        else:
+                            portattrs[port].update({dstattrname : val})
                     except Exception, e:
                         self.log_error('%s: could not parse %s (%s)'
                                        %(ifaceobj.name, attrname, str(e)),
@@ -960,6 +1011,7 @@ class bridge(moduleBase):
         if not bridgeports:
            self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
            return
+        self.ipcmd.batch_start()
         for bport in bridgeports:
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
@@ -992,6 +1044,7 @@ class bridge(moduleBase):
                     err = True
                     self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
                     pass
+        self.ipcmd.bridge_batch_commit()
         if err:
            raise Exception('%s: errors applying port settings' %ifaceobj.name)
 
@@ -1094,14 +1147,14 @@ class bridge(moduleBase):
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
                     try:
-                        rtnetlink_api.rtnl_api.link_set(p, "up")
+                        netlink.link_set_updown(p, "up")
                     except Exception, e:
                         self.logger.debug('%s: %s: link set up (%s)'
                                           %(ifaceobj.name, p, str(e)))
                         pass
 
             if ifaceobj.addr_method == 'manual':
-               rtnetlink_api.rtnl_api.link_set(ifaceobj.name, "up")
+                netlink.link_set_updown(ifaceobj.name, "up")
         if err:
             raise Exception(errstr)
 
@@ -1113,8 +1166,8 @@ class bridge(moduleBase):
                 if ports:
                     self.handle_ipv6(ports, '0')
                     if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                        map(lambda p: rtnetlink_api.rtnl_api.link_set(p,
-                                    "down"), ports)
+                        map(lambda p: netlink.link_set_updown(p, "down"),
+                            ports)
         except Exception, e:
             self.log_error(str(e))
 
@@ -1246,6 +1299,7 @@ class bridge(moduleBase):
         if  stp == 'yes' and userspace_stp:
             skip_kernel_stp_attrs = 1
 
+        bool2str = {'0': 'no', '1': 'yes'}
         # pick all other attributes
         for k,v in tmpbridgeattrdict.items():
             if not v:
@@ -1257,7 +1311,11 @@ class bridge(moduleBase):
                 # only include igmp attributes if kernel stp is off
                 continue
             attrname = 'bridge-' + k
-            if v != self.get_mod_subattr(attrname, 'default'):
+            mod_default = self.get_mod_subattr(attrname, 'default')
+            if v != mod_default:
+                # convert '0|1' running values to 'no|yes'
+                if v in bool2str.keys() and bool2str[v] == mod_default:
+                    continue
                 bridgeattrdict[attrname] = [v]
 
         if bridge_vlan_aware:
@@ -1278,7 +1336,8 @@ class bridge(moduleBase):
         if skip_kernel_stp_attrs:
             return bridgeattrdict
 
-        if ports:
+        # Do this only for vlan-UNAWARE-bridge
+        if ports and not bridge_vlan_aware:
             portconfig = {'bridge-pathcosts' : '',
                           'bridge-portprios' : ''}
             for p, v in ports.items():
@@ -1315,8 +1374,8 @@ class bridge(moduleBase):
             running_bridge_port_vids = ''
             portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
-                self.log_warn('%s: could not parse \'%s %s\''
-                          %(ifaceobj.name, attrname, attrval))
+                self.log_warn('%s: could not parse \'bridge-port-vids %s\''
+                          %(ifaceobj.name, attrval))
                 return
             err = 0
             for p in portlist:
@@ -1347,8 +1406,8 @@ class bridge(moduleBase):
         if attrval:
             portlist = self.parse_port_list(ifaceobj.name, attrval)
             if not portlist:
-                self.log_warn('%s: could not parse \'%s %s\''
-                              %(ifaceobj.name, attrname, attrval))
+                self.log_warn('%s: could not parse \'bridge-port-pvids %s\''
+                              %(ifaceobj.name, attrval))
                 return
             running_bridge_port_pvids = ''
             err = 0
@@ -1417,6 +1476,9 @@ class bridge(moduleBase):
         except Exception, e:
             self.logger.warn(str(e))
             runningattrs = {}
+
+        self._query_check_support_yesno_attrs(runningattrs, ifaceobj)
+
         filterattrs = ['bridge-vids', 'bridge-port-vids',
                        'bridge-port-pvids']
         for k in Set(ifaceattrs).difference(filterattrs):
@@ -1557,6 +1619,27 @@ class bridge(moduleBase):
                ifaceobjcurr.update_config_with_status(attr_name, vids, 0)
            return
 
+        running_pvid = running_vidinfo.get(ifaceobj.name,
+                                           {}).get('pvid')
+        attr_name = 'bridge-pvid'
+        pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+        if pvid:
+            if running_pvid and running_pvid == pvid:
+                ifaceobjcurr.update_config_with_status(attr_name,
+                                                     running_pvid, 0)
+            else:
+                ifaceobjcurr.update_config_with_status(attr_name,
+                                                     running_pvid, 1)
+        else:
+            pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
+            if pvid:
+                if not running_pvid or running_pvid != pvid:
+                    ifaceobjcurr.status = ifaceStatus.ERROR
+                    ifaceobjcurr.status_str = 'bridge pvid error'
+            elif not running_pvid or running_pvid != '1':
+                ifaceobjcurr.status = ifaceStatus.ERROR
+                ifaceobjcurr.status_str = 'bridge pvid error'
+
         attr_name = 'bridge-vids'
         vids = ifaceobj.get_attr_value_first(attr_name)
         if vids:
@@ -1575,24 +1658,9 @@ class bridge(moduleBase):
            running_vids = running_vidinfo.get(ifaceobj.name,
                                               {}).get('vlan')
            if (bridge_vids and (not running_vids  or
-                   not self._compare_vids(bridge_vids, running_vids))):
+                   not self._compare_vids(bridge_vids, running_vids, running_pvid))):
               ifaceobjcurr.status = ifaceStatus.ERROR
               ifaceobjcurr.status_str = 'bridge vid error'
-
-        running_pvid = running_vidinfo.get(ifaceobj.name,
-                                           {}).get('pvid')
-        attr_name = 'bridge-pvid'
-        pvid = ifaceobj.get_attr_value_first(attr_name)
-        if pvid:
-           if running_pvid and running_pvid == pvid:
-              ifaceobjcurr.update_config_with_status(attr_name,
-                                                     running_pvid, 0)
-           else:
-              ifaceobjcurr.update_config_with_status(attr_name,
-                                                     running_pvid, 1)
-        elif not running_pvid or running_pvid != '1':
-           ifaceobjcurr.status = ifaceStatus.ERROR
-           ifaceobjcurr.status_str = 'bridge pvid error'
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr,
                                  ifaceobj_getfunc):
@@ -1615,9 +1683,9 @@ class bridge(moduleBase):
                                                   ifaceobj_getfunc,
                                                   bridgename)
         for attr, dstattr in {'bridge-pathcosts' : 'pathcost',
-                              'bridge-portprios' : 'priority',
-                              'bridge-portmcrouter' : 'mcrouter',
-                              'bridge-portmcfl' : 'mcfl' }.items():
+                              'bridge-portprios' : 'portprio',
+                              'bridge-portmcrouter' : 'portmcrouter',
+                              'bridge-portmcfl' : 'portmcfl' }.items():
             attrval = ifaceobj.get_attr_value_first(attr)
             if not attrval:
                 continue
@@ -1625,6 +1693,12 @@ class bridge(moduleBase):
             try:
                 running_attrval = self.brctlcmd.get_bridgeport_attr(
                                        bridgename, ifaceobj.name, dstattr)
+
+                if dstattr == 'portmcrouter':
+                    if not utils.is_binary_bool(attrval) and running_attrval:
+                        running_attrval = utils.get_yesno_boolean(
+                            utils.get_boolean_from_string(running_attrval))
+
                 if running_attrval != attrval:
                     ifaceobjcurr.update_config_with_status(attr,
                                             running_attrval, 1)
@@ -1717,6 +1791,29 @@ class bridge(moduleBase):
             return
         if self.default_stp_on:
             ifaceobj.update_config('bridge-stp', 'yes')
+
+    def _query_check_support_yesno_attrs(self, runningattrs, ifaceobj):
+        for attrl in [['mcqifaddr', 'bridge-mcqifaddr'],
+                     ['mcquerier', 'bridge-mcquerier'],
+                     ['mcrouter', 'bridge-mcrouter'],
+                     ['mcsnoop', 'bridge-mcsnoop']]:
+            value = ifaceobj.get_attr_value_first(attrl[1])
+            if value and not utils.is_binary_bool(value):
+                if attrl[0] in runningattrs:
+                    bool = utils.get_boolean_from_string(runningattrs[attrl[0]])
+                    runningattrs[attrl[0]] = utils.get_yesno_boolean(bool)
+        attrval = ifaceobj.get_attr_value_first('bridge-portmcrouter')
+        if attrval:
+            portlist = self.parse_port_list(ifaceobj.name, attrval)
+            if portlist:
+                to_convert = []
+                for p in portlist:
+                    (port, val) = p.split('=')
+                    if not utils.is_binary_bool(val):
+                        to_convert.append(port)
+                for port in to_convert:
+                    runningattrs['ports'][port]['portmcrouter'] = utils.get_yesno_boolean(
+                        utils.get_boolean_from_string(runningattrs['ports'][port]['portmcrouter']))
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,

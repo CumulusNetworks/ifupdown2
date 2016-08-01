@@ -21,3 +21,6 @@ class invalidValueError(Error):
 
 class errorReadingStateError(Error):
     pass
+
+class moduleNotSupported(Error):
+    pass
