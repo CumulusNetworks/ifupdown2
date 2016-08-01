@@ -16,6 +16,8 @@ class mstpctlutil(utilsBase):
     """ This class contains helper methods to interact with mstpd using
     mstputils commands """
 
+    _DEFAULT_PORT_PRIO = '128'
+
     _cache_fill_done = False
 
     _bridgeattrmap = {'bridgeid' : 'bridge-id',
@@ -70,6 +72,13 @@ class mstpctlutil(utilsBase):
             pass
         return bridgeattrs
 
+    def _extract_bridge_port_prio(self, portid):
+        try:
+            return str(int(portid[0], 16) * 16)
+        except:
+            pass
+        return mstpctlutil._DEFAULT_PORT_PRIO
+
     def _get_mstpctl_bridgeport_attr_from_cache(self, bridgename):
         attrs = MSTPAttrsCache.get(bridgename)
         if not attrs:
@@ -89,6 +98,7 @@ class mstpctlutil(utilsBase):
                     # by bridgename, portname, and json attribute
                     for portid in mstpctl_bridge_cache[portname].keys():
                         mstpctl_bridgeport_attrs_dict[portname] = {}
+                        mstpctl_bridgeport_attrs_dict[portname]['treeportprio'] = self._extract_bridge_port_prio(portid)
                         for jsonAttr in mstpctl_bridge_cache[portname][portid].keys():
                             jsonVal = mstpctl_bridge_cache[portname][portid][jsonAttr]
                             mstpctl_bridgeport_attrs_dict[portname][jsonAttr] = str(jsonVal)
@@ -119,11 +129,26 @@ class mstpctlutil(utilsBase):
             except Exception, e:
                 self.logger.warn(str(e))
 
+    def _get_bridge_port_attr_with_prio(self,
+                                        bridgename,
+                                        bridgeportname,
+                                        attrname):
+        attrvalue_curr = self.get_bridgeport_attr(bridgename,
+                                                  bridgeportname, attrname)
+        if attrname == 'treeportprio':
+            try:
+                attrs = self._get_mstpctl_bridgeport_attr_from_cache(bridgename)
+                attrvalue_curr = attrs[bridgeportname]['treeportprio']
+            except:
+                pass
+        return attrvalue_curr
+
     def set_bridgeport_attr(self, bridgename, bridgeportname, attrname,
                             attrvalue, check=True):
         if check:
-            attrvalue_curr = self.get_bridgeport_attr(bridgename,
-                                    bridgeportname, attrname)
+            attrvalue_curr = self._get_bridge_port_attr_with_prio(bridgename,
+                                                                  bridgeportname,
+                                                                  attrname)
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
         if attrname == 'treeportcost' or attrname == 'treeportprio':
