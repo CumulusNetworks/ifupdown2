@@ -29,18 +29,18 @@ class address(moduleBase):
                 'attrs': {
                       'address' :
                             {'help' : 'ipv4 or ipv6 addresses',
-                             'validvals' : [IPv4Network, IPv6Network],
+                             'validvals' : ['<ipv4/prefixlen>', '<ipv6/prefixlen>'],
                              'multiline' : True,
                              'example' : ['address 10.0.12.3/24',
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
                             {'help': 'broadcast address',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', ],
                              'example' : ['broadcast 10.0.1.255']},
                       'scope' :
                             {'help': 'scope',
@@ -53,7 +53,7 @@ class address(moduleBase):
                                           'preferred-lifetime 10']},
                       'gateway' :
                             {'help': 'default gateway',
-                             'validvals' : [IPv4Address, IPv6Address],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
@@ -80,7 +80,7 @@ class address(moduleBase):
                       'clagd-vxlan-anycast-ip' :
                             { 'help'     : 'Anycast local IP address for ' +
                               'dual connected VxLANs',
-                              'validvals' : [IPv4Address, ],
+                              'validvals' : ['<ipv4>', ],
                               'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
 
     def __init__(self, *args, **kargs):

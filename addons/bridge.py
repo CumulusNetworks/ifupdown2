@@ -42,6 +42,7 @@ class bridge(moduleBase):
                         {'help' : 'bridge ports',
                          'multivalue' : True,
                          'required' : True,
+                         'validvals': ['<interface-list>'],
                          'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
                                       'bridge-ports glob swp1-3.100',
                                       'bridge-ports regex (swp[1|2|3].100)']},
@@ -85,12 +86,14 @@ class bridge(moduleBase):
                           'default' : '20'},
                    'bridge-pathcosts' :
                         { 'help' : 'bridge set port path costs',
+                          'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '65535'],
                           'example' : ['under the bridge: bridge-pathcosts swp1=100 swp2=100',
                                        'under the port (recommended): bridge-pathcosts 100'],
                           'default' : '100'},
                    'bridge-portprios' :
                         { 'help' : 'bridge port prios',
+                          'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '65535'],
                           'example' : ['under the bridge: bridge-portprios swp1=32 swp2=32',
                                        'under the port (recommended): bridge-portprios 32'],
@@ -173,12 +176,13 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
                     'bridge-portmcrouter' :
                         { 'help' : 'set port multicast routers',
-                          'validvals' : ['yes', 'no', '0', '1'],
+                          'validvals' : ['<interface-yes-no-0-1-list>'],
                           'default' : 'yes',
                           'example' : ['under the bridge: bridge-portmcrouter swp1=yes swp2=yes',
                                        'under the port (recommended): bridge-portmcrouter yes']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
+                          'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '65535'],
                           'default' : '0',
                           'example' : ['under the bridge: bridge-portmcfl swp1=0 swp2=0',
@@ -193,6 +197,7 @@ class bridge(moduleBase):
                                 'regex or \"all\" on bridge_ports,' +
                                 'as it wouldnt work.',
                           'default' : '0',
+                          'validvals': ['<number-interface-list>'],
                           'example' : ['bridge-waitport 4 swp1 swp2']},
                     'bridge-maxwait' :
                         { 'help' : 'forces to time seconds the maximum time ' +
@@ -210,6 +215,7 @@ class bridge(moduleBase):
                                    'If specified under the bridge the ports ' +
                                    'inherit it unless overridden by a ' +
                                    'bridge-vids attribute under the port',
+                          'validvals': ['<number-range-list>'],
                           'example' : ['bridge-vids 4000',
                                        'bridge-vids 2000 2200-3000']},
                     'bridge-pvid' :

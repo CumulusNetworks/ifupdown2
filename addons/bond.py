@@ -80,12 +80,14 @@ class bond(moduleBase):
                      'bond-ad-sys-mac-addr':
                          {'help' : '802.3ad system mac address',
                           'default' : '00:00:00:00:00:00',
+                          'validvals': ['<mac>', ],
                          'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
                          'deprecated' : True,
                          'new-attribute' : 'bond-ad-actor-system'},
                      'bond-ad-actor-system':
                          {'help' : '802.3ad system mac address',
                           'default' : '00:00:00:00:00:00',
+                          'validvals': ['<mac>', ],
                          'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
                      'bond-lacp-bypass-allow':
                          {'help' : 'allow lacp bypass',
@@ -96,6 +98,7 @@ class bond(moduleBase):
                         {'help' : 'bond slaves',
                          'required' : True,
                          'multivalue' : True,
+                         'validvals': ['<interface-list>'],
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
                                       'bond-slaves regex (swp[1|2)']}}}
@@ -188,20 +191,6 @@ class bond(moduleBase):
                                                ifname=ifaceobj.name,
                                                attr=attrname)
         if attrval:
-            msg = ('%s: invalid value %s for attr %s.'
-                    %(ifaceobj.name, attrval, attrname))
-            optiondict = self.get_mod_attr(attrname)
-            if not optiondict:
-                return None
-            validvals = optiondict.get('validvals')
-            if validvals and attrval not in validvals:
-                raise Exception(msg + ' Valid values are %s' %str(validvals))
-            validrange = optiondict.get('validrange')
-            if validrange:
-                if (int(attrval) < int(validrange[0]) or
-                        int(attrval) > int(validrange[1])):
-                    raise Exception(msg + ' Valid range is [%s,%s]'
-                                    %(validrange[0], validrange[1]))
             if attrname == 'bond-mode':
                 attrval = bond._get_readable_bond_mode(attrval)
                 if attrval == '802.3ad':

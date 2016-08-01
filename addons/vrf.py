@@ -34,9 +34,11 @@ class vrf(moduleBase):
                                    'creating a vrf device. ' +
                                    'Table id is either \'auto\' or '+
                                    '\'valid routing table id\'',
+                          'validvals': ['<auto>', '<number>'],
                           'example': ['vrf-table auto', 'vrf-table 1001']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
+                          'validvals': ['<text>'],
                           'example': ['vrf blue']}}}
 
     iproute2_vrf_filename = '/etc/iproute2/rt_tables.d/ifupdown2_vrf_map.conf'

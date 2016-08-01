@@ -25,7 +25,7 @@ class bridgevlan(moduleBase):
                         'bridge-igmp-querier-src' :
                             { 'help' : 'bridge igmp querier src. Must be ' +
                                    'specified under the vlan interface',
-                              'validvals' : [IPv4Address, ],
+                              'validvals' : ['<ipv4>', ],
                               'example' : ['bridge-igmp-querier-src 172.16.101.1']}}}
 
     def __init__(self, *args, **kargs):

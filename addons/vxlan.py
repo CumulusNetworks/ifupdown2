@@ -22,15 +22,15 @@ class vxlan(moduleBase):
                              'example': ['vxlan-id 100']},
                         'vxlan-local-tunnelip' :
                             {'help' : 'vxlan local tunnel ip',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-local-tunnelip 172.16.20.103']},
                         'vxlan-svcnodeip' :
                             {'help' : 'vxlan id',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-svcnodeip 172.16.22.125']},
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',

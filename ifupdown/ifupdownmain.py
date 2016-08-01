@@ -27,6 +27,8 @@ from graph import *
 from exceptions import *
 from sets import Set
 
+from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
+
 """
 .. module:: ifupdownmain
 :synopsis: main module for ifupdown package
@@ -269,6 +271,30 @@ class ifupdownMain(ifupdownBase):
         # initialize global config object with config passed by the user
         # This makes config available to addon modules
         ifupdownConfig.config = self.config
+
+        self.validate_keywords = {
+            '<mac>': self._keyword_mac,
+            '<text>': self._keyword_text,
+            '<ipv4>': self._keyword_ipv4,
+            '<ipv6>': self._keyword_ipv6,
+            '<auto>': self._keyword_auto,
+            '<ipaddr>': self._keyword_ipaddr,
+            '<number>': self._keyword_number,
+            '<interface>': self._keyword_interface,
+            '<ipv4-vrf-text>': self._keyword_ipv4_vrf_text,
+            '<number-ipv4-list>': self._keyword_number_ipv4_list,
+            '<interface-list>': self._keyword_interface_list,
+            '<ipv4/prefixlen>': self._keyword_ipv4_prefixlen,
+            '<ipv6/prefixlen>': self._keyword_ipv6_prefixlen,
+            '<ipaddr/prefixlen>': self._keyword_ipaddr_prefixlen,
+            '<number-range-list>': self._keyword_number_range_list,
+            '<interface-range-list>': self._keyword_interface_range_list,
+            '<mac-ipaddr/prefixlen-list>': self._keyword_mac_ipaddr_prefixlen_list,
+            '<number-interface-list>': self._keyword_number_interface_list,
+            '<interface-yes-no-list>': self._keyword_interface_yes_no_list,
+            '<interface-yes-no-0-1-list>': self._keyword_interface_yes_no_0_1_list,
+            '<interface-yes-no-auto-list>': self._keyword_interface_yes_no_auto_list,
+        }
 
     def link_master_slave_ignore_error(self, errorstr):
         # If link master slave flag is set, 
@@ -722,15 +748,357 @@ class ifupdownMain(ifupdownBase):
         ifaceobj.flags |= ifaceobj.OLDEST_SIBLING
         self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
+    def _keyword_text(self, value, validrange=None):
+        return isinstance(value, str) and len(value) > 0
+
+    def _keyword_mac(self, value, validrange=None):
+        if value.strip().startswith('ether'):
+            value = value.strip()[6:]
+        return re.match('[0-9a-f]{1,2}([-:])[0-9a-f]{1,2}(\\1[0-9a-f]{1,2}){4}$',
+                        value.lower())
+
+    def _keyword_check_list(self, _list, obj, limit=None):
+        try:
+            if limit and limit > 0:
+                for i in xrange(0, limit):
+                    obj(_list[i])
+                return len(_list) == limit
+            else:
+                for elem in _list:
+                    obj(elem)
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: check list: %s' % str(e))
+            return False
+
+    def _keyword_ipv4(self, value, validrange=None):
+        return self._keyword_check_list(value.split(), IPv4Address, limit=1)
+
+    def _keyword_ipv4_prefixlen(self, value, validrange=None):
+        return self._keyword_check_list(value.split(), IPv4Network, limit=1)
+
+    def _keyword_ipv6(self, value, validrange=None):
+        return self._keyword_check_list(value.split(), IPv6Address, limit=1)
+
+    def _keyword_ipv6_prefixlen(self, value, validrange=None):
+        return self._keyword_check_list(value.split(), IPv6Network, limit=1)
+
+    def _keyword_ipaddr(self, value, validrange=None):
+        return self._keyword_check_list(value.split(), IPAddress, limit=1)
+
+    def _keyword_ipaddr_prefixlen(self, value, validrange=None):
+        return self._keyword_check_list(value.split(), IPNetwork, limit=1)
+
+    def _keyword_mac_ipaddr_prefixlen_list(self, value, validrange=None):
+        """
+            <mac> <ipaddr> [<ipaddr> ...]
+            ex: address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24
+        """
+        try:
+            res = value.split()
+            if len(res) < 2:
+                return False
+            if not self._keyword_mac(res[0]):
+                return False
+            for ip in res[1:]:
+                if not self._keyword_ipaddr_prefixlen(ip):
+                    return False
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: mac ipaddr prefixlen: %s' % str(e))
+            return False
+
+    def _keyword_number_ipv4_list(self, value, validrange=None):
+        """
+            <number>=<ipv4> [<number>=<ipv4> ...]
+            ex: bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1
+        """
+        try:
+            elements = value.split(' ')
+            if not elements:
+                return False
+            for elem in elements:
+                v = elem.split('=')
+                int(v[0])
+                IPv4Address(v[1])
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: number ipv4: %s' % str(e))
+            return False
+
+    def _keyword_interface(self, ifacename, validrange=None):
+        return self.get_ifaceobjs(ifacename)
+
+    def _keyword_ipv4_vrf_text(self, value, validrange=None):
+        """
+            <ipv4> "vrf" <text>
+            ex: clagd-backup-ip 10.10.10.42 vrf blue
+        """
+        values = value.split()
+        size = len(values)
+
+        if size > 3 or size < 1:
+            return False
+        try:
+            IPv4Address(values[0])
+            if size > 1:
+                if values[1] != 'vrf':
+                    return False
+                if size > 2:
+                    if not self._keyword_text(values[2]):
+                        return False
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: ipv4 vrf text: %s' % str(e))
+            return False
+
+    def _keyword_interface_list_with_value(self, value, validvals):
+        values = value.split()
+        try:
+            if len(values) == 1:
+                if values[0] in validvals:
+                    return True
+            for v in values:
+                iface_value = v.split('=')
+                size = len(iface_value)
+                if size != 2:
+                    if iface_value[0] == 'glob' or iface_value[0] == 'regex':
+                        continue
+                    return False
+                if not iface_value[1] in validvals:
+                    return False
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: interface list with value: %s' % str(e))
+            return False
+
+    def _keyword_interface_yes_no_list(self, value, validrange=None):
+        """
+            <yes|no> | ( <interface>=<yes|no> [<interface>=<yes|no> ...] )
+            ex: mstpctl-portrestrrole swp1=yes swp2=no
+        """
+        return self._keyword_interface_list_with_value(value, ['yes', 'no'])
+
+    def _keyword_interface_yes_no_auto_list(self, value, validrange=None):
+        """
+            <yes|no|auto> |
+                ( <interface>=<yes|no|auto> [<interface>=<yes|no|auto> ...] )
+            ex: mstpctl-portp2p swp1=yes swp2=no swp3=auto
+        """
+        return self._keyword_interface_list_with_value(value,
+                                                        ['yes', 'no', 'auto'])
+
+    def _keyword_interface_yes_no_0_1_list(self, value, validrange=None):
+        """
+            <yes|no|0|1> |
+                ( <interface>=<yes|no|0|1> [<interface>=<yes|no|0|1> ...] )
+            ex: bridge-portmcrouter swp1=yes swp2=yes swp3=1
+        """
+        return self._keyword_interface_list_with_value(value,
+                                                       ['yes', 'no', '1', '0'])
+
+    def _keyword_interface_range_list(self, value, validrange):
+        """
+            <number> | ( <interface>=<number> [ <interface>=number> ...] )
+            ex: mstpctl-portpathcost swp1=0 swp2=1
+        """
+        values = value.split()
+        try:
+            if len(values) == 1:
+                try:
+                    n = int(values[0])
+                    if n < int(validrange[0]) or n > int(
+                        validrange[1]):
+                        raise invalidValueError('value of out range "%s":'
+                                                ' valid attribute range: %s'
+                                                % (values[0],
+                                                   '-'.join(validrange)))
+                    return True
+                except invalidValueError as e:
+                    raise e
+                except Exception as e:
+                    self.logger.debug('keyword: interface range list: %s'
+                                      % str(e))
+                    return False
+            for v in values:
+                iface_value = v.split('=')
+                size = len(iface_value)
+                if size != 2:
+                    return False
+                number = int(iface_value[1])
+                if number < int(validrange[0]) or number > int(
+                        validrange[1]):
+                    raise invalidValueError(
+                        'value of out range "%s" for iface "%s":'
+                        ' valid attribute range: %s'
+                        % (iface_value[1],
+                           iface_value[0],
+                           '-'.join(validrange)))
+            return True
+        except invalidValueError as e:
+            raise e
+        except Exception as e:
+            self.logger.debug('keyword: interface range list: %s' % str(e))
+            return False
+
+    def _keyword_interface_list(self, value, validrange=None):
+        """
+            [glob|regex] <interface> [ [glob|regex] <interface> ...]
+            ex: bridge-ports swp1 swp2 glob swp3-5.100 regex (swp[6|7|8].100)
+        """
+        interface_list = value.split()
+        size = len(interface_list)
+        i = 0
+        while i < size:
+            if interface_list[i] == 'glob' or interface_list[i] == 'regex':
+                i += 1
+            else:
+                if not self._keyword_interface(interface_list[i]):
+                    return False
+            i += 1
+        return True
+
+    def _keyword_number_range_list(self, value, validrange=None):
+        """
+            <number> [<number>-<number>]
+            ex: bridge-vids 42 100-200
+        """
+        number_list = value.split()
+        try:
+            i = 0
+            while i < len(number_list):
+                if '-' in number_list[i]:
+                    range = number_list[i].split('-')
+                    a = int(range[0])
+                    b = int(range[1])
+                    if a > b:
+                        return False
+                else:
+                    int(number_list[i])
+                i += 1
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: number range list: %s' % str(e))
+            return False
+
+    def _keyword_number_interface_list(self, value, validrange=None):
+        """
+            <number> <interface> [<interface>... [<number> <interface> ... ]]
+            bridge-waitport 42 swp1 swp2 swp3 9 swp4
+        """
+        interface_list = value.split()
+        if not interface_list:
+            return False
+        try:
+            int(interface_list[0])
+            prev = True
+            for elem in interface_list[1:]:
+                try:
+                    int(elem)
+                    if prev:
+                        return False
+                    prev = True
+                except:
+                    prev = False
+            return not prev
+        except Exception as e:
+            self.logger.debug('keyword: number interface list: %s' % str(e))
+            return False
+
+    def _keyword_auto(self, value, validrange=None):
+        return value == 'auto'
+
+    def _keyword_number(self, value, validrange=None):
+        try:
+            int(value)
+            return True
+        except Exception as e:
+            self.logger.debug('keyword: number: %s' % str(e))
+            return False
+
+    def _is_keyword(self, value):
+        if isinstance(value, tuple):
+            return True
+        keyword_found = value in self.validate_keywords
+        if value.startswith('<') and value.endswith('>') and not keyword_found:
+            raise Exception('%s: invalid keyword, please make sure to use'
+                            ' a valid keyword see `ifquery -s`' % value)
+        return keyword_found
+
+    def _check_validvals_value(self, attrname, value, validvals, validrange):
+        if validvals and value not in validvals:
+            is_valid = False
+            for keyword in validvals:
+                if self._is_keyword(keyword):
+                    if validrange:
+                        if self.validate_keywords[keyword](value, validrange):
+                            return {'result': True}
+                    else:
+                        if self.validate_keywords[keyword](value):
+                            return {'result': True}
+            if not is_valid:
+                return {
+                    'result': False,
+                    'message': 'invalid value "%s": valid attribute values: %s'
+                               % (value, validvals)
+                }
+        elif validrange:
+            if len(validrange) != 2:
+                raise Exception('%s: invalid range in addon configuration'
+                                % '-'.join(validrange))
+            _value = int(value)
+            if _value < int(validrange[0]) or _value > int(validrange[1]):
+                return {
+                    'result': False,
+                    'message': 'value of out range "%s": '
+                               'valid attribute range: %s'
+                               % (value, '-'.join(validrange))
+                }
+        return {'result': True}
+
+    def _check_validvals(self, ifacename, module_name, attrs):
+        ifaceobj = self.get_ifaceobjs(ifacename)
+        if not ifaceobj:
+            return
+        success = True
+        for attrname, attrvalue in ifaceobj[0].config.items():
+            try:
+                attrname_dict = attrs.get(attrname, {})
+                validvals = attrname_dict.get('validvals', [])
+                validrange = attrname_dict.get('validrange', [])
+                for value in attrvalue:
+                    res = self._check_validvals_value(attrname,
+                                                      value,
+                                                      validvals,
+                                                      validrange)
+                    if not res['result']:
+                        self.logger.warn('%s: %s: %s' %
+                                         (ifacename, attrname, res['message']))
+                        success = False
+            except Exception as e:
+                self.logger.warn('addon \'%s\': %s: %s' % (module_name,
+                                                           attrname,
+                                                           str(e)))
+                success = False
+        return success
+
     def _module_syntax_check(self, filtered_ifacenames):
+        result = True
         for ifacename in filtered_ifacenames:
             for module in self.modules.values():
                 try:
-                    if hasattr(module, 'syntax_check') \
-                            and callable(module.syntax_check):
-                        module.syntax_check(self.get_ifaceobjs(ifacename))
+                    if hasattr(module, '_modinfo'):
+                        if not self._check_validvals(ifacename,
+                                                     module.__class__.__name__,
+                                                     module._modinfo.get('attrs', {})):
+                            result = False
+                    if hasattr(module, 'syntax_check') and callable(module.syntax_check):
+                        if not module.syntax_check(self.get_ifaceobjs(ifacename)):
+                            result = False
                 except Exception, e:
-                    pass #self.logger.warn('%s: %s' % (ifacename, str(e)))
+                    self.logger.warn('%s: %s' % (ifacename, str(e)))
+                    result = False
+        return result
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
         for m, mdict in self.module_attrs.items():
@@ -1160,7 +1528,8 @@ class ifupdownMain(ifupdownBase):
         # return here because we want to make sure most
         # errors above are caught and reported.
         if syntaxcheck:
-            self._module_syntax_check(filtered_ifacenames)
+            if not self._module_syntax_check(filtered_ifacenames):
+                raise Exception()
             if not iface_read_ret:
                 raise Exception()
             elif self._any_iface_errors(filtered_ifacenames):
@@ -1366,7 +1735,8 @@ class ifupdownMain(ifupdownBase):
         # return here because we want to make sure most
         # errors above are caught and reported.
         if syntaxcheck:
-            self._module_syntax_check(interfaces_to_up)
+            if not self._module_syntax_check(interfaces_to_up):
+                raise Exception()
             if not iface_read_ret:
                 raise Exception()
             elif self._any_iface_errors(interfaces_to_up):
@@ -1449,7 +1819,8 @@ class ifupdownMain(ifupdownBase):
         # return here because we want to make sure most
         # errors above are caught and reported.
         if syntaxcheck:
-            self._module_syntax_check(new_filtered_ifacenames)
+            if not self._module_syntax_check(new_filtered_ifacenames):
+                raise Exception()
             if not iface_read_ret:
                 raise Exception()
             elif self._any_iface_errors(new_filtered_ifacenames):

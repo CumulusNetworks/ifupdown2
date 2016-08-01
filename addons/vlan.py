@@ -25,7 +25,7 @@ class vlan(moduleBase):
                 'attrs' : {
                         'vlan-raw-device' :
                             {'help' : 'vlan raw device',
-                             'validvals' : ['<interface>' ,]},
+                             'validvals': ['<interface>']},
                         'vlan-id' :
                             {'help' : 'vlan id',
                              'validrange' : ['0', '4096']}}}
