@@ -1,3 +1,18 @@
+ifupdown2 (1.1-cl3u4) RELEASED; urgency=medium
+
+  * Performance improvements
+  * New. Enabled: sbin: start-networking: support hotplug class from init script
+  * New. Enabled: support for classical numerical bond modes
+  * New. Enabled: extend ifquery support for mstpctl addons
+  * New. Enabled: each addon may perform semantic and syntax checks by implementing a custom method
+  * Closes: CM-11745. Support for address-virtual lines under a vrf slave
+  * Closes: CM-11718. Defaults for link attributes were not applied
+  * Closes: CM-11511. Disable IPv6 duplicate address detection on VRR interfaces
+  * Closes: CM-11485. Fix ifquery to extract vlan-id from iface if not preset
+  * Closes: CM-8623. Fix for ifquery -c bridge pvid error on a valid config
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 29 Jul 2016 08:55:50 -0700
+
 ifupdown2 (1.1-cl3u3) RELEASED; urgency=medium
 
   * Closes: CM-11214. Interface configuration parsing error when keyword vlan is the interface name.
