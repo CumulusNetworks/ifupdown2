@@ -34,7 +34,7 @@ class vrf(moduleBase):
                                    'creating a vrf device. ' +
                                    'Table id is either \'auto\' or '+
                                    '\'valid routing table id\'',
-                          'validvals': ['<auto>', '<number>'],
+                          'validvals': ['auto', '<number>'],
                           'example': ['vrf-table auto', 'vrf-table 1001']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
