@@ -977,9 +977,9 @@ class bridge(moduleBase):
             self.log_error(str(e), bportifaceobj)
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
-                                        ifaceobj_getfunc=None):
+                                        ifaceobj_getfunc=None,
+                                        bridge_vlan_aware=False):
         err = False
-        bridge_vlan_aware = ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes'
 
         if (ifaceobj.get_attr_value_first('bridge-port-vids') and
                 ifaceobj.get_attr_value_first('bridge-port-pvids')):
@@ -1105,14 +1105,21 @@ class bridge(moduleBase):
             raise Exception(str(e))
 
         try:
+            bridge_vlan_aware = False
             if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+                bridge_vlan_aware = True
                 if (bridge_just_created or
                         not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
                     self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1',
                                         False, "bridge")
                     if not bridge_just_created:
                         ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
-
+            elif (not bridge_just_created and
+                  ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'no'
+                  and self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
+                  self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '0',
+                                      False, "bridge")
+                  bridge_vlan_aware = False
         except Exception, e:
             raise Exception(str(e))
 
@@ -1137,12 +1144,12 @@ class bridge(moduleBase):
             # disable ipv6 for ports that were added to bridge
             self.handle_ipv6(running_ports, '1', ifaceobj=ifaceobj)
             self._apply_bridge_port_settings_all(ifaceobj,
-                            ifaceobj_getfunc=ifaceobj_getfunc)
+                            ifaceobj_getfunc=ifaceobj_getfunc,
+                            bridge_vlan_aware=bridge_vlan_aware)
         except Exception, e:
             err = True
             errstr = str(e)
             pass
-            #self._flush_running_vidinfo()
         finally:
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
