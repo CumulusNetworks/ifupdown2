@@ -1637,7 +1637,12 @@ class bridge(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status(attr_name,
                                                      running_pvid, 1)
-        else:
+        elif (not (ifaceobj.flags & iface.HAS_SIBLINGS) or
+              ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+               (ifaceobj.flags & iface.OLDEST_SIBLING))):
+            # if the interface has multiple iface sections,
+            # we check the below only for the oldest sibling
+            # or the last iface section
             pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
             if pvid:
                 if not running_pvid or running_pvid != pvid:
@@ -1659,7 +1664,13 @@ class bridge(moduleBase):
            else:
                ifaceobjcurr.update_config_with_status(attr_name,
                                 ' '.join(running_vids), 0)
-        else:
+        elif (not (ifaceobj.flags & iface.HAS_SIBLINGS) or
+              ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+               (ifaceobj.flags & iface.OLDEST_SIBLING))):
+           # if the interface has multiple iface sections,
+           # we check the below only for the oldest sibling
+           # or the last iface section
+
            # check if it matches the bridge vids
            bridge_vids = self._get_bridge_vids(bridgename, ifaceobj_getfunc)
            running_vids = running_vidinfo.get(ifaceobj.name,
