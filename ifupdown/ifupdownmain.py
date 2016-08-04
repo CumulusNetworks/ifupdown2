@@ -2049,7 +2049,9 @@ class ifupdownMain(ifupdownBase):
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
                 if ((not running and self.is_ifaceobj_noconfig(ifaceobj)) or
-                    (running and not ifaceobj.is_config_present())):
+                    (running and not ifaceobj.is_config_present() and
+                     not self.is_iface_builtin_byname(i) and
+                     not ifaceobj.upperifaces)):
                     continue
                 ifaceobjs.append(ifaceobj)
                 if (ifupdownflags.flags.WITH_DEPENDS and
