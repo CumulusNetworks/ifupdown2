@@ -188,12 +188,12 @@ class vlan(moduleBase):
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             return
-        if not self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name):
+        (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
+        if not vlanid:
             return
         # If vlan name is not in the dot format, get the
         # vlan dev and vlan id
         if not '.' in ifaceobjrunning.name:
-            (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
             ifaceobjrunning.update_config_dict({(k, v) for k, v in
                                                 {'vlan-raw-device' : vlanrawdev,
                                                  'vlan-id' : vlanid}.items()
