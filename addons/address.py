@@ -35,7 +35,6 @@ class address(moduleBase):
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
-                             'validvals' : ['<ipv4>', ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
