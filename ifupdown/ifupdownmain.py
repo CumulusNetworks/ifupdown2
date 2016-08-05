@@ -43,7 +43,6 @@ _success_sym = '(%s)' %_tickmark
 _error_sym = '(%s)' %_crossmark
 
 class ifupdownMainFlags():
-    IFACE_CLASS = False
     COMPAT_EXEC_SCRIPTS = False
     STATEMANAGER_ENABLE = True
     STATEMANAGER_UPDATE = True
@@ -1303,7 +1302,7 @@ class ifupdownMain(ifupdownBase):
                                 else ifaceSchedulerFlags.POSTORDER,
                         followdependents=followdependents,
                         skipupperifaces=skipupperifaces,
-                        sort=True if (sort or self.flags.IFACE_CLASS) else False)
+                        sort=True if (sort or ifupdownflags.flags.CLASS) else False)
         return ifaceScheduler.get_sched_status()
 
     def _render_ifacename(self, ifacename):
@@ -1489,7 +1488,7 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.flags.IFACE_CLASS = True
+            ifupdownflags.flags.CLASS = True
         if not self.flags.ADDONS_ENABLE:
             self.flags.STATEMANAGER_UPDATE = False
         if auto:
@@ -1555,7 +1554,7 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.flags.IFACE_CLASS = True
+            ifupdownflags.flags.CLASS = True
         if not self.flags.ADDONS_ENABLE:
             self.flags.STATEMANAGER_UPDATE = False
         if auto:
@@ -1625,7 +1624,7 @@ class ifupdownMain(ifupdownBase):
         self._ifaceobj_squash_internal = False
 
         if allow_classes:
-            self.flags.IFACE_CLASS = True
+            ifupdownflags.flags.CLASS = True
         if self.flags.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
         self.flags.STATEMANAGER_UPDATE = False

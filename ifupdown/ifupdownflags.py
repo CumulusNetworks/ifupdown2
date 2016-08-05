@@ -10,6 +10,7 @@ class ifupdownFlags():
 
 	def __init__(self):
                 self.ALL = False
+                self.CLASS = False
                 self.FORCE = False
                 self.DRYRUN = False
                 self.NOWAIT = False
