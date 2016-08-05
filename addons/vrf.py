@@ -10,6 +10,7 @@ import errno
 import fcntl
 import atexit
 import re
+from sets import Set
 from ifupdown.iface import *
 from ifupdown.utils import utils
 import ifupdown.policymanager as policymanager
@@ -306,7 +307,7 @@ class vrf(moduleBase):
         return True
 
     def _up_vrf_slave_without_master(self, ifacename, vrfname, ifaceobj,
-                                      ifaceobj_getfunc):
+                                     vrf_master_objs):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
@@ -318,10 +319,6 @@ class vrf(moduleBase):
         if os.path.exists('/sys/class/net/%s' %vrf_master):
             self.logger.info('%s: vrf master %s exists returning'
                              %(ifacename, vrf_master))
-            return
-        vrf_master_objs = ifaceobj_getfunc(vrf_master)
-        if not vrf_master_objs:
-            self.logger.warn('%s: vrf master ifaceobj not found' %ifacename)
             return
         self.logger.info('%s: bringing up vrf master %s'
                          %(ifacename, vrf_master))
@@ -374,14 +371,26 @@ class vrf(moduleBase):
                 if not upper or upper != vrfname:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
-            elif ifupdownflags.flags.ALL and ifaceobj:
-                self._up_vrf_slave_without_master(ifacename, vrfname, ifaceobj,
-                                                  ifaceobj_getfunc)
+            elif ifaceobj:
+                vrf_master_objs = ifaceobj_getfunc(vrfname)
+                if not vrf_master_objs:
+                    self.logger.warn('%s: vrf master ifaceobj not found'
+                                     %ifacename)
+                    return
+                if (ifupdownflags.flags.ALL or
+                    (ifupdownflags.flags.CLASS and
+                     ifaceobj.classes and vrf_master_objs[0].classes and
+                     Set(ifaceobj.classes).intersection(vrf_master_objs[0].classes))):
+                    self._up_vrf_slave_without_master(ifacename, vrfname,
+                                                      ifaceobj,
+                                                      vrf_master_objs)
+                else:
+                    master_exists = False
             else:
                 master_exists = False
             if master_exists:
                 netlink.link_set_updown(ifacename, "up")
-            elif ifupdownflags.flags.ALL:
+            else:
                 self.log_error('vrf %s not around, skipping vrf config'
                                %(vrfname), ifaceobj)
         except Exception, e:
