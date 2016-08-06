@@ -1286,7 +1286,7 @@ class bridge(moduleBase):
         ports = None
         skip_kernel_stp_attrs = 0
 
-        if self.sysctl_get('net.bridge.bridge-stp-user-space') == '1':
+        if self.systcl_get_net_bridge_stp_user_space() == '1':
             userspace_stp = 1
 
         tmpbridgeattrdict = self.brctlcmd.get_bridge_attrs(ifaceobjrunning.name)
@@ -1745,7 +1745,7 @@ class bridge(moduleBase):
                                                ifaceobjrunning, None))
 
     def _query_running_bridge_port_attrs(self, ifaceobjrunning, bridgename):
-        if self.sysctl_get('net.bridge.bridge-stp-user-space') == '1':
+        if self.systcl_get_net_bridge_stp_user_space() == '1':
             return
 
         v = self.brctlcmd.get_pathcost(bridgename, ifaceobjrunning.name)

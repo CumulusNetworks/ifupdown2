@@ -37,6 +37,8 @@ class moduleBase(object):
                             re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
                             re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
 
+        self._bridge_stp_user_space = None
+
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
@@ -250,6 +252,12 @@ class moduleBase(object):
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
         return utils.exec_command('sysctl %s' % variable).split('=')[1].strip()
+
+    def systcl_get_net_bridge_stp_user_space(self):
+        if self._bridge_stp_user_space:
+            return self._bridge_stp_user_space
+        self._bridge_stp_user_space = self.sysctl_get('net.bridge.bridge-stp-user-space')
+        return self._bridge_stp_user_space
 
     def set_iface_attr(self, ifaceobj, attr_name, attr_valsetfunc,
                        prehook=None, prehookargs=None):
