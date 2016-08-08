@@ -119,9 +119,9 @@ class iproute2(utilsBase):
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
                         # get vxlan peer nodes
-                        peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
-                        if peers:
-                            vattrs['remote'] = peers
+                        #peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
+                        #if peers:
+                        #    vattrs['remote'] = peers
                         linkattrs['linkinfo'] = vattrs
                         break
                     elif citems[i] == 'vrf' and citems[i + 1] == 'table':
@@ -739,6 +739,17 @@ class iproute2(utilsBase):
             elif 'Egress Untagged' not in l:
                 brvlaninfo[brportname]['vlan'].append(l)
         return brvlaninfo
+
+    def bridge_port_vids_get_all_json(self):
+        brvlaninfo = {}
+        bridgeout = utils.exec_command('/sbin/bridge -c -json vlan show')
+        if not bridgeout: return brvlaninfo
+        try:
+            vlan_json_dict = json.loads(bridgeout, encoding="utf-8")
+        except Exception, e:
+            self.logger.info('json loads failed with (%s)' %str(e))
+            return {}
+        return vlan_json_dict
 
     def bridge_port_pvid_add(self, bridgeportname, pvid):
         if self.ipbatch and not self.ipbatch_pause:
