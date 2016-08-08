@@ -314,7 +314,7 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        elif (not ifaceobj.link_kind and
+        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
               not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
               self.default_mtu):
             # logical devices like bridges and vlan devices rely on mtu
