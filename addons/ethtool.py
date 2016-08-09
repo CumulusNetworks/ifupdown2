@@ -243,6 +243,10 @@ class ethtool(moduleBase,utilsBase):
             # to see the defaults, we should implement another flag (--with-defaults)
             if default_val == running_attr:
                 continue
+
+            # do not proceed if speed = 0
+            if attr == 'speed' and running_attr and running_attr == '0':
+                return
             if running_attr:
                 ifaceobj.update_config('link-%s'%attr, running_attr)
 
