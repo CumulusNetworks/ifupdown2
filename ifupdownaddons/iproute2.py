@@ -61,6 +61,7 @@ class iproute2(utilsBase):
 
         warn = True
         linkout = {}
+        vxrd_running = False
         if iproute2._cache_fill_done and not refresh: return
         try:
             # if ifacename already present, return
@@ -72,6 +73,10 @@ class iproute2(utilsBase):
         cmdout = self.link_show(ifacename=ifacename)
         if not cmdout:
             return
+        # read vxrd.pid and cache the running state before going through
+        # every interface in the system
+        if systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
+            vxrd_running = True
         for c in cmdout.splitlines():
             citems = c.split()
             ifnamenlink = citems[1].split('@')
@@ -118,10 +123,11 @@ class iproute2(utilsBase):
                                 vattrs['ageing'] = citems[j + 1]
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
-                        # get vxlan peer nodes
-                        #peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
-                        #if peers:
-                        #    vattrs['remote'] = peers
+                        # get vxlan peer nodes if provisioned by user and not by vxrd
+                        if not vxrd_running:
+                            peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
+                            if peers:
+                                vattrs['remote'] = peers
                         linkattrs['linkinfo'] = vattrs
                         break
                     elif citems[i] == 'vrf' and citems[i + 1] == 'table':
