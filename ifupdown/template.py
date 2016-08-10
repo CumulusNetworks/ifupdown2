@@ -38,9 +38,10 @@ class templateEngine():
                     self.tclassargs['lookup'] = lc(
                                 directories=template_lookuppath.split(':'))
                 except Exception, e:
-                    self.logger.warn('unable to set template lookup path' +
-                                ' %s (%s)' %(template_lookuppath, str(e)))
-                    pass
+                    self.logger.warn('unable to set template lookup path'
+                                     ' %s (%s): are you sure \'python-mako\''
+                                     'is installed?'
+                                     % (template_lookuppath, str(e)))
             self.render = self._render_mako
         else:
             self.logger.info('skip template processing.., ' +
