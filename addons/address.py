@@ -332,7 +332,11 @@ class address(moduleBase):
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
-        self.ipcmd.batch_commit()
+        try:
+            self.ipcmd.batch_commit()
+        except Exception as e:
+            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+            ifaceobj.set_status(ifaceStatus.ERROR)
 
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
