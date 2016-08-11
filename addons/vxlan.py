@@ -214,6 +214,9 @@ class vxlan(moduleBase):
         attrval = vxlanattrs.get('vxlanid')
         if attrval:
             ifaceobjrunning.update_config('vxlan-id', vxlanattrs.get('vxlanid'))
+        else:
+            # if there is no vxlan id, this is not a vxlan port
+            return
         attrval = vxlanattrs.get('local')
         if attrval:
             ifaceobjrunning.update_config('vxlan-local-tunnelip', attrval)
