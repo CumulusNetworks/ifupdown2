@@ -35,7 +35,6 @@ class address(moduleBase):
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
-                             'validvals' : ['<ipv4>', ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
@@ -315,7 +314,7 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        elif (not ifaceobj.link_kind and
+        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
               not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
               self.default_mtu):
             # logical devices like bridges and vlan devices rely on mtu
@@ -333,7 +332,11 @@ class address(moduleBase):
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
-        self.ipcmd.batch_commit()
+        try:
+            self.ipcmd.batch_commit()
+        except Exception as e:
+            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+            ifaceobj.set_status(ifaceStatus.ERROR)
 
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:

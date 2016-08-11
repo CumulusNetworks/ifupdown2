@@ -43,7 +43,6 @@ _success_sym = '(%s)' %_tickmark
 _error_sym = '(%s)' %_crossmark
 
 class ifupdownMainFlags():
-    IFACE_CLASS = False
     COMPAT_EXEC_SCRIPTS = False
     STATEMANAGER_ENABLE = True
     STATEMANAGER_UPDATE = True
@@ -277,8 +276,7 @@ class ifupdownMain(ifupdownBase):
             '<text>': self._keyword_text,
             '<ipv4>': self._keyword_ipv4,
             '<ipv6>': self._keyword_ipv6,
-            '<auto>': self._keyword_auto,
-            '<ipaddr>': self._keyword_ipaddr,
+            '<ip>': self._keyword_ip,
             '<number>': self._keyword_number,
             '<interface>': self._keyword_interface,
             '<ipv4-vrf-text>': self._keyword_ipv4_vrf_text,
@@ -286,10 +284,10 @@ class ifupdownMain(ifupdownBase):
             '<interface-list>': self._keyword_interface_list,
             '<ipv4/prefixlen>': self._keyword_ipv4_prefixlen,
             '<ipv6/prefixlen>': self._keyword_ipv6_prefixlen,
-            '<ipaddr/prefixlen>': self._keyword_ipaddr_prefixlen,
+            '<ip/prefixlen>': self._keyword_ip_prefixlen,
             '<number-range-list>': self._keyword_number_range_list,
             '<interface-range-list>': self._keyword_interface_range_list,
-            '<mac-ipaddr/prefixlen-list>': self._keyword_mac_ipaddr_prefixlen_list,
+            '<mac-ip/prefixlen-list>': self._keyword_mac_ip_prefixlen_list,
             '<number-interface-list>': self._keyword_number_interface_list,
             '<interface-yes-no-list>': self._keyword_interface_yes_no_list,
             '<interface-yes-no-0-1-list>': self._keyword_interface_yes_no_0_1_list,
@@ -783,15 +781,15 @@ class ifupdownMain(ifupdownBase):
     def _keyword_ipv6_prefixlen(self, value, validrange=None):
         return self._keyword_check_list(value.split(), IPv6Network, limit=1)
 
-    def _keyword_ipaddr(self, value, validrange=None):
+    def _keyword_ip(self, value, validrange=None):
         return self._keyword_check_list(value.split(), IPAddress, limit=1)
 
-    def _keyword_ipaddr_prefixlen(self, value, validrange=None):
+    def _keyword_ip_prefixlen(self, value, validrange=None):
         return self._keyword_check_list(value.split(), IPNetwork, limit=1)
 
-    def _keyword_mac_ipaddr_prefixlen_list(self, value, validrange=None):
+    def _keyword_mac_ip_prefixlen_list(self, value, validrange=None):
         """
-            <mac> <ipaddr> [<ipaddr> ...]
+            <mac> <ip> [<ip> ...]
             ex: address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24
         """
         try:
@@ -801,7 +799,7 @@ class ifupdownMain(ifupdownBase):
             if not self._keyword_mac(res[0]):
                 return False
             for ip in res[1:]:
-                if not self._keyword_ipaddr_prefixlen(ip):
+                if not self._keyword_ip_prefixlen(ip):
                     return False
             return True
         except Exception as e:
@@ -1004,9 +1002,6 @@ class ifupdownMain(ifupdownBase):
         except Exception as e:
             self.logger.debug('keyword: number interface list: %s' % str(e))
             return False
-
-    def _keyword_auto(self, value, validrange=None):
-        return value == 'auto'
 
     def _keyword_number(self, value, validrange=None):
         try:
@@ -1307,7 +1302,7 @@ class ifupdownMain(ifupdownBase):
                                 else ifaceSchedulerFlags.POSTORDER,
                         followdependents=followdependents,
                         skipupperifaces=skipupperifaces,
-                        sort=True if (sort or self.flags.IFACE_CLASS) else False)
+                        sort=True if (sort or ifupdownflags.flags.CLASS) else False)
         return ifaceScheduler.get_sched_status()
 
     def _render_ifacename(self, ifacename):
@@ -1493,7 +1488,7 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.flags.IFACE_CLASS = True
+            ifupdownflags.flags.CLASS = True
         if not self.flags.ADDONS_ENABLE:
             self.flags.STATEMANAGER_UPDATE = False
         if auto:
@@ -1559,7 +1554,7 @@ class ifupdownMain(ifupdownBase):
         self.set_type(type)
 
         if allow_classes:
-            self.flags.IFACE_CLASS = True
+            ifupdownflags.flags.CLASS = True
         if not self.flags.ADDONS_ENABLE:
             self.flags.STATEMANAGER_UPDATE = False
         if auto:
@@ -1629,7 +1624,7 @@ class ifupdownMain(ifupdownBase):
         self._ifaceobj_squash_internal = False
 
         if allow_classes:
-            self.flags.IFACE_CLASS = True
+            ifupdownflags.flags.CLASS = True
         if self.flags.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
         self.flags.STATEMANAGER_UPDATE = False
@@ -2053,7 +2048,9 @@ class ifupdownMain(ifupdownBase):
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
                 if ((not running and self.is_ifaceobj_noconfig(ifaceobj)) or
-                    (running and not ifaceobj.is_config_present())):
+                    (running and not ifaceobj.is_config_present() and
+                     not self.is_iface_builtin_byname(i) and
+                     not ifaceobj.upperifaces)):
                     continue
                 ifaceobjs.append(ifaceobj)
                 if (ifupdownflags.flags.WITH_DEPENDS and

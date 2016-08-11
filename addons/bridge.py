@@ -497,20 +497,14 @@ class bridge(moduleBase):
                 result.append(a)
         return result
 
-    def _diff_vids(self, vids1, vids2):
-        vids_to_add = None
-        vids_to_del = None
+    def _compress_into_ranges(self, vids_ints):
+        return ['%d' %start if start == end else '%d-%d' %(start, end)
+                       for start, end in self._ints_to_ranges(vids_ints)]
 
-        vids1_ints = self._ranges_to_ints(vids1)
-        vids2_ints = self._ranges_to_ints(vids2)
-        vids1_diff = Set(vids1_ints).difference(vids2_ints)
-        vids2_diff = Set(vids2_ints).difference(vids1_ints)
-        if vids1_diff:
-            vids_to_add = ['%d' %start if start == end else '%d-%d' %(start, end)
-                        for start, end in self._ints_to_ranges(vids1_diff)]
-        if vids2_diff:
-            vids_to_del = ['%d' %start if start == end else '%d-%d' %(start, end)
-                        for start, end in self._ints_to_ranges(vids2_diff)]
+    def _diff_vids(self, vids1_ints, vids2_ints):
+        vids_to_add = Set(vids1_ints).difference(vids2_ints)
+        vids_to_del = Set(vids2_ints).difference(vids1_ints)
+
         return (vids_to_del, vids_to_add)
 
     def _compare_vids(self, vids1, vids2, pvid=None):
@@ -520,7 +514,7 @@ class bridge(moduleBase):
         vids2_ints = self._ranges_to_ints(vids2)
         set_diff = Set(vids1_ints).symmetric_difference(vids2_ints)
         if pvid and int(pvid) in set_diff:
-            set_diff = set_diff.remove(int(pvid))
+            set_diff.remove(int(pvid))
         if set_diff:
             return False
         else:
@@ -554,7 +548,7 @@ class bridge(moduleBase):
 
         # CM-8161.  Removed check for PERFMODE.  Need the get in all cases
         # including reboot, so that we can configure the pvid correctly.
-        self._running_vidinfo = self.ipcmd.bridge_port_vids_get_all()
+        self._running_vidinfo = self.ipcmd.bridge_port_vids_get_all_json()
         self._running_vidinfo_valid = True
         return self._running_vidinfo
 
@@ -573,8 +567,6 @@ class bridge(moduleBase):
             return
 
         # Handle bridge vlan attrs
-        running_vidinfo = self._get_running_vidinfo()
-
         # Install pvids
         if bridge_port_pvids:
             portlist = self.parse_port_list(ifaceobj.name, bridge_port_pvids)
@@ -586,7 +578,8 @@ class bridge(moduleBase):
             for p in portlist:
                 try:
                     (port, pvid) = p.split('=')
-                    running_pvid = running_vidinfo.get(port, {}).get('pvid')
+                    pvid = int(pvid)
+                    running_pvid = self._get_running_pvid(port)
                     if running_pvid:
                         if running_pvid == pvid:
                             continue
@@ -608,41 +601,22 @@ class bridge(moduleBase):
                 try:
                     (port, val) = p.split('=')
                     vids = val.split(',')
-                    if running_vidinfo.get(port):
+                    vids_int =  self._ranges_to_ints(vids)
+                    running_vids = self._get_running_vids(port)
+                    if running_vids:
                         (vids_to_del, vids_to_add) = \
-                                self._diff_vids(vids,
-                                running_vidinfo.get(port).get('vlan'))
+                                self._diff_vids(vids_int, running_vids)
                         if vids_to_del:
-                            self.ipcmd.bridge_port_vids_del(port, vids_to_del)
+                            self.ipcmd.bridge_port_vids_del(port,
+                                    self._compress_into_ranges(vids_to_del))
                         if vids_to_add:
-                            self.ipcmd.bridge_port_vids_add(port, vids_to_add)
+                            self.ipcmd.bridge_port_vids_add(port,
+                                    self._compress_into_ranges(vids_to_add))
                     else:
-                        self.ipcmd.bridge_port_vids_add(port, vids)
+                        self.ipcmd.bridge_port_vids_add(port, vids_int)
                 except Exception, e:
                     self.log_warn('%s: failed to set vid `%s` (%s)'
                         %(ifaceobj.name, p, str(e)))
-
-        # install vids
-        # XXX: Commenting out this code for now because it was decided
-        # that this is not needed
-        #attrval = ifaceobj.get_attr_value_first('bridge-vids')
-        #if attrval:
-        #    vids = re.split(r'[\s\t]\s*', attrval)
-        #    if running_vidinfo.get(ifaceobj.name):
-        #        (vids_to_del, vids_to_add) = \
-        #                self._diff_vids(vids,
-        #                    running_vidinfo.get(ifaceobj.name).get('vlan'))
-        #        if vids_to_del:
-        #            self.ipcmd.bridge_vids_del(ifaceobj.name, vids_to_del)
-        #        if vids_to_add:
-        #            self.ipcmd.bridge_vids_add(ifaceobj.name, vids_to_add)
-        #    else:
-        #        self.ipcmd.bridge_vids_add(ifaceobj.name, vids)
-        #else:
-        #    running_vids = running_vidinfo.get(ifaceobj.name)
-        #    if running_vids:
-        #        self.ipcmd.bridge_vids_del(ifaceobj.name, running_vids)
-
 
     def _is_running_stp_state_on(self, bridgename):
         """ Returns True if running stp state is on, else False """
@@ -790,26 +764,6 @@ class bridge(moduleBase):
                    ret = False
         return ret
          
-    def _apply_bridge_vids(self, bportifaceobj, vids, running_vids, isbridge):
-        try:
-            if not self._check_vids(bportifaceobj, vids):
-               return
-            if running_vids:
-                (vids_to_del, vids_to_add) = \
-                    self._diff_vids(vids, running_vids)
-                if vids_to_del:
-                    self.ipcmd.bridge_vids_del(bportifaceobj.name,
-                                               vids_to_del, isbridge)
-                if vids_to_add:
-                    self.ipcmd.bridge_vids_add(bportifaceobj.name,
-                                               vids_to_add, isbridge)
-            else:
-                self.ipcmd.bridge_vids_add(bportifaceobj.name, vids, isbridge)
-        except Exception, e:
-                self.log_error('%s: failed to set vid `%s` (%s)'
-                               %(bportifaceobj.name, str(vids), str(e)),
-                                 bportifaceobj)
-
     def _apply_bridge_port_pvids(self, bportifaceobj, pvid, running_pvid):
         # Install pvids
         try:
@@ -824,8 +778,88 @@ class bridge(moduleBase):
             self.log_error('%s: failed to set pvid `%s` (%s)'
                            %(bportifaceobj.name, pvid, str(e)), bportifaceobj)
 
-    def _apply_bridge_vids_and_pvid(self, bportifaceobj, vids, running_vids,
-                                    pvid, running_pvid, isbridge):
+    def _get_running_pvid(self, ifacename):
+        pvid = 0
+
+        running_vidinfo = self._get_running_vidinfo()
+        for vinfo in running_vidinfo.get(ifacename, {}):
+            v = vinfo.get('vlan')
+            pvid = v if 'PVID' in vinfo.get('flags', []) else 0
+            if pvid:
+                return pvid
+        return pvid
+
+    def _get_running_vids(self, ifacename):
+        vids = []
+
+        running_vidinfo = self._get_running_vidinfo()
+        for vinfo in running_vidinfo.get(ifacename, {}):
+            v = vinfo.get('vlan')
+            ispvid = True if 'PVID' in vinfo.get('flags', []) else False
+            if ispvid:
+                pvid = v if 'PVID' in vinfo.get('flags', []) else 0
+                if pvid == 1:
+                    continue
+            vEnd = vinfo.get('vlanEnd')
+            if vEnd:
+               vids.extend(range(v, vEnd + 1))
+            else:
+               vids.append(v)
+        return vids
+
+    def _get_running_vids_n_pvid(self, ifacename):
+        vids = []
+        pvid = 0
+
+        running_vidinfo = self._get_running_vidinfo()
+        for vinfo in running_vidinfo.get(ifacename, {}):
+            v = vinfo.get('vlan')
+            ispvid = True if 'PVID' in vinfo.get('flags', []) else False
+            if ispvid:
+                pvid = v if 'PVID' in vinfo.get('flags', []) else 0
+            vEnd = vinfo.get('vlanEnd')
+            if vEnd:
+               vids.extend(range(v, vEnd + 1))
+            else:
+               vids.append(v)
+        return (vids, pvid)
+
+    def _get_running_vids_n_pvid_str(self, ifacename):
+        vids = []
+        pvid = None
+
+        (vids, pvid) = self._get_running_vids_n_pvid(ifacename)
+
+        if vids:
+            ret_vids = self._compress_into_ranges(vids)
+        else:
+            ret_vids = None
+
+        if pvid:
+            ret_pvid = '%s' %pvid
+        else:
+            ret_pvid = None
+        return (ret_vids, ret_pvid)
+
+    def _get_running_vids_n_pvid_str2(self, ifacename):
+        vids = []
+        pvid = None
+
+
+        running_vidinfo = self._get_running_vidinfo()
+        for vinfo in running_vidinfo.get(ifacename, {}):
+            v = vinfo.get('vlan')
+            if not pvid:
+                pvid = '%s' %v if 'PVID' in vinfo.get('flags', []) else None
+            vEnd = vinfo.get('vlanEnd')
+            if vEnd:
+               vids.append('%s-%s' %(v, vEnd))
+            else:
+               vids.append('%s' %v)
+        return (vids, pvid)
+
+    def _apply_bridge_vids_and_pvid(self, bportifaceobj, vids, pvid,
+                                    isbridge):
         """ This method is a combination of methods _apply_bridge_vids and
             _apply_bridge_port_pvids above. A combined function is
             found necessary to do the deletes first and the adds later
@@ -833,24 +867,37 @@ class bridge(moduleBase):
 
         """
 
+        vids_int =  self._ranges_to_ints(vids)
+        pvid_int = int(pvid) if pvid else 0
+
+        vids_to_del = []
+        vids_to_add = vids_int
+        pvid_to_del = None
+        pvid_to_add = pvid_int
+
         try:
             if not self._check_vids(bportifaceobj, vids):
                return
 
-            vids_to_del = []
-            vids_to_add = vids
-            pvid_to_del = None
-            pvid_to_add = pvid
+            (running_vids, running_pvid) = self._get_running_vids_n_pvid(
+                                                        bportifaceobj.name)
 
             if running_vids:
                 (vids_to_del, vids_to_add) = \
-                    self._diff_vids(vids, running_vids)
+                    self._diff_vids(vids_to_add, running_vids)
 
             if running_pvid:
-                if running_pvid != pvid and running_pvid != '0':
+                if running_pvid != pvid_int and running_pvid != 0:
                     pvid_to_del = running_pvid
+            else:
+                # There cannot be a no running pvid.
+                # It might just not be in our cache:
+                # this can happen if at the time we were
+                # creating the bridge vlan cache, the port
+                # was not part of the bridge
+                running_pvid = 1
 
-            if (pvid_to_del and (pvid_to_del in vids) and
+            if (pvid_to_del and (pvid_to_del in vids_int) and
                 (pvid_to_del not in vids_to_add)):
                 # kernel deletes dont take into account
                 # bridge vid flags and its possible that
@@ -865,7 +912,7 @@ class bridge(moduleBase):
                 #   - new change is going to move the state to
                 #       pvid 101
                 #       vid 100 102
-                vids_to_add.append(pvid_to_del)
+                vids_to_add.add(pvid_to_del)
         except Exception, e:
             self.log_error('%s: failed to process vids/pvids'
                            %bportifaceobj.name + ' vids = %s' %str(vids) +
@@ -873,8 +920,11 @@ class bridge(moduleBase):
                            bportifaceobj, raise_error=False)
         try:
             if vids_to_del:
+               if pvid_to_add in vids_to_del:
+                   vids_to_del.remove(pvid_to_add)
                self.ipcmd.bridge_vids_del(bportifaceobj.name,
-                                          vids_to_del, isbridge)
+                                          self._compress_into_ranges(
+                                          vids_to_del), isbridge)
         except Exception, e:
                 self.log_warn('%s: failed to del vid `%s` (%s)'
                         %(bportifaceobj.name, str(vids_to_del), str(e)))
@@ -890,15 +940,17 @@ class bridge(moduleBase):
         try:
             if vids_to_add:
                self.ipcmd.bridge_vids_add(bportifaceobj.name,
-                                           vids_to_add, isbridge)
+                                          self._compress_into_ranges(
+                                          vids_to_add), isbridge)
         except Exception, e:
                 self.log_error('%s: failed to set vid `%s` (%s)'
-                               %(bportifaceobj.name, str(vids_to_add), str(e)),
-                               bportifaceobj, raise_error=False)
+                               %(bportifaceobj.name, str(vids_to_add),
+                                 str(e)), bportifaceobj, raise_error=False)
 
         try:
-            if pvid_to_add:
-                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid_to_add)
+            if pvid_to_add and pvid_to_add != running_pvid:
+                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name,
+                                                pvid_to_add)
         except Exception, e:
                 self.log_error('%s: failed to set pvid `%s` (%s)'
                                %(bportifaceobj.name, pvid_to_add, str(e)),
@@ -907,7 +959,6 @@ class bridge(moduleBase):
     def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj,
                                                    bridge_vids=None,
                                                    bridge_pvid=None):
-        running_vidinfo = self._get_running_vidinfo()
         vids = None
         pvids = None
         vids_final = []
@@ -944,10 +995,7 @@ class bridge(moduleBase):
             pvid_final = None
 
         self._apply_bridge_vids_and_pvid(bportifaceobj, vids_final,
-                running_vidinfo.get(bportifaceobj.name, {}).get('vlan'),
-                pvid_final,
-                running_vidinfo.get(bportifaceobj.name, {}).get('pvid'),
-                False)
+                                         pvid_final, False)
 
     def _apply_bridge_port_settings(self, bportifaceobj, bridgename=None,
                                     bridgeifaceobj=None):
@@ -977,9 +1025,9 @@ class bridge(moduleBase):
             self.log_error(str(e), bportifaceobj)
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
-                                        ifaceobj_getfunc=None):
+                                        ifaceobj_getfunc=None,
+                                        bridge_vlan_aware=False):
         err = False
-        bridge_vlan_aware = ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes'
 
         if (ifaceobj.get_attr_value_first('bridge-port-vids') and
                 ifaceobj.get_attr_value_first('bridge-port-pvids')):
@@ -1105,14 +1153,21 @@ class bridge(moduleBase):
             raise Exception(str(e))
 
         try:
+            bridge_vlan_aware = False
             if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+                bridge_vlan_aware = True
                 if (bridge_just_created or
                         not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
                     self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1',
                                         False, "bridge")
                     if not bridge_just_created:
                         ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
-
+            elif (not bridge_just_created and
+                  ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'no'
+                  and self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
+                  self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '0',
+                                      False, "bridge")
+                  bridge_vlan_aware = False
         except Exception, e:
             raise Exception(str(e))
 
@@ -1137,12 +1192,12 @@ class bridge(moduleBase):
             # disable ipv6 for ports that were added to bridge
             self.handle_ipv6(running_ports, '1', ifaceobj=ifaceobj)
             self._apply_bridge_port_settings_all(ifaceobj,
-                            ifaceobj_getfunc=ifaceobj_getfunc)
+                            ifaceobj_getfunc=ifaceobj_getfunc,
+                            bridge_vlan_aware=bridge_vlan_aware)
         except Exception, e:
             err = True
             errstr = str(e)
             pass
-            #self._flush_running_vidinfo()
         finally:
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
@@ -1173,12 +1228,11 @@ class bridge(moduleBase):
 
     def _query_running_vidinfo_compat(self, ifaceobjrunning, ports):
         running_attrs = {}
-        running_vidinfo = self._get_running_vidinfo()
         if ports:
             running_bridge_port_vids = ''
             for p in ports:
                 try:
-                    running_vids = running_vidinfo.get(p, {}).get('vlan')
+                    running_vids = self._get_runing_vids(p)
                     if running_vids:
                         running_bridge_port_vids += ' %s=%s' %(p,
                                                       ','.join(running_vids))
@@ -1186,41 +1240,36 @@ class bridge(moduleBase):
                     pass
             running_attrs['bridge-port-vids'] = running_bridge_port_vids
 
-            running_bridge_port_pvids = ''
+            running_bridge_port_pvid = ''
             for p in ports:
                 try:
-                    running_pvids = running_vidinfo.get(p, {}).get('pvid')
-                    if running_pvids:
-                        running_bridge_port_pvids += ' %s=%s' %(p,
-                                                        running_pvids)
+                    running_pvid = self._get_runing_pvid(p)
+                    if running_pvid:
+                        running_bridge_port_pvid += ' %s=%s' %(p,
+                                                        running_pvid)
                 except Exception:
                     pass
-            running_attrs['bridge-port-pvids'] = running_bridge_port_pvids
+            running_attrs['bridge-port-pvids'] = running_bridge_port_pvid
 
-        running_bridge_vids = running_vidinfo.get(ifaceobjrunning.name,
-                                                  {}).get('vlan')
+        running_bridge_vids = self._get_running_vids(ifaceobjrunning.name)
         if running_bridge_vids:
-            running_attrs['bridge-vids'] = ','.join(running_bridge_vids)
+            running_attrs['bridge-vids'] = ','.join(self._compress_into_ranges(running_bridge_vids))
         return running_attrs
 
     def _query_running_vidinfo(self, ifaceobjrunning, ifaceobj_getfunc,
                                bridgeports=None):
         running_attrs = {}
-        running_vidinfo = self._get_running_vidinfo()
-        if not running_vidinfo:
-           return running_attrs
 
         # 'bridge-vids' under the bridge is all about 'vids' on the port.
         # so query the ports
         running_bridgeport_vids = []
         running_bridgeport_pvids = []
         for bport in bridgeports:
-            vids = running_vidinfo.get(bport, {}).get('vlan')
+            (vids, pvid) = self._get_running_vids_n_pvid_str(bport)
             if vids:
                 running_bridgeport_vids.append(' '.join(vids))
-            pvids = running_vidinfo.get(bport, {}).get('pvid')
-            if pvids:
-                running_bridgeport_pvids.append(pvids)
+            if pvid:
+                running_bridgeport_pvids.append(pvid)
 
         bridge_vids = None
         if running_bridgeport_vids: 
@@ -1234,26 +1283,29 @@ class bridge(moduleBase):
            (vidval, freq) = Counter(running_bridgeport_pvids).most_common()[0]
            if freq == len(bridgeports) and vidval != '1':
               running_attrs['bridge-pvid'] = vidval
-              bridge_pvid = vidval.split()
+              bridge_pvid = vidval.split()[0]
 
         # Go through all bridge ports and find their vids
         for bport in bridgeports:
             bportifaceobj = ifaceobj_getfunc(bport)
             if not bportifaceobj:
                continue
-            bport_vids = None
-            bport_pvids = None
-            vids = running_vidinfo.get(bport, {}).get('vlan')
+            bport_vids = []
+            bport_pvid = None
+            (vids, pvid) = self._get_running_vids_n_pvid_str(bport)
             if vids and vids != bridge_vids:
                bport_vids = vids
-            pvids = running_vidinfo.get(bport, {}).get('pvid')
-            if pvids and pvids[0] != bridge_pvid:
-               bport_pvids = pvids
-            if not bport_vids and bport_pvids and bport_pvids[0] != '1':
-               bportifaceobj[0].replace_config('bridge-access', bport_pvids[0])
+            if pvid and pvid != bridge_pvid:
+               bport_pvid = pvid
+            if bport_vids and bport_pvid in bport_vids:
+                bport_vids.remove(bport_pvid)
+            if (not bport_vids and bport_pvid and bport_pvid != '1'):
+               bportifaceobj[0].replace_config('bridge-access', bport_pvid)
+               bportifaceobj[0].delete_config('bridge-pvid')
+               bportifaceobj[0].delete_config('bridge-vids')
             else:
-               if bport_pvids and bport_pvids[0] != '1':
-                  bportifaceobj[0].replace_config('bridge-pvid', bport_pvids[0])
+               if bport_pvid and bport_pvid != '1':
+                  bportifaceobj[0].replace_config('bridge-pvid', bport_pvid)
                else:
                   # delete any stale bridge-vids under ports
                   bportifaceobj[0].delete_config('bridge-pvid')
@@ -1368,7 +1420,6 @@ class bridge(moduleBase):
 
     def _query_check_bridge_vidinfo(self, ifaceobj, ifaceobjcurr):
         err = 0
-        running_vidinfo = self._get_running_vidinfo()
         attrval = ifaceobj.get_attr_value_first('bridge-port-vids')
         if attrval:
             running_bridge_port_vids = ''
@@ -1382,7 +1433,7 @@ class bridge(moduleBase):
                 try:
                     (port, val) = p.split('=')
                     vids = val.split(',')
-                    running_vids = running_vidinfo.get(port, {}).get('vlan')
+                    running_vids = self._get_running_vids(port)
                     if running_vids:
                         if not self._compare_vids(vids, running_vids):
                             err += 1
@@ -1414,7 +1465,7 @@ class bridge(moduleBase):
             for p in portlist:
                 try:
                     (port, pvid) = p.split('=')
-                    running_pvid = running_vidinfo.get(port, {}).get('pvid')
+                    running_pvid = self._get_running_vids(port)
                     if running_pvid and running_pvid == pvid:
                         running_bridge_port_pvids += ' %s' %p
                     else:
@@ -1431,24 +1482,7 @@ class bridge(moduleBase):
                 ifaceobjcurr.update_config_with_status('bridge-port-pvids',
                                                  running_bridge_port_pvids, 0)
 
-        # XXX: No need to check for bridge-vids on the bridge
-        # This is used by the ports. The vids on the bridge
-        # come from the vlan interfaces on the bridge.
-        #
         attrval = ifaceobj.get_attr_value_first('bridge-vids')
-        #if attrval:
-        #    vids = re.split(r'[\s\t]\s*', attrval)
-        #    running_vids = running_vidinfo.get(ifaceobj.name, {}).get('vlan')
-        #    if running_vids:
-        #        if self._compare_vids(vids, running_vids):
-        #            ifaceobjcurr.update_config_with_status('bridge-vids',
-        #                                                   attrval, 0)
-        #        else:
-        #            ifaceobjcurr.update_config_with_status('bridge-vids',
-        #                                        ','.join(running_vids), 1)
-        #    else:
-        #        ifaceobjcurr.update_config_with_status('bridge-vids', attrval,
-        #                                               1)
         if attrval:
             ifaceobjcurr.update_config_with_status('bridge-vids', attrval, -1)
 
@@ -1602,35 +1636,36 @@ class bridge(moduleBase):
 
     def _query_check_bridge_port_vidinfo(self, ifaceobj, ifaceobjcurr,
                                          ifaceobj_getfunc, bridgename):
-        running_vidinfo = self._get_running_vidinfo()
-
         attr_name = 'bridge-access'
-        vids = ifaceobj.get_attr_value_first(attr_name)
-        if vids:
-           running_pvids = running_vidinfo.get(ifaceobj.name,
-                                              {}).get('pvid')
-           running_vids = running_vidinfo.get(ifaceobj.name,
-                                              {}).get('vlan')
-           if (not running_pvids or running_pvids != vids or
-                   running_vids):
+        vid = ifaceobj.get_attr_value_first(attr_name)
+        if vid:
+            (running_vids, running_pvid) = self._get_running_vids_n_pvid_str(
+                                                        ifaceobj.name)
+            if (not running_pvid or running_pvid != vid or
+                (running_vids and running_vids[0] != vid)):
                ifaceobjcurr.update_config_with_status(attr_name,
-                                running_pvids, 1)
-           else:
-               ifaceobjcurr.update_config_with_status(attr_name, vids, 0)
-           return
+                                running_pvid, 1)
+            else:
+               ifaceobjcurr.update_config_with_status(attr_name, vid, 0)
+            return
 
-        running_pvid = running_vidinfo.get(ifaceobj.name,
-                                           {}).get('pvid')
+        (running_vids, running_pvid) = self._get_running_vids_n_pvid_str(
+                                                        ifaceobj.name)
         attr_name = 'bridge-pvid'
         pvid = ifaceobj.get_attr_value_first('bridge-pvid')
         if pvid:
             if running_pvid and running_pvid == pvid:
                 ifaceobjcurr.update_config_with_status(attr_name,
-                                                     running_pvid, 0)
+                                                       running_pvid, 0)
             else:
                 ifaceobjcurr.update_config_with_status(attr_name,
-                                                     running_pvid, 1)
-        else:
+                                                       running_pvid, 1)
+        elif (not (ifaceobj.flags & iface.HAS_SIBLINGS) or
+              ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+               (ifaceobj.flags & iface.OLDEST_SIBLING))):
+            # if the interface has multiple iface sections,
+            # we check the below only for the oldest sibling
+            # or the last iface section
             pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
             if pvid:
                 if not running_pvid or running_pvid != pvid:
@@ -1644,19 +1679,22 @@ class bridge(moduleBase):
         vids = ifaceobj.get_attr_value_first(attr_name)
         if vids:
            vids = re.split(r'[\s\t]\s*', vids)
-           running_vids = running_vidinfo.get(ifaceobj.name,
-                                              {}).get('vlan')
-           if not running_vids or not self._compare_vids(vids, running_vids):
+           if not running_vids or not self._compare_vids(vids, running_vids,
+                                                         running_pvid):
                ifaceobjcurr.update_config_with_status(attr_name,
-                                ' '.join(running_vids), 1)
+                                            ' '.join(running_vids), 1)
            else:
                ifaceobjcurr.update_config_with_status(attr_name,
-                                ' '.join(running_vids), 0)
-        else:
+                                            ' '.join(vids), 0)
+        elif (not (ifaceobj.flags & iface.HAS_SIBLINGS) or
+              ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+               (ifaceobj.flags & iface.OLDEST_SIBLING))):
+           # if the interface has multiple iface sections,
+           # we check the below only for the oldest sibling
+           # or the last iface section
+
            # check if it matches the bridge vids
            bridge_vids = self._get_bridge_vids(bridgename, ifaceobj_getfunc)
-           running_vids = running_vidinfo.get(ifaceobj.name,
-                                              {}).get('vlan')
            if (bridge_vids and (not running_vids  or
                    not self._compare_vids(bridge_vids, running_vids, running_pvid))):
               ifaceobjcurr.status = ifaceStatus.ERROR
@@ -1740,6 +1778,7 @@ class bridge(moduleBase):
 
     def _query_running_bridge_port(self, ifaceobjrunning,
                                    ifaceobj_getfunc=None):
+
         bridgename = self.ipcmd.bridge_port_get_bridge_name(
                                                 ifaceobjrunning.name)
         bridge_vids = None
@@ -1751,11 +1790,8 @@ class bridge(moduleBase):
         if not self.ipcmd.bridge_is_vlan_aware(bridgename):
             return
 
-        running_vidinfo = self._get_running_vidinfo()
-        bridge_port_vids = running_vidinfo.get(ifaceobjrunning.name,
-                                               {}).get('vlan')
-        bridge_port_pvid = running_vidinfo.get(ifaceobjrunning.name,
-                                               {}).get('pvid')
+        (bridge_port_vids, bridge_port_pvid) = self._get_running_vids_n_pvid_str(
+                                                           ifaceobjrunning.name)
 
         bridgeifaceobjlist = ifaceobj_getfunc(bridgename)
         if bridgeifaceobjlist:
@@ -1854,7 +1890,7 @@ class bridge(moduleBase):
         if not op_handler:
            return
         self._init_command_handlers()
-        self._flush_running_vidinfo()
+        #self._flush_running_vidinfo()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)

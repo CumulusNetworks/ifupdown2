@@ -26,7 +26,7 @@ class addressvirtual(moduleBase):
                 'attrs' : {
                     'address-virtual' :
                         { 'help' : 'bridge router virtual mac and ips',
-                          'validvals' : ['<mac-ipaddr/prefixlen-list>',],
+                          'validvals' : ['<mac-ip/prefixlen-list>',],
                           'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24']}
                  }}
 
