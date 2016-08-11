@@ -39,6 +39,9 @@ from struct import pack, unpack, calcsize
 
 log = logging.getLogger(__name__)
 
+# Interface name buffer size #define IFNAMSIZ 16 (kernel source)
+IF_NAME_SIZE = 15 # 15 because python doesn't have \0
+
 # Netlink message types
 NLMSG_NOOP    = 0x01
 NLMSG_ERROR   = 0x02
@@ -185,6 +188,15 @@ class Attribute(object):
     def __str__(self):
         return self.string
 
+    def set_value(self, value):
+        self.value = value
+
+    def set_nested(self, nested):
+        self.nested = nested
+
+    def set_net_byteorder(self, net_byteorder):
+        self.net_byteorder = net_byteorder
+
     def pad_bytes_needed(self, length):
         """
         Return the number of bytes that should be added to align on a 4-byte boundry
@@ -329,6 +341,17 @@ class AttributeString(Attribute):
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:self.length])))
             raise
+
+
+class AttributeStringInterfaceName(AttributeString):
+
+    def __init__(self, atype, string, logger):
+        AttributeString.__init__(self, atype, string, logger)
+
+    def set_value(self, value):
+        if value and len(value) > IF_NAME_SIZE:
+            raise Exception('interface name exceeds max length of %d' % IF_NAME_SIZE)
+        self.value = value
 
 
 class AttributeIPAddress(Attribute):
@@ -1330,9 +1353,9 @@ class NetlinkPacket(object):
         else:
             attr = attr_class(attr_type, attr_string, self.log)
 
-        attr.value = value
-        attr.nested = nested
-        attr.net_byteorder = net_byteorder
+        attr.set_value(value)
+        attr.set_nested(nested)
+        attr.set_net_byteorder(net_byteorder)
 
         # self.attributes is a dictionary keyed by the attribute type where
         # the value is an instance of the corresponding AttributeXXXX class.
@@ -1675,7 +1698,7 @@ class Link(NetlinkPacket):
         IFLA_UNSPEC          : ('IFLA_UNSPEC', AttributeGeneric),
         IFLA_ADDRESS         : ('IFLA_ADDRESS', AttributeMACAddress),
         IFLA_BROADCAST       : ('IFLA_BROADCAST', AttributeMACAddress),
-        IFLA_IFNAME          : ('IFLA_IFNAME', AttributeString),
+        IFLA_IFNAME          : ('IFLA_IFNAME', AttributeStringInterfaceName),
         IFLA_MTU             : ('IFLA_MTU', AttributeFourByteValue),
         IFLA_LINK            : ('IFLA_LINK', AttributeFourByteValue),
         IFLA_QDISC           : ('IFLA_QDISC', AttributeString),
