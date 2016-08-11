@@ -204,16 +204,25 @@ class NetlinkManager(object):
                         msg = Error(msgtype, nlpacket.debug)
                         msg.decode_packet(length, flags, seq, pid, data)
 
-                        debug_str += ", error code %s" % msg.error_to_string.get(error_code)
-
                         # 0 is NLE_SUCCESS...everything else is a true error
                         if error_code:
-                            if error_code == Error.NLE_NOADDR:
-                                raise NetlinkNoAddressError(debug_str)
+                            error_code_str = msg.error_to_string.get(error_code)
+                            if error_code_str != 'None':
+                                error_str = 'Operation failed with \'%s\' (%s)' % (error_code_str, debug_str)
                             else:
-                                raise NetlinkError(debug_str)
+                                error_str = 'Operation failed with code %s (%s)' % (error_code, debug_str)
+                            if error_code == Error.NLE_NOADDR:
+                                raise NetlinkNoAddressError(error_str)
+                            else:
+                                if error_code_str == 'None':
+                                    try:
+                                        # os.strerror might raise ValueError
+                                        raise NetlinkError('Operation failed with \'%s\' (%s)' % (os.strerror(error_code), debug_str))
+                                    except ValueError:
+                                        pass
+                                raise NetlinkError(error_str)
                         else:
-                            log.debug(debug_str + '...this is an ACK')
+                            log.debug('%s code NLE_SUCCESS...this is an ACK' % debug_str)
                             return msgs
 
                     # No ACK...create a nlpacket object and append it to msgs
