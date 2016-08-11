@@ -444,7 +444,7 @@ class NetlinkManager(object):
         debug = RTM_NEWLINK in self.debug
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_CREATE | NLM_F_REQUEST
+        link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_LINK, ifindex)
@@ -453,7 +453,7 @@ class NetlinkManager(object):
             Link.IFLA_INFO_DATA: ifla_info_data
         })
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     def link_add_vlan(self, ifindex, ifname, vlanid):
         """
@@ -512,7 +512,7 @@ class NetlinkManager(object):
             Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
         })
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     def link_add_bridge_vlan(self, ifindex, vlanid, pvid=False, untagged=False, master=False):
         self._link_bridge_vlan(RTM_SETLINK, ifindex, vlanid, pvid, untagged, master)
@@ -536,11 +536,11 @@ class NetlinkManager(object):
         if_change = Link.IFF_UP
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_REQUEST
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     def link_set_protodown(self, ifname, state):
         """
@@ -552,12 +552,12 @@ class NetlinkManager(object):
         debug = RTM_NEWLINK in self.debug
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_REQUEST
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_PROTO_DOWN, protodown)
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     # =========
     # Neighbors
@@ -567,26 +567,26 @@ class NetlinkManager(object):
         service_hdr_flags = 0
 
         nbr = Neighbor(RTM_NEWNEIGH, debug)
-        nbr.flags = NLM_F_CREATE | NLM_F_REQUEST
+        nbr.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(nbr)
+        return self.tx_nlpacket_get_response(nbr)
 
     def neighbor_del(self, afi, ifindex, ip, mac):
         debug = RTM_DELNEIGH in self.debug
         service_hdr_flags = 0
 
         nbr = Neighbor(RTM_DELNEIGH, debug)
-        nbr.flags = NLM_F_REQUEST
+        nbr.flags = NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(nbr)
+        return self.tx_nlpacket_get_response(nbr)
 
     def link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None,
                        group=None, learning='on', ageing=None):
@@ -608,7 +608,7 @@ class NetlinkManager(object):
             info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_CREATE | NLM_F_REQUEST
+        link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_LINKINFO, {
@@ -617,4 +617,4 @@ class NetlinkManager(object):
         })
 
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
