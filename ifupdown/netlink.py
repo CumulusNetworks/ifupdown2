@@ -29,7 +29,8 @@ class Netlink(utilsBase):
                             % (ifacename, str(e)))
 
     def link_add_vlan(self, vlanrawdevice, ifacename, vlanid):
-        self.logger.info('netlink: %s: creating vlan %s' % (vlanrawdevice, vlanid))
+        self.logger.info('netlink: ip link add link %s name %s type vlan id %s'
+                         % (vlanrawdevice, ifacename, vlanid))
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(vlanrawdevice)
         try:
@@ -39,7 +40,7 @@ class Netlink(utilsBase):
                             % (vlanrawdevice, vlanid, str(e)))
 
     def link_add_macvlan(self, ifacename, macvlan_ifacename):
-        self.logger.info('netlink: %s: creating macvlan %s'
+        self.logger.info('netlink: ip link add link %s name %s type macvlan mode private'
                          % (ifacename, macvlan_ifacename))
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(ifacename)
@@ -50,7 +51,7 @@ class Netlink(utilsBase):
                             % (ifacename, macvlan_ifacename, str(e)))
 
     def link_set_updown(self, ifacename, state):
-        self.logger.info('netlink: set link %s %s' % (ifacename, state))
+        self.logger.info('netlink: ip link set dev %s %s' % (ifacename, state))
         if ifupdownflags.flags.DRYRUN: return
         try:
             return self._nlmanager_api.link_set_updown(ifacename, state)
@@ -68,8 +69,8 @@ class Netlink(utilsBase):
                             % (ifacename, state, str(e)))
 
     def link_add_bridge_vlan(self, ifacename, vlanid):
-        self.logger.info('netlink: %s: creating bridge vlan %s'
-                         % (ifacename, vlanid))
+        self.logger.info('netlink: bridge vlan add vid %s dev %s'
+                         % (vlanid, ifacename))
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(ifacename)
         try:
@@ -79,8 +80,8 @@ class Netlink(utilsBase):
                             % (ifacename, vlanid, str(e)))
 
     def link_del_bridge_vlan(self, ifacename, vlanid):
-        self.logger.info('netlink: %s: removing bridge vlan %s'
-                         % (ifacename, vlanid))
+        self.logger.info('netlink: bridge vlan del vid %s dev %s'
+                         % (vlanid, ifacename))
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(ifacename)
         try:
@@ -91,8 +92,14 @@ class Netlink(utilsBase):
 
     def link_add_vxlan(self, ifacename, vxlanid, local=None, dstport=VXLAN_UDP_PORT,
                        group=None, learning='on', ageing=None):
-        self.logger.info('netlink: %s: creating vxlan %s'
-                         % (ifacename, vxlanid))
+        cmd = 'ip link add %s type vxlan id %s dstport %s' % (ifacename,
+                                                              vxlanid,
+                                                              dstport)
+        cmd += ' local %s' % local if local else ''
+        cmd += ' ageing %s' % ageing if ageing else ''
+        cmd += ' remote %s' % group if group else ' noremote'
+        cmd += ' nolearning' if learning == 'off' else ''
+        self.logger.info('netlink: %s' % cmd)
         if ifupdownflags.flags.DRYRUN: return
         try:
             return self._nlmanager_api.link_add_vxlan(ifacename,
