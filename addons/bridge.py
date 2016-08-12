@@ -886,16 +886,17 @@ class bridge(moduleBase):
                 (vids_to_del, vids_to_add) = \
                     self._diff_vids(vids_to_add, running_vids)
 
-            if running_pvid:
-                if running_pvid != pvid_int and running_pvid != 0:
-                    pvid_to_del = running_pvid
-            else:
+            if not running_pvid:
                 # There cannot be a no running pvid.
                 # It might just not be in our cache:
                 # this can happen if at the time we were
                 # creating the bridge vlan cache, the port
                 # was not part of the bridge
                 running_pvid = 1
+
+            if running_pvid:
+                if running_pvid != pvid_int and running_pvid != 0:
+                    pvid_to_del = running_pvid
 
             if (pvid_to_del and (pvid_to_del in vids_int) and
                 (pvid_to_del not in vids_to_add)):
