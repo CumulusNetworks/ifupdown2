@@ -373,8 +373,13 @@ class vrf(moduleBase):
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
-                    self.logger.warn('%s: vrf master ifaceobj not found'
-                                     %ifacename)
+                    # this is the case where vrf is assigned to an interface
+                    # but user has not provided a vrf interface.
+                    # people expect you to warn them but go ahead with the
+                    # rest of the config on that interface
+                    netlink.link_set_updown(ifacename, "up")
+                    self.log_error('vrf master ifaceobj %s not found'
+                                   %vrfname)
                     return
                 if (ifupdownflags.flags.ALL or
                     (ifupdownflags.flags.CLASS and

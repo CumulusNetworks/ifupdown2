@@ -53,9 +53,9 @@ class moduleBase(object):
         if not self.ignore_error(str):
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
-            if ifaceobj:
-                ifaceobj.set_status(ifaceStatus.ERROR)
             if raise_error:
+                if ifaceobj:
+                    ifaceobj.set_status(ifaceStatus.ERROR)
                 raise Exception(str)
         else:
             pass
