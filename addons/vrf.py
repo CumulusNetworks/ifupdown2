@@ -58,9 +58,18 @@ class vrf(moduleBase):
         self.bondcmd = None
         self.dhclientcmd = None
         self.name = self.__class__.__name__
-        if ifupdownflags.flags.PERFMODE:
-            # if perf mode is set, remove vrf map file.
-            # start afresh. PERFMODE is set at boot
+        self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
+
+        if (ifupdownflags.flags.PERFMODE and
+            not (self.vrf_mgmt_devname and os.path.exists('/sys/class/net/%s'
+            %self.vrf_mgmt_devname))):
+            # if perf mode is set (PERFMODE is set at boot), and this is the first
+            # time we are calling ifup at boot (check for mgmt vrf existance at
+            # boot, make sure this is really the first invocation at boot.
+            # ifup is called with PERFMODE at boot multiple times (once for mgmt vrf
+            # and the second time with all auto interfaces). We want to delete
+            # the map file only the first time. This is to avoid accidently
+            # deleting map file with a valid mgmt vrf entry
             if os.path.exists(self.iproute2_vrf_filename):
                 try:
                     self.logger.info('vrf: removing file %s'
@@ -113,7 +122,6 @@ class vrf(moduleBase):
 
         self.vrf_fix_local_table = True
         self.vrf_count = 0
-        self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
 
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
