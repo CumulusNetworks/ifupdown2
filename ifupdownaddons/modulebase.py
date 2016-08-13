@@ -57,6 +57,8 @@ class moduleBase(object):
                 if ifaceobj:
                     ifaceobj.set_status(ifaceStatus.ERROR)
                 raise Exception(str)
+            else:
+                self.logger.error(str)
         else:
             pass
 
