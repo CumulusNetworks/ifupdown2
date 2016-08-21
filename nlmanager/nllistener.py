@@ -96,12 +96,17 @@ class NetlinkListener(Thread):
                     # Extract the length, etc from the header
                     (length, msgtype, flags, seq, pid) = unpack(header_PACK, data[:header_LEN])
 
-                    if manager.debug_listener:
-                        log.debug('%s %s: RXed %s seq %d, pid %d, %d bytes (%d total)' %
-                                  (self, socket_string[s], NetlinkPacket.type_to_string[msgtype],
-                                   seq, pid, length, total_length))
+                    log.debug('%s %s: RXed %s seq %d, pid %d, %d bytes (%d total)' %
+                              (self, socket_string[s], NetlinkPacket.type_to_string[msgtype],
+                               seq, pid, length, total_length))
+                    possible_ack = False
 
-                    if msgtype == NLMSG_ERROR:
+                    if msgtype == NLMSG_DONE:
+                        possible_ack = True
+
+                    elif msgtype == NLMSG_ERROR:
+                        possible_ack = True
+
                         # The error code is a signed negative number.
                         error_code = abs(unpack('=i', data[header_LEN:header_LEN+4])[0])
                         msg = Error(msgtype, True)
@@ -110,10 +115,9 @@ class NetlinkListener(Thread):
                         if error_code:
                             log.debug("%s %s: RXed NLMSG_ERROR code %s (%d)" % (self, socket_string[s], msg.error_to_string.get(error_code), error_code))
 
-                    if seq == manager.target_seq and pid == manager.target_pid:
-                        if manager.target_seq_pid_debug:
-                            log.debug("%s %s: Setting RXed ACK alarm for seq %d, pid %d" %
-                                      (self, socket_string[s], seq, pid))
+                    if possible_ack and seq == manager.target_seq and pid == manager.target_pid:
+                        log.debug("%s %s: Setting RXed ACK alarm for seq %d, pid %d" %
+                                  (self, socket_string[s], seq, pid))
                         set_tx_socket_rxed_ack_alarm = True
 
                     # Put the message on the manager's netlinkq
@@ -229,6 +233,11 @@ class NetlinkManagerWithListener(NetlinkManager):
 
         if not self.tx_socket:
             self.tx_socket_allocate()
+
+        log.debug('%s TX: TXed %s seq %d, pid %d, %d bytes' %
+                   (self,  NetlinkPacket.type_to_string[nlpacket.msgtype],
+                    nlpacket.seq, nlpacket.pid, nlpacket.length))
+
         self.tx_socket.sendall(nlpacket.message)
 
         # Wait for NetlinkListener to RX an ACK or DONE for this (seq, pid)
