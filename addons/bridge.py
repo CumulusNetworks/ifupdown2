@@ -882,17 +882,21 @@ class bridge(moduleBase):
             (running_vids, running_pvid) = self._get_running_vids_n_pvid(
                                                         bportifaceobj.name)
 
-            if running_vids:
-                (vids_to_del, vids_to_add) = \
-                    self._diff_vids(vids_to_add, running_vids)
-
-            if not running_pvid:
+            if not running_vids and not running_pvid:
                 # There cannot be a no running pvid.
                 # It might just not be in our cache:
                 # this can happen if at the time we were
                 # creating the bridge vlan cache, the port
-                # was not part of the bridge
+                # was not part of the bridge. And we need
+                # to make sure both vids and pvid is not in
+                # the cache, to declare that our cache may
+                # be stale.
                 running_pvid = 1
+                running_vids = [1]
+
+            if running_vids:
+                (vids_to_del, vids_to_add) = \
+                    self._diff_vids(vids_to_add, running_vids)
 
             if running_pvid:
                 if running_pvid != pvid_int and running_pvid != 0:
