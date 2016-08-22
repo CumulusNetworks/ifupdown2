@@ -288,9 +288,36 @@ class Attribute(object):
         return self.value
 
 
+class AttributeFourByteList(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        wordcount = (self.attr_end - 4)/4
+        self.PACK = '=%dL' % wordcount
+        self.LEN = calcsize(self.PACK)
+
+        try:
+            self.value = unpack(self.PACK, self.data[4:])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        idx = 1
+        for val in self.value:
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[4*idx:4*(idx+1)], val))
+            line_number += 1
+            idx += 1
+        return line_number
+
+
 class AttributeFourByteValue(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = '=L'
         self.LEN = calcsize(self.PACK)
@@ -311,9 +338,38 @@ class AttributeFourByteValue(Attribute):
         return line_number + 1
 
 
+class AttributeTwoByteValue(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = '=Hxx'
+        self.LEN = calcsize(self.PACK)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        assert self.attr_end == 8, "Attribute length for %s must be 8, it is %d" % (self, self.attr_end)
+
+        try:
+            self.value = int(unpack(self.PACK, self.data[4:8])[0])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:6])))
+            raise
+
+    def encode(self):
+        length = self.HEADER_LEN + self.LEN
+        raw = pack(self.HEADER_PACK, length-2, self.atype) + pack(self.PACK, self.value)
+        raw = self.pad(length, raw)
+        return raw
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
+        return line_number + 1
+
+
 class AttributeString(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = None
         self.LEN = None
@@ -345,8 +401,8 @@ class AttributeString(Attribute):
 
 class AttributeStringInterfaceName(AttributeString):
 
-    def __init__(self, atype, string, logger):
-        AttributeString.__init__(self, atype, string, logger)
+    def __init__(self, atype, string, family, logger):
+        AttributeString.__init__(self, atype, string, family, logger)
 
     def set_value(self, value):
         if value and len(value) > IF_NAME_SIZE:
@@ -388,7 +444,7 @@ class AttributeIPAddress(Attribute):
                 self.value = IPv6Address(data1 << 64 | data2)
 
             elif self.family == AF_BRIDGE:
-                self.value = unpack(self.PACK, self.data[4:])[0]
+                self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
 
             self.value_int = int(self.value)
             self.value_int_str = str(self.value_int)
@@ -399,6 +455,16 @@ class AttributeIPAddress(Attribute):
             self.value_int_str = None
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
+
+    def encode(self):
+        length = self.HEADER_LEN + self.LEN
+
+        if self.family not in [AF_INET, AF_INET6, AF_BRIDGE]:
+            raise Exception("%s is not a supported address family" % self.family)
+
+        raw = pack(self.HEADER_PACK, length, self.atype) + self.value.packed
+        raw = self.pad(length, raw)
+        return raw
 
     def dump_lines(self, dump_buffer, line_number, color):
         line_number = self.dump_first_line(dump_buffer, line_number, color)
@@ -424,7 +490,7 @@ class AttributeIPAddress(Attribute):
 
 class AttributeMACAddress(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = '>LHxx'
         self.LEN = calcsize(self.PACK)
@@ -443,20 +509,20 @@ class AttributeMACAddress(Attribute):
     def encode(self):
         length = self.HEADER_LEN + self.LEN
         mac_raw = int(self.value.replace('.', '').replace(':', ''), 16)
-        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, mac_raw >> 16, mac_raw & 0x0000FF)
+        raw = pack(self.HEADER_PACK, length-2, self.atype) + pack(self.PACK, mac_raw >> 16, mac_raw & 0x0000FFFF)
         raw = self.pad(length, raw)
         return raw
 
     def dump_lines(self, dump_buffer, line_number, color):
         line_number = self.dump_first_line(dump_buffer, line_number, color)
         dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
-        dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12], self.value))
-        return line_number + 1
+        dump_buffer.append(data_to_color_text(line_number+1, color, self.data[8:12]))
+        return line_number + 2
 
 
 class AttributeGeneric(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = None
         self.LEN = None
@@ -476,8 +542,8 @@ class AttributeGeneric(Attribute):
 
 class AttributeOneByteValue(AttributeGeneric):
 
-    def __init__(self, atype, string, logger):
-        Attribute.__init__(self, atype, string, logger)
+    def __init__(self, atype, string, family, logger):
+        AttributeGeneric.__init__(self, atype, string, family, logger)
         self.PACK = '=B'
         self.LEN = calcsize(self.PACK)
 
@@ -490,6 +556,8 @@ class AttributeIFLA_AF_SPEC(Attribute):
         Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
     }
     """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
 
     def encode(self):
         pack_layout = [self.HEADER_PACK]
@@ -747,6 +815,9 @@ class AttributeIFLA_LINKINFO(Attribute):
         }
     }
     """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+
     def encode(self):
         pack_layout = [self.HEADER_PACK]
         payload = [0, self.atype]
@@ -999,8 +1070,14 @@ class AttributeIFLA_LINKINFO(Attribute):
                                            (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
                     elif self.value[Link.IFLA_INFO_KIND] == 'bond':
-                        self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
-                                       (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                        if info_data_type in (Link.IFLA_BOND_AD_INFO, ):
+                            bond_value = {}
+
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = bond_value
+                        else:
+                            self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
+                                           (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
                     elif self.value[Link.IFLA_INFO_KIND] == 'bridge':
 
@@ -1359,12 +1436,7 @@ class NetlinkPacket(object):
             self.log.debug("Attribute %d is not defined in %s.attribute_to_class, assuming AttributeGeneric" %
                            (attr_type, self.__class__.__name__))
 
-        # A few attribute classes must know self.family (family was extracted from
-        # the service header)
-        if attr_class == AttributeIPAddress or attr_class == AttributeRTA_MULTIPATH:
-            attr = attr_class(attr_type, attr_string, self.family, self.log)
-        else:
-            attr = attr_class(attr_type, attr_string, self.log)
+        attr = attr_class(attr_type, attr_string, self.family, self.log)
 
         attr.set_value(value)
         attr.set_nested(nested)
@@ -2367,24 +2439,28 @@ class Neighbor(NetlinkPacket):
         NDA_UNSPEC       : ('NDA_UNSPEC', AttributeGeneric),
         NDA_DST          : ('NDA_DST', AttributeIPAddress),
         NDA_LLADDR       : ('NDA_LLADDR', AttributeMACAddress),
-        NDA_CACHEINFO    : ('NDA_CACHEINFO', AttributeGeneric),
+        NDA_CACHEINFO    : ('NDA_CACHEINFO', AttributeFourByteList),
         NDA_PROBES       : ('NDA_PROBES', AttributeFourByteValue),
-        NDA_VLAN         : ('NDA_VLAN', AttributeGeneric),
+        NDA_VLAN         : ('NDA_VLAN', AttributeTwoByteValue),
         NDA_PORT         : ('NDA_PORT', AttributeGeneric),
-        NDA_VNI          : ('NDA_VNI', AttributeGeneric),
-        NDA_IFINDEX      : ('NDA_IFINDEX', AttributeGeneric),
-        NDA_MASTER       : ('NDA_MASTER', AttributeGeneric),
+        NDA_VNI          : ('NDA_VNI', AttributeFourByteValue),
+        NDA_IFINDEX      : ('NDA_IFINDEX', AttributeFourByteValue),
+        NDA_MASTER       : ('NDA_MASTER', AttributeFourByteValue),
         NDA_LINK_NETNSID : ('NDA_LINK_NETNSID', AttributeGeneric)
     }
 
     # Neighbor flags
     # /usr/include/linux/neighbour.h
     NTF_USE    = 0x01
+    NTF_SELF   = 0x02
+    NTF_MASTER = 0x04
     NTF_PROXY  = 0x08  # A proxy ARP entry
     NTF_ROUTER = 0x80  # An IPv6 router
 
     flag_to_string = {
         NTF_USE    : 'NTF_USE',
+        NTF_SELF   : 'NTF_SELF',
+        NTF_MASTER : 'NTF_MASTER',
         NTF_PROXY  : 'NTF_PROXY',
         NTF_ROUTER : 'NTF_ROUTER'
     }

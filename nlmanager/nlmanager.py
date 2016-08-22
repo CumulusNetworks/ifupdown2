@@ -40,8 +40,12 @@ class Sequence(object):
 
 class NetlinkManager(object):
 
-    def __init__(self):
-        self.pid = os.getpid()
+    def __init__(self, pid_offset=0):
+        # PID_MAX_LIMIT is 2^22 allowing 1024 sockets per-pid. We default to 0
+        # in the upper space (top 10 bits), which will simply be the PID. Other
+        # NetlinkManager instantiations in the same process can choose other
+        # offsets to avoid conflicts with each other.
+        self.pid = os.getpid() | (pid_offset << 22)
         self.sequence = Sequence()
         self.shutdown_flag = False
         self.ifindexmap = {}

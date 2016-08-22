@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 class NetlinkListener(Thread):
 
-    def __init__(self, manager, groups):
+    def __init__(self, manager, groups, pid_offset=2):
         """
         groups controls what types of messages we are interested in hearing
         To get everything pass:
@@ -28,6 +28,7 @@ class NetlinkListener(Thread):
         self.manager = manager
         self.shutdown_event = Event()
         self.groups = groups
+        self.pid_offset = pid_offset
 
     def __str__(self):
         return 'NetlinkListener'
@@ -40,9 +41,12 @@ class NetlinkListener(Thread):
         # The RX socket is used to listen to all netlink messages that fly by
         # as things change in the kernel. We need a very large SO_RCVBUF here
         # else we tend to miss messages.
+        # PID_MAX_LIMIT is 2^22 allowing 1024 sockets per-pid. We default to 
+        # use 2 in the upper space (top 10 bits) instead of 0 to avoid conflicts
+        # with the netlink manager which always attempts to bind with the pid.
         self.rx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
         self.rx_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10000000)
-        self.rx_socket.bind((manager.pid+1, self.groups))
+        self.rx_socket.bind((manager.pid | (self.pid_offset << 22), self.groups))
         self.rx_socket_prev_seq = {}
 
         if not manager.tx_socket:
