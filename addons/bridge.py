@@ -1214,7 +1214,10 @@ class bridge(moduleBase):
                         pass
 
             if ifaceobj.addr_method == 'manual':
-                netlink.link_set_updown(ifaceobj.name, "up")
+                try:
+                    netlink.link_set_updown(ifaceobj.name, "up")
+                except Exception as e:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         if err:
             raise Exception(errstr)
 
@@ -1229,7 +1232,7 @@ class bridge(moduleBase):
                         map(lambda p: netlink.link_set_updown(p, "down"),
                             ports)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _query_running_vidinfo_compat(self, ifaceobjrunning, ports):
         running_attrs = {}
