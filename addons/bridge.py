@@ -1797,6 +1797,8 @@ class bridge(moduleBase):
 
         (bridge_port_vids, bridge_port_pvid) = self._get_running_vids_n_pvid_str(
                                                            ifaceobjrunning.name)
+        if bridge_port_vids and bridge_port_pvid in bridge_port_vids:
+                bridge_port_vids.remove(bridge_port_pvid)
 
         bridgeifaceobjlist = ifaceobj_getfunc(bridgename)
         if bridgeifaceobjlist:
