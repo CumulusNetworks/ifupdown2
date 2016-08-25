@@ -245,23 +245,35 @@ class NetlinkManager(object):
                         # 0 is NLE_SUCCESS...everything else is a true error
                         if error_code:
                             error_code_str = msg.error_to_string.get(error_code)
-                            error_str = "Operation failed with netlink error %s '%s', description '%s'" %\
-                                (error_code, error_code_str, debug_str)
+                            if error_code_str:
+                                error_str = 'Operation failed with \'%s\'' % error_code_str
+                            else:
+                                error_str = 'Operation failed with code %s' % error_code
+
+                            log.debug(debug_str)
 
                             if error_code == Error.NLE_NOADDR:
                                 raise NetlinkNoAddressError(error_str)
-
                             elif error_code == Error.NLE_INTR:
                                 nle_intr_count += 1
-                                log.info("%s: RXed NLE_INTR Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
+                                log.debug("%s: RXed NLE_INTR Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
 
                                 if nle_intr_count >= MAX_ERROR_NLE_INTR:
                                     raise NetlinkInterruptedSystemCall(error_str)
 
                             else:
                                 msg.dump()
+                                if not error_code_str:
+                                    try:
+                                        # os.strerror might raise ValueError
+                                        strerror = os.strerror(error_code)
+                                        if strerror:
+                                            raise NetlinkError('Operation failed with \'%s\'' % strerror)
+                                        else:
+                                            raise NetlinkError(error_str)
+                                    except ValueError:
+                                        pass
                                 raise NetlinkError(error_str)
-
                         else:
                             log.debug('%s code NLE_SUCCESS...this is an ACK' % debug_str)
                             return msgs
