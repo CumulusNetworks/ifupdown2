@@ -40,7 +40,7 @@ class Sequence(object):
 
 class NetlinkManager(object):
 
-    def __init__(self, pid_offset=0):
+    def __init__(self, pid_offset=0, use_color=True):
         # PID_MAX_LIMIT is 2^22 allowing 1024 sockets per-pid. We default to 0
         # in the upper space (top 10 bits), which will simply be the PID. Other
         # NetlinkManager instantiations in the same process can choose other
@@ -50,6 +50,7 @@ class NetlinkManager(object):
         self.shutdown_flag = False
         self.ifindexmap = {}
         self.tx_socket = None
+        self.use_color = use_color
 
         # debugs
         self.debug = {}
@@ -287,16 +288,16 @@ class NetlinkManager(object):
                         nle_intr_count = 0
 
                         if msgtype == RTM_NEWLINK or msgtype == RTM_DELLINK:
-                            msg = Link(msgtype, nlpacket.debug)
+                            msg = Link(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         elif msgtype == RTM_NEWADDR or msgtype == RTM_DELADDR:
-                            msg = Address(msgtype, nlpacket.debug)
+                            msg = Address(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         elif msgtype == RTM_NEWNEIGH or msgtype == RTM_DELNEIGH:
-                            msg = Neighbor(msgtype, nlpacket.debug)
+                            msg = Neighbor(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         elif msgtype == RTM_NEWROUTE or msgtype == RTM_DELROUTE:
-                            msg = Route(msgtype, nlpacket.debug)
+                            msg = Route(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         else:
                             raise Exception("RXed unknown netlink message type %s" % msgtype)
@@ -326,19 +327,19 @@ class NetlinkManager(object):
         """
 
         if rtm_type == RTM_GETADDR:
-            msg = Address(rtm_type, debug)
+            msg = Address(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxi', family, 0)
 
         elif rtm_type == RTM_GETLINK:
-            msg = Link(rtm_type, debug)
+            msg = Link(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxiii', family, 0, 0, 0)
 
         elif rtm_type == RTM_GETNEIGH:
-            msg = Neighbor(rtm_type, debug)
+            msg = Neighbor(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxii', family, 0, 0)
 
         elif rtm_type == RTM_GETROUTE:
-            msg = Route(rtm_type, debug)
+            msg = Route(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxii', family, 0, 0)
 
         else:
@@ -384,7 +385,7 @@ class NetlinkManager(object):
 
         if routes:
             for (afi, ip, mask, nexthop, interface_index) in routes:
-                route = Route(rtm_command, debug)
+                route = Route(rtm_command, debug, use_color=self.use_color)
                 route.flags = NLM_F_REQUEST | NLM_F_CREATE
                 route.body = pack('BBBBBBBBi', afi, mask, 0, 0, table, protocol,
                                   route_scope, route_type, 0)
@@ -404,7 +405,7 @@ class NetlinkManager(object):
             for (route_key, value) in ecmp_routes.iteritems():
                 (afi, ip, mask) = route_key
 
-                route = Route(rtm_command, debug)
+                route = Route(rtm_command, debug, use_color=self.use_color)
                 route.flags = NLM_F_REQUEST | NLM_F_CREATE
                 route.body = pack('BBBBBBBBi', afi, mask, 0, 0, table, protocol,
                                   route_scope, route_type, 0)
@@ -438,7 +439,7 @@ class NetlinkManager(object):
         - IPv6Address
         """
         # Transmit a RTM_GETROUTE to query for the route we want
-        route = Route(RTM_GETROUTE, debug)
+        route = Route(RTM_GETROUTE, debug, use_color=self.use_color)
         route.flags = NLM_F_REQUEST | NLM_F_ACK
 
         # Set everything in the service header as 0 other than the afi
@@ -478,7 +479,7 @@ class NetlinkManager(object):
         """
         debug = RTM_GETLINK in self.debug
 
-        link = Link(RTM_GETLINK, debug)
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -507,7 +508,7 @@ class NetlinkManager(object):
         """
         debug = RTM_NEWLINK in self.debug
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -556,7 +557,7 @@ class NetlinkManager(object):
         """
         debug = RTM_GETLINK in self.debug
 
-        link = Link(RTM_GETLINK, debug)
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_DUMP | NLM_F_REQUEST
         link.body = pack('Bxxxiii', socket.AF_BRIDGE, 0, 0, 0)
 
@@ -672,7 +673,7 @@ class NetlinkManager(object):
         bridge_flags = 0
         vlan_info_flags = 0
 
-        link = Link(msgtype, debug)
+        link = Link(msgtype, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_BRIDGE, ifindex, 0, 0)
 
@@ -737,7 +738,7 @@ class NetlinkManager(object):
         debug = RTM_NEWLINK in self.debug
         if_change = Link.IFF_UP
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -753,7 +754,7 @@ class NetlinkManager(object):
 
         debug = RTM_NEWLINK in self.debug
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -768,7 +769,7 @@ class NetlinkManager(object):
         debug = RTM_NEWNEIGH in self.debug
         service_hdr_flags = 0
 
-        nbr = Neighbor(RTM_NEWNEIGH, debug)
+        nbr = Neighbor(RTM_NEWNEIGH, debug, use_color=self.use_color)
         nbr.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
@@ -781,7 +782,7 @@ class NetlinkManager(object):
         debug = RTM_DELNEIGH in self.debug
         service_hdr_flags = 0
 
-        nbr = Neighbor(RTM_DELNEIGH, debug)
+        nbr = Neighbor(RTM_DELNEIGH, debug, use_color=self.use_color)
         nbr.flags = NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
@@ -809,7 +810,7 @@ class NetlinkManager(object):
         if ageing:
             info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)

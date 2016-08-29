@@ -164,7 +164,10 @@ def data_to_color_text(line_number, color, data, extra=''):
         else:
             in_ascii.append('.')
 
-    return '  %2d: \033[%dm0x%02x%02x%02x%02x\033[0m  %s  %s' % (line_number, color, c1, c2, c3, c4, ''.join(in_ascii), extra)
+    if color:
+        return '  %2d: \033[%dm0x%02x%02x%02x%02x\033[0m  %s  %s' % (line_number, color, c1, c2, c3, c4, ''.join(in_ascii), extra)
+
+    return '  %2d: 0x%02x%02x%02x%02x  %s  %s' % (line_number, c1, c2, c3, c4, ''.join(in_ascii), extra)
 
 
 def padded_length(length):
@@ -1235,13 +1238,14 @@ class NetlinkPacket(object):
         RTM_GETQDISC  : 'RTM_GETQDISC'
     }
 
-    def __init__(self, msgtype, debug, owner_logger=None):
+    def __init__(self, msgtype, debug, owner_logger=None, use_color=True):
         self.msgtype     = msgtype
         self.attributes  = {}
         self.dump_buffer = ['']
         self.line_number = 1
         self.debug       = debug
         self.message     = None
+        self.use_color   = use_color
 
         if owner_logger:
             self.log = owner_logger
@@ -1346,9 +1350,11 @@ class NetlinkPacket(object):
         header_data = self.header_data
 
         # Print the netlink header in red
-        color = red
         netlink_header_length = 16
-        self.dump_buffer.append("  \033[%dmNetlink Header\033[0m" % color)
+        color = red if self.use_color else None
+        color_start = "\033[%dm" % color if color else ""
+        color_end = "\033[0m" if color else ""
+        self.dump_buffer.append("  %sNetlink Header%s" % (color_start, color_end))
 
         for x in range(0, netlink_header_length/4):
             start = x * 4
@@ -1384,7 +1390,7 @@ class NetlinkPacket(object):
 
         if self.debug:
             self.dump_buffer.append("  Attributes")
-            color = green
+            color = green if self.use_color else None
 
         data = self.msg_data[self.LEN:]
 
@@ -1413,10 +1419,11 @@ class NetlinkPacket(object):
                 self.line_number = attr.dump_lines(self.dump_buffer, self.line_number, color)
 
                 # Alternate back and forth between green and blue
-                if color == green:
-                    color = blue
-                else:
-                    color = green
+                if self.use_color:
+                    if color == green:
+                        color = blue
+                    else:
+                        color = green
 
             data = data[attr_end:]
 
@@ -1484,6 +1491,14 @@ class NetlinkPacket(object):
                       (self, self.length, self.seq, self.pid, self.flags,
                        self.get_netlink_header_flags_string(self.msgtype, self.flags)))
 
+    def pretty_display_dict(self, dic, level):
+        for k,v in dic.iteritems():
+            if isinstance(v, dict):
+                self.log.debug(' '*level + str(k) + ':')
+                self.pretty_display_dict(v, level+1)
+            else:
+                self.log.debug(' '*level + str(k) + ': ' + str(v))
+
     # Print the netlink message in hex. This is only used for debugging.
     def dump(self, desc=None):
         attr_string = {}
@@ -1495,8 +1510,18 @@ class NetlinkPacket(object):
             key_string = "(%2d) %s" % (attr_type, self.get_attr_string(attr_type))
             attr_string[key_string] = attr_obj.get_pretty_value()
 
-        self.log.debug("%s\n%s\n\nAttributes Summary\n%s\n" %
-                       (desc, '\n'.join(self.dump_buffer), pformat(attr_string)))
+        if self.use_color:
+            self.log.debug("%s\n%s\n\nAttributes Summary\n%s\n" %
+                           (desc, '\n'.join(self.dump_buffer), pformat(attr_string)))
+        else:
+            # Assume if we are not allowing color output we also don't want embedded
+            # newline characters in the output. Output each line individually.
+            self.log.debug(desc)
+            for line in self.dump_buffer:
+                self.log.debug(line)
+            self.log.debug("")
+            self.log.debug("Attributes Summary")
+            self.pretty_display_dict(attr_string, 1)
 
 
 class Address(NetlinkPacket):
@@ -1557,8 +1582,8 @@ class Address(NetlinkPacket):
         IFA_F_PERMANENT   : 'IFA_F_PERMANENT'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '4Bi'
         self.LEN = calcsize(self.PACK)
 
@@ -1573,8 +1598,10 @@ class Address(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
@@ -1670,8 +1697,8 @@ class Error(NetlinkPacket):
         NLE_DUMP_INTR         : 'NLE_DUMP_INTR'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '=iLHHLL'
         self.LEN = calcsize(self.PACK)
 
@@ -1686,8 +1713,10 @@ class Error(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
 
@@ -2328,8 +2357,8 @@ class Link(NetlinkPacket):
         RTEXT_FILTER_SKIP_STATS        : 'RTEXT_FILTER_SKIP_STATS'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxHiII'
         self.LEN  = calcsize(self.PACK)
 
@@ -2379,8 +2408,11 @@ class Link(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
+
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
                     extra = "Family %s (%d), Device Type %s (%d - %s)" % \
@@ -2489,8 +2521,8 @@ class Neighbor(NetlinkPacket):
         NUD_PERMANENT  : 'NUD_PERMANENT'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxxxiHBB'
         self.LEN = calcsize(self.PACK)
 
@@ -2509,8 +2541,10 @@ class Neighbor(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
@@ -2714,8 +2748,8 @@ class Route(NetlinkPacket):
         RTM_F_PREFIX   : 'RTM_F_PREFIX'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '=8BI'  # or is it 8Bi ?
         self.LEN = calcsize(self.PACK)
         self.family = None
@@ -2799,8 +2833,10 @@ class Route(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
