@@ -487,14 +487,19 @@ class bridge(moduleBase):
         example: ['1', '2-4', '6'] returns [1, 2, 3, 4, 6]
         """
         result = []
-        for part in rangelist:
-            if '-' in part:
-                a, b = part.split('-')
-                a, b = int(a), int(b)
-                result.extend(range(a, b + 1))
-            else:
-                a = int(part)
-                result.append(a)
+        try:
+            for part in rangelist:
+                if '-' in part:
+                    a, b = part.split('-')
+                    a, b = int(a), int(b)
+                    result.extend(range(a, b + 1))
+                else:
+                    a = int(part)
+                    result.append(a)
+        except:
+            self.logger.warn('unable to parse vids \'%s\''
+                             %''.join(rangelist))
+            pass
         return result
 
     def _compress_into_ranges(self, vids_ints):
@@ -752,16 +757,20 @@ class bridge(moduleBase):
     def _check_vids(self, ifaceobj, vids):
         ret = True
         for v in vids:
-            if '-' in v:
-                va, vb = v.split('-')
-                va, vb = int(va), int(vb)
-                if (self._handle_reserved_vlan(va, ifaceobj.name) or
-                    self._handle_reserved_vlan(vb, ifaceobj.name)):
-                    ret = False
-            else:
-                va = int(v)
-                if self._handle_reserved_vlan(va, ifaceobj.name):
-                   ret = False
+            try:
+                if '-' in v:
+                    va, vb = v.split('-')
+                    va, vb = int(va), int(vb)
+                    if (self._handle_reserved_vlan(va, ifaceobj.name) or
+                        self._handle_reserved_vlan(vb, ifaceobj.name)):
+                        ret = False
+                else:
+                    va = int(v)
+                    if self._handle_reserved_vlan(va, ifaceobj.name):
+                        ret = False
+            except Exception:
+                self.logger.warn('%s: unable to parse vid \'%s\''
+                                 %(ifaceobj.name, v))
         return ret
          
     def _apply_bridge_port_pvids(self, bportifaceobj, pvid, running_pvid):
@@ -868,7 +877,13 @@ class bridge(moduleBase):
         """
 
         vids_int =  self._ranges_to_ints(vids)
-        pvid_int = int(pvid) if pvid else 0
+        try:
+            pvid_int = int(pvid) if pvid else 0
+        except Exception:
+            self.logger.warn('%s: unable to parse pvid \'%s\''
+                             %(bportifaceobj.name, pvid))
+            pvid_int = 0
+            pass
 
         vids_to_del = []
         vids_to_add = vids_int
@@ -1214,7 +1229,10 @@ class bridge(moduleBase):
                         pass
 
             if ifaceobj.addr_method == 'manual':
-                netlink.link_set_updown(ifaceobj.name, "up")
+                try:
+                    netlink.link_set_updown(ifaceobj.name, "up")
+                except Exception as e:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         if err:
             raise Exception(errstr)
 
@@ -1229,7 +1247,7 @@ class bridge(moduleBase):
                         map(lambda p: netlink.link_set_updown(p, "down"),
                             ports)
         except Exception, e:
-            self.log_error(str(e))
+            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _query_running_vidinfo_compat(self, ifaceobjrunning, ports):
         running_attrs = {}
@@ -1336,7 +1354,7 @@ class bridge(moduleBase):
         ports = None
         skip_kernel_stp_attrs = 0
 
-        if self.sysctl_get('net.bridge.bridge-stp-user-space') == '1':
+        if self.systcl_get_net_bridge_stp_user_space() == '1':
             userspace_stp = 1
 
         tmpbridgeattrdict = self.brctlcmd.get_bridge_attrs(ifaceobjrunning.name)
@@ -1770,7 +1788,7 @@ class bridge(moduleBase):
                                                ifaceobjrunning, None))
 
     def _query_running_bridge_port_attrs(self, ifaceobjrunning, bridgename):
-        if self.sysctl_get('net.bridge.bridge-stp-user-space') == '1':
+        if self.systcl_get_net_bridge_stp_user_space() == '1':
             return
 
         v = self.brctlcmd.get_pathcost(bridgename, ifaceobjrunning.name)
@@ -1797,6 +1815,8 @@ class bridge(moduleBase):
 
         (bridge_port_vids, bridge_port_pvid) = self._get_running_vids_n_pvid_str(
                                                            ifaceobjrunning.name)
+        if bridge_port_vids and bridge_port_pvid in bridge_port_vids:
+                bridge_port_vids.remove(bridge_port_pvid)
 
         bridgeifaceobjlist = ifaceobj_getfunc(bridgename)
         if bridgeifaceobjlist:

@@ -319,7 +319,7 @@ class AttributeString(Attribute):
         self.LEN = None
 
     def encode(self):
-        # some interface names come from JSON unicode strings
+        # some interface names come from JSON as unicode strings
         # and cannot be packed as is so we must convert them to strings
         if isinstance(self.value, unicode):
             self.value = str(self.value)
@@ -503,7 +503,22 @@ class AttributeIFLA_AF_SPEC(Attribute):
         #
         # Until we cross that bridge though we will keep things nice and simple and
         # pack everything via a single pack() call.
+        sub_attr_to_add = []
+
         for (sub_attr_type, sub_attr_value) in self.value.iteritems():
+
+            if sub_attr_type == Link.IFLA_BRIDGE_FLAGS:
+                sub_attr_to_add.append((sub_attr_type, sub_attr_value))
+
+            elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_INFO:
+                for (vlan_flag, vlan_id) in sub_attr_value:
+                    sub_attr_to_add.append((sub_attr_type, (vlan_flag, vlan_id)))
+
+            else:
+                self.log.debug('Add support for encoding IFLA_AF_SPEC sub-attribute type %d' % sub_attr_type)
+                continue
+
+        for (sub_attr_type, sub_attr_value) in sub_attr_to_add:
             sub_attr_pack_layout = ['=', 'HH']
             sub_attr_payload = [0, sub_attr_type]
             sub_attr_length_index = 0
@@ -516,10 +531,6 @@ class AttributeIFLA_AF_SPEC(Attribute):
                 sub_attr_pack_layout.append('HH')
                 sub_attr_payload.append(sub_attr_value[0])
                 sub_attr_payload.append(sub_attr_value[1])
-
-            else:
-                self.log.debug('Add support for encoding IFLA_AF_SPEC sub-attribute type %d' % sub_attr_type)
-                continue
 
             sub_attr_length = calcsize(''.join(sub_attr_pack_layout))
             sub_attr_payload[sub_attr_length_index] = sub_attr_length
@@ -574,7 +585,9 @@ class AttributeIFLA_AF_SPEC(Attribute):
                 self.value[Link.IFLA_BRIDGE_FLAGS] = unpack("=H", sub_attr_data[0:2])[0]
 
             elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_INFO:
-                self.value[Link.IFLA_INFO_DATA] = tuple(unpack("=HH", sub_attr_data[0:4]))
+                if Link.IFLA_BRIDGE_VLAN_INFO not in self.value:
+                    self.value[Link.IFLA_BRIDGE_VLAN_INFO] = []
+                self.value[Link.IFLA_BRIDGE_VLAN_INFO].append(tuple(unpack("=HH", sub_attr_data[0:4])))
 
             else:
                 self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute type %s (%d), length %d, padded to %d' %
@@ -1216,14 +1229,14 @@ class NetlinkPacket(object):
 
         # Modifiers to GET query
         if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC):
-            if flags & NLM_F_ROOT:
-                foo.append('NLM_F_ROOT')
-
-            if flags & NLM_F_MATCH:
-                foo.append('NLM_F_MATCH')
-
             if flags & NLM_F_DUMP:
                 foo.append('NLM_F_DUMP')
+            else:
+                if flags & NLM_F_MATCH:
+                    foo.append('NLM_F_MATCH')
+
+                if flags & NLM_F_ROOT:
+                    foo.append('NLM_F_ROOT')
 
             if flags & NLM_F_ATOMIC:
                 foo.append('NLM_F_ATOMIC')
@@ -1724,7 +1737,7 @@ class Link(NetlinkPacket):
         IFLA_AF_SPEC         : ('IFLA_AF_SPEC', AttributeIFLA_AF_SPEC),
         IFLA_GROUP           : ('IFLA_GROUP', AttributeFourByteValue),
         IFLA_NET_NS_FD       : ('IFLA_NET_NS_FD', AttributeGeneric),
-        IFLA_EXT_MASK        : ('IFLA_EXT_MASK', AttributeGeneric),
+        IFLA_EXT_MASK        : ('IFLA_EXT_MASK', AttributeFourByteValue),
         IFLA_PROMISCUITY     : ('IFLA_PROMISCUITY', AttributeGeneric),
         IFLA_NUM_TX_QUEUES   : ('IFLA_NUM_TX_QUEUES', AttributeGeneric),
         IFLA_NUM_RX_QUEUES   : ('IFLA_NUM_RX_QUEUES', AttributeGeneric),
@@ -2207,14 +2220,18 @@ class Link(NetlinkPacket):
     }
 
     # BRIDGE_VLAN_INFO flags
-    BRIDGE_VLAN_INFO_MASTER   = 1
-    BRIDGE_VLAN_INFO_PVID     = 2
-    BRIDGE_VLAN_INFO_UNTAGGED = 4
+    BRIDGE_VLAN_INFO_MASTER      = 1 << 0
+    BRIDGE_VLAN_INFO_PVID        = 1 << 1
+    BRIDGE_VLAN_INFO_UNTAGGED    = 1 << 2
+    BRIDGE_VLAN_INFO_RANGE_BEGIN = 1 << 3
+    BRIDGE_VLAN_INFO_RANGE_END   = 1 << 4
 
     bridge_vlan_to_string = {
-        BRIDGE_VLAN_INFO_MASTER   : 'BRIDGE_VLAN_INFO_MASTER',
-        BRIDGE_VLAN_INFO_PVID     : 'BRIDGE_VLAN_INFO_PVID',
-        BRIDGE_VLAN_INFO_UNTAGGED : 'BRIDGE_VLAN_INFO_UNTAGGED'
+        BRIDGE_VLAN_INFO_MASTER      : 'BRIDGE_VLAN_INFO_MASTER',
+        BRIDGE_VLAN_INFO_PVID        : 'BRIDGE_VLAN_INFO_PVID',
+        BRIDGE_VLAN_INFO_UNTAGGED    : 'BRIDGE_VLAN_INFO_UNTAGGED',
+        BRIDGE_VLAN_INFO_RANGE_BEGIN : 'BRIDGE_VLAN_INFO_RANGE_BEGIN',
+        BRIDGE_VLAN_INFO_RANGE_END   : 'BRIDGE_VLAN_INFO_RANGE_END'
     }
 
     # Bridge flags
@@ -2224,6 +2241,19 @@ class Link(NetlinkPacket):
     bridge_flags_to_string = {
         BRIDGE_FLAGS_MASTER : 'BRIDGE_FLAGS_MASTER',
         BRIDGE_FLAGS_SELF   : 'BRIDGE_FLAGS_SELF'
+    }
+
+    # filters for IFLA_EXT_MASK
+    RTEXT_FILTER_VF                = 1 << 0
+    RTEXT_FILTER_BRVLAN            = 1 << 1
+    RTEXT_FILTER_BRVLAN_COMPRESSED = 1 << 2
+    RTEXT_FILTER_SKIP_STATS        = 1 << 3
+
+    rtext_to_string = {
+        RTEXT_FILTER_VF                : 'RTEXT_FILTER_VF',
+        RTEXT_FILTER_BRVLAN            : 'RTEXT_FILTER_BRVLAN',
+        RTEXT_FILTER_BRVLAN_COMPRESSED : 'RTEXT_FILTER_BRVLAN_COMPRESSED',
+        RTEXT_FILTER_SKIP_STATS        : 'RTEXT_FILTER_SKIP_STATS'
     }
 
     def __init__(self, msgtype, debug=False, logger=None):

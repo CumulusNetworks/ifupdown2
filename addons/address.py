@@ -338,34 +338,33 @@ class address(moduleBase):
             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
             ifaceobj.set_status(ifaceStatus.ERROR)
 
-        hwaddress = self._get_hwaddress(ifaceobj)
-        if hwaddress:
-            running_hwaddress = None
-            if not ifupdownflags.flags.PERFMODE: # system is clean
-                running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
-            if hwaddress != running_hwaddress:
-                slave_down = False
-                netlink.link_set_updown(ifaceobj.name, "down")
-                if ifaceobj.link_kind & ifaceLinkKind.BOND:
-                    # if bond, down all the slaves
-                    if ifaceobj.lowerifaces:
-                        for l in ifaceobj.lowerifaces:
-                            netlink.link_set_updown(l, "down")
-                        slave_down = True
-                try:
-                    self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
-                finally:
-                    netlink.link_set_updown(ifaceobj.name, "up")
-                    if slave_down:
-                        for l in ifaceobj.lowerifaces:
-                            netlink.link_set_updown(l, "up")
-
         try:
+            hwaddress = self._get_hwaddress(ifaceobj)
+            if hwaddress:
+                running_hwaddress = None
+                if not ifupdownflags.flags.PERFMODE: # system is clean
+                    running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
+                if hwaddress != running_hwaddress:
+                    slave_down = False
+                    netlink.link_set_updown(ifaceobj.name, "down")
+                    if ifaceobj.link_kind & ifaceLinkKind.BOND:
+                        # if bond, down all the slaves
+                        if ifaceobj.lowerifaces:
+                            for l in ifaceobj.lowerifaces:
+                                netlink.link_set_updown(l, "down")
+                            slave_down = True
+                    try:
+                        self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
+                    finally:
+                        netlink.link_set_updown(ifaceobj.name, "up")
+                        if slave_down:
+                            for l in ifaceobj.lowerifaces:
+                                netlink.link_set_updown(l, "up")
+
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
-            pass
 
         if addr_method != "dhcp":
             gateways = ifaceobj.get_attr_value('gateway')

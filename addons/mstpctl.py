@@ -46,29 +46,34 @@ class mstpctl(moduleBase):
                          'validrange' : ['0', '4096'],
                          'default' : '300',
                          'required' : False,
+                         'jsonAttr': 'ageingTime',
                          'example' : ['mstpctl-ageing 300']},
                     'mstpctl-maxage' :
                         { 'help' : 'max message age',
                           'validrange' : ['0', '255'],
                           'default' : '20',
+                          'jsonAttr': 'maxAge',
                           'required' : False,
                           'example' : ['mstpctl-maxage 20']},
                     'mstpctl-fdelay' :
                         { 'help' : 'set forwarding delay',
                           'validrange' : ['0', '255'],
                           'default' : '15',
+                          'jsonAttr': 'fwdDelay',
                           'required' : False,
                           'example' : ['mstpctl-fdelay 15']},
                     'mstpctl-maxhops' :
                         { 'help' : 'bridge max hops',
                           'validrange' : ['0', '255'],
                           'default' : '15',
+                          'jsonAttr': 'maxHops',
                           'required' : False,
                           'example' : ['mstpctl-maxhops 15']},
                     'mstpctl-txholdcount' :
                         { 'help' : 'bridge transmit holdcount',
                           'validrange' : ['0', '255'],
                           'default' : '6',
+                          'jsonAttr': 'txHoldCounter',
                           'required' : False,
                           'example' : ['mstpctl-txholdcount 6']},
                     'mstpctl-forcevers' :
@@ -76,6 +81,7 @@ class mstpctl(moduleBase):
                           'validvals' : ['rstp', ],
                           'default' : 'rstp',
                           'required' : False,
+                          'jsonAttr': 'forceProtocolVersion',
                           'example' : ['mstpctl-forcevers rstp']},
                     'mstpctl-portpathcost' :
                         { 'help' : 'bridge port path cost',
@@ -127,6 +133,7 @@ class mstpctl(moduleBase):
                           'default' : '128',
                           'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '240'],
+                          'jsonAttr': 'treeportprio',
                           'required' : False,
                           'example' : ['under the bridge: mstpctl-treeportprio swp1=128 swp2=128',
                                        'under the port (recommended): mstpctl-treeportprio 128']},
@@ -135,6 +142,7 @@ class mstpctl(moduleBase):
                           'validrange' : ['0', '255'],
                           'default' : '2',
                           'required' : False,
+                          'jsonAttr': 'portHelloTime',
                           'example' : ['mstpctl-hello 2']},
                     'mstpctl-portnetwork' : 
                         { 'help' : 'enable/disable bridge assurance capability for a port',
@@ -163,7 +171,9 @@ class mstpctl(moduleBase):
                     'mstpctl-treeportcost' : 
                         { 'help' : 'port tree cost',
                           'validrange' : ['0', '255'],
-                          'required' : False},
+                          'required' : False,
+                          'jsonAttr': 'extPortCost',
+                          },
                     'mstpctl-portbpdufilter' : 
                         { 'help' : 'enable/disable bpdu filter on a port. ' +
                                 'syntax varies when defined under a bridge ' +
@@ -239,6 +249,12 @@ class mstpctl(moduleBase):
                 not self.mstpctlcmd.mstpbridge_exists(ifaceobj.name)):
             return None
         return self.brctlcmd.get_bridge_ports(ifaceobj.name)
+
+    def _get_bridge_port_attr_value(self, bridgename, portname, attr):
+        json_attr = self.get_mod_subattr(attr, 'jsonAttr')
+        return self.mstpctlcmd.get_bridge_port_attr(bridgename,
+                                                    portname,
+                                                    json_attr)
 
     def _get_bridge_port_list(self, ifaceobj):
 
@@ -330,12 +346,11 @@ class mstpctl(moduleBase):
                             for port in bridgeports:
                                 if not self.brctlcmd.is_bridge_port(port):
                                     continue
-                                running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(ifaceobj.name,
-                                                              port, jsonAttr)
-                                if running_val != default_val:
-                                    # we will not bother checking since we already checked
-                                    self.mstpctlcmd.set_bridgeport_attr(ifaceobj.name,
-                                            port, dstattrname, default_val, False)
+                                self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
+                                                                     port,
+                                                                     dstattrname,
+                                                                     default_val,
+                                                                     json_attr=jsonAttr)
                     except:
                         self.logger.info('%s: not resetting %s config'
                                          %(ifaceobj.name, attrname))
@@ -355,8 +370,12 @@ class mstpctl(moduleBase):
                         # if it is not bridge port, continue
                         if not os.path.exists('/sys/class/net/%s/brport' %port):
                             continue
-                        self.mstpctlcmd.set_bridgeport_attr(ifaceobj.name,
-                                port, dstattrname, val, check)
+                        json_attr = self.get_mod_subattr(attrname, 'jsonAttr')
+                        self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
+                                                             port,
+                                                             dstattrname,
+                                                             val,
+                                                             json_attr=json_attr)
                     except Exception, e:
                         self.log_error('%s: error setting %s (%s)'
                                        %(ifaceobj.name, attrname, str(e)),
@@ -409,14 +428,18 @@ class mstpctl(moduleBase):
                     (ifaceobj.link_kind & ifaceLinkKind.VXLAN)):
                     for attr in ['mstpctl-portbpdufilter',
                                  'mstpctl-bpduguard']:
-                        config_val = self._get_default_val(attr, ifaceobj, bridgeifaceobj)
+                        json_attr = self.get_mod_subattr(attr, 'jsonAttr')
+                        config_val = self._get_default_val(attr, ifaceobj,
+                                                           bridgeifaceobj)
                         try:
-                            self.mstpctlcmd.set_bridgeport_attr(bridgename,
-                                    ifaceobj.name, self._port_attrs_map[attr],
-                                    config_val, check)
+                            self.mstpctlcmd.set_bridge_port_attr(bridgename,
+                                                                 ifaceobj.name,
+                                                                 self._port_attrs_map[attr],
+                                                                 config_val,
+                                                                 json_attr=json_attr)
                         except Exception, e:
                             self.log_warn('%s: error setting %s (%s)'
-                                          %(ifaceobj.name, attr, str(e)))
+                                          % (ifaceobj.name, attr, str(e)))
                 return applied
         # set bridge port attributes
         for attrname, dstattrname in self._port_attrs_map.items():
@@ -427,7 +450,7 @@ class mstpctl(moduleBase):
             # to see the running value, stp would have to be on
             # so we would have parsed mstpctl showportdetail json output
             try:
-                running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(bridgename,
+                running_val = self.mstpctlcmd.get_bridge_port_attr(bridgename,
                                                        ifaceobj.name, jsonAttr)
             except:
                 self.logger.info('%s %s: could not get running %s value'
@@ -442,8 +465,8 @@ class mstpctl(moduleBase):
                 continue
 
             try:
-               self.mstpctlcmd.set_bridgeport_attr(bridgename,
-                           ifaceobj.name, dstattrname, config_val, check)
+               self.mstpctlcmd.set_bridge_port_attr(bridgename,
+                           ifaceobj.name, dstattrname, config_val, json_attr=jsonAttr)
                applied = True
             except Exception, e:
                self.log_error('%s: error setting %s (%s)'
@@ -568,6 +591,7 @@ class mstpctl(moduleBase):
         bridgeattrdict = {}
 
         tmpbridgeattrdict = self.mstpctlcmd.get_bridge_attrs(ifaceobjrunning.name)
+        #self.logger.info('A' + str(tmpbridgeattrdict))
         if not tmpbridgeattrdict:
             return bridgeattrdict
 
@@ -590,7 +614,6 @@ class mstpctl(moduleBase):
                           'mstpctl-portnetwork' : '',
                           'mstpctl-portpathcost' : '',
                           'mstpctl-portadminedge' : '',
-                          'mstpctl-portautoedge' : '',
                           'mstpctl-portp2p' : '',
                           'mstpctl-portrestrrole' : '',
                           'mstpctl-portrestrtcn' : '',
@@ -599,70 +622,26 @@ class mstpctl(moduleBase):
                           'mstpctl-treeportcost' : ''}
 
             for p in ports:
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portautoedge')
-                if v and v != 'no':
-                    portconfig['mstpctl-portautoedge'] += ' %s=%s' %(p, v)
 
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portbpdufilter')
-                if v and v != 'no':
-                    portconfig['mstpctl-portbpdufilter'] += ' %s=%s' %(p, v)
+                for attr in ['mstpctl-portautoedge',
+                             'mstpctl-portbpdufilter',
+                             'mstpctl-portnetwork',
+                             'mstpctl-portadminedge',
+                             'mstpctl-portp2p',
+                             'mstpctl-portrestrrole',
+                             'mstpctl-portrestrtcn',
+                             'mstpctl-bpduguard',
+                             '']:
+                    v = self._get_bridge_port_attr_value(ifaceobjrunning.name,
+                                                         p, attr)
+                    if v and v != 'no':
+                        portconfig[attr] += ' %s=%s' % (p, v)
 
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portnetwork')
-                if v and v != 'no':
-                    portconfig['mstpctl-portnetwork'] += ' %s=%s' %(p, v)
-
-                # XXX: Can we really get path cost of a port ???
-                #v = self.mstpctlcmd.get_portpathcost(ifaceobjrunning.name, p)
-                #if v and v != self.get_mod_subattr('mstpctl-portpathcost',
-                #                                   'default'):
-                #    portconfig['mstpctl-portpathcost'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portadminedge')
-                if v and v != 'no':
-                    portconfig['mstpctl-portadminedge'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portp2p')
-                if v and v != 'no':
-                    portconfig['mstpctl-portp2p'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portrestrrole')
-                if v and v != 'no':
-                    portconfig['mstpctl-portrestrrole'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portrestrtcn')
-                if v and v != 'no':
-                    portconfig['mstpctl-portrestrtcn'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'bpduguard')
-                if v and v != 'no':
-                    portconfig['mstpctl-bpduguard'] += ' %s=%s' %(p, v)
-
-                # XXX: Can we really get path cost of a port ???
-                #v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                #            p, 'treeprio')
-                #if v and v != self.get_mod_subattr('mstpctl-treeportprio',
-                #                                   'default'):
-                #    portconfig['mstpctl-treeportprio'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'portpathcost')
-                if v and v != self.get_mod_subattr('mstpctl-portpathcost',
-                                                   'default'):
-                    portconfig['mstpctl-portpathcost'] += ' %s=%s' %(p, v)
-
-                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                            p, 'treeportcost')
-                if v and v != self.get_mod_subattr('mstpctl-treeportcost',
-                                                   'default'):
-                    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
+                for attr in ['mstpctl-portpathcost', 'mstpctl-treeportcost']:
+                    v = self._get_bridge_port_attr_value(ifaceobjrunning.name,
+                                                         p, attr)
+                    if v and v != self.get_mod_subattr(attr, 'default'):
+                        portconfig[attr] += ' %s=%s' % (p, v)
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
@@ -685,6 +664,7 @@ class mstpctl(moduleBase):
         if not ifaceattrs:
             return
         runningattrs = self.mstpctlcmd.get_bridge_attrs(ifaceobj.name)
+        #self.logger.info('B' + str(runningattrs))
         if not runningattrs:
             runningattrs = {}
         running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
@@ -728,7 +708,7 @@ class mstpctl(moduleBase):
                             conf = config_val[bport]
                         jsonAttr =  self.get_mod_subattr(k, 'jsonAttr')
                         try:
-                            running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(ifaceobj.name, bport, jsonAttr)
+                            running_val = self.mstpctlcmd.get_bridge_port_attr(ifaceobj.name, bport, jsonAttr)
                         except:
                             self.logger.info('%s %s: could not get running %s value'
                                     %(ifaceobj.name, bport, attr))
@@ -797,8 +777,7 @@ class mstpctl(moduleBase):
                 for vlistitem in vlist:
                     try:
                         (p, v) = vlistitem.split('=')
-                        currv = self.mstpctlcmd.get_bridgeport_attr(
-                                        ifaceobj.name, p, mstpctlcmdattrname)
+                        currv = self._get_bridge_port_attr_value(ifaceobj.name, p, k)
                         if currv:
                             currstr += ' %s=%s' %(p, currv)
                         else:
@@ -844,7 +823,7 @@ class mstpctl(moduleBase):
                                     continue
                                 config_val = 'yes'
                             try:
-                                running_val = self.mstpctlcmd.get_mstpctl_bridgeport_attr(bifaceobj.name,
+                                running_val = self.mstpctlcmd.get_bridge_port_attr(bifaceobj.name,
                                                     ifaceobj.name, jsonAttr)
                             except:
                                 self.logger.info('%s %s: could not get running %s value'
@@ -876,6 +855,7 @@ class mstpctl(moduleBase):
         if not ifaceattrs:
             return
         runningattrs = self.mstpctlcmd.get_bridge_attrs(ifaceobj.name)
+        #self.logger.info('C' + str(runningattrs))
         if not runningattrs:
             runningattrs = {}
         for k in ifaceattrs:
@@ -885,8 +865,7 @@ class mstpctl(moduleBase):
             if not v or k in blacklistedattrs:
                 ifaceobjcurr.update_config_with_status(k, v, -1)
                 continue
-            currv = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                             ifaceobj.name, self._port_attrs_map.get(k))
+            currv = self._get_bridge_port_attr_value(bridgename, ifaceobj.name, k)
             if currv:
                 if currv != v:
                     ifaceobjcurr.update_config_with_status(k, currv, 1)
@@ -904,6 +883,15 @@ class mstpctl(moduleBase):
         else:
             self._query_check_bridge_port(ifaceobj, ifaceobjcurr)
 
+    def _query_bridge_port_attr(self, ifaceobjrunning, bridgename, attr, value_cmp):
+        v = self._get_bridge_port_attr_value(bridgename,
+                                             ifaceobjrunning.name,
+                                             attr)
+        if v and value_cmp and v != value_cmp:
+            ifaceobjrunning.update_config(attr, v)
+        elif v and not value_cmp:
+            ifaceobjrunning.update_config(attr, v)
+
     def _query_running_bridge_port(self, ifaceobjrunning):
         bridgename = self.ipcmd.bridge_port_get_bridge_name(
                                 ifaceobjrunning.name)
@@ -915,27 +903,20 @@ class mstpctl(moduleBase):
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
-        if self.sysctl_get('net.bridge.bridge-stp-user-space') != '1':
-           return
+        if self.systcl_get_net_bridge_stp_user_space() != '1':
+            return
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                                                ifaceobjrunning.name,
-                                                'portautoedge')
-        if v and v != self.get_mod_subattr('mstpctl-portautoedge',
-                                           'default'):
-            ifaceobjrunning.update_config('mstpctl-portautoedge', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portautoedge',
+                                     self.get_mod_subattr('mstpctl-portautoedge', 'default'))
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                                                ifaceobjrunning.name,
-                                                'portbpdufilter')
-        if v and v != 'no':
-            ifaceobjrunning.update_config('mstpctl-portbpdufilter', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portbpdufilter',
+                                     'no')
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                                                ifaceobjrunning.name,
-                                                'portnetwork')
-        if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-portnetwork', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portnetwork',
+                                     'no')
 
         # XXX: Can we really get path cost of a port ???
         #v = self.mstpctlcmd.get_portpathcost(ifaceobjrunning.name, p)
@@ -943,30 +924,25 @@ class mstpctl(moduleBase):
         #                                   'default'):
         #   ifaceobjrunning.update_config('mstpctl-network', v)
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                          ifaceobjrunning.name, 'portadminedge')
-        if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-portadminedge', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portadminedge',
+                                     'no')
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                                       ifaceobjrunning.name,'portp2p')
-        if v and v != 'auto':
-           ifaceobjrunning.update_config('mstpctl-portp2p', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portp2p',
+                                     'auto')
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                        ifaceobjrunning.name, 'portrestrrole')
-        if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-portrestrrole', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portrestrrole',
+                                     'no')
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                            ifaceobjrunning.name, 'portrestrtcn')
-        if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-portrestrtcn', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-portrestrtcn',
+                                     'no')
 
-        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                            ifaceobjrunning.name, 'bpduguard')
-        if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-bpduguard', v)
+        self._query_bridge_port_attr(ifaceobjrunning, bridgename,
+                                     'mstpctl-bpduguard',
+                                     'no')
 
         # XXX: Can we really get path cost of a port ???
         #v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
@@ -986,8 +962,8 @@ class mstpctl(moduleBase):
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
-        if self.sysctl_get('net.bridge.bridge-stp-user-space') != '1':
-           return
+        if self.systcl_get_net_bridge_stp_user_space() != '1':
+            return
         # Check if mstp really knows about this bridge
         if not self.mstpctlcmd.mstpbridge_exists(ifaceobjrunning.name):
             return
