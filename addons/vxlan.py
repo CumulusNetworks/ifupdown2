@@ -17,20 +17,20 @@ class vxlan(moduleBase):
                 'attrs' : {
                         'vxlan-id' :
                             {'help' : 'vxlan id',
-                             'validrange' : ['0', '4096'],
+                             'validrange' : ['1', '16777214'],
                              'required' : True,
                              'example': ['vxlan-id 100']},
                         'vxlan-local-tunnelip' :
                             {'help' : 'vxlan local tunnel ip',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-local-tunnelip 172.16.20.103']},
                         'vxlan-svcnodeip' :
                             {'help' : 'vxlan id',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-svcnodeip 172.16.22.125']},
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',
@@ -66,18 +66,65 @@ class vxlan(moduleBase):
             return True
         return False
 
-    def _up(self, ifaceobj):
+    def _vxlan_create(self, ifaceobj):
         vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
         if vxlanid:
-            self.ipcmd.link_create_vxlan(ifaceobj.name, vxlanid,
-            localtunnelip=ifaceobj.get_attr_value_first('vxlan-local-tunnelip'),
-            svcnodeip=ifaceobj.get_attr_value_first('vxlan-svcnodeip'),
-            remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
-            learning=utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning')),
-            ageing=ifaceobj.get_attr_value_first('vxlan-ageing'),
-            anycastip=self._clagd_vxlan_anycast_ip)
+            anycastip = self._clagd_vxlan_anycast_ip
+            group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
+            local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+            ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
+            learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
+
+            if self.ipcmd.link_exists(ifaceobj.name):
+                vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
+                # on ifreload do not overwrite anycast_ip to individual ip
+                # if clagd has modified
+                if vxlanattrs:
+                    running_localtunnelip = vxlanattrs.get('local')
+                    if (anycastip and running_localtunnelip and
+                                anycastip == running_localtunnelip):
+                        local = running_localtunnelip
+
+            netlink.link_add_vxlan(ifaceobj.name, vxlanid,
+                                   local=local,
+                                   learning=learning,
+                                   ageing=ageing,
+                                   group=group)
+
+            remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
+            if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
+                # figure out the diff for remotes and do the bridge fdb updates
+                # only if provisioned by user and not by vxrd
+                cur_peers = set(self.ipcmd.get_vxlan_peers(ifaceobj.name, group))
+                if remoteips:
+                    new_peers = set(remoteips)
+                    del_list = cur_peers.difference(new_peers)
+                    add_list = new_peers.difference(cur_peers)
+                else:
+                    del_list = cur_peers
+                    add_list = []
+
+                try:
+                    for addr in del_list:
+                        self.ipcmd.bridge_fdb_del(ifaceobj.name,
+                                                  '00:00:00:00:00:00',
+                                                  None, True, addr)
+                except:
+                    pass
+
+                try:
+                    for addr in add_list:
+                        self.ipcmd.bridge_fdb_append(ifaceobj.name,
+                                                     '00:00:00:00:00:00',
+                                                     None, True, addr)
+                except:
+                    pass
+
             if ifaceobj.addr_method == 'manual':
                 netlink.link_set_updown(ifaceobj.name, "up")
+
+    def _up(self, ifaceobj):
+        self._vxlan_create(ifaceobj)
 
     def _down(self, ifaceobj):
         try:
@@ -167,6 +214,9 @@ class vxlan(moduleBase):
         attrval = vxlanattrs.get('vxlanid')
         if attrval:
             ifaceobjrunning.update_config('vxlan-id', vxlanattrs.get('vxlanid'))
+        else:
+            # if there is no vxlan id, this is not a vxlan port
+            return
         attrval = vxlanattrs.get('local')
         if attrval:
             ifaceobjrunning.update_config('vxlan-local-tunnelip', attrval)

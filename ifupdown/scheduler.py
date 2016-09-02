@@ -412,6 +412,23 @@ class ifaceScheduler():
                     ifupdownobj.logger.warn('%s' %str(e))
 
     @classmethod
+    def _dump_dependency_info(cls, ifupdownobj, ifacenames,
+                              dependency_graph=None, indegrees=None):
+        ifupdownobj.logger.info('{\n')
+        ifupdownobj.logger.info('\nifaceobjs:')
+        for iname in ifacenames:
+	        iobjs = ifupdownobj.get_ifaceobjs(iname)
+	        for iobj in iobjs:
+		        iobj.dump(ifupdownobj.logger)
+        if (dependency_graph):
+            ifupdownobj.logger.info('\nDependency Graph:')
+            ifupdownobj.logger.info(dependency_graph)
+	    if (indegrees):
+		    ifupdownobj.logger.info('\nIndegrees:')
+		    ifupdownobj.logger.info(indegrees)
+	    ifupdownobj.logger.info('}\n')
+
+    @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
                               dependency_graph, indegrees=None):
         if len(ifacenames) == 1:
@@ -421,6 +438,10 @@ class ifaceScheduler():
             indegrees = OrderedDict()
             for ifacename in dependency_graph.keys():
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
+
+        #cls._dump_dependency_info(ifupdownobj, ifacenames,
+        #                          dependency_graph, indegrees)
+
         ifacenames_all_sorted = graph.topological_sort_graphs_all(
                                         dependency_graph, indegrees)
         # if ALL was set, return all interfaces

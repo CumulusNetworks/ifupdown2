@@ -25,7 +25,7 @@ class vlan(moduleBase):
                 'attrs' : {
                         'vlan-raw-device' :
                             {'help' : 'vlan raw device',
-                             'validvals' : ['<interface>' ,]},
+                             'validvals': ['<interface>']},
                         'vlan-id' :
                             {'help' : 'vlan id',
                              'validrange' : ['0', '4096']}}}
@@ -176,22 +176,24 @@ class vlan(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status('vlan-raw-device',
                         vlanrawdev, 0)
-            if vlanid != ifaceobj.get_attr_value_first('vlan-id'):
+            vlanid_config = ifaceobj.get_attr_value_first('vlan-id')
+            if not vlanid_config:
+                vlanid_config = str(self._get_vlan_id(ifaceobj))
+            if vlanid != vlanid_config:
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 1)
             else:
-                ifaceobjcurr.update_config_with_status('vlan-id',
-                        vlanid, 0)
+                ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 0)
             self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, vlanid)
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             return
-        if not self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name):
+        (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
+        if not vlanid:
             return
         # If vlan name is not in the dot format, get the
         # vlan dev and vlan id
         if not '.' in ifaceobjrunning.name:
-            (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
             ifaceobjrunning.update_config_dict({(k, v) for k, v in
                                                 {'vlan-raw-device' : vlanrawdev,
                                                  'vlan-id' : vlanid}.items()

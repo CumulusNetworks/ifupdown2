@@ -9,6 +9,8 @@ import signal
 import errno
 import fcntl
 import atexit
+import re
+from sets import Set
 from ifupdown.iface import *
 from ifupdown.utils import utils
 import ifupdown.policymanager as policymanager
@@ -33,9 +35,11 @@ class vrf(moduleBase):
                                    'creating a vrf device. ' +
                                    'Table id is either \'auto\' or '+
                                    '\'valid routing table id\'',
+                          'validvals': ['auto', '<number>'],
                           'example': ['vrf-table auto', 'vrf-table 1001']},
                     'vrf':
                          {'help' : 'vrf the interface is part of.',
+                          'validvals': ['<text>'],
                           'example': ['vrf blue']}}}
 
     iproute2_vrf_filename = '/etc/iproute2/rt_tables.d/ifupdown2_vrf_map.conf'
@@ -54,9 +58,18 @@ class vrf(moduleBase):
         self.bondcmd = None
         self.dhclientcmd = None
         self.name = self.__class__.__name__
-        if ifupdownflags.flags.PERFMODE:
-            # if perf mode is set, remove vrf map file.
-            # start afresh. PERFMODE is set at boot
+        self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
+
+        if (ifupdownflags.flags.PERFMODE and
+            not (self.vrf_mgmt_devname and os.path.exists('/sys/class/net/%s'
+            %self.vrf_mgmt_devname))):
+            # if perf mode is set (PERFMODE is set at boot), and this is the first
+            # time we are calling ifup at boot (check for mgmt vrf existance at
+            # boot, make sure this is really the first invocation at boot.
+            # ifup is called with PERFMODE at boot multiple times (once for mgmt vrf
+            # and the second time with all auto interfaces). We want to delete
+            # the map file only the first time. This is to avoid accidently
+            # deleting map file with a valid mgmt vrf entry
             if os.path.exists(self.iproute2_vrf_filename):
                 try:
                     self.logger.info('vrf: removing file %s'
@@ -85,6 +98,15 @@ class vrf(moduleBase):
         #self.logger.info("vrf: ip -6 rule cache")
         #self.logger.info(self.ip6_rule_cache)
 
+        self.l3mdev_checked = False
+        self.l3mdev4_rule = False
+        if self._l3mdev_rule(self.ip_rule_cache):
+            self.l3mdev4_rule = True
+            self.l3mdev_checked = True
+        self.l3mdev6_rule = False
+        if self._l3mdev_rule(self.ip6_rule_cache):
+            self.l3mdev6_rule = True
+            self.l3mdev_checked = True
         self._iproute2_vrf_map_initialized = False
         self.iproute2_vrf_map = {}
         self.iproute2_vrf_map_fd = None
@@ -100,8 +122,9 @@ class vrf(moduleBase):
 
         self.vrf_fix_local_table = True
         self.vrf_count = 0
-        self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
+
+        self.warn_on_vrf_map_write_err = True
 
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
@@ -168,18 +191,35 @@ class vrf(moduleBase):
         self._iproute2_vrf_map_initialized = True
         self.vrf_count = len(self.iproute2_vrf_map)
 
+    def _iproute2_map_warn(self, errstr):
+        if self.warn_on_vrf_map_write_err:
+            if not os.path.exists('/etc/iproute2/rt_tables.d/'):
+                self.logger.info('unable to save iproute2 vrf to table ' +
+                                 'map (%s)\n' %errstr)
+                self.logger.info('cannot find /etc/iproute2/rt_tables.d.' +
+                                 ' pls check if your iproute2 version' +
+                                 ' supports rt_tables.d')
+            else:
+                self.logger.warn('unable to open iproute2 vrf to table ' +
+                                 'map (%s)\n' %errstr)
+            self.warn_on_vrf_map_write_err = False
+
     def _iproute2_vrf_map_sync_to_disk(self):
         if (ifupdownflags.flags.DRYRUN or
             not self.iproute2_vrf_map_sync_to_disk):
             return
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
-        with open(self.iproute2_vrf_filename, 'w') as f:
-            f.write(self.iproute2_vrf_filehdr %(self.vrf_table_id_start,
-                    self.vrf_table_id_end))
-            for t, v in self.iproute2_vrf_map.iteritems():
-                f.write('%s %s\n' %(t, v))
-            f.flush()
+        try:
+            with open(self.iproute2_vrf_filename, 'w') as f:
+                f.write(self.iproute2_vrf_filehdr %(self.vrf_table_id_start,
+                        self.vrf_table_id_end))
+                for t, v in self.iproute2_vrf_map.iteritems():
+                    f.write('%s %s\n' %(t, v))
+                f.flush()
+        except Exception, e:
+            self._iproute2_map_warn(str(e))
+            pass
 
     def _iproute2_vrf_map_open(self, sync_vrfs=False, append=False):
         self.logger.info('vrf: syncing table map to %s'
@@ -192,8 +232,7 @@ class vrf(moduleBase):
                                          '%s' %fmode)
             fcntl.fcntl(self.iproute2_vrf_map_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
         except Exception, e:
-            self.log_warn('vrf: error opening %s (%s)'
-                          %(self.iproute2_vrf_filename, str(e)))
+            self._iproute2_map_warn(str(e))
             return
 
         if not append:
@@ -294,7 +333,7 @@ class vrf(moduleBase):
         return True
 
     def _up_vrf_slave_without_master(self, ifacename, vrfname, ifaceobj,
-                                      ifaceobj_getfunc):
+                                     vrf_master_objs):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
@@ -306,10 +345,6 @@ class vrf(moduleBase):
         if os.path.exists('/sys/class/net/%s' %vrf_master):
             self.logger.info('%s: vrf master %s exists returning'
                              %(ifacename, vrf_master))
-            return
-        vrf_master_objs = ifaceobj_getfunc(vrf_master)
-        if not vrf_master_objs:
-            self.logger.warn('%s: vrf master ifaceobj not found' %ifacename)
             return
         self.logger.info('%s: bringing up vrf master %s'
                          %(ifacename, vrf_master))
@@ -362,14 +397,31 @@ class vrf(moduleBase):
                 if not upper or upper != vrfname:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
-            elif ifupdownflags.flags.ALL and ifaceobj:
-                self._up_vrf_slave_without_master(ifacename, vrfname, ifaceobj,
-                                                  ifaceobj_getfunc)
+            elif ifaceobj:
+                vrf_master_objs = ifaceobj_getfunc(vrfname)
+                if not vrf_master_objs:
+                    # this is the case where vrf is assigned to an interface
+                    # but user has not provided a vrf interface.
+                    # people expect you to warn them but go ahead with the
+                    # rest of the config on that interface
+                    netlink.link_set_updown(ifacename, "up")
+                    self.log_error('vrf master ifaceobj %s not found'
+                                   %vrfname)
+                    return
+                if (ifupdownflags.flags.ALL or
+                    (ifupdownflags.flags.CLASS and
+                     ifaceobj.classes and vrf_master_objs[0].classes and
+                     Set(ifaceobj.classes).intersection(vrf_master_objs[0].classes))):
+                    self._up_vrf_slave_without_master(ifacename, vrfname,
+                                                      ifaceobj,
+                                                      vrf_master_objs)
+                else:
+                    master_exists = False
             else:
                 master_exists = False
             if master_exists:
                 netlink.link_set_updown(ifacename, "up")
-            elif ifupdownflags.flags.ALL:
+            else:
                 self.log_error('vrf %s not around, skipping vrf config'
                                %(vrfname), ifaceobj)
         except Exception, e:
@@ -404,6 +456,22 @@ class vrf(moduleBase):
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
+    def _l3mdev_rule(self, ip_rules):
+        for rule in ip_rules:
+            if not re.search(r"\d.*from\s+all\s+lookup\s+\W?l3mdev-table\W?",
+                             rule):
+                continue
+            return True
+        return False
+
+    def _rule_cache_fill(self):
+        ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
+        self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
+        self.l3mdev4_rule = self._l3mdev_rule(self.ip_rule_cache)
+        ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
+        self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
+        self.l3mdev6_rule = self._l3mdev_rule(self.ip6_rule_cache)
+
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
@@ -426,33 +494,53 @@ class vrf(moduleBase):
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
 
+        if not self.l3mdev_checked:
+            self._rule_cache_fill()
+            self.l3mdev_checked = True
         #Example ip rule
         #200: from all oif blue lookup blue
         #200: from all iif blue lookup blue
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip_rule_cache:
+        if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip_rule_cache:
+        if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip6_rule_cache:
+        if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
-        if rule not in self.ip6_rule_cache:
+        if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
+
+    def _is_address_virtual_slaves(self, vrfobj, config_vrfslaves,
+                                   vrfslave):
+        # Address virtual lines on a vrf slave will create
+        # macvlan devices on the vrf slave and enslave them
+        # to the vrf master. This function checks if the
+        # vrf slave is such a macvlan interface.
+        # XXX: additional possible checks that can be done here
+        # are:
+        #  - check if it is also a macvlan device of the
+        #    format <vrf_slave>-v<int> created by the 
+        #    address virtual module
+        vrfslave_lowers = self.ipcmd.link_get_lowers(vrfslave)
+        if vrfslave_lowers:
+            if vrfslave_lowers[0] in config_vrfslaves:
+                return True
+        return False
 
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
@@ -481,6 +569,9 @@ class vrf(moduleBase):
         if del_slaves:
             for s in del_slaves:
                 try:
+                    if self._is_address_virtual_slaves(ifaceobj,
+                                                       config_slaves, s):
+                        continue
                     sobj = None
                     if ifaceobj_getfunc:
                         sobj = ifaceobj_getfunc(s)

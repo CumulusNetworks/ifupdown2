@@ -17,6 +17,7 @@ try:
     from ifupdown.netlink import netlink
     import ifupdown.ifupdownconfig as ifupdownConfig
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.statemanager as statemanager
 except ImportError, e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -28,18 +29,17 @@ class address(moduleBase):
                 'attrs': {
                       'address' :
                             {'help' : 'ipv4 or ipv6 addresses',
-                             'validvals' : [IPv4Network, IPv6Network],
+                             'validvals' : ['<ipv4/prefixlen>', '<ipv6/prefixlen>'],
                              'multiline' : True,
                              'example' : ['address 10.0.12.3/24',
                              'address 2000:1000:1000:1000:3::5/128']},
                       'netmask' :
                             {'help': 'netmask',
-                             'validvals' : [IPv4Address, ],
                              'example' : ['netmask 255.255.255.0'],
                              'compat' : True},
                       'broadcast' :
                             {'help': 'broadcast address',
-                             'validvals' : [IPv4Address, ],
+                             'validvals' : ['<ipv4>', ],
                              'example' : ['broadcast 10.0.1.255']},
                       'scope' :
                             {'help': 'scope',
@@ -52,7 +52,7 @@ class address(moduleBase):
                                           'preferred-lifetime 10']},
                       'gateway' :
                             {'help': 'default gateway',
-                             'validvals' : [IPv4Address, IPv6Address],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
@@ -79,7 +79,7 @@ class address(moduleBase):
                       'clagd-vxlan-anycast-ip' :
                             { 'help'     : 'Anycast local IP address for ' +
                               'dual connected VxLANs',
-                              'validvals' : [IPv4Address, ],
+                              'validvals' : ['<ipv4>', ],
                               'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
 
     def __init__(self, *args, **kargs):
@@ -260,6 +260,30 @@ class address(moduleBase):
             return
         self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
 
+    def _add_delete_gateway(self, ifaceobj, gateways=[], prev_gw=[]):
+        vrf = ifaceobj.get_attr_value_first('vrf')
+        metric = ifaceobj.get_attr_value_first('metric')
+        for del_gw in list(set(prev_gw) - set(gateways)):
+            try:
+                self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
+            except:
+                pass
+        for add_gw in list(set(gateways) - set(prev_gw)):
+            try:
+                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
+            except:
+                pass
+
+    def _get_prev_gateway(self, ifaceobj, gateways):
+        ipv = []
+        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
+        if not saved_ifaceobjs:
+            return ipv
+        prev_gateways = saved_ifaceobjs[0].get_attr_value('gateway')
+        if not prev_gateways:
+            return ipv
+        return prev_gateways
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -290,7 +314,7 @@ class address(moduleBase):
         mtu = ifaceobj.get_attr_value_first('mtu')
         if mtu:
            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        elif (not ifaceobj.link_kind and
+        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
               not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
               self.default_mtu):
             # logical devices like bridges and vlan devices rely on mtu
@@ -308,7 +332,11 @@ class address(moduleBase):
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
            self.ipcmd.link_set_alias(ifaceobj.name, alias)
-        self.ipcmd.batch_commit()
+        try:
+            self.ipcmd.batch_commit()
+        except Exception as e:
+            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+            ifaceobj.set_status(ifaceStatus.ERROR)
 
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
@@ -340,9 +368,12 @@ class address(moduleBase):
             pass
 
         if addr_method != "dhcp":
-            self.ipcmd.route_add_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'),
-                    ifaceobj.get_attr_value_first('vrf'))
+            gateways = ifaceobj.get_attr_value('gateway')
+            if not gateways:
+                gateways = []
+            prev_gw = self._get_prev_gateway(ifaceobj, gateways)
+            self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+        return
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
@@ -350,10 +381,6 @@ class address(moduleBase):
                 return
             addr_method = ifaceobj.addr_method
             if addr_method != "dhcp":
-                self.ipcmd.route_del_gateway(ifaceobj.name,
-                    ifaceobj.get_attr_value_first('gateway'),
-                    ifaceobj.get_attr_value_first('vrf'),
-                    ifaceobj.get_attr_value_first('metric'))
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist:

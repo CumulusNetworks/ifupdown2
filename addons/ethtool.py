@@ -97,11 +97,12 @@ class ethtool(moduleBase,utilsBase):
                 (ifaceobj.name in self.ifaceobjs_modified_configs)):
                 continue
 
-            # if we are not the oldest and we have no configs, do not change anything
-            # the only way a non-oldest sibling would change values is if it
-            # had configured settings
-            if (not ((ifaceobj.flags & iface.HAS_SIBLINGS) and
-                     (ifaceobj.flags & iface.OLDEST_SIBLING)) and
+            # If we have siblings AND are not the oldest AND we have no configs,
+            # do not change anything. The only way a non-oldest sibling would
+            # change values is if it had configured settings. iface stanzas may
+            # not be squashed if addr_config_squash is not set so we still need this.
+            if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
+                not (ifaceobj.flags & iface.OLDEST_SIBLING) and
                 not config_val):
                 continue
 
@@ -242,6 +243,10 @@ class ethtool(moduleBase,utilsBase):
             # to see the defaults, we should implement another flag (--with-defaults)
             if default_val == running_attr:
                 continue
+
+            # do not proceed if speed = 0
+            if attr == 'speed' and running_attr and running_attr == '0':
+                return
             if running_attr:
                 ifaceobj.update_config('link-%s'%attr, running_attr)
 
@@ -249,8 +254,6 @@ class ethtool(moduleBase,utilsBase):
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
-        if ifaceobj.link_kind:
-            return
         for attr in ['speed', 'duplex', 'autoneg']:
             if ifaceobj.get_attr_value_first('link-%s'%attr):
                 continue
@@ -293,6 +296,8 @@ class ethtool(moduleBase,utilsBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
+        if ifaceobj.link_kind:
+            return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return

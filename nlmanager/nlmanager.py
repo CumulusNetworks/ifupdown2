@@ -15,7 +15,11 @@ class NetlinkError(Exception):
     pass
 
 
-class NetlinkNoAddressError(Exception):
+class NetlinkNoAddressError(NetlinkError):
+    pass
+
+
+class NetlinkInterruptedSystemCall(NetlinkError):
     pass
 
 
@@ -137,13 +141,15 @@ class NetlinkManager(object):
         # packet via the decode_packet call...so avoid printing
         # two messages for one packet.
         if not nlpacket.debug:
-            log.info("TXed %12s, pid %d, seq %d, %d bytes" %
+            log.debug("TXed %12s, pid %d, seq %d, %d bytes" %
                      (nlpacket.get_type_string(), nlpacket.pid, nlpacket.seq, nlpacket.length))
 
         header_PACK = NetlinkPacket.header_PACK
         header_LEN = NetlinkPacket.header_LEN
         null_read = 0
-        MAX_NULL_READS = 30
+        nle_intr_count = 0
+        MAX_NULL_READS = 3
+        MAX_ERROR_NLE_INTR = 3
         msgs = []
 
         # Now listen to our socket and wait for the reply
@@ -154,21 +160,51 @@ class NetlinkManager(object):
                 return msgs
 
             # Only block for 1 second so we can wake up to see if self.shutdown_flag is True
-            (readable, writeable, exceptional) = select([self.tx_socket, ], [], [self.tx_socket, ], 1)
+            try:
+                (readable, writeable, exceptional) = select([self.tx_socket, ], [], [self.tx_socket, ], 1)
+            except Exception as e:
+                # 4 is Interrupted system call
+                if isinstance(e.args, tuple) and e[0] == 4:
+                    nle_intr_count += 1
+                    log.info("select() Interrupted system call %d/%d" % (nle_intr_count, MAX_ERROR_NLE_INTR))
 
-            if not readable:
+                    if nle_intr_count >= MAX_ERROR_NLE_INTR:
+                        raise NetlinkInterruptedSystemCall(error_str)
+                    else:
+                        continue
+                else:
+                    raise
+
+            if readable:
+                null_read = 0
+            else:
                 null_read += 1
 
                 # Safety net to make sure we do not spend too much time in
                 # this while True loop
                 if null_read >= MAX_NULL_READS:
-                    log.warning('Socket was not readable for %d attempts' % null_read)
+                    log.info('Socket was not readable for %d attempts' % null_read)
                     return msgs
-
-                continue
+                else:
+                    continue
 
             for s in readable:
-                data = s.recv(4096)
+                data = []
+
+                try:
+                    data = s.recv(4096)
+                except Exception as e:
+                    # 4 is Interrupted system call
+                    if isinstance(e.args, tuple) and e[0] == 4:
+                        nle_intr_count += 1
+                        log.info("%s: recv() Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
+
+                        if nle_intr_count >= MAX_ERROR_NLE_INTR:
+                            raise NetlinkInterruptedSystemCall(error_str)
+                        else:
+                            continue
+                    else:
+                        raise
 
                 if not data:
                     log.info('RXed zero length data, the socket is closed')
@@ -204,26 +240,44 @@ class NetlinkManager(object):
                         msg = Error(msgtype, nlpacket.debug)
                         msg.decode_packet(length, flags, seq, pid, data)
 
-                        debug_str += ", error code %s" % msg.error_to_string.get(error_code)
-
                         # 0 is NLE_SUCCESS...everything else is a true error
                         if error_code:
-                            if error_code == Error.NLE_NOADDR:
-                                raise NetlinkNoAddressError(debug_str)
+                            error_code_str = msg.error_to_string.get(error_code)
+
+                            if error_code_str != 'None':
+                                error_str = 'Operation failed with \'%s\' (%s)' % (error_code_str, debug_str)
                             else:
-                                raise NetlinkError(debug_str)
+                                error_str = 'Operation failed with code %s (%s)' % (error_code, debug_str)
+
+                            if error_code == Error.NLE_NOADDR:
+                                raise NetlinkNoAddressError(error_str)
+                            elif error_code == Error.NLE_INTR:
+                                nle_intr_count += 1
+                                log.info("%s: RXed NLE_INTR Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
+
+                                if nle_intr_count >= MAX_ERROR_NLE_INTR:
+                                    raise NetlinkInterruptedSystemCall(error_str)
+                            else:
+                                if error_code_str == 'None':
+                                    try:
+                                        # os.strerror might raise ValueError
+                                        raise NetlinkError('Operation failed with \'%s\' (%s)' % (os.strerror(error_code), debug_str))
+                                    except ValueError:
+                                        pass
+                                raise NetlinkError(error_str)
                         else:
-                            log.info(debug_str + '...this is an ACK')
+                            log.debug('%s code NLE_SUCCESS...this is an ACK' % debug_str)
                             return msgs
 
                     # No ACK...create a nlpacket object and append it to msgs
                     else:
+                        nle_intr_count = 0
 
                         # If debugs are enabled we will print the contents of the
                         # packet via the decode_packet call...so avoid printing
                         # two messages for one packet.
                         if not nlpacket.debug:
-                            log.info(debug_str)
+                            log.debug(debug_str)
 
                         if msgtype == RTM_NEWLINK or msgtype == RTM_DELLINK:
                             msg = Link(msgtype, nlpacket.debug)
@@ -444,7 +498,7 @@ class NetlinkManager(object):
         debug = RTM_NEWLINK in self.debug
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_CREATE | NLM_F_REQUEST
+        link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_LINK, ifindex)
@@ -453,7 +507,7 @@ class NetlinkManager(object):
             Link.IFLA_INFO_DATA: ifla_info_data
         })
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     def link_add_vlan(self, ifindex, ifname, vlanid):
         """
@@ -512,7 +566,7 @@ class NetlinkManager(object):
             Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
         })
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     def link_add_bridge_vlan(self, ifindex, vlanid, pvid=False, untagged=False, master=False):
         self._link_bridge_vlan(RTM_SETLINK, ifindex, vlanid, pvid, untagged, master)
@@ -536,11 +590,11 @@ class NetlinkManager(object):
         if_change = Link.IFF_UP
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_REQUEST
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     def link_set_protodown(self, ifname, state):
         """
@@ -552,12 +606,12 @@ class NetlinkManager(object):
         debug = RTM_NEWLINK in self.debug
 
         link = Link(RTM_NEWLINK, debug)
-        link.flags = NLM_F_REQUEST
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_PROTO_DOWN, protodown)
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(link)
+        return self.tx_nlpacket_get_response(link)
 
     # =========
     # Neighbors
@@ -567,23 +621,54 @@ class NetlinkManager(object):
         service_hdr_flags = 0
 
         nbr = Neighbor(RTM_NEWNEIGH, debug)
-        nbr.flags = NLM_F_CREATE | NLM_F_REQUEST
+        nbr.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(nbr)
+        return self.tx_nlpacket_get_response(nbr)
 
     def neighbor_del(self, afi, ifindex, ip, mac):
         debug = RTM_DELNEIGH in self.debug
         service_hdr_flags = 0
 
         nbr = Neighbor(RTM_DELNEIGH, debug)
-        nbr.flags = NLM_F_REQUEST
+        nbr.flags = NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket(nbr)
+        return self.tx_nlpacket_get_response(nbr)
+
+    def link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None,
+                       group=None, learning='on', ageing=None):
+
+        debug = RTM_NEWLINK in self.debug
+
+        info_data = {Link.IFLA_VXLAN_ID: int(vxlanid)}
+        if dstport:
+            info_data[Link.IFLA_VXLAN_PORT] = int(dstport)
+        if local:
+            info_data[Link.IFLA_VXLAN_LOCAL] = local
+        if group:
+            info_data[Link.IFLA_VXLAN_GROUP] = group
+
+        learning = 0 if learning == 'off' else 1
+        info_data[Link.IFLA_VXLAN_LEARNING] = learning
+
+        if ageing:
+            info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
+
+        link = Link(RTM_NEWLINK, debug)
+        link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        link.add_attribute(Link.IFLA_IFNAME, ifname)
+        link.add_attribute(Link.IFLA_LINKINFO, {
+            Link.IFLA_INFO_KIND: "vxlan",
+            Link.IFLA_INFO_DATA: info_data
+        })
+
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(link)

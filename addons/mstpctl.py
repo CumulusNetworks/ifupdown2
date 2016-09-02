@@ -30,7 +30,7 @@ class mstpctl(moduleBase):
                          'new-attribute': 'bridge-ports'},
                    'mstpctl-stp' :
                         {'help': 'bridge stp yes/no',
-                         'validvals' : ['yes', 'no'],
+                         'validvals' : ['yes', 'no', 'on', 'off'],
                          'compat' : True,
                          'default' : 'no',
                          'deprecated': True,
@@ -79,6 +79,7 @@ class mstpctl(moduleBase):
                           'example' : ['mstpctl-forcevers rstp']},
                     'mstpctl-portpathcost' :
                         { 'help' : 'bridge port path cost',
+                          'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '65535'],
                           'default' : '0',
                           'jsonAttr' : 'adminExtPortCost',
@@ -89,7 +90,7 @@ class mstpctl(moduleBase):
                         { 'help' : 'bridge port p2p detection mode',
                           'default' : 'auto',
                           'jsonAttr' : 'adminPointToPoint',
-                          'validvals' : ['yes', 'no', 'auto'],
+                          'validvals' : ['<interface-yes-no-auto-list>'],
                           'required' : False,
                           'example' : ['under the bridge: mstpctl-portp2p swp1=yes swp2=no',
                                        'under the port (recommended): mstpctl-portp2p yes']},
@@ -98,7 +99,7 @@ class mstpctl(moduleBase):
                           'enable/disable port ability to take root role of the port',
                           'default' : 'no',
                           'jsonAttr' : 'restrictedRole',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'required' : False,
                           'example' : ['under the bridge: mstpctl-portrestrrole swp1=yes swp2=no',
                                        'under the port (recommended): mstpctl-portrestrrole yes']},
@@ -107,7 +108,7 @@ class mstpctl(moduleBase):
                           'enable/disable port ability to propagate received topology change notification of the port',
                           'default' : 'no',
                           'jsonAttr' : 'restrictedTcn',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'required' : False,
                           'example' : ['under the bridge: mstpctl-portrestrtcn swp1=yes swp2=no',
                                        'under the port (recommended): mstpctl-portrestrtcn yes']},
@@ -116,7 +117,7 @@ class mstpctl(moduleBase):
                           'enable/disable bpduguard',
                           'default' : 'no',
                           'jsonAttr' : 'bpduGuardPort',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'required' : False,
                           'example' : ['under the bridge: mstpctl-bpduguard swp1=yes swp2=no',
                                        'under the port (recommended): mstpctl-bpduguard yes']},
@@ -124,6 +125,7 @@ class mstpctl(moduleBase):
                         { 'help' :
                           'port priority for MSTI instance',
                           'default' : '128',
+                          'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '240'],
                           'required' : False,
                           'example' : ['under the bridge: mstpctl-treeportprio swp1=128 swp2=128',
@@ -136,7 +138,7 @@ class mstpctl(moduleBase):
                           'example' : ['mstpctl-hello 2']},
                     'mstpctl-portnetwork' : 
                         { 'help' : 'enable/disable bridge assurance capability for a port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'default' : 'no',
                           'jsonAttr' : 'networkPort',
                           'required' : False,
@@ -144,7 +146,7 @@ class mstpctl(moduleBase):
                                        'under the port (recommended): mstpctl-portnetwork yes']},
                     'mstpctl-portadminedge' : 
                         { 'help' : 'enable/disable initial edge state of the port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'default' : 'no',
                           'jsonAttr' : 'adminEdgePort',
                           'required' : False,
@@ -152,7 +154,7 @@ class mstpctl(moduleBase):
                                        'under the port (recommended): mstpctl-portadminedge yes']},
                     'mstpctl-portautoedge' : 
                         { 'help' : 'enable/disable auto transition to/from edge state of the port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'default' : 'yes',
                           'jsonAttr' : 'autoEdgePort',
                           'required' : False,
@@ -166,7 +168,7 @@ class mstpctl(moduleBase):
                         { 'help' : 'enable/disable bpdu filter on a port. ' +
                                 'syntax varies when defined under a bridge ' +
                                 'vs under a port',
-                          'validvals' : ['yes', 'no'],
+                          'validvals' : ['<interface-yes-no-list>'],
                           'jsonAttr' : 'bpduFilterPort',
                           'default' : 'no',
                           'required' : False,
@@ -312,6 +314,8 @@ class mstpctl(moduleBase):
                     self.logger.warn('%s' %str(e))
                     pass
 
+            if self.ipcmd.bridge_is_vlan_aware(ifaceobj.name):
+                return
             # set bridge port attributes
             for attrname, dstattrname in self._port_attrs_map.items():
                 config_val = ifaceobj.get_attr_value_first(attrname)
@@ -560,7 +564,7 @@ class mstpctl(moduleBase):
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
-    def _query_running_attrs(self, ifaceobjrunning):
+    def _query_running_attrs(self, ifaceobjrunning, bridge_vlan_aware=False):
         bridgeattrdict = {}
 
         tmpbridgeattrdict = self.mstpctlcmd.get_bridge_attrs(ifaceobjrunning.name)
@@ -574,12 +578,16 @@ class mstpctl(moduleBase):
                 ports = v.keys()
                 continue
             attrname = 'mstpctl-' + k
-            if v and v != self.get_mod_subattr(attrname, 'default'):
+            if (v and v != self.get_mod_subattr(attrname, 'default')
+                and attrname != 'mstpctl-maxhops'):
                 bridgeattrdict[attrname] = [v]
 
         ports = self.brctlcmd.get_bridge_ports(ifaceobjrunning.name)
-        if ports:
-            portconfig = {'mstpctl-portnetwork' : '',
+        # Do this only for vlan-UNAWARE-bridge
+        if ports and not bridge_vlan_aware:
+            portconfig = {'mstpctl-portautoedge' : '',
+                          'mstpctl-portbpdufilter' : '',
+                          'mstpctl-portnetwork' : '',
                           'mstpctl-portpathcost' : '',
                           'mstpctl-portadminedge' : '',
                           'mstpctl-portautoedge' : '',
@@ -591,6 +599,16 @@ class mstpctl(moduleBase):
                           'mstpctl-treeportcost' : ''}
 
             for p in ports:
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portautoedge')
+                if v and v != 'no':
+                    portconfig['mstpctl-portautoedge'] += ' %s=%s' %(p, v)
+
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portbpdufilter')
+                if v and v != 'no':
+                    portconfig['mstpctl-portbpdufilter'] += ' %s=%s' %(p, v)
+
                 v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
                             p, 'portnetwork')
                 if v and v != 'no':
@@ -634,11 +652,17 @@ class mstpctl(moduleBase):
                 #                                   'default'):
                 #    portconfig['mstpctl-treeportprio'] += ' %s=%s' %(p, v)
 
-                #v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                #            p, 'treecost')
-                #if v and v != self.get_mod_subattr('mstpctl-treeportcost',
-                #                                   'default'):
-                #    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'portpathcost')
+                if v and v != self.get_mod_subattr('mstpctl-portpathcost',
+                                                   'default'):
+                    portconfig['mstpctl-portpathcost'] += ' %s=%s' %(p, v)
+
+                v = self.mstpctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                            p, 'treeportcost')
+                if v and v != self.get_mod_subattr('mstpctl-treeportcost',
+                                                   'default'):
+                    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
@@ -893,11 +917,25 @@ class mstpctl(moduleBase):
         # if userspace stp not set, return
         if self.sysctl_get('net.bridge.bridge-stp-user-space') != '1':
            return
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portautoedge')
+        if v and v != self.get_mod_subattr('mstpctl-portautoedge',
+                                           'default'):
+            ifaceobjrunning.update_config('mstpctl-portautoedge', v)
+
+        v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
+                                                ifaceobjrunning.name,
+                                                'portbpdufilter')
+        if v and v != 'no':
+            ifaceobjrunning.update_config('mstpctl-portbpdufilter', v)
+
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
                                                 ifaceobjrunning.name,
                                                 'portnetwork')
         if v and v != 'no':
-           ifaceobjrunning.update_config('mstpctl-network', v)
+           ifaceobjrunning.update_config('mstpctl-portnetwork', v)
 
         # XXX: Can we really get path cost of a port ???
         #v = self.mstpctlcmd.get_portpathcost(ifaceobjrunning.name, p)
@@ -921,7 +959,7 @@ class mstpctl(moduleBase):
            ifaceobjrunning.update_config('mstpctl-portrestrrole', v)
 
         v = self.mstpctlcmd.get_bridgeport_attr(bridgename,
-                            ifaceobjrunning.name, 'restrtcn')
+                            ifaceobjrunning.name, 'portrestrtcn')
         if v and v != 'no':
            ifaceobjrunning.update_config('mstpctl-portrestrtcn', v)
 
@@ -953,8 +991,12 @@ class mstpctl(moduleBase):
         # Check if mstp really knows about this bridge
         if not self.mstpctlcmd.mstpbridge_exists(ifaceobjrunning.name):
             return
+        bridge_vlan_aware = False
+        if ifaceobjrunning.get_attr_value_first('bridge-vlan-aware') == 'yes':
+            bridge_vlan_aware = True
         ifaceobjrunning.update_config_dict(self._query_running_attrs(
-                                           ifaceobjrunning))
+                                           ifaceobjrunning,
+                                           bridge_vlan_aware))
 
     def _query_running(self, ifaceobjrunning, **extra_args):
         if self.brctlcmd.bridge_exists(ifaceobjrunning.name):

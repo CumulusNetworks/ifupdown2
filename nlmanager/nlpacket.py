@@ -39,6 +39,9 @@ from struct import pack, unpack, calcsize
 
 log = logging.getLogger(__name__)
 
+# Interface name buffer size #define IFNAMSIZ 16 (kernel source)
+IF_NAME_SIZE = 15 # 15 because python doesn't have \0
+
 # Netlink message types
 NLMSG_NOOP    = 0x01
 NLMSG_ERROR   = 0x02
@@ -185,6 +188,15 @@ class Attribute(object):
     def __str__(self):
         return self.string
 
+    def set_value(self, value):
+        self.value = value
+
+    def set_nested(self, nested):
+        self.nested = nested
+
+    def set_net_byteorder(self, net_byteorder):
+        self.net_byteorder = net_byteorder
+
     def pad_bytes_needed(self, length):
         """
         Return the number of bytes that should be added to align on a 4-byte boundry
@@ -205,6 +217,10 @@ class Attribute(object):
         return raw
 
     def encode(self):
+
+        if not self.LEN:
+            raise Exception('Please define an encode() method in your child attribute class, or do not use AttributeGeneric')
+
         length = self.HEADER_LEN + self.LEN
         attr_type_with_flags = self.atype
 
@@ -327,6 +343,17 @@ class AttributeString(Attribute):
             raise
 
 
+class AttributeStringInterfaceName(AttributeString):
+
+    def __init__(self, atype, string, logger):
+        AttributeString.__init__(self, atype, string, logger)
+
+    def set_value(self, value):
+        if value and len(value) > IF_NAME_SIZE:
+            raise Exception('interface name exceeds max length of %d' % IF_NAME_SIZE)
+        self.value = value
+
+
 class AttributeIPAddress(Attribute):
 
     def __init__(self, atype, string, family, logger):
@@ -445,6 +472,14 @@ class AttributeGeneric(Attribute):
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
+
+
+class AttributeOneByteValue(AttributeGeneric):
+
+    def __init__(self, atype, string, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = '=B'
+        self.LEN = calcsize(self.PACK)
 
 
 class AttributeIFLA_AF_SPEC(Attribute):
@@ -706,7 +741,7 @@ class AttributeIFLA_LINKINFO(Attribute):
 
         kind = self.value[Link.IFLA_INFO_KIND]
 
-        if kind not in ('vlan', 'macvlan'):
+        if kind not in ('vlan', 'macvlan', 'vxlan'):
             raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
 
         # For now this assumes that all data will be packed in the native endian
@@ -757,6 +792,67 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                         else:
                             self.log.debug('Add support for encoding IFLA_INFO_DATA macvlan sub-attribute type %d' % info_data_type)
+
+                    elif kind == 'vxlan':
+                        if info_data_type in (Link.IFLA_VXLAN_ID,
+                                              Link.IFLA_VXLAN_LINK,
+                                              Link.IFLA_VXLAN_AGEING,
+                                              Link.IFLA_VXLAN_LIMIT,
+                                              Link.IFLA_VXLAN_PORT_RANGE):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(info_data_value)
+
+                        elif info_data_type in (Link.IFLA_VXLAN_GROUP,
+                                                Link.IFLA_VXLAN_LOCAL):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+
+                            reorder = unpack('<L', IPv4Address(info_data_value).packed)[0]
+                            sub_attr_payload.append(IPv4Address(reorder))
+
+                        elif info_data_type in (Link.IFLA_VXLAN_PORT,):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('H')
+
+                            # byte swap
+                            swaped = pack(">H", info_data_value)
+                            sub_attr_payload.append(unpack("<H", swaped)[0])
+
+                            sub_attr_pack_layout.extend('xx')
+
+                        elif info_data_type in (Link.IFLA_VXLAN_TTL,
+                                                Link.IFLA_VXLAN_TOS,
+                                                Link.IFLA_VXLAN_LEARNING,
+                                                Link.IFLA_VXLAN_PROXY,
+                                                Link.IFLA_VXLAN_RSC,
+                                                Link.IFLA_VXLAN_L2MISS,
+                                                Link.IFLA_VXLAN_L3MISS,
+                                                Link.IFLA_VXLAN_UDP_CSUM,
+                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
+                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
+                                                Link.IFLA_VXLAN_REMCSUM_TX,
+                                                Link.IFLA_VXLAN_REMCSUM_RX,
+                                                Link.IFLA_VXLAN_REPLICATION_TYPE):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(info_data_value)
+                            sub_attr_pack_layout.extend('xxx')
+
+                        else:
+                            self.log.debug('Add support for encoding IFLA_INFO_DATA vxlan sub-attribute type %d' % info_data_type)
 
             else:
                 self.log.debug('Add support for encoding IFLA_LINKINFO sub-attribute type %d' % sub_attr_type)
@@ -1257,9 +1353,9 @@ class NetlinkPacket(object):
         else:
             attr = attr_class(attr_type, attr_string, self.log)
 
-        attr.value = value
-        attr.nested = nested
-        attr.net_byteorder = net_byteorder
+        attr.set_value(value)
+        attr.set_nested(nested)
+        attr.set_net_byteorder(net_byteorder)
 
         # self.attributes is a dictionary keyed by the attribute type where
         # the value is an instance of the corresponding AttributeXXXX class.
@@ -1602,7 +1698,7 @@ class Link(NetlinkPacket):
         IFLA_UNSPEC          : ('IFLA_UNSPEC', AttributeGeneric),
         IFLA_ADDRESS         : ('IFLA_ADDRESS', AttributeMACAddress),
         IFLA_BROADCAST       : ('IFLA_BROADCAST', AttributeMACAddress),
-        IFLA_IFNAME          : ('IFLA_IFNAME', AttributeString),
+        IFLA_IFNAME          : ('IFLA_IFNAME', AttributeStringInterfaceName),
         IFLA_MTU             : ('IFLA_MTU', AttributeFourByteValue),
         IFLA_LINK            : ('IFLA_LINK', AttributeFourByteValue),
         IFLA_QDISC           : ('IFLA_QDISC', AttributeString),
@@ -1638,7 +1734,7 @@ class Link(NetlinkPacket):
         IFLA_PHYS_SWITCH_ID  : ('IFLA_PHYS_SWITCH_ID', AttributeGeneric),
         IFLA_LINK_NETNSID    : ('IFLA_LINK_NETNSID', AttributeGeneric),
         IFLA_PHYS_PORT_NAME  : ('IFLA_PHYS_PORT_NAME', AttributeGeneric),
-        IFLA_PROTO_DOWN      : ('IFLA_PROTO_DOWN', AttributeGeneric),
+        IFLA_PROTO_DOWN      : ('IFLA_PROTO_DOWN', AttributeOneByteValue),
         IFLA_LINKPROTODOWN   : ('IFLA_LINKPROTODOWN', AttributeGeneric)
     }
 
@@ -2363,6 +2459,12 @@ class Route(NetlinkPacket):
     RTA_MP_ALGO   = 0x0E
     RTA_TABLE     = 0x0F
     RTA_MARK      = 0x10
+    RTA_MFC_STATS = 0x11
+    RTA_VIA       = 0x12
+    RTA_NEWDST    = 0x13
+    RTA_PREF      = 0x14
+    RTA_ENCAP_TYPE= 0x15
+    RTA_ENCAP     = 0x16
 
     attribute_to_class = {
         RTA_UNSPEC    : ('RTA_UNSPEC', AttributeGeneric),
@@ -2381,7 +2483,13 @@ class Route(NetlinkPacket):
         RTA_SESSION   : ('RTA_SESSION', AttributeGeneric),
         RTA_MP_ALGO   : ('RTA_MP_ALGO', AttributeGeneric),
         RTA_TABLE     : ('RTA_TABLE', AttributeFourByteValue),
-        RTA_MARK      : ('RTA_MARK', AttributeGeneric)
+        RTA_MARK      : ('RTA_MARK', AttributeGeneric),
+        RTA_MFC_STATS : ('RTA_MFC_STATS', AttributeGeneric),
+        RTA_VIA       : ('RTA_VIA', AttributeGeneric),
+        RTA_NEWDST    : ('RTA_NEWDST', AttributeGeneric),
+        RTA_PREF      : ('RTA_PREF', AttributeGeneric),
+        RTA_ENCAP_TYPE: ('RTA_ENCAP_TYPE', AttributeGeneric),
+        RTA_ENCAP     : ('RTA_ENCAP', AttributeGeneric)
     }
 
     # Route tables

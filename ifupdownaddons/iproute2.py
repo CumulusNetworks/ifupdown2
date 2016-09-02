@@ -61,6 +61,7 @@ class iproute2(utilsBase):
 
         warn = True
         linkout = {}
+        vxrd_running = False
         if iproute2._cache_fill_done and not refresh: return
         try:
             # if ifacename already present, return
@@ -72,6 +73,10 @@ class iproute2(utilsBase):
         cmdout = self.link_show(ifacename=ifacename)
         if not cmdout:
             return
+        # read vxrd.pid and cache the running state before going through
+        # every interface in the system
+        if systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
+            vxrd_running = True
         for c in cmdout.splitlines():
             citems = c.split()
             ifnamenlink = citems[1].split('@')
@@ -118,10 +123,11 @@ class iproute2(utilsBase):
                                 vattrs['ageing'] = citems[j + 1]
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
-                        # get vxlan peer nodes
-                        peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
-                        if peers:
-                            vattrs['remote'] = peers
+                        # get vxlan peer nodes if provisioned by user and not by vxrd
+                        if not vxrd_running:
+                            peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
+                            if peers:
+                                vattrs['remote'] = peers
                         linkattrs['linkinfo'] = vattrs
                         break
                     elif citems[i] == 'vrf' and citems[i + 1] == 'table':
@@ -133,6 +139,8 @@ class iproute2(utilsBase):
                     elif citems[i] == 'vrf_slave':
                         linkattrs['kind'] = 'vrf_slave'
                         break
+                    elif citems[i] == 'macvlan' and citems[i + 1] == 'mode':
+                        linkattrs['kind'] = 'macvlan'
                 except Exception as e:
                     if warn:
                         self.logger.debug('%s: parsing error: id, mtu, state, link/ether, vlan, dummy, vxlan, local, remote, ageing, nolearning, vrf, table, vrf_slave are reserved keywords: %s' % (ifname, str(e)))
@@ -277,6 +285,21 @@ class iproute2(utilsBase):
             return
         try:
             utils.exec_command('ip -force -batch -', stdin=self.ipbatchbuf)
+        except:
+            raise
+        finally:
+            self.ipbatchbuf = ''
+            self.ipbatch = False
+            self.ipbatch_pause = False
+
+    def bridge_batch_commit(self):
+        if not self.ipbatchbuf:
+            self.ipbatchbuf = ''
+            self.ipbatch = False
+            self.ipbatch_pause = False
+            return
+        try:
+            utils.exec_command('bridge -force -batch -', stdin=self.ipbatchbuf)
         except:
             raise
         finally:
@@ -597,30 +620,6 @@ class iproute2(utilsBase):
         else:
             utils.exec_command('ip %s' % cmd)
 
-        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-            #figure out the diff for remotes and do the bridge fdb updates
-            #only if provisioned by user and not by vxrd
-            cur_peers = set(self.get_vxlan_peers(name, svcnodeip))
-            if remoteips:
-                new_peers = set(remoteips)
-                del_list = cur_peers.difference(new_peers)
-                add_list = new_peers.difference(cur_peers)
-            else:
-                del_list = cur_peers
-                add_list = []
-
-            try:
-                for addr in del_list:
-                    self.bridge_fdb_del(name, '00:00:00:00:00:00', None, True, addr)
-            except:
-                pass
-
-            try:
-                for addr in add_list:
-                    self.bridge_fdb_append(name, '00:00:00:00:00:00', None, True, addr)
-            except:
-                pass
-
         # XXX: update linkinfo correctly
         self._cache_update([name], {})
 
@@ -733,35 +732,46 @@ class iproute2(utilsBase):
         brvlanlines = bridgeout.splitlines()
         brportname=None
         for l in brvlanlines[1:]:
-            if l and l[0] not in [' ', '\t']:
-                brportname = None
-            l=l.strip()
-            if not l:
-                brportname=None
-                continue
-            if 'PVID' in l:
-		        attrs = l.split()
-		        brportname = attrs[0]
-		        brvlaninfo[brportname] = {'pvid' : attrs[1],
-					                      'vlan' : []}
-            elif brportname:
-                if 'Egress Untagged' not in l:
-		            brvlaninfo[brportname]['vlan'].append(l)
-            elif not brportname:
+            if l and not l.startswith(' ') and not l.startswith('\t'):
                 attrs = l.split()
-                if attrs[1] == 'None' or 'Egress Untagged' in attrs[1]:
-                    continue
-                brportname = attrs[0]
-                brvlaninfo[brportname] = {'vlan' : [attrs[1]]}
+                brportname = attrs[0].strip()
+                brvlaninfo[brportname] = {'pvid' : None, 'vlan' : []}
+                l = ' '.join(attrs[1:])
+            if not brportname or not l:
+                continue
+            l = l.strip()
+            if 'PVID' in l:
+                brvlaninfo[brportname]['pvid'] = l.split()[0]
+            elif 'Egress Untagged' not in l:
+                brvlaninfo[brportname]['vlan'].append(l)
         return brvlaninfo
 
+    def bridge_port_vids_get_all_json(self):
+        brvlaninfo = {}
+        bridgeout = utils.exec_command('/sbin/bridge -c -json vlan show')
+        if not bridgeout: return brvlaninfo
+        try:
+            vlan_json_dict = json.loads(bridgeout, encoding="utf-8")
+        except Exception, e:
+            self.logger.info('json loads failed with (%s)' %str(e))
+            return {}
+        return vlan_json_dict
+
     def bridge_port_pvid_add(self, bridgeportname, pvid):
-        utils.exec_command('bridge vlan add vid %s untagged pvid dev %s' %
-                           (pvid, bridgeportname))
+        if self.ipbatch and not self.ipbatch_pause:
+            self.add_to_batch('vlan add vid %s untagged pvid dev %s' %
+                              (pvid, bridgeportname))
+        else:
+            utils.exec_command('bridge vlan add vid %s untagged pvid dev %s' %
+                               (pvid, bridgeportname))
 
     def bridge_port_pvid_del(self, bridgeportname, pvid):
-        utils.exec_command('bridge vlan del vid %s untagged pvid dev %s' %
-                           (pvid, bridgeportname))
+        if self.ipbatch and not self.ipbatch_pause:
+            self.add_to_batch('vlan del vid %s untagged pvid dev %s' %
+                              (pvid, bridgeportname))
+        else:
+            utils.exec_command('bridge vlan del vid %s untagged pvid dev %s' %
+                               (pvid, bridgeportname))
 
     def bridge_port_pvids_get(self, bridgeportname):
         return self.read_file_oneline('/sys/class/net/%s/brport/pvid'
@@ -769,13 +779,21 @@ class iproute2(utilsBase):
 
     def bridge_vids_add(self, bridgeportname, vids, bridge=True):
         target = 'self' if bridge else ''
-        [utils.exec_command('bridge vlan add vid %s dev %s %s' %
-                            (v, bridgeportname, target)) for v in vids]
+        if self.ipbatch and not self.ipbatch_pause:
+            [self.add_to_batch('vlan add vid %s dev %s %s' %
+                               (v, bridgeportname, target)) for v in vids]
+        else:
+            [utils.exec_command('bridge vlan add vid %s dev %s %s' %
+                                (v, bridgeportname, target)) for v in vids]
 
     def bridge_vids_del(self, bridgeportname, vids, bridge=True):
         target = 'self' if bridge else ''
-        [utils.exec_command('bridge vlan del vid %s dev %s %s' %
-                            (v, bridgeportname, target)) for v in vids]
+        if self.ipbatch and not self.ipbatch_pause:
+            [self.add_to_batch('vlan del vid %s dev %s %s' %
+                               (v, bridgeportname, target)) for v in vids]
+        else:
+            [utils.exec_command('bridge vlan del vid %s dev %s %s' %
+                                (v, bridgeportname, target)) for v in vids]
 
     def bridge_fdb_add(self, dev, address, vlan=None, bridge=True, remote=None):
         target = 'self' if bridge else ''

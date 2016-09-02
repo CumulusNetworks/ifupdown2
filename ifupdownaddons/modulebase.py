@@ -53,10 +53,12 @@ class moduleBase(object):
         if not self.ignore_error(str):
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
-            if ifaceobj:
-                ifaceobj.set_status(ifaceStatus.ERROR)
             if raise_error:
+                if ifaceobj:
+                    ifaceobj.set_status(ifaceStatus.ERROR)
                 raise Exception(str)
+            else:
+                self.logger.error(str)
         else:
             pass
 
@@ -325,7 +327,7 @@ class moduleBase(object):
 
     def _get_reserved_vlan_range(self):
         start = end = 0
-        get_resvvlan = '/usr/share/python-ifupdown2/get_reserved_vlan_range.sh'
+        get_resvvlan = '/var/lib/ifupdown2/hooks/get_reserved_vlan_range.sh'
         if not os.path.exists(get_resvvlan):
             return (start, end)
         try:
