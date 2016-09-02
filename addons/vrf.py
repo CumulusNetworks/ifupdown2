@@ -124,6 +124,8 @@ class vrf(moduleBase):
         self.vrf_count = 0
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
 
+        self.warn_on_vrf_map_write_err = True
+
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
             return
@@ -189,18 +191,35 @@ class vrf(moduleBase):
         self._iproute2_vrf_map_initialized = True
         self.vrf_count = len(self.iproute2_vrf_map)
 
+    def _iproute2_map_warn(self, errstr):
+        if self.warn_on_vrf_map_write_err:
+            if not os.path.exists('/etc/iproute2/rt_tables.d/'):
+                self.logger.info('unable to save iproute2 vrf to table ' +
+                                 'map (%s)\n' %errstr)
+                self.logger.info('cannot find /etc/iproute2/rt_tables.d.' +
+                                 ' pls check if your iproute2 version' +
+                                 ' supports rt_tables.d')
+            else:
+                self.logger.warn('unable to open iproute2 vrf to table ' +
+                                 'map (%s)\n' %errstr)
+            self.warn_on_vrf_map_write_err = False
+
     def _iproute2_vrf_map_sync_to_disk(self):
         if (ifupdownflags.flags.DRYRUN or
             not self.iproute2_vrf_map_sync_to_disk):
             return
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
-        with open(self.iproute2_vrf_filename, 'w') as f:
-            f.write(self.iproute2_vrf_filehdr %(self.vrf_table_id_start,
-                    self.vrf_table_id_end))
-            for t, v in self.iproute2_vrf_map.iteritems():
-                f.write('%s %s\n' %(t, v))
-            f.flush()
+        try:
+            with open(self.iproute2_vrf_filename, 'w') as f:
+                f.write(self.iproute2_vrf_filehdr %(self.vrf_table_id_start,
+                        self.vrf_table_id_end))
+                for t, v in self.iproute2_vrf_map.iteritems():
+                    f.write('%s %s\n' %(t, v))
+                f.flush()
+        except Exception, e:
+            self._iproute2_map_warn(str(e))
+            pass
 
     def _iproute2_vrf_map_open(self, sync_vrfs=False, append=False):
         self.logger.info('vrf: syncing table map to %s'
@@ -213,8 +232,7 @@ class vrf(moduleBase):
                                          '%s' %fmode)
             fcntl.fcntl(self.iproute2_vrf_map_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
         except Exception, e:
-            self.log_warn('vrf: error opening %s (%s)'
-                          %(self.iproute2_vrf_filename, str(e)))
+            self._iproute2_map_warn(str(e))
             return
 
         if not append:
