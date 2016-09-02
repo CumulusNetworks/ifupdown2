@@ -487,14 +487,19 @@ class bridge(moduleBase):
         example: ['1', '2-4', '6'] returns [1, 2, 3, 4, 6]
         """
         result = []
-        for part in rangelist:
-            if '-' in part:
-                a, b = part.split('-')
-                a, b = int(a), int(b)
-                result.extend(range(a, b + 1))
-            else:
-                a = int(part)
-                result.append(a)
+        try:
+            for part in rangelist:
+                if '-' in part:
+                    a, b = part.split('-')
+                    a, b = int(a), int(b)
+                    result.extend(range(a, b + 1))
+                else:
+                    a = int(part)
+                    result.append(a)
+        except:
+            self.logger.warn('unable to parse vids \'%s\''
+                             %''.join(rangelist))
+            pass
         return result
 
     def _compress_into_ranges(self, vids_ints):
@@ -752,16 +757,20 @@ class bridge(moduleBase):
     def _check_vids(self, ifaceobj, vids):
         ret = True
         for v in vids:
-            if '-' in v:
-                va, vb = v.split('-')
-                va, vb = int(va), int(vb)
-                if (self._handle_reserved_vlan(va, ifaceobj.name) or
-                    self._handle_reserved_vlan(vb, ifaceobj.name)):
-                    ret = False
-            else:
-                va = int(v)
-                if self._handle_reserved_vlan(va, ifaceobj.name):
-                   ret = False
+            try:
+                if '-' in v:
+                    va, vb = v.split('-')
+                    va, vb = int(va), int(vb)
+                    if (self._handle_reserved_vlan(va, ifaceobj.name) or
+                        self._handle_reserved_vlan(vb, ifaceobj.name)):
+                        ret = False
+                else:
+                    va = int(v)
+                    if self._handle_reserved_vlan(va, ifaceobj.name):
+                        ret = False
+            except Exception:
+                self.logger.warn('%s: unable to parse vid \'%s\''
+                                 %(ifaceobj.name, v))
         return ret
          
     def _apply_bridge_port_pvids(self, bportifaceobj, pvid, running_pvid):
@@ -868,7 +877,13 @@ class bridge(moduleBase):
         """
 
         vids_int =  self._ranges_to_ints(vids)
-        pvid_int = int(pvid) if pvid else 0
+        try:
+            pvid_int = int(pvid) if pvid else 0
+        except Exception:
+            self.logger.warn('%s: unable to parse pvid \'%s\''
+                             %(bportifaceobj.name, pvid))
+            pvid_int = 0
+            pass
 
         vids_to_del = []
         vids_to_add = vids_int
