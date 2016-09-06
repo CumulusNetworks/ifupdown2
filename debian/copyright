@@ -1,16 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ifupdown2
-<<<<<<< HEAD
-Source: http://www.cumulusnetworks.com
-
-Files: *
-Copyright: 2013 Cumulus Networks
-License: GPL-2
-
-Files: debian/*
-Copyright: 2013 Cumulus Networks
-=======
-Upstream-Contact: Cumulus Networks dev support <dev-support@cumulusnetworks.com>
+Upstream-Contact: Roopa Prabhu <roopa@cumulusnetworks.com>, Julien Fortin <julien@cumulusnetworks.com>
 Source: http://www.cumulusnetworks.com
 
 Files: *
@@ -21,7 +11,6 @@ Files: debian/*
 Copyright: 2014 Cumulus Networks
 License: GPL-2
 
->>>>>>> cumulus/dev
 License: GPL-2
  This package is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -37,11 +26,3 @@ License: GPL-2
  .
  On Debian systems, the complete text of the GNU General
  Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
-<<<<<<< HEAD
-
-# Please also look if there are files or directories which have a
-# different copyright/license attached and list them here.
-# Please avoid to pick license terms that are more restrictive than the
-# packaged work, as it may make Debian's contributions unacceptable upstream.
-=======
->>>>>>> cumulus/dev
