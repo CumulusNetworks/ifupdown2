@@ -53,6 +53,7 @@ class address(moduleBase):
                       'gateway' :
                             {'help': 'default gateway',
                              'validvals' : ['<ipv4>', '<ipv6>'],
+                             'multiline' : True,
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
