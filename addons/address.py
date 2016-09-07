@@ -66,7 +66,6 @@ class address(moduleBase):
                              'example': ['hwaddress 44:38:39:00:27:b8']},
                       'alias' :
                             { 'help': 'description/alias',
-                              'validvals' : ['<text>',],
                               'example' : ['alias testnetwork']},
                       'address-purge' :
                             { 'help': 'purge existing addresses. By default ' +
