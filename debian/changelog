@@ -4,7 +4,8 @@ ifupdown2 (1.1-cl3eau4) RELEASED; urgency=medium
   * New. Enabled: sbin: start-networking: support hotplug class from init script
   * New. Enabled: support for classical numerical bond modes
   * New. Enabled: extend ifquery support for mstpctl addons
-  * New. Enabled: each addon may perform semantic and syntax checks by implementing a custom method
+  * New. Enabled: each addon may perform semantic and syntax checks by
+    implementing a custom method
   * Closes: CM-11745. Support for address-virtual lines under a vrf slave
   * Closes: CM-11718. Defaults for link attributes were not applied
   * Closes: CM-11511. Disable IPv6 duplicate address detection on VRR interfaces
@@ -15,7 +16,8 @@ ifupdown2 (1.1-cl3eau4) RELEASED; urgency=medium
 
 ifupdown2 (1.1-cl3u3) RELEASED; urgency=medium
 
-  * Closes: CM-11214. Interface configuration parsing error when keyword vlan is the interface name.
+  * Closes: CM-11214. Interface configuration parsing error when keyword vlan
+    is the interface name.
 
  -- dev-support <dev-support@cumulusnetworks.com>  Sun, 05 Jun 2016 08:55:50 -0700
 
@@ -25,10 +27,12 @@ ifupdown2 (1.1-cl3u2) RELEASED; urgency=medium
   * New. Deprecated: `mstpctl-stp` attribute
   * New. Deprecated: lacp parameters: bond-ad-sys-priority, bond-ad-sys-mac-addr
   * New. Enabled: addon module for configuring vrf
-  * New. Enabled: bridge: display warning when (in vlan unware bridge) an untagged bridge is not configured
+  * New. Enabled: bridge: display warning when (in vlan unware bridge)
+    an untagged bridge is not configured
   * New. Enabled: adjusting MTU for vlan devices depending on lower device mtu
   * New. Enabled: introduce checks for reserved vrf table names
-  * New. Enabled: ifquery: new option '--with-defaults' to include default attributes
+  * New. Enabled: ifquery: new option '--with-defaults' to include default
+    attributes
   * New. Enabled: bridge: disabling ipv6 on bridge if any VXLAN port
   * New. Enabled: vrf awareness in dhcp addon module
 
