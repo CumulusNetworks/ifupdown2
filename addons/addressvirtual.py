@@ -201,6 +201,12 @@ class addressvirtual(moduleBase):
                 if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
                     self.ipcmd.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
 
+                # set macvlan device to up in anycase.
+                # since we auto create them here..we are responsible
+                # to bring them up here in the case they were brought down
+                # by some other entity in the system.
+                netlink.link_set_updown(macvlan_ifacename, "up")
+
             # handle vrf slaves
             if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
                 self._handle_vrf_slaves(macvlan_ifacename, ifaceobj)
