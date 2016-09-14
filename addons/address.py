@@ -10,6 +10,7 @@ try:
     from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
     from sets import Set
     from ifupdown.iface import *
+    from ifupdown.utils import utils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
@@ -221,6 +222,7 @@ class address(moduleBase):
             ifaceobjlist = [ifaceobj]
 
         (addr_supported, newaddrs, newaddr_attrs) = self._inet_address_convert_to_cidr(ifaceobjlist)
+        newaddrs = utils.get_normalized_ip_addr(ifaceobj.name, newaddrs)
         if not addr_supported:
             return
         if (not squash_addr_config and (ifaceobj.flags & iface.HAS_SIBLINGS)):
@@ -234,11 +236,11 @@ class address(moduleBase):
         if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
-            runningaddrs = self.ipcmd.addr_get(ifaceobj.name, details=False)
+            runningaddrs = utils.get_normalized_ip_addr(ifaceobj.name, self.ipcmd.addr_get(ifaceobj.name, details=False))
 
             # if anycast address is configured on 'lo' and is in running config
             # add it to newaddrs so that ifreload doesn't wipe it out
-            anycast_addr = self._get_anycast_addr(ifaceobjlist)
+            anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, self._get_anycast_addr(ifaceobjlist))
 
             if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
                 newaddrs.append(anycast_addr)
@@ -466,11 +468,12 @@ class address(moduleBase):
         # compare addresses
         if addr_method == 'dhcp':
            return
-        addrs = self._get_iface_addresses(ifaceobj)
+        addrs = utils.get_normalized_ip_addr(ifaceobj.name,
+                                             self._get_iface_addresses(ifaceobj))
         runningaddrsdict = self.ipcmd.addr_get(ifaceobj.name)
         # if anycast address is configured on 'lo' and is in running config
         # add it to addrs so that query_check doesn't fail
-        anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
+        anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip'))
         if anycast_addr:
             anycast_addr = anycast_addr+'/32'
         if runningaddrsdict and anycast_addr and runningaddrsdict.get(anycast_addr):
