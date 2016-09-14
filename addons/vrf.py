@@ -302,7 +302,6 @@ class vrf(moduleBase):
                 self.iproute2_vrf_map_fd.flush()
                 self.vrf_count += 1
             return
-
         if old_vrf_name != vrfifaceobj.name:
             self.log_error('table id %d already assigned to vrf dev %s'
                            %(table_id, old_vrf_name))

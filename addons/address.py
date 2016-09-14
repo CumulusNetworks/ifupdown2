@@ -335,8 +335,7 @@ class address(moduleBase):
         try:
             self.ipcmd.batch_commit()
         except Exception as e:
-            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
-            ifaceobj.set_status(ifaceStatus.ERROR)
+            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj, raise_error=False)
 
         try:
             hwaddress = self._get_hwaddress(ifaceobj)
