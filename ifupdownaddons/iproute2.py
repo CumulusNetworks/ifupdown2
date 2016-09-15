@@ -628,6 +628,11 @@ class iproute2(utilsBase):
             return True
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
+    def link_get_ifindex(self, ifacename):
+        if ifupdownflags.flags.DRYRUN:
+            return True
+        return self.read_file_oneline('/sys/class/net/%s/ifindex' %ifacename)
+
     def is_vlan_device_by_name(self, ifacename):
         if re.search(r'\.', ifacename):
             return True
