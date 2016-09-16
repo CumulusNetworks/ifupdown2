@@ -129,11 +129,7 @@ class ifupdownMain(ifupdownBase):
             return
         if not self.link_exists(ifaceobj.name):
            return
-        try:
-            self.link_up(ifaceobj.name)
-        except Exception as e:
-            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
-            ifaceobj.set_status(ifaceStatus.ERROR)
+        self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
         if ((ifaceobj.link_kind & ifaceLinkKind.VRF) or
@@ -157,11 +153,7 @@ class ifupdownMain(ifupdownBase):
            return
         if not self.link_exists(ifaceobj.name):
            return
-        try:
-            self.link_down(ifaceobj.name)
-        except Exception as e:
-            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
-            ifaceobj.set_status(ifaceStatus.ERROR)
+        self.link_down(ifaceobj.name)
 
     # ifupdown object interface operation handlers
     ops_handlers = OrderedDict([('up', run_up),
