@@ -195,11 +195,16 @@ class addressvirtual(moduleBase):
                 self._fix_connected_route(ifaceobj, macvlan_ifacename,
                                           ips[0])
                 if update_mtu:
-                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.name, refresh=True)
                     update_mtu = False
 
                 if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
-                    self.ipcmd.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
+                    try:
+                        self.ipcmd.link_set_mtu(macvlan_ifacename,
+                                                lower_iface_mtu)
+                    except Exception as e:
+                        self.logger.info('%s: failed to set mtu %s: %s' %
+                                         (macvlan_ifacename, lower_iface_mtu, e))
 
                 # set macvlan device to up in anycase.
                 # since we auto create them here..we are responsible

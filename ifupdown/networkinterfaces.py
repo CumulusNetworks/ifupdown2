@@ -62,6 +62,7 @@ class networkInterfaces():
         self._filestack = [self.interfacesfile]
 
         self._template_engine = None
+        self._template_enable = template_enable
         self._template_engine_name = template_engine
         self._template_engine_path = template_lookuppath
 
@@ -392,8 +393,9 @@ class networkInterfaces():
             try:
                 if not self._template_engine:
                     self._template_engine = templateEngine(
-                        self._template_engine_name,
-                        self._template_engine_path)
+                        template_engine=self._template_engine_name,
+                        template_enable=self._template_enable,
+                        template_lookuppath=self._template_engine_path)
                 rendered_filedata = self._template_engine.render(filedata)
                 if rendered_filedata is filedata:
                     self._currentfile_has_template = False
