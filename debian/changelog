@@ -1,3 +1,11 @@
+ifupdown2 (1.1-cl3u5) RELEASED; urgency=medium
+
+  * fix handling of EXISTS errors on address add
+  * fix handling of mtu on addressvirtual macvlan devices
+  * fix mako namespace handling
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 16 Sep 2016 12:48:04 -0700
+
 ifupdown2 (1.1-cl3u4) RELEASED; urgency=medium
 
   * Performance improvements
