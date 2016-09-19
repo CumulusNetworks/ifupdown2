@@ -12,4 +12,4 @@ ExecStop=/usr/share/ifupdown2/sbin/start-networking stop
 ExecReload=/usr/share/ifupdown2/sbin/start-networking reload
 
 [Install]
-WantedBy=basic.target network.target
+WantedBy=basic.target network.target multi-user.target
