@@ -1,4 +1,18 @@
-ifupdown2 (1.1-cl3eau4) RELEASED; urgency=medium
+ifupdown2 (1.1-cl3u6) UNRELEASED; urgency=medium
+
+  * TBD
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Mon, 19 Sep 2016 16:37:36 -0700
+
+ifupdown2 (1.1-cl3u5) RELEASED; urgency=medium
+
+  * Closes: CM-12798. fix handling of EXISTS errors on address add
+  * Closes: CM-11214. fix handling of mtu on addressvirtual macvlan devices
+  * Closes: CM-12884. fix mako namespace handling
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 16 Sep 2016 12:48:04 -0700
+
+ifupdown2 (1.1-cl3u4) RELEASED; urgency=medium
 
   * Performance improvements
   * New. Enabled: sbin: start-networking: support hotplug class from init script
