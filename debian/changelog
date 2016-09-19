@@ -1,41 +1,56 @@
-ifupdown2 (1.1-cl3u4) RELEASED; urgency=medium
+ifupdown2 (1.0~git20161007-1) unstable; urgency=medium
 
-  * Performance improvements
-  * New. Enabled: sbin: start-networking: support hotplug class from init script
-  * New. Enabled: support for classical numerical bond modes
-  * New. Enabled: extend ifquery support for mstpctl addons
-  * New. Enabled: each addon may perform semantic and syntax checks by implementing a custom method
-  * Closes: CM-11745. Support for address-virtual lines under a vrf slave
-  * Closes: CM-11718. Defaults for link attributes were not applied
-  * Closes: CM-11511. Disable IPv6 duplicate address detection on VRR interfaces
-  * Closes: CM-11485. Fix ifquery to extract vlan-id from iface if not preset
-  * Closes: CM-8623. Fix for ifquery -c bridge pvid error on a valid config
-
- -- dev-support <dev-support@cumulusnetworks.com>  Fri, 29 Jul 2016 08:55:50 -0700
-
-ifupdown2 (1.1-cl3u3) RELEASED; urgency=medium
-
-  * Closes: CM-11214. Interface configuration parsing error when keyword vlan is the interface name.
-
- -- dev-support <dev-support@cumulusnetworks.com>  Sun, 05 Jun 2016 08:55:50 -0700
-
-ifupdown2 (1.1-cl3u2) RELEASED; urgency=medium
-
-  * Closes: CM-10478. checks for invalid address-virtual attributes
+  * Performance improvements (better netlink support)
   * New. Deprecated: `mstpctl-stp` attribute
   * New. Deprecated: lacp parameters: bond-ad-sys-priority, bond-ad-sys-mac-addr
-  * New. Enabled: addon module for configuring vrf
+  * New. Enabled: addon module for configuring VRF (Virtual routing and forwarding)
   * New. Enabled: bridge: display warning when (in vlan unware bridge) an untagged bridge is not configured
   * New. Enabled: adjusting MTU for vlan devices depending on lower device mtu
   * New. Enabled: introduce checks for reserved vrf table names
   * New. Enabled: ifquery: new option '--with-defaults' to include default attributes
   * New. Enabled: bridge: disabling ipv6 on bridge if any VXLAN port
   * New. Enabled: vrf awareness in dhcp addon module
+  * New. Enabled: sbin: start-networking: support hotplug class from init script
+  * New. Enabled: support for classical numerical bond modes
+  * New. Enabled: extend ifquery support for mstpctl addons
+  * New. Enabled: each addon may perform semantic and syntax checks by implementing a custom method
 
- -- dev-support <dev-support@cumulusnetworks.com>  Tue, 3 May 2016 14:42:42 -0700
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 07 Sep 2016 00:57:50 +0200
 
-ifupdown2 (1.1-cl3u1) unstable; urgency=low
+ifupdown2 (1.0~git20160525-1) unstable; urgency=medium
+
+  * Fix incorrect install location of networking default file
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 25 May 2016 01:04:31 +0200
+
+ifupdown2 (1.0~git20160316-1) unstable; urgency=medium
+
+  * Fixing Debian Bug report - #813046 ifupdown2: No network connection on boot
+  * ifupdownaddons: fix parsing of vlan attributes
+  * networkinterfaces: fix is_keyword to not match attribute names with keywords
+  * debian: control: add julien as maintainer
+  * debian: copyright: upstream-contact: remove Sam, add Julien
+  * Detect and ignore the `ether` keyword in /etc/network/interface
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 15 Mar 2016 06:12:40 -0700
+
+ifupdown2 (1.0~git20151029-1) unstable; urgency=medium
+
+  * bridgeutils: build cache only if bridge-utils is installed
+  * addon modules: handle unsupported modules
+  * ifupdown: change location of lockfile to /tmp/
+  * templates: Disable template execution by default
+
+ -- Roopa Prabhu <roopa@cumulusnetworks.com>  Mon, 26 Oct 2015 06:12:40 -0700
+
+ifupdown2 (1.0~git20150917-2) unstable; urgency=medium
+
+  * move /etc/network/interfaces.d creation from postinst script to debian/dirs (Closes: #801915)
+
+ -- Roopa Prabhu <roopa@cumulusnetworks.com>  Fri, 18 Sep 2015 14:04:45 -0700
+
+ifupdown2 (1.0~git20150917-1) unstable; urgency=low
 
   * Initial release.
 
- -- dev-support <dev-support@cumulusnetworks.com>  Thu, 20 Aug 2015 06:14:24 -0700
+ -- Roopa Prabhu <roopa@cumulusnetworks.com>  Thu, 20 Aug 2015 06:14:24 -0700
