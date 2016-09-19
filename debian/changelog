@@ -3,17 +3,21 @@ ifupdown2 (1.0~git20161007-1) unstable; urgency=medium
   * Performance improvements (better netlink support)
   * New. Deprecated: `mstpctl-stp` attribute
   * New. Deprecated: lacp parameters: bond-ad-sys-priority, bond-ad-sys-mac-addr
-  * New. Enabled: addon module for configuring VRF (Virtual routing and forwarding)
-  * New. Enabled: bridge: display warning when (in vlan unware bridge) an untagged bridge is not configured
+  * New. Enabled: addon module for configuring VRF
+    (Virtual routing and forwarding)
+  * New. Enabled: bridge: display warning when (in vlan unware bridge) an
+    untagged bridge is not configured
   * New. Enabled: adjusting MTU for vlan devices depending on lower device mtu
   * New. Enabled: introduce checks for reserved vrf table names
-  * New. Enabled: ifquery: new option '--with-defaults' to include default attributes
+  * New. Enabled: ifquery: new option '--with-defaults' to include default
+    attributes
   * New. Enabled: bridge: disabling ipv6 on bridge if any VXLAN port
   * New. Enabled: vrf awareness in dhcp addon module
   * New. Enabled: sbin: start-networking: support hotplug class from init script
   * New. Enabled: support for classical numerical bond modes
   * New. Enabled: extend ifquery support for mstpctl addons
-  * New. Enabled: each addon may perform semantic and syntax checks by implementing a custom method
+  * New. Enabled: each addon may perform semantic and syntax checks by
+    implementing a custom method
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 07 Sep 2016 00:57:50 +0200
 
