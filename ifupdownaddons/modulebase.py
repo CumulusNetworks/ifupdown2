@@ -42,7 +42,7 @@ class moduleBase(object):
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
-        if not self.ignore_error(str):
+        if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
             self.logger.warn(str)
@@ -52,7 +52,7 @@ class moduleBase(object):
 
     def log_error(self, str, ifaceobj=None, raise_error=True):
         """ log an err if err str is not one of which we should ignore and raise an exception """
-        if not self.ignore_error(str):
+        if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
             if raise_error:
