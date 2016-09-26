@@ -7,6 +7,7 @@
 import os
 from sets import Set
 from ifupdown.iface import *
+from ifupdown.utils import utils
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
@@ -224,6 +225,17 @@ class mstpctl(moduleBase):
             self.default_vxlan_ports_set_bpduparams = True
         else:
             self.default_vxlan_ports_set_bpduparams = False
+
+    def syntax_check(self, ifaceobj):
+        if self._is_bridge(ifaceobj):
+            if (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
+                    and ifaceobj.get_attr_value_first('mstpctl-portadminedge')):
+                self.logger.error('%s: unsupported use of keyword '
+                                  '\'mstpctl-portadminedge\' when '
+                                  'bridge-vlan-aware is on'
+                                  % ifaceobj.name)
+                return False
+        return True
 
     def _is_bridge(self, ifaceobj):
         if (ifaceobj.get_attr_value_first('mstpctl-ports') or
