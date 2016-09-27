@@ -76,6 +76,10 @@ class bridge(moduleBase):
                          'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
                                       'bridge-ports glob swp1-3.100',
                                       'bridge-ports regex (swp[1|2|3].100)']},
+                   'bridge-ports-condone-regex' :
+                        {'help' : 'bridge ports to ignore/condone when reloading config / removing interfaces',
+                         'required' : False,
+                         'example' : [ 'bridge-ports-condone-regex ^[a-zA-Z0-9]+_v[0-9]{1,4}$']},
                    'bridge-stp' :
                         {'help': 'bridge-stp yes/no',
                          'example' : ['bridge-stp no'],
@@ -901,6 +905,19 @@ class bridge(moduleBase):
         ports = self._get_ifaceobj_bridge_ports(ifaceobj)
         return self.parse_port_list(ifaceobj.name, ports) if ports else None
 
+    def _get_bridge_port_condone_regex(self, ifaceobj, get_string = False):
+        bridge_port_condone_regex = ifaceobj.get_attr_value_first('bridge-ports-condone-regex')
+        # If bridge-ports-ignore-regex is configured, do NOT use the parse_port_list()
+        # function to gather a list of ports matching the regex here and now but set
+        # up a compiled regex to be used in a match later. This way we try to avoid
+        # a race condition where an (possibly VM) interface is created after this
+        # function has been called but before the bridgeports are validated.
+        if bridge_port_condone_regex:
+            if get_string:
+                return bridge_port_condone_regex
+            return re.compile (r"%s" % bridge_port_condone_regex)
+        return None
+
     def _process_bridge_waitport(self, ifaceobj, portlist):
         waitport_value = ifaceobj.get_attr_value_first('bridge-waitport')
         if not waitport_value: return
@@ -974,6 +991,7 @@ class bridge(moduleBase):
 
     def _add_ports(self, ifaceobj, ifaceobj_getfunc):
         bridgeports = self._get_bridge_port_list(ifaceobj)
+        bridgeportscondoneregex = self._get_bridge_port_condone_regex(ifaceobj)
         runningbridgeports = []
 
         self.ipcmd.batch_start()
@@ -985,6 +1003,9 @@ class bridge(moduleBase):
             if runningbridgeports:
                 for bport in runningbridgeports:
                     if not bridgeports or bport not in bridgeports:
+                        if bridgeportscondoneregex and bridgeportscondoneregex.match(bport):
+                            self.logger.info("%s: port %s will stay enslaved as it matches with bridge-ports-condone-regex" % (ifaceobj.name, bport))
+                            continue
                         self.ipcmd.link_set(bport, 'nomaster')
                         # set admin DOWN on all removed ports
                         # that don't have config outside bridge
@@ -2617,6 +2638,14 @@ class bridge(moduleBase):
             self.query_check_bridge_ports(ifaceobj, ifaceobjcurr, runningattrs.get('ports', {}).keys(), ifaceobj_getfunc)
             diff.remove('bridge-ports')
 
+        if "bridge-ports-condone-regex" in diff:
+            ifaceobjcurr.update_config_with_status(
+                "bridge-ports-condone-regex",
+                self._get_bridge_port_condone_regex(ifaceobj, True),
+                0
+            )
+            diff.remove("bridge-ports-condone-regex")
+
         for k in diff:
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
@@ -2740,8 +2769,6 @@ class bridge(moduleBase):
         if not running_port_list and not bridge_all_ports:
             return
 
-        ports_list_status = 0 if not set(running_port_list).symmetric_difference(bridge_all_ports) else 1
-
         try:
             port_list = self._get_ifaceobj_bridge_ports(ifaceobj).split()
             # we want to display the same bridge-ports list as provided
@@ -2757,7 +2784,29 @@ class bridge(moduleBase):
                 port_list = ordered
         except:
             port_list = running_port_list
-        ifaceobjcurr.update_config_with_status('bridge-ports', (' '.join(port_list) if port_list else ''), ports_list_status)
+
+        difference = set(running_port_list).symmetric_difference(bridge_all_ports)
+        bridge_port_condone_regex = self._get_bridge_port_condone_regex(ifaceobj)
+
+        if bridge_port_condone_regex:
+            # Drop any condoned port from the difference set
+            condone_ports = [port for port in difference if bridge_port_condone_regex.match(port)]
+
+            for port in condone_ports:
+                try:
+                    difference.remove(port)
+                except ValueError:
+                    pass
+
+                # Tag all condoned ports in brackets in output
+                if port not in bridge_all_ports:
+                    port_list.append("(%s)" % port)
+
+        ifaceobjcurr.update_config_with_status(
+            "bridge-ports",
+            " ".join(port_list) if port_list else "",
+            0 if not difference else 1
+        )
 
     def get_ifaceobj_bridge_vids(self, ifaceobj):
         vids = ('bridge-vids', ifaceobj.get_attr_value_first('bridge-vids'))
