@@ -46,6 +46,10 @@ class bridge(moduleBase):
                          'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
                                       'bridge-ports glob swp1-3.100',
                                       'bridge-ports regex (swp[1|2|3].100)']},
+                   'bridge-ports-condone-regex' :
+                        {'help' : 'bridge ports to ignore/condone when reloading config / removing interfaces',
+                         'required' : False,
+                         'example' : [ 'bridge-ports-condone-regex ^[a-zA-Z0-9]+_v[0-9]{1,4}$']},
                    'bridge-stp' :
                         {'help': 'bridge-stp yes/no',
                          'example' : ['bridge-stp no'],
@@ -322,6 +326,19 @@ class bridge(moduleBase):
         else:
             return None
 
+    def _get_bridge_port_condone_regex(self, ifaceobj, get_string = False):
+        bridge_port_condone_regex = ifaceobj.get_attr_value_first('bridge-ports-condone-regex')
+        # If bridge-ports-ignore-regex is configured, do NOT use the parse_port_list()
+        # function to gather a list of ports matching the regex here and now but set
+        # up a compiled regex to be used in a match later. This way we try to avoid
+        # a race condition where an (possibly VM) interface is created after this
+        # function has been called but before the bridgeports are validated.
+        if bridge_port_condone_regex:
+            if get_string:
+                return bridge_port_condone_regex
+            return re.compile (r"%s" % bridge_port_condone_regex)
+        return None
+
     def _process_bridge_waitport(self, ifaceobj, portlist):
         waitport_value = ifaceobj.get_attr_value_first('bridge-waitport')
         if not waitport_value: return
@@ -393,6 +410,7 @@ class bridge(moduleBase):
 
     def _add_ports(self, ifaceobj):
         bridgeports = self._get_bridge_port_list(ifaceobj)
+        bridgeportscondoneregex = self._get_bridge_port_condone_regex(ifaceobj)
         runningbridgeports = []
         removedbridgeports = []
 
@@ -405,6 +423,8 @@ class bridge(moduleBase):
             if runningbridgeports:
                 for bport in runningbridgeports:
                     if not bridgeports or bport not in bridgeports:
+                        if bridgeportscondoneregex and bridgeportscondoneregex.match(bport):
+                            continue
                         self.ipcmd.link_set(bport, 'nomaster')
                         removedbridgeports.append(bport)
             else:
@@ -1520,6 +1540,7 @@ class bridge(moduleBase):
 
         filterattrs = ['bridge-vids', 'bridge-port-vids',
                        'bridge-port-pvids']
+        bridge_port_condone_regex = self._get_bridge_port_condone_regex(ifaceobj)
         for k in Set(ifaceattrs).difference(filterattrs):
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
@@ -1554,6 +1575,9 @@ class bridge(moduleBase):
                else:
                     ifaceobjcurr.update_config_with_status('bridge-stp',
                                rv, 1)
+            elif k == 'bridge-ports-condone-regex':
+               bridge_port_condone_regex_str = self._get_bridge_port_condone_regex(ifaceobj, True)
+               ifaceobjcurr.update_config_with_status(k, bridge_port_condone_regex_str, 0)
             elif k == 'bridge-ports':
                # special case ports because it can contain regex or glob
                running_port_list = rv.keys() if rv else []
@@ -1564,10 +1588,16 @@ class bridge(moduleBase):
                if running_port_list and bridge_port_list:
                   difference = set(running_port_list
                                  ).symmetric_difference(bridge_port_list)
+                  running_port_list_pretty = running_port_list
+                  if bridge_port_condone_regex:
+                      # Drop any condoned port from the difference set
+                      difference = [port for port in difference if not bridge_port_condone_regex.match (port)]
+                      # Tag all condoned ports in brackets in output
+                      running_port_list_pretty = ["(%s)" % port if port not in bridge_port_list and bridge_port_condone_regex.match (port) else port for port in running_port_list]
                   if not difference:
-                     portliststatus = 0
+                      portliststatus = 0
                   ifaceobjcurr.update_config_with_status('bridge-ports',
-                              ' '.join(running_port_list)
+                              ' '.join(running_port_list_pretty)
                               if running_port_list else '', portliststatus)
             elif (k == 'bridge-pathcosts' or
                   k == 'bridge-portprios' or k == 'bridge-portmcrouter'
