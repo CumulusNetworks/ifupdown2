@@ -222,7 +222,8 @@ class ifupdownMain(ifupdownBase):
         self.pp = pprint.PrettyPrinter(indent=4)
         self.modules = OrderedDict({})
         self.module_attrs = {}
-      
+        self.overridden_ifupdown_scripts = []
+
         if self.config.get('addon_python_modules_support', '1') == '1':
             self.load_addon_modules(self.addon_modules_dir)
         if self.config.get('addon_scripts_support', '0') == '1':
@@ -1198,10 +1199,11 @@ class ifupdownMain(ifupdownBase):
                             raise
                         try:
                             minstance = mclass()
+                            script_override = minstance.get_overrides_ifupdown_scripts()
+                            self.overridden_ifupdown_scripts.extend(script_override)
                         except moduleNotSupported, e:
                             self.logger.info('module %s not loaded (%s)\n'
                                              %(mname, str(e)))
-                            pass
                             continue
                         except:
                             raise
@@ -1281,10 +1283,9 @@ class ifupdownMain(ifupdownBase):
             try:
                 module_list = os.listdir(msubdir)
                 for module in module_list:
-                    if  self.modules.get(module) is not None:
+                    if self.modules.get(module) or module in self.overridden_ifupdown_scripts:
                         continue
-                    self.script_ops[op].append(
-                                    msubdir + '/' + module)
+                    self.script_ops[op].append(msubdir + '/' + module)
             except: 
                 # continue reading
                 pass

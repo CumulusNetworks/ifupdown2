@@ -333,6 +333,13 @@ class moduleBase(object):
         except:
             return None
 
+    def get_overrides_ifupdown_scripts(self):
+        """ return the ifupdown scripts replaced by the current module """
+        try:
+            return self.overrides_ifupdown_scripts
+        except:
+            return []
+
     def _get_reserved_vlan_range(self):
         start = end = 0
         get_resvvlan = '/var/lib/ifupdown2/hooks/get_reserved_vlan_range.sh'
