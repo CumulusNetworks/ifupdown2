@@ -7,7 +7,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
-import ifupdown.rtnetlink_api as rtnetlink_api
+from ifupdown.netlink import netlink
 import logging
 import re
 import subprocess
@@ -151,7 +151,8 @@ class batman_adv (moduleBase):
             self._set_hop_penalty (ifaceobj, hop_penalty_cfg)
 
         if ifaceobj.addr_method == 'manual':
-            rtnetlink_api.rtnl_api.link_set (ifaceobj.name, "up")
+            netlink.link_set_updown(ifaceobj.name, "up")
+
 
 
     def _down (self, ifaceobj):
@@ -229,7 +230,7 @@ class batman_adv (moduleBase):
 
     def _init_command_handlers (self):
         if not self.ipcmd:
-            self.ipcmd = iproute2 (**self.get_flags ())
+            self.ipcmd = iproute2()
 
 
     def run (self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
