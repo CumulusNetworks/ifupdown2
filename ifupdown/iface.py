@@ -46,12 +46,13 @@ class ifaceLinkKind():
         bond have an ifaceobj.role attribute of SLAVE and the bridge or
         bond itself has ifaceobj.role of MASTER.
     """
-    UNKNOWN = 0x000000
-    BRIDGE =  0x000001
-    BOND =    0x000010
-    VLAN =    0x000100
-    VXLAN =   0x001000
-    VRF =     0x010000
+    UNKNOWN =    0x000000
+    BRIDGE =     0x000001
+    BOND =       0x000010
+    VLAN =       0x000100
+    VXLAN =      0x001000
+    VRF =        0x010000
+    BATMAN_ADV = 0x100000
 
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
