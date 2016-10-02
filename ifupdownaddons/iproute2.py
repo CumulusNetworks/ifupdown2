@@ -120,7 +120,7 @@ class iproute2(utilsBase):
                         for j in range(i + 2, len(citems)):
                             if citems[j] == 'local':
                                 vattrs['local'] = citems[j + 1]
-                            elif citems[j] == 'remote':
+                            elif citems[j] == 'group':
                                 vattrs['svcnode'] = citems[j + 1]
                             elif citems[j] == 'ageing':
                                 vattrs['ageing'] = citems[j + 1]
