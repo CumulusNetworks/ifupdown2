@@ -8,6 +8,7 @@ from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdown.netlink import netlink
+import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import re
 import subprocess
@@ -156,7 +157,7 @@ class batman_adv (moduleBase):
 
 
     def _down (self, ifaceobj):
-        if not self.PERFMODE and not self.ipcmd.link_exists (ifaceobj.name):
+        if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists (ifaceobj.name):
            return
 
         members = self._find_member_ifaces (ifaceobj)
