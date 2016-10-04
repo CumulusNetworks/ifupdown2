@@ -32,6 +32,9 @@ class iproute2(utilsBase):
         utilsBase.__init__(self, *args, **kargs)
         if ifupdownflags.flags.CACHE:
             self._fill_cache()
+        self.supported_command = {
+            '/sbin/bridge -c -json vlan show': True
+        }
 
     def _fill_cache(self):
         if not iproute2._cache_fill_done:
@@ -752,8 +755,15 @@ class iproute2(utilsBase):
         return brvlaninfo
 
     def bridge_port_vids_get_all_json(self):
+        if not self.supported_command['/sbin/bridge -c -json vlan show']:
+            return {}
         brvlaninfo = {}
-        bridgeout = utils.exec_command('/sbin/bridge -c -json vlan show')
+        try:
+            bridgeout = utils.exec_command('/sbin/bridge -c -json vlan show')
+        except:
+            self.supported_command['/sbin/bridge -c -json vlan show'] = False
+            self.logger.info('/sbin/bridge -c -json vlan show: skipping unsupported command')
+            return {}
         if not bridgeout: return brvlaninfo
         try:
             vlan_json_dict = json.loads(bridgeout, encoding="utf-8")
