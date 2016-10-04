@@ -312,7 +312,7 @@ class vrf(moduleBase):
             self.iproute2_vrf_map_sync_to_disk = True
             del self.iproute2_vrf_map[int(table_id)]
         except Exception, e:
-            self.logger.info('vrf: iproute2 vrf map del failed for %d (%s)'
+            self.logger.info('vrf: iproute2 vrf map del failed for %s (%s)'
                              %(table_id, str(e)))
             pass
 
