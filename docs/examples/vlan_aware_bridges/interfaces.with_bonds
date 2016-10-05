@@ -4,13 +4,13 @@
 # uplink1, peerlink and downlink are bond interfaces.
 # 'bridge' is a vlan aware bridge with ports uplink1, peerlink
 # and downlink (swp2-20).
-# 
+#
 # native vlan is by default 1
 #
 # 'bridge-vids' attribute is used to declare vlans.
 # 'bridge-pvid' attribute is used to specify native vlans if other than 1
 # 'bridge-access' attribute is used to declare access port
-# 
+#
 auto lo
 iface lo
 
@@ -23,11 +23,7 @@ iface uplink1
     bond-slaves swp32
     bond-mode 802.3ad
     bond-miimon 100
-<<<<<<< HEAD
-    bond-use-carrier 1
-=======
     bond-use-carrier yes
->>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit-hash-policy layer2
@@ -39,11 +35,7 @@ iface peerlink
     bond-slaves swp30 swp31
     bond-mode 802.3ad
     bond-miimon 100
-<<<<<<< HEAD
-    bond-use-carrier 1
-=======
     bond-use-carrier yes
->>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit-hash-policy layer3+4
@@ -55,11 +47,7 @@ iface downlink
     bond-slaves swp1
     bond-mode 802.3ad
     bond-miimon 100
-<<<<<<< HEAD
-    bond-use-carrier 1
-=======
     bond-use-carrier yes
->>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit-hash-policy layer3+4

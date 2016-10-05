@@ -7,13 +7,13 @@
 #
 # All ports inherit 'vlans 10 20-23' from the 'bridge-vids' attribute
 # under the bridge
-# 
+#
 # native vlan is by default 1
 #
 # 'bridge-vids' attribute is used to declare vlans.
 # 'bridge-pvid' attribute is used to specify native vlans if other than 1
 # 'bridge-access' attribute is used to declare access port
-# 
+#
 # 'spine-bond host-bond-0[1-2]' are clag bonds and will be considered by
 # clagd for dual connection. clag-id has to be a non-zero and has to match
 # across the peer switches for the bonds to become dual connected.
@@ -25,11 +25,7 @@ iface spine-bond
       bond-slaves glob swp19-22
       bond-mode 802.3ad
       bond-miimon 100
-<<<<<<< HEAD
-      bond-use-carrier 1
-=======
       bond-use-carrier yes
->>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
@@ -42,11 +38,7 @@ iface peer-bond
       bond-slaves glob swp23-24
       bond-mode 802.3ad
       bond-miimon 100
-<<<<<<< HEAD
-      bond-use-carrier 1
-=======
       bond-use-carrier yes
->>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
@@ -69,11 +61,7 @@ iface host-bond-01
       bond-slaves swp1
       bond-mode 802.3ad
       bond-miimon 100
-<<<<<<< HEAD
-      bond-use-carrier 1
-=======
       bond-use-carrier yes
->>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
@@ -84,11 +72,7 @@ iface host-bond-02
       bond-slaves swp2
       bond-mode 802.3ad
       bond-miimon 100
-<<<<<<< HEAD
-      bond-use-carrier 1
-=======
       bond-use-carrier yes
->>>>>>> cumulus/dev
       bond-lacp-rate 1
       bond-min-links 1
       bond-xmit-hash-policy layer3+4
