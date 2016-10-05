@@ -3,6 +3,7 @@ ifupdown2 (1.0~git20161007-1) unstable; urgency=medium
   * Performance improvements (better netlink support)
   * New. Deprecated: `mstpctl-stp` attribute
   * New. Deprecated: lacp parameters: bond-ad-sys-priority, bond-ad-sys-mac-addr
+  * New. Enabled: addon module for B.A.T.M.A.N. protocol configuration
   * New. Enabled: addon module for configuring VRF
     (Virtual routing and forwarding)
   * New. Enabled: bridge: display warning when (in vlan unware bridge) an
@@ -18,6 +19,9 @@ ifupdown2 (1.0~git20161007-1) unstable; urgency=medium
   * New. Enabled: extend ifquery support for mstpctl addons
   * New. Enabled: each addon may perform semantic and syntax checks by
     implementing a custom method
+  * New. Enabled: addons may provide a list of ifupdown scripts to ignore
+  * New. Enabled: config: changing default value of addon_scripts_support to 1
+  * fixes #14: add environment variables passed to user scripts
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 07 Sep 2016 00:57:50 +0200
 
