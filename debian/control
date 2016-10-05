@@ -2,14 +2,14 @@ Source: ifupdown2
 Section: admin
 Priority: optional
 Maintainer: Julien Fortin <julien@cumulusnetworks.com>
-Standards-Version: 3.9.8
+Standards-Version: 3.9.6
 Build-Depends: python-setuptools, dh-python, python-all (>= 2.6.6-3), debhelper (>= 9~), python-docutils, dh-systemd
 Homepage: https://github.com/CumulusNetworks/ifupdown2
 X-Python-Version: >= 2.6
 
 Package: ifupdown2
 Architecture: all
-Suggests: python-gvgen, python-mako 
+Suggests: python-gvgen, python-mako
 Replaces: ifupdown
 Conflicts: ifupdown
 Provides: ifupdown
