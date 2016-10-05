@@ -1,0 +1,102 @@
+auto lo
+iface lo inet
+
+auto eth0
+iface eth0 inet dhcp
+
+<%
+    id = 5
+    access = 2
+%>
+%for i in range(0,2):
+auto swp${id}
+iface swp${id}
+      bridge-access ${access}
+      mtu 9000
+<%
+    id += 1
+    access -= 1
+%>
+%endfor
+
+auto swp7
+iface swp7
+      bridge-vids 5 9-10
+      hwaddress 44:38:39:00:27:b8
+      mtu 9000
+
+auto v0
+iface v0
+    vlan-raw-device swp22
+    vlan-id 42
+
+auto bond0
+iface bond0
+      bond-slaves swp1 swp2
+      bond-mode 802.3ad
+      bond-min-links 1
+      bridge-access 2
+
+auto bond1
+iface bond1
+      bond-slaves swp3 swp4
+      bond-mode 802.3ad
+      mtu 9000
+      bond-min-links 1
+      bridge-vids 5 8-12
+
+auto br0
+iface br0
+      bridge-stp on
+      bridge-mcsnoop 0
+      bridge-vids 8 11-12
+      bridge-vlan-aware yes
+      bridge-ports bond0 bond1 swp5 swp6 swp7 swp8
+      mstpctl-treeprio 4096
+
+auto br0.1
+iface br0.1
+      address 11.0.1.1/24
+      address 2001:470:1f05:1::1/64
+      address-virtual 00:00:5e:00:01:1 11.0.1.2/24
+
+auto bond2
+iface bond2
+      bond-slaves swp42
+      bond-mode 802.3ad
+      bond-miimon 100
+      bond-min-links 1
+      bond-xmit_hash_policy layer3+4
+      bond-lacp-rate 1
+      mtu  1500
+
+auto vx42
+iface vx42
+      vxlan-id 42
+      vxlan-local-tunnelip 27.0.0.11
+      mtu 1500
+
+auto br1-untag
+iface br1-untag
+      bridge-ports bond2 vx42
+      bridge-stp on
+      mstpctl-portbpdufilter vx42=yes
+      mstpctl-bpduguard vx42=yes
+      mstpctl-portadminedge bond2=yes
+
+auto bond3
+iface bond3
+        bond-slaves swp15.100 swp16.100
+
+auto br3
+iface br3
+        bridge-ports bond3 swp21
+
+auto swp10.100
+iface swp10.100
+        vrf red
+
+auto red
+iface red
+     address 127.0.0.1/8
+     vrf-table auto
