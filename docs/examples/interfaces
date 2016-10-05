@@ -21,27 +21,15 @@ iface swp30
     alias "test network"
     link-duplex full
     link-speed 1000
-<<<<<<< HEAD
-    link-autoneg off
-=======
     link-autoneg no
->>>>>>> cumulus/dev
 
 # bond interface
 auto bond3
 iface bond3 inet static
-<<<<<<< HEAD
-    address 100.0.0.4/16
-    bond-slaves swp1 swp2
-    bond-mode 802.3ad
-    bond-miimon 100
-    bond-use-carrier 1
-=======
     bond-slaves swp1 swp2
     bond-mode 802.3ad
     bond-miimon 100
     bond-use-carrier yes
->>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit_hash_policy layer3+4
@@ -49,27 +37,15 @@ iface bond3 inet static
 # bond interface
 auto bond4
 iface bond4 inet static
-<<<<<<< HEAD
-    address 100.0.0.6/16
-    bond-slaves swp3 swp4
-    bond-mode 802.3ad
-    bond-miimon 100
-    bond-use-carrier 1
-=======
     bond-slaves swp3 swp4
     bond-mode 802.3ad
     bond-miimon 100
     bond-use-carrier yes
->>>>>>> cumulus/dev
     bond-lacp-rate 1
     bond-min-links 1
     bond-xmit_hash_policy layer3+4
 
-<<<<<<< HEAD
-# bond interface
-=======
 # bridge interface
->>>>>>> cumulus/dev
 auto br0
 iface br0
     address 12.0.0.4/24
@@ -81,17 +57,9 @@ iface br0
 # vlan interface on bond
 auto bond3.2000
 iface bond3.2000 inet static
-<<<<<<< HEAD
-    address 100.1.0.4/16
 
 auto bond4.2000
 iface bond4.2000 inet static
-    address 100.1.0.6/16
-=======
-
-auto bond4.2000
-iface bond4.2000 inet static
->>>>>>> cumulus/dev
 
 auto br2000
 iface br2000 inet6 static
