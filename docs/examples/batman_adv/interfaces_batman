@@ -1,0 +1,12 @@
+auto eth0
+iface eth0 inet dhcp
+
+auto lo
+iface lo inet
+
+auto bat0
+iface bat0
+      batman-ifaces tap0 tap1
+      batman-ifaces-ignore-regex .*_nodes
+      batman-hop-penalty 23
+      address 192.0.2.42/24
