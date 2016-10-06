@@ -114,6 +114,7 @@ class iproute2(utilsBase):
                         linkattrs['kind'] = 'vxlan'
                         vattrs = {'vxlanid': citems[i + 2],
                                   'svcnode': None,
+                                  'physdev': None,
                                   'remote': [],
                                   'ageing': citems[i + 2],
                                   'learning': 'on'}
@@ -126,6 +127,8 @@ class iproute2(utilsBase):
                                 vattrs['ageing'] = citems[j + 1]
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
+                            elif citems[j] == 'dev':
+                                vattrs['physdev'] = citems[j + 1]
                         # get vxlan peer nodes if provisioned by user and not by vxrd
                         if not vxrd_running:
                             peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])

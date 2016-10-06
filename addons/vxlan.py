@@ -33,6 +33,9 @@ class vxlan(moduleBase):
                             {'help' : 'vxlan remote ip',
                              'validvals' : ['<ipv4>'],
                              'example': ['vxlan-remoteip 172.16.22.127']},
+                        'vxlan-physdev' :
+                            {'help' : 'vxlan physical device',
+                             'example': ['vxlan-physdev eth1']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',
                              'validvals' : ['yes', 'no', 'on', 'off'],
@@ -69,6 +72,14 @@ class vxlan(moduleBase):
                     self.log_warn('%s: multiple clagd-vxlan-anycast-ip lines, using first one'
                                   % (ifaceobj.name,))
                 vxlan._clagd_vxlan_anycast_ip = clagd_vxlan_list[0]
+
+
+        # If we should use a specific underlay device for the VXLAN
+        # tunnel make sure this device is set up before the VXLAN iface.
+        physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
+        if physdev:
+            return [ physdev ]
+
         return None
 
     def _is_vxlan_device(self, ifaceobj):
@@ -92,6 +103,7 @@ class vxlan(moduleBase):
             anycastip = self._clagd_vxlan_anycast_ip
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+            physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
             purge_remotes = self._get_purge_remotes(ifaceobj)
@@ -110,7 +122,8 @@ class vxlan(moduleBase):
                                    local=local,
                                    learning=learning,
                                    ageing=ageing,
-                                   group=group)
+                                   group=group,
+                                   physdev=physdev)
 
             remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
             if purge_remotes or remoteips:
@@ -232,6 +245,11 @@ class vxlan(moduleBase):
             ageing = self.get_mod_subattr('vxlan-ageing', 'default')
         self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-ageing',
                        ageing, vxlanattrs.get('ageing'))
+
+        physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
+        if physdev:
+            self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-physdev',
+                           physdev, vxlanattrs.get('physdev'))
 
     def _query_running(self, ifaceobjrunning):
         vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobjrunning.name)
