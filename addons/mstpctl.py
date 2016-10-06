@@ -992,9 +992,68 @@ class mstpctl(moduleBase):
         elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
             self._query_running_bridge_port(ifaceobjrunning)
 
+    def _query_bridge_port(self, ifaceobj, ifaceobj_getfunc=None):
+        """
+        Example:
+        Configuration:
+            auto vxlan1wd
+            iface vxlan1wd
+                vxlan-id 1001
+
+            auto vxlan2wd
+            iface vxlan2wd
+                vxlan-id 1002
+
+            auto brwithdef2
+            iface brwithdef2
+                bridge_ports vxlan1wd vxlan2wd
+                bridge-vlan-aware yes
+
+        Output:
+        $ ifquery vxlan1wd
+            auto vxlan1wd
+            iface vxlan1wd
+                vxlan-id 1001
+
+        $ ifquery --with-defaults vxlan1wd
+            auto vxlan1wd
+            iface vxlan1wd
+                vxlan-id 1001
+                mstpctl-portbpdufilter yes
+                mstpctl-bpduguard yes
+        """
+        masters = ifaceobj.upperifaces
+        if not masters:
+            return
+        try:
+            for bridge in masters:
+                bifaceobj = ifaceobj_getfunc(bridge)[0]
+                if (self._is_bridge(bifaceobj) and
+                    self.default_vxlan_ports_set_bpduparams and
+                    (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                        for attr in ['mstpctl-portbpdufilter',
+                                     'mstpctl-bpduguard']:
+                            jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
+                            config_val = ifaceobj.get_attr_value_first(attr)
+                            if config_val or not ifupdownflags.flags.WITHDEFAULTS:
+                                continue
+                            config_val = 'yes'
+                            ifaceobj.replace_config(attr, config_val)
+                        return
+        except Exception, e:
+            self.logger.info("%s: %s" %(ifaceobj.name, str(e)))
+            pass
+
     def _query(self, ifaceobj, ifaceobj_getfunc=None, **kwargs):
         """ add default policy attributes supported by the module """
         if not self._is_bridge(ifaceobj):
+            if (ifaceobj.module_flags.get(self.name,0x0) &
+                    mstpctlFlags.PORT_PROCESSED):
+                return
+            self._query_bridge_port(ifaceobj, ifaceobj_getfunc)
+            ifaceobj.module_flags[self.name] = (
+                        ifaceobj.module_flags.setdefault(self.name,0) |
+                        mstpctlFlags.PORT_PROCESSED)
             return
         lowerinfs = ifaceobj.lowerifaces
         if not lowerinfs:
@@ -1020,6 +1079,9 @@ class mstpctl(moduleBase):
                 for port in lowerinfs:
                     bportobjlist = ifaceobj_getfunc(port)
                     for bportobj in bportobjlist:
+                        if (bportobj.module_flags.get(self.name,0x0) &
+                            mstpctlFlags.PORT_PROCESSED):
+                            continue
                         if bportobj.get_attr_value_first('vxlan-id'):
                             if config:
                                 if port not in [v.split('=')[0] for v in config.split()]:
@@ -1032,11 +1094,12 @@ class mstpctl(moduleBase):
                                     del v[index]
                                     config = ' '.join(v)
                             else:
-                                bportobj.update_config(attr, 'yes')
+                                bportobj.replace_config(attr, 'yes')
+                            bportobj.module_flags[self.name] = (
+                                bportobj.module_flags.setdefault(self.name,0) |
+                                mstpctlFlags.PORT_PROCESSED)
                 if config:
                     ifaceobj.replace_config(attr, config)
-                else:
-                    ifaceobj.replace_config(attr, '')
 
 
 
