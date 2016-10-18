@@ -1089,7 +1089,8 @@ class ifupdownMain(ifupdownBase):
                                                      module._modinfo.get('attrs', {})):
                             result = False
                     if hasattr(module, 'syntax_check') and callable(module.syntax_check):
-                        if not module.syntax_check(self.get_ifaceobjs(ifacename)[0]):
+                        if not module.syntax_check(self.get_ifaceobjs(ifacename)[0],
+                                                   self.get_ifaceobjs):
                             result = False
                 except Exception, e:
                     self.logger.warn('%s: %s' % (ifacename, str(e)))

@@ -226,7 +226,7 @@ class mstpctl(moduleBase):
         else:
             self.default_vxlan_ports_set_bpduparams = False
 
-    def syntax_check(self, ifaceobj):
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self._is_bridge(ifaceobj):
             if (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
                     and ifaceobj.get_attr_value_first('mstpctl-portadminedge')):

@@ -268,6 +268,25 @@ class bridge(moduleBase):
                                attr='warn_on_untagged_bridge_absence')
         self.warn_on_untagged_bridge_absence = should_warn == 'yes'
 
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        return self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
+
+    def check_bridge_vlan_aware_port(self, ifaceobj, ifaceobj_getfunc):
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
+            ports = self._get_bridge_port_list(ifaceobj)
+            if not ports:
+                return False
+            result = True
+            for port_name in ports:
+                port_obj_l = ifaceobj_getfunc(port_name)
+                if port_obj_l and port_obj_l[0].link_kind & ifaceLinkKind.VLAN:
+                    self.logger.error('%s: %s: vlan sub-interface is not '
+                                      'supported in a vlan-aware bridge'
+                                      % (ifaceobj.name, port_name))
+                    result = False
+            return result
+        return True
+
 
     def _is_bridge(self, ifaceobj):
         if ifaceobj.get_attr_value_first('bridge-ports'):
@@ -1175,6 +1194,8 @@ class bridge(moduleBase):
         try:
             bridge_vlan_aware = False
             if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+                if not self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc):
+                    return
                 bridge_vlan_aware = True
                 if (bridge_just_created or
                         not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
