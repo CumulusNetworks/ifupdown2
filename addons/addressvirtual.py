@@ -359,14 +359,27 @@ class addressvirtual(moduleBase):
                                  % (ifaceobj.name,
                                     macvlan_ifacename,
                                     ' '.join(av_attrs)))
-            if (rhwaddress == av_attrs[0] and raddrs == av_attrs[1:] and
-                    self._check_addresses_in_bridge(ifaceobj, av_attrs[0])):
-               ifaceobjcurr.update_config_with_status('address-virtual',
-                            address_virtual, 0)
-            else:
-               raddress_virtual = '%s %s' %(rhwaddress, ' '.join(raddrs))
-               ifaceobjcurr.update_config_with_status('address-virtual',
-                            raddress_virtual, 1)
+            try:
+                cmp_av_addr = av_attrs[1:][0]
+                cmp_raddr = raddrs[0]
+
+                if '/' in cmp_raddr and '/' not in cmp_av_addr:
+                    cmp_av_addr = str(IPNetwork(cmp_av_addr))
+                elif '/' in cmp_av_addr and '/' not in cmp_raddr:
+                    cmp_raddr = str(IPNetwork(cmp_raddr))
+
+                if (rhwaddress == av_attrs[0] and cmp_raddr == cmp_av_addr and
+                        self._check_addresses_in_bridge(ifaceobj, av_attrs[0])):
+                    ifaceobjcurr.update_config_with_status('address-virtual',
+                                                           address_virtual, 0)
+                else:
+                    raddress_virtual = '%s %s' % (rhwaddress, ' '.join(raddrs))
+                    ifaceobjcurr.update_config_with_status('address-virtual',
+                                                           raddress_virtual, 1)
+            except:
+                raddress_virtual = '%s %s' % (rhwaddress, ' '.join(raddrs))
+                ifaceobjcurr.update_config_with_status('address-virtual',
+                                                       raddress_virtual, 1)
             av_idx += 1
         return
 
