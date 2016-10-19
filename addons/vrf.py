@@ -151,8 +151,7 @@ class vrf(moduleBase):
                             continue
                         self.iproute2_vrf_map[int(table)] = vrf_name
                     except Exception, e:
-                        self.logger.info('vrf: iproute2_vrf_map: unable to parse %s'
-                                         %l)
+                        self.logger.info('vrf: iproute2_vrf_map: unable to parse %s (%s)' %(l, str(e)))
                         pass
 
         vrfs = self.ipcmd.link_get_vrfs()
@@ -392,8 +391,8 @@ class vrf(moduleBase):
         try:
             master_exists = True
             if vrf_exists or self.ipcmd.link_exists(vrfname):
-                upper = self.ipcmd.link_get_upper(ifacename)
-                if not upper or upper != vrfname:
+                uppers = self.ipcmd.link_get_uppers(ifacename)
+                if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:

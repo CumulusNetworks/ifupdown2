@@ -434,7 +434,8 @@ class iproute2(utilsBase):
     def link_down(self, ifacename):
         self._link_set_ifflag(ifacename, 'DOWN')
 
-    def link_set(self, ifacename, key, value=None, force=False, type=None):
+    def link_set(self, ifacename, key, value=None,
+                 force=False, type=None, state=None):
         if not force:
             if (key not in ['master', 'nomaster'] and
                 self._cache_check('link', [ifacename, key], value)):
@@ -445,6 +446,8 @@ class iproute2(utilsBase):
         cmd += ' %s' %key
         if value:
             cmd += ' %s' %value
+        if state:
+            cmd += ' %s' %state
         if self.ipbatch:
             self.add_to_batch(cmd)
         else:
@@ -922,12 +925,12 @@ class iproute2(utilsBase):
         except:
             return []
 
-    def link_get_upper(self, ifacename):
+    def link_get_uppers(self, ifacename):
         try:
-            upper = glob.glob("/sys/class/net/%s/upper_*" %ifacename)
-            if not upper:
+            uppers = glob.glob("/sys/class/net/%s/upper_*" %ifacename)
+            if not uppers:
                 return None
-            return os.path.basename(upper[0])[6:]
+            return [ os.path.basename(u)[6:] for u in uppers ]
         except:
             return None
 

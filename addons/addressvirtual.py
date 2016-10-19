@@ -36,10 +36,9 @@ class addressvirtual(moduleBase):
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
 
-    def _is_supported(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('address-virtual'):
-            return True
-        return False
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+        if ifaceobj.get_attr_value('address-virtual'):
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE
 
     def _get_macvlan_prefix(self, ifaceobj):
         return '%s-v' %ifaceobj.name[0:13].replace('.', '-')
@@ -292,10 +291,73 @@ class addressvirtual(moduleBase):
                 self.logger.error("%s: Multicast bit is set in the virtual mac address '%s'" %(ifaceobj.name, mac))
                 return False
             return True
-        except Exception, e:
+        except Exception:
             return False
 
-    def _up(self, ifaceobj):
+    def _fixup_vrf_enslavements(self, ifaceobj, ifaceobj_getfunc=None):
+        """ This function fixes up address virtual interfaces
+        (macvlans) on vrf slaves. Since this fixup is an overhead,
+        this must be called only in cases when ifupdown2 is
+        called on the vrf device or its slave and not when
+        ifupdown2 is called for all devices. When all
+        interfaces are brought up, the expectation is that
+        the normal path will fix up a vrf device or its slaves"""
+
+        if not ifaceobj_getfunc:
+            return
+        if ((ifaceobj.link_kind & ifaceLinkKind.VRF) and
+            self.ipcmd.link_exists(ifaceobj.name)):
+            # if I am a vrf device and I have slaves
+            # that have address virtual config,
+            # enslave the slaves 'address virtual
+            # interfaces (macvlans)' to myself:
+            running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+            if running_slaves:
+                # pick up any existing slaves of a vrf device and
+                # look for their upperdevices and enslave them to the
+                # vrf device:
+                for s in running_slaves:
+                    sobjs = ifaceobj_getfunc(s)
+                    if (sobjs and
+                        (sobjs[0].link_privflags & ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE)):
+                        # enslave all its upper devices to
+                        # the vrf device
+                        upperdevs = self.ipcmd.link_get_uppers(sobjs[0].name)
+                        if not upperdevs:
+                            continue
+                        for u in upperdevs:
+                            # skip vrf device which
+                            # will also show up in the
+                            # upper device list
+                            if u == ifaceobj.name:
+                                continue
+                            self.ipcmd.link_set(u, 'master', ifaceobj.name,
+                                                state='up')
+        elif ((ifaceobj.link_privflags & ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE) and
+              (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) and
+              self.ipcmd.link_exists(ifaceobj.name)):
+            # If I am a vrf slave and I have 'address virtual'
+            # config, make sure my addrress virtual interfaces
+            # (macvlans) are also enslaved to the vrf device
+            vrfname = ifaceobj.get_attr_value_first('vrf')
+            if not vrfname or not self.ipcmd.link_exists(vrfname):
+                return
+            running_uppers = self.ipcmd.link_get_uppers(ifaceobj.name)
+            if not running_uppers:
+                return
+            macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
+            if not macvlan_prefix:
+                return
+            for u in running_uppers:
+                if u == vrfname:
+                    continue
+                if u.startswith(macvlan_prefix):
+                    self.ipcmd.link_set(u, 'master', vrfname,
+                                        state='up')
+
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
+        if not ifupdownflags.flags.ALL:
+            self._fixup_vrf_enslavements(ifaceobj, ifaceobj_getfunc)
         address_virtual_list = ifaceobj.get_attr_value('address-virtual')
         if not address_virtual_list:
             # XXX: address virtual is not present. In which case,
@@ -313,7 +375,7 @@ class addressvirtual(moduleBase):
             return
         self._apply_address_config(ifaceobj, address_virtual_list)
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             self._remove_address_config(ifaceobj,
                          ifaceobj.get_attr_value('address-virtual'))
@@ -383,7 +445,7 @@ class addressvirtual(moduleBase):
             av_idx += 1
         return
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         macvlan_prefix = self._get_macvlan_prefix(ifaceobjrunning)
         address_virtuals = glob.glob("/sys/class/net/%s*" %macvlan_prefix)
         for av in address_virtuals:
@@ -411,7 +473,8 @@ class addressvirtual(moduleBase):
         if not self.ipcmd:
             self.ipcmd = iproute2()
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None,
+            ifaceobj_getfunc=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
         Args:
@@ -436,4 +499,4 @@ class addressvirtual(moduleBase):
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
