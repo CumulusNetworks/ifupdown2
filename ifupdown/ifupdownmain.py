@@ -222,7 +222,8 @@ class ifupdownMain(ifupdownBase):
         self.pp = pprint.PrettyPrinter(indent=4)
         self.modules = OrderedDict({})
         self.module_attrs = {}
-      
+        self.overridden_ifupdown_scripts = []
+
         if self.config.get('addon_python_modules_support', '1') == '1':
             self.load_addon_modules(self.addon_modules_dir)
         if self.config.get('addon_scripts_support', '0') == '1':
@@ -305,7 +306,7 @@ class ifupdownMain(ifupdownBase):
         #   is a LINK_SLAVE of a bridge (in other words the bond is
         #   part of a bridge) which is not up yet
         if self._link_master_slave:
-           if 'Network is down':
+           if 'Network is down' in errorstr:
               return True
         return False
 
@@ -317,7 +318,7 @@ class ifupdownMain(ifupdownBase):
         if self.flags.STATEMANAGER_ENABLE:
            return self.statemanager.get_ifaceobjs(ifacename)
         else:
-           None
+           return None
 
     def get_ifaceobj_first(self, ifacename):
         ifaceobjs = self.get_ifaceobjs(ifacename)
@@ -1088,7 +1089,8 @@ class ifupdownMain(ifupdownBase):
                                                      module._modinfo.get('attrs', {})):
                             result = False
                     if hasattr(module, 'syntax_check') and callable(module.syntax_check):
-                        if not module.syntax_check(self.get_ifaceobjs(ifacename)):
+                        if not module.syntax_check(self.get_ifaceobjs(ifacename)[0],
+                                                   self.get_ifaceobjs):
                             result = False
                 except Exception, e:
                     self.logger.warn('%s: %s' % (ifacename, str(e)))
@@ -1198,10 +1200,11 @@ class ifupdownMain(ifupdownBase):
                             raise
                         try:
                             minstance = mclass()
+                            script_override = minstance.get_overrides_ifupdown_scripts()
+                            self.overridden_ifupdown_scripts.extend(script_override)
                         except moduleNotSupported, e:
                             self.logger.info('module %s not loaded (%s)\n'
                                              %(mname, str(e)))
-                            pass
                             continue
                         except:
                             raise
@@ -1281,10 +1284,9 @@ class ifupdownMain(ifupdownBase):
             try:
                 module_list = os.listdir(msubdir)
                 for module in module_list:
-                    if  self.modules.get(module) is not None:
+                    if self.modules.get(module) or module in self.overridden_ifupdown_scripts:
                         continue
-                    self.script_ops[op].append(
-                                    msubdir + '/' + module)
+                    self.script_ops[op].append(msubdir + '/' + module)
             except: 
                 # continue reading
                 pass

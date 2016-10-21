@@ -25,6 +25,7 @@ class brctl(utilsBase):
             if os.path.exists('/sbin/brctl'):
                 self._bridge_fill()
             brctl._cache_fill_done = True
+        self.supported_command = {'showmcqv4src': True}
 
 
     def _bridge_get_mcattrs_from_sysfs(self, bridgename):
@@ -72,21 +73,47 @@ class brctl(utilsBase):
             # Get all bridge attributes
             broutlines = chunks[0].splitlines()
             #battrs['pathcost'] = broutlines[3].split('path cost')[1].strip()
-            battrs['maxage'] = broutlines[4].split(
-                                'bridge max age')[1].strip().replace('.00', '')
-            battrs['hello'] = broutlines[5].split(
-                                'bridge hello time')[1].strip().replace('.00',
-                                                                        '')
-            battrs['fd'] = broutlines[6].split(
-                                    'bridge forward delay')[1].strip(
-                                            ).replace('.00', '')
-            battrs['ageing'] = broutlines[7].split(
-                                    'ageing time')[1].strip().replace('.00', '')
-            battrs['mcrouter'] = broutlines[12].split(
-                                    'mc router')[1].strip().split('\t\t\t')[0]
-            battrs['bridgeprio'] = self.read_file_oneline(
-                         '/sys/class/net/%s/bridge/priority' %bridgename)
-            battrs.update(self._bridge_get_mcattrs_from_sysfs(bridgename))
+
+            try:
+                battrs['maxage'] = broutlines[4].split('bridge max age')[
+                    1].strip().replace('.00', '')
+            except:
+                pass
+
+            try:
+                battrs['hello'] = broutlines[5].split('bridge hello time')[
+                    1].strip().replace('.00', '')
+            except:
+                pass
+
+            try:
+                battrs['fd'] = broutlines[6].split('bridge forward delay')[
+                    1].strip().replace('.00', '')
+            except:
+                pass
+
+            try:
+                battrs['ageing'] = broutlines[7].split('ageing time')[
+                    1].strip().replace('.00', '')
+            except:
+                pass
+
+            try:
+                battrs['mcrouter'] = broutlines[12].split('mc router')[
+                    1].strip().split('\t\t\t')[0]
+            except:
+                pass
+
+            try:
+                battrs['bridgeprio'] = self.read_file_oneline(
+                    '/sys/class/net/%s/bridge/priority' % bridgename)
+            except:
+                pass
+
+            try:
+                battrs.update(self._bridge_get_mcattrs_from_sysfs(bridgename))
+            except:
+                pass
 
             # XXX: comment this out until mc attributes become available
             # with brctl again
@@ -456,9 +483,20 @@ class brctl(utilsBase):
         utils.exec_command('/sbin/brctl delmcqv4src %s %d' % (bridge, vlan))
 
     def get_mcqv4src(self, bridge, vlan=None):
+        if not self.supported_command['showmcqv4src']:
+            return {}
         mcqv4src = {}
-        mcqout = utils.exec_command('/sbin/brctl showmcqv4src %s' % bridge)
-        if not mcqout: return None
+        try:
+            mcqout = utils.exec_command('/sbin/brctl showmcqv4src %s' % bridge)
+        except Exception as e:
+            s = str(e).lower()
+            if 'never heard' in s:
+                self.logger.info('/sbin/brctl showmcqv4src: '
+                                 'skipping unsupported command')
+                self.supported_command['showmcqv4src'] = False
+                return {}
+            raise
+        if not mcqout: return {}
         mcqlines = mcqout.splitlines()
         for l in mcqlines[1:]:
             l=l.strip()

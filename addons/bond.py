@@ -17,6 +17,9 @@ from ifupdown.utils import utils
 
 class bond(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
+
+    overrides_ifupdown_scripts = ['ifenslave', ]
+
     _modinfo = { 'mhelp' : 'bond configuration module',
                     'attrs' : {
                     'bond-use-carrier':

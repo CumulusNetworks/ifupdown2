@@ -17,6 +17,7 @@ import subprocess
 import ifupdownflags
 
 from functools import partial
+from ipaddr import IPNetwork, IPAddress
 
 def signal_handler_f(ps, sig, frame):
     if ps:
@@ -165,13 +166,34 @@ class utils():
             return 'cmd \'%s\' failed: returned %d' % (cmd, cmd_returncode)
 
     @classmethod
+    def get_normalized_ip_addr(cls, ifacename, ipaddrs):
+        if not ipaddrs: return None
+        if isinstance(ipaddrs, list):
+                addrs = []
+                for ip in ipaddrs:
+                    if not ip:
+                        continue
+                    try:
+                        addrs.append(str(IPNetwork(ip)) if '/' in ip else str(IPAddress(ip)))
+                    except Exception as e:
+                        cls.logger.warning('%s: %s' % (ifacename, e))
+                return addrs
+        else:
+            try:
+                return str(IPNetwork(ipaddrs)) if '/' in ipaddrs else str(IPAddress(ipaddrs))
+            except Exception as e:
+                cls.logger.warning('%s: %s' % (ifacename, e))
+            return ipaddrs
+
+    @classmethod
     def _execute_subprocess(cls, cmd,
                             env=None,
                             shell=False,
                             close_fds=False,
                             stdout=True,
                             stdin=None,
-                            stderr=subprocess.STDOUT):
+                            stderr=subprocess.STDOUT,
+                            user_cmd=False):
         """
         exec's commands using subprocess Popen
             Args:
@@ -184,20 +206,30 @@ class utils():
             return ''
 
         cmd_output = None
+        if user_cmd:
+            stdout = True
+        elif stdout:
+            stdout = subprocess.PIPE
+        else:
+            stdout = cls.DEVNULL
         try:
             ch = subprocess.Popen(cmd,
                                   env=env,
                                   shell=shell,
                                   close_fds=close_fds,
                                   stdin=subprocess.PIPE if stdin else None,
-                                  stdout=subprocess.PIPE if stdout else cls.DEVNULL,
+                                  stdout=stdout,
                                   stderr=stderr)
             utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             if stdout or stdin:
                 cmd_output = ch.communicate(input=stdin)[0]
             cmd_returncode = ch.wait()
         except Exception as e:
-            raise Exception('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
+            if user_cmd:
+                raise Exception('cmd \'%s\' failed (%s)' % (cmd, str(e)))
+            else:
+                raise Exception('cmd \'%s\' failed (%s)' %
+                                (' '.join(cmd), str(e)))
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
         if cmd_returncode != 0:
@@ -216,7 +248,8 @@ class utils():
                                        close_fds=close_fds,
                                        stdout=stdout,
                                        stdin=stdin,
-                                       stderr=stderr)
+                                       stderr=stderr,
+                                       user_cmd=True)
 
     @classmethod
     def exec_command(cls, cmd, env=None, close_fds=False, stdout=True,

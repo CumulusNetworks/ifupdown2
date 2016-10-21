@@ -567,10 +567,21 @@ class ifaceScheduler():
             ifupdownobj.logger.info('running upperifaces (parent interfaces) ' +
                                     'if available ..')
             try:
+                # upperiface bring up is best effort.
+                # eg case: if we are bringing up a bridge port
+                # this section does an 'ifup on the bridge'
+                # so that the recently up'ed bridge port gets enslaved
+                # to the bridge. But the up on the bridge may
+                # throw out more errors if the bridge is not
+                # in the correct state. Lets not surprise
+                # the user with such errors when he has
+                # only requested to bring up the bridge port.
                 cls._STATE_CHECK = False
+                ifupdownflags.flags.IGNORE_ERRORS = True
                 cls.run_upperifaces(ifupdownobj, ifacenames, ops)
-                cls._STATE_CHECK = True
             finally:
+                ifupdownflags.flags.IGNORE_ERRORS = False
+                cls._STATE_CHECK = True
                 # upperiface bringup is best effort, so dont propagate errors
                 # reset scheduler status to True
                 cls.set_sched_status(True)
