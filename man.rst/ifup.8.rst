@@ -43,7 +43,7 @@ DESCRIPTION
     configuration.
 
     **ifup** on an already ifup'ed interface will re-apply the configuration,
-    skipping already applied configuration whereever possible. In many cases
+    skipping already applied configuration wherever possible. In many cases
     where config commands are idempotent, you will see that ifup/ifdown will
     reapply the config even if the interface already has that config.
 
