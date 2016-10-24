@@ -1,6 +1,7 @@
 ifupdown2 (1.1-cl3u6) UNRELEASED; urgency=medium
 
-  * TBD
+  * Closes: github #14. add environment variables passed to user scripts
+  * New. Enabled: addons may provide a list of ifupdown scripts to ignore
 
  -- dev-support <dev-support@cumulusnetworks.com>  Mon, 19 Sep 2016 16:37:36 -0700
 
