@@ -215,6 +215,7 @@ class bridge(moduleBase):
                                    'If specified under the bridge the ports ' +
                                    'inherit it unless overridden by a ' +
                                    'bridge-vids attribute under the port',
+                          'multivalue' : True,
                           'validvals': ['<number-range-list>'],
                           'example' : ['bridge-vids 4000',
                                        'bridge-vids 2000 2200-3000']},
