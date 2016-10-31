@@ -362,8 +362,8 @@ class bond(moduleBase):
                 if not difference:
                     retslave = 0
         ifaceobjcurr.update_config_with_status('bond-slaves',
-                        ' '.join(runningslaves)
-                        if runningslaves else 'None', retslave)
+                        ' '.join(slaves)
+                        if slaves else 'None', retslave)
 
     def _query_running_attrs(self, bondname):
         bondattrs = {'bond-mode' :
