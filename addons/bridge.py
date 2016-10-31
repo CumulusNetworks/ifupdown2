@@ -270,7 +270,16 @@ class bridge(moduleBase):
         self.warn_on_untagged_bridge_absence = should_warn == 'yes'
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
-        return self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
+        return (self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
+                and self.check_bridge_conflict_access_vids(ifaceobj))
+
+    def check_bridge_conflict_access_vids(self, ifaceobj):
+        if (ifaceobj.get_attr_value('bridge-access')
+                and ifaceobj.get_attr_value('bridge-vids')):
+            self.logger.warning('%s: `bridge-access` and `bridge-vids` are not '
+                                'allowed on the same interface' % ifaceobj.name)
+            return False
+        return True
 
     def check_bridge_vlan_aware_port(self, ifaceobj, ifaceobj_getfunc):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
