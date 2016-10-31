@@ -1615,9 +1615,16 @@ class bridge(moduleBase):
                                  ).symmetric_difference(bridge_port_list)
                   if not difference:
                      portliststatus = 0
+                  # we want to display the same bridge-ports list as provided
+                  # in the interfaces file.
+                  try:
+                    port_list = self._get_ifaceobj_bridge_ports(ifaceobj).split()
+                  except:
+                    port_list = running_port_list
                   ifaceobjcurr.update_config_with_status('bridge-ports',
-                              ' '.join(running_port_list)
-                              if running_port_list else '', portliststatus)
+                                                         (' '.join(port_list)
+                                                          if port_list else ''),
+                                                         portliststatus)
             elif (k == 'bridge-pathcosts' or
                   k == 'bridge-portprios' or k == 'bridge-portmcrouter'
                   or k == 'bridge-portmcfl'):
