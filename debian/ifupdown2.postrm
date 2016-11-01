@@ -42,6 +42,25 @@ postrm_purge()
 	rm -f /run/network/ifstatenew
 }
 
+# restore file if we diverted it on install/upgrade
+_postrm_divert()
+{
+    diversions=$(dpkg-divert --list | grep "$1" | grep 'by ifupdown2$'  | wc -l 2> /dev/null)
+    if [ $diversions -gt 0 ] ;
+    then
+        dpkg-divert --remove --package ifupdown2 --rename $1
+    fi
+}
+
+postrm_divert()
+{
+    for filename in ifup ifdown ifquery ifreload
+    do
+        _postrm_divert "/usr/share/bash-completion/completions/$filename"
+        _postrm_divert "/etc/bash_completion.d/$filename"
+    done
+}
+
 case "$1" in
 	purge)
 		postrm_purge
@@ -49,10 +68,14 @@ case "$1" in
 
 	remove)
 		postrm_remove
+		postrm_divert
 	;;
 
+    abort-install|disappear|failed-upgrade|abort-upgrade)
+        postrm_divert
+    ;;
 
-	upgrade|disappear|failed-upgrade|abort-install|abort-upgrade)
+	upgrade)
 	;;
 
 	*)
