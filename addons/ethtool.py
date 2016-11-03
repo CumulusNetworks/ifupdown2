@@ -39,6 +39,11 @@ class ethtool(moduleBase,utilsBase):
                             {'help': 'set autonegotiation',
                              'example' : ['link-autoneg on'],
                              'validvals' : ['yes', 'no', 'on', 'off'],
+                             'default' : 'varies by platform and port'},
+                      'link-fec' :
+                            {'help': 'set forward error correction mode',
+                             'example' : ['link-fec rs'],
+                             'validvals' : ['rs', 'baser', 'on', 'off'],
                              'default' : 'varies by platform and port'}}}
 
     def __init__(self, *args, **kargs):
@@ -57,7 +62,8 @@ class ethtool(moduleBase,utilsBase):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
         cmd = ''
-        for attr in ['speed', 'duplex', 'autoneg']:
+        feccmd = ''
+        for attr in ['speed', 'duplex', 'autoneg', 'fec']:
             # attribute existed before but we must reset to default
             config_val = ifaceobj.get_attr_value_first('link-%s'%attr)
             default_val = policymanager.policymanager_api.get_iface_default(
@@ -106,16 +112,29 @@ class ethtool(moduleBase,utilsBase):
                 not config_val):
                 continue
 
-            # if we got this far, we need to change it
-            if config_val and (config_val != running_val):
-                # if the configured value is not set, set it
-                cmd += ' %s %s' % (attr, config_val)
-            elif default_val and (default_val != running_val):
-                # or if it has a default not equal to running value, set it
-                cmd += ' %s %s' % (attr, default_val)
+            if attr == 'fec':
+                # if we got this far, we need to change it
+                if config_val and (config_val != running_val):
+                    # if the configured value is not set, set it
+                    feccmd = ' %s %s' % ("encoding", config_val)
+                elif default_val and (default_val != running_val):
+                    # or if it has a default not equal to running value, set it
+                    feccmd = ' %s %s' % ("encoding", default_val)
+                else:
+                    # no value set nor default, leave it alone
+                    pass
             else:
-                # no value set nor default, leave it alone
-                pass
+                # if we got this far, we need to change it
+                if config_val and (config_val != running_val):
+                    # if the configured value is not set, set it
+                    cmd += ' %s %s' % (attr, config_val)
+                elif default_val and (default_val != running_val):
+                    # or if it has a default not equal to running value, set it
+                    cmd += ' %s %s' % (attr, default_val)
+                else:
+                    # no value set nor default, leave it alone
+                    pass
+
         if cmd:
             try:
                 # we should only be calling ethtool if there
@@ -126,6 +145,21 @@ class ethtool(moduleBase,utilsBase):
                 self.ifaceobjs_modified_configs.append(ifaceobj.name)
                 cmd = 'ethtool -s %s %s' %(ifaceobj.name, cmd)
                 utils.exec_command(cmd)
+            except Exception, e:
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+        else:
+            pass
+
+        if feccmd:
+            try:
+                # we should only be calling ethtool if there
+                # is a speed set or we can find a default speed
+                # because we should only be calling ethtool on swp ports
+                # we also need to set this here in case we changed
+                # something.  this prevents unconfigured ifaces from resetting to default
+                self.ifaceobjs_modified_configs.append(ifaceobj.name)
+                feccmd = 'ethtool --set-fec %s %s' %(ifaceobj.name, feccmd)
+                utils.exec_command(feccmd)
             except Exception, e:
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
@@ -144,7 +178,7 @@ class ethtool(moduleBase,utilsBase):
         This is because a reboot will lose their running attribute
         (the default will get set).
         """
-        for attr in ['speed', 'duplex', 'autoneg']:
+        for attr in ['speed', 'duplex', 'autoneg', 'fec']:
             configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             # if there is nothing configured, do not check
             if not configured:
@@ -171,7 +205,7 @@ class ethtool(moduleBase,utilsBase):
 
             # we make sure we can get a running value first
             if (running_attr and configured and running_attr == configured):
-                # PASS since running is what is configured 
+                # PASS since running is what is configured
                 ifaceobjcurr.update_config_with_status('link-%s'%attr,
                                                        running_attr, 0)
             elif (running_attr and configured and running_attr != configured):
@@ -199,6 +233,22 @@ class ethtool(moduleBase,utilsBase):
         else:
             return(None)
 
+    def get_fec_encoding(self,ethtool_output=None):
+        """
+        get_fec_encoding simply calls the ethtool show-fec command and parses out
+        the fec encoding value.
+        """
+        try:
+            for attr in ethtool_output.splitlines():
+                if attr.startswith('FEC encodings'):
+                    fec_attrs = attr.split()
+                return(fec_attrs[fec_attrs.index(':')+1])
+        except Exception as e:
+            self.logger.debug('ethtool: problems in ethtool set-fec output'
+                               ' %s: %s' %(ethtool_output.splitlines(), str(e)))
+
+        return(None)
+
     def get_running_attr(self,attr='',ifaceobj=None):
         if not ifaceobj or not attr:
             return
@@ -207,6 +257,9 @@ class ethtool(moduleBase,utilsBase):
             if attr == 'autoneg':
                 output = utils.exec_commandl(['ethtool', ifaceobj.name])
                 running_attr = self.get_autoneg(ethtool_output=output)
+            elif attr == 'fec':
+                output = utils.exec_command('ethtool --show-fec %s'%(ifaceobj.name))
+                running_attr = self.get_fec_encoding(ethtool_output=output)
             else:
                 running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
                                                       (ifaceobj.name, attr))
@@ -239,6 +292,7 @@ class ethtool(moduleBase,utilsBase):
             if not default_val:
                 continue
             running_attr = self.get_running_attr(attr, ifaceobj)
+
             # Only show the link attributes if they differ from defaults
             # to see the defaults, we should implement another flag (--with-defaults)
             if default_val == running_attr:
@@ -254,7 +308,7 @@ class ethtool(moduleBase,utilsBase):
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
-        for attr in ['speed', 'duplex', 'autoneg']:
+        for attr in ['speed', 'duplex', 'autoneg', 'fec']:
             if ifaceobj.get_attr_value_first('link-%s'%attr):
                 continue
             default = policymanager.policymanager_api.get_iface_default(
