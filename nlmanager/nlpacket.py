@@ -120,6 +120,12 @@ green  = 92
 yellow = 93
 blue   = 94
 
+EXTRA_DEBUG = False
+
+def set_extra_debug(debug):
+    global EXTRA_DEBUG
+    EXTRA_DEBUG = debug
+
 
 def zfilled_hex(value, digits):
     return '0x' + hex(value)[2:].zfill(digits)
@@ -666,7 +672,7 @@ class AttributeIFLA_AF_SPEC(Attribute):
                     self.value[Link.IFLA_BRIDGE_VLAN_INFO] = []
                 self.value[Link.IFLA_BRIDGE_VLAN_INFO].append(tuple(unpack("=HH", sub_attr_data[0:4])))
 
-            else:
+            elif EXTRA_DEBUG:
                 self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute type %s (%d), length %d, padded to %d' %
                                (parent_msg.get_ifla_bridge_af_spec_to_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
 
@@ -1027,14 +1033,14 @@ class AttributeIFLA_LINKINFO(Attribute):
                     elif self.value[Link.IFLA_INFO_KIND] == 'vlan':
                         if info_data_type == Link.IFLA_VLAN_ID:
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
                     elif self.value[Link.IFLA_INFO_KIND] == 'macvlan':
                         if info_data_type == Link.IFLA_MACVLAN_MODE:
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
@@ -1073,7 +1079,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                 Link.IFLA_VXLAN_REPLICATION_TYPE):
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
 
-                        else:
+                        elif EXTRA_DEBUG:
                             # sub_attr_end = padded_length(sub_attr_length)
                             self.log.debug('Add support for decoding IFLA_INFO_KIND vxlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
@@ -1084,7 +1090,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                             bond_value = {}
 
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = bond_value
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
@@ -1098,11 +1104,11 @@ class AttributeIFLA_LINKINFO(Attribute):
                         elif info_data_type in (Link.IFLA_BRPORT_FAST_LEAVE, ):
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
 
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND bridge type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_bridge_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
-                    else:
+                    elif EXTRA_DEBUG:
                         self.log.debug("Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
                                         (self.value[Link.IFLA_INFO_KIND], info_data_type, info_data_length, info_data_end))
 
@@ -1111,7 +1117,7 @@ class AttributeIFLA_LINKINFO(Attribute):
             elif sub_attr_type == Link.IFLA_INFO_SLAVE_KIND:
                 self.value[Link.IFLA_INFO_SLAVE_KIND] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
 
-            else:
+            elif EXTRA_DEBUG:
                 self.log.debug('Add support for decoding IFLA_LINKINFO sub-attribute type %s (%d), length %d, padded to %d' %
                                (parent_msg.get_ifla_info_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
 

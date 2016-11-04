@@ -17,7 +17,7 @@ class Netlink(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        self._nlmanager_api = NetlinkManager()
+        self._nlmanager_api = NetlinkManager(extra_debug=False)
 
     def get_iface_index(self, ifacename):
         if ifupdownflags.flags.DRYRUN: return
