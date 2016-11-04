@@ -30,7 +30,7 @@
 
 import logging
 import struct
-from ipaddr import IPv4Address, IPv6Address
+from ipaddr import IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
 from socket import AF_INET, AF_INET6, AF_BRIDGE
@@ -434,6 +434,12 @@ class AttributeIPAddress(Attribute):
             raise Exception("%s is not a supported address family" % self.family)
 
         self.LEN = calcsize(self.PACK)
+
+    def set_value(self, value):
+        if value is None:
+            self.value = None
+        else:
+            self.value = IPAddress(value)
 
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
@@ -1246,6 +1252,7 @@ class NetlinkPacket(object):
         self.debug       = debug
         self.message     = None
         self.use_color   = use_color
+        self.family      = None
 
         if owner_logger:
             self.log = owner_logger
@@ -1821,7 +1828,7 @@ class Link(NetlinkPacket):
         IFLA_PRIORITY        : ('IFLA_PRIORITY', AttributeGeneric),
         IFLA_MASTER          : ('IFLA_MASTER', AttributeFourByteValue),
         IFLA_WIRELESS        : ('IFLA_WIRELESS', AttributeGeneric),
-        IFLA_PROTINFO        : ('IFLA_PROTINFO', AttributeGeneric),
+        IFLA_PROTINFO        : ('IFLA_PROTINFO', AttributeGeneric), # Create an AttributeProtinfo class for this
         IFLA_TXQLEN          : ('IFLA_TXQLEN', AttributeFourByteValue),
         IFLA_MAP             : ('IFLA_MAP', AttributeGeneric),
         IFLA_WEIGHT          : ('IFLA_WEIGHT', AttributeGeneric),
@@ -2357,6 +2364,90 @@ class Link(NetlinkPacket):
         RTEXT_FILTER_SKIP_STATS        : 'RTEXT_FILTER_SKIP_STATS'
     }
 
+    IFLA_BR_UNSPEC                     =  0
+    IFLA_BR_FORWARD_DELAY              =  1
+    IFLA_BR_HELLO_TIME                 =  2
+    IFLA_BR_MAX_AGE                    =  3
+    IFLA_BR_AGEING_TIME                =  4
+    IFLA_BR_STP_STATE                  =  5
+    IFLA_BR_PRIORITY                   =  6
+    IFLA_BR_VLAN_FILTERING             =  7
+    IFLA_BR_VLAN_PROTOCOL              =  8
+    IFLA_BR_GROUP_FWD_MASK             =  9
+    IFLA_BR_ROOT_ID                    = 10
+    IFLA_BR_BRIDGE_ID                  = 11
+    IFLA_BR_ROOT_PORT                  = 12
+    IFLA_BR_ROOT_PATH_COST             = 13
+    IFLA_BR_TOPOLOGY_CHANGE            = 14
+    IFLA_BR_TOPOLOGY_CHANGE_DETECTED   = 15
+    IFLA_BR_HELLO_TIMER                = 16
+    IFLA_BR_TCN_TIMER                  = 17
+    IFLA_BR_TOPOLOGY_CHANGE_TIMER      = 18
+    IFLA_BR_GC_TIMER                   = 19
+    IFLA_BR_GROUP_ADDR                 = 20
+    IFLA_BR_FDB_FLUSH                  = 21
+    IFLA_BR_MCAST_ROUTER               = 22
+    IFLA_BR_MCAST_SNOOPING             = 23
+    IFLA_BR_MCAST_QUERY_USE_IFADDR     = 24
+    IFLA_BR_MCAST_QUERIER              = 25
+    IFLA_BR_MCAST_HASH_ELASTICITY      = 26
+    IFLA_BR_MCAST_HASH_MAX             = 27
+    IFLA_BR_MCAST_LAST_MEMBER_CNT      = 28
+    IFLA_BR_MCAST_STARTUP_QUERY_CNT    = 29
+    IFLA_BR_MCAST_LAST_MEMBER_INTVL    = 30
+    IFLA_BR_MCAST_MEMBERSHIP_INTVL     = 31
+    IFLA_BR_MCAST_QUERIER_INTVL        = 32
+    IFLA_BR_MCAST_QUERY_INTVL          = 33
+    IFLA_BR_MCAST_QUERY_RESPONSE_INTVL = 34
+    IFLA_BR_MCAST_STARTUP_QUERY_INTVL  = 35
+    IFLA_BR_NF_CALL_IPTABLES           = 36
+    IFLA_BR_NF_CALL_IP6TABLES          = 37
+    IFLA_BR_NF_CALL_ARPTABLES          = 38
+    IFLA_BR_VLAN_DEFAULT_PVID          = 39
+
+    ifla_br_to_string = {
+        IFLA_BR_UNSPEC                     : 'IFLA_BR_UNSPEC',
+        IFLA_BR_FORWARD_DELAY              : 'IFLA_BR_FORWARD_DELAY',
+        IFLA_BR_HELLO_TIME                 : 'IFLA_BR_HELLO_TIME',
+        IFLA_BR_MAX_AGE                    : 'IFLA_BR_MAX_AGE',
+        IFLA_BR_AGEING_TIME                : 'IFLA_BR_AGEING_TIME',
+        IFLA_BR_STP_STATE                  : 'IFLA_BR_STP_STATE',
+        IFLA_BR_PRIORITY                   : 'IFLA_BR_PRIORITY',
+        IFLA_BR_VLAN_FILTERING             : 'IFLA_BR_VLAN_FILTERING',
+        IFLA_BR_VLAN_PROTOCOL              : 'IFLA_BR_VLAN_PROTOCOL',
+        IFLA_BR_GROUP_FWD_MASK             : 'IFLA_BR_GROUP_FWD_MASK',
+        IFLA_BR_ROOT_ID                    : 'IFLA_BR_ROOT_ID',
+        IFLA_BR_BRIDGE_ID                  : 'IFLA_BR_BRIDGE_ID',
+        IFLA_BR_ROOT_PORT                  : 'IFLA_BR_ROOT_PORT',
+        IFLA_BR_ROOT_PATH_COST             : 'IFLA_BR_ROOT_PATH_COST',
+        IFLA_BR_TOPOLOGY_CHANGE            : 'IFLA_BR_TOPOLOGY_CHANGE',
+        IFLA_BR_TOPOLOGY_CHANGE_DETECTED   : 'IFLA_BR_TOPOLOGY_CHANGE_DETECTED',
+        IFLA_BR_HELLO_TIMER                : 'IFLA_BR_HELLO_TIMER',
+        IFLA_BR_TCN_TIMER                  : 'IFLA_BR_TCN_TIMER',
+        IFLA_BR_TOPOLOGY_CHANGE_TIMER      : 'IFLA_BR_TOPOLOGY_CHANGE_TIMER',
+        IFLA_BR_GC_TIMER                   : 'IFLA_BR_GC_TIMER',
+        IFLA_BR_GROUP_ADDR                 : 'IFLA_BR_GROUP_ADDR',
+        IFLA_BR_FDB_FLUSH                  : 'IFLA_BR_FDB_FLUSH',
+        IFLA_BR_MCAST_ROUTER               : 'IFLA_BR_MCAST_ROUTER',
+        IFLA_BR_MCAST_SNOOPING             : 'IFLA_BR_MCAST_SNOOPING',
+        IFLA_BR_MCAST_QUERY_USE_IFADDR     : 'IFLA_BR_MCAST_QUERY_USE_IFADDR',
+        IFLA_BR_MCAST_QUERIER              : 'IFLA_BR_MCAST_QUERIER',
+        IFLA_BR_MCAST_HASH_ELASTICITY      : 'IFLA_BR_MCAST_HASH_ELASTICITY',
+        IFLA_BR_MCAST_HASH_MAX             : 'IFLA_BR_MCAST_HASH_MAX',
+        IFLA_BR_MCAST_LAST_MEMBER_CNT      : 'IFLA_BR_MCAST_LAST_MEMBER_CNT',
+        IFLA_BR_MCAST_STARTUP_QUERY_CNT    : 'IFLA_BR_MCAST_STARTUP_QUERY_CNT',
+        IFLA_BR_MCAST_LAST_MEMBER_INTVL    : 'IFLA_BR_MCAST_LAST_MEMBER_INTVL',
+        IFLA_BR_MCAST_MEMBERSHIP_INTVL     : 'IFLA_BR_MCAST_MEMBERSHIP_INTVL',
+        IFLA_BR_MCAST_QUERIER_INTVL        : 'IFLA_BR_MCAST_QUERIER_INTVL',
+        IFLA_BR_MCAST_QUERY_INTVL          : 'IFLA_BR_MCAST_QUERY_INTVL',
+        IFLA_BR_MCAST_QUERY_RESPONSE_INTVL : 'IFLA_BR_MCAST_QUERY_RESPONSE_INTVL',
+        IFLA_BR_MCAST_STARTUP_QUERY_INTVL  : 'IFLA_BR_MCAST_STARTUP_QUERY_INTVL',
+        IFLA_BR_NF_CALL_IPTABLES           : 'IFLA_BR_NF_CALL_IPTABLES',
+        IFLA_BR_NF_CALL_IP6TABLES          : 'IFLA_BR_NF_CALL_IP6TABLES',
+        IFLA_BR_NF_CALL_ARPTABLES          : 'IFLA_BR_NF_CALL_ARPTABLES',
+        IFLA_BR_VLAN_DEFAULT_PVID          : 'IFLA_BR_VLAN_DEFAULT_PVID',
+    }
+
     def __init__(self, msgtype, debug=False, logger=None, use_color=True):
         NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxHiII'
@@ -2388,6 +2479,9 @@ class Link(NetlinkPacket):
 
     def get_ifla_bridge_string(self, index):
         return self.get_string(self.ifla_bridge_to_string, index)
+
+    def get_ifla_br_string(self, index):
+        return self.get_string(self.ifla_br_to_string, index)
 
     def get_bridge_vlan_string(self, index):
         return self.get_string(self.bridge_vlan_to_string, index)
@@ -2752,7 +2846,6 @@ class Route(NetlinkPacket):
         NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '=8BI'  # or is it 8Bi ?
         self.LEN = calcsize(self.PACK)
-        self.family = None
 
     def get_prefix_string(self):
         dst = self.get_attribute_value(self.RTA_DST)

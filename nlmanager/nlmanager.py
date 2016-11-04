@@ -558,6 +558,7 @@ class NetlinkManager(object):
         debug = RTM_GETLINK in self.debug
 
         link = Link(RTM_GETLINK, debug, use_color=self.use_color)
+        link.family = AF_BRIDGE
         link.flags = NLM_F_DUMP | NLM_F_REQUEST
         link.body = pack('Bxxxiii', socket.AF_BRIDGE, 0, 0, 0)
 
