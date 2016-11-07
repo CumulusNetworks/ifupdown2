@@ -138,10 +138,6 @@ class vlan(moduleBase):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
-                if ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0' and len(ifaceobj.lowerifaces):
-                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
-                    if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
-                        self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
                 return
         netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)

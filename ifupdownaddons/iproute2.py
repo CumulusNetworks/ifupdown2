@@ -663,6 +663,10 @@ class iproute2(utilsBase):
     def link_get_mtu(self, ifacename, refresh=False):
         return self._cache_get('link', [ifacename, 'mtu'], refresh=refresh)
 
+    def link_get_mtu_sysfs(self, ifacename):
+        return self.read_file_oneline('/sys/class/net/%s/mtu'
+                                      %ifacename)
+
     def link_get_kind(self, ifacename):
         return self._cache_get('link', [ifacename, 'kind'])
 

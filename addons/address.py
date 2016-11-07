@@ -88,6 +88,15 @@ class address(moduleBase):
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
         self.default_mtu = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='mtu')
+        self.max_mtu = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='max_mtu')
+
+        if not self.default_mtu:
+            self.default_mtu = '1500'
+
+        self.logger.info('address: using default mtu %s' %self.default_mtu)
+
+        if self.max_mtu:
+            self.logger.info('address: using max mtu %s' %self.max_mtu)
 
     def _address_valid(self, addrs):
         if not addrs:
@@ -286,6 +295,58 @@ class address(moduleBase):
             return ipv
         return prev_gateways
 
+    def _process_mtu_config(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+        if mtu:
+            if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+                self.logger.info('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
+            elif (ifaceobj_getfunc and
+                  (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+                  ifaceobj.upperifaces):
+                masterobj = ifaceobj_getfunc(ifaceobj.upperifaces[0])
+                if masterobj:
+                    master_mtu = masterobj[0].get_attr_value_first('mtu')
+                    if master_mtu and master_mtu != mtu:
+                        self.logger.info('%s: bond slave mtu %s is different from bond master mtu %s. There is no need to configure mtu on a bond slave.' %(ifaceobj.name, mtu, master_mtu))
+                        return
+            if self.max_mtu and mtu > self.max_mtu:
+                self.logger.warn('%s: specified mtu %s is greater than max mtu %s'
+                                 %(ifaceobj.name, mtu, self.max_mtu))
+            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+            return
+
+        if ifaceobj.link_kind:
+            # bonds and vxlan devices need an explicit set of mtu.
+            # bridges don't need mtu set
+            if (ifaceobj.link_kind & ifaceLinkKind.BOND or
+                ifaceobj.link_kind & ifaceLinkKind.VXLAN):
+                running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+                if (self.default_mtu and running_mtu != self.default_mtu):
+                    self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+                return
+            if (ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0'
+                and ifaceobj.lowerifaces):
+                # set vlan interface mtu to lower device mtu
+                if (ifaceobj.link_kind & ifaceLinkKind.VLAN):
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
+                        self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
+
+        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
+              not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+              self.default_mtu):
+            # logical devices like bridges and vlan devices rely on mtu
+            # from their lower devices. ie mtu travels from
+            # lower devices to upper devices. For bonds mtu travels from
+            # upper to lower devices. running mtu depends on upper and
+            # lower device mtu. With all this implicit mtu
+            # config by the kernel in play, we try to be cautious here
+            # on which devices we want to reset mtu to default.
+            # essentially only physical interfaces which are not bond slaves
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if running_mtu != self.default_mtu:
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -313,23 +374,7 @@ class address(moduleBase):
         if addr_method != "dhcp":
             self._inet_address_config(ifaceobj, ifaceobj_getfunc,
                                       force_reapply)
-        mtu = ifaceobj.get_attr_value_first('mtu')
-        if mtu:
-           self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
-              not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
-              self.default_mtu):
-            # logical devices like bridges and vlan devices rely on mtu
-            # from their lower devices. ie mtu travels from
-            # lower devices to upper devices. For bonds mtu travels from
-            # upper to lower devices. running mtu depends on upper and
-            # lower device mtu. With all this implicit mtu
-            # config by the kernel in play, we try to be cautious here
-            # on which devices we want to reset mtu to default.
-            # essentially only physical interfaces which are not bond slaves
-            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
-            if running_mtu != self.default_mtu:
-                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+        self._process_mtu_config(ifaceobj, ifaceobj_getfunc)
 
         alias = ifaceobj.get_attr_value_first('alias')
         if alias:
