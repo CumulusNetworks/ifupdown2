@@ -49,7 +49,7 @@ DESCRIPTION
     "auto"  stanzas.
 
     Lines beginning with "allow-" are  used  to  identify  interfaces  that
-    should  be  brought  up automatically by various subsytems. This may be
+    should  be  brought  up automatically by various subsystems. This may be
     done using a command such as "ifup --allow=hotplug  eth0  eth1",  which
     will  only  bring up eth0 or eth1 if it is listed in an "allow-hotplug"
     line. Note that "allow-auto" and "auto" are synonyms.
