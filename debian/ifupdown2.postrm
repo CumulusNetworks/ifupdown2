@@ -56,9 +56,12 @@ postrm_divert()
 {
     for filename in ifup ifdown ifquery ifreload
     do
+        _postrm_divert "/sbin/$filename"
         _postrm_divert "/usr/share/bash-completion/completions/$filename"
         _postrm_divert "/etc/bash_completion.d/$filename"
+        _postrm_divert "/usr/share/man/man8/$filename.8.gz"
     done
+    _postrm_divert "/usr/share/man/man5/interfaces.5.gz"
 }
 
 case "$1" in

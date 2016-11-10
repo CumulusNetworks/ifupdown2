@@ -11,7 +11,6 @@ Package: ifupdown2
 Architecture: all
 Suggests: python-gvgen, python-mako
 Replaces: ifupdown
-Conflicts: ifupdown
 Provides: ifupdown
 Depends: ${python:Depends}, ${misc:Depends}, python-argcomplete, python-ipaddr
 Description: Network Interface Management tool similar to ifupdown

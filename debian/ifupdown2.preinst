@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 
 MYNAME="${0##*/}"
 
@@ -8,13 +8,22 @@ report_err() { report "Error: $*" >&2 ; }
 preinst_divert()
 {
     diversions=$(dpkg-divert --list | grep "$1" | grep -v 'by ifupdown2$'  | wc -l 2> /dev/null)
-    if [ $diversions -gt 0 ] ;
+    if [ "$diversions" -gt 0 ];
     then
         report_err "existing diversion for $1"
     else
-        if [ -f $1 ];
+	if [ -e "$1" ] || [ -L "$1" ];
         then
-            dpkg-divert --add --package ifupdown2 --rename --divert "$1.disabled" "$1"
+            if test "$#" -gt 1;
+            then
+                exists=$(dpkg-query -L ifupdown2 | grep "/sbin/$2" | wc -l 2> /dev/null)
+                if test "$exists" -eq 0;
+                then
+                    dpkg-divert --add --package ifupdown2 --rename --divert "$1.disabled" "$1"
+                fi
+            else
+                dpkg-divert --add --package ifupdown2 --rename --divert "$1.disabled" "$1"
+            fi
         fi
     fi
 }
@@ -24,10 +33,12 @@ case "$1" in
     install|upgrade)
         for filename in ifup ifdown ifquery ifreload
         do
+            preinst_divert "/sbin/$filename" $filename
             preinst_divert "/usr/share/bash-completion/completions/$filename"
             preinst_divert "/etc/bash_completion.d/$filename"
+            preinst_divert "/usr/share/man/man8/$filename.8.gz"
         done
-
+        preinst_divert "/usr/share/man/man5/interfaces.5.gz"
         # workaround 3.0.0 internal install error.  This can be removed in a
         # few weeks.
         if [ -f /etc/default/networking/networking.default ]; then
