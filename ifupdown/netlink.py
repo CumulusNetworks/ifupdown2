@@ -6,7 +6,6 @@
 
 try:
     from ifupdownaddons.utilsbase import utilsBase
-    from nlmanager.nlmanager import NetlinkManager
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError(str(e) + "- required module not found")
@@ -17,7 +16,16 @@ class Netlink(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        self._nlmanager_api = NetlinkManager(extra_debug=False)
+        try:
+            import sys
+            sys.path.insert(0, '/usr/share/ifupdown2/')
+            from nlmanager.nlmanager import NetlinkManager
+            # this should force the use of the local nlmanager
+            self._nlmanager_api = NetlinkManager(extra_debug=False)
+        except Exception as e:
+            self.logger.error('cannot initialize ifupdown2\'s '
+                              'netlink manager: %s' % str(e))
+            raise
 
     def get_iface_index(self, ifacename):
         if ifupdownflags.flags.DRYRUN: return
