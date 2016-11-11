@@ -1,4 +1,12 @@
-ifupdown2 (1.0~git20161007-1) unstable; urgency=medium
+ifupdown2 (1.0~git20161110-1) unstable; urgency=medium
+
+  * adding diversion on conflicting ifupdown files
+  * debian: add checks before diversion and cleanups. closes: #813046
+  * ifupdown2.conf: setting addon_syntax_check to 0 by default. closes: #843565
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 10 Nov 2016 4:42:42 +0200
+
+ifupdown2 (1.0~git20161101-1) unstable; urgency=medium
 
   * Performance improvements (better netlink support)
   * New. Deprecated: `mstpctl-stp` attribute
