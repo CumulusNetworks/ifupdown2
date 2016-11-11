@@ -71,6 +71,8 @@ case "$1" in
     ;;
 esac
 
+dpkg-maintscript-helper rm_conffile "/etc/bash_completion.d/ifup" 1.1 -- $@
+
 #DEBHELPER#
 
 exit 0
