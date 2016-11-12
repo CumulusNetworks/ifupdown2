@@ -514,8 +514,15 @@ class AttributeMACAddress(Attribute):
         self.decode_length_type(data)
 
         try:
-            (data1, data2) = unpack(self.PACK, self.data[4:])
-            self.value = mac_int_to_str(data1 << 16 | data2)
+            if self.length == 10:
+                (data1, data2) = unpack(self.PACK, self.data[4:])
+                self.value = mac_int_to_str(data1 << 16 | data2)
+            elif self.length == 8:
+                self.value = IPv4Address(unpack('>L', self.data[4:])[0])
+                self.value_int = int(self.value)
+                self.value_int_str = str(self.value_int)
+            else:
+                raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
 
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
@@ -531,8 +538,11 @@ class AttributeMACAddress(Attribute):
     def dump_lines(self, dump_buffer, line_number, color):
         line_number = self.dump_first_line(dump_buffer, line_number, color)
         dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
-        dump_buffer.append(data_to_color_text(line_number+1, color, self.data[8:12]))
-        return line_number + 2
+        line_number += 1
+        if len(self.data) >= 12:
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12]))
+            line_number += 1
+        return line_number
 
 
 class AttributeGeneric(Attribute):
