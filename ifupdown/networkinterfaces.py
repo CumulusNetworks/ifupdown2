@@ -182,8 +182,14 @@ class networkInterfaces():
                 break
             r = utils.parse_iface_range(a)
             if r:
-                for i in range(r[1], r[2]):
-                   self.auto_ifaces.append('%s-%d' %(r[0], i))
+                if len(r) == 3:
+                    # eg swp1.[2-4], r = "swp1.", 2, 4)
+                    for i in range(r[1], r[2]+1):
+                        self.auto_ifaces.append('%s%d' %(r[0], i))
+                elif len(r) == 4:
+                    for i in range(r[1], r[2]+1):
+                        # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
+                        self.auto_ifaces.append('%s%d%s' %(r[0], i, r[3]))
             self.auto_ifaces.append(a)
         return 0
 
@@ -230,7 +236,8 @@ class networkInterfaces():
         iface_attrs = re.split(self._ws_split_regex, iface_line)
         ifacename = iface_attrs[1]
 
-        if utils.check_ifname_size_invalid(ifacename):
+        if (not utils.is_ifname_range(ifacename) and
+            utils.check_ifname_size_invalid(ifacename)):
             self._parse_warn(self._currentfile, lineno,
                              '%s: interface name too long' %ifacename)
 
@@ -294,20 +301,46 @@ class networkInterfaces():
         
         return lines_consumed       # Return next index
 
+    def _create_ifaceobj_clone(self, ifaceobj, newifaceobjname,
+                               newifaceobjtype, newifaceobjflags):
+        ifaceobj_new = copy.deepcopy(ifaceobj)
+        ifaceobj_new.realname = '%s' %ifaceobj.name
+        ifaceobj_new.name = newifaceobjname
+        ifaceobj_new.type = newifaceobjtype
+        ifaceobj_new.flags = newifaceobjflags
+
+        return ifaceobj_new
+
     def process_iface(self, lines, cur_idx, lineno):
         ifaceobj = iface()
         lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
 
         range_val = utils.parse_iface_range(ifaceobj.name)
         if range_val:
-           for v in range(range_val[1], range_val[2]):
-                ifaceobj_new = copy.deepcopy(ifaceobj)
-                ifaceobj_new.realname = '%s' %ifaceobj.name
-                ifaceobj_new.name = '%s%d' %(range_val[0], v)
-                ifaceobj_new.flags = iface.IFACERANGE_ENTRY
-                if v == range_val[1]:
-                    ifaceobj_new.flags |= iface.IFACERANGE_START
-                self.callbacks.get('iface_found')(ifaceobj_new)
+            if len(range_val) == 3:
+                for v in range(range_val[1], range_val[2]+1):
+                    ifacename = '%s%d' %(range_val[0], v)
+                    if utils.check_ifname_size_invalid(ifacename):
+                        self._parse_warn(self._currentfile, lineno,
+                                         '%s: interface name too long' %ifacename)
+                    flags = iface.IFACERANGE_ENTRY
+                    if v == range_val[1]:
+                        flags |= iface.IFACERANGE_START
+                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
+                                        ifacename, ifaceobj.type, flags)
+                    self.callbacks.get('iface_found')(ifaceobj_new)
+            elif len(range_val) == 4:
+                for v in range(range_val[1], range_val[2]+1):
+                    ifacename = '%s%d%s' %(range_val[0], v, range_val[3])
+                    if utils.check_ifname_size_invalid(ifacename):
+                        self._parse_warn(self._currentfile, lineno,
+                                         '%s: interface name too long' %ifacename)
+                    flags = iface.IFACERANGE_ENTRY
+                    if v == range_val[1]:
+                        flags |= iface.IFACERANGE_START
+                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
+                                        ifacename, ifaceobj.type, flags)
+                    self.callbacks.get('iface_found')(ifaceobj_new)
         else:
             self.callbacks.get('iface_found')(ifaceobj)
 
@@ -319,15 +352,25 @@ class networkInterfaces():
 
         range_val = utils.parse_iface_range(ifaceobj.name)
         if range_val:
-           for v in range(range_val[1], range_val[2]):
-                ifaceobj_new = copy.deepcopy(ifaceobj)
-                ifaceobj_new.realname = '%s' %ifaceobj.name
-                ifaceobj_new.name = '%s%d' %(range_val[0], v)
-                ifaceobj_new.type = ifaceType.BRIDGE_VLAN
-                ifaceobj_new.flags = iface.IFACERANGE_ENTRY
-                if v == range_val[1]:
-                    ifaceobj_new.flags |= iface.IFACERANGE_START
-                self.callbacks.get('iface_found')(ifaceobj_new)
+            if len(range_val) == 3:
+                for v in range(range_val[1], range_val[2]+1):
+                    flags = iface.IFACERANGE_ENTRY
+                    if v == range_val[1]:
+                        flags |= iface.IFACERANGE_START
+                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
+                                        '%s%d' %(range_val[0], v),
+                                        ifaceType.BRIDGE_VLAN, flags)
+                    self.callbacks.get('iface_found')(ifaceobj_new)
+            elif len(range_val) == 4:
+                for v in range(range_val[1], range_val[2]+1):
+                    flags = iface.IFACERANGE_ENTRY
+                    if v == range_val[1]:
+                        flags |= iface.IFACERANGE_START
+                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
+                                        '%s%d%s' %(range_val[0], v, range_val[3]),
+                                        ifaceType.BRIDGE_VLAN,
+                                        flags)
+                    self.callbacks.get('iface_found')(ifaceobj_new)
         else:
             ifaceobj.type = ifaceType.BRIDGE_VLAN
             self.callbacks.get('iface_found')(ifaceobj)
