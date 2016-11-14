@@ -148,15 +148,16 @@ stop)
 	exclusions=$(process_exclusions)
 
 	echo ${NAME}':' "Deconfiguring network interfaces"
-	ifdown -a $EXTRA_ARGS
+	ifdown -a $EXTRA_ARGS $exclusions
 	;;
 
 reload)
 
 	ifupdown_init
-	echo ${NAME}':' "Reloading network interfaces configuration"
+	exclusions=$(process_exclusions)
 
-	ifreload -a $EXTRA_ARGS
+	echo ${NAME}':' "Reloading network interfaces configuration"
+	ifreload -a $EXTRA_ARGS $exclusions
 	;;
 
 *)
