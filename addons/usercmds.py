@@ -40,7 +40,7 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
             os.environ['IFACE'] = ifaceobj.name if ifaceobj.name else ''
             os.environ['LOGICAL'] = ifaceobj.name if ifaceobj.name else ''
             os.environ['METHOD'] = ifaceobj.addr_method if ifaceobj.addr_method else ''
-            os.environ['ADDRFAM'] = ifaceobj.addr_family if ifaceobj.addr_family else ''
+            os.environ['ADDRFAM'] = ','.join(ifaceobj.addr_family) if ifaceobj.addr_family else ''
             for cmd in cmd_list:
                 try:
                     utils.exec_user_command(cmd)

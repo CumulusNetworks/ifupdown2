@@ -289,7 +289,6 @@ class ifaceJsonDecoder():
 
 class iface():
     """ ifupdown2 iface object class
-    
     Attributes:
         **name**      Name of the interface 
 
@@ -344,6 +343,8 @@ class iface():
     version = '0.1'
 
     def __init__(self, attrsdict={}):
+        self.addr_family = []
+
         self._set_attrs_from_dict(attrsdict)
         self._config_status = {}
         """dict with config status of iface attributes"""
@@ -390,9 +391,12 @@ class iface():
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
         self.name = attrdict.get('name')
-        self.addr_family = attrdict.get('addr_family')
         self.addr_method = attrdict.get('addr_method')
         self.config = attrdict.get('config', OrderedDict())
+
+        addr_family = attrdict.get('addr_family')
+        if addr_family:
+            self.addr_family.append(addr_family)
 
     def inc_refcnt(self):
         """ increment refcnt of the interface. Usually used to indicate that
@@ -579,6 +583,8 @@ class iface():
                 self.config[attrname].extend(attrlist)
             else:
                 self.config.update([(attrname, attrlist)])
+        # we now support inet and inet6 together
+        self.addr_family.extend(newifaceobj.addr_family)
 
     def __getstate__(self):
         odict = self.__dict__.copy()
@@ -635,7 +641,7 @@ class iface():
     def dump(self, logger):
         indent = '\t'
         logger.info(self.name + ' : {')
-        logger.info(indent + 'family: %s' %self.addr_family)
+        logger.info(indent + 'family: %s' % ' '.join(self.addr_family))
         logger.info(indent + 'method: %s' %self.addr_method)
         logger.info(indent + 'flags: %x' %self.flags)
         logger.info(indent + 'state: %s'
@@ -661,7 +667,7 @@ class iface():
             logger.info(indent + indent + str(config))
         logger.info('}')
 
-    def dump_pretty(self, with_status=False, use_realname=False):
+    def _dump_pretty(self, family, first, addr_method, with_status=False, use_realname=False):
         indent = '\t'
         outbuf = ''
         if use_realname and self.realname:
@@ -675,10 +681,10 @@ class iface():
             ifaceline += 'vlan %s' %name
         else:
             ifaceline += 'iface %s' %name
-        if self.addr_family:
-            ifaceline += ' %s' %self.addr_family
-        if self.addr_method:
-            ifaceline += ' %s' %self.addr_method
+        if family:
+            ifaceline += ' %s' % family
+        if addr_method:
+            ifaceline += ' %s' % addr_method
         if with_status:
             status_str = None
             if (self.status == ifaceStatus.ERROR or
@@ -689,7 +695,7 @@ class iface():
             elif self.status == ifaceStatus.SUCCESS:
                 status_str = '[%s]' %ifaceStatusUserStrs.SUCCESS
             if status_str:
-               outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
+                outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
             else:
                 outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
@@ -700,7 +706,7 @@ class iface():
         else:
             outbuf += ifaceline + '\n'
         config = self.config
-        if config:
+        if config and first:
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:
@@ -723,3 +729,23 @@ class iface():
             outbuf = (outbuf.encode('utf8')
                         if isinstance(outbuf, unicode) else outbuf)
         print outbuf
+
+    def dump_pretty(self, with_status=False, use_realname=False):
+        if not self.addr_family:
+            self._dump_pretty(None, True,
+                              self.addr_method,
+                              with_status=with_status,
+                              use_realname=use_realname)
+        else:
+            first = True
+            for family in self.addr_family:
+                addr_method = None
+                if self.addr_method:
+                    if family == 'inet' and 'dhcp' in self.addr_method:
+                        addr_method = 'dhcp'
+                    elif family == 'inet6' and 'dhcp' in self.addr_method:
+                        addr_method = 'dhcp6'
+                self._dump_pretty(family, first, addr_method=addr_method,
+                                  with_status=with_status,
+                                  use_realname=use_realname)
+                first = False

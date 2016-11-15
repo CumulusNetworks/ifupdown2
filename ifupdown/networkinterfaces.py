@@ -94,20 +94,20 @@ class networkInterfaces():
         self.warns += 1
 
     def _validate_addr_family(self, ifaceobj, lineno=-1):
-        if ifaceobj.addr_family:
-            if not self._addrfams.get(ifaceobj.addr_family):
+        for family in ifaceobj.addr_family:
+            if not self._addrfams.get(family):
                 self._parse_error(self._currentfile, lineno,
-                    'iface %s: unsupported address family \'%s\''
-                    %(ifaceobj.name, ifaceobj.addr_family))
-                ifaceobj.addr_family = None
+                                  'iface %s: unsupported address family \'%s\''
+                                  % (ifaceobj.name, family))
+                ifaceobj.addr_family = []
                 ifaceobj.addr_method = None
                 return
             if ifaceobj.addr_method:
-                if (ifaceobj.addr_method not in
-                        self._addrfams.get(ifaceobj.addr_family)):
+                if ifaceobj.addr_method not in self._addrfams.get(family):
                     self._parse_error(self._currentfile, lineno,
-                        'iface %s: unsupported address method \'%s\''
-                        %(ifaceobj.name, ifaceobj.addr_method))
+                                      'iface %s: unsupported '
+                                      'address method \'%s\''
+                                      % (ifaceobj.name, ifaceobj.addr_method))
             else:
                 ifaceobj.addr_method = 'static'
 
@@ -285,7 +285,8 @@ class networkInterfaces():
         ifaceobj.generate_env()
 
         try:
-            ifaceobj.addr_family = iface_attrs[2]
+            if iface_attrs[2]:
+                ifaceobj.addr_family.append(iface_attrs[2])
             ifaceobj.addr_method = iface_attrs[3]
         except IndexError:
             # ignore

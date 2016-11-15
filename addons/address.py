@@ -572,7 +572,7 @@ class address(moduleBase):
         isloopback = self.ipcmd.link_isloopback(ifaceobjrunning.name)
         if isloopback:
             default_addrs = ['127.0.0.1/8', '::1/128']
-            ifaceobjrunning.addr_family = 'inet'
+            ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'loopback'
         else:
             default_addrs = []
