@@ -1385,8 +1385,11 @@ class bridge(moduleBase):
         ports = None
         skip_kernel_stp_attrs = 0
 
-        if self.systcl_get_net_bridge_stp_user_space() == '1':
-            userspace_stp = 1
+        try:
+            if self.systcl_get_net_bridge_stp_user_space() == '1':
+                userspace_stp = 1
+        except Exception as e:
+            self.logger.info('%s: %s' % (ifaceobjrunning.name, str(e)))
 
         tmpbridgeattrdict = self.brctlcmd.get_bridge_attrs(ifaceobjrunning.name)
         if not tmpbridgeattrdict:
@@ -1615,10 +1618,13 @@ class bridge(moduleBase):
                                  ).symmetric_difference(bridge_port_list)
                   if not difference:
                      portliststatus = 0
-                  # we want to display the same bridge-ports list as provided
-                  # in the interfaces file.
                   try:
                     port_list = self._get_ifaceobj_bridge_ports(ifaceobj).split()
+                    # we want to display the same bridge-ports list as provided
+                    # in the interfaces file but if this list contains regexes or
+                    # globs, for now, we won't try to change it.
+                    if 'regex' in port_list or 'glob' in port_list:
+                        port_list = running_port_list
                   except:
                     port_list = running_port_list
                   ifaceobjcurr.update_config_with_status('bridge-ports',

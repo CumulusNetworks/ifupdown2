@@ -361,6 +361,11 @@ class bond(moduleBase):
                 difference = set(slaves).symmetric_difference(runningslaves)
                 if not difference:
                     retslave = 0
+        # we want to display the same bond-slaves list as provided
+        # in the interfaces file but if this list contains regexes or
+        # globs, for now, we won't try to change it.
+        if 'regex' in slaves or 'glob' in slaves:
+            slaves = runningslaves
         ifaceobjcurr.update_config_with_status('bond-slaves',
                         ' '.join(slaves)
                         if slaves else 'None', retslave)
