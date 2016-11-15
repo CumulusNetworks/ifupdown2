@@ -673,6 +673,21 @@ class bridge(moduleBase):
             return True
         return False
 
+    def _set_bridge_forwarding(self, ifaceobj):
+        """ set ip forwarding to 0 if bridge interface does not have a
+        ip nor svi """
+        if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address'):
+            # set forwarding = 0
+            if self.sysctl_get('net.ipv4.conf.%s.forwarding' %ifaceobj.name) == '1':
+                self.sysctl_set('net.ipv4.conf.%s.forwarding' %ifaceobj.name, 0)
+            if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '1':
+                self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 0)
+        else:
+            if self.sysctl_get('net.ipv4.conf.%s.forwarding' %ifaceobj.name) == '0':
+                self.sysctl_set('net.ipv4.conf.%s.forwarding' %ifaceobj.name, 1)
+            if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '0':
+                self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 1)
+
     def _apply_bridge_settings(self, ifaceobj):
         try:
             if self._is_config_stp_state_on(ifaceobj):
@@ -687,6 +702,8 @@ class bridge(moduleBase):
                 # If stp not specified and running stp state on, set it to off
                 if self._is_running_stp_state_on(ifaceobj.name):
                    self.brctlcmd.set_stp(ifaceobj.name, 'no')
+
+            self._set_bridge_forwarding(ifaceobj)
 
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
