@@ -69,7 +69,7 @@ class batman_adv (moduleBase):
             with open (hop_penalty_file_path, "r") as fh:
                  return int (fh.readline ().strip ())
         except IOError as i:
-             raise Exception (i)
+             raise Exception ("_read_current_hop_penalty: %s" % i)
         except ValueError:
              raise Exception ("Hop penalty not an integer value!")
 
@@ -80,7 +80,7 @@ class batman_adv (moduleBase):
             with open (hop_penalty_file_path, "w") as fh:
                  fh.write ("%d\n" % int (hop_penalty))
         except IOError as i:
-             raise Exception (i)
+             raise Exception ("_set_hop_penalty: %s" % i)
         except ValueError:
              raise Exception ("Hop penalty not an integer value!")
 
@@ -93,6 +93,8 @@ class batman_adv (moduleBase):
             batctl_output = subprocess.check_output (["batctl", "-m", bat_iface, "if", op, mesh_iface], stderr = subprocess.STDOUT)
         except subprocess.CalledProcessError as c:
             raise Exception ("Command \"batctl -m %s if %s %s\" failed: %s" % (bat_iface, op, mesh_iface, c.output))
+        except Exception as e:
+            raise Exception ("_batctl_if: %s" % e)
 
 
     def _find_member_ifaces (self, ifaceobj, ignore = True):
