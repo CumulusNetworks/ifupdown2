@@ -24,6 +24,13 @@ DESCRIPTION
     Runs **ifdown** on interfaces that were removed from the file and
     subsequently runs **ifup** on all interfaces.
 
+    ifreload is non-disruptive. It will fix running config to match what
+    is configured in the interfaces file without bringing the interface
+    down. There are some cases where on linux an interface config cannot
+    be applied unless the interface is brought down...eg: change of mac
+    address and a few bond attributes. For such attribute changes, it may
+    flap the interface only if the linux kernel requires it to.
+
     When removing an interface (iface section) from the interfaces file
     please make sure all its references are removed as well. Similarly
     when renaming an interface, please make sure all references to the
@@ -34,7 +41,6 @@ DESCRIPTION
     If you do not wish to execute **down** on any interfaces, but only **up** on
     interfaces that were already **up**, please see the **--currently-up**
     option below.
-
 
 OPTIONS
 =======

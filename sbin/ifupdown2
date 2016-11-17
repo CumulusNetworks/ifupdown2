@@ -407,7 +407,14 @@ def parse_args(argsv, op):
     if op == 'query':
         descr = 'query interfaces (all or interface list)'
     elif op == 'reload':
-        descr = 'reload interface configuration.'
+        descr = 'reload interface configuration.\n\n \
+                ifreload downs interfaces that were removed\n \
+                from the interfaces file and subsequently runs ifup\n \
+                on all interfaces. ifreload is non-disruptive. It will fix\n \
+                running config to match what is configured in the interfaces\n \
+                file without bringing the interface down. It may flap an interface\n\
+                for some attribute changes. Please see man ifreload\n \
+                for details.'
     else:
         descr = 'interface management'
     argparser = argparse.ArgumentParser(description=descr)
