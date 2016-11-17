@@ -85,12 +85,13 @@ class batman_adv (moduleBase):
              raise Exception ("Hop penalty not an integer value!")
 
 
-    def _sysfs_mgmt_member_if (self, bat_iface, mesh_iface, op):
+    def _batctl_if (self, bat_iface, mesh_iface, op):
         if op not in [ 'add', 'del' ]:
-            raise Exception ("_sysfs_mgmt_member_if() called with invalid \"op\" value: %s" % op)
+            raise Exception ("_batctl_if() called with invalid \"op\" value: %s" % op)
 
         try:
-            batctl_output = subprocess.check_output (["batctl", "-m", bat_iface, "if", op, mesh_iface], stderr = subprocess.STDOUT)
+            self.logger.debug ("Running batctl -m %s if %s %s" % (bat_iface, op, mesh_iface))
+            batctl_output = subprocess.check_output (["/usr/sbin/batctl", "-m", bat_iface, "if", op, mesh_iface], stderr = subprocess.STDOUT)
         except subprocess.CalledProcessError as c:
             raise Exception ("Command \"batctl -m %s if %s %s\" failed: %s" % (bat_iface, op, mesh_iface, c.output))
         except Exception as e:
@@ -100,7 +101,7 @@ class batman_adv (moduleBase):
     def _find_member_ifaces (self, ifaceobj, ignore = True):
         members = []
         iface_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
-        batctl_fh = subprocess.Popen (["batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE).stdout
+        batctl_fh = subprocess.Popen (["/usr/sbin/batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE).stdout
         for line in batctl_fh.readlines ():
             iface = line.split (':')[0]
             if iface_ignore_re and iface_ignore_re.match (iface) and ignore:
@@ -140,13 +141,15 @@ class batman_adv (moduleBase):
             members = self._find_member_ifaces (ifaceobj)
             for iface in members:
                 if iface not in batman_ifaces:
-                    self._sysfs_mgmt_member_if (ifaceobj.name, iface, 'del')
+                    self._batctl_if (ifaceobj.name, iface, 'del')
             for iface in batman_ifaces:
                 if iface not in members:
-                    self._sysfs_mgmt_member_if (ifaceobj.name, iface, 'add')
+                    self._batctl_if (ifaceobj.name, iface, 'add')
+
+        # Batman interfaces no present, add member interfaces to create it
         else:
             for iface in batman_ifaces:
-                self._sysfs_mgmt_member_if (ifaceobj.name, iface, 'add')
+                self._batctl_if (ifaceobj.name, iface, 'add')
 
         # Check/set Hop Penalty
         hop_penalty_cfg = self._get_batman_hop_penalty (ifaceobj)
@@ -164,7 +167,7 @@ class batman_adv (moduleBase):
 
         members = self._find_member_ifaces (ifaceobj)
         for iface in members:
-            self._sysfs_mgmt_member_if (ifaceobj.name, iface, 'del')
+            self._batctl_if (ifaceobj.name, iface, 'del')
 
         # The main interface will automagically vanish after the last member
         # interface has been deleted.
