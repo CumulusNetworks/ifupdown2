@@ -1903,7 +1903,13 @@ class ifupdownMain(ifupdownBase):
                     not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
                     lastifaceobjlist[0].is_config_present() and
                     lastifaceobjlist[0].link_kind):
-                    self.logger.warn('%s: misconfig ? removed but still exists as a dependency of %s' %(newifaceobjlist[objidx].name, str(newifaceobjlist[objidx].upperifaces)))
+                    self.logger.warn('%s: misconfig ? removed but still exists '
+                                     'as a dependency of %s.\nPlease remove '
+                                     'the dependency manually `ifdown %s` if '
+                                     'it is being picked up as part of a regex'
+                                     % (newifaceobjlist[objidx].name,
+                                        str(newifaceobjlist[objidx].upperifaces),
+                                        newifaceobjlist[objidx].name))
                 if not down_changed:
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
