@@ -125,14 +125,20 @@ class batman_adv (moduleBase):
 
 
     def _up (self, ifaceobj):
-        batman_ifaces = self._get_batman_ifaces (ifaceobj)
-        if batman_ifaces == None:
+        if self._get_batman_ifaces (ifaceobj) == None:
             raise Exception ('could not determine batman interfacaes')
 
         # Verify existance of batman interfaces (should be present already)
-        for iface in batman_ifaces:
+        batman_ifaces = []
+        for iface in self._get_batman_ifaces (ifaceobj):
             if not self.ipcmd.link_exists (iface):
-                raise Exception ('batman iface %s not present' % iface)
+                self.logger.warn ('batman iface %s not present' % iface)
+                continue
+
+            batman_ifaces.append (iface)
+
+        if len (batman_ifaces) == 0:
+            raise Exception ("None of the configured batman interfaces are available!")
 
         if_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
         # Is the batman main interface already present?
