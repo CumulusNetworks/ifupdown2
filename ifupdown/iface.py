@@ -585,6 +585,10 @@ class iface():
                 self.config.update([(attrname, attrlist)])
         # we now support inet and inet6 together
         self.addr_family.extend(newifaceobj.addr_family)
+        # if auto %ifacename is not part of the first stanza
+        # we need to squash it
+        if not self.auto and newifaceobj.auto:
+            self.auto = True
 
     def __getstate__(self):
         odict = self.__dict__.copy()
