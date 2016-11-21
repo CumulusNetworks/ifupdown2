@@ -127,7 +127,7 @@ class addressvirtual(moduleBase):
     def _handle_vrf_slaves(self, macvlan_ifacename, ifaceobj):
         vrfname = self.ipcmd.link_get_master(ifaceobj.name)
         if vrfname:
-            self.ipcmd.link_set(macvlan_ifacename, 'master', vrfname)
+            netlink.link_set_master(macvlan_ifacename, vrfname)
 
     def _get_macs_from_old_config(self, ifaceobj=None):
         """ This method returns a list of the mac addresses
@@ -331,8 +331,7 @@ class addressvirtual(moduleBase):
                             # upper device list
                             if u == ifaceobj.name:
                                 continue
-                            self.ipcmd.link_set(u, 'master', ifaceobj.name,
-                                                state='up')
+                            netlink.link_set_master(u, ifaceobj.name, state='up')
         elif ((ifaceobj.link_privflags & ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE) and
               (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) and
               self.ipcmd.link_exists(ifaceobj.name)):
@@ -352,8 +351,7 @@ class addressvirtual(moduleBase):
                 if u == vrfname:
                     continue
                 if u.startswith(macvlan_prefix):
-                    self.ipcmd.link_set(u, 'master', vrfname,
-                                        state='up')
+                    netlink.link_set_master(u, vrfname, state='up')
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not ifupdownflags.flags.ALL:

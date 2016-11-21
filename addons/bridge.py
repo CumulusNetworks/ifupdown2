@@ -434,7 +434,7 @@ class bridge(moduleBase):
             if runningbridgeports:
                 for bport in runningbridgeports:
                     if not bridgeports or bport not in bridgeports:
-                        self.ipcmd.link_set(bport, 'nomaster')
+                        netlink.link_set_nomaster(bport)
                         removedbridgeports.append(bport)
             else:
                 runningbridgeports = []
@@ -458,7 +458,7 @@ class bridge(moduleBase):
                                   bridgeport) + 'invalid ether addr %s'
                                   %hwaddress)
                     continue
-                self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
+                netlink.link_set_master(bridgeport, ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
                 ports += 1
                 if ports == 250:
@@ -1189,7 +1189,7 @@ class bridge(moduleBase):
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 if add_port:
                     # add ifaceobj to bridge
-                    self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
+                    netlink.link_set_master(ifaceobj.name, bridgename)
                 bridge_vids = self._get_bridge_vids(bridgename,
                                                     ifaceobj_getfunc)
                 bridge_pvid = self._get_bridge_pvid(bridgename,
