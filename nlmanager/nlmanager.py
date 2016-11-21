@@ -764,6 +764,31 @@ class NetlinkManager(object):
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
+    def link_set_master(self, ifname, master_ifindex=0, state=None):
+        """
+            ip link set %ifname master %master_ifindex %state
+            use master_ifindex=0 for nomaster
+        """
+        if state == 'up':
+            if_change = Link.IFF_UP
+            if_flags = Link.IFF_UP
+        elif state == 'down':
+            if_change = Link.IFF_UP
+            if_flags = 0
+        else:
+            if_change = 0
+            if_flags = 0
+
+        debug = RTM_NEWLINK in self.debug
+
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
+        link.add_attribute(Link.IFLA_IFNAME, ifname)
+        link.add_attribute(Link.IFLA_MASTER, master_ifindex)
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(link)
+
     # =========
     # Neighbors
     # =========
