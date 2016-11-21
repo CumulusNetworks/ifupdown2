@@ -230,9 +230,15 @@ class ifaceJsonEncoder(json.JSONEncoder):
                              for k,v in o.config.items())
         retifacedict['name'] = o.name
         if o.addr_method:
-            retifacedict['addr_method'] = o.addr_method
+            if 'inet' in o.addr_family and 'dhcp' in o.addr_method:
+                retifacedict['addr_method'] = 'dhcp'
+            else:
+                retifacedict['addr_method'] = o.addr_method
         if o.addr_family:
-            retifacedict['addr_family'] = o.addr_family
+            if len(o.addr_family) > 1:
+                retifacedict['addr_family'] = o.addr_family
+            else:
+                retifacedict['addr_family'] = ' '.join(o.addr_family)
         retifacedict['auto'] = o.auto
         retifacedict['config'] = retconfig
 
@@ -270,7 +276,10 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
         if o.addr_method:
             retifacedict['addr_method'] = o.addr_method
         if o.addr_family:
-            retifacedict['addr_family'] = o.addr_family
+            if len(o.addr_family) > 1:
+                retifacedict['addr_family'] = o.addr_family
+            else:
+                retifacedict['addr_family'] = ' '.join(o.addr_family)
         retifacedict['auto'] = o.auto
         retifacedict['config'] = retconfig
         retifacedict['config_status'] = retconfig_status
@@ -741,15 +750,30 @@ class iface():
                               with_status=with_status,
                               use_realname=use_realname)
         else:
+            # To allow both inet and inet6 on an interface we changed the
+            # addr_family attribute, it's now a list. Depending on how
+            # stanzas were squashed (and what command was used ie. ifquery -r)
+            # we want to dump the ifaceobj as usual but we will output an
+            # empty stanza for each additional addr_family. The config will
+            # only be displayed once, in the first stanza. Example:
+            # $ ifquery eth0 -r
+            # auto etho
+            # iface eth0 inet dhcp
+            #     config...
+            #
+            # auto eth0
+            # iface eth0 inet6 dhcp
+            # $
             first = True
             for family in self.addr_family:
-                addr_method = None
-                if self.addr_method:
-                    if family == 'inet' and 'dhcp' in self.addr_method:
-                        addr_method = 'dhcp'
-                    elif family == 'inet6' and 'dhcp' in self.addr_method:
-                        addr_method = 'dhcp6'
-                self._dump_pretty(family, first, addr_method=addr_method,
+                addr_method = self.addr_method
+                # We need to make sure we display 'dhcp' for inet family.
+                # In some cases it might take the value 'dhcp6' even if it has
+                # both inet and inet6 addr_family
+                if addr_method and family == 'inet' and 'dhcp' in addr_method:
+                    addr_method = 'dhcp'
+                self._dump_pretty(family, first,
+                                  addr_method=addr_method,
                                   with_status=with_status,
                                   use_realname=use_realname)
                 first = False
