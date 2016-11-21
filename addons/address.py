@@ -98,6 +98,32 @@ class address(moduleBase):
         if self.max_mtu:
             self.logger.info('address: using max mtu %s' %self.max_mtu)
 
+    def _syntax_check_multiple_gateway(self, family, found, addr, type_obj):
+        if type(IPNetwork(addr)) == type_obj:
+            if found:
+                raise Exception('%s: multiple gateways for %s family'
+                                % (addr, family))
+            return True
+        return False
+
+    def syntax_check(self, ifaceobj, ifaceobj_func=None):
+        result = True
+        inet = False
+        inet6 = False
+        gateways = ifaceobj.get_attr_value('gateway')
+        for addr in gateways if gateways else []:
+            try:
+                if self._syntax_check_multiple_gateway('inet', inet, addr,
+                                                       IPv4Network):
+                    inet = True
+                if self._syntax_check_multiple_gateway('inet6', inet6, addr,
+                                                       IPv6Network):
+                    inet6 = True
+            except Exception as e:
+                self.logger.warning('%s: address: %s' % (ifaceobj.name, str(e)))
+                result = False
+        return result
+
     def _address_valid(self, addrs):
         if not addrs:
            return False
