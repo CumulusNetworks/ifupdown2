@@ -1642,6 +1642,12 @@ class bridge(moduleBase):
                     # globs, for now, we won't try to change it.
                     if 'regex' in port_list or 'glob' in port_list:
                         port_list = running_port_list
+                    else:
+                        ordered = []
+                        for i in range(0, len(port_list)):
+                            if port_list[i] in running_port_list:
+                                ordered.append(port_list[i])
+                        port_list = ordered
                   except:
                     port_list = running_port_list
                   ifaceobjcurr.update_config_with_status('bridge-ports',

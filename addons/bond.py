@@ -366,6 +366,12 @@ class bond(moduleBase):
         # globs, for now, we won't try to change it.
         if 'regex' in slaves or 'glob' in slaves:
             slaves = runningslaves
+        else:
+            ordered = []
+            for i in range(0, len(slaves)):
+                if slaves[i] in runningslaves:
+                    ordered.append(slaves[i])
+            slaves = ordered
         ifaceobjcurr.update_config_with_status('bond-slaves',
                         ' '.join(slaves)
                         if slaves else 'None', retslave)
