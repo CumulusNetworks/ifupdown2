@@ -19,6 +19,8 @@ import ifupdownflags
 from functools import partial
 from ipaddr import IPNetwork, IPAddress
 
+from ifupdown.iface import *
+
 def signal_handler_f(ps, sig, frame):
     if ps:
         ps.send_signal(sig)
@@ -209,6 +211,33 @@ class utils():
             except Exception as e:
                 cls.logger.warning('%s: %s' % (ifacename, e))
             return ipaddrs
+
+    @classmethod
+    def is_addr_ip_allowed_on(cls, ifaceobj, syntax_check=False):
+        msg = ('%s: ignoring ip address. Assigning an IP '
+               'address is not allowed on' % ifaceobj.name)
+        if (ifaceobj.role & ifaceRole.SLAVE
+                and not (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
+            up = None
+            if ifaceobj.upperifaces:
+                up = ifaceobj.upperifaces[0]
+            msg = ('%s enslaved interfaces. %s'
+                   % (msg, ('%s is enslaved to %s'
+                            % (ifaceobj.name, up)) if up else '')).strip()
+            if syntax_check:
+                cls.logger.warning(msg)
+            else:
+                cls.logger.info(msg)
+            return False
+        elif (ifaceobj.link_kind & ifaceLinkKind.BRIDGE
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE):
+            msg = '%s bridge vlan aware interfaces'
+            if syntax_check:
+                cls.logger.warning(msg)
+            else:
+                cls.logger.info(msg)
+            return False
+        return True
 
     @classmethod
     def _execute_subprocess(cls, cmd,

@@ -27,6 +27,14 @@ class dhcp(moduleBase):
         self.dhclientcmd = dhclient(**kargs)
         self.ipcmd = None
 
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
+
+    def is_dhcp_allowed_on(self, ifaceobj, syntax_check):
+        if ifaceobj.addr_method and 'dhcp' in ifaceobj.addr_method:
+            return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=True)
+        return True
+
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
         if self.dhclientcmd.is_running(ifaceobj.name) or \
@@ -161,6 +169,8 @@ class dhcp(moduleBase):
                        ifaceobj.addr_method != 'dhcp6')):
                 return
         except:
+            return
+        if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':

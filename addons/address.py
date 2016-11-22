@@ -98,6 +98,15 @@ class address(moduleBase):
         if self.max_mtu:
             self.logger.info('address: using max mtu %s' %self.max_mtu)
 
+    def syntax_check(self, ifaceobj, ifaceobj_func=None):
+        return (self.syntax_check_multiple_gateway(ifaceobj)
+                and self.syntax_check_addr_allowed_on(ifaceobj, True))
+
+    def syntax_check_addr_allowed_on(self, ifaceobj, syntax_check=False):
+        if ifaceobj.get_attr_value('address'):
+            return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=syntax_check)
+        return True
+
     def _syntax_check_multiple_gateway(self, family, found, addr, type_obj):
         if type(IPNetwork(addr)) == type_obj:
             if found:
@@ -106,7 +115,7 @@ class address(moduleBase):
             return True
         return False
 
-    def syntax_check(self, ifaceobj, ifaceobj_func=None):
+    def syntax_check_multiple_gateway(self, ifaceobj):
         result = True
         inet = False
         inet6 = False
@@ -179,15 +188,8 @@ class address(moduleBase):
             if not addrs:
                 continue
 
-            if (((ifaceobj.role & ifaceRole.SLAVE) and
-                not (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)) or
-                ((ifaceobj.link_kind & ifaceLinkKind.BRIDGE) and
-                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE))):
-                # we must not configure an IP address if the interface is
-                # enslaved or is a VLAN AWARE BRIDGE
-                self.logger.info('%s: ignoring ip address. Interface is '
-                                 'enslaved or a vlan aware bridge and cannot'
-                                 ' have an IP Address' %(ifaceobj.name))
+            if not self.syntax_check_addr_allowed_on(ifaceobj,
+                                                     syntax_check=False):
                 return (False, newaddrs, newaddr_attrs)
             # If user address is not in CIDR notation, convert them to CIDR
             for addr_index in range(0, len(addrs)):
