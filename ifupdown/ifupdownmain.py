@@ -717,10 +717,11 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
-        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
-            self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
-        else:
-            currentifaceobjlist[0].squash(ifaceobj)
+        for obj in self.ifaceobjdict[ifaceobj.name]:
+            if obj.type == ifaceobj.type:
+                obj.squash(ifaceobj)
+                return
+        self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _save_iface(self, ifaceobj):
         if self._check_config_no_repeats(ifaceobj):
