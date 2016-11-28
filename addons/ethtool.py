@@ -356,7 +356,8 @@ class ethtool(moduleBase,utilsBase):
         if not op_handler:
             return
         self._init_command_handlers()
-
+        if self.ipcmd.link_isloopback(ifaceobj.name):
+            return
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
