@@ -6,7 +6,7 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.systemutils import systemUtils
 from ifupdown.netlink import netlink
-from ipaddr import IPv4Address, IPAddress
+from ipaddr import IPv4Address
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import os
@@ -30,7 +30,7 @@ class vxlan(moduleBase):
                              'example': ['vxlan-svcnodeip 172.16.22.125']},
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
-                             'validvals' : ['<ipv4>'],
+                             'validvals' : ['<ipv4>', '<ipv6>'],
                              'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',
@@ -91,18 +91,8 @@ class vxlan(moduleBase):
                                    ageing=ageing,
                                    group=group)
 
+            remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
             if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-                remoteips_attr = ifaceobj.get_attr_value('vxlan-remoteip')
-                remoteips = []
-                for entry in remoteips_attr if remoteips_attr else []:
-                    for ip in entry.split():
-                        try:
-                            remoteips.append(str(IPv4Address(ip)))
-                        except Exception as e:
-                            self.logger.warning('%s: vxlan-remoteip: \'%s\' '
-                                                'does not appear to be an '
-                                                'IPv4 address'
-                                                % (ifaceobj.name, str(e)))
                 # figure out the diff for remotes and do the bridge fdb updates
                 # only if provisioned by user and not by vxrd
                 cur_peers = set(self.ipcmd.get_vxlan_peers(ifaceobj.name, group))
@@ -192,8 +182,7 @@ class vxlan(moduleBase):
         if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
             # vxlan-remoteip config is allowed only if vxrd is not running
             self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
-                           utils.get_normalized_ip_addr(ifaceobj.name,
-                                                        ifaceobj.get_attr_value('vxlan-remoteip')),
+                           ifaceobj.get_attr_value('vxlan-remoteip'),
                            vxlanattrs.get('remote', []))
 
         learning = ifaceobj.get_attr_value_first('vxlan-learning')

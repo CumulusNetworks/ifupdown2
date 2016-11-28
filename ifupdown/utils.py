@@ -200,12 +200,10 @@ class utils():
                 for ip in ipaddrs:
                     if not ip:
                         continue
-                    split = ip.strip().split()
-                    for entry in split:
-                        try:
-                            addrs.append(str(IPNetwork(entry)) if '/' in ip else str(IPAddress(entry)))
-                        except Exception as e:
-                            cls.logger.warning('%s: %s' % (ifacename, e))
+                    try:
+                        addrs.append(str(IPNetwork(ip)) if '/' in ip else str(IPAddress(ip)))
+                    except Exception as e:
+                        cls.logger.warning('%s: %s' % (ifacename, e))
                 return addrs
         else:
             try:
