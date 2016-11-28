@@ -323,24 +323,84 @@ class address(moduleBase):
             return ipv
         return prev_gateways
 
-    def _process_mtu_config(self, ifaceobj, ifaceobj_getfunc):
-        mtu = ifaceobj.get_attr_value_first('mtu')
-        if mtu:
-            if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+    def _check_mtu_config(self, ifaceobj, mtu, ifaceobj_getfunc, syntaxcheck=False):
+        retval = True
+        if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+            if syntaxcheck:
+                self.logger.warn('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
+                retval = False
+            else:
                 self.logger.info('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
-            elif (ifaceobj_getfunc and
-                  (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
-                  ifaceobj.upperifaces):
+        elif ifaceobj_getfunc:
+            if ((ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+                ifaceobj.upperifaces):
                 masterobj = ifaceobj_getfunc(ifaceobj.upperifaces[0])
                 if masterobj:
                     master_mtu = masterobj[0].get_attr_value_first('mtu')
                     if master_mtu and master_mtu != mtu:
-                        self.logger.info('%s: bond slave mtu %s is different from bond master mtu %s. There is no need to configure mtu on a bond slave.' %(ifaceobj.name, mtu, master_mtu))
-                        return
+                        if syntaxcheck:
+                            self.logger.warn('%s: bond slave mtu %s is different from bond master %s mtu %s. There is no need to configure mtu on a bond slave.' %(ifaceobj.name, mtu, masterobj[0].name, master_mtu))
+                            retval = False
+                        else:
+                            self.logger.info('%s: bond slave mtu %s is different from bond master %s mtu %s. There is no need to configure mtu on a bond slave.' %(ifaceobj.name, mtu, masterobj[0].name, master_mtu))
+            elif ((ifaceobj.link_kind & ifaceLinkKind.VLAN) and
+                  ifaceobj.lowerifaces):
+                lowerobj = ifaceobj_getfunc(ifaceobj.lowerifaces[0])
+                if lowerobj:
+                    if syntaxcheck:
+                        lowerdev_mtu = lowerobj[0].get_attr_value_first('mtu')
+                    else:
+                        lowerdev_mtu = self.ipcmd.link_get_mtu(lowerobj[0].name)
+                    if lowerdev_mtu and int(mtu) > int(lowerdev_mtu):
+                        self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
+                                         %(ifaceobj.name, mtu, lowerobj[0].name, lowerdev_mtu))
+                        retval = False
+                    elif (not lowerobj[0].link_kind and
+                          not (lowerobj[0].link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
+                          self.default_mtu and (int(mtu) > int(self.default_mtu))):
+                        # only check default mtu on lower device which is a physical interface
+                        self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
+                                         %(ifaceobj.name, mtu, lowerobj[0].name, self.default_mtu))
+                        retval = False
             if self.max_mtu and mtu > self.max_mtu:
                 self.logger.warn('%s: specified mtu %s is greater than max mtu %s'
                                  %(ifaceobj.name, mtu, self.max_mtu))
-            self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+                retval = False
+        return retval
+
+    def _propagate_mtu_to_upper_devs(self, ifaceobj, mtu, ifaceobj_getfunc):
+        if (not ifaceobj.upperifaces or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)):
+            return
+        for u in ifaceobj.upperifaces:
+            upperobjs = ifaceobj_getfunc(u)
+            if (not upperobjs or
+                not (upperobjs[0].link_kind & ifaceLinkKind.VLAN)):
+                continue
+            # only adjust mtu for vlan devices on ifaceobj
+            umtu = upperobjs[0].get_attr_value_first('mtu')
+            if not umtu:
+                running_mtu = self.ipcmd.link_get_mtu(upperobjs[0].name)
+                if not running_mtu or (running_mtu != mtu):
+                    self.ipcmd.link_set(u, 'mtu', mtu)
+
+    def _process_mtu_config(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+        if mtu:
+            if not self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc):
+                return
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if not running_mtu or (running_mtu and running_mtu != mtu):
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+                if (not ifupdownflags.flags.ALL and
+                    not ifaceobj.link_kind and
+                    ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0'):
+                    # This is additional cost to us, so do it only when
+                    # ifupdown2 is called on a particular interface and
+                    # it is a physical interface
+                    self._propagate_mtu_to_upper_devs(ifaceobj, mtu, ifaceobj_getfunc)
             return
 
         if ifaceobj.link_kind:
@@ -618,6 +678,13 @@ class address(moduleBase):
         alias = self.ipcmd.link_get_alias(ifaceobjrunning.name)
         if alias:
             ifaceobjrunning.update_config('alias', alias)
+
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+        if mtu:
+            return self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc,
+                                          syntaxcheck=True)
+        return True
 
     _run_ops = {'up' : _up,
                'down' : _down,
