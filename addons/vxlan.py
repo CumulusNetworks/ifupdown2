@@ -30,7 +30,7 @@ class vxlan(moduleBase):
                              'example': ['vxlan-svcnodeip 172.16.22.125']},
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
-                             'validvals' : ['<ipv4>', '<ipv6>'],
+                             'validvals' : ['<ipv4>'],
                              'example': ['vxlan-remoteip 172.16.22.127']},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',
@@ -91,8 +91,8 @@ class vxlan(moduleBase):
                                    ageing=ageing,
                                    group=group)
 
-            remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
             if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
+                remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
                 # figure out the diff for remotes and do the bridge fdb updates
                 # only if provisioned by user and not by vxrd
                 cur_peers = set(self.ipcmd.get_vxlan_peers(ifaceobj.name, group))
@@ -104,21 +104,21 @@ class vxlan(moduleBase):
                     del_list = cur_peers
                     add_list = []
 
-                try:
-                    for addr in del_list:
+                for addr in del_list:
+                    try:
                         self.ipcmd.bridge_fdb_del(ifaceobj.name,
                                                   '00:00:00:00:00:00',
                                                   None, True, addr)
-                except:
-                    pass
+                    except:
+                        pass
 
-                try:
-                    for addr in add_list:
+                for addr in add_list:
+                    try:
                         self.ipcmd.bridge_fdb_append(ifaceobj.name,
                                                      '00:00:00:00:00:00',
                                                      None, True, addr)
-                except:
-                    pass
+                    except:
+                        pass
 
             if ifaceobj.addr_method == 'manual':
                 netlink.link_set_updown(ifaceobj.name, "up")
