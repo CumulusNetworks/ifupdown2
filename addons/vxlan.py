@@ -112,16 +112,16 @@ class vxlan(moduleBase):
                         self.ipcmd.bridge_fdb_del(ifaceobj.name,
                                                   '00:00:00:00:00:00',
                                                   None, True, addr)
-                    except:
-                        pass
+                    except Exception as e:
+                        self.logger.info('%s: %s' % (ifaceobj.name, str(e)))
 
                 for addr in add_list:
                     try:
                         self.ipcmd.bridge_fdb_append(ifaceobj.name,
                                                      '00:00:00:00:00:00',
                                                      None, True, addr)
-                    except:
-                        pass
+                    except Exception as e:
+                        self.logger.info('%s: %s' % (ifaceobj.name, str(e)))
 
             if ifaceobj.addr_method == 'manual':
                 netlink.link_set_updown(ifaceobj.name, "up")
