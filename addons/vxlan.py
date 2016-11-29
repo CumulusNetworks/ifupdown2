@@ -95,7 +95,10 @@ class vxlan(moduleBase):
                 remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
                 # figure out the diff for remotes and do the bridge fdb updates
                 # only if provisioned by user and not by vxrd
-                cur_peers = set(self.ipcmd.get_vxlan_peers(ifaceobj.name, group))
+                peers = self.ipcmd.get_vxlan_peers(ifaceobj.name, group)
+                if local:
+                    peers.append(local)
+                cur_peers = set(peers)
                 if remoteips:
                     new_peers = set(remoteips)
                     del_list = cur_peers.difference(new_peers)
