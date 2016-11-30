@@ -17,6 +17,7 @@ import ifupdown.ifupdownflags as ifupdownflags
 import itertools
 import re
 import time
+import pdb
 
 class bridgeFlags:
     PORT_PROCESSED = 0x1
@@ -270,14 +271,18 @@ class bridge(moduleBase):
         self.warn_on_untagged_bridge_absence = should_warn == 'yes'
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
-        return (self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
-                and self.check_bridge_conflict_access_vids(ifaceobj))
+        retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+            if not self.check_bridge_port_vid_attrs(ifaceobj):
+                retval = False
+        return retval
 
-    def check_bridge_conflict_access_vids(self, ifaceobj):
-        if (ifaceobj.get_attr_value('bridge-access')
-                and ifaceobj.get_attr_value('bridge-vids')):
-            self.logger.warning('%s: `bridge-access` and `bridge-vids` are not '
-                                'allowed on the same interface' % ifaceobj.name)
+    def check_bridge_port_vid_attrs(self, ifaceobj):
+        if (ifaceobj.get_attr_value('bridge-access') and
+            (ifaceobj.get_attr_value('bridge-vids') or
+             ifaceobj.get_attr_value('bridge-pvid'))):
+            self.logger.warn('%s: bridge-access given, bridge-vids and bridge-pvid '
+                             'will be ignored' % ifaceobj.name)
             return False
         return True
 
@@ -296,7 +301,6 @@ class bridge(moduleBase):
                     result = False
             return result
         return True
-
 
     def _is_bridge(self, ifaceobj):
         if ifaceobj.get_attr_value_first('bridge-ports'):
@@ -1034,6 +1038,7 @@ class bridge(moduleBase):
             vids = re.split(r'[\s\t]\s*', bport_access)
             pvids = vids
             allow_untagged = 'yes'
+            self.check_bridge_port_vid_attrs(bportifaceobj)
         else:
             allow_untagged = bportifaceobj.get_attr_value_first('bridge-allow-untagged') or 'yes'
 
