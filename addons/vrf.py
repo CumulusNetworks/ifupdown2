@@ -407,6 +407,7 @@ class vrf(moduleBase):
                                    %vrfname)
                     return
                 if (ifupdownflags.flags.ALL or
+                    ifupdownflags.flags.WITH_DEPENDS or
                     (ifupdownflags.flags.CLASS and
                      ifaceobj.classes and vrf_master_objs[0].classes and
                      Set(ifaceobj.classes).intersection(vrf_master_objs[0].classes))):
