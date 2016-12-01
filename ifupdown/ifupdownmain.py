@@ -493,9 +493,6 @@ class ifupdownMain(ifupdownBase):
             upperifaceobj.link_type = ifaceLinkType.LINK_NA
             ifaceobj.link_type = ifaceLinkType.LINK_NA
 
-        if not ifaceobj.link_kind and ifaceobj.name == "lo":
-            ifaceobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
-
     def dump_iface_dependency_info(self):
         """ debug funtion to print raw dependency 
         info - lower and upper devices"""
@@ -652,6 +649,10 @@ class ifupdownMain(ifupdownBase):
 
         for i in self.ifaceobjdict.keys():
             iobj = self.get_ifaceobj_first(i)
+            if (not iobj.link_kind and
+               not (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
+               iobj.name == 'lo'):
+               iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
             if iobj.lowerifaces:
                 self.dependency_graph[i] = iobj.lowerifaces
             else:
