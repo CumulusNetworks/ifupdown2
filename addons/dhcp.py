@@ -38,11 +38,8 @@ class dhcp(moduleBase):
 
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
-        if self.dhclientcmd.is_running(ifaceobj.name) or \
-               self.dhclientcmd.is_running6(ifaceobj.name):
-            self.logger.info('dhclient already running on %s.  Not restarting.' % \
-                             ifaceobj.name)
-            return
+        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
+        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
         try:
             dhclient_cmd_prefix = None
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
@@ -54,45 +51,52 @@ class dhcp(moduleBase):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
             if 'inet' in ifaceobj.addr_family:
-                # First release any existing dhclient processes
-                try:
-                    if not ifupdownflags.flags.PERFMODE:
-                        self.dhclientcmd.stop(ifaceobj.name)
-                except:
-                    pass
-                self.dhclientcmd.start(ifaceobj.name, wait=wait,
-                                       cmd_prefix=dhclient_cmd_prefix)
-            if 'inet6' in ifaceobj.addr_family:
-                accept_ra = ifaceobj.get_attr_value_first('accept_ra')
-                if accept_ra:
-                    # XXX: Validate value
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                            '.accept_ra', accept_ra)
-                autoconf = ifaceobj.get_attr_value_first('autoconf')
-                if autoconf:
-                    # XXX: Validate value
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                            '.autoconf', autoconf)
+                if dhclient4_running:
+                    self.logger.info('dhclient4 already running on %s. '
+                                     'Not restarting.' % ifaceobj.name)
+                else:
+                    # First release any existing dhclient processes
                     try:
-                        self.dhclientcmd.stop6(ifaceobj.name)
+                        if not ifupdownflags.flags.PERFMODE:
+                            self.dhclientcmd.stop(ifaceobj.name)
                     except:
                         pass
-                #add delay before starting IPv6 dhclient to
-                #make sure the configured interface/link is up.
-                time.sleep(2)
-                timeout = 10
-                while timeout:
-                    timeout -= 2
-                    addr_output = utils.exec_command('ip -6 addr show %s'
-                                                     % ifaceobj.name)
-                    r = re.search('inet6 .* scope link', addr_output)
-                    if r:
-                        self.dhclientcmd.start6(ifaceobj.name,
-                                                wait=wait,
-                                                cmd_prefix=dhclient_cmd_prefix)
-                        return
+                    self.dhclientcmd.start(ifaceobj.name, wait=wait,
+                                           cmd_prefix=dhclient_cmd_prefix)
+            if 'inet6' in ifaceobj.addr_family:
+                if dhclient6_running:
+                    self.logger.info('dhclient6 already running on %s. '
+                                     'Not restarting.' % ifaceobj.name)
+                else:
+                    accept_ra = ifaceobj.get_attr_value_first('accept_ra')
+                    if accept_ra:
+                        # XXX: Validate value
+                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
+                                '.accept_ra', accept_ra)
+                    autoconf = ifaceobj.get_attr_value_first('autoconf')
+                    if autoconf:
+                        # XXX: Validate value
+                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
+                                '.autoconf', autoconf)
+                        try:
+                            self.dhclientcmd.stop6(ifaceobj.name)
+                        except:
+                            pass
+                    #add delay before starting IPv6 dhclient to
+                    #make sure the configured interface/link is up.
                     time.sleep(2)
-
+                    timeout = 10
+                    while timeout:
+                        timeout -= 2
+                        addr_output = utils.exec_command('ip -6 addr show %s'
+                                                         % ifaceobj.name)
+                        r = re.search('inet6 .* scope link', addr_output)
+                        if r:
+                            self.dhclientcmd.start6(ifaceobj.name,
+                                                    wait=wait,
+                                                    cmd_prefix=dhclient_cmd_prefix)
+                            return
+                        time.sleep(2)
 
         except Exception, e:
             self.log_error(str(e), ifaceobj)

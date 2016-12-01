@@ -99,5 +99,6 @@ class dhclient(utilsBase):
     def release6(self, ifacename, cmd_prefix=None):
         cmd = ['/sbin/dhclient', '-6', '-r', '-pf',
                '/run/dhclient6.%s.pid' %ifacename,
+              '-lf', '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                '%s' %ifacename]
         self._run_dhclient_cmd(cmd, cmd_prefix)
