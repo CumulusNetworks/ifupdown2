@@ -307,9 +307,9 @@ class bridge(moduleBase):
             return True
         return False
 
-    def _get_ifaceobj_bridge_ports(self, ifaceobj):
+    def _get_ifaceobj_bridge_ports(self, ifaceobj, warn=True):
         ports = ifaceobj.get_attr_value('bridge-ports')
-        if ports and len(ports) > 1:
+        if warn and ports and len(ports) > 1:
             self.log_warn('%s: ignoring duplicate bridge-ports lines: %s'
                           %(ifaceobj.name, ports[1:]))
         return ports[0] if ports else None
@@ -822,7 +822,7 @@ class bridge(moduleBase):
                 self.logger.warn('%s: unable to parse vid \'%s\''
                                  %(ifaceobj.name, v))
         return ret
-         
+
     def _apply_bridge_port_pvids(self, bportifaceobj, pvid, running_pvid):
         # Install pvids
         try:
@@ -1291,7 +1291,7 @@ class bridge(moduleBase):
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            if self._get_ifaceobj_bridge_ports(ifaceobj):
+            if self._get_ifaceobj_bridge_ports(ifaceobj, warn=False):
                 ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 self.brctlcmd.delete_bridge(ifaceobj.name)
                 if ports:
@@ -1641,7 +1641,8 @@ class bridge(moduleBase):
                   if not difference:
                      portliststatus = 0
                   try:
-                    port_list = self._get_ifaceobj_bridge_ports(ifaceobj).split()
+                    port_list = self._get_ifaceobj_bridge_ports(ifaceobj,
+                                                                warn=False).split()
                     # we want to display the same bridge-ports list as provided
                     # in the interfaces file but if this list contains regexes or
                     # globs, for now, we won't try to change it.
