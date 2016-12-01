@@ -98,9 +98,17 @@ class address(moduleBase):
         if self.max_mtu:
             self.logger.info('address: using max mtu %s' %self.max_mtu)
 
-    def syntax_check(self, ifaceobj, ifaceobj_func=None):
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
-                and self.syntax_check_addr_allowed_on(ifaceobj, True))
+                and self.syntax_check_addr_allowed_on(ifaceobj, True)
+                and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc))
+
+    def syntax_check_mtu(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+        if mtu:
+            return self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc,
+                                          syntaxcheck=True)
+        return True
 
     def syntax_check_addr_allowed_on(self, ifaceobj, syntax_check=False):
         if ifaceobj.get_attr_value('address'):
@@ -679,12 +687,6 @@ class address(moduleBase):
         if alias:
             ifaceobjrunning.update_config('alias', alias)
 
-    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
-        mtu = ifaceobj.get_attr_value_first('mtu')
-        if mtu:
-            return self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc,
-                                          syntaxcheck=True)
-        return True
 
     _run_ops = {'up' : _up,
                'down' : _down,
