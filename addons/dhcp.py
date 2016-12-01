@@ -5,6 +5,7 @@
 #
 
 try:
+    import re
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
@@ -79,8 +80,20 @@ class dhcp(moduleBase):
                 #add delay before starting IPv6 dhclient to
                 #make sure the configured interface/link is up.
                 time.sleep(2)
-                self.dhclientcmd.start6(ifaceobj.name, wait=wait,
-                                        cmd_prefix=dhclient_cmd_prefix)
+                timeout = 10
+                while timeout:
+                    timeout -= 2
+                    addr_output = utils.exec_command('ip -6 addr show %s'
+                                                     % ifaceobj.name)
+                    r = re.search('inet6 .* scope link', addr_output)
+                    if r:
+                        self.dhclientcmd.start6(ifaceobj.name,
+                                                wait=wait,
+                                                cmd_prefix=dhclient_cmd_prefix)
+                        return
+                    time.sleep(2)
+
+
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
