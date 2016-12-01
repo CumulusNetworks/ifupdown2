@@ -5,10 +5,11 @@ ifupdown2 (1.1-cl3u7) RELEASED; urgency=medium
   * New. Enabled: addons: bridge: disable ip fwding on a bridge with no ip
     and no upperifaces
   * Closes: CM-13221: fixes for MTU handling
+  * Closes: CM-13248: dhcpv6 fails if interface doesn't have link-local addr
 
  -- dev-support <dev-support@cumulusnetworks.com>  Wed, 23 Nov 2016 05:48:45 +0100
 
-ifupdown2 (1.1-cl3u6) UNRELEASED; urgency=mediumgit
+ifupdown2 (1.1-cl3u6) RELEASED; urgency=medium
 
   * Closes: github #14. add environment variables passed to user scripts
   * New. Enabled: addons may provide a list of ifupdown scripts to ignore
