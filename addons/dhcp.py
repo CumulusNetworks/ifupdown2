@@ -40,6 +40,13 @@ class dhcp(moduleBase):
         # if dhclient is already running do not stop and start it
         dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
         dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
+
+        # today if we have an interface with both inet and inet6, if we
+        # remove the inet or inet6 or both then execute ifreload, we need
+        # to release/kill the appropriate dhclient(4/6) if they are running
+        self._down_stale_dhcp_config(ifaceobj, 'inet', dhclient4_running)
+        self._down_stale_dhcp_config(ifaceobj, 'inet6', dhclient6_running)
+
         try:
             dhclient_cmd_prefix = None
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
@@ -101,7 +108,18 @@ class dhcp(moduleBase):
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
-    def _down(self, ifaceobj):
+    def _down_stale_dhcp_config(self, ifaceobj, family, dhclientX_running):
+        addr_family = ifaceobj.addr_family
+        try:
+            if not family in ifaceobj.addr_family and dhclientX_running:
+                ifaceobj.addr_family = [family]
+                self._dhcp_down(ifaceobj)
+        except:
+            pass
+        finally:
+            ifaceobj.addr_family = addr_family
+
+    def _dhcp_down(self, ifaceobj):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
@@ -111,6 +129,9 @@ class dhcp(moduleBase):
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
         if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+
+    def _down(self, ifaceobj):
+        self._dhcp_down(ifaceobj)
         self.ipcmd.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
