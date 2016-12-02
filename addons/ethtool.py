@@ -194,7 +194,11 @@ class ethtool(moduleBase,utilsBase):
                 continue
             # autoneg comes from ethtool whereas speed and duplex from /sys/class
             running_attr = self.get_running_attr(attr, ifaceobj)
-            if (not running_attr):
+            if not running_attr:
+                if not configured:
+                    continue
+                ifaceobjcurr.update_config_with_status('link-%s' % attr,
+                                                       'unknown', 1)
                 continue
 
             if attr == 'autoneg':
