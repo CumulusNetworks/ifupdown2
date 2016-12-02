@@ -350,14 +350,13 @@ class ethtool(moduleBase,utilsBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
-        if ifaceobj.link_kind:
+        if (ifaceobj.link_kind or
+                    ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK):
             return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
         self._init_command_handlers()
-        if self.ipcmd.link_isloopback(ifaceobj.name):
-            return
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
