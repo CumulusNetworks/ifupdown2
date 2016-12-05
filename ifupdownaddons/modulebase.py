@@ -253,7 +253,11 @@ class moduleBase(object):
 
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
-        return utils.exec_command('sysctl %s' % variable).split('=')[1].strip()
+        output = utils.exec_command('sysctl %s' % variable)
+        split = output.split('=')
+        if len(split) > 1:
+            return split[1].strip()
+        return None
 
     def systcl_get_net_bridge_stp_user_space(self):
         if self._bridge_stp_user_space:
