@@ -7,7 +7,7 @@ ifupdown2 (1.1-cl3u7) RELEASED; urgency=medium
   * Closes: CM-13221: fixes for MTU handling
   * Closes: CM-13248: dhcpv6 fails if interface doesn't have link-local addr
 
- -- dev-support <dev-support@cumulusnetworks.com>  Wed, 23 Nov 2016 05:48:45 +0100
+ -- dev-support <dev-support@cumulusnetworks.com>  Wed, 07 Dec 2016 05:48:45 +0100
 
 ifupdown2 (1.1-cl3u6) RELEASED; urgency=medium
 
