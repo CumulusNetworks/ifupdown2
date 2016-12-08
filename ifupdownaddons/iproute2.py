@@ -251,7 +251,7 @@ class iproute2(utilsBase):
     def _cache_update(self, attrlist, value):
         if ifupdownflags.flags.DRYRUN: return
         try:
-            linkCache.add_attr(attrlist, value)
+            linkCache.set_attr(attrlist, value)
         except:
             pass
 
