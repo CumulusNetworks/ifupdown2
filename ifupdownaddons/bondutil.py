@@ -32,35 +32,63 @@ class bondutil(utilsBase):
             linkCache.links[bondname] = {'linkinfo': {}}
 
         try:
+            linkCache.set_attr([bondname, 'linkinfo', 'min_links'],
+                               self.read_file_oneline(
+                                   '/sys/class/net/%s/bonding/min_links'
+                                   % bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'slaves'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/slaves'
                 %bondname).split())
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'mode'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/mode'
                 %bondname).split()[0])
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'xmit_hash_policy'],
                 self.read_file_oneline(
                     '/sys/class/net/%s/bonding/xmit_hash_policy'
                     %bondname).split()[0])
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'lacp_rate'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/lacp_rate'
                                        %bondname).split()[1])
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'ad_actor_sys_prio'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/ad_actor_sys_prio'
                                        %bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'ad_actor_system'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/ad_actor_system'
                                        %bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             linkCache.set_attr([bondname, 'linkinfo', 'lacp_bypass'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/lacp_bypass'
                                        %bondname).split()[1])
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             map(lambda x: linkCache.set_attr([bondname, 'linkinfo', x],
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
                        ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
                         'num_grat_arp'])
-        except Exception, e:
-            pass
+        except Exception as e:
+            self.logger.debug(str(e))
 
     def _bond_linkinfo_fill_all(self):
         bondstr = self.read_file_oneline('/sys/class/net/bonding_masters')
