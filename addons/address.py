@@ -156,21 +156,21 @@ class address(moduleBase):
             # If user address is not in CIDR notation, convert them to CIDR
             for addr_index in range(0, len(addrs)):
                 addr = addrs[addr_index]
+                newaddr = addr
                 if '/' in addr:
                     newaddrs.append(addr)
-                    continue
-                newaddr = addr
-                netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
-                if netmask:
-                    prefixlen = IPNetwork('%s' %addr +
-                                '/%s' %netmask).prefixlen
-                    newaddr = addr + '/%s' %prefixlen
                 else:
-                    # we are here because there is no slash (/xx) and no netmask
-                    # just let IPNetwork handle the ipv4 or ipv6 address mask
-                    prefixlen = IPNetwork(addr).prefixlen
-                    newaddr = addr + '/%s' %prefixlen
-                newaddrs.append(newaddr)
+                    netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
+                    if netmask:
+                        prefixlen = IPNetwork('%s' %addr +
+                                    '/%s' %netmask).prefixlen
+                        newaddr = addr + '/%s' %prefixlen
+                    else:
+                        # we are here because there is no slash (/xx) and no netmask
+                        # just let IPNetwork handle the ipv4 or ipv6 address mask
+                        prefixlen = IPNetwork(addr).prefixlen
+                        newaddr = addr + '/%s' %prefixlen
+                    newaddrs.append(newaddr)
 
                 attrs = {}
                 for a in ['broadcast', 'pointopoint', 'scope',
@@ -484,6 +484,9 @@ class address(moduleBase):
         if not runningaddrsdict and not addrs:
             return
         runningaddrs = runningaddrsdict.keys() if runningaddrsdict else []
+        # Add /32 netmask to configured address without netmask.
+        # This may happen on interfaces where pointopoint is used.
+        runningaddrs = [ addr if '/' in addr else addr + '/32' for addr in runningaddrs]
         if runningaddrs != addrs:
             runningaddrsset = set(runningaddrs) if runningaddrs else set([])
             addrsset = set(addrs) if addrs else set([])
