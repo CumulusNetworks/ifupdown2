@@ -123,7 +123,7 @@ class vrf(moduleBase):
         self.vrf_fix_local_table = True
         self.vrf_count = 0
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
-
+        self.vrf_close_socks_on_down = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-close-socks-on-down')
         self.warn_on_vrf_map_write_err = True
 
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
@@ -151,8 +151,7 @@ class vrf(moduleBase):
                             continue
                         self.iproute2_vrf_map[int(table)] = vrf_name
                     except Exception, e:
-                        self.logger.info('vrf: iproute2_vrf_map: unable to parse %s'
-                                         %l)
+                        self.logger.info('vrf: iproute2_vrf_map: unable to parse %s (%s)' %(l, str(e)))
                         pass
 
         vrfs = self.ipcmd.link_get_vrfs()
@@ -302,7 +301,6 @@ class vrf(moduleBase):
                 self.iproute2_vrf_map_fd.flush()
                 self.vrf_count += 1
             return
-
         if old_vrf_name != vrfifaceobj.name:
             self.log_error('table id %d already assigned to vrf dev %s'
                            %(table_id, old_vrf_name))
@@ -313,7 +311,7 @@ class vrf(moduleBase):
             self.iproute2_vrf_map_sync_to_disk = True
             del self.iproute2_vrf_map[int(table_id)]
         except Exception, e:
-            self.logger.info('vrf: iproute2 vrf map del failed for %d (%s)'
+            self.logger.info('vrf: iproute2 vrf map del failed for %s (%s)'
                              %(table_id, str(e)))
             pass
 
@@ -393,8 +391,8 @@ class vrf(moduleBase):
         try:
             master_exists = True
             if vrf_exists or self.ipcmd.link_exists(vrfname):
-                upper = self.ipcmd.link_get_upper(ifacename)
-                if not upper or upper != vrfname:
+                uppers = self.ipcmd.link_get_uppers(ifacename)
+                if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:
@@ -801,7 +799,22 @@ class vrf(moduleBase):
                                 vrf_table,
                                 mode))
 
+    def _close_sockets(self, ifaceobj, ifindex):
+        if not self.vrf_close_socks_on_down:
+            return
+
+        try:
+            utils.exec_command('/bin/ss -aK \"dev == %s\"'
+                               %ifindex)
+        except Exception, e:
+            self.logger.info('%s: closing socks using ss'
+                             ' failed (%s)\n' %(ifaceobj.name, str(e)))
+            pass
+
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
+
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            return
 
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
@@ -837,11 +850,15 @@ class vrf(moduleBase):
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
+        ifindex = self.ipcmd.link_get_ifindex(ifaceobj.name)
+
         try:
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
+
+        self._close_sockets(ifaceobj, ifindex)
 
         try:
             self._iproute2_vrf_table_entry_del(vrf_table)
@@ -854,7 +871,12 @@ class vrf(moduleBase):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
             self.ipcmd.link_set(ifacename, 'nomaster')
-            netlink.link_set_updown(ifacename, "down")
+            # Down this slave only if it is a slave ifupdown2 manages.
+            # we dont want to down slaves that maybe up'ed by
+            # somebody else. One such example is a macvlan device
+            # which ifupdown2 addressvirtual addon module auto creates
+            if ifaceobj:
+                netlink.link_set_updown(ifacename, "down")
         except Exception, e:
             self.logger.warn('%s: %s' %(ifacename, str(e)))
 

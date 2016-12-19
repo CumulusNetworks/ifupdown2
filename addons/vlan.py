@@ -146,7 +146,10 @@ class vlan(moduleBase):
         netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
         if ifaceobj.addr_method == 'manual':
-            netlink.link_set_updown(ifaceobj.name, "up")
+            try:
+                netlink.link_set_updown(ifaceobj.name, "up")
+            except Exception as e:
+                self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)

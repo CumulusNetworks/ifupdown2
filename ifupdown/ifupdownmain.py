@@ -306,7 +306,7 @@ class ifupdownMain(ifupdownBase):
         #   is a LINK_SLAVE of a bridge (in other words the bond is
         #   part of a bridge) which is not up yet
         if self._link_master_slave:
-           if 'Network is down':
+           if 'Network is down' in errorstr:
               return True
         return False
 
@@ -318,7 +318,7 @@ class ifupdownMain(ifupdownBase):
         if self.flags.STATEMANAGER_ENABLE:
            return self.statemanager.get_ifaceobjs(ifacename)
         else:
-           None
+           return None
 
     def get_ifaceobj_first(self, ifacename):
         ifaceobjs = self.get_ifaceobjs(ifacename)
@@ -1089,7 +1089,8 @@ class ifupdownMain(ifupdownBase):
                                                      module._modinfo.get('attrs', {})):
                             result = False
                     if hasattr(module, 'syntax_check') and callable(module.syntax_check):
-                        if not module.syntax_check(self.get_ifaceobjs(ifacename)):
+                        if not module.syntax_check(self.get_ifaceobjs(ifacename)[0],
+                                                   self.get_ifaceobjs):
                             result = False
                 except Exception, e:
                     self.logger.warn('%s: %s' % (ifacename, str(e)))

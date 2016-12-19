@@ -20,8 +20,6 @@ class Netlink(utilsBase):
         self._nlmanager_api = NetlinkManager()
 
     def get_iface_index(self, ifacename):
-        self.logger.info('%s: netlink: %s: get iface index'
-                         % (ifacename, ifacename))
         if ifupdownflags.flags.DRYRUN: return
         try:
             return self._nlmanager_api.get_iface_index(ifacename)
