@@ -17,6 +17,7 @@ import subprocess
 import ifupdownflags
 
 from functools import partial
+from ipaddr import IPNetwork, IPAddress
 
 def signal_handler_f(ps, sig, frame):
     if ps:
@@ -163,6 +164,26 @@ class utils():
                    (cmd, cmd_returncode, cmd_output)
         else:
             return 'cmd \'%s\' failed: returned %d' % (cmd, cmd_returncode)
+
+    @classmethod
+    def get_normalized_ip_addr(cls, ifacename, ipaddrs):
+        if not ipaddrs: return None
+        if isinstance(ipaddrs, list):
+                addrs = []
+                for ip in ipaddrs:
+                    if not ip:
+                        continue
+                    try:
+                        addrs.append(str(IPNetwork(ip)) if '/' in ip else str(IPAddress(ip)))
+                    except Exception as e:
+                        cls.logger.warning('%s: %s' % (ifacename, e))
+                return addrs
+        else:
+            try:
+                return str(IPNetwork(ipaddrs)) if '/' in ipaddrs else str(IPAddress(ipaddrs))
+            except Exception as e:
+                cls.logger.warning('%s: %s' % (ifacename, e))
+            return ipaddrs
 
     @classmethod
     def _execute_subprocess(cls, cmd,

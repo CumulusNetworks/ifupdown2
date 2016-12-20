@@ -17,6 +17,7 @@ class ifupdownFlags():
                 self.PERFMODE = False
                 self.CACHE = False
                 self.WITHDEFAULTS = False
+                self.IGNORE_ERRORS = False
 
                 # Flags
                 self.CACHE_FLAGS = 0x0

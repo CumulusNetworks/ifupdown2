@@ -63,6 +63,7 @@ class ifaceLinkPrivFlags():
     VRF_SLAVE =         0x00100
     BRIDGE_VLAN_AWARE = 0x01000
     BRIDGE_VXLAN =      0x10000
+    ADDRESS_VIRTUAL_SLAVE = 0x100000
 
     @classmethod
     def get_str(cls, flag):

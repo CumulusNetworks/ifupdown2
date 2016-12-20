@@ -34,7 +34,6 @@ case "$1" in
         done
         preinst_divert "/usr/share/man/man5/interfaces.5.gz"
 
-
         # workaround 3.0.0 internal install error.  This can be removed in a
         # few weeks.
         if [ -f /etc/default/networking/networking.default ]; then
