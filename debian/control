@@ -13,7 +13,7 @@ Suggests: python-gvgen, python-mako
 Replaces: ifupdown
 Conflicts: ifupdown
 Provides: ifupdown
-Depends: ${python:Depends}, ${misc:Depends}, python-argcomplete, python-ipaddr
+Depends: ${python:Depends}, ${misc:Depends}, python-argcomplete, python-ipaddr, iproute2, isc-dhcp-client
 Description: Network Interface Management tool similar to ifupdown
  ifupdown2 is ifupdown re-written in Python. It replaces ifupdown and provides
  the same user interface as ifupdown for network interface configuration.
