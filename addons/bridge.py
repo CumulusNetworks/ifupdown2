@@ -303,7 +303,8 @@ class bridge(moduleBase):
         return True
 
     def _is_bridge(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('bridge-ports'):
+        if (ifaceobj.get_attr_value_first('bridge-ports') or
+            ifaceobj.get_attr_value_first('bridge-vlan-aware')):
             return True
         return False
 
