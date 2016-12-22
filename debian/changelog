@@ -1,3 +1,15 @@
+ifupdown2 (1.0~git20161221-1) unstable; urgency=medium
+
+  * closes: #810844 Unlisted dependencies
+  * closes: #843848 diversion handling broken
+  * Fixes: github #14. add environment variables passed to user scripts
+  * Fixes: handling EXISTS errors on address add
+  * Fixes: handling mtu on addressvirtual macvlan devices
+  * Fixes: mako namespace handling
+  * New. Enabled: addons may provide a list of ifupdown scripts to ignore
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 21 Dec 2016 12:36:33 +0100
+
 ifupdown2 (1.0~git20161110-1) unstable; urgency=medium
 
   * adding diversion on conflicting ifupdown files
