@@ -446,6 +446,14 @@ class address(moduleBase):
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
+
+        alias = ifaceobj.get_attr_value_first('alias')
+        current_alias = self.ipcmd.link_get_alias(ifaceobj.name)
+        if alias and alias != current_alias:
+            self.ipcmd.link_set_alias(ifaceobj.name, alias)
+        elif not alias and current_alias:
+            self.ipcmd.link_set_alias(ifaceobj.name, '')
+
         addr_method = ifaceobj.addr_method
         force_reapply = False
         try:
@@ -472,9 +480,6 @@ class address(moduleBase):
                                       force_reapply)
         self._process_mtu_config(ifaceobj, ifaceobj_getfunc)
 
-        alias = ifaceobj.get_attr_value_first('alias')
-        if alias:
-           self.ipcmd.link_set_alias(ifaceobj.name, alias)
         try:
             self.ipcmd.batch_commit()
         except Exception as e:
