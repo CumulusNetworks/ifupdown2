@@ -183,11 +183,11 @@ class bridge(moduleBase):
                                        'under the port (recommended): bridge-portmcrouter yes']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
-                          'validvals': ['<interface-range-list>'],
-                          'validrange' : ['0', '65535'],
-                          'default' : '0',
-                          'example' : ['under the bridge: bridge-portmcfl swp1=0 swp2=0',
-                                       'under the port (recommended): bridge-portmcfl 0']},
+                          'validvals': ['<interface-yes-no-0-1-list>'],
+                          'validrange' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['under the bridge: bridge-portmcfl swp1=no swp2=no',
+                                       'under the port (recommended): bridge-portmcfl no']},
                     'bridge-waitport' :
                         { 'help' : 'wait for a max of time secs for the' +
                                 ' specified ports to become available,' +
@@ -782,7 +782,8 @@ class bridge(moduleBase):
                         (port, val) = p.split('=')
                         if not portattrs.get(port):
                             portattrs[port] = {}
-                        if attrname == 'bridge-portmcrouter':
+                        if (attrname == 'bridge-portmcrouter'
+                                or attrname == 'bridge-portmcfl'):
                             portattrs[port].update({dstattrname: utils.boolean_support_binary(val)})
                         else:
                             portattrs[port].update({dstattrname : val})
@@ -1077,8 +1078,7 @@ class bridge(moduleBase):
         portattrs = {}
         for attrname, dstattrname in {
             'bridge-pathcosts' : 'pathcost',
-            'bridge-portprios' : 'portprio',
-            'bridge-portmcfl' : 'portmcfl'}.items():
+            'bridge-portprios' : 'portprio'}.items():
             attrval = bportifaceobj.get_attr_value_first(attrname)
             if not attrval:
                 # Check if bridge has that attribute
@@ -1093,6 +1093,10 @@ class bridge(moduleBase):
         portmcrouter = bportifaceobj.get_attr_value_first('bridge-portmcrouter')
         if portmcrouter:
             portattrs['portmcrouter'] = utils.boolean_support_binary(portmcrouter)
+
+        portmcfl = bportifaceobj.get_attr_value_first('bridge-portmcfl')
+        if portmcfl:
+            portattrs['portmcfl'] = utils.boolean_support_binary(portmcfl)
 
         try:
             self.brctlcmd.set_bridgeport_attrs(bridgename,
@@ -1833,7 +1837,7 @@ class bridge(moduleBase):
                 running_attrval = self.brctlcmd.get_bridgeport_attr(
                                        bridgename, ifaceobj.name, dstattr)
 
-                if dstattr == 'portmcrouter':
+                if dstattr == 'portmcrouter' or dstattr == 'portmcfl':
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_yesno_boolean(
                             utils.get_boolean_from_string(running_attrval))
@@ -1941,7 +1945,10 @@ class bridge(moduleBase):
                 if attrl[0] in runningattrs:
                     bool = utils.get_boolean_from_string(runningattrs[attrl[0]])
                     runningattrs[attrl[0]] = utils.get_yesno_boolean(bool)
-        attrval = ifaceobj.get_attr_value_first('bridge-portmcrouter')
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcrouter', ifaceobj.get_attr_value_first('bridge-portmcrouter'))
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcfl', ifaceobj.get_attr_value_first('bridge-portmcfl'))
+
+    def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:
             portlist = self.parse_port_list(ifaceobj.name, attrval)
             if portlist:
@@ -1951,8 +1958,8 @@ class bridge(moduleBase):
                     if not utils.is_binary_bool(val):
                         to_convert.append(port)
                 for port in to_convert:
-                    runningattrs['ports'][port]['portmcrouter'] = utils.get_yesno_boolean(
-                        utils.get_boolean_from_string(runningattrs['ports'][port]['portmcrouter']))
+                    runningattrs['ports'][port][attr] = utils.get_yesno_boolean(
+                        utils.get_boolean_from_string(runningattrs['ports'][port][attr]))
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
