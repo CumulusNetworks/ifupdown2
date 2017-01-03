@@ -1078,7 +1078,6 @@ class bridge(moduleBase):
         for attrname, dstattrname in {
             'bridge-pathcosts' : 'pathcost',
             'bridge-portprios' : 'portprio',
-            'bridge-portmcrouter' : 'portmcrouter',
             'bridge-portmcfl' : 'portmcfl'}.items():
             attrval = bportifaceobj.get_attr_value_first(attrname)
             if not attrval:
@@ -1090,6 +1089,11 @@ class bridge(moduleBase):
                 #else:
                 continue
             portattrs[dstattrname] = attrval
+
+        portmcrouter = bportifaceobj.get_attr_value_first('bridge-portmcrouter')
+        if portmcrouter:
+            portattrs['portmcrouter'] = utils.boolean_support_binary(portmcrouter)
+
         try:
             self.brctlcmd.set_bridgeport_attrs(bridgename,
                             bportifaceobj.name, portattrs)
