@@ -115,8 +115,10 @@ class ifupdownMain(ifupdownBase):
         if ((ifaceobj.link_kind & ifaceLinkKind.VRF) or
             (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
             return
-        if (ifaceobj.addr_method and
-            ifaceobj.addr_method == 'manual'):
+        # if not a logical interface and addr method is manual,
+        # ignore link admin state changes
+        if (ifaceobj.addr_method == 'manual' and
+            not ifaceobj.link_kind):
             return
         if self._delay_admin_state:
             self._delay_admin_state_iface_queue.append(ifaceobj.name)
@@ -129,6 +131,12 @@ class ifupdownMain(ifupdownBase):
             return
         if not self.link_exists(ifaceobj.name):
            return
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+            # user has asked to explicitly keep the link down,
+            # so, force link down
+            self.logger.info('%s: keeping link down due to user config' %ifaceobj.name)
+            self.link_down(ifaceobj.name)
+            return
         self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
@@ -139,8 +147,10 @@ class ifupdownMain(ifupdownBase):
         # there is no real interface behind it
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return
-        if (ifaceobj.addr_method and
-            ifaceobj.addr_method == 'manual'):
+        # if not a logical interface and addr method is manual,
+        # ignore link admin state changes
+        if (ifaceobj.addr_method == 'manual' and
+            not ifaceobj.link_kind):
             return
         if self._delay_admin_state:
             self._delay_admin_state_iface_queue.append(ifaceobj.name)
@@ -467,6 +477,12 @@ class ifupdownMain(ifupdownBase):
         ifaceobj.role = role
 
     def _set_iface_role_n_kind(self, ifaceobj, upperifaceobj):
+
+        # If addr_method is set and link is not a logical interface,
+        # set flag KEEP_LINK_DOWN. addr_method == 'manual' only applies to
+        # logical interfaces.
+        if (ifaceobj.addr_method == 'manual' and not ifaceobj.link_kind):
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.KEEP_LINK_DOWN
 
         if (upperifaceobj.link_kind & ifaceLinkKind.BOND):
             self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
