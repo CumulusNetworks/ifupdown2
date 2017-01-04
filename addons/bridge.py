@@ -228,7 +228,7 @@ class bridge(moduleBase):
                     'bridge-access' :
                         { 'help' : 'bridge port access vlan. Must be ' +
                                    'specified under the bridge port',
-                          'validrange' : ['0', '4096'],
+                          'validrange' : ['1', '4094'],
                           'example' : ['bridge-access 300']},
                     'bridge-allow-untagged' :
                         { 'help' : 'indicate if the bridge port accepts ' +
