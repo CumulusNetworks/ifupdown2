@@ -64,6 +64,7 @@ class ifaceLinkPrivFlags():
     BRIDGE_VXLAN =      0x10000
     ADDRESS_VIRTUAL_SLAVE = 0x100000
     LOOPBACK = 0x1000000
+    KEEP_LINK_DOWN = 0x10000000
 
     @classmethod
     def get_str(cls, flag):

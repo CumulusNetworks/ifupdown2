@@ -123,9 +123,6 @@ class vxlan(moduleBase):
                     except:
                         pass
 
-            if ifaceobj.addr_method == 'manual':
-                netlink.link_set_updown(ifaceobj.name, "up")
-
     def _up(self, ifaceobj):
         self._vxlan_create(ifaceobj)
 
