@@ -304,6 +304,8 @@ class bond(moduleBase):
                 self.bondcmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
+            if ifaceobj.addr_method == 'manual':
+                netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 

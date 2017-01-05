@@ -1289,6 +1289,12 @@ class bridge(moduleBase):
                         self.logger.debug('%s: %s: link set up (%s)'
                                           %(ifaceobj.name, p, str(e)))
                         pass
+
+            if ifaceobj.addr_method == 'manual':
+                try:
+                    netlink.link_set_updown(ifaceobj.name, "up")
+                except Exception as e:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         if err:
             raise Exception(errstr)
 

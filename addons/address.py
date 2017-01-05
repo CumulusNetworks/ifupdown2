@@ -102,10 +102,6 @@ class address(moduleBase):
         if self.max_mtu:
             self.logger.info('address: using max mtu %s' %self.max_mtu)
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
-        if ifaceobj.get_attr_value_first('down') == 'yes':
-            ifaceobj.link_privflags |= ifaceLinkPrivFlags.KEEP_LINK_DOWN
-
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
