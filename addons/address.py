@@ -68,6 +68,10 @@ class address(moduleBase):
                       'alias' :
                             { 'help': 'description/alias',
                               'example' : ['alias testnetwork']},
+                      'down' :
+                            { 'help': 'keep link down',
+                              'example' : ['down yes/no'],
+                              'validvals' : ['yes', 'no']},
                       'address-purge' :
                             { 'help': 'purge existing addresses. By default ' +
                               'any existing ip addresses on an interface are ' +
