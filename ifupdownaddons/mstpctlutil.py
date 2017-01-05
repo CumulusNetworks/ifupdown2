@@ -67,7 +67,7 @@ class mstpctlutil(utilsBase):
         except:
             return mstpctlutil._DEFAULT_PORT_PRIO
 
-    def _get_bridge_port_attrs_from_cache(self, bridgename):
+    def _get_bridge_and_port_attrs_from_cache(self, bridgename):
         attrs = MSTPAttrsCache.get(bridgename)
         if attrs:
             return attrs
@@ -92,12 +92,7 @@ class mstpctlutil(utilsBase):
             MSTPAttrsCache.set(bridgename, mstpctl_bridgeport_attrs_dict)
         except Exception as e:
             self.logger.info('%s: cannot fetch mstpctl bridge port attributes: %s' % str(e))
-        return mstpctl_bridgeport_attrs_dict
 
-    def _get_bridge_attrs_from_cache(self, bridgename):
-        attrs = MSTPAttrsCache.get(bridgename)
-        if attrs:
-            return attrs
         mstpctl_bridge_attrs_dict = {}
         try:
             cmd = ['/sbin/mstpctl', 'showbridge', 'json', bridgename]
@@ -116,16 +111,16 @@ class mstpctlutil(utilsBase):
                                    int(mstpctl_bridge_attrs_dict.get('bridgeId',
                                    '').split('.')[0], base=16) * 4096)
             del mstpctl_bridge_attrs_dict['bridgeId']
-            MSTPAttrsCache.set(bridgename, mstpctl_bridge_attrs_dict)
+            MSTPAttrsCache.bridges[bridgename].update(mstpctl_bridge_attrs_dict)
         except Exception as e:
             self.logger.info('%s: cannot fetch mstpctl bridge attributes: %s' % str(e))
-        return mstpctl_bridge_attrs_dict
+        return MSTPAttrsCache.get(bridgename)
 
     def get_bridge_ports_attrs(self, bridgename):
-        return self._get_bridge_port_attrs_from_cache(bridgename)
+        return self._get_bridge_and_port_attrs_from_cache(bridgename)
 
     def get_bridge_port_attr(self, bridgename, portname, attrname):
-        attrs = self._get_bridge_port_attrs_from_cache(bridgename)
+        attrs = self._get_bridge_and_port_attrs_from_cache(bridgename)
         value = attrs.get(portname, {}).get(attrname, 'no')
         if value == 'True' or value == 'true':
             return 'yes'
@@ -174,7 +169,7 @@ class mstpctlutil(utilsBase):
     def get_bridge_attr(self, bridgename, attrname):
         if attrname == 'bridgeId':
             attrname = 'treeprio'
-        return self._get_bridge_attrs_from_cache(bridgename).get(attrname)
+        return self._get_bridge_and_port_attrs_from_cache(bridgename).get(attrname)
 
     def set_bridge_attr(self, bridgename, attrname, attrvalue, check=True):
 

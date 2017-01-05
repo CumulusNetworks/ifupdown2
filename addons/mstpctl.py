@@ -679,6 +679,18 @@ class mstpctl(moduleBase):
                                     if v})
         return bridgeattrdict
 
+    def _get_config_stp(self, ifaceobj):
+        stp = (ifaceobj.get_attr_value_first('mstpctl-stp') or
+               ifaceobj.get_attr_value_first('bridge-stp') or
+               policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr='mstpctl-stp') or
+               # this is a temporary method to access policy default value of bridge-stp
+               policymanager.policymanager_api.get_iface_default(module_name='bridge', ifname=ifaceobj.name, attr='bridge-stp'))
+        return utils.get_boolean_from_string(stp)
+
+    def _get_running_stp(self, ifaceobj):
+        stp = self.brctlcmd.get_stp(ifaceobj.name)
+        return utils.get_boolean_from_string(stp)
+
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
                             ifaceobj_getfunc=None):
         # list of attributes that are not supported currently
@@ -699,6 +711,8 @@ class mstpctl(moduleBase):
         #self.logger.info('B' + str(runningattrs))
         if not runningattrs:
             runningattrs = {}
+        config_stp = self._get_config_stp(ifaceobj)
+        running_stp = self._get_running_stp(ifaceobj)
         running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
         for k in ifaceattrs:
             # for all mstpctl options
@@ -709,6 +723,8 @@ class mstpctl(moduleBase):
                 #special case, 'ifquery --check --with-defaults' on a VLAN
                 #unaware bridge
                 if not running_port_list:
+                    continue
+                if (not config_stp or not running_stp):
                     continue
                 v = ifaceobj.get_attr_value_first(k)
                 config_val = {}
@@ -838,6 +854,10 @@ class mstpctl(moduleBase):
                 if (self._is_bridge(bifaceobj) and
                     self.default_vxlan_ports_set_bpduparams and
                     (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                        config_stp = self._get_config_stp(bifaceobj)
+                        running_stp = self._get_running_stp(bifaceobj)
+                        if (not config_stp or not running_stp):
+                            continue
                         for attr in ['mstpctl-portbpdufilter',
                                      'mstpctl-bpduguard']:
                             jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
