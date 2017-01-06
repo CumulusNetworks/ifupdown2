@@ -1134,6 +1134,11 @@ class ifupdownMain(ifupdownBase):
                             self.logger.warn('attribute %s is deprecated.'
                                              %attrname)
                     return True
+                else:
+                    for key in attrsdict:
+                        if 'aliases' in attrsdict[key]:
+                            if attrname in attrsdict[key]['aliases']:
+                                return True
             except AttributeError:
                 pass
         return False
