@@ -275,7 +275,9 @@ class bridge(moduleBase):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
             if not self.check_bridge_port_vid_attrs(ifaceobj):
                 retval = False
-        return retval
+        c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj,
+                                                      ifaceobj_getfunc=ifaceobj_getfunc)
+        return retval and c1
 
     def check_bridge_port_vid_attrs(self, ifaceobj):
         if (ifaceobj.get_attr_value('bridge-access') and
@@ -300,6 +302,37 @@ class bridge(moduleBase):
                                       % (ifaceobj.name, port_name))
                     result = False
             return result
+        return True
+
+    def _error_vxlan_in_vlan_aware_br(self, ifaceobj, bridgename):
+        self.log_error('`bridge-access` attribute is mandatory when vxlan '
+                       'device (%s) is part of vlan aware bridge (%s)'
+                       % (ifaceobj.name, bridgename), ifaceobj)
+
+    def syntax_check_vxlan_in_vlan_aware_br(self, ifaceobj, ifaceobj_getfunc):
+        if not ifaceobj_getfunc:
+            return True
+        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+            if ifaceobj.get_attr_value('bridge-access'):
+                return True
+            for iface in ifaceobj.upperifaces if ifaceobj.upperifaces else []:
+                ifaceobj_upper_list = ifaceobj_getfunc(iface)
+                if not ifaceobj_upper_list:
+                    continue
+                ifaceobj_upper = ifaceobj_upper_list[0]
+                bridge_vids = self._get_bridge_vids(iface, ifaceobj_getfunc)
+                if ifaceobj_upper.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
+                    vids = ifaceobj.get_attr_value_first('bridge-vids')
+                    pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+                    if (not vids
+                        or not pvid
+                        or not self._compare_vids(bridge_vids,
+                                                  vids,
+                                                  pvid=pvid)):
+                        self._error_vxlan_in_vlan_aware_br(ifaceobj,
+                                                           ifaceobj_upper.name)
+                        return False
         return True
 
     def _is_bridge(self, ifaceobj):
@@ -927,6 +960,12 @@ class bridge(moduleBase):
             because kernel does honor vid info flags during deletes.
 
         """
+        if not isbridge and bportifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            if ((not vids or not pvid)
+                    and not bportifaceobj.get_attr_value('bridge-access')):
+                self._error_vxlan_in_vlan_aware_br(bportifaceobj,
+                                                   bportifaceobj.upperifaces[0])
+                return
 
         vids_int =  self._ranges_to_ints(vids)
         try:
@@ -1208,9 +1247,13 @@ class bridge(moduleBase):
                                                     ifaceobj_getfunc)
                 bridge_pvid = self._get_bridge_pvid(bridgename,
                                                     ifaceobj_getfunc)
-                self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
-                                                                bridge_vids,
-                                                                bridge_pvid)
+                try:
+                    self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
+                                                                    bridge_vids,
+                                                                    bridge_pvid)
+                except Exception as e:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+                    return
             self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
             ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
                                               bridgeFlags.PORT_PROCESSED
