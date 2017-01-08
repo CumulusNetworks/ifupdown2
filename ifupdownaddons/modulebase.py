@@ -311,6 +311,8 @@ class moduleBase(object):
                 if not attrvals or attrvals.get('deprecated'):
                     continue
                 retattrs.append(attrname)
+                if 'aliases' in attrvals:
+                    retattrs.extend(attrvals['aliases'])
             return retattrs
         except:
             return None

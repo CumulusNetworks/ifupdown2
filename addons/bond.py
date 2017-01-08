@@ -104,7 +104,8 @@ class bond(moduleBase):
                          'validvals': ['<interface-list>'],
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
-                                      'bond-slaves regex (swp[1|2)']}}}
+                                      'bond-slaves regex (swp[1|2)'],
+                         'aliases': ['bond-ports']}}}
 
     _bond_mode_num = {'0': 'balance-rr',
                       '1': 'active-backup',
@@ -139,8 +140,14 @@ class bond(moduleBase):
         self.ipcmd = None
         self.bondcmd = None
 
+    def get_bond_slaves(self, ifaceobj):
+        slaves = ifaceobj.get_attr_value_first('bond-slaves')
+        if not slaves:
+            slaves = ifaceobj.get_attr_value_first('bond-ports')
+        return slaves
+
     def _is_bond(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('bond-slaves'):
+        if self.get_bond_slaves(ifaceobj):
             return True
         return False
 
@@ -150,8 +157,8 @@ class bond(moduleBase):
         if not self._is_bond(ifaceobj):
             return None
         slave_list = self.parse_port_list(ifaceobj.name,
-                                    ifaceobj.get_attr_value_first(
-                                    'bond-slaves'), ifacenames_all)
+                                          self.get_bond_slaves(ifaceobj),
+                                          ifacenames_all)
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
@@ -172,14 +179,14 @@ class bond(moduleBase):
         # If priv data already has slave list use that first.
         if ifaceobj.priv_data:
             return ifaceobj.priv_data
-        slaves = ifaceobj.get_attr_value_first('bond-slaves')
+        slaves = self.get_bond_slaves(ifaceobj)
         if slaves:
             return self.parse_port_list(ifaceobj.name, slaves)
         else:
             return None
 
     def _is_clag_bond(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('bond-slaves'):
+        if self.get_bond_slaves(ifaceobj):
             attrval = ifaceobj.get_attr_value_first('clag-id')
             if attrval and attrval != '0':
                 return True
@@ -304,8 +311,6 @@ class bond(moduleBase):
                 self.bondcmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
-            if ifaceobj.addr_method == 'manual':
-                netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
@@ -339,11 +344,16 @@ class bond(moduleBase):
             if 'bond-mode' in runningattrs:
                 runningattrs['bond-mode'] = bond._get_num_bond_mode(runningattrs['bond-mode'])
 
+        bond_slaves = True
         for k in ifaceattrs:
             v = ifaceobj.get_attr_value_first(k)
             if not v:
                 continue
             if k == 'bond-slaves':
+                slaves = self._get_slave_list(ifaceobj)
+                continue
+            elif k == 'bond-ports':
+                bond_slaves = False
                 slaves = self._get_slave_list(ifaceobj)
                 continue
             rv = runningattrs.get(k)
@@ -372,7 +382,7 @@ class bond(moduleBase):
                 if slaves[i] in runningslaves:
                     ordered.append(slaves[i])
             slaves = ordered
-        ifaceobjcurr.update_config_with_status('bond-slaves',
+        ifaceobjcurr.update_config_with_status('bond-slaves' if bond_slaves else 'bond-ports',
                         ' '.join(slaves)
                         if slaves else 'None', retslave)
 

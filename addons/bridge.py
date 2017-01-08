@@ -183,11 +183,11 @@ class bridge(moduleBase):
                                        'under the port (recommended): bridge-portmcrouter yes']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
-                          'validvals': ['<interface-range-list>'],
-                          'validrange' : ['0', '65535'],
-                          'default' : '0',
-                          'example' : ['under the bridge: bridge-portmcfl swp1=0 swp2=0',
-                                       'under the port (recommended): bridge-portmcfl 0']},
+                          'validvals': ['<interface-yes-no-0-1-list>'],
+                          'validrange' : ['yes', 'no', '0', '1'],
+                          'default' : 'no',
+                          'example' : ['under the bridge: bridge-portmcfl swp1=no swp2=no',
+                                       'under the port (recommended): bridge-portmcfl no']},
                     'bridge-waitport' :
                         { 'help' : 'wait for a max of time secs for the' +
                                 ' specified ports to become available,' +
@@ -228,7 +228,7 @@ class bridge(moduleBase):
                     'bridge-access' :
                         { 'help' : 'bridge port access vlan. Must be ' +
                                    'specified under the bridge port',
-                          'validrange' : ['0', '4096'],
+                          'validrange' : ['1', '4094'],
                           'example' : ['bridge-access 300']},
                     'bridge-allow-untagged' :
                         { 'help' : 'indicate if the bridge port accepts ' +
@@ -275,7 +275,9 @@ class bridge(moduleBase):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
             if not self.check_bridge_port_vid_attrs(ifaceobj):
                 retval = False
-        return retval
+        c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj,
+                                                      ifaceobj_getfunc=ifaceobj_getfunc)
+        return retval and c1
 
     def check_bridge_port_vid_attrs(self, ifaceobj):
         if (ifaceobj.get_attr_value('bridge-access') and
@@ -302,8 +304,40 @@ class bridge(moduleBase):
             return result
         return True
 
+    def _error_vxlan_in_vlan_aware_br(self, ifaceobj, bridgename):
+        self.log_error('`bridge-access` attribute is mandatory when vxlan '
+                       'device (%s) is part of vlan aware bridge (%s)'
+                       % (ifaceobj.name, bridgename), ifaceobj)
+
+    def syntax_check_vxlan_in_vlan_aware_br(self, ifaceobj, ifaceobj_getfunc):
+        if not ifaceobj_getfunc:
+            return True
+        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+            if ifaceobj.get_attr_value('bridge-access'):
+                return True
+            for iface in ifaceobj.upperifaces if ifaceobj.upperifaces else []:
+                ifaceobj_upper_list = ifaceobj_getfunc(iface)
+                if not ifaceobj_upper_list:
+                    continue
+                ifaceobj_upper = ifaceobj_upper_list[0]
+                bridge_vids = self._get_bridge_vids(iface, ifaceobj_getfunc)
+                if ifaceobj_upper.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
+                    vids = ifaceobj.get_attr_value_first('bridge-vids')
+                    pvid = ifaceobj.get_attr_value_first('bridge-pvid')
+                    if (not vids
+                        or not pvid
+                        or not self._compare_vids(bridge_vids,
+                                                  vids,
+                                                  pvid=pvid)):
+                        self._error_vxlan_in_vlan_aware_br(ifaceobj,
+                                                           ifaceobj_upper.name)
+                        return False
+        return True
+
     def _is_bridge(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('bridge-ports'):
+        if (ifaceobj.get_attr_value_first('bridge-ports') or
+            ifaceobj.get_attr_value_first('bridge-vlan-aware')):
             return True
         return False
 
@@ -781,7 +815,8 @@ class bridge(moduleBase):
                         (port, val) = p.split('=')
                         if not portattrs.get(port):
                             portattrs[port] = {}
-                        if attrname == 'bridge-portmcrouter':
+                        if (attrname == 'bridge-portmcrouter'
+                                or attrname == 'bridge-portmcfl'):
                             portattrs[port].update({dstattrname: utils.boolean_support_binary(val)})
                         else:
                             portattrs[port].update({dstattrname : val})
@@ -925,6 +960,12 @@ class bridge(moduleBase):
             because kernel does honor vid info flags during deletes.
 
         """
+        if not isbridge and bportifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            if ((not vids or not pvid)
+                    and not bportifaceobj.get_attr_value('bridge-access')):
+                self._error_vxlan_in_vlan_aware_br(bportifaceobj,
+                                                   bportifaceobj.upperifaces[0])
+                return
 
         vids_int =  self._ranges_to_ints(vids)
         try:
@@ -1076,9 +1117,7 @@ class bridge(moduleBase):
         portattrs = {}
         for attrname, dstattrname in {
             'bridge-pathcosts' : 'pathcost',
-            'bridge-portprios' : 'portprio',
-            'bridge-portmcrouter' : 'portmcrouter',
-            'bridge-portmcfl' : 'portmcfl'}.items():
+            'bridge-portprios' : 'portprio'}.items():
             attrval = bportifaceobj.get_attr_value_first(attrname)
             if not attrval:
                 # Check if bridge has that attribute
@@ -1089,6 +1128,15 @@ class bridge(moduleBase):
                 #else:
                 continue
             portattrs[dstattrname] = attrval
+
+        portmcrouter = bportifaceobj.get_attr_value_first('bridge-portmcrouter')
+        if portmcrouter:
+            portattrs['portmcrouter'] = utils.boolean_support_binary(portmcrouter)
+
+        portmcfl = bportifaceobj.get_attr_value_first('bridge-portmcfl')
+        if portmcfl:
+            portattrs['portmcfl'] = utils.boolean_support_binary(portmcfl)
+
         try:
             self.brctlcmd.set_bridgeport_attrs(bridgename,
                             bportifaceobj.name, portattrs)
@@ -1199,9 +1247,13 @@ class bridge(moduleBase):
                                                     ifaceobj_getfunc)
                 bridge_pvid = self._get_bridge_pvid(bridgename,
                                                     ifaceobj_getfunc)
-                self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
-                                                                bridge_vids,
-                                                                bridge_pvid)
+                try:
+                    self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
+                                                                    bridge_vids,
+                                                                    bridge_pvid)
+                except Exception as e:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+                    return
             self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
             ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
                                               bridgeFlags.PORT_PROCESSED
@@ -1280,12 +1332,6 @@ class bridge(moduleBase):
                         self.logger.debug('%s: %s: link set up (%s)'
                                           %(ifaceobj.name, p, str(e)))
                         pass
-
-            if ifaceobj.addr_method == 'manual':
-                try:
-                    netlink.link_set_updown(ifaceobj.name, "up")
-                except Exception as e:
-                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         if err:
             raise Exception(errstr)
 
@@ -1828,7 +1874,7 @@ class bridge(moduleBase):
                 running_attrval = self.brctlcmd.get_bridgeport_attr(
                                        bridgename, ifaceobj.name, dstattr)
 
-                if dstattr == 'portmcrouter':
+                if dstattr == 'portmcrouter' or dstattr == 'portmcfl':
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_yesno_boolean(
                             utils.get_boolean_from_string(running_attrval))
@@ -1936,7 +1982,10 @@ class bridge(moduleBase):
                 if attrl[0] in runningattrs:
                     bool = utils.get_boolean_from_string(runningattrs[attrl[0]])
                     runningattrs[attrl[0]] = utils.get_yesno_boolean(bool)
-        attrval = ifaceobj.get_attr_value_first('bridge-portmcrouter')
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcrouter', ifaceobj.get_attr_value_first('bridge-portmcrouter'))
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcfl', ifaceobj.get_attr_value_first('bridge-portmcfl'))
+
+    def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:
             portlist = self.parse_port_list(ifaceobj.name, attrval)
             if portlist:
@@ -1946,8 +1995,8 @@ class bridge(moduleBase):
                     if not utils.is_binary_bool(val):
                         to_convert.append(port)
                 for port in to_convert:
-                    runningattrs['ports'][port]['portmcrouter'] = utils.get_yesno_boolean(
-                        utils.get_boolean_from_string(runningattrs['ports'][port]['portmcrouter']))
+                    runningattrs['ports'][port][attr] = utils.get_yesno_boolean(
+                        utils.get_boolean_from_string(runningattrs['ports'][port][attr]))
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
