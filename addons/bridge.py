@@ -219,7 +219,8 @@ class bridge(moduleBase):
                           'multivalue' : True,
                           'validvals': ['<number-range-list>'],
                           'example' : ['bridge-vids 4000',
-                                       'bridge-vids 2000 2200-3000']},
+                                       'bridge-vids 2000 2200-3000'],
+                          'aliases': ['bridge-trunk']},
                     'bridge-pvid' :
                         { 'help' : 'bridge port pvid. Must be specified under' +
                                    ' the bridge port',
@@ -281,7 +282,7 @@ class bridge(moduleBase):
 
     def check_bridge_port_vid_attrs(self, ifaceobj):
         if (ifaceobj.get_attr_value('bridge-access') and
-            (ifaceobj.get_attr_value('bridge-vids') or
+            (self.get_ifaceobj_bridge_vids_value(ifaceobj) or
              ifaceobj.get_attr_value('bridge-pvid'))):
             self.logger.warn('%s: bridge-access given, bridge-vids and bridge-pvid '
                              'will be ignored' % ifaceobj.name)
@@ -323,7 +324,7 @@ class bridge(moduleBase):
                 ifaceobj_upper = ifaceobj_upper_list[0]
                 bridge_vids = self._get_bridge_vids(iface, ifaceobj_getfunc)
                 if ifaceobj_upper.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
-                    vids = ifaceobj.get_attr_value_first('bridge-vids')
+                    vids = self.get_ifaceobj_bridge_vids_value(ifaceobj)
                     pvid = ifaceobj.get_attr_value_first('bridge-pvid')
                     if (not vids
                         or not pvid
@@ -1083,7 +1084,7 @@ class bridge(moduleBase):
         else:
             allow_untagged = bportifaceobj.get_attr_value_first('bridge-allow-untagged') or 'yes'
 
-            bport_vids = bportifaceobj.get_attr_value_first('bridge-vids')
+            bport_vids = self.get_ifaceobj_bridge_vids_value(bportifaceobj)
             if bport_vids:
                 vids = re.split(r'[\s\t,]\s*', bport_vids)
 
@@ -1156,7 +1157,7 @@ class bridge(moduleBase):
         self.logger.info('%s: applying bridge configuration '
                          %ifaceobj.name + 'specific to ports')
 
-        bridge_vids = ifaceobj.get_attr_value_first('bridge-vids')
+        bridge_vids = self.get_ifaceobj_bridge_vids_value(ifaceobj)
         if bridge_vids:
            bridge_vids = re.split(r'[\s\t,]\s*', bridge_vids)
         else:
@@ -1607,9 +1608,9 @@ class bridge(moduleBase):
                 ifaceobjcurr.update_config_with_status('bridge-port-pvids',
                                                  running_bridge_port_pvids, 0)
 
-        attrval = ifaceobj.get_attr_value_first('bridge-vids')
-        if attrval:
-            ifaceobjcurr.update_config_with_status('bridge-vids', attrval, -1)
+        vids = self.get_ifaceobj_bridge_vids(ifaceobj)
+        if vids[1]:
+            ifaceobjcurr.update_config_with_status(vids[0], vids[1], -1)
 
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
                             ifaceobj_getfunc=None):
@@ -1638,7 +1639,7 @@ class bridge(moduleBase):
 
         self._query_check_support_yesno_attrs(runningattrs, ifaceobj)
 
-        filterattrs = ['bridge-vids', 'bridge-port-vids',
+        filterattrs = ['bridge-vids', 'bridge-trunk', 'bridge-port-vids',
                        'bridge-port-pvids']
         for k in Set(ifaceattrs).difference(filterattrs):
             # get the corresponding ifaceobj attr
@@ -1734,7 +1735,7 @@ class bridge(moduleBase):
                    pass
                ifaceobjcurr.update_config_with_status(k, currstr, status)
             elif not rv:
-               if k == 'bridge-pvid' or k == 'bridge-vids' or k == 'bridge-allow-untagged':
+               if k == 'bridge-pvid' or k == 'bridge-vids' or k == 'bridge-trunk' or k == 'bridge-allow-untagged':
                    # bridge-pvid and bridge-vids on a bridge does
                    # not correspond directly to a running config
                    # on the bridge. They correspond to default
@@ -1757,10 +1758,19 @@ class bridge(moduleBase):
 
         self._query_check_mcqv4src(ifaceobj, ifaceobjcurr)
 
+    def get_ifaceobj_bridge_vids(self, ifaceobj):
+        vids = ('bridge-vids', ifaceobj.get_attr_value_first('bridge-vids'))
+        if not vids[1]:
+            vids = ('bridge-trunk', ifaceobj.get_attr_value_first('bridge-trunk'))
+        return vids
+
+    def get_ifaceobj_bridge_vids_value(self, ifaceobj):
+        return self.get_ifaceobj_bridge_vids(ifaceobj)[1]
+
     def _get_bridge_vids(self, bridgename, ifaceobj_getfunc):
         ifaceobjs = ifaceobj_getfunc(bridgename)
         for ifaceobj in ifaceobjs:
-            vids = ifaceobj.get_attr_value_first('bridge-vids')
+            vids = self.get_ifaceobj_bridge_vids_value(ifaceobj)
             if vids: return re.split(r'[\s\t,]\s*', vids)
         return None
 
@@ -1817,8 +1827,7 @@ class bridge(moduleBase):
                 ifaceobjcurr.status = ifaceStatus.ERROR
                 ifaceobjcurr.status_str = 'bridge pvid error'
 
-        attr_name = 'bridge-vids'
-        vids = ifaceobj.get_attr_value_first(attr_name)
+        attr_name, vids = self.get_ifaceobj_bridge_vids(ifaceobj)
         if vids:
            vids = re.split(r'[\s\t]\s*', vids)
            if not running_vids or not self._compare_vids(vids, running_vids,
@@ -1847,7 +1856,7 @@ class bridge(moduleBase):
         if not self._is_bridge_port(ifaceobj):
             # Mark all bridge attributes as failed
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
-                    ['bridge-vids', 'bridge-pvid', 'bridge-access',
+                    ['bridge-vids', 'bridge-trunk', 'bridge-pvid', 'bridge-access',
                      'bridge-pathcosts', 'bridge-portprios',
                      'bridge-portmcrouter',
                      'bridge-portmcfl'], 1)
