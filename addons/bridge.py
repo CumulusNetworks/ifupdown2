@@ -293,7 +293,7 @@ class bridge(moduleBase):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
             ports = self._get_bridge_port_list(ifaceobj)
             if not ports:
-                return False
+                return True
             result = True
             for port_name in ports:
                 port_obj_l = ifaceobj_getfunc(port_name)
