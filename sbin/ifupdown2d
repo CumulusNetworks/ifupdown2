@@ -13,12 +13,9 @@ import os
 import sys
 import json
 
-import argcomplete
-import argparse
 import ConfigParser
 import StringIO
 import resource
-import pkg_resources
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
@@ -190,244 +187,11 @@ def init(argv, args):
 def deinit():
     {}
 
-def update_argparser(argparser):
-    """ base parser, common to all commands """
-
-    argparser.add_argument('-a', '--all', action='store_true', required=False,
-                help='process all interfaces marked \"auto\"')
-    argparser.add_argument('iflist', metavar='IFACE',
-                nargs='*', help='interface list separated by spaces. ' +
-                'IFACE list is mutually exclusive with -a option.')
-    argparser.add_argument('-v', '--verbose', dest='verbose',
-                action='store_true', help='verbose')
-    argparser.add_argument('-d', '--debug', dest='debug',
-                action='store_true',
-                help='output debug info')
-    argparser.add_argument('-q', '--quiet', dest='quiet',
-                action='store_true',
-                help=argparse.SUPPRESS)
-    argparser.add_argument('--allow', dest='CLASS',
-                help='ignore non-\"allow-CLASS\" interfaces')
-    argparser.add_argument('-w', '--with-depends', dest='withdepends',
-                action='store_true', help='run with all dependent interfaces.'+
-                ' This option is redundant when \'-a\' is specified. With ' +
-                '\'-a\' interfaces are always executed in dependency order')
-    argparser.add_argument('--perfmode', dest='perfmode',
-                action='store_true', help=argparse.SUPPRESS)
-    #argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
-    #            default=-1, choices=range(1,12), help=argparse.SUPPRESS)
-    argparser.add_argument('--nocache', dest='nocache', action='store_true',
-                help=argparse.SUPPRESS)
-    argparser.add_argument('-X', '--exclude', dest='excludepats',
-                action='append',
-                help='Exclude interfaces from the list of interfaces' +
-                ' to operate on. Can be specified multiple times.')
-    argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
-                default=None,
-                help='Specify interfaces file instead of file defined ' +
-                'in ifupdown2.conf file')
-    argparser.add_argument('-t', '--interfaces-format',
-                dest='interfacesfileformat',
-                default='native',
-                choices=['native', 'json'],
-                help='interfaces file format')
-    argparser.add_argument('-T', '--type',
-                dest='type',
-                default=None,
-                choices=['iface', 'vlan'],
-                help='type of interface entry (iface or vlan).' +
-                     'This option can be used in case of ambiguity between ' +
-                     'a vlan interface and an iface interface of the same name')
-
-def update_ifupdown_argparser(argparser):
-    """ common arg parser for ifup and ifdown """
-    argparser.add_argument('-f', '--force', dest='force',
-                action='store_true',
-                help='force run all operations')
-    argparser.add_argument('-l', '--syslog', dest='syslog',
-                action='store_true',
-                help=argparse.SUPPRESS)
-    group = argparser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-n', '--no-act', dest='noact',
-                action='store_true', help='print out what would happen,' +
-                'but don\'t do it')
-    group.add_argument('-p', '--print-dependency',
-                dest='printdependency', choices=['list', 'dot'],
-                help='print iface dependency')
-    group.add_argument('--no-scripts', '--admin-state',
-                dest='noaddons',  action='store_true',
-                help='dont run any addon modules/scripts. Only bring the ' +
-                    'interface administratively up/down')
-
-def update_ifup_argparser(argparser):
-    argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
-                action='store_true',
-                help='Only run the interfaces file parser')
-    argparser.add_argument('-k', '--skip-upperifaces', dest='skipupperifaces',
-                action='store_true',
-                help='ifup by default tries to add newly created interfaces' +
-                ' into its upper/parent interfaces. Eg. if a bridge port is' +
-                ' created as a result of ifup on the port, ifup automatically' +
-                ' adds the port to the bridge. This option can be used to ' +
-                'disable this default behaviour')
-    update_ifupdown_argparser(argparser)
-
-def update_ifdown_argparser(argparser):
-    update_ifupdown_argparser(argparser)
-    argparser.add_argument('-u', '--use-current-config',
-                dest='usecurrentconfig',  action='store_true',
-                help='By default ifdown looks at the saved state for ' +
-                'interfaces to bring down. This option allows ifdown to ' +
-                'look at the current interfaces file. Useful when your ' +
-                'state file is corrupted or you want down to use the latest '
-                'from the interfaces file')
-
-def update_ifquery_argparser(argparser):
-    """ arg parser for ifquery options """
-
-    # -l is same as '-a', only here for backward compatibility
-    argparser.add_argument('-l', '--list', action='store_true', dest='list',
-                           help='list all matching known interfaces')
-    group = argparser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-r', '--running', dest='running',
-                       action='store_true',
-                       help='query running state of an interface')
-    group.add_argument('-c', '--check', dest='checkcurr',
-                       action='store_true',
-                       help='check interface file contents against ' +
-                       'running state of an interface')
-    group.add_argument('-x', '--raw', action='store_true', dest='raw',
-                       help='print raw config file entries')
-    group.add_argument('--print-savedstate', action='store_true',
-                       dest='printsavedstate',
-                       help=argparse.SUPPRESS)
-    argparser.add_argument('-o', '--format', dest='format', default='native',
-                           choices=['native', 'json'],
-                           help='interface display format')
-    argparser.add_argument('-p', '--print-dependency',
-                           dest='printdependency', choices=['list', 'dot'],
-                           help='print interface dependency')
-    argparser.add_argument('-s', '--syntax-help', action='store_true',
-                           dest='syntaxhelp',
-                           help='print supported interface config syntax')
-    argparser.add_argument('--with-defaults', action='store_true',
-                           dest='withdefaults',
-                           help='check policy default file contents, ' +
-                                'for unconfigured attributes, against ' +
-                                'running state of an interface')
-
-def update_ifreload_argparser(argparser):
-    """ parser for ifreload """
-    group = argparser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-a', '--all', action='store_true',
-                help='process all interfaces marked \"auto\"')
-    group.add_argument('-c', '--currently-up', dest='currentlyup',
-                action='store_true',
-                help='only reload auto and other interfaces that are ' +
-                'currently up')
-    group.add_argument('--allow', dest='CLASS',
-                help='ignore non-\"allow-CLASS\" interfaces')
-    argparser.add_argument('iflist', metavar='IFACE',
-                nargs='*', help=argparse.SUPPRESS)
-    argparser.add_argument('-n', '--no-act', dest='noact',
-                action='store_true', help='print out what would happen,' +
-                'but don\'t do it')
-    argparser.add_argument('-v', '--verbose', dest='verbose',
-                action='store_true', help='verbose')
-    argparser.add_argument('-d', '--debug', dest='debug',
-                action='store_true',
-                help='output debug info')
-    argparser.add_argument('-w', '--with-depends', dest='withdepends',
-                action='store_true', help=argparse.SUPPRESS)
-    argparser.add_argument('--perfmode', dest='perfmode',
-                action='store_true', help=argparse.SUPPRESS)
-    argparser.add_argument('--nocache', dest='nocache', action='store_true',
-                help=argparse.SUPPRESS)
-    argparser.add_argument('-X', '--exclude', dest='excludepats',
-                action='append',
-                help=argparse.SUPPRESS)
-    #argparser.add_argument('-j', '--jobs', dest='jobs', type=int,
-    #            default=-1, choices=range(1,12), help=argparse.SUPPRESS)
-    #argparser.add_argument('-i', '--interfaces', dest='interfacesfile',
-    #            default='/etc/network/interfaces',
-    #            help='use interfaces file instead of default ' +
-    #            '/etc/network/interfaces')
-    argparser.add_argument('-u', '--use-current-config',
-                dest='usecurrentconfig',  action='store_true',
-                help='By default ifreload looks at saved state for ' +
-                'interfaces to bring down. With this option ifreload will'
-                ' only look at the current interfaces file. Useful when your ' +
-                'state file is corrupted or you want down to use the latest '
-                'from the interfaces file')
-    argparser.add_argument('-l', '--syslog', dest='syslog',
-                action='store_true',
-                help=argparse.SUPPRESS)
-    argparser.add_argument('-f', '--force', dest='force',
-                action='store_true',
-                help='force run all operations')
-    argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck',
-                action='store_true',
-                help='Only run the interfaces file parser')
-
-def update_common_argparser(argparser):
-    ''' general parsing rules '''
-
-    package = pkg_resources.get_distribution("ifupdown2")
-    argparser.add_argument('-V', '--version',
-                action='version',
-                version='ifupdown2:%(prog)s ' + package.version,
-                help='display current ifupdown2 version')
-
-def parse_args(argsv, op):
-    if op == 'query':
-        descr = 'query interfaces (all or interface list)'
-    elif op == 'reload':
-        descr = 'reload interface configuration.'
-    else:
-        descr = 'interface management'
-    argparser = argparse.ArgumentParser(description=descr)
-    if op == 'reload':
-        update_ifreload_argparser(argparser)
-    else:
-        update_argparser(argparser)
-        if op == 'up':
-            update_ifup_argparser(argparser)
-        elif op == 'down':
-            update_ifdown_argparser(argparser)
-        elif op == 'query':
-            update_ifquery_argparser(argparser)
-    update_common_argparser(argparser)
-    argcomplete.autocomplete(argparser)
-    return argparser.parse_args(argsv)
 
 handlers = {'up' : run_up,
             'down' : run_down,
             'query' : run_query,
             'reload' : run_reload }
-
-def validate_args(op, args):
-    #if op == 'up' and args.syntaxcheck:
-    #    if args.iflist or args.all:
-    #        print 'ignoring interface options ..'
-    #    return True
-    if op == 'query' and (args.syntaxhelp or args.list):
-        return True
-    if op == 'reload':
-        if not args.all and not args.currentlyup and not args.CLASS:
-            logger.error('\'-a\' or \'-c\' or \'-allow\' option is required')
-            return False
-    elif (not args.iflist and
-            not args.all and not args.CLASS):
-        logger.error('\'-a\' option or interface list are required')
-        return False
-    if args.iflist and args.all:
-        logger.error('\'-a\' option and interface list are mutually exclusive')
-        return False
-    if op != 'reload' and args.CLASS and (args.all or args.iflist):
-        logger.error('\'--allow\' option is mutually exclusive ' +
-               'with interface list and \'-a\'')
-        return False
-    return True
 
 def read_config(args):
     global configmap_g
@@ -460,27 +224,16 @@ def read_config(args):
         # reset link_master_slave if delay_admin_state_change is on
         configmap_g['link_master_slave'] = '0'
 
+from ifupdown.argv import Parse
+
 def main(argv):
     """ main function """
-    args = None
     try:
-        op = None
-        if argv[0].endswith('ifup'):
-            op = 'up'
-        elif argv[0].endswith('ifdown'):
-            op = 'down'
-        elif argv[0].endswith('ifquery'):
-            op = 'query'
-        elif argv[0].endswith('ifreload'):
-            op = 'reload'
-        else:
-            logger.error('Unexpected executable.' +
-                   ' Should be \'ifup\' or \'ifdown\' or \'ifquery\'')
-            return 1
-        # Command line arg parser
-        args = parse_args(argv[1:], op)
-        if not validate_args(op, args):
-            return 1
+        args_parse = Parse(argv)
+        args_parse.validate()
+
+        args = args_parse.get_args()
+        op = args_parse.get_op()
 
         if not argv[0].endswith('ifquery') and not os.geteuid() == 0:
             logger.error('error: must be root to run this command')
@@ -493,7 +246,10 @@ def main(argv):
         read_config(args)
         init(argv, args)
         handlers.get(op)(args)
+    except ArgvParseError as e:
+        e.log_error()
     except Exception, e:
+        log.info(e) # to remove
         if not str(e):
             return 1
         if args and args.debug:
@@ -509,16 +265,6 @@ def main(argv):
     finally:
         deinit()
     return 0
-
-
-
-
-
-
-
-
-
-
 
 import re
 import os
@@ -625,21 +371,24 @@ class Daemon:
                 if self.shutdown_event.is_set():
                     log.info("shutdown signal RXed, breaking out loop")
                     break
+
+                try:
+                    (connection, client_address) = self.uds.accept()
+                except socket.error as e:
+                    self.sigint_set_shutdown(e)
+                    break
                 pid = os.fork()
                 if pid == 0:
-                    try:
-                        (connection, client_address) = self.uds.accept()
-                        fcntl.fcntl(connection.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-                    except socket.error as e:
-                        self.sigint_set_shutdown(e)
-                        break
+                    fcntl.fcntl(connection.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
                     try:
                         self.reset()
                         code = self.request(connection, connection.recv(4096))
-                    except:
+                    except Exception as e:
+                        log.error(e)
                         code = 1
                     exit(code)
                 else:
+                    connection.close()
                     os.waitpid(pid, 0)
         except Exception as e:
             log.error(e)
@@ -660,14 +409,13 @@ class Daemon:
             'stdout': '',
             'stderr': '',
         }
-
         if self.user_waiting_for_reply():
             result['stdout'] = log.get_stdout_buffer()
             result['stderr'] = log.get_stderr_buffer()
 
         connection.sendall(json.dumps(result))
         log.flush()
-
+        log.update_logger(['-l', '-v'])
         connection.close()
         log.info('closing socket')
         return code
