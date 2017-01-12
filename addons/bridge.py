@@ -962,8 +962,7 @@ class bridge(moduleBase):
 
         """
         if not isbridge and bportifaceobj.link_kind & ifaceLinkKind.VXLAN:
-            if ((not vids or not pvid)
-                    and not bportifaceobj.get_attr_value('bridge-access')):
+            if not vids or not pvid or len(vids) > 1 or vids[0] != pvid:
                 self._error_vxlan_in_vlan_aware_br(bportifaceobj,
                                                    bportifaceobj.upperifaces[0])
                 return
