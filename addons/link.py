@@ -22,6 +22,7 @@ class link(moduleBase):
                    'link-down' :
                         {'help': 'keep link down',
                          'example' : ['link-down yes/no'],
+                         'default' : 'no',
                          'validvals' : ['yes', 'no']}}}
 
     def __init__(self, *args, **kargs):
