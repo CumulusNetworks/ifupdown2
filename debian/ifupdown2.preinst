@@ -3,7 +3,7 @@
 MYNAME="${0##*/}"
 
 report() { echo "${MYNAME}: $*" ; }
-report_err() { report "Error: $*" >&2 ; }
+report_err() { report "Error: $*" >&2 ; exit 1; }
 
 preinst_divert()
 {
@@ -12,13 +12,7 @@ preinst_divert()
     then
         report_err "existing diversion for $1"
     else
-        if [ -e "$1" ] || [ -L "$1" ];
-        then
-            if [ $(dpkg-query -L ifupdown2 | grep "^$1$" | wc -l) -eq 0 ];
-            then
-                dpkg-divert --add --package ifupdown2 --rename --divert "$1.disabled" "$1"
-            fi
-        fi
+        dpkg-divert --add --package ifupdown2 --rename --divert "$1.disabled" "$1"
     fi
 }
 
