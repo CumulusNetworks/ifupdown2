@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20170114-1) UNRELEASED; urgency=medium
+
+  * closes: #843848 diversion handling broken
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Sat, 14 Jan 2017 03:59:54 +0100
+
 ifupdown2 (1.0~git20161221-1) unstable; urgency=medium
 
   * closes: #810844 Unlisted dependencies
