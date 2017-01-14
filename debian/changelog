@@ -1,4 +1,4 @@
-ifupdown2 (1.0~git20170114-1) UNRELEASED; urgency=medium
+ifupdown2 (1.0~git20170114-1) unstable; urgency=medium
 
   * closes: #843848 diversion handling broken
 
