@@ -18,7 +18,11 @@ class link(moduleBase):
                    'link-type' :
                         {'help' : 'type of link as in \'ip link\' command.',
                          'validvals' : ['dummy', 'veth'],
-                         'example' : ['link-type <dummy|veth>']}}}
+                         'example' : ['link-type <dummy|veth>']},
+                   'veth-peer-name':
+                        {'help' : 'Name of the veth peer interface.',
+                         'validvals' : '<interface>',
+                         'example' : ['veth-peer-name veth_ext2int']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -29,9 +33,28 @@ class link(moduleBase):
             return True
         return False
 
+    def get_dependent_ifacenames (self, ifaceobj, ifaceobjs_all=None):
+        link_type = ifaceobj.get_attr_value_first('link-type')
+
+        # If this interface is one side of a veth link pair and a name for
+        # the peer interface if given, pass it to the link_create call.
+        if link_type == 'veth' and ifaceobj.get_attr_value_first('veth-peer-name'):
+            return [ ifaceobj.get_attr_value_first('veth-peer-name') ]
+
+        return None
+
     def _up(self, ifaceobj):
-        self.ipcmd.link_create(ifaceobj.name,
-                               ifaceobj.get_attr_value_first('link-type'))
+        attrs = {}
+
+        link_type = ifaceobj.get_attr_value_first('link-type')
+
+        # If this interface is one side of a veth link pair and a name for
+        # the peer interface if given, pass it to the link_create call.
+        if link_type == 'veth' and ifaceobj.get_attr_value_first('veth-peer-name'):
+            attrs["peer name"] = ifaceobj.get_attr_value_first('veth-peer-name')
+
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            self.ipcmd.link_create(ifaceobj.name, link_type, attrs)
 
     def _down(self, ifaceobj):
         if (not ifupdownflags.flags.PERFMODE and

@@ -110,6 +110,8 @@ class iproute2(utilsBase):
                             linkattrs['kind'] = 'vlan'
                     elif citems[i] == 'dummy':
                         linkattrs['kind'] = 'dummy'
+                    elif citems[i] == 'veth':
+                        linkattrs['kind'] = 'veth'
                     elif citems[i] == 'vxlan' and citems[i + 1] == 'id':
                         linkattrs['kind'] = 'vxlan'
                         vattrs = {'vxlanid': citems[i + 2],
