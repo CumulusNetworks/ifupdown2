@@ -288,6 +288,7 @@ class Daemon:
             os.makedirs(self.working_directory, mode=0755)
 
         if os.path.exists(self.server_address):
+            log.info('removing uds %s' % self.server_address)
             os.remove(self.server_address)
 
         self.context = DaemonContext(
