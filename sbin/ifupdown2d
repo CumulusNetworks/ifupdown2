@@ -20,6 +20,7 @@ from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
 from ifupdown.log import log
+from ifupdown.netlink import netlink
 
 lockfile="/run/network/.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
@@ -235,9 +236,9 @@ def main(argv):
         args = args_parse.get_args()
         op = args_parse.get_op()
 
-        if not argv[0].endswith('ifquery') and not os.geteuid() == 0:
-            logger.error('error: must be root to run this command')
-            return 1
+        #if not argv[0].endswith('ifquery') and not os.geteuid() == 0: --> send the euid of the user process
+        #    logger.error('error: must be root to run this command')
+        #    return 1
 
         #if not sys.argv[0].endswith('ifquery') and not utils.lockFile(lockfile):
         #    log.error('Another instance of this program is already running.')
@@ -276,12 +277,13 @@ from threading import Event
 from daemon import DaemonContext
 
 class Daemon:
+    shutdown_event = Event()
+
     def __init__(self, argv):
         self.uds = None
         self.context = None
         self.working_directory = '/var/run/ifupdown2d/'
         self.server_address = '/var/run/ifupdown2d/uds'
-        self.shutdown_event = Event()
 
         if not os.path.exists(self.working_directory):
             log.info('creating %s' % self.working_directory)
@@ -341,9 +343,10 @@ class Daemon:
         if self.uds:
             self.uds.close()
 
-    def signal_handler(self, sig, frame):
+    @staticmethod
+    def signal_handler(sig, frame):
         log.info('received %s' % 'SIGINT' if sig == signal.SIGINT else 'SIGTERM')
-        self.shutdown_event.set()
+        Daemon.shutdown_event.set()
 
     def reset(self):
         global configmap_g
@@ -369,7 +372,7 @@ class Daemon:
     def run(self):
         try:
             while True:
-                if self.shutdown_event.is_set():
+                if Daemon.shutdown_event.is_set():
                     log.info("shutdown signal RXed, breaking out loop")
                     break
 
