@@ -1,3 +1,10 @@
+ifupdown2 (1.1-cl3u8) RELEASED; urgency=medium
+
+  * New. Enabled: update link-speed values: add 25G and 50G
+  * New. Enabled: new 'link-down' [yes|no] attribute to keep link down
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Tue, 17 Jan 2017 08:39:29 +0100
+
 ifupdown2 (1.1-cl3u7) RELEASED; urgency=medium
 
   * New. Enabled: fix for inet and inet6 dhcp on the same interface
