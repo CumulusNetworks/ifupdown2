@@ -315,7 +315,7 @@ class address(moduleBase):
                 self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
             except Exception as e:
                 self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
-        for add_gw in list(set(gateways) - set(prev_gw)):
+        for add_gw in gateways:
             try:
                 self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
             except Exception as e:
