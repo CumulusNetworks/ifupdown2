@@ -115,15 +115,40 @@ class brctl(utilsBase):
             except:
                 pass
 
-            # XXX: comment this out until mc attributes become available
-            # with brctl again
-            #battrs['hashel'] = broutlines[10].split('hash elasticity')[1].split()[0].strip()
-            #battrs['hashmax'] = broutlines[10].split('hash max')[1].strip()
-            #battrs['mclmc'] = broutlines[11].split('mc last member count')[1].split()[0].strip()
-            #battrs['mciqc'] = broutlines[11].split('mc init query count')[1].strip()
-            #battrs['mcrouter'] = broutlines[12].split('mc router')[1].split()[0].strip()
-            ##battrs['mcsnoop'] = broutlines[12].split('mc snooping')[1].strip()
-            #battrs['mclmt'] = broutlines[13].split('mc last member timer')[1].split()[0].strip()
+            try:
+                battrs['hashel'] = broutlines[10].split('hash elasticity')[1].split()[0].strip()
+            except:
+                pass
+
+            try:
+                battrs['hashmax'] = broutlines[10].split('hash max')[1].strip()
+            except:
+                pass
+
+            try:
+                battrs['mclmc'] = broutlines[11].split('mc last member count')[1].split()[0].strip()
+            except:
+                pass
+
+            try:
+                battrs['mciqc'] = broutlines[11].split('mc init query count')[1].strip()
+            except:
+                pass
+
+            try:
+                battrs['mcrouter'] = broutlines[12].split('mc router')[1].split()[0].strip()
+            except:
+                pass
+
+            try:
+                battrs['mcsnoop'] = broutlines[12].split('mc snooping')[1].strip()
+            except:
+                pass
+
+            try:
+                battrs['mclmt'] = broutlines[13].split('mc last member timer')[1].split()[0].strip().replace('.00', '')
+            except:
+                pass
         except Exception, e:
             self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             pass
