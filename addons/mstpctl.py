@@ -144,7 +144,7 @@ class mstpctl(moduleBase):
                           'validrange' : ['0', '255'],
                           'default' : '2',
                           'required' : False,
-                          'jsonAttr': 'helloTime',
+                          'jsonAttr': 'portHelloTime',
                           'example' : ['mstpctl-hello 2']},
                     'mstpctl-portnetwork' : 
                         { 'help' : 'enable/disable bridge assurance capability for a port',
@@ -329,32 +329,16 @@ class mstpctl(moduleBase):
         try:
             # set bridge attributes
             for attrname, dstattrname in self._attrs_map.items():
-                config_val = ifaceobj.get_attr_value_first(attrname)
-                default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attrname)
-                if not default_val:
-                    default_val = self.get_mod_subattr(attrname,'default')
-                jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
                 try:
-                    running_val = self.mstpctlcmd.get_bridge_attr(
-                                    ifaceobj.name, jsonAttr)
-                except:
-                    self.logger.info('%s: could not get running %s value'
-                                     %(ifaceobj.name, attrname))
-                    running_val = None
-                if (not config_val and default_val and (running_val != default_val)):
-                    # this happens when users remove an attribute from a port
-                    # and expect the default to be restored with ifreload.
-                    config_val = default_val
-                elif not config_val:
-                    # there is nothing configured and no default to reset
-                    continue
-                try:
+                    v = ifaceobj.get_attr_value_first(attrname)
+                    if not v:
+                       continue
                     if attrname == 'mstpctl-treeprio':
                        self.mstpctlcmd.set_bridge_treeprio(ifaceobj.name,
-                                config_val, check)
+                                v, check)
                     else:
                        self.mstpctlcmd.set_bridge_attr(ifaceobj.name,
-                                dstattrname, config_val, check)
+                                dstattrname, v, check)
                 except Exception, e:
                     self.logger.warn('%s' %str(e))
                     pass
@@ -431,10 +415,7 @@ class mstpctl(moduleBase):
             else:
                 return 'yes'
         else:
-            default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attr)
-            if not default_val:
-                return self.get_mod_subattr(attr,'default')
-            return default_val
+            return self.get_mod_subattr(attr,'default')
 
     def _apply_bridge_port_settings(self, ifaceobj, bridgename=None,
                                     bridgeifaceobj=None,

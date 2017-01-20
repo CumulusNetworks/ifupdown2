@@ -28,17 +28,6 @@ class mstpctlutil(utilsBase):
                      'hello' : 'hello-time',
                      'forcevers' : 'force-protocol-version'}
 
-    _bridge_jsonAttr_map = {
-                            'treeprio': 'bridgeId',
-                            'maxage': 'maxAge',
-                            'fdelay': 'fwdDelay',
-                            'txholdcount': 'txHoldCounter',
-                            'maxhops': 'maxHops',
-                            'ageing': 'ageingTime',
-                            'hello': 'helloTime',
-                            'forcevers': 'forceProtocolVersion',
-                            }
-
     _bridgeportattrmap = {'portadminedge' : 'admin-edge-port',
                      'portp2p' : 'admin-point-to-point',
                      'portrestrrole' : 'restricted-role',
@@ -94,33 +83,6 @@ class mstpctlutil(utilsBase):
             self.logger.info('%s: cannot fetch mstpctl bridge port attributes: %s' % str(e))
         return mstpctl_bridgeport_attrs_dict
 
-    def _get_bridge_attrs_from_cache(self, bridgename):
-        attrs = MSTPAttrsCache.get(bridgename)
-        if attrs:
-            return attrs
-        mstpctl_bridge_attrs_dict = {}
-        try:
-            cmd = ['/sbin/mstpctl', 'showbridge', 'json', bridgename]
-            output = utils.exec_commandl(cmd)
-            if not output:
-                return mstpctl_bridge_attrs_dict
-        except Exception as e:
-            self.logger.info(str(e))
-            return mstpctl_bridge_attrs_dict
-        try:
-            mstpctl_bridge_cache = json.loads(output.strip('\n'))
-            for jsonAttr in mstpctl_bridge_cache[bridgename].keys():
-                mstpctl_bridge_attrs_dict[jsonAttr] = (
-                    str(mstpctl_bridge_cache[bridgename][jsonAttr]))
-            mstpctl_bridge_attrs_dict['treeprio'] = '%d' %(
-                                   int(mstpctl_bridge_attrs_dict.get('bridgeId',
-                                   '').split('.')[0], base=16) * 4096)
-            del mstpctl_bridge_attrs_dict['bridgeId']
-            MSTPAttrsCache.set(bridgename, mstpctl_bridge_attrs_dict)
-        except Exception as e:
-            self.logger.info('%s: cannot fetch mstpctl bridge attributes: %s' % str(e))
-        return mstpctl_bridge_attrs_dict
-
     def get_bridge_ports_attrs(self, bridgename):
         return self._get_bridge_port_attrs_from_cache(bridgename)
 
@@ -131,20 +93,13 @@ class mstpctlutil(utilsBase):
             return 'yes'
         return str(value)
 
-    def update_bridge_port_cache(self, bridgename, portname, attrname, value):
+    def update_cache(self, bridgename, portname, attrname, value):
         attrs = self.get_bridge_ports_attrs(bridgename)
         if not attrs:
             attrs = {}
         if not portname in attrs:
             attrs[portname] = {}
         attrs[portname][attrname] = value
-        MSTPAttrsCache.set(bridgename, attrs)
-
-    def update_bridge_cache(self, bridgename, attrname, value):
-        attrs = self.get_bridge_ports_attrs(bridgename)
-        if not attrs:
-            attrs = {}
-        attrs[attrname] = value
         MSTPAttrsCache.set(bridgename, attrs)
 
     def set_bridge_port_attr(self, bridgename, portname, attrname, value, json_attr=None):
@@ -158,13 +113,16 @@ class mstpctlutil(utilsBase):
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
                                  bridgename, portname, value])
         if json_attr:
-            self.update_bridge_port_cache(bridgename, portname, json_attr, value)
+            self.update_cache(bridgename, portname, json_attr, value)
 
     def get_bridge_attrs(self, bridgename):
         bridgeattrs = {}
         try:
-            bridgeattrs = dict((k, self.get_bridge_attr(bridgename, v))
-                                 for k,v in self._bridge_jsonAttr_map.items())
+            bridgeattrs = dict((k, self.get_bridge_attr(bridgename, k))
+                                 for k in self._bridgeattrmap.keys())
+            bridgeattrs['treeprio'] = '%d' %(int(bridgeattrs.get('bridgeid',
+                                     '').split('.')[0], base=16) * 4096)
+            del bridgeattrs['bridgeid']
         except Exception, e:
             self.logger.debug(bridgeattrs)
             self.logger.debug(str(e))
@@ -172,32 +130,28 @@ class mstpctlutil(utilsBase):
         return bridgeattrs
 
     def get_bridge_attr(self, bridgename, attrname):
-        if attrname == 'bridgeId':
-            attrname = 'treeprio'
-        return self._get_bridge_attrs_from_cache(bridgename).get(attrname)
+        try:
+            cmdl = ['/sbin/mstpctl', 'showbridge', bridgename,
+                    self._bridgeattrmap[attrname]]
+            return utils.exec_commandl(cmdl).strip('\n')
+        except Exception, e:
+            pass
+        return None
 
     def set_bridge_attr(self, bridgename, attrname, attrvalue, check=True):
 
         if check:
-            if attrname == 'treeprio':
-                attrvalue_curr = self.get_bridge_attr(bridgename, attrname)
-            else:
-                attrvalue_curr = self.get_bridge_attr(bridgename,
-                                        self._bridge_jsonAttr_map[attrname])
+            attrvalue_curr = self.get_bridge_attr(bridgename, attrname)
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
         if attrname == 'treeprio':
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
                                  '%s' % bridgename, '0', '%s' % attrvalue],
                                 stdout=False, stderr=None)
-            self.update_bridge_cache(bridgename, attrname, str(attrvalue))
         else:
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
                                  '%s' % bridgename, '%s' % attrvalue],
                                 stdout=False, stderr=None)
-            self.update_bridge_cache(bridgename,
-                                     self._bridge_jsonAttr_map[attrname],
-                                     str(attrvalue))
 
     def set_bridge_attrs(self, bridgename, attrdict, check=True):
         for k, v in attrdict.iteritems():
@@ -209,7 +163,17 @@ class mstpctlutil(utilsBase):
                 self.logger.warn('%s: %s' %(bridgename, str(e)))
 
     def get_bridge_treeprio(self, bridgename):
-        return self.get_bridge_attr(bridgename, 'treeprio')
+        try:
+            cmdl = ['/sbin/mstpctl',
+                    'showbridge',
+                    bridgename,
+                    self._bridgeattrmap['bridgeid']]
+
+            bridgeid = utils.exec_commandl(cmdl).strip('\n')
+            return '%d' %(int(bridgeid.split('.')[0], base=16) * 4096)
+        except:
+            pass
+        return None
 
     def set_bridge_treeprio(self, bridgename, attrvalue, check=True):
         if check:
@@ -218,7 +182,6 @@ class mstpctlutil(utilsBase):
                 return
         utils.exec_commandl(['/sbin/mstpctl', 'settreeprio', bridgename, '0',
                              str(attrvalue)])
-        self.update_bridge_cache(bridgename, 'treeprio', str(attrvalue))
 
     def showbridge(self, bridgename=None):
         if bridgename:
