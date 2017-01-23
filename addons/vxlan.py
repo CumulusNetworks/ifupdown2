@@ -9,6 +9,7 @@ from ifupdown.netlink import netlink
 from ipaddr import IPv4Address
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
+import ifupdown.policymanager as policymanager
 import os
 from sets import Set
 
@@ -42,12 +43,21 @@ class vxlan(moduleBase):
                              'validrange' : ['0', '4096'],
                              'example': ['vxlan-ageing 300'],
                              'default': '300'},
+                        'vxlan-purge-remotes' :
+                            {'help' : 'vxlan purge existing remote entries',
+                             'validvals' : ['yes', 'no'],
+                             'example': ['vxlan-purge-remotes yes']}
                 }}
     _clagd_vxlan_anycast_ip = ""
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+        purge_remotes = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vxlan-purge-remotes')
+        if purge_remotes:
+            self._purge_remotes = utils.get_boolean_from_string(purge_remotes)
+        else:
+            self._purge_remotes = False
 
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
         if self._is_vxlan_device(ifaceobj):
@@ -74,7 +84,12 @@ class vxlan(moduleBase):
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
-
+            purge_remotes = ifaceobj.get_attr_value_first('vxlan-purge-remotes')
+            if purge_remotes:
+                purge_remotes = utils.get_boolean_from_string(purge_remotes)
+            else:
+                purge_remotes = self._purge_remotes
+            
             if self.ipcmd.link_exists(ifaceobj.name):
                 vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
                 # on ifreload do not overwrite anycast_ip to individual ip
@@ -91,13 +106,14 @@ class vxlan(moduleBase):
                                    ageing=ageing,
                                    group=group)
 
-            if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-                remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
+            remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
+            if purge_remotes or remoteips:
                 # figure out the diff for remotes and do the bridge fdb updates
-                # only if provisioned by user and not by vxrd
+                # only if provisioned by user and not by an vxlan external
+                # controller.
                 peers = self.ipcmd.get_vxlan_peers(ifaceobj.name, group)
-                if local:
-                    peers.append(local)
+                if local and remoteips and local in remoteips:
+                    remoteips.remove(local)
                 cur_peers = set(peers)
                 if remoteips:
                     new_peers = set(remoteips)

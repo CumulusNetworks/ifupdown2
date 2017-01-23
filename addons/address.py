@@ -313,13 +313,13 @@ class address(moduleBase):
         for del_gw in list(set(prev_gw) - set(gateways)):
             try:
                 self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
-            except:
-                pass
-        for add_gw in list(set(gateways) - set(prev_gw)):
+            except Exception as e:
+                self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
+        for add_gw in gateways:
             try:
                 self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
-            except:
-                pass
+            except Exception as e:
+                self.log_error('%s: %s' % (ifaceobj.name, str(e)))
 
     def _get_prev_gateway(self, ifaceobj, gateways):
         ipv = []
