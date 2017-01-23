@@ -23,7 +23,7 @@ class systemUtils():
 
         if procname:
             try:
-                utils.exec_command('/bin/pidof %s' % procname, stdout=False)
+                utils.exec_command('/bin/pidof %s' % procname)
             except:
                 return False
             else:
@@ -36,8 +36,7 @@ class systemUtils():
         if not servicename:
             return False
         try:
-            utils.exec_commandl(['/usr/sbin/service', servicename, 'status'],
-                                stdout=False)
+            utils.exec_commandl(['/usr/sbin/service', servicename, 'status'])
         except Exception:
             # XXX: check for subprocess errors vs os error
             return False
@@ -48,7 +47,7 @@ class systemUtils():
         if not processname:
             return False
         try:
-            utils.exec_command('/bin/pidof %s' % processname, stdout=False)
+            utils.exec_command('/bin/pidof %s' % processname)
         except:
             return False
         else:

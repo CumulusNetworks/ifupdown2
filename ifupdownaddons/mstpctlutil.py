@@ -188,13 +188,11 @@ class mstpctlutil(utilsBase):
                 return
         if attrname == 'treeprio':
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
-                                 '%s' % bridgename, '0', '%s' % attrvalue],
-                                stdout=False, stderr=None)
+                                 '%s' % bridgename, '0', '%s' % attrvalue], stderr=None)
             self.update_bridge_cache(bridgename, attrname, str(attrvalue))
         else:
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
-                                 '%s' % bridgename, '%s' % attrvalue],
-                                stdout=False, stderr=None)
+                                 '%s' % bridgename, '%s' % attrvalue], stderr=None)
             self.update_bridge_cache(bridgename,
                                      self._bridge_jsonAttr_map[attrname],
                                      str(attrvalue))
@@ -231,7 +229,7 @@ class mstpctlutil(utilsBase):
 
     def mstpbridge_exists(self, bridgename):
         try:
-            utils.exec_command('mstpctl showbridge %s' % bridgename, stdout=False)
+            utils.exec_command('mstpctl showbridge %s' % bridgename)
             return True
         except:
             return False
