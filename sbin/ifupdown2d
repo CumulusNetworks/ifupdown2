@@ -421,7 +421,7 @@ class Daemon:
 
         connection.sendall(json.dumps(result))
         log.flush()
-        log.update_logger(args=None, syslog=True, verbose=True)
+        log.update_logger(args=None, verbose=True, syslog=True)
         connection.close()
         log.info('closing socket')
         return code

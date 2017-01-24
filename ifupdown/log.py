@@ -52,7 +52,7 @@ class Log:
         self.logging_syslog = True
 
     @staticmethod
-    def get_log_level(args=None, verbose=True):
+    def get_log_level(args, verbose):
         if not args and verbose:
             return logging.INFO
         log_level = logging.WARNING
@@ -63,10 +63,10 @@ class Log:
         return log_level
 
     @staticmethod
-    def request_syslog(args=None, syslog=True):
-        return args.syslog if args else syslog
+    def request_syslog(args, syslog):
+        return args.syslog if hasattr(args, 'syslog') else syslog
 
-    def update_logger(self, args=None, syslog=True, verbose=True):
+    def update_logger(self, args=None, verbose=True, syslog=False):
         """
             Check if we need to update the current logger+level (syslog or std)
         """
