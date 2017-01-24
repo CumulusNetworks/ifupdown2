@@ -12,6 +12,7 @@
 import os
 import sys
 import json
+import shlex
 
 import ConfigParser
 import StringIO
@@ -236,6 +237,8 @@ def main(argv):
         args = args_parse.get_args()
         op = args_parse.get_op()
 
+        log.update_logger(args)
+
         #if not argv[0].endswith('ifquery') and not os.geteuid() == 0: --> send the euid of the user process
         #    logger.error('error: must be root to run this command')
         #    return 1
@@ -399,10 +402,9 @@ class Daemon:
         self.uds.close()
 
     def request(self, connection, data):
-        log.info('request: %s' % data)
-        argv = data.split()
+        argv = shlex.split(data)
+        log.info('request: %s' % argv)
         try:
-            log.update_logger(argv)
             code = main(argv)
         except Exception as e:
             log.error(str(e))
@@ -419,7 +421,7 @@ class Daemon:
 
         connection.sendall(json.dumps(result))
         log.flush()
-        log.update_logger(['-l', '-v'])
+        log.update_logger(args=None, syslog=True, verbose=True)
         connection.close()
         log.info('closing socket')
         return code

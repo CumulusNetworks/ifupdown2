@@ -15,7 +15,7 @@ from cStringIO import StringIO
 class Log:
     LOGGER_NAME = 'ifupdown2d'
 
-    def __init__(self, argv):
+    def __init__(self):
         """
             - On start the daemon will log on syslog.
             - For each client commands we might need to adjust the target
@@ -32,7 +32,7 @@ class Log:
         self.stderr_buffer = None
 
         self.root_logger = logging.getLogger()
-        self.log_level = Log.get_log_level(argv)
+        self.log_level = Log.get_log_level(args=None, verbose=True)
 
         facility = logging.handlers.SysLogHandler.LOG_DAEMON
         self.syslog_handler = logging.handlers.SysLogHandler(address='/dev/log',
@@ -52,25 +52,26 @@ class Log:
         self.logging_syslog = True
 
     @staticmethod
-    def get_log_level(argv):
+    def get_log_level(args=None, verbose=True):
+        if not args and verbose:
+            return logging.INFO
         log_level = logging.WARNING
-        if argv:
-            if '-v' in argv or '--verbose' in argv:
-                log_level = logging.INFO
-            if '-d' in argv or '--debug' in argv:
-                log_level = logging.DEBUG
+        if args.debug:
+            log_level = logging.DEBUG
+        elif args.verbose:
+            log_level = logging.INFO
         return log_level
 
     @staticmethod
-    def request_syslog(argv):
-        return '-l' in argv or '--syslog' in argv
+    def request_syslog(args=None, syslog=True):
+        return args.syslog if args else syslog
 
-    def update_logger(self, argv):
+    def update_logger(self, args=None, syslog=True, verbose=True):
         """
             Check if we need to update the current logger+level (syslog or std)
         """
-        self.log_level = Log.get_log_level(argv)
-        request_syslog = self.request_syslog(argv)
+        self.log_level = Log.get_log_level(args=args, verbose=verbose)
+        request_syslog = self.request_syslog(args=args, syslog=syslog)
 
         if self.logging_syslog and not request_syslog:
             # set regular logger
@@ -145,4 +146,4 @@ class Log:
         return self.logging_syslog
 
 
-log = Log('--verbose')
+log = Log()
