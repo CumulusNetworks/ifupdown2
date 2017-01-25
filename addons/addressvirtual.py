@@ -4,18 +4,21 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-import ifupdown.ifupdownconfig as ifupdownConfig
-import ifupdown.statemanager as statemanager
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
-
-from ipaddr import IPNetwork, IPv4Network
-import logging
 import os
 import glob
+
+from ipaddr import IPNetwork
+
+import ifupdown.statemanager as statemanager
+import ifupdown.ifupdownflags as ifupdownflags
+import ifupdown.ifupdownconfig as ifupdownConfig
+
+from ifupdown.iface import *
+from ifupdown.netlink import netlink
+
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.modulebase import moduleBase
+
 
 class addressvirtual(moduleBase):
     """  ifupdown2 addon module to configure virtual addresses """

@@ -9,19 +9,77 @@
 #    tool to configure network interfaces
 #
 
+# preloading all the necessary modules
+# at first will increase performances
 import os
+import io
+import re
 import sys
+import pdb
+import imp
+import sets
 import json
+import glob
+import time
+import copy
+import fcntl
 import shlex
-
-import ConfigParser
+import errno
+import pprint
+import atexit
+import ipaddr
+import signal
+import socket
+import cPickle
+import logging
+import argparse
 import StringIO
 import resource
-from ifupdown.ifupdownmain import *
-from ifupdown.utils import *
+import threading
+import traceback
+import itertools
+import subprocess
+import argcomplete
+import collections
+import ConfigParser
+import pkg_resources
+
+import ifupdown.argv
+import ifupdown.exceptions
+import ifupdown.graph
+import ifupdown.iface
+import ifupdown.iff
+import ifupdown.ifupdownbase
+import ifupdown.ifupdownbase
+import ifupdown.ifupdownconfig
+import ifupdown.ifupdownflags
+import ifupdown.ifupdownmain
+import ifupdown.log
+import ifupdown.netlink
+import ifupdown.networkinterfaces
+import ifupdown.policymanager
+import ifupdown.scheduler
+import ifupdown.statemanager
+import ifupdown.template
+import ifupdown.utils
+
+import ifupdownaddons.bondutil
+import ifupdownaddons.bridgeutils
+import ifupdownaddons.cache
+import ifupdownaddons.dhclient
+import ifupdownaddons.iproute2
+import ifupdownaddons.modulebase
+import ifupdownaddons.mstpctlutil
+import ifupdownaddons.systemutils
+import ifupdownaddons.utilsbase
+
+from threading import Event
 
 from ifupdown.log import log
-from ifupdown.netlink import netlink
+from ifupdown.utils import *
+from ifupdown.argv import Parse
+from ifupdown.ifupdownmain import *
+
 
 lockfile="/run/network/.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
@@ -226,7 +284,6 @@ def read_config(args):
         # reset link_master_slave if delay_admin_state_change is on
         configmap_g['link_master_slave'] = '0'
 
-from ifupdown.argv import Parse
 
 def main(argv):
     """ main function """
@@ -270,15 +327,6 @@ def main(argv):
         deinit()
     return 0
 
-import re
-import os
-import sys
-import signal
-import socket
-
-from threading import Event
-from daemon import DaemonContext
-
 class Daemon:
     shutdown_event = Event()
 
@@ -295,6 +343,8 @@ class Daemon:
         if os.path.exists(self.server_address):
             log.info('removing uds %s' % self.server_address)
             os.remove(self.server_address)
+
+        from daemon import DaemonContext
 
         self.context = DaemonContext(
             working_directory=self.working_directory,

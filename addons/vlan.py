@@ -5,14 +5,13 @@
 #
 
 from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-import ifupdown.ifupdownconfig as ifupdownConfig
-
 from ifupdown.netlink import netlink
+
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.modulebase import moduleBase
+
 import ifupdown.ifupdownflags as ifupdownflags
-import logging
-import re
+
 
 class vlan(moduleBase):
     """  ifupdown2 addon module to configure vlans """

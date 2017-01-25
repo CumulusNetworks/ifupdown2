@@ -13,9 +13,10 @@ It is modeled based on the 'iface' section in /etc/network/interfaces
 file. But can be extended to include any other network interface format
 """
 
-from collections import OrderedDict
-import logging
 import json
+
+from collections import OrderedDict
+
 
 class ifaceStatusUserStrs():
     """ This class declares strings user can see during an ifquery --check

@@ -4,14 +4,16 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
-from utilsbase import *
 import os
 import re
-import logging
+
+from ifupdown.iface import *
 from ifupdown.utils import utils
 import ifupdown.ifupdownflags as ifupdownflags
-from cache import *
+
+from ifupdownaddons.cache import *
+from ifupdownaddons.utilsbase import *
+
 
 class brctl(utilsBase):
     """ This class contains helper functions to interact with the bridgeutils

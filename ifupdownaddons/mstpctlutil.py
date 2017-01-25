@@ -4,12 +4,14 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from cache import MSTPAttrsCache
-from utilsbase import *
+import json
+
 from ifupdown.iface import *
 from ifupdown.utils import utils
-from cache import *
-import json
+
+from ifupdownaddons.cache import *
+from ifupdownaddons.utilsbase import *
+
 
 class mstpctlutil(utilsBase):
     """ This class contains helper methods to interact with mstpd using

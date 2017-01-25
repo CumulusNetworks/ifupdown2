@@ -10,7 +10,7 @@ import argparse
 import argcomplete
 import pkg_resources
 
-from exceptions import ArgvParseError
+from ifupdown.exceptions import ArgvParseError
 
 
 class Parse:

@@ -4,20 +4,24 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from sets import Set
-from ifupdown.iface import *
-import ifupdown.policymanager as policymanager
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.iproute2 import iproute2
-from collections import Counter
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
-import itertools
 import re
 import time
-import pdb
+import itertools
+
+from sets import Set
+from collections import Counter
+
+import ifupdown.policymanager as policymanager
+import ifupdown.ifupdownflags as ifupdownflags
+
+from ifupdown.iface import *
+from ifupdown.utils import utils
+from ifupdown.netlink import netlink
+
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.bridgeutils import brctl
+from ifupdownaddons.modulebase import moduleBase
+
 
 class bridgeFlags:
     PORT_PROCESSED = 0x1

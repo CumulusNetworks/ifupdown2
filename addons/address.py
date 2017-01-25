@@ -6,21 +6,22 @@
 
 import os
 
-try:
-    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
-    from sets import Set
-    from ifupdown.iface import *
-    from ifupdown.utils import utils
-    from ifupdownaddons.modulebase import moduleBase
-    from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.dhclient import dhclient
-    import ifupdown.policymanager as policymanager
-    from ifupdown.netlink import netlink
-    import ifupdown.ifupdownconfig as ifupdownConfig
-    import ifupdown.ifupdownflags as ifupdownflags
-    import ifupdown.statemanager as statemanager
-except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+from ipaddr import IPNetwork, IPv4Network, IPv6Network
+from sets import Set
+
+from ifupdown.iface import *
+from ifupdown.utils import utils
+from ifupdown.netlink import netlink
+
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.dhclient import dhclient
+from ifupdownaddons.modulebase import moduleBase
+
+import ifupdown.statemanager as statemanager
+import ifupdown.policymanager as policymanager
+import ifupdown.ifupdownflags as ifupdownflags
+import ifupdown.ifupdownconfig as ifupdownConfig
+
 
 class address(moduleBase):
     """  ifupdown2 addon module to configure address, mtu, hwaddress, alias

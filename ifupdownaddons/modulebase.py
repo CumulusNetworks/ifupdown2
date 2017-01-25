@@ -6,14 +6,15 @@
 
 import os
 import re
-import io
 import logging
 import traceback
 
-from ifupdown.utils import utils
 from ifupdown.iface import *
+from ifupdown.utils import utils
+
 import ifupdown.policymanager as policymanager
 import ifupdown.ifupdownflags as ifupdownflags
+
 
 class NotSupported(Exception):
     pass

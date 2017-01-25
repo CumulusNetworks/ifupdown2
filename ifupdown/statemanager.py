@@ -6,12 +6,17 @@
 # stateManager --
 #    interface state manager
 #
-import cPickle
+
 from collections import OrderedDict
-import logging
-import exceptions
+
 import os
-from iface import *
+import cPickle
+import logging
+
+from ifupdown.iface import *
+
+import ifupdown.exceptions as exceptions
+
 
 class pickling():
     """ class with helper methods for pickling/unpickling iface objects """

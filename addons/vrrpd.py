@@ -4,21 +4,19 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    from ipaddr import IPNetwork
-    from sets import Set
-    from ifupdown.iface import *
-    from ifupdown.utils import utils
-    from ifupdownaddons.modulebase import moduleBase
-    from ifupdownaddons.iproute2 import iproute2
-    import ifupdown.ifupdownflags as ifupdownflags
-    import os
-    import glob
-    import logging
-    import signal
-    import re
-except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+import os
+import re
+import glob
+import signal
+
+from ifupdown.iface import *
+from ifupdown.utils import utils
+
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.modulebase import moduleBase
+
+import ifupdown.ifupdownflags as ifupdownflags
+
 
 class vrrpd(moduleBase):
     """  ifupdown2 addon module to configure vrrpd attributes """

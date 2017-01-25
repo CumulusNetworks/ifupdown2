@@ -9,25 +9,28 @@
 
 import os
 import re
-import imp
-import pprint
-import logging
-import sys, traceback
+import sys
 import copy
 import json
-import ifupdown.statemanager as statemanager
-import ifupdown.ifupdownconfig as ifupdownConfig
-import ifupdown.ifupdownflags as ifupdownflags
-from networkinterfaces import *
-from iface import *
-from scheduler import *
-from collections import deque
-from collections import OrderedDict
-from graph import *
-from exceptions import *
+import pprint
+import logging
+import traceback
+
 from sets import Set
+from collections import deque, OrderedDict
 
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
+
+import ifupdown.statemanager as statemanager
+import ifupdown.ifupdownflags as ifupdownflags
+import ifupdown.ifupdownconfig as ifupdownConfig
+
+from ifupdown.graph import *
+from ifupdown.iface import *
+from ifupdown.scheduler import *
+from ifupdown.exceptions import *
+from ifupdown.networkinterfaces import *
+
 
 """
 .. module:: ifupdownmain

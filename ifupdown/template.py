@@ -8,8 +8,9 @@
 #
 
 import logging
-import traceback
-from utils import *
+
+from ifupdown.utils import *
+
 
 class templateEngine():
     """ provides template rendering methods """

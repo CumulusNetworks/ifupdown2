@@ -7,14 +7,15 @@
 #    base object for various ifupdown objects
 #
 
-import logging
 import re
 import os
+import logging
 import traceback
+
 from ifupdown.netlink import netlink
 
-from iface import *
-import ifupdownflags as ifupdownflags
+import ifupdown.ifupdownflags as ifupdownflags
+
 
 class ifupdownBase(object):
 

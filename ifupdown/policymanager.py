@@ -29,8 +29,9 @@ Provides: an API to retrieve link attributes based on addon module name,
 '''
 
 import json
-import logging
 import glob
+import logging
+
 
 class policymanager():
     def __init__(self):

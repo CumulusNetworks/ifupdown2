@@ -4,9 +4,11 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.utils import utils
-from utilsbase import *
 import os
+
+from ifupdown.utils import utils
+
+from ifupdownaddons.utilsbase import *
 
 
 class dhclient(utilsBase):

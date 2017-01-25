@@ -7,21 +7,22 @@
 #    interface scheduler
 #
 
-from statemanager import *
-import ifupdown.ifupdownflags as ifupdownflags
-from iface import *
-from graph import *
-from collections import deque
-from collections import OrderedDict
+import sys
 import logging
 import traceback
-import sys
-from graph import *
-from collections import deque
-from threading import *
-from ifupdownbase import *
-from ifupdown.utils import utils
+
 from sets import Set
+from threading import *
+from collections import OrderedDict
+
+from ifupdown.iface import *
+from ifupdown.graph import *
+from ifupdown.utils import utils
+from ifupdown.statemanager import *
+from ifupdown.ifupdownbase import *
+
+import ifupdown.ifupdownflags as ifupdownflags
+
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """

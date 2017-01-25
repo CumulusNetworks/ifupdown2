@@ -5,12 +5,12 @@
 #
 
 import os
-import ifupdownaddons
 
 from ifupdown.utils import utils
-import ifupdown.ifupdownflags as ifupdownflags
+from ifupdownaddons.modulebase import moduleBase
 
-class usercmds(ifupdownaddons.modulebase.moduleBase):
+
+class usercmds(moduleBase):
     """  ifupdown2 addon module to configure user specified commands """
 
     _modinfo = {'mhelp' : 'user commands for interfaces',

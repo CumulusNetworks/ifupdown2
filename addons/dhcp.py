@@ -4,21 +4,19 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    import re
-    from ipaddr import IPNetwork
-    from sets import Set
-    from ifupdown.iface import *
-    import ifupdown.policymanager as policymanager
-    from ifupdownaddons.modulebase import moduleBase
-    from ifupdownaddons.dhclient import dhclient
-    from ifupdownaddons.iproute2 import iproute2
-    import ifupdown.ifupdownflags as ifupdownflags
-    from ifupdown.utils import utils
-    import time
-    from ifupdown.netlink import netlink
-except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+import re
+import time
+
+import ifupdown.policymanager as policymanager
+import ifupdown.ifupdownflags as ifupdownflags
+
+from ifupdown.iface import *
+from ifupdown.utils import utils
+
+from ifupdownaddons.dhclient import dhclient
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.modulebase import moduleBase
+
 
 class dhcp(moduleBase):
     """ ifupdown2 addon module to configure dhcp on interface """

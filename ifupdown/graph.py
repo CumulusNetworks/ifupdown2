@@ -7,13 +7,16 @@
 #    graph helper module for ifupdown
 #
 
-import logging
 import copy
+import logging
+
 from collections import deque
+
 try:
     from gvgen import *
 except ImportError, e:
     pass
+
 
 class graph():
     """ graph functions to sort and print interface graph """

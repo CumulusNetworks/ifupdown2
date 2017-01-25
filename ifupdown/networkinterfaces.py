@@ -7,15 +7,16 @@
 #    ifupdown network interfaces file parser
 #
 
-import collections
-import logging
-import glob
 import re
-import os
 import copy
-from utils import utils
-from iface import *
-from template import templateEngine
+import glob
+import logging
+import collections
+
+from ifupdown.iface import *
+from ifupdown.utils import utils
+from ifupdown.template import templateEngine
+
 
 whitespaces = '\n\t\r '
 

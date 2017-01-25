@@ -4,16 +4,16 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import logging
-import re
-import io
-
-from ifupdown.utils import utils
-import ifupdown.ifupdownflags as ifupdownflags
-from ifupdown.iface import *
-from cache import *
 import time
 import logging
+
+from ifupdown.iface import *
+from ifupdown.utils import utils
+
+from ifupdownaddons.cache import *
+
+import ifupdown.ifupdownflags as ifupdownflags
+
 
 def profile(func):
     def wrap(*args, **kwargs):

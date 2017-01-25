@@ -5,12 +5,13 @@
 #
 
 from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
+
 from ifupdownaddons.iproute2 import iproute2
 from ifupdownaddons.bridgeutils import brctl
-from ipaddr import IPv4Address
+from ifupdownaddons.modulebase import moduleBase
+
 import ifupdown.ifupdownflags as ifupdownflags
-import logging
+
 
 class bridgevlan(moduleBase):
     """  ifupdown2 addon module to configure vlan attributes on a vlan

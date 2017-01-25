@@ -5,13 +5,16 @@
 #
 
 import os
-import re
+
 import ifupdown.ifupdownflags as ifupdownflags
+
 from ifupdown.utils import utils
 from ifupdown.iface import *
-from utilsbase import *
-from iproute2 import *
-from cache import *
+
+from ifupdownaddons.utilsbase import *
+from ifupdownaddons.iproute2 import *
+from ifupdownaddons.cache import *
+
 
 class bondutil(utilsBase):
     """ This class contains methods to interact with linux kernel bond

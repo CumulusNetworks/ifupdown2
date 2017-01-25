@@ -7,10 +7,12 @@
 # loopback or dummy.
 
 from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
+
 from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.modulebase import moduleBase
+
 import ifupdown.ifupdownflags as ifupdownflags
-import logging
+
 
 class link(moduleBase):
     _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',

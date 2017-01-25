@@ -10,11 +10,14 @@ import shlex
 import signal
 import subprocess
 
-from ifupdown.utils import utils
 from collections import OrderedDict
-from utilsbase import *
-from systemutils import *
-from cache import *
+
+from ifupdown.utils import utils
+
+from ifupdownaddons.cache import *
+from ifupdownaddons.utilsbase import *
+from ifupdownaddons.systemutils import *
+
 import ifupdown.ifupdownflags as ifupdownflags
 
 VXLAN_UDP_PORT = 4789

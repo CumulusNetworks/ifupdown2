@@ -5,8 +5,9 @@
 #
 
 import os
-from utilsbase import *
+
 from ifupdown.utils import utils
+from ifupdownaddons.utilsbase import *
 
 class systemUtils():
     @classmethod

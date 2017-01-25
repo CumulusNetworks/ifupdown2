@@ -1,17 +1,17 @@
 #!/usr/bin/python
 
+from sets import Set
+
 from ifupdown.iface import *
 from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.systemutils import systemUtils
 from ifupdown.netlink import netlink
-from ipaddr import IPv4Address
-import ifupdown.ifupdownflags as ifupdownflags
-import logging
+
 import ifupdown.policymanager as policymanager
-import os
-from sets import Set
+
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.modulebase import moduleBase
+from ifupdownaddons.systemutils import systemUtils
+
 
 class vxlan(moduleBase):
     _modinfo = {'mhelp' : 'vxlan module configures vxlan interfaces.',
