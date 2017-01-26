@@ -9,77 +9,24 @@
 #    tool to configure network interfaces
 #
 
-# preloading all the necessary modules
-# at first will increase performances
 import os
-import io
 import re
 import sys
-import pdb
-import imp
-import sets
 import json
-import glob
-import time
-import copy
 import fcntl
 import shlex
-import errno
-import pprint
-import atexit
-import ipaddr
 import signal
 import socket
-import cPickle
-import logging
-import argparse
+import daemon
 import StringIO
 import resource
 import datetime
 import threading
-import traceback
-import itertools
-import subprocess
-import argcomplete
-import collections
 import ConfigParser
-import pkg_resources
-
-import ifupdown.argv
-import ifupdown.exceptions
-import ifupdown.graph
-import ifupdown.iface
-import ifupdown.iff
-import ifupdown.ifupdownbase
-import ifupdown.ifupdownbase
-import ifupdown.ifupdownconfig
-import ifupdown.ifupdownflags
-import ifupdown.ifupdownmain
-import ifupdown.log
-import ifupdown.netlink
-import ifupdown.networkinterfaces
-import ifupdown.policymanager
-import ifupdown.scheduler
-import ifupdown.statemanager
-import ifupdown.template
-import ifupdown.utils
-
-import ifupdownaddons.bondutil
-import ifupdownaddons.bridgeutils
-import ifupdownaddons.cache
-import ifupdownaddons.dhclient
-import ifupdownaddons.iproute2
-import ifupdownaddons.modulebase
-import ifupdownaddons.mstpctlutil
-import ifupdownaddons.systemutils
-import ifupdownaddons.utilsbase
-
-from threading import Event
 
 from ifupdown.log import log
-from ifupdown.utils import *
-from ifupdown.argv import Parse
-from ifupdown.ifupdownmain import *
+
+import ifupdown.argv
 
 
 lockfile="/run/network/.lock"
@@ -102,7 +49,8 @@ def run_up(args):
         cachearg=(False if (iflist or args.nocache or
                             args.perfmode or args.noact)
                             else True)
-        ifupdown_handle = ifupdownMain(config=configmap_g,
+        import ifupdown.ifupdownmain
+        ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
                                        force=args.force,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
@@ -135,7 +83,8 @@ def run_down(args):
     try:
         iflist = args.iflist
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdownMain(config=configmap_g, force=args.force,
+        import ifupdown.ifupdownmain
+        ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g, force=args.force,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
                                        dryrun=args.noact,
@@ -181,7 +130,8 @@ def run_query(args):
             iflist = [i for i in os.listdir('/sys/class/net/')
                         if os.path.isdir('/sys/class/net/%s' %i)]
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdownMain(config=configmap_g,
+        import ifupdown.ifupdownmain
+        ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
                                        cache=cachearg,
@@ -204,7 +154,8 @@ def run_reload(args):
 
     try:
         logger.debug('creating ifupdown object ..')
-        ifupdown_handle = ifupdownMain(config=configmap_g,
+        import ifupdown.ifupdownmain
+        ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
                                        interfacesfile=interfacesfilename,
                                        withdepends=args.withdepends,
                                        perfmode=args.perfmode,
@@ -242,13 +193,6 @@ def init(argv, args):
         interfacesfilename = configmap_g.get('default_interfaces_configfile',
                                              '/etc/network/interfaces')
 
-
-
-
-def deinit():
-    {}
-
-
 handlers = {'up' : run_up,
             'down' : run_down,
             'query' : run_query,
@@ -285,11 +229,10 @@ def read_config(args):
         # reset link_master_slave if delay_admin_state_change is on
         configmap_g['link_master_slave'] = '0'
 
-
 def main(argv):
     """ main function """
     try:
-        args_parse = Parse(argv)
+        args_parse = ifupdown.argv.Parse(argv)
         args_parse.validate()
 
         args = args_parse.get_args()
@@ -308,10 +251,9 @@ def main(argv):
         read_config(args)
         init(argv, args)
         handlers.get(op)(args)
-    except ArgvParseError as e:
+    except ifupdown.argv.ArgvParseError as e:
         e.log_error()
     except Exception, e:
-        log.info(e) # to remove
         if not str(e):
             return 1
         if args and args.debug:
@@ -324,12 +266,10 @@ def main(argv):
             #if args and not args.debug:
             #    print '\nrerun the command with \'-d\' for a detailed errormsg'
         return 1
-    finally:
-        deinit()
     return 0
 
 class Daemon:
-    shutdown_event = Event()
+    shutdown_event = threading.Event()
 
     def __init__(self, argv):
         self.uds = None
@@ -345,9 +285,7 @@ class Daemon:
             log.info('removing uds %s' % self.server_address)
             os.remove(self.server_address)
 
-        from daemon import DaemonContext
-
-        self.context = DaemonContext(
+        self.context = daemon.DaemonContext(
             working_directory=self.working_directory,
             signal_map={
                 signal.SIGTERM: Daemon.signal_handler,
@@ -371,8 +309,11 @@ class Daemon:
         log.info('daemonizing ifupdown2d...')
         self.context.open()
 
-        log.info('creating UNIX socket %s...' % self.server_address)
+        log.info('preloading all necessary modules')
+        self.preload_imports()
+
         try:
+            log.info('opening UNIX socket')
             self.uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             fcntl.fcntl(self.uds.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
         except Exception as e:
@@ -396,6 +337,63 @@ class Daemon:
             self.context.close()
         if self.uds:
             self.uds.close()
+
+    def preload_imports(self):
+        """
+            preloading all the necessary modules
+            at first will increase performances
+        """
+        import io
+        import pdb
+        import imp
+        import sets
+        import json
+        import glob
+        import time
+        import copy
+        import errno
+        import pprint
+        import atexit
+        import ipaddr
+        import cPickle
+        import logging
+        import argparse
+        import StringIO
+        import datetime
+        import traceback
+        import itertools
+        import subprocess
+        import argcomplete
+        import collections
+        import ConfigParser
+        import pkg_resources
+
+        import ifupdown.exceptions
+        import ifupdown.graph
+        import ifupdown.iface
+        import ifupdown.iff
+        import ifupdown.ifupdownbase
+        import ifupdown.ifupdownbase
+        import ifupdown.ifupdownconfig
+        import ifupdown.ifupdownflags
+        import ifupdown.ifupdownmain
+        import ifupdown.netlink
+        import ifupdown.networkinterfaces
+        import ifupdown.policymanager
+        import ifupdown.scheduler
+        import ifupdown.statemanager
+        import ifupdown.template
+        import ifupdown.utils
+
+        import ifupdownaddons.bondutil
+        import ifupdownaddons.bridgeutils
+        import ifupdownaddons.cache
+        import ifupdownaddons.dhclient
+        import ifupdownaddons.iproute2
+        import ifupdownaddons.modulebase
+        import ifupdownaddons.mstpctlutil
+        import ifupdownaddons.systemutils
+        import ifupdownaddons.utilsbase
 
     @staticmethod
     def signal_handler(sig, frame):
@@ -435,6 +433,7 @@ class Daemon:
                 except socket.error as e:
                     self.sigint_set_shutdown(e)
                     break
+
                 pid = os.fork()
                 if pid == 0:
                     fcntl.fcntl(connection.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
@@ -448,6 +447,7 @@ class Daemon:
                 else:
                     connection.close()
                     os.waitpid(pid, 0)
+
         except Exception as e:
             log.error(e)
         self.uds.close()
@@ -473,10 +473,10 @@ class Daemon:
             result['stdout'] = log.get_stdout_buffer()
             result['stderr'] = log.get_stderr_buffer()
 
-        connection.sendall(json.dumps(result))
-
         log.flush()
         log.update_logger(args=None, verbose=True, syslog=True)
+
+        connection.sendall(json.dumps(result))
 
         delta = end - start
         log.info('exit status %d - in %ssecs' % (code, delta.total_seconds()))

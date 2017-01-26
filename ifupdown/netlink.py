@@ -20,6 +20,7 @@ class Netlink(utilsBase):
             from nlmanager.nlmanager import NetlinkManager
             # this should force the use of the local nlmanager
             self._nlmanager_api = NetlinkManager(extra_debug=False)
+            self._nlmanager_api.tx_socket_allocate()
         except Exception as e:
             self.logger.error('cannot initialize ifupdown2\'s '
                               'netlink manager: %s' % str(e))
