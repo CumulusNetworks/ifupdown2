@@ -35,6 +35,7 @@ import logging
 import argparse
 import StringIO
 import resource
+import datetime
 import threading
 import traceback
 import itertools
@@ -454,11 +455,14 @@ class Daemon:
     def request(self, connection, data):
         argv = shlex.split(data)
         log.info('request: %s' % argv)
+
+        start = datetime.datetime.now()
         try:
             code = main(argv)
         except Exception as e:
             log.error(str(e))
             code = 1
+        end = datetime.datetime.now()
 
         result = {
             'code': code,
@@ -470,10 +474,15 @@ class Daemon:
             result['stderr'] = log.get_stderr_buffer()
 
         connection.sendall(json.dumps(result))
+
         log.flush()
         log.update_logger(args=None, verbose=True, syslog=True)
+
+        delta = end - start
+        log.info('exit status %d - in %ssecs' % (code, delta.total_seconds()))
+
         connection.close()
-        log.info('closing socket')
+        log.debug('closing socket')
         return code
 
 
