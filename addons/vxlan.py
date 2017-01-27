@@ -76,6 +76,16 @@ class vxlan(moduleBase):
             return True
         return False
 
+    def _get_purge_remotes(self, ifaceobj):
+        if not ifaceobj:
+            return self._purge_remotes
+        purge_remotes = ifaceobj.get_attr_value_first('vxlan-purge-remotes')
+        if purge_remotes:
+            purge_remotes = utils.get_boolean_from_string(purge_remotes)
+        else:
+            purge_remotes = self._purge_remotes
+        return purge_remotes
+
     def _vxlan_create(self, ifaceobj):
         vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
         if vxlanid:
@@ -84,11 +94,7 @@ class vxlan(moduleBase):
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
-            purge_remotes = ifaceobj.get_attr_value_first('vxlan-purge-remotes')
-            if purge_remotes:
-                purge_remotes = utils.get_boolean_from_string(purge_remotes)
-            else:
-                purge_remotes = self._purge_remotes
+            purge_remotes = self._get_purge_remotes(ifaceobj)
             
             if self.ipcmd.link_exists(ifaceobj.name):
                 vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
@@ -195,8 +201,12 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value_first('vxlan-svcnodeip'),
                        vxlanattrs.get('svcnode'))
 
-        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-            # vxlan-remoteip config is allowed only if vxrd is not running
+        purge_remotes = self._get_purge_remotes(ifaceobj)
+        if purge_remotes or ifaceobj.get_attr_value('vxlan-remoteip'):
+            # If purge remotes or if vxlan-remoteip's are set
+            # in the config file, we are owners of the installed
+            # remote-ip's, lets check and report any remote ips we don't
+            # understand
             self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
                            ifaceobj.get_attr_value('vxlan-remoteip'),
                            vxlanattrs.get('remote', []))
@@ -239,8 +249,10 @@ class vxlan(moduleBase):
         attrval = vxlanattrs.get('svcnode')
         if attrval:
             ifaceobjrunning.update_config('vxlan-svcnode', attrval)
-        if not systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-            # vxlan-remoteip config is allowed only if vxrd is not running
+        purge_remotes = self._get_purge_remotes(None)
+        if purge_remotes:
+            # if purge_remotes is on, it means we own the
+            # remote ips. Query them and add it to the running config
             attrval = vxlanattrs.get('remote')
             if attrval:
                 [ifaceobjrunning.update_config('vxlan-remoteip', a)
