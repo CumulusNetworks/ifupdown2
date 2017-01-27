@@ -170,22 +170,21 @@ def run_reload(args):
     except:
         raise
 
-def init(argv, args):
+def init(data_json, args):
     global interfacesfileiobuf
     global interfacesfilename
 
-    if hasattr(argv, 'interfacesfile') and args.interfacesfile != None:
+    if hasattr(args, 'interfacesfile') and args.interfacesfile != None:
         # Check to see if -i option is allowed by config file
         # But for ifquery, we will not check this
-        if (not args[0].endswith('ifquery') and
+        if (not data_json['argv'][0].endswith('ifquery') and
                 configmap_g.get('disable_cli_interfacesfile','0') == '1'):
             logger.error('disable_cli_interfacesfile is set so users '
                          'not allowed to specify interfaces file on cli.')
             raise Exception("")
         if args.interfacesfile == '-':
             # If interfaces file is stdin, read
-            raise NotImplementedError()
-            interfacesfileiobuf = sys.stdin.read()
+            interfacesfileiobuf = data_json['stdin']
         else:
             interfacesfilename = args.interfacesfile
     else:
@@ -217,7 +216,6 @@ def read_config(args):
         # module can catch it appropriately
         configmap_g['no_repeats'] = {'bridge-vlan-aware' : 'yes'}
 
-
     configval = configmap_g.get('link_master_slave', '0')
     if configval == '1':
         # link_master_slave is only valid when all is set
@@ -229,10 +227,10 @@ def read_config(args):
         # reset link_master_slave if delay_admin_state_change is on
         configmap_g['link_master_slave'] = '0'
 
-def main(argv):
+def main(data_json):
     """ main function """
     try:
-        args_parse = ifupdown.argv.Parse(argv)
+        args_parse = ifupdown.argv.Parse(data_json['argv'])
         args_parse.validate()
 
         args = args_parse.get_args()
@@ -249,20 +247,20 @@ def main(argv):
         #    exit(0)
 
         read_config(args)
-        init(argv, args)
+        init(data_json, args)
         handlers.get(op)(args)
     except ifupdown.argv.ArgvParseError as e:
         e.log_error()
     except Exception, e:
         if not str(e):
             return 1
-        if args and args.debug:
+        #if args and args.debug:
             raise
+        #else:
+        if log:
+            log.error(str(e))
         else:
-            if logger:
-                logger.error(str(e))
-            else:
-                print str(e)
+            print str(e)
             #if args and not args.debug:
             #    print '\nrerun the command with \'-d\' for a detailed errormsg'
         return 1
@@ -453,12 +451,12 @@ class Daemon:
         self.uds.close()
 
     def request(self, connection, data):
-        argv = shlex.split(data)
-        log.info('request: %s' % argv)
+        data_json = json.loads(data)
+        log.info('request: %s' % data_json['argv'])
 
         start = datetime.datetime.now()
         try:
-            code = main(argv)
+            code = main(data_json)
         except Exception as e:
             log.error(str(e))
             code = 1

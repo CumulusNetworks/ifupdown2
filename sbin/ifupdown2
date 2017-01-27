@@ -12,6 +12,7 @@ import socket
 
 class Ifupdown2Client:
     def __init__(self, argv):
+        self.stdin = None
         self.argv = argv
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
@@ -37,7 +38,19 @@ class Ifupdown2Client:
     def run(self):
         code = 1
         if self.socket:
-            self.socket.send(' '.join(self.argv))
+
+            for arg in ['-i', '--interfaces']:
+                try:
+                    if self.argv[self.argv.index(arg) + 1] == '-':
+                        self.stdin = sys.stdin.read()
+                        continue
+                except ValueError, IndexError:
+                    pass
+
+            self.socket.send(json.dumps({
+                'argv': self.argv,
+                'stdin': self.stdin
+            }))
 
             total_data = []
 
