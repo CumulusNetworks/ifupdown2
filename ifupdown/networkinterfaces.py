@@ -27,8 +27,8 @@ class networkInterfaces():
     callbacks = {}
     auto_all = False
 
-    _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6'],
-                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
+    _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel'],
+                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel']}
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
