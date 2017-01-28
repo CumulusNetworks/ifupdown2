@@ -103,6 +103,24 @@ class iproute2(utilsBase):
                         linkattrs['state'] = citems[i + 1]
                     elif citems[i] == 'link/ether':
                         linkattrs['hwaddress'] = citems[i + 1]
+                    elif citems[i] in [ 'link/gre', 'link/sit' ]:
+                        linkattrs['kind'] = 'tunnel'
+                        tunattrs = {'mode' : citems[i].split ('/')[1],
+                                    'endpoint' : None,
+                                    'local' : None,
+                                    'ttl' : None,
+                                    'physdev' : None}
+                        for j in range(i + 2, len(citems)):
+                            if citems[j] == 'local':
+                                tunattrs['local'] = citems[j + 1]
+                            elif citems[j] == 'remote':
+                                tunattrs['endpoint'] = citems[j + 1]
+                            elif citems[j] == 'ttl':
+                                tunattrs['ttl'] = citems[j + 1]
+                            elif citems[j] == 'dev':
+                                tunattrs['physdev'] = citems[j + 1]
+                        linkattrs['linkinfo'] = tunattrs
+                        break
                     elif citems[i] == 'vlan':
                         vlanid = self._get_vland_id(citems, i, warn)
                         if vlanid:
