@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20170114-1~bpo8+1) jessie-backports; urgency=medium
+
+  * Rebuild for jessie-backports.
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Sat, 28 Jan 2017 09:52:33 +0100
+
 ifupdown2 (1.0~git20170114-1) unstable; urgency=medium
 
   * closes: #843848 diversion handling broken
