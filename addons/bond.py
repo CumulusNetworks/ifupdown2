@@ -105,7 +105,16 @@ class bond(moduleBase):
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
                                       'bond-slaves regex (swp[1|2)'],
-                         'aliases': ['bond-ports']}}}
+                         'aliases': ['bond-ports']},
+                     'bond-updelay' :
+                        {'help' : 'bond updelay',
+                         'default' : '0',
+                         'example' : ['bond-updelay 100']},
+                     'bond-downdelay':
+                        {'help' : 'bond downdelay',
+                         'default' : '0',
+                         'example' : ['bond-downdelay 100']}
+                    }}
 
     _bond_mode_num = {'0': 'balance-rr',
                       '1': 'active-backup',
@@ -231,7 +240,9 @@ class bond(moduleBase):
                                  ('bond-ad-actor-system' , 'ad_actor_system'),
                                  ('bond-ad-sys-priority' , 'ad_actor_sys_prio'),
                                  ('bond-ad-actor-sys-prio' , 'ad_actor_sys_prio'),
-                                 ('bond-lacp-bypass-allow', 'lacp_bypass')])
+                                 ('bond-lacp-bypass-allow', 'lacp_bypass'),
+                                 ('bond-updelay', 'updelay'),
+                                 ('bond-downdelay', 'downdelay')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
@@ -408,7 +419,11 @@ class bond(moduleBase):
                      'bond-num-unsol-na' :
                             self.bondcmd.get_num_unsol_na(bondname),
                      'bond-num-grat-arp' :
-                            self.bondcmd.get_num_grat_arp(bondname)}
+                            self.bondcmd.get_num_grat_arp(bondname),
+                     'bond-updelay' :
+                            self.bondcmd.get_updelay(bondname),
+                     'bond-downdelay' :
+                            self.bondcmd.get_downdelay(bondname)}
         slaves = self.bondcmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves
