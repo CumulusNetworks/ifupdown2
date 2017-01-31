@@ -26,6 +26,9 @@ from ifupdown.log import log
 
 import ifupdown.argv
 
+_SIGINT = signal.getsignal(signal.SIGINT)
+_SIGTERM = signal.getsignal(signal.SIGTERM)
+_SIGQUIT = signal.getsignal(signal.SIGQUIT)
 
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
 configmap_g=None
@@ -285,9 +288,10 @@ class Daemon:
         self.context = daemon.DaemonContext(
             working_directory=self.working_directory,
             signal_map={
-                signal.SIGTERM: Daemon.signal_handler,
-                signal.SIGINT: Daemon.signal_handler,
-            },
+                signal.SIGINT: self.signal_handler,
+                signal.SIGTERM: self.signal_handler,
+                signal.SIGQUIT: self.signal_handler,
+            }
         )
 
         try:
@@ -408,16 +412,6 @@ class Daemon:
     def user_waiting_for_reply(self):
         return not log.syslog_mode()
 
-    def sigint_set_shutdown(self, e):
-        # 4 is 'Interrupted system call', this means the accept caught the SIGINT
-        if isinstance(e.args, tuple):
-            if e[0] == 4:
-                log.info("socket.accept() caught signal, starting shutdown")
-            else:
-                raise e
-        else:
-            raise e
-
     def run(self):
         try:
             while True:
@@ -428,23 +422,31 @@ class Daemon:
                 try:
                     (connection, client_address) = self.uds.accept()
                 except socket.error as e:
-                    self.sigint_set_shutdown(e)
+                    log.error(str(e))
                     break
+
+                data = connection.recv(65536)
 
                 pid = os.fork()
                 if pid == 0:
+                    signal.signal(signal.SIGINT, _SIGINT)
+                    signal.signal(signal.SIGTERM, _SIGTERM)
+                    signal.signal(signal.SIGQUIT, _SIGQUIT)
                     fcntl.fcntl(connection.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
                     try:
-                        self.reset()
-                        code = self.request(connection, connection.recv(4096))
+                        status = self.request(connection, data)
                     except Exception as e:
                         log.error(e)
-                        code = 1
-                    exit(code)
+                        status = 1
+                    exit(status)
                 else:
-                    connection.close()
-                    os.waitpid(pid, 0)
+                    connection.sendall(json.dumps({'pid': pid}))
 
+                    status = os.WEXITSTATUS(os.waitpid(pid, 0)[1])
+                    connection.sendall(json.dumps({'status': status}))
+                    connection.close()
+
+                    log.info('closing client socket (status %d)' % status)
         except Exception as e:
             log.error(e)
         self.uds.close()
@@ -452,6 +454,8 @@ class Daemon:
     def request(self, connection, data):
         data_json = json.loads(data)
         log.info('request: %s' % data_json['argv'])
+
+        self.reset()
 
         start = datetime.datetime.now()
         try:
@@ -462,7 +466,6 @@ class Daemon:
         end = datetime.datetime.now()
 
         result = {
-            'code': code,
             'stdout': '',
             'stderr': '',
         }

@@ -5,19 +5,40 @@
 #
 #
 
+import os
+import re
 import sys
 import json
+import errno
+import select
 import socket
+import signal
+
+
+class Ifupdown2Complete(Exception):
+    pass
 
 
 class Ifupdown2Client:
     def __init__(self, argv):
+
         self.stdin = None
         self.argv = argv
-        self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.fields = {
+            'status': None,
+            'pid': None,
+            'stdout': None,
+            'stderr': None
+        }
 
+        self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             self.socket.connect('/var/run/ifupdown2d/uds')
+
+            signal.signal(signal.SIGINT, self.signal_handler)
+            signal.signal(signal.SIGTERM, self.signal_handler)
+            signal.signal(signal.SIGQUIT, self.signal_handler)
+
         except socket.error:
             self.socket.close()
             self.socket = None
@@ -35,16 +56,38 @@ class Ifupdown2Client:
         if self.socket:
             self.socket.close()
 
-    def run(self):
-        code = 1
-        if self.socket:
+    def signal_handler(self, sig, frame):
+        if self.fields['pid']:
+            os.kill(self.fields['pid'], sig)
 
+    def parse_raw_data(self, raw_data):
+        if raw_data:
+            data = json.loads(raw_data)
+            for f in self.fields:
+                if f in data:
+                    self.fields[f] = data[f]
+        else:
+            raise Ifupdown2Complete()
+
+    def process_data(self):
+        if self.fields['stdout']:
+            sys.stdout.write(self.fields['stdout'])
+        if self.fields['stderr']:
+            sys.stderr.write(self.fields['stderr'])
+        if self.fields['status'] != None:
+            raise Ifupdown2Complete()
+
+        self.fields['stderr'] = None
+        self.fields['stdout'] = None
+
+    def run(self):
+        if self.socket:
             for arg in ['-i', '--interfaces']:
                 try:
                     if self.argv[self.argv.index(arg) + 1] == '-':
                         self.stdin = sys.stdin.read()
                         continue
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
 
             self.socket.send(json.dumps({
@@ -52,29 +95,27 @@ class Ifupdown2Client:
                 'stdin': self.stdin
             }))
 
-            total_data = []
-
-            while True:
-                data = self.socket.recv(4096)
-                if data:
-                    total_data.append(data)
-                else:
-                    break
-            self.socket.close()
-            result = json.loads(''.join(total_data)) if total_data else None
-            if result:
-                try:
-                    code = result["code"]
-                    stdout = '\n'.join(result["stdout"].split('\\n'))
-                    stderr = '\n'.join(result["stderr"].split('\\n'))
-
-                    sys.stderr.write(stderr)
-                    sys.stdout.write(stdout)
-                except Exception as e:
-                    sys.stderr.write(str(e))
-            return code
-        else:
-            return code
+            try:
+                while True:
+                    try:
+                        ready = select.select([self.socket], [], [])
+                        if ready and ready[0] and ready[0][0] == self.socket:
+                            self.parse_raw_data(self.socket.recv(65536))
+                            self.process_data()
+                    except Ifupdown2Complete:
+                        break
+                    except Exception as e:
+                        if ((isinstance(e.args, tuple) and e[0] == 4)
+                                or (hasattr(e, 'errno') and e.errno == errno.EINTR)):
+                            pass
+                        else:
+                            raise
+            except Exception as e:
+                sys.stderr.write(str(e))
+            finally:
+                self.socket.close()
+        status = self.fields['status']
+        return status if status != None else 1
 
 
 if __name__ == '__main__':
