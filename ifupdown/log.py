@@ -56,6 +56,8 @@ class Log:
         if not args and verbose:
             return logging.INFO
         log_level = logging.WARNING
+        if not args:
+            return log_level
         if args.debug:
             log_level = logging.DEBUG
         elif args.verbose:
@@ -64,7 +66,7 @@ class Log:
 
     @staticmethod
     def request_syslog(args, syslog):
-        return args.syslog if hasattr(args, 'syslog') else syslog
+        return args.syslog if args and hasattr(args, 'syslog') else syslog
 
     def update_logger(self, args=None, verbose=True, syslog=False):
         """

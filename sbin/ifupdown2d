@@ -33,7 +33,6 @@ _SIGTERM = signal.getsignal(signal.SIGTERM)
 _SIGQUIT = signal.getsignal(signal.SIGQUIT)
 
 configmap_g = None
-logger = log
 
 
 class Ifupdown2:
@@ -79,8 +78,6 @@ class Ifupdown2:
             self.read_config()
             self.init(request)
             self.handlers.get(self.op)(self.args)
-        except ifupdown.argv.ArgvParseError as e:
-            e.log_error()
         except Exception, e:
             if not str(e):
                 return 1
@@ -102,8 +99,8 @@ class Ifupdown2:
             # But for ifquery, we will not check this
             if (not self.op == 'query' and
                         configmap_g.get('disable_cli_interfacesfile', '0') == '1'):
-                logger.error('disable_cli_interfacesfile is set so users '
-                             'not allowed to specify interfaces file on cli.')
+                log.error('disable_cli_interfacesfile is set so users '
+                          'not allowed to specify interfaces file on cli.')
                 raise Exception("")
             if self.args.interfacesfile == '-':
                 # If interfaces file is stdin, read
@@ -146,13 +143,13 @@ class Ifupdown2:
             configmap_g['link_master_slave'] = '0'
 
     def run_up(self, args):
-        logger.debug('args = %s' % str(args))
+        log.debug('args = %s' % str(args))
 
         try:
             iflist = args.iflist
             if len(args.iflist) == 0:
                 iflist = None
-            logger.debug('creating ifupdown object ..')
+            log.debug('creating ifupdown object ..')
             cachearg = (False if (iflist or args.nocache or
                                   args.perfmode or args.noact)
                         else True)
@@ -185,11 +182,11 @@ class Ifupdown2:
             raise
 
     def run_down(self, args):
-        logger.debug('args = %s' % str(args))
+        log.debug('args = %s' % str(args))
 
         try:
             iflist = args.iflist
-            logger.debug('creating ifupdown object ..')
+            log.debug('creating ifupdown object ..')
             import ifupdown.ifupdownmain
             ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g, force=args.force,
                                                                  withdepends=args.withdepends,
@@ -211,7 +208,7 @@ class Ifupdown2:
             raise
 
     def run_query(self, args):
-        logger.debug('args = %s' % str(args))
+        log.debug('args = %s' % str(args))
 
         try:
             iflist = args.iflist
@@ -236,7 +233,7 @@ class Ifupdown2:
             if not iflist and qop == 'query-running':
                 iflist = [i for i in os.listdir('/sys/class/net/')
                           if os.path.isdir('/sys/class/net/%s' % i)]
-            logger.debug('creating ifupdown object ..')
+            log.debug('creating ifupdown object ..')
             import ifupdown.ifupdownmain
             ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
                                                                  withdepends=args.withdepends,
@@ -257,10 +254,10 @@ class Ifupdown2:
             raise
 
     def run_reload(self, args):
-        logger.debug('args = %s' % str(args))
+        log.debug('args = %s' % str(args))
 
         try:
-            logger.debug('creating ifupdown object ..')
+            log.debug('creating ifupdown object ..')
             import ifupdown.ifupdownmain
             ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
                                                                  interfacesfile=self.interfaces_filename,
@@ -432,11 +429,17 @@ class Daemon:
                     exit(self.ifupdown2(client_socket))
                 else:
                     client_socket.sendall(json.dumps({'pid': pid}))
+
+                    start = datetime.datetime.now()
                     status = os.WEXITSTATUS(os.waitpid(pid, 0)[1])
+                    end = datetime.datetime.now()
+
                     client_socket.sendall(json.dumps({'status': status}))
                     client_socket.close()
 
-                    log.info('closing client socket (status %d)' % status)
+                    log.info('exit status %d - in %ssecs'
+                             % (status, (start - end).total_seconds()))
+
         except Exception as e:
             log.error(e)
         self.uds.close()
@@ -487,38 +490,40 @@ class Daemon:
             log.info('request: %s' % request['argv'])
 
             ifupdown2.parse_argv(request['argv'])
+            # adjust the logger with argv
             ifupdown2.update_logger()
 
-            start = datetime.datetime.now()
             try:
                 status = ifupdown2.main(request)
             except Exception as e:
                 log.error(str(e))
                 status = 1
-            end = datetime.datetime.now()
 
-            result = {
-                'stdout': '',
-                'stderr': '',
-            }
-            if self.user_waiting_for_reply():
-                result['stdout'] = log.get_stdout_buffer()
-                result['stderr'] = log.get_stderr_buffer()
-
-            log.flush()
-            log.update_logger(args=None, verbose=True, syslog=True)
-
-            client_socket.sendall(json.dumps(result))
-
-            delta = end - start
-            log.info('exit status %d - in %ssecs' % (status, delta.total_seconds()))
-
-            client_socket.close()
-            return status
-
+        except ifupdown.argv.ArgvParseError as e:
+            log.update_logger(args=None, verbose=False, syslog=False)
+            e.log_error()
+            status = 1
         except Exception as e:
             log.error(e)
             status = 1
+
+        user_waiting_for_reply = self.user_waiting_for_reply()
+
+        results = {
+            'stdout': log.get_stdout_buffer(),
+            'stderr': log.get_stderr_buffer(),
+        }
+
+        log.flush()
+        log.update_logger(args=None, verbose=True, syslog=True)
+
+        if user_waiting_for_reply:
+            try:
+                client_socket.sendall(json.dumps(results))
+                client_socket.close()
+            except Exception as e:
+                log.error(str(e))
+
         return status
 
 
