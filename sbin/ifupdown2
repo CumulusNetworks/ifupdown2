@@ -39,6 +39,23 @@ class Ifupdown2Client:
             signal.signal(signal.SIGTERM, self.signal_handler)
             signal.signal(signal.SIGQUIT, self.signal_handler)
 
+            try:
+                self.SO_PEERCRED = socket.SO_PEERCRED
+            except AttributeError:
+                # powerpc is the only non-generic we care about. alpha, mips,
+                # sparc, and parisc also have non-generic values.
+                machine = os.uname()[4]
+                if re.search(r'^(ppc|powerpc)', machine):
+                    self.SO_PASSCRED = 20
+                    self.SO_PEERCRED = 21
+                else:
+                    self.SO_PASSCRED = 16
+                    self.SO_PEERCRED = 17
+            try:
+                self.socket.setsockopt(socket.SOL_SOCKET, self.SO_PASSCRED, 1)
+            except Exception as e:
+                raise Exception('setsockopt: %s' % str(e))
+
         except socket.error:
             self.socket.close()
             self.socket = None
