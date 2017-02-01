@@ -346,7 +346,8 @@ class Daemon:
         if self.uds:
             self.uds.close()
 
-    def preload_imports(self):
+    @staticmethod
+    def preload_imports():
         """
             preloading all the necessary modules
             at first will increase performances
@@ -408,7 +409,8 @@ class Daemon:
         log.info('received %s' % 'SIGINT' if sig == signal.SIGINT else 'SIGTERM')
         Daemon.shutdown_event.set()
 
-    def user_waiting_for_reply(self):
+    @staticmethod
+    def user_waiting_for_reply():
         return not log.syslog_mode()
 
     def run(self):
@@ -450,7 +452,8 @@ class Daemon:
         log.debug('client uid %d' % uid)
         return uid
 
-    def get_client_request(self, client_socket):
+    @staticmethod
+    def get_client_request(client_socket):
         """
             This function handles requests of any length.
 
