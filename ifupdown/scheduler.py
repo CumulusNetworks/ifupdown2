@@ -43,6 +43,11 @@ class ifaceScheduler():
     _SCHED_STATUS = True
 
     @classmethod
+    def reset(cls):
+        cls._STATE_CHECK = True
+        cls._SCHED_STATUS = True
+
+    @classmethod
     def get_sched_status(cls):
         return cls._SCHED_STATUS
 
