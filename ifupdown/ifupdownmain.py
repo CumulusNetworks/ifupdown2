@@ -21,6 +21,8 @@ from collections import deque, OrderedDict
 
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
 
+import ifupdown.policymanager
+
 import ifupdown.statemanager as statemanager
 import ifupdown.ifupdownflags as ifupdownflags
 import ifupdown.ifupdownconfig as ifupdownConfig
@@ -143,6 +145,11 @@ class ifupdownMain(ifupdownBase):
     # ifupdown object interface scheduler pre and posthooks
     sched_hooks = {'posthook' : run_sched_ifaceobj_posthook}
 
+    def reset_ifupdown2(self):
+        ifaceScheduler.reset()
+        ifupdown.policymanager.reset()
+        ifupdown.statemanager.reset()
+
     def __init__(self, config={},
                  force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
@@ -163,6 +170,8 @@ class ifupdownMain(ifupdownBase):
 
         Raises:
             AttributeError, KeyError """
+
+        self.reset_ifupdown2()
 
         # iface dictionary in the below format:
         # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
