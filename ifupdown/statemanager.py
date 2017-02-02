@@ -190,4 +190,8 @@ class stateManager():
             for ifacename, ifaceobjs in self.ifaceobjdict.items():
                 [i.dump(self.logger) for i in ifaceobjs]
 
-statemanager_api = stateManager()
+statemanager_api = None
+
+def reset():
+    global statemanager_api
+    statemanager_api = stateManager()
