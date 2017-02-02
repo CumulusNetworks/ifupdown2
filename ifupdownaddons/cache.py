@@ -30,8 +30,6 @@ class linkCache():
     """ This class contains methods and instance variables to cache
     link info """
 
-    _shared_state = {}
-
     """ { <ifacename> : { 'ifindex': <index>,
                           'mtu': <mtu>,
                           'state' : <state>',
@@ -97,6 +95,11 @@ class linkCache():
     @classmethod
     def invalidate(cls):
         cls.links = {}
+
+    @classmethod
+    def reset(cls):
+        cls.invalidate()
+        cls.vrfs = {}
 
     @classmethod
     def dump(cls):

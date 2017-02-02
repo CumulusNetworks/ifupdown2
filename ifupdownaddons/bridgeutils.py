@@ -29,6 +29,9 @@ class brctl(utilsBase):
             brctl._cache_fill_done = True
         self.supported_command = {'showmcqv4src': True}
 
+    @classmethod
+    def reset(cls):
+        cls._cache_fill_done = False
 
     def _bridge_get_mcattrs_from_sysfs(self, bridgename):
         mcattrs = {}

@@ -39,6 +39,13 @@ class iproute2(utilsBase):
             '/sbin/bridge -c -json vlan show': True
         }
 
+    @classmethod
+    def reset(cls):
+        cls._cache_fill_done = False
+        cls.ipbatchbuf = ''
+        cls.ipbatch = False
+        cls.ipbatch_pause = False
+
     def _fill_cache(self):
         if not iproute2._cache_fill_done:
             self._link_fill()

@@ -55,6 +55,10 @@ class mstpctlutil(utilsBase):
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
 
+    @classmethod
+    def reset(cls):
+        cls._cache_fill_done = False
+
     def is_mstpd_running(self):
         try:
             utils.exec_command('/bin/pidof mstpd')

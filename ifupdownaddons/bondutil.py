@@ -28,6 +28,10 @@ class bondutil(utilsBase):
             self._bond_linkinfo_fill_all()
             self._cache_fill_done = True
 
+    @classmethod
+    def reset(cls):
+        cls._cache_fill_done = False
+
     def _bond_linkinfo_fill_attrs(self, bondname):
         try:
             linkCache.links[bondname]['linkinfo'] = {}

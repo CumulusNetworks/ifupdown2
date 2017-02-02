@@ -23,6 +23,12 @@ from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, 
 
 import ifupdown.policymanager
 
+import ifupdownaddons.cache
+import ifupdownaddons.bondutil
+import ifupdownaddons.iproute2
+import ifupdownaddons.bridgeutils
+import ifupdownaddons.mstpctlutil
+
 import ifupdown.statemanager as statemanager
 import ifupdown.ifupdownflags as ifupdownflags
 import ifupdown.ifupdownconfig as ifupdownConfig
@@ -147,8 +153,16 @@ class ifupdownMain(ifupdownBase):
 
     def reset_ifupdown2(self):
         ifaceScheduler.reset()
-        ifupdown.policymanager.reset()
         ifupdown.statemanager.reset()
+        ifupdown.policymanager.reset()
+
+        ifupdownaddons.bondutil.bondutil.reset()
+        ifupdownaddons.iproute2.iproute2.reset()
+        ifupdownaddons.bridgeutils.brctl.reset()
+        ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+
+        ifupdownaddons.cache.linkCache.reset()
+        ifupdownaddons.cache.MSTPAttrsCache.invalidate()
 
     def __init__(self, config={},
                  force=False, dryrun=False, nowait=False,
