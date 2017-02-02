@@ -70,45 +70,6 @@ class ifupdownMain(ifupdownBase):
     addon_modules_dir='/usr/share/ifupdown2/addons'
     addon_modules_configfile='/etc/network/ifupdown2/addons.conf'
 
-    # iface dictionary in the below format:
-    # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
-    # eg:
-    # { 'swp1' : [<iface swp1>, <iface swp2> ..] }
-    #
-    # Each ifaceobject corresponds to a configuration block for
-    # that interface
-    # The value in the dictionary is a list because the network
-    # interface configuration file supports more than one iface section
-    # in the interfaces file
-    ifaceobjdict = OrderedDict()
-
-    # iface dictionary representing the curr running state of an iface
-    # in the below format:
-    # {'<ifacename>' : <ifaceobject>}
-    ifaceobjcurrdict = OrderedDict()
-
-    # Dictionary representing operation and modules
-    # for every operation
-    module_ops = OrderedDict([('pre-up', []),
-                              ('up' , []),
-                              ('post-up' , []),
-                              ('query-checkcurr', []),
-                              ('query-running', []),
-                              ('query-dependency', []),
-                              ('query', []),
-                              ('query-raw', []),
-                              ('pre-down', []),
-                              ('down' , []),
-                              ('post-down' , [])])
-
-    # For old style /etc/network/ bash scripts
-    script_ops = OrderedDict([('pre-up', []),
-                                    ('up' , []),
-                                    ('post-up' , []),
-                                    ('pre-down', []),
-                                    ('down' , []),
-                                    ('post-down' , [])])
-
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
         # Skip link sets on ifaceobjs of type 'vlan' (used for l2 attrs).
@@ -202,6 +163,46 @@ class ifupdownMain(ifupdownBase):
 
         Raises:
             AttributeError, KeyError """
+
+        # iface dictionary in the below format:
+        # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
+        # eg:
+        # { 'swp1' : [<iface swp1>, <iface swp2> ..] }
+        #
+        # Each ifaceobject corresponds to a configuration block for
+        # that interface
+        # The value in the dictionary is a list because the network
+        # interface configuration file supports more than one iface section
+        # in the interfaces file
+        self.ifaceobjdict = OrderedDict()
+
+        # iface dictionary representing the curr running state of an iface
+        # in the below format:
+        # {'<ifacename>' : <ifaceobject>}
+        self.ifaceobjcurrdict = OrderedDict()
+
+        # Dictionary representing operation and modules
+        # for every operation
+        self.module_ops = OrderedDict([('pre-up', []),
+                                  ('up', []),
+                                  ('post-up', []),
+                                  ('query-checkcurr', []),
+                                  ('query-running', []),
+                                  ('query-dependency', []),
+                                  ('query', []),
+                                  ('query-raw', []),
+                                  ('pre-down', []),
+                                  ('down', []),
+                                  ('post-down', [])])
+
+        # For old style /etc/network/ bash scripts
+        self.script_ops = OrderedDict([('pre-up', []),
+                                  ('up', []),
+                                  ('post-up', []),
+                                  ('pre-down', []),
+                                  ('down', []),
+                                  ('post-down', [])])
+
 
         self.logger = logging.getLogger('ifupdown')
         ifupdownflags.flags.FORCE = force
