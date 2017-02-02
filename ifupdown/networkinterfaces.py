@@ -23,11 +23,6 @@ whitespaces = '\n\t\r '
 class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
 
-    hotplugs = {}
-    auto_ifaces = []
-    callbacks = {}
-    auto_all = False
-
     _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6'],
                  'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
 
@@ -50,6 +45,10 @@ class networkInterfaces():
 
         Raises:
             AttributeError, KeyError """
+
+        self.auto_ifaces = []
+        self.callbacks = {}
+        self.auto_all = False
 
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
