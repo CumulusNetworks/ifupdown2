@@ -212,4 +212,8 @@ class policymanager():
         return mod_array
 
 
-policymanager_api = policymanager()
+policymanager_api = None
+
+def reset():
+    global policymanager_api
+    policymanager_api = policymanager()
