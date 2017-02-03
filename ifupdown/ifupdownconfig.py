@@ -11,4 +11,8 @@ class ifupdownConfig():
 	def __init__(self):
 		self.conf = {}
 
-config = ifupdownConfig()
+config = None
+
+def reset():
+	global config
+	config = ifupdownConfig()
