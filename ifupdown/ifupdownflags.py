@@ -22,4 +22,8 @@ class ifupdownFlags():
                 # Flags
                 self.CACHE_FLAGS = 0x0
 
-flags = ifupdownFlags()
+flags = None
+
+def reset():
+    global flags
+    flags = ifupdownFlags()
