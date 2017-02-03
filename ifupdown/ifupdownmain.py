@@ -22,6 +22,7 @@ from collections import deque, OrderedDict
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
 
 import ifupdown.policymanager
+import ifupdown.ifupdownflags
 
 import ifupdownaddons.cache
 import ifupdownaddons.bondutil
@@ -153,8 +154,11 @@ class ifupdownMain(ifupdownBase):
 
     def reset_ifupdown2(self):
         ifaceScheduler.reset()
+
         ifupdown.statemanager.reset()
         ifupdown.policymanager.reset()
+        ifupdown.ifupdownflags.reset()
+        ifupdown.ifupdownconfig.reset()
 
         ifupdownaddons.bondutil.bondutil.reset()
         ifupdownaddons.iproute2.iproute2.reset()
