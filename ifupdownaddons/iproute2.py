@@ -660,6 +660,17 @@ class iproute2(utilsBase):
     def get_vxlandev_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
+    def get_vxlandev_learning(self, ifacename):
+        return self._cache_get('link', [ifacename, 'linkinfo', 'learning'])
+
+    def set_vxlandev_learning(self, ifacename, learn):
+        if learn == 'on':
+            utils.exec_command('ip link set dev %s type vxlan learning' %ifacename)
+            self._cache_update([ifacename, 'linkinfo', 'learning'], 'on')
+        else:
+            utils.exec_command('ip link set dev %s type vxlan nolearning' %ifacename)
+            self._cache_update([ifacename, 'linkinfo', 'learning'], 'off')
+
     def link_get_linkinfo_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
@@ -944,3 +955,19 @@ class iproute2(utilsBase):
     def link_get_vrfs(self):
         self._fill_cache()
         return linkCache.vrfs
+
+    def get_brport_learning(self, ifacename):
+        learn = self.read_file_oneline('/sys/class/net/%s/brport/learning'
+                                       %ifacename)
+        if learn and learn == '1':
+            return 'on'
+        else:
+            return 'off'
+
+    def set_brport_learning(self, ifacename, learn):
+        if learn == 'off':
+            return self.write_file('/sys/class/net/%s/brport/learning'
+                                    %ifacename, '0')
+        else:
+            return self.write_file('/sys/class/net/%s/brport/learning'
+                                    %ifacename, '1')
