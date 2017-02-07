@@ -89,6 +89,18 @@ class bondutil(utilsBase):
         except Exception as e:
             self.logger.debug(str(e))
         try:
+            linkCache.set_attr([bondname, 'linkinfo', 'updelay'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/updelay'
+                                       %bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
+            linkCache.set_attr([bondname, 'linkinfo', 'downdelay'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/downdelay'
+                                       %bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             map(lambda x: linkCache.set_attr([bondname, 'linkinfo', x],
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
@@ -319,6 +331,12 @@ class bondutil(utilsBase):
 
     def get_num_grat_arp(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'num_grat_arp'])
+
+    def get_updelay(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'updelay'])
+
+    def get_downdelay(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'downdelay'])
 
     def enslave_slave(self, bondname, slave, prehook=None, posthook=None):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
