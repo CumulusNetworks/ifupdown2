@@ -67,8 +67,12 @@ class Ifupdown2:
         self.args = args_parse.get_args()
         self.op = args_parse.get_op()
 
-    def update_logger(self):
-        log.update_logger(self.args)
+    def update_logger(self, client_socket):
+        syslog = self.args.syslog if hasattr(self.args, 'syslog') else False
+        log.update_current_logger(syslog=syslog,
+                                  verbose=self.args.verbose,
+                                  debug=self.args.debug)
+        log.set_socket(client_socket)
 
     def main(self, request):
         if self.op != 'query' and self.uid != 0:
@@ -411,7 +415,7 @@ class Daemon:
 
     @staticmethod
     def user_waiting_for_reply():
-        return not log.syslog_mode()
+        return not log.is_syslog()
 
     def run(self):
         try:
@@ -440,7 +444,7 @@ class Daemon:
                     client_socket.close()
 
                     log.info('exit status %d - in %ssecs'
-                             % (status, (start - end).total_seconds()))
+                             % (status, (end - start).total_seconds()))
 
         except Exception as e:
             log.error(e)
@@ -494,7 +498,7 @@ class Daemon:
 
             ifupdown2.parse_argv(request['argv'])
             # adjust the logger with argv
-            ifupdown2.update_logger()
+            ifupdown2.update_logger(client_socket)
 
             try:
                 status = ifupdown2.main(request)
@@ -503,30 +507,17 @@ class Daemon:
                 status = 1
 
         except ifupdown.argv.ArgvParseError as e:
-            log.update_logger(args=None, verbose=False, syslog=False)
+            log.update_current_logger(syslog=False, verbose=True, debug=False)
+            log.set_socket(client_socket)
             e.log_error()
             status = 1
         except Exception as e:
             log.error(e)
             status = 1
 
-        user_waiting_for_reply = self.user_waiting_for_reply()
-
-        results = {
-            'stdout': log.get_stdout_buffer(),
-            'stderr': log.get_stderr_buffer(),
-        }
-
         log.flush()
-        log.update_logger(args=None, verbose=True, syslog=True)
-
-        if user_waiting_for_reply:
-            try:
-                client_socket.sendall(json.dumps(results))
-                client_socket.close()
-            except Exception as e:
-                log.error(str(e))
-
+        log.set_socket(None)
+        client_socket.close()
         return status
 
 
@@ -537,5 +528,7 @@ if __name__ == '__main__':
         Daemon().run()
     except Exception as e:
         print e
-        log.error(e)
+        log.error(str(e))
+        import traceback
+        log.error(traceback.format_exc())
         exit(1)
