@@ -7,6 +7,8 @@
 
 import sys
 import json
+import struct
+import select
 import logging
 import logging.handlers
 
@@ -82,10 +84,26 @@ class Log:
             result = dict()
             stdout = self._flush_buffer('stdout', self.stdout_buffer, result)
             stderr = self._flush_buffer('stderr', self.stderr_buffer, result)
-
             if stdout or stderr:
-                self.socket.sendall(json.dumps(result))
-                self.redirect_stdouput()
+                try:
+                    self.tx_data(json.dumps(result))
+                    self.redirect_stdouput()
+                except select.error as e:
+                    # haven't seen the case yet
+                    self.socket = None
+                    self.update_current_logger(syslog=True, verbose=True)
+                    self.critical(str(e))
+                    exit(84)
+
+    def tx_data(self, data, socket=None):
+        socket_obj = socket if socket else self.socket
+        ready = select.select([], [socket_obj], [])
+        if ready and ready[1] and ready[1][0] == socket_obj:
+            frmt = "=%ds" % len(data)
+            packed_msg = struct.pack(frmt, data)
+            packed_hdr = struct.pack('=I', len(packed_msg))
+            socket_obj.sendall(packed_hdr)
+            socket_obj.sendall(packed_msg)
 
     def set_socket(self, socket):
         self.socket = socket

@@ -10,13 +10,15 @@ import re
 import sys
 import json
 import errno
+import struct
 import select
 import socket
 import signal
 
 
 class Ifupdown2Complete(Exception):
-    pass
+    def __init__(self, status):
+        self.status = status
 
 
 class Ifupdown2Client:
@@ -24,12 +26,9 @@ class Ifupdown2Client:
 
         self.stdin = None
         self.argv = argv
-        self.fields = {
-            'status': None,
-            'pid': None,
-            'stdout': None,
-            'stderr': None
-        }
+        self.data = ''
+        self.HEADER_SIZE = 4
+        self.daemon_pid = -1
 
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
@@ -74,30 +73,60 @@ class Ifupdown2Client:
             self.socket.close()
 
     def signal_handler(self, sig, frame):
-        if self.fields['pid']:
-            os.kill(self.fields['pid'], sig)
+        if self.daemon_pid > 0:
+            os.kill(self.daemon_pid, sig)
 
-    def parse_raw_data(self, raw_data):
-        if raw_data:
-            data = json.loads(raw_data)
-            for f in self.fields:
-                if f in data:
-                    self.fields[f] = data[f]
-        else:
-            raise Ifupdown2Complete()
+    def read_data(self):
+        ready = select.select([self.socket], [], [])
+        if ready and ready[0] and ready[0][0] == self.socket:
+            d = self.socket.recv(65536)
+            if self.data:
+                self.data += d
+            else:
+                self.data = d
+            return True
+        return False
 
-    def process_data(self):
-        if self.fields['stdout']:
-            sys.stdout.write(self.fields['stdout'])
-        if self.fields['stderr']:
-            sys.stderr.write(self.fields['stderr'])
-        if self.fields['status'] != None:
-            raise Ifupdown2Complete()
+    def get_packets(self):
+        """
+            ifupdown2 output is divided into "json packets"
+            the first 4 bytes is the size of the next json
+            object to etract
 
-        self.fields['stderr'] = None
-        self.fields['stdout'] = None
+        """
+        data_size = len(self.data)
+        if not data_size:
+            raise Ifupdown2Complete(status=1)
+
+        packets = []
+        try:
+            while data_size > 0:
+                packet_len = struct.unpack('=I', self.data[:self.HEADER_SIZE])[0]
+                packet_data = self.data[self.HEADER_SIZE:packet_len + self.HEADER_SIZE]
+
+                fmt = "=%ds" % packet_len
+
+                packets.append(json.loads(struct.unpack(fmt, packet_data)[0]))
+
+                self.data = self.data[self.HEADER_SIZE + packet_len:]
+                data_size -= self.HEADER_SIZE + packet_len
+        except:
+            pass
+        return packets
+
+    def process_packets(self, packets):
+        for packet in packets:
+            if 'pid' in packet:
+                self.daemon_pid = packet['pid']
+            if 'stdout' in packet:
+                sys.stdout.write(packet['stdout'])
+            if 'stderr' in packet:
+                sys.stderr.write(packet['stderr'])
+            if 'status' in packet:
+                raise Ifupdown2Complete(packet['status'])
 
     def run(self):
+        status = 1
         if self.socket:
             for arg in ['-i', '--interfaces']:
                 try:
@@ -115,11 +144,10 @@ class Ifupdown2Client:
             try:
                 while True:
                     try:
-                        ready = select.select([self.socket], [], [])
-                        if ready and ready[0] and ready[0][0] == self.socket:
-                            self.parse_raw_data(self.socket.recv(65536))
-                            self.process_data()
-                    except Ifupdown2Complete:
+                        self.read_data()
+                        self.process_packets(self.get_packets())
+                    except Ifupdown2Complete as e:
+                        status = e.status
                         break
                     except Exception as e:
                         if ((isinstance(e.args, tuple) and e[0] == 4)
@@ -131,7 +159,6 @@ class Ifupdown2Client:
                 sys.stderr.write(str(e))
             finally:
                 self.socket.close()
-        status = self.fields['status']
         return status if status != None else 1
 
 

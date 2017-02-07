@@ -434,13 +434,13 @@ class Daemon:
                 if pid == 0:
                     exit(self.ifupdown2(client_socket))
                 else:
-                    client_socket.sendall(json.dumps({'pid': pid}))
+                    log.tx_data(json.dumps({'pid': pid}), socket=client_socket)
 
                     start = datetime.datetime.now()
                     status = os.WEXITSTATUS(os.waitpid(pid, 0)[1])
                     end = datetime.datetime.now()
 
-                    client_socket.sendall(json.dumps({'status': status}))
+                    log.tx_data(json.dumps({'status': status}), socket=client_socket)
                     client_socket.close()
 
                     log.info('exit status %d - in %ssecs'
