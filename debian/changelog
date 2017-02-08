@@ -1,4 +1,4 @@
-ifupdown2 (1.1-cl3u9) UNRELEASED; urgency=medium
+ifupdown2 (1.1-cl3u9) RELEASED; urgency=medium
 
   * New. Enabled: support for bridge-learning attribute
 
