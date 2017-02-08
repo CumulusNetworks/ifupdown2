@@ -15,6 +15,10 @@ import select
 import socket
 import signal
 
+import ifupdown.config
+
+from ifupdown.log import log
+
 
 class Ifupdown2Complete(Exception):
     def __init__(self, status):
@@ -151,7 +155,7 @@ class Ifupdown2Client:
                         break
                     except Exception as e:
                         if ((isinstance(e.args, tuple) and e[0] == 4)
-                                or (hasattr(e, 'errno') and e.errno == errno.EINTR)):
+                            or (hasattr(e, 'errno') and e.errno == errno.EINTR)):
                             pass
                         else:
                             raise
@@ -162,5 +166,24 @@ class Ifupdown2Client:
         return status if status != None else 1
 
 
+def ifupdown2_standalone():
+    import ifupdown.main
+    ifupdown2 = ifupdown.main.Ifupdown2(daemon=False, uid=os.geteuid())
+    ifupdown2.parse_argv(sys.argv)
+    ifupdown2.update_logger()
+    return ifupdown2.main()
+
+
+def main():
+    try:
+        if 'use_daemon=yes' in open(ifupdown.config.CONFIGFILE).read():
+            return Ifupdown2Client(sys.argv).run()
+        else:
+            return ifupdown2_standalone()
+    except Exception as e:
+        log.error(str(e))
+        return 1
+
+
 if __name__ == '__main__':
-    sys.exit(Ifupdown2Client(sys.argv).run())
+    sys.exit(main())

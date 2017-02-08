@@ -16,7 +16,7 @@ from cStringIO import StringIO
 
 
 class Log:
-    LOGGER_NAME = 'ifupdown2d'
+    LOGGER_NAME = sys.argv[0].split('/')[-1]
 
     def __init__(self):
         """
@@ -68,10 +68,13 @@ class Log:
 
         # console
         format = '%(levelname)s: %(message)s'
-        self.console_handler = logging.StreamHandler()
+        self.console_handler = logging.StreamHandler(sys.stderr)
         self.console_handler.setFormatter(logging.Formatter(format))
 
-        self.update_current_logger(syslog=self.syslog, verbose=True, debug=False)
+        if self.LOGGER_NAME[-1] == 'd':
+            self.update_current_logger(syslog=True, verbose=True, debug=False)
+        else:
+            self.update_current_logger(syslog=False, verbose=False, debug=False)
 
     def update_current_logger(self, syslog, verbose, debug):
         self.syslog = syslog
@@ -94,6 +97,8 @@ class Log:
                     self.update_current_logger(syslog=True, verbose=True)
                     self.critical(str(e))
                     exit(84)
+        self.console_handler.flush()
+        self.syslog_handler.flush()
 
     def tx_data(self, data, socket=None):
         socket_obj = socket if socket else self.socket
@@ -157,27 +162,6 @@ class Log:
 
 
 log = Log()
-
-
-class Logger(logging.Logger):
-    def __init__(self, name, level=log.get_current_log_level()):
-        logging.Logger.__init__(self, name, level)
-        log.debug('%s: init logger level %s' % (name, level))
-
-    def debug(self, msg, *args, **kwargs):
-        log.debug(msg, *args, **kwargs)
-
-    def info(self, msg, *args, **kwargs):
-        log.info(msg, *args, **kwargs)
-
-    def warning(self, msg, *args, **kwargs):
-        log.warning(msg, *args, **kwargs)
-
-    def error(self, msg, *args, **kwargs):
-        log.error(msg, *args, **kwargs)
-
-
-logging.setLoggerClass(Logger)
 
 
 """
