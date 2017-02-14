@@ -27,14 +27,6 @@ case "$1" in
             preinst_divert "/usr/share/man/man8/$filename.8.gz"
         done
         preinst_divert "/usr/share/man/man5/interfaces.5.gz"
-
-        # workaround 3.0.0 internal install error.  This can be removed in a
-        # few weeks.
-        if [ -f /etc/default/networking/networking.default ]; then
-            dpkg-maintscript-helper rm_conffile /etc/default/networking/networking.default 1.1 -- $@
-            rm -f /etc/default/networking/networking.default
-            rmdir /etc/default/networking
-        fi
         ;;
 esac
 
