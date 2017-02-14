@@ -1,3 +1,10 @@
+ifupdown2 (1.0~git20170214-1) unstable; urgency=medium
+
+  * closes: #854325 debian: control: add back "Conflicts: ifupdown"
+  * New. Enabled: support for GRE/SIT tunnels
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 14 Feb 2017 21:47:26 +0100
+
 ifupdown2 (1.0~git20170114-1) unstable; urgency=medium
 
   * closes: #843848 diversion handling broken
