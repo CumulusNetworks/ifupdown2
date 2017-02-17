@@ -56,7 +56,7 @@ case "$1" in
 
         # Generic stuff done on all configurations
         if [ -f /etc/network/interfaces ] ; then
-            if ! grep -q "^[[:space:]]*iface[[:space:]]\+lo0\?[[:space:]]\+inet[[:space:]]\+loopback\>" /etc/network/interfaces ; then
+            if ! grep -q -E "^[[:space:]]*iface[[:space:]]+l[o0]([[:space:]]+inet([[:space:]]+loopback)?)?[[:space:]]*$" /etc/network/interfaces ; then
                 report_warn "No 'iface lo' definition found in /etc/network/interfaces"
             fi
 

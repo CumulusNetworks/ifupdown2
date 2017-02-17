@@ -144,7 +144,7 @@ class mstpctl(moduleBase):
                           'validrange' : ['0', '255'],
                           'default' : '2',
                           'required' : False,
-                          'jsonAttr': 'portHelloTime',
+                          'jsonAttr': 'helloTime',
                           'example' : ['mstpctl-hello 2']},
                     'mstpctl-portnetwork' : 
                         { 'help' : 'enable/disable bridge assurance capability for a port',
@@ -329,16 +329,32 @@ class mstpctl(moduleBase):
         try:
             # set bridge attributes
             for attrname, dstattrname in self._attrs_map.items():
+                config_val = ifaceobj.get_attr_value_first(attrname)
+                default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attrname)
+                if not default_val:
+                    default_val = self.get_mod_subattr(attrname,'default')
+                jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
                 try:
-                    v = ifaceobj.get_attr_value_first(attrname)
-                    if not v:
-                       continue
+                    running_val = self.mstpctlcmd.get_bridge_attr(
+                                    ifaceobj.name, jsonAttr)
+                except:
+                    self.logger.info('%s: could not get running %s value'
+                                     %(ifaceobj.name, attrname))
+                    running_val = None
+                if (not config_val and default_val and (running_val != default_val)):
+                    # this happens when users remove an attribute from a port
+                    # and expect the default to be restored with ifreload.
+                    config_val = default_val
+                elif not config_val:
+                    # there is nothing configured and no default to reset
+                    continue
+                try:
                     if attrname == 'mstpctl-treeprio':
                        self.mstpctlcmd.set_bridge_treeprio(ifaceobj.name,
-                                v, check)
+                                config_val, check)
                     else:
                        self.mstpctlcmd.set_bridge_attr(ifaceobj.name,
-                                dstattrname, v, check)
+                                dstattrname, config_val, check)
                 except Exception, e:
                     self.logger.warn('%s' %str(e))
                     pass
@@ -415,7 +431,10 @@ class mstpctl(moduleBase):
             else:
                 return 'yes'
         else:
-            return self.get_mod_subattr(attr,'default')
+            default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attr)
+            if not default_val:
+                return self.get_mod_subattr(attr,'default')
+            return default_val
 
     def _apply_bridge_port_settings(self, ifaceobj, bridgename=None,
                                     bridgeifaceobj=None,
@@ -660,6 +679,18 @@ class mstpctl(moduleBase):
                                     if v})
         return bridgeattrdict
 
+    def _get_config_stp(self, ifaceobj):
+        stp = (ifaceobj.get_attr_value_first('mstpctl-stp') or
+               ifaceobj.get_attr_value_first('bridge-stp') or
+               policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr='mstpctl-stp') or
+               # this is a temporary method to access policy default value of bridge-stp
+               policymanager.policymanager_api.get_iface_default(module_name='bridge', ifname=ifaceobj.name, attr='bridge-stp'))
+        return utils.get_boolean_from_string(stp)
+
+    def _get_running_stp(self, ifaceobj):
+        stp = self.brctlcmd.get_stp(ifaceobj.name)
+        return utils.get_boolean_from_string(stp)
+
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
                             ifaceobj_getfunc=None):
         # list of attributes that are not supported currently
@@ -680,6 +711,8 @@ class mstpctl(moduleBase):
         #self.logger.info('B' + str(runningattrs))
         if not runningattrs:
             runningattrs = {}
+        config_stp = self._get_config_stp(ifaceobj)
+        running_stp = self._get_running_stp(ifaceobj)
         running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
         for k in ifaceattrs:
             # for all mstpctl options
@@ -690,6 +723,8 @@ class mstpctl(moduleBase):
                 #special case, 'ifquery --check --with-defaults' on a VLAN
                 #unaware bridge
                 if not running_port_list:
+                    continue
+                if (not config_stp or not running_stp):
                     continue
                 v = ifaceobj.get_attr_value_first(k)
                 config_val = {}
@@ -819,6 +854,10 @@ class mstpctl(moduleBase):
                 if (self._is_bridge(bifaceobj) and
                     self.default_vxlan_ports_set_bpduparams and
                     (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                        config_stp = self._get_config_stp(bifaceobj)
+                        running_stp = self._get_running_stp(bifaceobj)
+                        if (not config_stp or not running_stp):
+                            continue
                         for attr in ['mstpctl-portbpdufilter',
                                      'mstpctl-bpduguard']:
                             jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
