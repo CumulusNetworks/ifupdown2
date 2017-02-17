@@ -251,6 +251,11 @@ class bridge(moduleBase):
                         { 'help' : 'bridge port vlans',
                           'compat': True,
                           'example' : ['bridge-port-pvids bond0=100 bond1=200']},
+                    'bridge-learning' :
+                        { 'help' : 'bridge port learning flag',
+                          'validvals': ['on', 'off'],
+                          'default': 'on',
+                          'example' : ['bridge-learning off']},
                      }}
 
     def __init__(self, *args, **kargs):
@@ -1147,6 +1152,36 @@ class bridge(moduleBase):
         except Exception, e:
             self.log_error(str(e), bportifaceobj)
 
+        # special handling for learning:
+        # bridge ports may have learning capability, in which case
+        # we need to keep the bridge ports internal learning in sync
+        # with bridge learning capability. This is true for vxlan ports
+        # hence special case this for vxlan ports.
+        try:
+            config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
+            if not config_learn:
+                config_learn = self.get_mod_subattr('bridge-learning', 'default')
+            config_learn = utils.get_onoff_bool(config_learn)
+            running_learn = self.ipcmd.get_brport_learning(bportifaceobj.name)
+            if config_learn != running_learn:
+                self.ipcmd.set_brport_learning(bportifaceobj.name, config_learn)
+        except Exception, e:
+            self.log_error(str(e), bportifaceobj)
+
+        if not (bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
+            return
+        try:
+            vxlan_learn = self.ipcmd.get_vxlandev_learning(bportifaceobj.name)
+            if vxlan_learn:
+                vxlan_learn = utils.get_onoff_bool(vxlan_learn)
+            else:
+                vxlan_learn = 'on'
+            if vxlan_learn != config_learn:
+                self.ipcmd.set_vxlandev_learning(bportifaceobj.name, config_learn)
+        except Exception, e:
+            self.log_warn('%s: unable to propagate learning to vxlan dev (%s)'
+                          %(bportifaceobj.name, str(e)))
+
     def _apply_bridge_port_settings_all(self, ifaceobj,
                                         ifaceobj_getfunc=None,
                                         bridge_vlan_aware=False):
@@ -1199,7 +1234,7 @@ class bridge(moduleBase):
                 # Dont process bridge port if it already has been processed
                 # and there is no override on port_processed
                 if (not port_processed_override and
-                    (bportifaceobj.module_flags.get(self.name,0x0) & 
+                    (bportifaceobj.module_flags.get(self.name,0x0) &
                      bridgeFlags.PORT_PROCESSED)):
                     continue
                 try:
@@ -1398,7 +1433,7 @@ class bridge(moduleBase):
                 running_bridgeport_pvids.append(pvid)
 
         bridge_vids = None
-        if running_bridgeport_vids: 
+        if running_bridgeport_vids:
            (vidval, freq) = Counter(running_bridgeport_vids).most_common()[0]
            if freq == len(bridgeports):
               running_attrs['bridge-vids'] = vidval
@@ -1900,6 +1935,22 @@ class bridge(moduleBase):
             except Exception, e:
                 self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
 
+            try:
+                config_learn = ifaceobj.get_attr_value_first('bridge-learning')
+                if not config_learn:
+                    return
+                config_learn = utils.get_onoff_bool(config_learn)
+                running_learn = self.ipcmd.get_brport_learning(ifaceobj.name)
+                if config_learn == running_learn:
+                    ifaceobjcurr.update_config_with_status('bridge-learning',
+                                                            running_learn, 0)
+                else:
+                    ifaceobjcurr.update_config_with_status('bridge-learning',
+                                                            running_learn, 1)
+
+            except Exception, e:
+                self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if self._is_bridge(ifaceobj):
             self._query_check_bridge(ifaceobj, ifaceobjcurr)
@@ -1914,7 +1965,7 @@ class bridge(moduleBase):
                                                ifaceobjrunning,
                                                ifaceobj_getfunc,
                                                bridge_vlan_aware=True))
-        else: 
+        else:
             ifaceobjrunning.update_config_dict(self._query_running_attrs(
                                                ifaceobjrunning, None))
 

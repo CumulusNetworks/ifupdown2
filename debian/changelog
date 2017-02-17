@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u9) RELEASED; urgency=medium
+
+  * New. Enabled: support for bridge-learning attribute
+
+ -- Cumulus Networks <dev-support@cumulusnetworks.com>  Mon, 06 Feb 2017 13:22:51 -0800
+
 ifupdown2 (1.1-cl3u8) RELEASED; urgency=medium
 
   * New. Enabled: update link-speed values: add 25G and 50G
