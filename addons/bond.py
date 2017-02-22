@@ -109,10 +109,12 @@ class bond(moduleBase):
                      'bond-updelay' :
                         {'help' : 'bond updelay',
                          'default' : '0',
+                         'validrange' : ['0', '65535'],
                          'example' : ['bond-updelay 100']},
                      'bond-downdelay':
                         {'help' : 'bond downdelay',
                          'default' : '0',
+                         'validrange' : ['0', '65535'],
                          'example' : ['bond-downdelay 100']}
                     }}
 
