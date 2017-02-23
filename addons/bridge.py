@@ -251,6 +251,14 @@ class bridge(moduleBase):
                           'validvals': ['on', 'off'],
                           'default': 'on',
                           'example' : ['bridge-learning off']},
+                    'bridge-igmp-version' :
+                        { 'help' : 'mcast igmp version',
+                          'default' : '2',
+                          'example' : ['bridge-igmp-version 2']},
+                    'bridge-mld-version':
+                        { 'help' : 'mcast mld version',
+                          'default' : '1',
+                          'example' : ['bridge-mld-version 1']},
                      }}
 
     def __init__(self, *args, **kargs):
@@ -792,7 +800,15 @@ class bridge(moduleBase):
                               'mcqri' :
                                 ifaceobj.get_attr_value_first('bridge-mcqri'),
                               'mcsqi' :
-                                ifaceobj.get_attr_value_first('bridge-mcsqi')
+                                ifaceobj.get_attr_value_first('bridge-mcsqi'),
+                              'igmp-version':
+                                (ifaceobj.get_attr_value_first('bridge-igmp-version')
+                                 or self.get_mod_subattr('bridge-igmp-version',
+                                                         'default')),
+                              'mld-version' :
+                                (ifaceobj.get_attr_value_first('bridge-mld-version')
+                                 or self.get_mod_subattr('bridge-mld-version',
+                                                         'default'))
                                }.items()
                             if v }
             if bridgeattrs:

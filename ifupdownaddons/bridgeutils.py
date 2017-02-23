@@ -43,7 +43,9 @@ class brctl(utilsBase):
                      'mcqpi' : 'multicast_querier_interval',
                      'mcqi' : 'multicast_query_interval',
                      'mcqri' : 'multicast_query_response_interval',
-                     'mcsqi' : 'multicast_startup_query_interval'}
+                     'mcsqi' : 'multicast_startup_query_interval',
+                     'igmp-version': 'multicast_igmp_version',
+                     'mld-version': 'multicast_mld_version'}
 
         mcattrsdivby100 = ['mclmi', 'mcmi', 'mcqpi', 'mcqi', 'mcqri', 'mcsqi']
 
@@ -290,8 +292,15 @@ class brctl(utilsBase):
             if self._cache_check([bridgename, 'linkinfo', k], v):
                 continue
             try:
-                cmd = '/sbin/brctl set%s %s %s' % (k, bridgename, v)
-                utils.exec_command(cmd)
+                if k == 'igmp-version':
+                    self.write_file('/sys/class/net/%s/bridge/'
+                                    'multicast_igmp_version' %bridgename, v)
+                elif k == 'mld-version':
+                    self.write_file('/sys/class/net/%s/bridge/'
+                                    'multicast_mld_version' %bridgename, v)
+                else:
+                    cmd = '/sbin/brctl set%s %s %s' % (k, bridgename, v)
+                    utils.exec_command(cmd)
             except Exception, e:
                 self.logger.warn('%s: %s' %(bridgename, str(e)))
                 pass
@@ -299,8 +308,15 @@ class brctl(utilsBase):
     def set_bridge_attr(self, bridgename, attrname, attrval):
         if self._cache_check([bridgename, 'linkinfo', attrname], attrval):
             return
-        utils.exec_command('/sbin/brctl set%s %s %s' %
-                           (attrname, bridgename, attrval))
+        if attrname == 'igmp-version':
+            self.write_file('/sys/class/net/%s/bridge/multicast_igmp_version'
+                            %bridgename, attrval)
+        elif attrname == 'mld-version':
+            self.write_file('/sys/class/net/%s/bridge/multicast_mld_version'
+                            %bridgename, attrval)
+        else:
+            cmd = '/sbin/brctl set%s %s %s' %(attrname, bridgename, attrval)
+            utils.exec_command(cmd)
 
     def get_bridge_attrs(self, bridgename):
         return self._cache_get([bridgename, 'linkinfo'])
