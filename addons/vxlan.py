@@ -212,21 +212,18 @@ class vxlan(moduleBase):
                            vxlanattrs.get('remote', []))
 
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
-        if not learning:
-            learning = 'on'
-
-        running_learning = vxlanattrs.get('learning')
-        if learning == 'yes' and running_learning == 'on':
-            running_learning = 'yes'
-        elif learning == 'no' and running_learning == 'off':
-            running_learning = 'no'
-
-        if learning == running_learning:
-           ifaceobjcurr.update_config_with_status('vxlan-learning',
-                                                  running_learning, 0)
-        else:
-           ifaceobjcurr.update_config_with_status('vxlan-learning',
-                                                  running_learning, 1)
+        if learning:
+            running_learning = vxlanattrs.get('learning')
+            if learning == 'yes' and running_learning == 'on':
+                running_learning = 'yes'
+            elif learning == 'no' and running_learning == 'off':
+                running_learning = 'no'
+            if learning == running_learning:
+                ifaceobjcurr.update_config_with_status('vxlan-learning',
+                                                        running_learning, 0)
+            else:
+                ifaceobjcurr.update_config_with_status('vxlan-learning',
+                                                        running_learning, 1)
         ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
         if not ageing:
             ageing = self.get_mod_subattr('vxlan-ageing', 'default')
