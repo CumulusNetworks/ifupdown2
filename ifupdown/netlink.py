@@ -6,7 +6,6 @@
 
 try:
     from ifupdownaddons.utilsbase import utilsBase
-    from nlmanager.nlmanager import NetlinkManager
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError(str(e) + "- required module not found")
@@ -17,11 +16,18 @@ class Netlink(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-        self._nlmanager_api = NetlinkManager()
+        try:
+            import sys
+            sys.path.insert(0, '/usr/share/ifupdown2/')
+            from nlmanager.nlmanager import NetlinkManager
+            # this should force the use of the local nlmanager
+            self._nlmanager_api = NetlinkManager(extra_debug=False)
+        except Exception as e:
+            self.logger.error('cannot initialize ifupdown2\'s '
+                              'netlink manager: %s' % str(e))
+            raise
 
     def get_iface_index(self, ifacename):
-        self.logger.info('%s: netlink: %s: get iface index'
-                         % (ifacename, ifacename))
         if ifupdownflags.flags.DRYRUN: return
         try:
             return self._nlmanager_api.get_iface_index(ifacename)
@@ -70,6 +76,30 @@ class Netlink(utilsBase):
         except Exception as e:
             raise Exception('netlink: cannot set link %s protodown %s: %s'
                             % (ifacename, state, str(e)))
+
+    def link_set_master(self, ifacename, master_dev, state=None):
+        self.logger.info('%s: netlink: ip link set dev %s master %s %s'
+                         % (ifacename, ifacename, master_dev,
+                            state if state else ''))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            master = 0 if not master_dev else self.get_iface_index(master_dev)
+            return self._nlmanager_api.link_set_master(ifacename, master,
+                                                       state=state)
+        except Exception as e:
+            raise Exception('netlink: %s: cannot set %s master %s: %s'
+                            % (ifacename, ifacename, master_dev, str(e)))
+
+    def link_set_nomaster(self, ifacename, state=None):
+        self.logger.info('%s: netlink: ip link set dev %s nomaster %s'
+                         % (ifacename, ifacename, state if state else ''))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            return self._nlmanager_api.link_set_master(ifacename, 0,
+                                                       state=state)
+        except Exception as e:
+            raise Exception('netlink: %s: cannot set %s nomaster: %s'
+                            % (ifacename, ifacename, str(e)))
 
     def link_add_bridge_vlan(self, ifacename, vlanid):
         self.logger.info('%s: netlink: bridge vlan add vid %s dev %s'

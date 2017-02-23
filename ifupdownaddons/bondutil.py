@@ -82,6 +82,18 @@ class bondutil(utilsBase):
         except Exception as e:
             self.logger.debug(str(e))
         try:
+            linkCache.set_attr([bondname, 'linkinfo', 'updelay'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/updelay'
+                                       %bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
+            linkCache.set_attr([bondname, 'linkinfo', 'downdelay'],
+                self.read_file_oneline('/sys/class/net/%s/bonding/downdelay'
+                                       %bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+        try:
             map(lambda x: linkCache.set_attr([bondname, 'linkinfo', x],
                    self.read_file_oneline('/sys/class/net/%s/bonding/%s'
                         %(bondname, x))),
@@ -113,7 +125,7 @@ class bondutil(utilsBase):
             if ifupdownflags.flags.DRYRUN:
                 return None
             if ifupdownflags.flags.CACHE:
-                if not bondutil._cache_fill_done: 
+                if not bondutil._cache_fill_done:
                     self._bond_linkinfo_fill_all()
                     bondutil._cache_fill_done = True
                     return linkCache.get_attr(attrlist)
@@ -313,6 +325,12 @@ class bondutil(utilsBase):
     def get_num_grat_arp(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'num_grat_arp'])
 
+    def get_updelay(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'updelay'])
+
+    def get_downdelay(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', 'downdelay'])
+
     def enslave_slave(self, bondname, slave, prehook=None, posthook=None):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
         if slaves and slave in slaves: return
@@ -322,7 +340,7 @@ class bondutil(utilsBase):
                          '/bonding/slaves', '+' + slave)
         if posthook:
             posthook(slave)
-        self._cache_update([bondname, 'linkinfo', 'slaves'], slave) 
+        self._cache_update([bondname, 'linkinfo', 'slaves'], slave)
 
     def remove_slave(self, bondname, slave):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
@@ -333,7 +351,7 @@ class bondutil(utilsBase):
         if not os.path.exists(sysfs_bond_path):
            return
         self.write_file(sysfs_bond_path, '-' + slave)
-        self._cache_delete([bondname, 'linkinfo', 'slaves'], slave) 
+        self._cache_delete([bondname, 'linkinfo', 'slaves'], slave)
 
     def remove_slaves_all(self, bondname):
         if not self._cache_get([bondname, 'linkinfo', 'slaves']):

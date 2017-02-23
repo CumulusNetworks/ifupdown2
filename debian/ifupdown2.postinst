@@ -44,9 +44,19 @@ report_err() { report "Error: $*" >&2 ; }
 case "$1" in
     configure)
 
+        # work around to rename the existing dhclient6 lease file containing a space
+        for filename in `find /var/lib/dhcp/ -name "dhclient.*.leases "`
+        do
+            if [ -f "$filename " ];
+            then
+                interface_name=`echo $filename | cut -d'.' -f2,3,4,5`
+                mv "$filename " /var/lib/dhcp/dhclient6.$interface_name
+            fi
+        done
+
         # Generic stuff done on all configurations
         if [ -f /etc/network/interfaces ] ; then
-            if ! grep -q "^[[:space:]]*iface[[:space:]]\+lo0\?[[:space:]]\+inet[[:space:]]\+loopback\>" /etc/network/interfaces ; then
+            if ! grep -q -E "^[[:space:]]*iface[[:space:]]+l[o0]([[:space:]]+inet([[:space:]]+loopback)?)?[[:space:]]*$" /etc/network/interfaces ; then
                 report_warn "No 'iface lo' definition found in /etc/network/interfaces"
             fi
 

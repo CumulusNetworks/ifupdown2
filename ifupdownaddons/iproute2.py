@@ -251,7 +251,7 @@ class iproute2(utilsBase):
     def _cache_update(self, attrlist, value):
         if ifupdownflags.flags.DRYRUN: return
         try:
-            linkCache.add_attr(attrlist, value)
+            linkCache.set_attr(attrlist, value)
         except:
             pass
 
@@ -434,7 +434,8 @@ class iproute2(utilsBase):
     def link_down(self, ifacename):
         self._link_set_ifflag(ifacename, 'DOWN')
 
-    def link_set(self, ifacename, key, value=None, force=False, type=None):
+    def link_set(self, ifacename, key, value=None,
+                 force=False, type=None, state=None):
         if not force:
             if (key not in ['master', 'nomaster'] and
                 self._cache_check('link', [ifacename, key], value)):
@@ -445,6 +446,8 @@ class iproute2(utilsBase):
         cmd += ' %s' %key
         if value:
             cmd += ' %s' %value
+        if state:
+            cmd += ' %s' %state
         if self.ipbatch:
             self.add_to_batch(cmd)
         else:
@@ -474,8 +477,11 @@ class iproute2(utilsBase):
         self._cache_update([ifacename, 'mtu'], mtu)
 
     def link_set_alias(self, ifacename, alias):
-        utils.exec_commandl(['ip', 'link', 'set', 'dev', ifacename,
-                             'alias', alias])
+        if not alias:
+            utils.exec_user_command('echo "" > /sys/class/net/%s/ifalias'
+                                    % ifacename)
+        else:
+            self.write_file('/sys/class/net/%s/ifalias' % ifacename, alias)
 
     def link_get_alias(self, ifacename):
         return self.read_file_oneline('/sys/class/net/%s/ifalias'
@@ -631,6 +637,11 @@ class iproute2(utilsBase):
             return True
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
+    def link_get_ifindex(self, ifacename):
+        if ifupdownflags.flags.DRYRUN:
+            return True
+        return self.read_file_oneline('/sys/class/net/%s/ifindex' %ifacename)
+
     def is_vlan_device_by_name(self, ifacename):
         if re.search(r'\.', ifacename):
             return True
@@ -649,11 +660,26 @@ class iproute2(utilsBase):
     def get_vxlandev_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
+    def get_vxlandev_learning(self, ifacename):
+        return self._cache_get('link', [ifacename, 'linkinfo', 'learning'])
+
+    def set_vxlandev_learning(self, ifacename, learn):
+        if learn == 'on':
+            utils.exec_command('ip link set dev %s type vxlan learning' %ifacename)
+            self._cache_update([ifacename, 'linkinfo', 'learning'], 'on')
+        else:
+            utils.exec_command('ip link set dev %s type vxlan nolearning' %ifacename)
+            self._cache_update([ifacename, 'linkinfo', 'learning'], 'off')
+
     def link_get_linkinfo_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
     def link_get_mtu(self, ifacename, refresh=False):
         return self._cache_get('link', [ifacename, 'mtu'], refresh=refresh)
+
+    def link_get_mtu_sysfs(self, ifacename):
+        return self.read_file_oneline('/sys/class/net/%s/mtu'
+                                      %ifacename)
 
     def link_get_kind(self, ifacename):
         return self._cache_get('link', [ifacename, 'kind'])
@@ -917,15 +943,31 @@ class iproute2(utilsBase):
         except:
             return []
 
-    def link_get_upper(self, ifacename):
+    def link_get_uppers(self, ifacename):
         try:
-            upper = glob.glob("/sys/class/net/%s/upper_*" %ifacename)
-            if not upper:
+            uppers = glob.glob("/sys/class/net/%s/upper_*" %ifacename)
+            if not uppers:
                 return None
-            return os.path.basename(upper[0])[6:]
+            return [ os.path.basename(u)[6:] for u in uppers ]
         except:
             return None
 
     def link_get_vrfs(self):
         self._fill_cache()
         return linkCache.vrfs
+
+    def get_brport_learning(self, ifacename):
+        learn = self.read_file_oneline('/sys/class/net/%s/brport/learning'
+                                       %ifacename)
+        if learn and learn == '1':
+            return 'on'
+        else:
+            return 'off'
+
+    def set_brport_learning(self, ifacename, learn):
+        if learn == 'off':
+            return self.write_file('/sys/class/net/%s/brport/learning'
+                                    %ifacename, '0')
+        else:
+            return self.write_file('/sys/class/net/%s/brport/learning'
+                                    %ifacename, '1')

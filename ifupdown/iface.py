@@ -62,6 +62,9 @@ class ifaceLinkPrivFlags():
     VRF_SLAVE =         0x00100
     BRIDGE_VLAN_AWARE = 0x01000
     BRIDGE_VXLAN =      0x10000
+    ADDRESS_VIRTUAL_SLAVE = 0x100000
+    LOOPBACK = 0x1000000
+    KEEP_LINK_DOWN = 0x10000000
 
     @classmethod
     def get_str(cls, flag):
@@ -229,9 +232,15 @@ class ifaceJsonEncoder(json.JSONEncoder):
                              for k,v in o.config.items())
         retifacedict['name'] = o.name
         if o.addr_method:
-            retifacedict['addr_method'] = o.addr_method
+            if 'inet' in o.addr_family and 'dhcp' in o.addr_method:
+                retifacedict['addr_method'] = 'dhcp'
+            else:
+                retifacedict['addr_method'] = o.addr_method
         if o.addr_family:
-            retifacedict['addr_family'] = o.addr_family
+            if len(o.addr_family) > 1:
+                retifacedict['addr_family'] = o.addr_family
+            else:
+                retifacedict['addr_family'] = ' '.join(o.addr_family)
         retifacedict['auto'] = o.auto
         retifacedict['config'] = retconfig
 
@@ -269,7 +278,10 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
         if o.addr_method:
             retifacedict['addr_method'] = o.addr_method
         if o.addr_family:
-            retifacedict['addr_family'] = o.addr_family
+            if len(o.addr_family) > 1:
+                retifacedict['addr_family'] = o.addr_family
+            else:
+                retifacedict['addr_family'] = ' '.join(o.addr_family)
         retifacedict['auto'] = o.auto
         retifacedict['config'] = retconfig
         retifacedict['config_status'] = retconfig_status
@@ -288,7 +300,6 @@ class ifaceJsonDecoder():
 
 class iface():
     """ ifupdown2 iface object class
-    
     Attributes:
         **name**      Name of the interface 
 
@@ -343,6 +354,8 @@ class iface():
     version = '0.1'
 
     def __init__(self, attrsdict={}):
+        self.addr_family = []
+
         self._set_attrs_from_dict(attrsdict)
         self._config_status = {}
         """dict with config status of iface attributes"""
@@ -389,9 +402,12 @@ class iface():
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
         self.name = attrdict.get('name')
-        self.addr_family = attrdict.get('addr_family')
         self.addr_method = attrdict.get('addr_method')
         self.config = attrdict.get('config', OrderedDict())
+
+        addr_family = attrdict.get('addr_family')
+        if addr_family:
+            self.addr_family.append(addr_family)
 
     def inc_refcnt(self):
         """ increment refcnt of the interface. Usually used to indicate that
@@ -578,6 +594,12 @@ class iface():
                 self.config[attrname].extend(attrlist)
             else:
                 self.config.update([(attrname, attrlist)])
+        # we now support inet and inet6 together
+        self.addr_family.extend(newifaceobj.addr_family)
+        # if auto %ifacename is not part of the first stanza
+        # we need to squash it
+        if not self.auto and newifaceobj.auto:
+            self.auto = True
 
     def __getstate__(self):
         odict = self.__dict__.copy()
@@ -634,7 +656,7 @@ class iface():
     def dump(self, logger):
         indent = '\t'
         logger.info(self.name + ' : {')
-        logger.info(indent + 'family: %s' %self.addr_family)
+        logger.info(indent + 'family: %s' % ' '.join(self.addr_family))
         logger.info(indent + 'method: %s' %self.addr_method)
         logger.info(indent + 'flags: %x' %self.flags)
         logger.info(indent + 'state: %s'
@@ -660,7 +682,7 @@ class iface():
             logger.info(indent + indent + str(config))
         logger.info('}')
 
-    def dump_pretty(self, with_status=False, use_realname=False):
+    def _dump_pretty(self, family, first, addr_method, with_status=False, use_realname=False):
         indent = '\t'
         outbuf = ''
         if use_realname and self.realname:
@@ -674,10 +696,10 @@ class iface():
             ifaceline += 'vlan %s' %name
         else:
             ifaceline += 'iface %s' %name
-        if self.addr_family:
-            ifaceline += ' %s' %self.addr_family
-        if self.addr_method:
-            ifaceline += ' %s' %self.addr_method
+        if family:
+            ifaceline += ' %s' % family
+        if addr_method:
+            ifaceline += ' %s' % addr_method
         if with_status:
             status_str = None
             if (self.status == ifaceStatus.ERROR or
@@ -688,7 +710,7 @@ class iface():
             elif self.status == ifaceStatus.SUCCESS:
                 status_str = '[%s]' %ifaceStatusUserStrs.SUCCESS
             if status_str:
-               outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
+                outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
             else:
                 outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
@@ -699,7 +721,7 @@ class iface():
         else:
             outbuf += ifaceline + '\n'
         config = self.config
-        if config:
+        if config and first:
             for cname, cvaluelist in config.items():
                 idx = 0
                 for cv in cvaluelist:
@@ -722,3 +744,38 @@ class iface():
             outbuf = (outbuf.encode('utf8')
                         if isinstance(outbuf, unicode) else outbuf)
         print outbuf
+
+    def dump_pretty(self, with_status=False, use_realname=False):
+        if not self.addr_family:
+            self._dump_pretty(None, True,
+                              self.addr_method,
+                              with_status=with_status,
+                              use_realname=use_realname)
+        else:
+            # To allow both inet and inet6 on an interface we changed the
+            # addr_family attribute, it's now a list. Depending on how
+            # stanzas were squashed (and what command was used ie. ifquery -r)
+            # we want to dump the ifaceobj as usual but we will output an
+            # empty stanza for each additional addr_family. The config will
+            # only be displayed once, in the first stanza. Example:
+            # $ ifquery eth0 -r
+            # auto etho
+            # iface eth0 inet dhcp
+            #     config...
+            #
+            # auto eth0
+            # iface eth0 inet6 dhcp
+            # $
+            first = True
+            for family in self.addr_family:
+                addr_method = self.addr_method
+                # We need to make sure we display 'dhcp' for inet family.
+                # In some cases it might take the value 'dhcp6' even if it has
+                # both inet and inet6 addr_family
+                if addr_method and family == 'inet' and 'dhcp' in addr_method:
+                    addr_method = 'dhcp'
+                self._dump_pretty(family, first,
+                                  addr_method=addr_method,
+                                  with_status=with_status,
+                                  use_realname=use_realname)
+                first = False

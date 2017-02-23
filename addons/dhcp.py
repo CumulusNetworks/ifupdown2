@@ -5,6 +5,7 @@
 #
 
 try:
+    import re
     from ipaddr import IPNetwork
     from sets import Set
     from ifupdown.iface import *
@@ -27,13 +28,25 @@ class dhcp(moduleBase):
         self.dhclientcmd = dhclient(**kargs)
         self.ipcmd = None
 
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
+
+    def is_dhcp_allowed_on(self, ifaceobj, syntax_check):
+        if ifaceobj.addr_method and 'dhcp' in ifaceobj.addr_method:
+            return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=True)
+        return True
+
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
-        if self.dhclientcmd.is_running(ifaceobj.name) or \
-               self.dhclientcmd.is_running6(ifaceobj.name):
-            self.logger.info('dhclient already running on %s.  Not restarting.' % \
-                             ifaceobj.name)
-            return
+        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
+        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
+
+        # today if we have an interface with both inet and inet6, if we
+        # remove the inet or inet6 or both then execute ifreload, we need
+        # to release/kill the appropriate dhclient(4/6) if they are running
+        self._down_stale_dhcp_config(ifaceobj, 'inet', dhclient4_running)
+        self._down_stale_dhcp_config(ifaceobj, 'inet6', dhclient6_running)
+
         try:
             dhclient_cmd_prefix = None
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
@@ -44,75 +57,114 @@ class dhcp(moduleBase):
                 self.ipcmd.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
-            if ifaceobj.addr_family == 'inet':
-                # First release any existing dhclient processes
-                try:
-                    if not ifupdownflags.flags.PERFMODE:
-                        self.dhclientcmd.stop(ifaceobj.name)
-                except:
-                    pass
-                self.dhclientcmd.start(ifaceobj.name, wait=wait,
-                                       cmd_prefix=dhclient_cmd_prefix)
-            elif ifaceobj.addr_family == 'inet6':
-                accept_ra = ifaceobj.get_attr_value_first('accept_ra')
-                if accept_ra:
-                    # XXX: Validate value
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                            '.accept_ra', accept_ra)
-                autoconf = ifaceobj.get_attr_value_first('autoconf')
-                if autoconf:
-                    # XXX: Validate value
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                            '.autoconf', autoconf)
+            if 'inet' in ifaceobj.addr_family:
+                if dhclient4_running:
+                    self.logger.info('dhclient4 already running on %s. '
+                                     'Not restarting.' % ifaceobj.name)
+                else:
+                    # First release any existing dhclient processes
                     try:
-                        self.dhclientcmd.stop6(ifaceobj.name)
+                        if not ifupdownflags.flags.PERFMODE:
+                            self.dhclientcmd.stop(ifaceobj.name)
                     except:
                         pass
-                #add delay before starting IPv6 dhclient to
-                #make sure the configured interface/link is up.
-                time.sleep(2)
-                self.dhclientcmd.start6(ifaceobj.name, wait=wait,
-                                        cmd_prefix=dhclient_cmd_prefix)
+                    self.dhclientcmd.start(ifaceobj.name, wait=wait,
+                                           cmd_prefix=dhclient_cmd_prefix)
+            if 'inet6' in ifaceobj.addr_family:
+                if dhclient6_running:
+                    self.logger.info('dhclient6 already running on %s. '
+                                     'Not restarting.' % ifaceobj.name)
+                else:
+                    accept_ra = ifaceobj.get_attr_value_first('accept_ra')
+                    if accept_ra:
+                        # XXX: Validate value
+                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
+                                '.accept_ra', accept_ra)
+                    autoconf = ifaceobj.get_attr_value_first('autoconf')
+                    if autoconf:
+                        # XXX: Validate value
+                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
+                                '.autoconf', autoconf)
+                        try:
+                            self.dhclientcmd.stop6(ifaceobj.name)
+                        except:
+                            pass
+                    #add delay before starting IPv6 dhclient to
+                    #make sure the configured interface/link is up.
+                    time.sleep(2)
+                    timeout = 10
+                    while timeout:
+                        timeout -= 2
+                        addr_output = utils.exec_command('ip -6 addr show %s'
+                                                         % ifaceobj.name)
+                        r = re.search('inet6 .* scope link', addr_output)
+                        if r:
+                            self.dhclientcmd.start6(ifaceobj.name,
+                                                    wait=wait,
+                                                    cmd_prefix=dhclient_cmd_prefix)
+                            return
+                        time.sleep(2)
+
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
-    def _down(self, ifaceobj):
+    def _down_stale_dhcp_config(self, ifaceobj, family, dhclientX_running):
+        addr_family = ifaceobj.addr_family
+        try:
+            if not family in ifaceobj.addr_family and dhclientX_running:
+                ifaceobj.addr_family = [family]
+                self._dhcp_down(ifaceobj)
+        except:
+            pass
+        finally:
+            ifaceobj.addr_family = addr_family
+
+    def _dhcp_down(self, ifaceobj):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
             self.ipcmd.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
-        if ifaceobj.addr_family == 'inet6':
+        if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
-        else:
+        if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+
+    def _down(self, ifaceobj):
+        self._dhcp_down(ifaceobj)
         self.ipcmd.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
-        if self.dhclientcmd.is_running(ifaceobjcurr.name):
-            ifaceobjcurr.addr_family = 'inet'
-            if ifaceobj.addr_family != 'inet':
-                ifaceobjcurr.status = ifaceStatus.ERROR
+        status = ifaceStatus.SUCCESS
+        dhcp_running = False
+
+        dhcp_v4 = self.dhclientcmd.is_running(ifaceobjcurr.name)
+        dhcp_v6 = self.dhclientcmd.is_running6(ifaceobjcurr.name)
+
+        if dhcp_v4:
+            dhcp_running = True
+            if 'inet' not in ifaceobj.addr_family and not dhcp_v6:
+                status = ifaceStatus.ERROR
             ifaceobjcurr.addr_method = 'dhcp'
-            ifaceobjcurr.status = ifaceStatus.SUCCESS
-        elif self.dhclientcmd.is_running6(ifaceobjcurr.name):
-            ifaceobjcurr.addr_family = 'inet6'
-            if ifaceobj.addr_family != 'inet6':
-                ifaceobjcurr.status = ifaceStatus.ERROR
+        if dhcp_v6:
+            dhcp_running = True
+            if 'inet6' not in ifaceobj.addr_family and not dhcp_v4:
+                status = ifaceStatus.ERROR
             ifaceobjcurr.addr_method = 'dhcp'
-            ifaceobjcurr.status = ifaceStatus.SUCCESS
-        else:
-            ifaceobjcurr.addr_family = None
-            ifaceobjcurr.status = ifaceStatus.ERROR
+        ifaceobjcurr.addr_family = ifaceobj.addr_family
+        if not dhcp_running:
+            ifaceobjcurr.addr_family = []
+            status = ifaceStatus.ERROR
+        ifaceobjcurr.status = status
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             return
         if self.dhclientcmd.is_running(ifaceobjrunning.name):
-            ifaceobjrunning.addr_family = 'inet'
+            ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'dhcp'
-        elif self.dhclientcmd.is_running6(ifaceobjrunning.name):
-            ifaceobjrunning.addr_family = 'inet6'
+        if self.dhclientcmd.is_running6(ifaceobjrunning.name):
+            ifaceobjrunning.addr_family.append('inet6')
             ifaceobjrunning.addr_method = 'dhcp6'
 
     _run_ops = {'up' : _up,
@@ -155,6 +207,8 @@ class dhcp(moduleBase):
                        ifaceobj.addr_method != 'dhcp6')):
                 return
         except:
+            return
+        if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':

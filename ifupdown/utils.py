@@ -17,6 +17,9 @@ import subprocess
 import ifupdownflags
 
 from functools import partial
+from ipaddr import IPNetwork, IPAddress
+
+from ifupdown.iface import *
 
 def signal_handler_f(ps, sig, frame):
     if ps:
@@ -111,22 +114,47 @@ class utils():
 
     @classmethod
     def parse_iface_range(cls, name):
-        range_match = re.match("^([\w\.]+)\[([\d]+)-([\d]+)\]", name)
+        # eg: swp1.[2-100]
+        # return (prefix, range-start, range-end)
+        # eg return ("swp1.", 1, 20, ".100")
+        range_match = re.match("^([\w]+)\[([\d]+)-([\d]+)\]([\.\w]+)", name)
         if range_match:
             range_groups = range_match.groups()
             if range_groups[1] and range_groups[2]:
                 return (range_groups[0], int(range_groups[1], 10),
-                        int(range_groups[2], 10))
+                        int(range_groups[2], 10), range_groups[3])
+        else:
+            # eg: swp[1-20].100
+            # return (prefix, range-start, range-end, suffix)
+            # eg return ("swp", 1, 20, ".100")
+            range_match = re.match("^([\w\.]+)\[([\d]+)-([\d]+)\]", name)
+            if range_match:
+                range_groups = range_match.groups()
+                if range_groups[1] and range_groups[2]:
+                    return (range_groups[0], int(range_groups[1], 10),
+                            int(range_groups[2], 10))
         return None
 
     @classmethod
     def expand_iface_range(cls, name):
         ifacenames = []
-        iface_range = cls.parse_iface_range(name)
-        if iface_range:
-            for i in range(iface_range[1], iface_range[2]):
-                ifacenames.append('%s-%d' %(iface_range[0], i))
+        irange = cls.parse_iface_range(name)
+        if irange:
+            if len(irange) == 3:
+                # eg swp1.[2-4], r = "swp1.", 2, 4)
+                for i in range(irange[1], irange[2]):
+                    ifacenames.append('%s%d' %(irange[0], i))
+            elif len(irange) == 4:
+                for i in range(irange[1], irange[2]):
+                    # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
+                    ifacenames.append('%s%d%s' %(irange[0], i, irange[3]))
         return ifacenames
+
+    @classmethod
+    def is_ifname_range(cls, name):
+        if '[' in name or ']' in name:
+            return True
+        return False
 
     @classmethod
     def check_ifname_size_invalid(cls, name=''):
@@ -163,6 +191,53 @@ class utils():
                    (cmd, cmd_returncode, cmd_output)
         else:
             return 'cmd \'%s\' failed: returned %d' % (cmd, cmd_returncode)
+
+    @classmethod
+    def get_normalized_ip_addr(cls, ifacename, ipaddrs):
+        if not ipaddrs: return None
+        if isinstance(ipaddrs, list):
+                addrs = []
+                for ip in ipaddrs:
+                    if not ip:
+                        continue
+                    try:
+                        addrs.append(str(IPNetwork(ip)) if '/' in ip else str(IPAddress(ip)))
+                    except Exception as e:
+                        cls.logger.warning('%s: %s' % (ifacename, e))
+                return addrs
+        else:
+            try:
+                return str(IPNetwork(ipaddrs)) if '/' in ipaddrs else str(IPAddress(ipaddrs))
+            except Exception as e:
+                cls.logger.warning('%s: %s' % (ifacename, e))
+            return ipaddrs
+
+    @classmethod
+    def is_addr_ip_allowed_on(cls, ifaceobj, syntax_check=False):
+        msg = ('%s: ignoring ip address. Assigning an IP '
+               'address is not allowed on' % ifaceobj.name)
+        if (ifaceobj.role & ifaceRole.SLAVE
+                and not (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
+            up = None
+            if ifaceobj.upperifaces:
+                up = ifaceobj.upperifaces[0]
+            msg = ('%s enslaved interfaces. %s'
+                   % (msg, ('%s is enslaved to %s'
+                            % (ifaceobj.name, up)) if up else '')).strip()
+            if syntax_check:
+                cls.logger.warning(msg)
+            else:
+                cls.logger.info(msg)
+            return False
+        elif (ifaceobj.link_kind & ifaceLinkKind.BRIDGE
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE):
+            msg = '%s bridge vlan aware interfaces'
+            if syntax_check:
+                cls.logger.warning(msg)
+            else:
+                cls.logger.info(msg)
+            return False
+        return True
 
     @classmethod
     def _execute_subprocess(cls, cmd,

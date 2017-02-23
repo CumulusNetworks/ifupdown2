@@ -40,7 +40,7 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
             os.environ['IFACE'] = ifaceobj.name if ifaceobj.name else ''
             os.environ['LOGICAL'] = ifaceobj.name if ifaceobj.name else ''
             os.environ['METHOD'] = ifaceobj.addr_method if ifaceobj.addr_method else ''
-            os.environ['ADDRFAM'] = ifaceobj.addr_family if ifaceobj.addr_family else ''
+            os.environ['ADDRFAM'] = ','.join(ifaceobj.addr_family) if ifaceobj.addr_family else ''
             for cmd in cmd_list:
                 try:
                     utils.exec_user_command(cmd)
@@ -50,12 +50,24 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
                                                         str(e).strip('\n')))
                     pass
 
+    def _query_check(self, ifaceobj, ifaceobjcurr):
+        if ifaceobj.config:
+            for ops in ['pre-up',
+                        'up',
+                        'post-up',
+                        'pre-down',
+                        'down',
+                        'post-down']:
+                for cmd in ifaceobj.config.get(ops, []):
+                    ifaceobjcurr.update_config_with_status(ops, cmd, -1)
+
     _run_ops = {'pre-up' : _run_command,
                'pre-down' : _run_command,
                'up' : _run_command,
                'post-up' : _run_command,
                'down' : _run_command,
-               'post-down' : _run_command}
+               'post-down' : _run_command,
+               'query-checkcurr': _query_check}
 
     def get_ops(self):
         """ returns list of ops supported by this module """
@@ -80,4 +92,7 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        op_handler(self, ifaceobj, operation)
+        if operation == 'query-checkcurr':
+            op_handler(self, ifaceobj, query_ifaceobj)
+        else:
+            op_handler(self, ifaceobj, operation)

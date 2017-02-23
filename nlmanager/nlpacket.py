@@ -30,7 +30,7 @@
 
 import logging
 import struct
-from ipaddr import IPv4Address, IPv6Address
+from ipaddr import IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
 from socket import AF_INET, AF_INET6, AF_BRIDGE
@@ -120,6 +120,12 @@ green  = 92
 yellow = 93
 blue   = 94
 
+EXTRA_DEBUG = False
+
+def set_extra_debug(debug):
+    global EXTRA_DEBUG
+    EXTRA_DEBUG = debug
+
 
 def zfilled_hex(value, digits):
     return '0x' + hex(value)[2:].zfill(digits)
@@ -164,7 +170,10 @@ def data_to_color_text(line_number, color, data, extra=''):
         else:
             in_ascii.append('.')
 
-    return '  %2d: \033[%dm0x%02x%02x%02x%02x\033[0m  %s  %s' % (line_number, color, c1, c2, c3, c4, ''.join(in_ascii), extra)
+    if color:
+        return '  %2d: \033[%dm0x%02x%02x%02x%02x\033[0m  %s  %s' % (line_number, color, c1, c2, c3, c4, ''.join(in_ascii), extra)
+
+    return '  %2d: 0x%02x%02x%02x%02x  %s  %s' % (line_number, c1, c2, c3, c4, ''.join(in_ascii), extra)
 
 
 def padded_length(length):
@@ -288,9 +297,36 @@ class Attribute(object):
         return self.value
 
 
+class AttributeFourByteList(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        wordcount = (self.attr_end - 4)/4
+        self.PACK = '=%dL' % wordcount
+        self.LEN = calcsize(self.PACK)
+
+        try:
+            self.value = unpack(self.PACK, self.data[4:])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        idx = 1
+        for val in self.value:
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[4*idx:4*(idx+1)], val))
+            line_number += 1
+            idx += 1
+        return line_number
+
+
 class AttributeFourByteValue(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = '=L'
         self.LEN = calcsize(self.PACK)
@@ -311,15 +347,44 @@ class AttributeFourByteValue(Attribute):
         return line_number + 1
 
 
+class AttributeTwoByteValue(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = '=Hxx'
+        self.LEN = calcsize(self.PACK)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        assert self.attr_end == 8, "Attribute length for %s must be 8, it is %d" % (self, self.attr_end)
+
+        try:
+            self.value = int(unpack(self.PACK, self.data[4:8])[0])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:6])))
+            raise
+
+    def encode(self):
+        length = self.HEADER_LEN + self.LEN
+        raw = pack(self.HEADER_PACK, length-2, self.atype) + pack(self.PACK, self.value)
+        raw = self.pad(length, raw)
+        return raw
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
+        return line_number + 1
+
+
 class AttributeString(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = None
         self.LEN = None
 
     def encode(self):
-        # some interface names come from JSON unicode strings
+        # some interface names come from JSON as unicode strings
         # and cannot be packed as is so we must convert them to strings
         if isinstance(self.value, unicode):
             self.value = str(self.value)
@@ -345,8 +410,8 @@ class AttributeString(Attribute):
 
 class AttributeStringInterfaceName(AttributeString):
 
-    def __init__(self, atype, string, logger):
-        AttributeString.__init__(self, atype, string, logger)
+    def __init__(self, atype, string, family, logger):
+        AttributeString.__init__(self, atype, string, family, logger)
 
     def set_value(self, value):
         if value and len(value) > IF_NAME_SIZE:
@@ -376,6 +441,12 @@ class AttributeIPAddress(Attribute):
 
         self.LEN = calcsize(self.PACK)
 
+    def set_value(self, value):
+        if value is None:
+            self.value = None
+        else:
+            self.value = IPAddress(value)
+
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
 
@@ -388,7 +459,7 @@ class AttributeIPAddress(Attribute):
                 self.value = IPv6Address(data1 << 64 | data2)
 
             elif self.family == AF_BRIDGE:
-                self.value = unpack(self.PACK, self.data[4:])[0]
+                self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
 
             self.value_int = int(self.value)
             self.value_int_str = str(self.value_int)
@@ -399,6 +470,16 @@ class AttributeIPAddress(Attribute):
             self.value_int_str = None
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
+
+    def encode(self):
+        length = self.HEADER_LEN + self.LEN
+
+        if self.family not in [AF_INET, AF_INET6, AF_BRIDGE]:
+            raise Exception("%s is not a supported address family" % self.family)
+
+        raw = pack(self.HEADER_PACK, length, self.atype) + self.value.packed
+        raw = self.pad(length, raw)
+        return raw
 
     def dump_lines(self, dump_buffer, line_number, color):
         line_number = self.dump_first_line(dump_buffer, line_number, color)
@@ -424,7 +505,7 @@ class AttributeIPAddress(Attribute):
 
 class AttributeMACAddress(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = '>LHxx'
         self.LEN = calcsize(self.PACK)
@@ -433,8 +514,15 @@ class AttributeMACAddress(Attribute):
         self.decode_length_type(data)
 
         try:
-            (data1, data2) = unpack(self.PACK, self.data[4:])
-            self.value = mac_int_to_str(data1 << 16 | data2)
+            if self.length == 10:
+                (data1, data2) = unpack(self.PACK, self.data[4:])
+                self.value = mac_int_to_str(data1 << 16 | data2)
+            elif self.length == 8:
+                self.value = IPv4Address(unpack('>L', self.data[4:])[0])
+                self.value_int = int(self.value)
+                self.value_int_str = str(self.value_int)
+            else:
+                raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
 
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
@@ -443,20 +531,23 @@ class AttributeMACAddress(Attribute):
     def encode(self):
         length = self.HEADER_LEN + self.LEN
         mac_raw = int(self.value.replace('.', '').replace(':', ''), 16)
-        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, mac_raw >> 16, mac_raw & 0x0000FF)
+        raw = pack(self.HEADER_PACK, length-2, self.atype) + pack(self.PACK, mac_raw >> 16, mac_raw & 0x0000FFFF)
         raw = self.pad(length, raw)
         return raw
 
     def dump_lines(self, dump_buffer, line_number, color):
         line_number = self.dump_first_line(dump_buffer, line_number, color)
         dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8], self.value))
-        dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12], self.value))
-        return line_number + 1
+        line_number += 1
+        if len(self.data) >= 12:
+            dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12]))
+            line_number += 1
+        return line_number
 
 
 class AttributeGeneric(Attribute):
 
-    def __init__(self, atype, string, logger):
+    def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.PACK = None
         self.LEN = None
@@ -476,8 +567,8 @@ class AttributeGeneric(Attribute):
 
 class AttributeOneByteValue(AttributeGeneric):
 
-    def __init__(self, atype, string, logger):
-        Attribute.__init__(self, atype, string, logger)
+    def __init__(self, atype, string, family, logger):
+        AttributeGeneric.__init__(self, atype, string, family, logger)
         self.PACK = '=B'
         self.LEN = calcsize(self.PACK)
 
@@ -490,6 +581,8 @@ class AttributeIFLA_AF_SPEC(Attribute):
         Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
     }
     """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
 
     def encode(self):
         pack_layout = [self.HEADER_PACK]
@@ -503,7 +596,22 @@ class AttributeIFLA_AF_SPEC(Attribute):
         #
         # Until we cross that bridge though we will keep things nice and simple and
         # pack everything via a single pack() call.
+        sub_attr_to_add = []
+
         for (sub_attr_type, sub_attr_value) in self.value.iteritems():
+
+            if sub_attr_type == Link.IFLA_BRIDGE_FLAGS:
+                sub_attr_to_add.append((sub_attr_type, sub_attr_value))
+
+            elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_INFO:
+                for (vlan_flag, vlan_id) in sub_attr_value:
+                    sub_attr_to_add.append((sub_attr_type, (vlan_flag, vlan_id)))
+
+            else:
+                self.log.debug('Add support for encoding IFLA_AF_SPEC sub-attribute type %d' % sub_attr_type)
+                continue
+
+        for (sub_attr_type, sub_attr_value) in sub_attr_to_add:
             sub_attr_pack_layout = ['=', 'HH']
             sub_attr_payload = [0, sub_attr_type]
             sub_attr_length_index = 0
@@ -516,10 +624,6 @@ class AttributeIFLA_AF_SPEC(Attribute):
                 sub_attr_pack_layout.append('HH')
                 sub_attr_payload.append(sub_attr_value[0])
                 sub_attr_payload.append(sub_attr_value[1])
-
-            else:
-                self.log.debug('Add support for encoding IFLA_AF_SPEC sub-attribute type %d' % sub_attr_type)
-                continue
 
             sub_attr_length = calcsize(''.join(sub_attr_pack_layout))
             sub_attr_payload[sub_attr_length_index] = sub_attr_length
@@ -574,9 +678,11 @@ class AttributeIFLA_AF_SPEC(Attribute):
                 self.value[Link.IFLA_BRIDGE_FLAGS] = unpack("=H", sub_attr_data[0:2])[0]
 
             elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_INFO:
-                self.value[Link.IFLA_INFO_DATA] = tuple(unpack("=HH", sub_attr_data[0:4]))
+                if Link.IFLA_BRIDGE_VLAN_INFO not in self.value:
+                    self.value[Link.IFLA_BRIDGE_VLAN_INFO] = []
+                self.value[Link.IFLA_BRIDGE_VLAN_INFO].append(tuple(unpack("=HH", sub_attr_data[0:4])))
 
-            else:
+            elif EXTRA_DEBUG:
                 self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute type %s (%d), length %d, padded to %d' %
                                (parent_msg.get_ifla_bridge_af_spec_to_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
 
@@ -734,6 +840,9 @@ class AttributeIFLA_LINKINFO(Attribute):
         }
     }
     """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+
     def encode(self):
         pack_layout = [self.HEADER_PACK]
         payload = [0, self.atype]
@@ -934,14 +1043,14 @@ class AttributeIFLA_LINKINFO(Attribute):
                     elif self.value[Link.IFLA_INFO_KIND] == 'vlan':
                         if info_data_type == Link.IFLA_VLAN_ID:
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
                     elif self.value[Link.IFLA_INFO_KIND] == 'macvlan':
                         if info_data_type == Link.IFLA_MACVLAN_MODE:
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
@@ -980,14 +1089,20 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                 Link.IFLA_VXLAN_REPLICATION_TYPE):
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
 
-                        else:
+                        elif EXTRA_DEBUG:
                             # sub_attr_end = padded_length(sub_attr_length)
                             self.log.debug('Add support for decoding IFLA_INFO_KIND vxlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
                     elif self.value[Link.IFLA_INFO_KIND] == 'bond':
-                        self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
-                                       (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                        if info_data_type in (Link.IFLA_BOND_AD_INFO, ):
+                            bond_value = {}
+
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = bond_value
+                        elif EXTRA_DEBUG:
+                            self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
+                                           (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
                     elif self.value[Link.IFLA_INFO_KIND] == 'bridge':
 
@@ -999,11 +1114,11 @@ class AttributeIFLA_LINKINFO(Attribute):
                         elif info_data_type in (Link.IFLA_BRPORT_FAST_LEAVE, ):
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
 
-                        else:
+                        elif EXTRA_DEBUG:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND bridge type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_bridge_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
-                    else:
+                    elif EXTRA_DEBUG:
                         self.log.debug("Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
                                         (self.value[Link.IFLA_INFO_KIND], info_data_type, info_data_length, info_data_end))
 
@@ -1012,7 +1127,7 @@ class AttributeIFLA_LINKINFO(Attribute):
             elif sub_attr_type == Link.IFLA_INFO_SLAVE_KIND:
                 self.value[Link.IFLA_INFO_SLAVE_KIND] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
 
-            else:
+            elif EXTRA_DEBUG:
                 self.log.debug('Add support for decoding IFLA_LINKINFO sub-attribute type %s (%d), length %d, padded to %d' %
                                (parent_msg.get_ifla_info_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
 
@@ -1145,13 +1260,15 @@ class NetlinkPacket(object):
         RTM_GETQDISC  : 'RTM_GETQDISC'
     }
 
-    def __init__(self, msgtype, debug, owner_logger=None):
+    def __init__(self, msgtype, debug, owner_logger=None, use_color=True):
         self.msgtype     = msgtype
         self.attributes  = {}
         self.dump_buffer = ['']
         self.line_number = 1
         self.debug       = debug
         self.message     = None
+        self.use_color   = use_color
+        self.family      = None
 
         if owner_logger:
             self.log = owner_logger
@@ -1216,14 +1333,14 @@ class NetlinkPacket(object):
 
         # Modifiers to GET query
         if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC):
-            if flags & NLM_F_ROOT:
-                foo.append('NLM_F_ROOT')
-
-            if flags & NLM_F_MATCH:
-                foo.append('NLM_F_MATCH')
-
             if flags & NLM_F_DUMP:
                 foo.append('NLM_F_DUMP')
+            else:
+                if flags & NLM_F_MATCH:
+                    foo.append('NLM_F_MATCH')
+
+                if flags & NLM_F_ROOT:
+                    foo.append('NLM_F_ROOT')
 
             if flags & NLM_F_ATOMIC:
                 foo.append('NLM_F_ATOMIC')
@@ -1256,9 +1373,11 @@ class NetlinkPacket(object):
         header_data = self.header_data
 
         # Print the netlink header in red
-        color = red
         netlink_header_length = 16
-        self.dump_buffer.append("  \033[%dmNetlink Header\033[0m" % color)
+        color = red if self.use_color else None
+        color_start = "\033[%dm" % color if color else ""
+        color_end = "\033[0m" if color else ""
+        self.dump_buffer.append("  %sNetlink Header%s" % (color_start, color_end))
 
         for x in range(0, netlink_header_length/4):
             start = x * 4
@@ -1294,7 +1413,7 @@ class NetlinkPacket(object):
 
         if self.debug:
             self.dump_buffer.append("  Attributes")
-            color = green
+            color = green if self.use_color else None
 
         data = self.msg_data[self.LEN:]
 
@@ -1323,10 +1442,11 @@ class NetlinkPacket(object):
                 self.line_number = attr.dump_lines(self.dump_buffer, self.line_number, color)
 
                 # Alternate back and forth between green and blue
-                if color == green:
-                    color = blue
-                else:
-                    color = green
+                if self.use_color:
+                    if color == green:
+                        color = blue
+                    else:
+                        color = green
 
             data = data[attr_end:]
 
@@ -1346,12 +1466,7 @@ class NetlinkPacket(object):
             self.log.debug("Attribute %d is not defined in %s.attribute_to_class, assuming AttributeGeneric" %
                            (attr_type, self.__class__.__name__))
 
-        # A few attribute classes must know self.family (family was extracted from
-        # the service header)
-        if attr_class == AttributeIPAddress or attr_class == AttributeRTA_MULTIPATH:
-            attr = attr_class(attr_type, attr_string, self.family, self.log)
-        else:
-            attr = attr_class(attr_type, attr_string, self.log)
+        attr = attr_class(attr_type, attr_string, self.family, self.log)
 
         attr.set_value(value)
         attr.set_nested(nested)
@@ -1399,6 +1514,14 @@ class NetlinkPacket(object):
                       (self, self.length, self.seq, self.pid, self.flags,
                        self.get_netlink_header_flags_string(self.msgtype, self.flags)))
 
+    def pretty_display_dict(self, dic, level):
+        for k,v in dic.iteritems():
+            if isinstance(v, dict):
+                self.log.debug(' '*level + str(k) + ':')
+                self.pretty_display_dict(v, level+1)
+            else:
+                self.log.debug(' '*level + str(k) + ': ' + str(v))
+
     # Print the netlink message in hex. This is only used for debugging.
     def dump(self, desc=None):
         attr_string = {}
@@ -1410,8 +1533,18 @@ class NetlinkPacket(object):
             key_string = "(%2d) %s" % (attr_type, self.get_attr_string(attr_type))
             attr_string[key_string] = attr_obj.get_pretty_value()
 
-        self.log.debug("%s\n%s\n\nAttributes Summary\n%s\n" %
-                       (desc, '\n'.join(self.dump_buffer), pformat(attr_string)))
+        if self.use_color:
+            self.log.debug("%s\n%s\n\nAttributes Summary\n%s\n" %
+                           (desc, '\n'.join(self.dump_buffer), pformat(attr_string)))
+        else:
+            # Assume if we are not allowing color output we also don't want embedded
+            # newline characters in the output. Output each line individually.
+            self.log.debug(desc)
+            for line in self.dump_buffer:
+                self.log.debug(line)
+            self.log.debug("")
+            self.log.debug("Attributes Summary")
+            self.pretty_display_dict(attr_string, 1)
 
 
 class Address(NetlinkPacket):
@@ -1472,8 +1605,8 @@ class Address(NetlinkPacket):
         IFA_F_PERMANENT   : 'IFA_F_PERMANENT'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '4Bi'
         self.LEN = calcsize(self.PACK)
 
@@ -1488,8 +1621,10 @@ class Address(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
@@ -1585,8 +1720,8 @@ class Error(NetlinkPacket):
         NLE_DUMP_INTR         : 'NLE_DUMP_INTR'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '=iLHHLL'
         self.LEN = calcsize(self.PACK)
 
@@ -1601,8 +1736,10 @@ class Error(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
 
@@ -1707,7 +1844,7 @@ class Link(NetlinkPacket):
         IFLA_PRIORITY        : ('IFLA_PRIORITY', AttributeGeneric),
         IFLA_MASTER          : ('IFLA_MASTER', AttributeFourByteValue),
         IFLA_WIRELESS        : ('IFLA_WIRELESS', AttributeGeneric),
-        IFLA_PROTINFO        : ('IFLA_PROTINFO', AttributeGeneric),
+        IFLA_PROTINFO        : ('IFLA_PROTINFO', AttributeGeneric), # Create an AttributeProtinfo class for this
         IFLA_TXQLEN          : ('IFLA_TXQLEN', AttributeFourByteValue),
         IFLA_MAP             : ('IFLA_MAP', AttributeGeneric),
         IFLA_WEIGHT          : ('IFLA_WEIGHT', AttributeGeneric),
@@ -1724,7 +1861,7 @@ class Link(NetlinkPacket):
         IFLA_AF_SPEC         : ('IFLA_AF_SPEC', AttributeIFLA_AF_SPEC),
         IFLA_GROUP           : ('IFLA_GROUP', AttributeFourByteValue),
         IFLA_NET_NS_FD       : ('IFLA_NET_NS_FD', AttributeGeneric),
-        IFLA_EXT_MASK        : ('IFLA_EXT_MASK', AttributeGeneric),
+        IFLA_EXT_MASK        : ('IFLA_EXT_MASK', AttributeFourByteValue),
         IFLA_PROMISCUITY     : ('IFLA_PROMISCUITY', AttributeGeneric),
         IFLA_NUM_TX_QUEUES   : ('IFLA_NUM_TX_QUEUES', AttributeGeneric),
         IFLA_NUM_RX_QUEUES   : ('IFLA_NUM_RX_QUEUES', AttributeGeneric),
@@ -2207,14 +2344,18 @@ class Link(NetlinkPacket):
     }
 
     # BRIDGE_VLAN_INFO flags
-    BRIDGE_VLAN_INFO_MASTER   = 1
-    BRIDGE_VLAN_INFO_PVID     = 2
-    BRIDGE_VLAN_INFO_UNTAGGED = 4
+    BRIDGE_VLAN_INFO_MASTER      = 1 << 0
+    BRIDGE_VLAN_INFO_PVID        = 1 << 1
+    BRIDGE_VLAN_INFO_UNTAGGED    = 1 << 2
+    BRIDGE_VLAN_INFO_RANGE_BEGIN = 1 << 3
+    BRIDGE_VLAN_INFO_RANGE_END   = 1 << 4
 
     bridge_vlan_to_string = {
-        BRIDGE_VLAN_INFO_MASTER   : 'BRIDGE_VLAN_INFO_MASTER',
-        BRIDGE_VLAN_INFO_PVID     : 'BRIDGE_VLAN_INFO_PVID',
-        BRIDGE_VLAN_INFO_UNTAGGED : 'BRIDGE_VLAN_INFO_UNTAGGED'
+        BRIDGE_VLAN_INFO_MASTER      : 'BRIDGE_VLAN_INFO_MASTER',
+        BRIDGE_VLAN_INFO_PVID        : 'BRIDGE_VLAN_INFO_PVID',
+        BRIDGE_VLAN_INFO_UNTAGGED    : 'BRIDGE_VLAN_INFO_UNTAGGED',
+        BRIDGE_VLAN_INFO_RANGE_BEGIN : 'BRIDGE_VLAN_INFO_RANGE_BEGIN',
+        BRIDGE_VLAN_INFO_RANGE_END   : 'BRIDGE_VLAN_INFO_RANGE_END'
     }
 
     # Bridge flags
@@ -2226,8 +2367,105 @@ class Link(NetlinkPacket):
         BRIDGE_FLAGS_SELF   : 'BRIDGE_FLAGS_SELF'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    # filters for IFLA_EXT_MASK
+    RTEXT_FILTER_VF                = 1 << 0
+    RTEXT_FILTER_BRVLAN            = 1 << 1
+    RTEXT_FILTER_BRVLAN_COMPRESSED = 1 << 2
+    RTEXT_FILTER_SKIP_STATS        = 1 << 3
+
+    rtext_to_string = {
+        RTEXT_FILTER_VF                : 'RTEXT_FILTER_VF',
+        RTEXT_FILTER_BRVLAN            : 'RTEXT_FILTER_BRVLAN',
+        RTEXT_FILTER_BRVLAN_COMPRESSED : 'RTEXT_FILTER_BRVLAN_COMPRESSED',
+        RTEXT_FILTER_SKIP_STATS        : 'RTEXT_FILTER_SKIP_STATS'
+    }
+
+    IFLA_BR_UNSPEC                     =  0
+    IFLA_BR_FORWARD_DELAY              =  1
+    IFLA_BR_HELLO_TIME                 =  2
+    IFLA_BR_MAX_AGE                    =  3
+    IFLA_BR_AGEING_TIME                =  4
+    IFLA_BR_STP_STATE                  =  5
+    IFLA_BR_PRIORITY                   =  6
+    IFLA_BR_VLAN_FILTERING             =  7
+    IFLA_BR_VLAN_PROTOCOL              =  8
+    IFLA_BR_GROUP_FWD_MASK             =  9
+    IFLA_BR_ROOT_ID                    = 10
+    IFLA_BR_BRIDGE_ID                  = 11
+    IFLA_BR_ROOT_PORT                  = 12
+    IFLA_BR_ROOT_PATH_COST             = 13
+    IFLA_BR_TOPOLOGY_CHANGE            = 14
+    IFLA_BR_TOPOLOGY_CHANGE_DETECTED   = 15
+    IFLA_BR_HELLO_TIMER                = 16
+    IFLA_BR_TCN_TIMER                  = 17
+    IFLA_BR_TOPOLOGY_CHANGE_TIMER      = 18
+    IFLA_BR_GC_TIMER                   = 19
+    IFLA_BR_GROUP_ADDR                 = 20
+    IFLA_BR_FDB_FLUSH                  = 21
+    IFLA_BR_MCAST_ROUTER               = 22
+    IFLA_BR_MCAST_SNOOPING             = 23
+    IFLA_BR_MCAST_QUERY_USE_IFADDR     = 24
+    IFLA_BR_MCAST_QUERIER              = 25
+    IFLA_BR_MCAST_HASH_ELASTICITY      = 26
+    IFLA_BR_MCAST_HASH_MAX             = 27
+    IFLA_BR_MCAST_LAST_MEMBER_CNT      = 28
+    IFLA_BR_MCAST_STARTUP_QUERY_CNT    = 29
+    IFLA_BR_MCAST_LAST_MEMBER_INTVL    = 30
+    IFLA_BR_MCAST_MEMBERSHIP_INTVL     = 31
+    IFLA_BR_MCAST_QUERIER_INTVL        = 32
+    IFLA_BR_MCAST_QUERY_INTVL          = 33
+    IFLA_BR_MCAST_QUERY_RESPONSE_INTVL = 34
+    IFLA_BR_MCAST_STARTUP_QUERY_INTVL  = 35
+    IFLA_BR_NF_CALL_IPTABLES           = 36
+    IFLA_BR_NF_CALL_IP6TABLES          = 37
+    IFLA_BR_NF_CALL_ARPTABLES          = 38
+    IFLA_BR_VLAN_DEFAULT_PVID          = 39
+
+    ifla_br_to_string = {
+        IFLA_BR_UNSPEC                     : 'IFLA_BR_UNSPEC',
+        IFLA_BR_FORWARD_DELAY              : 'IFLA_BR_FORWARD_DELAY',
+        IFLA_BR_HELLO_TIME                 : 'IFLA_BR_HELLO_TIME',
+        IFLA_BR_MAX_AGE                    : 'IFLA_BR_MAX_AGE',
+        IFLA_BR_AGEING_TIME                : 'IFLA_BR_AGEING_TIME',
+        IFLA_BR_STP_STATE                  : 'IFLA_BR_STP_STATE',
+        IFLA_BR_PRIORITY                   : 'IFLA_BR_PRIORITY',
+        IFLA_BR_VLAN_FILTERING             : 'IFLA_BR_VLAN_FILTERING',
+        IFLA_BR_VLAN_PROTOCOL              : 'IFLA_BR_VLAN_PROTOCOL',
+        IFLA_BR_GROUP_FWD_MASK             : 'IFLA_BR_GROUP_FWD_MASK',
+        IFLA_BR_ROOT_ID                    : 'IFLA_BR_ROOT_ID',
+        IFLA_BR_BRIDGE_ID                  : 'IFLA_BR_BRIDGE_ID',
+        IFLA_BR_ROOT_PORT                  : 'IFLA_BR_ROOT_PORT',
+        IFLA_BR_ROOT_PATH_COST             : 'IFLA_BR_ROOT_PATH_COST',
+        IFLA_BR_TOPOLOGY_CHANGE            : 'IFLA_BR_TOPOLOGY_CHANGE',
+        IFLA_BR_TOPOLOGY_CHANGE_DETECTED   : 'IFLA_BR_TOPOLOGY_CHANGE_DETECTED',
+        IFLA_BR_HELLO_TIMER                : 'IFLA_BR_HELLO_TIMER',
+        IFLA_BR_TCN_TIMER                  : 'IFLA_BR_TCN_TIMER',
+        IFLA_BR_TOPOLOGY_CHANGE_TIMER      : 'IFLA_BR_TOPOLOGY_CHANGE_TIMER',
+        IFLA_BR_GC_TIMER                   : 'IFLA_BR_GC_TIMER',
+        IFLA_BR_GROUP_ADDR                 : 'IFLA_BR_GROUP_ADDR',
+        IFLA_BR_FDB_FLUSH                  : 'IFLA_BR_FDB_FLUSH',
+        IFLA_BR_MCAST_ROUTER               : 'IFLA_BR_MCAST_ROUTER',
+        IFLA_BR_MCAST_SNOOPING             : 'IFLA_BR_MCAST_SNOOPING',
+        IFLA_BR_MCAST_QUERY_USE_IFADDR     : 'IFLA_BR_MCAST_QUERY_USE_IFADDR',
+        IFLA_BR_MCAST_QUERIER              : 'IFLA_BR_MCAST_QUERIER',
+        IFLA_BR_MCAST_HASH_ELASTICITY      : 'IFLA_BR_MCAST_HASH_ELASTICITY',
+        IFLA_BR_MCAST_HASH_MAX             : 'IFLA_BR_MCAST_HASH_MAX',
+        IFLA_BR_MCAST_LAST_MEMBER_CNT      : 'IFLA_BR_MCAST_LAST_MEMBER_CNT',
+        IFLA_BR_MCAST_STARTUP_QUERY_CNT    : 'IFLA_BR_MCAST_STARTUP_QUERY_CNT',
+        IFLA_BR_MCAST_LAST_MEMBER_INTVL    : 'IFLA_BR_MCAST_LAST_MEMBER_INTVL',
+        IFLA_BR_MCAST_MEMBERSHIP_INTVL     : 'IFLA_BR_MCAST_MEMBERSHIP_INTVL',
+        IFLA_BR_MCAST_QUERIER_INTVL        : 'IFLA_BR_MCAST_QUERIER_INTVL',
+        IFLA_BR_MCAST_QUERY_INTVL          : 'IFLA_BR_MCAST_QUERY_INTVL',
+        IFLA_BR_MCAST_QUERY_RESPONSE_INTVL : 'IFLA_BR_MCAST_QUERY_RESPONSE_INTVL',
+        IFLA_BR_MCAST_STARTUP_QUERY_INTVL  : 'IFLA_BR_MCAST_STARTUP_QUERY_INTVL',
+        IFLA_BR_NF_CALL_IPTABLES           : 'IFLA_BR_NF_CALL_IPTABLES',
+        IFLA_BR_NF_CALL_IP6TABLES          : 'IFLA_BR_NF_CALL_IP6TABLES',
+        IFLA_BR_NF_CALL_ARPTABLES          : 'IFLA_BR_NF_CALL_ARPTABLES',
+        IFLA_BR_VLAN_DEFAULT_PVID          : 'IFLA_BR_VLAN_DEFAULT_PVID',
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxHiII'
         self.LEN  = calcsize(self.PACK)
 
@@ -2258,6 +2496,9 @@ class Link(NetlinkPacket):
     def get_ifla_bridge_string(self, index):
         return self.get_string(self.ifla_bridge_to_string, index)
 
+    def get_ifla_br_string(self, index):
+        return self.get_string(self.ifla_br_to_string, index)
+
     def get_bridge_vlan_string(self, index):
         return self.get_string(self.bridge_vlan_to_string, index)
 
@@ -2277,8 +2518,11 @@ class Link(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
+
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
                     extra = "Family %s (%d), Device Type %s (%d - %s)" % \
@@ -2337,24 +2581,28 @@ class Neighbor(NetlinkPacket):
         NDA_UNSPEC       : ('NDA_UNSPEC', AttributeGeneric),
         NDA_DST          : ('NDA_DST', AttributeIPAddress),
         NDA_LLADDR       : ('NDA_LLADDR', AttributeMACAddress),
-        NDA_CACHEINFO    : ('NDA_CACHEINFO', AttributeGeneric),
+        NDA_CACHEINFO    : ('NDA_CACHEINFO', AttributeFourByteList),
         NDA_PROBES       : ('NDA_PROBES', AttributeFourByteValue),
-        NDA_VLAN         : ('NDA_VLAN', AttributeGeneric),
+        NDA_VLAN         : ('NDA_VLAN', AttributeTwoByteValue),
         NDA_PORT         : ('NDA_PORT', AttributeGeneric),
-        NDA_VNI          : ('NDA_VNI', AttributeGeneric),
-        NDA_IFINDEX      : ('NDA_IFINDEX', AttributeGeneric),
-        NDA_MASTER       : ('NDA_MASTER', AttributeGeneric),
+        NDA_VNI          : ('NDA_VNI', AttributeFourByteValue),
+        NDA_IFINDEX      : ('NDA_IFINDEX', AttributeFourByteValue),
+        NDA_MASTER       : ('NDA_MASTER', AttributeFourByteValue),
         NDA_LINK_NETNSID : ('NDA_LINK_NETNSID', AttributeGeneric)
     }
 
     # Neighbor flags
     # /usr/include/linux/neighbour.h
     NTF_USE    = 0x01
+    NTF_SELF   = 0x02
+    NTF_MASTER = 0x04
     NTF_PROXY  = 0x08  # A proxy ARP entry
     NTF_ROUTER = 0x80  # An IPv6 router
 
     flag_to_string = {
         NTF_USE    : 'NTF_USE',
+        NTF_SELF   : 'NTF_SELF',
+        NTF_MASTER : 'NTF_MASTER',
         NTF_PROXY  : 'NTF_PROXY',
         NTF_ROUTER : 'NTF_ROUTER'
     }
@@ -2383,8 +2631,8 @@ class Neighbor(NetlinkPacket):
         NUD_PERMANENT  : 'NUD_PERMANENT'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxxxiHBB'
         self.LEN = calcsize(self.PACK)
 
@@ -2403,8 +2651,10 @@ class Neighbor(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
@@ -2608,11 +2858,10 @@ class Route(NetlinkPacket):
         RTM_F_PREFIX   : 'RTM_F_PREFIX'
     }
 
-    def __init__(self, msgtype, debug=False, logger=None):
-        NetlinkPacket.__init__(self, msgtype, debug, logger)
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = '=8BI'  # or is it 8Bi ?
         self.LEN = calcsize(self.PACK)
-        self.family = None
 
     def get_prefix_string(self):
         dst = self.get_attribute_value(self.RTA_DST)
@@ -2693,8 +2942,10 @@ class Route(NetlinkPacket):
             unpack(self.PACK, self.msg_data[:self.LEN])
 
         if self.debug:
-            color = yellow
-            self.dump_buffer.append("  \033[%dmService Header\033[0m" % color)
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:

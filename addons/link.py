@@ -18,7 +18,12 @@ class link(moduleBase):
                    'link-type' :
                         {'help' : 'type of link as in \'ip link\' command.',
                          'validvals' : ['dummy', 'veth'],
-                         'example' : ['link-type <dummy|veth>']}}}
+                         'example' : ['link-type <dummy|veth>']},
+                   'link-down' :
+                        {'help': 'keep link down',
+                         'example' : ['link-down yes/no'],
+                         'default' : 'no',
+                         'validvals' : ['yes', 'no']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -28,6 +33,10 @@ class link(moduleBase):
         if ifaceobj.get_attr_value_first('link-type'):
             return True
         return False
+
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+        if ifaceobj.get_attr_value_first('link-down') == 'yes':
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.KEEP_LINK_DOWN
 
     def _up(self, ifaceobj):
         self.ipcmd.link_create(ifaceobj.name,

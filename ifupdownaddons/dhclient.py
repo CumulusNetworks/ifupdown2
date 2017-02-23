@@ -83,7 +83,7 @@ class dhclient(utilsBase):
     def start6(self, ifacename, wait=True, cmd_prefix=None):
         cmd = ['/sbin/dhclient', '-6', '-pf',
                 '/run/dhclient6.%s.pid' %ifacename, '-lf',
-                '/var/lib/dhcp/dhclient.%s.leases ' %ifacename,
+                '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                 '%s' %ifacename]
         if not wait:
             cmd.append('-nw')
@@ -91,13 +91,14 @@ class dhclient(utilsBase):
 
     def stop6(self, ifacename, cmd_prefix=None):
         cmd = ['/sbin/dhclient', '-6', '-x', '-pf',
-               '/run/dhclient.%s.pid' %ifacename, '-lf',
-               '/var/lib/dhcp/dhclient.%s.leases ' %ifacename,
+               '/run/dhclient6.%s.pid' % ifacename, '-lf',
+               '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                '%s' %ifacename]
         self._run_dhclient_cmd(cmd, cmd_prefix)
 
     def release6(self, ifacename, cmd_prefix=None):
         cmd = ['/sbin/dhclient', '-6', '-r', '-pf',
                '/run/dhclient6.%s.pid' %ifacename,
+              '-lf', '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                '%s' %ifacename]
         self._run_dhclient_cmd(cmd, cmd_prefix)

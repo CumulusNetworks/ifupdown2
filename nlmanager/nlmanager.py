@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from collections import OrderedDict
 from ipaddr import IPv4Address, IPv6Address
 from nlpacket import *
 from select import select
@@ -39,12 +40,17 @@ class Sequence(object):
 
 class NetlinkManager(object):
 
-    def __init__(self):
-        self.pid = os.getpid()
+    def __init__(self, pid_offset=0, use_color=True, extra_debug=False):
+        # PID_MAX_LIMIT is 2^22 allowing 1024 sockets per-pid. We default to 0
+        # in the upper space (top 10 bits), which will simply be the PID. Other
+        # NetlinkManager instantiations in the same process can choose other
+        # offsets to avoid conflicts with each other.
+        self.pid = os.getpid() | (pid_offset << 22)
         self.sequence = Sequence()
         self.shutdown_flag = False
         self.ifindexmap = {}
         self.tx_socket = None
+        self.use_color = use_color
 
         # debugs
         self.debug = {}
@@ -52,6 +58,7 @@ class NetlinkManager(object):
         self.debug_address(False)
         self.debug_neighbor(False)
         self.debug_route(False)
+        set_extra_debug(extra_debug)
 
     def __str__(self):
         return 'NetlinkManager'
@@ -137,9 +144,8 @@ class NetlinkManager(object):
             self.tx_socket_allocate()
         self.tx_socket.sendall(nlpacket.message)
 
-        # If debugs are enabled we will print the contents of the
-        # packet via the decode_packet call...so avoid printing
-        # two messages for one packet.
+        # If nlpacket.debug is True we already printed the following in the
+        # build_message() call...so avoid printing two messages for one packet.
         if not nlpacket.debug:
             log.debug("TXed %12s, pid %d, seq %d, %d bytes" %
                      (nlpacket.get_type_string(), nlpacket.pid, nlpacket.seq, nlpacket.length))
@@ -223,11 +229,13 @@ class NetlinkManager(object):
                                     (pid, nlpacket.pid))
                         data = data[length:]
                         continue
+
                     if seq != nlpacket.seq:
                         log.debug(debug_str + '...we are not interested in this seq %s since ours is %s' %
                                     (seq, nlpacket.seq))
                         data = data[length:]
                         continue
+
                     # See if we RXed an ACK for our RTM_GETXXXX
                     if msgtype == NLMSG_DONE:
                         log.debug(debug_str + '...this is an ACK')
@@ -243,25 +251,32 @@ class NetlinkManager(object):
                         # 0 is NLE_SUCCESS...everything else is a true error
                         if error_code:
                             error_code_str = msg.error_to_string.get(error_code)
-
-                            if error_code_str != 'None':
-                                error_str = 'Operation failed with \'%s\' (%s)' % (error_code_str, debug_str)
+                            if error_code_str:
+                                error_str = 'Operation failed with \'%s\'' % error_code_str
                             else:
-                                error_str = 'Operation failed with code %s (%s)' % (error_code, debug_str)
+                                error_str = 'Operation failed with code %s' % error_code
+
+                            log.debug(debug_str)
 
                             if error_code == Error.NLE_NOADDR:
                                 raise NetlinkNoAddressError(error_str)
                             elif error_code == Error.NLE_INTR:
                                 nle_intr_count += 1
-                                log.info("%s: RXed NLE_INTR Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
+                                log.debug("%s: RXed NLE_INTR Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
 
                                 if nle_intr_count >= MAX_ERROR_NLE_INTR:
                                     raise NetlinkInterruptedSystemCall(error_str)
+
                             else:
-                                if error_code_str == 'None':
+                                msg.dump()
+                                if not error_code_str:
                                     try:
                                         # os.strerror might raise ValueError
-                                        raise NetlinkError('Operation failed with \'%s\' (%s)' % (os.strerror(error_code), debug_str))
+                                        strerror = os.strerror(error_code)
+                                        if strerror:
+                                            raise NetlinkError('Operation failed with \'%s\'' % strerror)
+                                        else:
+                                            raise NetlinkError(error_str)
                                     except ValueError:
                                         pass
                                 raise NetlinkError(error_str)
@@ -273,29 +288,26 @@ class NetlinkManager(object):
                     else:
                         nle_intr_count = 0
 
-                        # If debugs are enabled we will print the contents of the
-                        # packet via the decode_packet call...so avoid printing
-                        # two messages for one packet.
-                        if not nlpacket.debug:
-                            log.debug(debug_str)
-
                         if msgtype == RTM_NEWLINK or msgtype == RTM_DELLINK:
-                            msg = Link(msgtype, nlpacket.debug)
+                            msg = Link(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         elif msgtype == RTM_NEWADDR or msgtype == RTM_DELADDR:
-                            msg = Address(msgtype, nlpacket.debug)
+                            msg = Address(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         elif msgtype == RTM_NEWNEIGH or msgtype == RTM_DELNEIGH:
-                            msg = Neighbor(msgtype, nlpacket.debug)
+                            msg = Neighbor(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         elif msgtype == RTM_NEWROUTE or msgtype == RTM_DELROUTE:
-                            msg = Route(msgtype, nlpacket.debug)
+                            msg = Route(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         else:
                             raise Exception("RXed unknown netlink message type %s" % msgtype)
 
                         msg.decode_packet(length, flags, seq, pid, data)
                         msgs.append(msg)
+
+                        if nlpacket.debug:
+                            msg.dump()
 
                     data = data[length:]
 
@@ -316,19 +328,19 @@ class NetlinkManager(object):
         """
 
         if rtm_type == RTM_GETADDR:
-            msg = Address(rtm_type, debug)
+            msg = Address(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxi', family, 0)
 
         elif rtm_type == RTM_GETLINK:
-            msg = Link(rtm_type, debug)
+            msg = Link(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxiii', family, 0, 0, 0)
 
         elif rtm_type == RTM_GETNEIGH:
-            msg = Neighbor(rtm_type, debug)
+            msg = Neighbor(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxii', family, 0, 0)
 
         elif rtm_type == RTM_GETROUTE:
-            msg = Route(rtm_type, debug)
+            msg = Route(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxii', family, 0, 0)
 
         else:
@@ -374,7 +386,7 @@ class NetlinkManager(object):
 
         if routes:
             for (afi, ip, mask, nexthop, interface_index) in routes:
-                route = Route(rtm_command, debug)
+                route = Route(rtm_command, debug, use_color=self.use_color)
                 route.flags = NLM_F_REQUEST | NLM_F_CREATE
                 route.body = pack('BBBBBBBBi', afi, mask, 0, 0, table, protocol,
                                   route_scope, route_type, 0)
@@ -394,7 +406,7 @@ class NetlinkManager(object):
             for (route_key, value) in ecmp_routes.iteritems():
                 (afi, ip, mask) = route_key
 
-                route = Route(rtm_command, debug)
+                route = Route(rtm_command, debug, use_color=self.use_color)
                 route.flags = NLM_F_REQUEST | NLM_F_CREATE
                 route.body = pack('BBBBBBBBi', afi, mask, 0, 0, table, protocol,
                                   route_scope, route_type, 0)
@@ -428,7 +440,7 @@ class NetlinkManager(object):
         - IPv6Address
         """
         # Transmit a RTM_GETROUTE to query for the route we want
-        route = Route(RTM_GETROUTE, debug)
+        route = Route(RTM_GETROUTE, debug, use_color=self.use_color)
         route.flags = NLM_F_REQUEST | NLM_F_ACK
 
         # Set everything in the service header as 0 other than the afi
@@ -468,7 +480,7 @@ class NetlinkManager(object):
         """
         debug = RTM_GETLINK in self.debug
 
-        link = Link(RTM_GETLINK, debug)
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -497,7 +509,7 @@ class NetlinkManager(object):
         """
         debug = RTM_NEWLINK in self.debug
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -539,40 +551,179 @@ class NetlinkManager(object):
         """
         return self._link_add(ifindex, ifname, 'macvlan', {Link.IFLA_MACVLAN_MODE: Link.MACVLAN_MODE_PRIVATE})
 
-    def _link_bridge_vlan(self, msgtype, ifindex, vlanid, pvid, untagged, master):
+    def vlan_get(self, filter_ifindex=(), filter_vlanid=(), compress_vlans=True):
         """
-        Build and TX a RTM_NEWLINK message to add the desired interface
+        filter_ifindex should be a tuple if interface indexes, this is a whitelist filter
+        filter_vlandid should be a tuple if VLAN IDs, this is a whitelist filter
         """
+        debug = RTM_GETLINK in self.debug
 
-        if master:
-            flags = 0
-        else:
-            flags = Link.BRIDGE_FLAGS_SELF
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
+        link.family = AF_BRIDGE
+        link.flags = NLM_F_DUMP | NLM_F_REQUEST
+        link.body = pack('Bxxxiii', socket.AF_BRIDGE, 0, 0, 0)
 
-        if pvid:
-            vflags = Link.BRIDGE_VLAN_INFO_PVID | Link.BRIDGE_VLAN_INFO_UNTAGGED
-        elif untagged:
-            vflags = Link.BRIDGE_VLAN_INFO_UNTAGGED
+        if compress_vlans:
+            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN_COMPRESSED)
         else:
-            vflags = 0
+            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN)
+
+        link.build_message(self.sequence.next(), self.pid)
+        reply = self.tx_nlpacket_get_response(link)
+
+        iface_vlans = {}
+
+        for msg in reply:
+            if msg.family != socket.AF_BRIDGE:
+                continue
+
+            if filter_ifindex and msg.ifindex not in filter_ifindex:
+                continue
+
+            ifla_af_spec = msg.get_attribute_value(Link.IFLA_AF_SPEC)
+
+            if not ifla_af_spec:
+                continue
+
+            ifname = msg.get_attribute_value(Link.IFLA_IFNAME)
+
+            '''
+            Example IFLA_AF_SPEC
+
+              20: 0x1c001a00  ....  Length 0x001c (28), Type 0x001a (26) IFLA_AF_SPEC
+              21: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
+              22: 0x00000a00  ....
+              23: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
+              24: 0x00001000  ....
+              25: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
+              26: 0x00001400  ....
+            '''
+            for (x_type, x_value) in ifla_af_spec.iteritems():
+                if x_type == Link.IFLA_BRIDGE_VLAN_INFO:
+                    for (vlan_flag, vlan_id) in x_value:
+                        if filter_vlanid is None or vlan_id in filter_vlanid:
+
+                            if ifname not in iface_vlans:
+                                iface_vlans[ifname] = []
+
+                            # We store these in the tuple as (vlan, flag) instead (flag, vlan)
+                            # so that we can sort the list of tuples
+                            iface_vlans[ifname].append((vlan_id, vlan_flag))
+
+        return iface_vlans
+
+    def vlan_show(self, filter_ifindex=None, filter_vlanid=None, compress_vlans=True):
+
+        def vlan_flag_to_string(vlan_flag):
+            flag_str = []
+            if vlan_flag & Link.BRIDGE_VLAN_INFO_PVID:
+                flag_str.append('PVID')
+
+            if vlan_flag & Link.BRIDGE_VLAN_INFO_UNTAGGED:
+                flag_str.append('Egress Untagged')
+
+            return ', '.join(flag_str)
+
+        iface_vlans = self.vlan_get(filter_ifindex, filter_vlanid, compress_vlans)
+        log.debug("iface_vlans:\n%s\n" % pformat(iface_vlans))
+        range_begin_vlan_id = None
+        range_flag = None
+
+        print "   Interface  VLAN  Flags"
+        print "  ==========  ====  ====="
+
+        for (ifname, vlan_tuples) in sorted(iface_vlans.iteritems()):
+            for (vlan_id, vlan_flag) in sorted(vlan_tuples):
+
+                if vlan_flag & Link.BRIDGE_VLAN_INFO_RANGE_BEGIN:
+                    range_begin_vlan_id = vlan_id
+                    range_flag = vlan_flag
+
+                elif vlan_flag & Link.BRIDGE_VLAN_INFO_RANGE_END:
+                    range_flag |= vlan_flag
+
+                    if not range_begin_vlan_id:
+                        log.warning("BRIDGE_VLAN_INFO_RANGE_END is %d but we never saw a BRIDGE_VLAN_INFO_RANGE_BEGIN" % vlan_id)
+                        range_begin_vlan_id = vlan_id
+
+                    for x in xrange(range_begin_vlan_id, vlan_id + 1):
+                        print "  %10s  %4d  %s" % (ifname, x, vlan_flag_to_string(vlan_flag))
+                        ifname = ''
+
+                    range_begin_vlan_id = None
+                    range_flag = None
+
+                else:
+                    print "  %10s  %4d  %s" % (ifname, vlan_id, vlan_flag_to_string(vlan_flag))
+                    ifname = ''
+
+
+    def vlan_modify(self, msgtype, ifindex, vlanid_start, vlanid_end=None, bridge_self=False, bridge_master=False, pvid=False, untagged=False):
+        """
+        iproute2 bridge/vlan.c vlan_modify()
+        """
+        assert msgtype in (RTM_SETLINK, RTM_DELLINK), "Invalid msgtype %s, must be RTM_SETLINK or RTM_DELLINK" % msgtype
+        assert vlanid_start >= 1 and vlanid_start <= 4096, "Invalid VLAN start %s" % vlanid_start
+
+        if vlanid_end is None:
+            vlanid_end = vlanid_start
+
+        assert vlanid_end >= 1 and vlanid_end <= 4096, "Invalid VLAN end %s" % vlanid_end
+        assert vlanid_start <= vlanid_end, "Invalid VLAN range %s-%s, start must be <= end" % (vlanid_start, vlanid_end)
 
         debug = msgtype in self.debug
+        bridge_flags = 0
+        vlan_info_flags = 0
 
-        link = Link(msgtype, debug)
+        link = Link(msgtype, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_BRIDGE, ifindex, 0, 0)
-        link.add_attribute(Link.IFLA_AF_SPEC, {
-            Link.IFLA_BRIDGE_FLAGS: flags,
-            Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
-        })
+
+        if bridge_self:
+            bridge_flags |= Link.BRIDGE_FLAGS_SELF
+
+        if bridge_master:
+            bridge_flags |= Link.BRIDGE_FLAGS_MASTER
+
+        if pvid:
+            vlan_info_flags |= Link.BRIDGE_VLAN_INFO_PVID
+
+        if untagged:
+            vlan_info_flags |= Link.BRIDGE_VLAN_INFO_UNTAGGED
+
+        ifla_af_spec = OrderedDict()
+
+        if bridge_flags:
+            ifla_af_spec[Link.IFLA_BRIDGE_FLAGS] = bridge_flags
+
+        # just one VLAN
+        if vlanid_start == vlanid_end:
+            ifla_af_spec[Link.IFLA_BRIDGE_VLAN_INFO] = [(vlan_info_flags, vlanid_start), ]
+
+        # a range of VLANs
+        else:
+            ifla_af_spec[Link.IFLA_BRIDGE_VLAN_INFO] = [
+                (vlan_info_flags | Link.BRIDGE_VLAN_INFO_RANGE_BEGIN, vlanid_start),
+                (vlan_info_flags | Link.BRIDGE_VLAN_INFO_RANGE_END, vlanid_end)
+            ]
+
+        link.add_attribute(Link.IFLA_AF_SPEC, ifla_af_spec)
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
-    def link_add_bridge_vlan(self, ifindex, vlanid, pvid=False, untagged=False, master=False):
-        self._link_bridge_vlan(RTM_SETLINK, ifindex, vlanid, pvid, untagged, master)
+    def link_add_bridge_vlan(self, ifindex, vlanid_start, vlanid_end=None, pvid=False, untagged=False, master=False):
+        """
+        Add VLAN(s) to a bridge interface
+        """
+        bridge_self = False if master else True
+        self.vlan_modify(RTM_SETLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
 
-    def link_del_bridge_vlan(self, ifindex, vlanid, pvid=False, untagged=False, master=False):
-        self._link_bridge_vlan(RTM_DELLINK, ifindex, vlanid, pvid, untagged, master)
+    def link_del_bridge_vlan(self, ifindex, vlanid_start, vlanid_end=None, pvid=False, untagged=False, master=False):
+        """
+        Delete VLAN(s) from a bridge interface
+        """
+        bridge_self = False if master else True
+        self.vlan_modify(RTM_DELLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
 
     def link_set_updown(self, ifname, state):
         """
@@ -589,7 +740,7 @@ class NetlinkManager(object):
         debug = RTM_NEWLINK in self.debug
         if_change = Link.IFF_UP
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
@@ -605,11 +756,36 @@ class NetlinkManager(object):
 
         debug = RTM_NEWLINK in self.debug
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_PROTO_DOWN, protodown)
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(link)
+
+    def link_set_master(self, ifname, master_ifindex=0, state=None):
+        """
+            ip link set %ifname master %master_ifindex %state
+            use master_ifindex=0 for nomaster
+        """
+        if state == 'up':
+            if_change = Link.IFF_UP
+            if_flags = Link.IFF_UP
+        elif state == 'down':
+            if_change = Link.IFF_UP
+            if_flags = 0
+        else:
+            if_change = 0
+            if_flags = 0
+
+        debug = RTM_NEWLINK in self.debug
+
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
+        link.add_attribute(Link.IFLA_IFNAME, ifname)
+        link.add_attribute(Link.IFLA_MASTER, master_ifindex)
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
@@ -620,7 +796,7 @@ class NetlinkManager(object):
         debug = RTM_NEWNEIGH in self.debug
         service_hdr_flags = 0
 
-        nbr = Neighbor(RTM_NEWNEIGH, debug)
+        nbr = Neighbor(RTM_NEWNEIGH, debug, use_color=self.use_color)
         nbr.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
@@ -633,7 +809,7 @@ class NetlinkManager(object):
         debug = RTM_DELNEIGH in self.debug
         service_hdr_flags = 0
 
-        nbr = Neighbor(RTM_DELNEIGH, debug)
+        nbr = Neighbor(RTM_DELNEIGH, debug, use_color=self.use_color)
         nbr.flags = NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
@@ -661,7 +837,7 @@ class NetlinkManager(object):
         if ageing:
             info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
 
-        link = Link(RTM_NEWLINK, debug)
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)

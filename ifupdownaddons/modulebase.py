@@ -37,10 +37,12 @@ class moduleBase(object):
                             re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
                             re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
 
+        self._bridge_stp_user_space = None
+
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
-        if not self.ignore_error(str):
+        if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
             self.logger.warn(str)
@@ -50,7 +52,7 @@ class moduleBase(object):
 
     def log_error(self, str, ifaceobj=None, raise_error=True):
         """ log an err if err str is not one of which we should ignore and raise an exception """
-        if not self.ignore_error(str):
+        if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
             if raise_error:
@@ -251,7 +253,17 @@ class moduleBase(object):
 
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
-        return utils.exec_command('sysctl %s' % variable).split('=')[1].strip()
+        output = utils.exec_command('sysctl %s' % variable)
+        split = output.split('=')
+        if len(split) > 1:
+            return split[1].strip()
+        return None
+
+    def systcl_get_net_bridge_stp_user_space(self):
+        if self._bridge_stp_user_space:
+            return self._bridge_stp_user_space
+        self._bridge_stp_user_space = self.sysctl_get('net.bridge.bridge-stp-user-space')
+        return self._bridge_stp_user_space
 
     def set_iface_attr(self, ifaceobj, attr_name, attr_valsetfunc,
                        prehook=None, prehookargs=None):
@@ -299,6 +311,8 @@ class moduleBase(object):
                 if not attrvals or attrvals.get('deprecated'):
                     continue
                 retattrs.append(attrname)
+                if 'aliases' in attrvals:
+                    retattrs.extend(attrvals['aliases'])
             return retattrs
         except:
             return None

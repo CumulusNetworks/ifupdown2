@@ -10,6 +10,7 @@ try:
     from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
     from sets import Set
     from ifupdown.iface import *
+    from ifupdown.utils import utils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
@@ -53,6 +54,7 @@ class address(moduleBase):
                       'gateway' :
                             {'help': 'default gateway',
                              'validvals' : ['<ipv4>', '<ipv6>'],
+                             'multiline' : True,
                              'example' : ['gateway 255.255.255.0']},
                       'mtu' :
                             { 'help': 'interface mtu',
@@ -65,7 +67,6 @@ class address(moduleBase):
                              'example': ['hwaddress 44:38:39:00:27:b8']},
                       'alias' :
                             { 'help': 'description/alias',
-                              'validvals' : ['<text>',],
                               'example' : ['alias testnetwork']},
                       'address-purge' :
                             { 'help': 'purge existing addresses. By default ' +
@@ -87,6 +88,58 @@ class address(moduleBase):
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
         self.default_mtu = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='mtu')
+        self.max_mtu = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='max_mtu')
+
+        if not self.default_mtu:
+            self.default_mtu = '1500'
+
+        self.logger.info('address: using default mtu %s' %self.default_mtu)
+
+        if self.max_mtu:
+            self.logger.info('address: using max mtu %s' %self.max_mtu)
+
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
+        return (self.syntax_check_multiple_gateway(ifaceobj)
+                and self.syntax_check_addr_allowed_on(ifaceobj, True)
+                and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc))
+
+    def syntax_check_mtu(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+        if mtu:
+            return self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc,
+                                          syntaxcheck=True)
+        return True
+
+    def syntax_check_addr_allowed_on(self, ifaceobj, syntax_check=False):
+        if ifaceobj.get_attr_value('address'):
+            return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=syntax_check)
+        return True
+
+    def _syntax_check_multiple_gateway(self, family, found, addr, type_obj):
+        if type(IPNetwork(addr)) == type_obj:
+            if found:
+                raise Exception('%s: multiple gateways for %s family'
+                                % (addr, family))
+            return True
+        return False
+
+    def syntax_check_multiple_gateway(self, ifaceobj):
+        result = True
+        inet = False
+        inet6 = False
+        gateways = ifaceobj.get_attr_value('gateway')
+        for addr in gateways if gateways else []:
+            try:
+                if self._syntax_check_multiple_gateway('inet', inet, addr,
+                                                       IPv4Network):
+                    inet = True
+                if self._syntax_check_multiple_gateway('inet6', inet6, addr,
+                                                       IPv6Network):
+                    inet6 = True
+            except Exception as e:
+                self.logger.warning('%s: address: %s' % (ifaceobj.name, str(e)))
+                result = False
+        return result
 
     def _address_valid(self, addrs):
         if not addrs:
@@ -143,15 +196,8 @@ class address(moduleBase):
             if not addrs:
                 continue
 
-            if (((ifaceobj.role & ifaceRole.SLAVE) and
-                not (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)) or
-                ((ifaceobj.link_kind & ifaceLinkKind.BRIDGE) and
-                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE))):
-                # we must not configure an IP address if the interface is
-                # enslaved or is a VLAN AWARE BRIDGE
-                self.logger.info('%s: ignoring ip address. Interface is '
-                                 'enslaved or a vlan aware bridge and cannot'
-                                 ' have an IP Address' %(ifaceobj.name))
+            if not self.syntax_check_addr_allowed_on(ifaceobj,
+                                                     syntax_check=False):
                 return (False, newaddrs, newaddr_attrs)
             # If user address is not in CIDR notation, convert them to CIDR
             for addr_index in range(0, len(addrs)):
@@ -221,6 +267,7 @@ class address(moduleBase):
             ifaceobjlist = [ifaceobj]
 
         (addr_supported, newaddrs, newaddr_attrs) = self._inet_address_convert_to_cidr(ifaceobjlist)
+        newaddrs = utils.get_normalized_ip_addr(ifaceobj.name, newaddrs)
         if not addr_supported:
             return
         if (not squash_addr_config and (ifaceobj.flags & iface.HAS_SIBLINGS)):
@@ -234,11 +281,11 @@ class address(moduleBase):
         if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
-            runningaddrs = self.ipcmd.addr_get(ifaceobj.name, details=False)
+            runningaddrs = utils.get_normalized_ip_addr(ifaceobj.name, self.ipcmd.addr_get(ifaceobj.name, details=False))
 
             # if anycast address is configured on 'lo' and is in running config
             # add it to newaddrs so that ifreload doesn't wipe it out
-            anycast_addr = self._get_anycast_addr(ifaceobjlist)
+            anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, self._get_anycast_addr(ifaceobjlist))
 
             if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
                 newaddrs.append(anycast_addr)
@@ -266,13 +313,13 @@ class address(moduleBase):
         for del_gw in list(set(prev_gw) - set(gateways)):
             try:
                 self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
-            except:
-                pass
-        for add_gw in list(set(gateways) - set(prev_gw)):
+            except Exception as e:
+                self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
+        for add_gw in gateways:
             try:
                 self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
-            except:
-                pass
+            except Exception as e:
+                self.log_error('%s: %s' % (ifaceobj.name, str(e)))
 
     def _get_prev_gateway(self, ifaceobj, gateways):
         ipv = []
@@ -284,9 +331,129 @@ class address(moduleBase):
             return ipv
         return prev_gateways
 
+    def _check_mtu_config(self, ifaceobj, mtu, ifaceobj_getfunc, syntaxcheck=False):
+        retval = True
+        if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+            if syntaxcheck:
+                self.logger.warn('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
+                retval = False
+            else:
+                self.logger.info('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
+        elif ifaceobj_getfunc:
+            if ((ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+                ifaceobj.upperifaces):
+                masterobj = ifaceobj_getfunc(ifaceobj.upperifaces[0])
+                if masterobj:
+                    master_mtu = masterobj[0].get_attr_value_first('mtu')
+                    if master_mtu and master_mtu != mtu:
+                        if syntaxcheck:
+                            self.logger.warn('%s: bond slave mtu %s is different from bond master %s mtu %s. There is no need to configure mtu on a bond slave.' %(ifaceobj.name, mtu, masterobj[0].name, master_mtu))
+                            retval = False
+                        else:
+                            self.logger.info('%s: bond slave mtu %s is different from bond master %s mtu %s. There is no need to configure mtu on a bond slave.' %(ifaceobj.name, mtu, masterobj[0].name, master_mtu))
+            elif ((ifaceobj.link_kind & ifaceLinkKind.VLAN) and
+                  ifaceobj.lowerifaces):
+                lowerobj = ifaceobj_getfunc(ifaceobj.lowerifaces[0])
+                if lowerobj:
+                    if syntaxcheck:
+                        lowerdev_mtu = lowerobj[0].get_attr_value_first('mtu')
+                    else:
+                        lowerdev_mtu = self.ipcmd.link_get_mtu(lowerobj[0].name)
+                    if lowerdev_mtu and int(mtu) > int(lowerdev_mtu):
+                        self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
+                                         %(ifaceobj.name, mtu, lowerobj[0].name, lowerdev_mtu))
+                        retval = False
+                    elif (not lowerobj[0].link_kind and
+                          not (lowerobj[0].link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
+                          self.default_mtu and (int(mtu) > int(self.default_mtu))):
+                        # only check default mtu on lower device which is a physical interface
+                        self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
+                                         %(ifaceobj.name, mtu, lowerobj[0].name, self.default_mtu))
+                        retval = False
+            if self.max_mtu and mtu > self.max_mtu:
+                self.logger.warn('%s: specified mtu %s is greater than max mtu %s'
+                                 %(ifaceobj.name, mtu, self.max_mtu))
+                retval = False
+        return retval
+
+    def _propagate_mtu_to_upper_devs(self, ifaceobj, mtu, ifaceobj_getfunc):
+        if (not ifaceobj.upperifaces or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) or
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)):
+            return
+        for u in ifaceobj.upperifaces:
+            upperobjs = ifaceobj_getfunc(u)
+            if (not upperobjs or
+                not (upperobjs[0].link_kind & ifaceLinkKind.VLAN)):
+                continue
+            # only adjust mtu for vlan devices on ifaceobj
+            umtu = upperobjs[0].get_attr_value_first('mtu')
+            if not umtu:
+                running_mtu = self.ipcmd.link_get_mtu(upperobjs[0].name)
+                if not running_mtu or (running_mtu != mtu):
+                    self.ipcmd.link_set(u, 'mtu', mtu)
+
+    def _process_mtu_config(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+        if mtu:
+            if not self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc):
+                return
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if not running_mtu or (running_mtu and running_mtu != mtu):
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+                if (not ifupdownflags.flags.ALL and
+                    not ifaceobj.link_kind and
+                    ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0'):
+                    # This is additional cost to us, so do it only when
+                    # ifupdown2 is called on a particular interface and
+                    # it is a physical interface
+                    self._propagate_mtu_to_upper_devs(ifaceobj, mtu, ifaceobj_getfunc)
+            return
+
+        if ifaceobj.link_kind:
+            # bonds and vxlan devices need an explicit set of mtu.
+            # bridges don't need mtu set
+            if (ifaceobj.link_kind & ifaceLinkKind.BOND or
+                ifaceobj.link_kind & ifaceLinkKind.VXLAN):
+                running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+                if (self.default_mtu and running_mtu != self.default_mtu):
+                    self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+                return
+            if (ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0'
+                and ifaceobj.lowerifaces):
+                # set vlan interface mtu to lower device mtu
+                if (ifaceobj.link_kind & ifaceLinkKind.VLAN):
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
+                        self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
+
+        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
+              not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
+              self.default_mtu):
+            # logical devices like bridges and vlan devices rely on mtu
+            # from their lower devices. ie mtu travels from
+            # lower devices to upper devices. For bonds mtu travels from
+            # upper to lower devices. running mtu depends on upper and
+            # lower device mtu. With all this implicit mtu
+            # config by the kernel in play, we try to be cautious here
+            # on which devices we want to reset mtu to default.
+            # essentially only physical interfaces which are not bond slaves
+            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            if running_mtu != self.default_mtu:
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
+
+        alias = ifaceobj.get_attr_value_first('alias')
+        current_alias = self.ipcmd.link_get_alias(ifaceobj.name)
+        if alias and alias != current_alias:
+            self.ipcmd.link_set_alias(ifaceobj.name, alias)
+        elif not alias and current_alias:
+            self.ipcmd.link_set_alias(ifaceobj.name, '')
+
         addr_method = ifaceobj.addr_method
         force_reapply = False
         try:
@@ -311,61 +478,40 @@ class address(moduleBase):
         if addr_method != "dhcp":
             self._inet_address_config(ifaceobj, ifaceobj_getfunc,
                                       force_reapply)
-        mtu = ifaceobj.get_attr_value_first('mtu')
-        if mtu:
-           self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
-        elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
-              not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and
-              self.default_mtu):
-            # logical devices like bridges and vlan devices rely on mtu
-            # from their lower devices. ie mtu travels from
-            # lower devices to upper devices. For bonds mtu travels from
-            # upper to lower devices. running mtu depends on upper and
-            # lower device mtu. With all this implicit mtu
-            # config by the kernel in play, we try to be cautious here
-            # on which devices we want to reset mtu to default.
-            # essentially only physical interfaces which are not bond slaves
-            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
-            if running_mtu != self.default_mtu:
-                self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
+        self._process_mtu_config(ifaceobj, ifaceobj_getfunc)
 
-        alias = ifaceobj.get_attr_value_first('alias')
-        if alias:
-           self.ipcmd.link_set_alias(ifaceobj.name, alias)
         try:
             self.ipcmd.batch_commit()
         except Exception as e:
-            self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
-            ifaceobj.set_status(ifaceStatus.ERROR)
-
-        hwaddress = self._get_hwaddress(ifaceobj)
-        if hwaddress:
-            running_hwaddress = None
-            if not ifupdownflags.flags.PERFMODE: # system is clean
-                running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
-            if hwaddress != running_hwaddress:
-                slave_down = False
-                netlink.link_set_updown(ifaceobj.name, "down")
-                if ifaceobj.link_kind & ifaceLinkKind.BOND:
-                    # if bond, down all the slaves
-                    if ifaceobj.lowerifaces:
-                        for l in ifaceobj.lowerifaces:
-                            netlink.link_set_updown(l, "down")
-                        slave_down = True
-                try:
-                    self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
-                finally:
-                    netlink.link_set_updown(ifaceobj.name, "up")
-                    if slave_down:
-                        for l in ifaceobj.lowerifaces:
-                            netlink.link_set_updown(l, "up")
+            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj, raise_error=False)
 
         try:
+            hwaddress = self._get_hwaddress(ifaceobj)
+            if hwaddress:
+                running_hwaddress = None
+                if not ifupdownflags.flags.PERFMODE: # system is clean
+                    running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
+                if hwaddress != running_hwaddress:
+                    slave_down = False
+                    netlink.link_set_updown(ifaceobj.name, "down")
+                    if ifaceobj.link_kind & ifaceLinkKind.BOND:
+                        # if bond, down all the slaves
+                        if ifaceobj.lowerifaces:
+                            for l in ifaceobj.lowerifaces:
+                                netlink.link_set_updown(l, "down")
+                            slave_down = True
+                    try:
+                        self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
+                    finally:
+                        netlink.link_set_updown(ifaceobj.name, "up")
+                        if slave_down:
+                            for l in ifaceobj.lowerifaces:
+                                netlink.link_set_updown(l, "up")
+
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
-            pass
 
         if addr_method != "dhcp":
             gateways = ifaceobj.get_attr_value('gateway')
@@ -468,11 +614,12 @@ class address(moduleBase):
         # compare addresses
         if addr_method == 'dhcp':
            return
-        addrs = self._get_iface_addresses(ifaceobj)
+        addrs = utils.get_normalized_ip_addr(ifaceobj.name,
+                                             self._get_iface_addresses(ifaceobj))
         runningaddrsdict = self.ipcmd.addr_get(ifaceobj.name)
         # if anycast address is configured on 'lo' and is in running config
         # add it to addrs so that query_check doesn't fail
-        anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
+        anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip'))
         if anycast_addr:
             anycast_addr = anycast_addr+'/32'
         if runningaddrsdict and anycast_addr and runningaddrsdict.get(anycast_addr):
@@ -526,7 +673,7 @@ class address(moduleBase):
         isloopback = self.ipcmd.link_isloopback(ifaceobjrunning.name)
         if isloopback:
             default_addrs = ['127.0.0.1/8', '::1/128']
-            ifaceobjrunning.addr_family = 'inet'
+            ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'loopback'
         else:
             default_addrs = []
@@ -544,6 +691,7 @@ class address(moduleBase):
         alias = self.ipcmd.link_get_alias(ifaceobjrunning.name)
         if alias:
             ifaceobjrunning.update_config('alias', alias)
+
 
     _run_ops = {'up' : _up,
                'down' : _down,

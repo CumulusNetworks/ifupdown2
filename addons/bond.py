@@ -104,7 +104,19 @@ class bond(moduleBase):
                          'validvals': ['<interface-list>'],
                          'example' : ['bond-slaves swp1 swp2',
                                       'bond-slaves glob swp1-2',
-                                      'bond-slaves regex (swp[1|2)']}}}
+                                      'bond-slaves regex (swp[1|2)'],
+                         'aliases': ['bond-ports']},
+                     'bond-updelay' :
+                        {'help' : 'bond updelay',
+                         'default' : '0',
+                         'validrange' : ['0', '65535'],
+                         'example' : ['bond-updelay 100']},
+                     'bond-downdelay':
+                        {'help' : 'bond downdelay',
+                         'default' : '0',
+                         'validrange' : ['0', '65535'],
+                         'example' : ['bond-downdelay 100']}
+                    }}
 
     _bond_mode_num = {'0': 'balance-rr',
                       '1': 'active-backup',
@@ -139,8 +151,14 @@ class bond(moduleBase):
         self.ipcmd = None
         self.bondcmd = None
 
+    def get_bond_slaves(self, ifaceobj):
+        slaves = ifaceobj.get_attr_value_first('bond-slaves')
+        if not slaves:
+            slaves = ifaceobj.get_attr_value_first('bond-ports')
+        return slaves
+
     def _is_bond(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('bond-slaves'):
+        if self.get_bond_slaves(ifaceobj):
             return True
         return False
 
@@ -150,8 +168,8 @@ class bond(moduleBase):
         if not self._is_bond(ifaceobj):
             return None
         slave_list = self.parse_port_list(ifaceobj.name,
-                                    ifaceobj.get_attr_value_first(
-                                    'bond-slaves'), ifacenames_all)
+                                          self.get_bond_slaves(ifaceobj),
+                                          ifacenames_all)
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         # Also save a copy for future use
         ifaceobj.priv_data = list(slave_list)
@@ -172,14 +190,14 @@ class bond(moduleBase):
         # If priv data already has slave list use that first.
         if ifaceobj.priv_data:
             return ifaceobj.priv_data
-        slaves = ifaceobj.get_attr_value_first('bond-slaves')
+        slaves = self.get_bond_slaves(ifaceobj)
         if slaves:
             return self.parse_port_list(ifaceobj.name, slaves)
         else:
             return None
 
     def _is_clag_bond(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('bond-slaves'):
+        if self.get_bond_slaves(ifaceobj):
             attrval = ifaceobj.get_attr_value_first('clag-id')
             if attrval and attrval != '0':
                 return True
@@ -224,7 +242,9 @@ class bond(moduleBase):
                                  ('bond-ad-actor-system' , 'ad_actor_system'),
                                  ('bond-ad-sys-priority' , 'ad_actor_sys_prio'),
                                  ('bond-ad-actor-sys-prio' , 'ad_actor_sys_prio'),
-                                 ('bond-lacp-bypass-allow', 'lacp_bypass')])
+                                 ('bond-lacp-bypass-allow', 'lacp_bypass'),
+                                 ('bond-updelay', 'updelay'),
+                                 ('bond-downdelay', 'downdelay')])
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
         try:
             # order of attributes set matters for bond, so
@@ -247,7 +267,7 @@ class bond(moduleBase):
             raise
         finally:
             if have_attrs_to_set and linkup:
-                self.ipcmd.link_up(ifaceobj.name)
+                netlink.link_set_updown(ifaceobj.name, 'up')
 
     def _add_slaves(self, ifaceobj):
         runningslaves = []
@@ -280,7 +300,7 @@ class bond(moduleBase):
                     netlink.link_set_protodown(slave, "on")
                 except Exception, e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
-            self.ipcmd.link_set(slave, 'master', ifaceobj.name)
+            netlink.link_set_master(slave, ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
                     netlink.link_set_updown(slave, "up")
@@ -304,8 +324,6 @@ class bond(moduleBase):
                 self.bondcmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
             self._add_slaves(ifaceobj)
-            if ifaceobj.addr_method == 'manual':
-                netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
@@ -339,11 +357,16 @@ class bond(moduleBase):
             if 'bond-mode' in runningattrs:
                 runningattrs['bond-mode'] = bond._get_num_bond_mode(runningattrs['bond-mode'])
 
+        bond_slaves = True
         for k in ifaceattrs:
             v = ifaceobj.get_attr_value_first(k)
             if not v:
                 continue
             if k == 'bond-slaves':
+                slaves = self._get_slave_list(ifaceobj)
+                continue
+            elif k == 'bond-ports':
+                bond_slaves = False
                 slaves = self._get_slave_list(ifaceobj)
                 continue
             rv = runningattrs.get(k)
@@ -361,9 +384,20 @@ class bond(moduleBase):
                 difference = set(slaves).symmetric_difference(runningslaves)
                 if not difference:
                     retslave = 0
-        ifaceobjcurr.update_config_with_status('bond-slaves',
-                        ' '.join(runningslaves)
-                        if runningslaves else 'None', retslave)
+        # we want to display the same bond-slaves list as provided
+        # in the interfaces file but if this list contains regexes or
+        # globs, for now, we won't try to change it.
+        if 'regex' in slaves or 'glob' in slaves:
+            slaves = runningslaves
+        else:
+            ordered = []
+            for i in range(0, len(slaves)):
+                if slaves[i] in runningslaves:
+                    ordered.append(slaves[i])
+            slaves = ordered
+        ifaceobjcurr.update_config_with_status('bond-slaves' if bond_slaves else 'bond-ports',
+                        ' '.join(slaves)
+                        if slaves else 'None', retslave)
 
     def _query_running_attrs(self, bondname):
         bondattrs = {'bond-mode' :
@@ -387,7 +421,11 @@ class bond(moduleBase):
                      'bond-num-unsol-na' :
                             self.bondcmd.get_num_unsol_na(bondname),
                      'bond-num-grat-arp' :
-                            self.bondcmd.get_num_grat_arp(bondname)}
+                            self.bondcmd.get_num_grat_arp(bondname),
+                     'bond-updelay' :
+                            self.bondcmd.get_updelay(bondname),
+                     'bond-downdelay' :
+                            self.bondcmd.get_downdelay(bondname)}
         slaves = self.bondcmd.get_slaves(bondname)
         if slaves:
             bondattrs['bond-slaves'] = slaves

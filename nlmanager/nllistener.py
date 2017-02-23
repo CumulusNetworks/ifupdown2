@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 class NetlinkListener(Thread):
 
-    def __init__(self, manager, groups):
+    def __init__(self, manager, groups, pid_offset=1):
         """
         groups controls what types of messages we are interested in hearing
         To get everything pass:
@@ -28,6 +28,7 @@ class NetlinkListener(Thread):
         self.manager = manager
         self.shutdown_event = Event()
         self.groups = groups
+        self.pid_offset = pid_offset
 
     def __str__(self):
         return 'NetlinkListener'
@@ -40,9 +41,12 @@ class NetlinkListener(Thread):
         # The RX socket is used to listen to all netlink messages that fly by
         # as things change in the kernel. We need a very large SO_RCVBUF here
         # else we tend to miss messages.
+        # PID_MAX_LIMIT is 2^22 allowing 1024 sockets per-pid. We default to 
+        # use 2 in the upper space (top 10 bits) instead of 0 to avoid conflicts
+        # with the netlink manager which always attempts to bind with the pid.
         self.rx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
         self.rx_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10000000)
-        self.rx_socket.bind((manager.pid+1, self.groups))
+        self.rx_socket.bind((manager.pid | (self.pid_offset << 22), self.groups))
         self.rx_socket_prev_seq = {}
 
         if not manager.tx_socket:
@@ -169,8 +173,8 @@ class NetlinkListener(Thread):
 
 class NetlinkManagerWithListener(NetlinkManager):
 
-    def __init__(self, groups, start_listener=True):
-        NetlinkManager.__init__(self)
+    def __init__(self, groups, start_listener=True, use_color=True):
+        NetlinkManager.__init__(self, use_color=use_color)
         self.groups = groups
         self.workq = Queue()
         self.netlinkq = []
@@ -285,7 +289,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         family = socket.AF_UNSPEC
         debug = RTM_GETADDR in self.debug
 
-        addr = Address(RTM_GETADDR, debug)
+        addr = Address(RTM_GETADDR, debug, use_color=self.use_color)
         addr.flags = NLM_F_REQUEST | NLM_F_DUMP
         addr.body = pack('Bxxxi', family, 0)
         addr.build_message(self.sequence.next(), self.pid)
@@ -299,7 +303,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         family = socket.AF_UNSPEC
         debug = RTM_GETLINK in self.debug
 
-        link = Link(RTM_GETLINK, debug)
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_DUMP
         link.body = pack('Bxxxiii', family, 0, 0, 0)
         link.build_message(self.sequence.next(), self.pid)
@@ -313,7 +317,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         family = socket.AF_UNSPEC
         debug = RTM_GETNEIGH in self.debug
 
-        neighbor = Neighbor(RTM_GETNEIGH, debug)
+        neighbor = Neighbor(RTM_GETNEIGH, debug, use_color=self.use_color)
         neighbor.flags = NLM_F_REQUEST | NLM_F_DUMP
         neighbor.body = pack('Bxxxii', family, 0, 0)
         neighbor.build_message(self.sequence.next(), self.pid)
@@ -327,7 +331,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         family = socket.AF_UNSPEC
         debug = RTM_GETROUTE in self.debug
 
-        route = Route(RTM_GETROUTE, debug)
+        route = Route(RTM_GETROUTE, debug, use_color=self.use_color)
         route.flags = NLM_F_REQUEST | NLM_F_DUMP
         route.body = pack('Bxxxii', family, 0, 0)
         route.build_message(self.sequence.next(), self.pid)
@@ -475,16 +479,16 @@ class NetlinkManagerWithListener(NetlinkManager):
                 debug = self.debug_this_packet(msgtype)
 
             if msgtype == RTM_NEWLINK or msgtype == RTM_DELLINK:
-                msg = Link(msgtype, debug)
+                msg = Link(msgtype, debug, use_color=self.use_color)
 
             elif msgtype == RTM_NEWADDR or msgtype == RTM_DELADDR:
-                msg = Address(msgtype, debug)
+                msg = Address(msgtype, debug, use_color=self.use_color)
 
             elif msgtype == RTM_NEWNEIGH or msgtype == RTM_DELNEIGH:
-                msg = Neighbor(msgtype, debug)
+                msg = Neighbor(msgtype, debug, use_color=self.use_color)
 
             elif msgtype == RTM_NEWROUTE or msgtype == RTM_DELROUTE:
-                msg = Route(msgtype, debug)
+                msg = Route(msgtype, debug, use_color=self.use_color)
 
             else:
                 log.warning('RXed unknown netlink message type %s' % msgtype)

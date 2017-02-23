@@ -115,8 +115,10 @@ class ifupdownMain(ifupdownBase):
         if ((ifaceobj.link_kind & ifaceLinkKind.VRF) or
             (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
             return
-        if (ifaceobj.addr_method and
-            ifaceobj.addr_method == 'manual'):
+        # if not a logical interface and addr method is manual,
+        # ignore link admin state changes
+        if (ifaceobj.addr_method == 'manual' and
+            not ifaceobj.link_kind):
             return
         if self._delay_admin_state:
             self._delay_admin_state_iface_queue.append(ifaceobj.name)
@@ -129,6 +131,12 @@ class ifupdownMain(ifupdownBase):
             return
         if not self.link_exists(ifaceobj.name):
            return
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+            # user has asked to explicitly keep the link down,
+            # so, force link down
+            self.logger.info('%s: keeping link down due to user config' %ifaceobj.name)
+            self.link_down(ifaceobj.name)
+            return
         self.link_up(ifaceobj.name)
 
     def run_down(self, ifaceobj):
@@ -139,8 +147,10 @@ class ifupdownMain(ifupdownBase):
         # there is no real interface behind it
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
             return
-        if (ifaceobj.addr_method and
-            ifaceobj.addr_method == 'manual'):
+        # if not a logical interface and addr method is manual,
+        # ignore link admin state changes
+        if (ifaceobj.addr_method == 'manual' and
+            not ifaceobj.link_kind):
             return
         if self._delay_admin_state:
             self._delay_admin_state_iface_queue.append(ifaceobj.name)
@@ -306,7 +316,7 @@ class ifupdownMain(ifupdownBase):
         #   is a LINK_SLAVE of a bridge (in other words the bond is
         #   part of a bridge) which is not up yet
         if self._link_master_slave:
-           if 'Network is down':
+           if 'Network is down' in errorstr:
               return True
         return False
 
@@ -318,7 +328,7 @@ class ifupdownMain(ifupdownBase):
         if self.flags.STATEMANAGER_ENABLE:
            return self.statemanager.get_ifaceobjs(ifacename)
         else:
-           None
+           return None
 
     def get_ifaceobj_first(self, ifacename):
         ifaceobjs = self.get_ifaceobjs(ifacename)
@@ -467,6 +477,12 @@ class ifupdownMain(ifupdownBase):
         ifaceobj.role = role
 
     def _set_iface_role_n_kind(self, ifaceobj, upperifaceobj):
+
+        # If addr_method is set and link is not a logical interface,
+        # set flag KEEP_LINK_DOWN. addr_method == 'manual' only applies to
+        # logical interfaces.
+        if (ifaceobj.addr_method == 'manual' and not ifaceobj.link_kind):
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.KEEP_LINK_DOWN
 
         if (upperifaceobj.link_kind & ifaceLinkKind.BOND):
             self._set_iface_role(ifaceobj, ifaceRole.SLAVE, upperifaceobj)
@@ -649,6 +665,10 @@ class ifupdownMain(ifupdownBase):
 
         for i in self.ifaceobjdict.keys():
             iobj = self.get_ifaceobj_first(i)
+            if (not iobj.link_kind and
+               not (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
+               iobj.name == 'lo'):
+               iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
             if iobj.lowerifaces:
                 self.dependency_graph[i] = iobj.lowerifaces
             else:
@@ -717,10 +737,11 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.compare(currentifaceobjlist[0]):
             self.logger.warn('duplicate interface %s found' %ifaceobj.name)
             return
-        if ifaceobj.type == ifaceType.BRIDGE_VLAN:
-            self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
-        else:
-            currentifaceobjlist[0].squash(ifaceobj)
+        for obj in self.ifaceobjdict[ifaceobj.name]:
+            if obj.type == ifaceobj.type:
+                obj.squash(ifaceobj)
+                return
+        self.ifaceobjdict[ifaceobj.name].append(ifaceobj)
 
     def _save_iface(self, ifaceobj):
         if self._check_config_no_repeats(ifaceobj):
@@ -1089,7 +1110,8 @@ class ifupdownMain(ifupdownBase):
                                                      module._modinfo.get('attrs', {})):
                             result = False
                     if hasattr(module, 'syntax_check') and callable(module.syntax_check):
-                        if not module.syntax_check(self.get_ifaceobjs(ifacename)):
+                        if not module.syntax_check(self.get_ifaceobjs(ifacename)[0],
+                                                   self.get_ifaceobjs):
                             result = False
                 except Exception, e:
                     self.logger.warn('%s: %s' % (ifacename, str(e)))
@@ -1112,6 +1134,11 @@ class ifupdownMain(ifupdownBase):
                             self.logger.warn('attribute %s is deprecated.'
                                              %attrname)
                     return True
+                else:
+                    for key in attrsdict:
+                        if 'aliases' in attrsdict[key]:
+                            if attrname in attrsdict[key]['aliases']:
+                                return True
             except AttributeError:
                 pass
         return False
@@ -1902,7 +1929,13 @@ class ifupdownMain(ifupdownBase):
                     not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
                     lastifaceobjlist[0].is_config_present() and
                     lastifaceobjlist[0].link_kind):
-                    self.logger.warn('%s: misconfig ? removed but still exists as a dependency of %s' %(newifaceobjlist[objidx].name, str(newifaceobjlist[objidx].upperifaces)))
+                    self.logger.warn('%s: misconfig ? removed but still exists '
+                                     'as a dependency of %s.\nPlease remove '
+                                     'the dependency manually `ifdown %s` if '
+                                     'it is being picked up as part of a regex'
+                                     % (newifaceobjlist[objidx].name,
+                                        str(newifaceobjlist[objidx].upperifaces),
+                                        newifaceobjlist[objidx].name))
                 if not down_changed:
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
