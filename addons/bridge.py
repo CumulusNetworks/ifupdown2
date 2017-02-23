@@ -1930,21 +1930,20 @@ class bridge(moduleBase):
             except Exception, e:
                 self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
 
-            try:
-                config_learn = ifaceobj.get_attr_value_first('bridge-learning')
-                if not config_learn:
-                    return
-                config_learn = utils.get_onoff_bool(config_learn)
-                running_learn = self.ipcmd.get_brport_learning(ifaceobj.name)
-                if config_learn == running_learn:
-                    ifaceobjcurr.update_config_with_status('bridge-learning',
-                                                            running_learn, 0)
-                else:
-                    ifaceobjcurr.update_config_with_status('bridge-learning',
-                                                            running_learn, 1)
-                
-            except Exception, e:
-                self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+        try:
+            config_learn = ifaceobj.get_attr_value_first('bridge-learning')
+            if not config_learn:
+                return
+            config_learn = utils.get_onoff_bool(config_learn)
+            running_learn = self.ipcmd.get_brport_learning(ifaceobj.name)
+            if config_learn == running_learn:
+                ifaceobjcurr.update_config_with_status('bridge-learning',
+                                                       running_learn, 0)
+            else:
+                ifaceobjcurr.update_config_with_status('bridge-learning',
+                                                       running_learn, 1)
+        except Exception, e:
+            self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
 
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if self._is_bridge(ifaceobj):
