@@ -1,3 +1,10 @@
+ifupdown2 (1.0~git20170223-1) unstable; urgency=medium
+
+  * drop the dependency to pkg_resources, hardcode version number (closes: #855401)
+  * adjust allow-hotplug behavior to ifupdown (closes: #855598)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 23 Feb 2017 11:24:37 +0100
+
 ifupdown2 (1.0~git20170214-1) unstable; urgency=medium
 
   * closes: #854325 debian: control: add back "Conflicts: ifupdown"
