@@ -148,7 +148,8 @@ class Ifupdown2:
                                   args.perfmode or args.noact)
                         else True)
             import ifupdown.ifupdownmain
-            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
+            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(daemon=self.daemon,
+                                                                 config=configmap_g,
                                                                  force=args.force,
                                                                  withdepends=args.withdepends,
                                                                  perfmode=args.perfmode,
@@ -182,7 +183,8 @@ class Ifupdown2:
             iflist = args.iflist
             log.debug('creating ifupdown object ..')
             import ifupdown.ifupdownmain
-            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g, force=args.force,
+            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(daemon=self.daemon,
+                                                                 config=configmap_g, force=args.force,
                                                                  withdepends=args.withdepends,
                                                                  perfmode=args.perfmode,
                                                                  dryrun=args.noact,
@@ -229,7 +231,8 @@ class Ifupdown2:
                           if os.path.isdir('/sys/class/net/%s' % i)]
             log.debug('creating ifupdown object ..')
             import ifupdown.ifupdownmain
-            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
+            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(daemon=self.daemon,
+                                                                 config=configmap_g,
                                                                  withdepends=args.withdepends,
                                                                  perfmode=args.perfmode,
                                                                  cache=cachearg,
@@ -253,7 +256,8 @@ class Ifupdown2:
         try:
             log.debug('creating ifupdown object ..')
             import ifupdown.ifupdownmain
-            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(config=configmap_g,
+            ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(daemon=self.daemon,
+                                                                 config=configmap_g,
                                                                  interfacesfile=self.interfaces_filename,
                                                                  withdepends=args.withdepends,
                                                                  perfmode=args.perfmode,

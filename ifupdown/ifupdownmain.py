@@ -172,7 +172,7 @@ class ifupdownMain(ifupdownBase):
         ifupdownaddons.cache.MSTPAttrsCache.invalidate()
 
     def __init__(self, config={},
-                 force=False, dryrun=False, nowait=False,
+                 daemon=False, force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
                  cache=False, addons_enable=True, statemanager_enable=True,
                  interfacesfile='/etc/network/interfaces',
@@ -192,7 +192,8 @@ class ifupdownMain(ifupdownBase):
         Raises:
             AttributeError, KeyError """
 
-        self.reset_ifupdown2()
+        if daemon:
+            self.reset_ifupdown2()
 
         # iface dictionary in the below format:
         # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
