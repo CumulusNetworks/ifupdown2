@@ -7,15 +7,17 @@
 #    base object for various ifupdown objects
 #
 
-import re
-import os
-import logging
-import traceback
+try:
+    import re
+    import os
+    import logging
+    import traceback
 
-from ifupdown.netlink import netlink
+    from ifupdown.netlink import netlink
 
-import ifupdown.ifupdownflags as ifupdownflags
-
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 class ifupdownBase(object):
 

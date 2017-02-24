@@ -4,23 +4,26 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import re
-import time
-import itertools
+try:
+    import re
+    import time
+    import itertools
 
-from sets import Set
-from collections import Counter
+    from sets import Set
+    from collections import Counter
 
-import ifupdown.policymanager as policymanager
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdown.netlink import netlink
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class bridgeFlags:

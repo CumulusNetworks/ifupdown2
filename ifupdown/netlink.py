@@ -4,9 +4,12 @@
 # Author: Julien Fortin, julien@cumulusnetworks.com
 #
 
-from ifupdownaddons.utilsbase import utilsBase
+try:
+    from ifupdownaddons.utilsbase import utilsBase
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class Netlink(utilsBase):

@@ -4,21 +4,24 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import glob
-import shlex
-import signal
-import subprocess
+try:
+    import os
+    import glob
+    import shlex
+    import signal
+    import subprocess
 
-from collections import OrderedDict
+    from collections import OrderedDict
 
-from ifupdown.utils import utils
+    from ifupdown.utils import utils
 
-from ifupdownaddons.cache import *
-from ifupdownaddons.utilsbase import *
-from ifupdownaddons.systemutils import *
+    from ifupdownaddons.cache import *
+    from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.systemutils import *
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 VXLAN_UDP_PORT = 4789
 

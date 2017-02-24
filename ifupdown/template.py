@@ -7,9 +7,12 @@
 #    helper class to render templates
 #
 
-import logging
+try:
+    import logging
 
-from ifupdown.utils import *
+    from ifupdown.utils import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class templateEngine():

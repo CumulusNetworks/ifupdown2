@@ -7,15 +7,18 @@
 #    interface state manager
 #
 
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
 
-import os
-import cPickle
-import logging
+    import os
+    import cPickle
+    import logging
 
-from ifupdown.iface import *
+    from ifupdown.iface import *
 
-import ifupdown.exceptions as exceptions
+    import ifupdown.exceptions as exceptions
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class pickling():

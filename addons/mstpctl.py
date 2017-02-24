@@ -4,22 +4,25 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
+try:
+    import os
 
-from sets import Set
+    from sets import Set
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdown.netlink import netlink
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
 
-import ifupdown.ifupdownflags as ifupdownflags
-import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.mstpctlutil import mstpctlutil
-from ifupdownaddons.systemutils import systemUtils
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.mstpctlutil import mstpctlutil
+    from ifupdownaddons.systemutils import systemUtils
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class mstpctlFlags:

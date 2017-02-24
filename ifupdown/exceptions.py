@@ -7,7 +7,10 @@
 #    exceptions
 #
 
-from ifupdown.log import log
+try:
+    from ifupdown.log import log
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class Error(Exception):

@@ -8,16 +8,19 @@
 #    tool to configure network interfaces
 #
 
-import os
-import sys
-import signal
-import StringIO
-import ConfigParser
+try:
+    import os
+    import sys
+    import signal
+    import StringIO
+    import ConfigParser
 
-import ifupdown.argv
-import ifupdown.config
+    import ifupdown.argv
+    import ifupdown.config
 
-from ifupdown.log import log
+    from ifupdown.log import log
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 _SIGINT = signal.getsignal(signal.SIGINT)
 _SIGTERM = signal.getsignal(signal.SIGTERM)

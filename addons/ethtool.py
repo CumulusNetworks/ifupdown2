@@ -4,18 +4,21 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
+try:
+    import os
 
-import ifupdown.ifupdownflags as ifupdownflags
-import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdown.exceptions import moduleNotSupported
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.exceptions import moduleNotSupported
 
-from ifupdownaddons.utilsbase import *
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class ethtool(moduleBase,utilsBase):

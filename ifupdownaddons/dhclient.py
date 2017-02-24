@@ -4,11 +4,14 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
+try:
+    import os
 
-from ifupdown.utils import utils
+    from ifupdown.utils import utils
 
-from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class dhclient(utilsBase):

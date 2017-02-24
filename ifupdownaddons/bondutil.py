@@ -4,16 +4,19 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
+try:
+    import os
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
 
-from ifupdown.utils import utils
-from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.iface import *
 
-from ifupdownaddons.utilsbase import *
-from ifupdownaddons.iproute2 import *
-from ifupdownaddons.cache import *
+    from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.iproute2 import *
+    from ifupdownaddons.cache import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class bondutil(utilsBase):

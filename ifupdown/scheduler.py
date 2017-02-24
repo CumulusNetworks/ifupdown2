@@ -7,21 +7,24 @@
 #    interface scheduler
 #
 
-import sys
-import logging
-import traceback
+try:
+    import sys
+    import logging
+    import traceback
 
-from sets import Set
-from threading import *
-from collections import OrderedDict
+    from sets import Set
+    from threading import *
+    from collections import OrderedDict
 
-from ifupdown.iface import *
-from ifupdown.graph import *
-from ifupdown.utils import utils
-from ifupdown.statemanager import *
-from ifupdown.ifupdownbase import *
+    from ifupdown.iface import *
+    from ifupdown.graph import *
+    from ifupdown.utils import utils
+    from ifupdown.statemanager import *
+    from ifupdown.ifupdownbase import *
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class ifaceSchedulerFlags():

@@ -4,15 +4,18 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import time
-import logging
+try:
+    import time
+    import logging
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
 
-from ifupdownaddons.cache import *
+    from ifupdownaddons.cache import *
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 def profile(func):

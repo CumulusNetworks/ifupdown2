@@ -4,13 +4,16 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
+try:
+    from ifupdown.iface import *
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.modulebase import moduleBase
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class bridgevlan(moduleBase):

@@ -4,26 +4,29 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import re
-import os
-import fcntl
-import atexit
-import signal
+try:
+    import re
+    import os
+    import fcntl
+    import atexit
+    import signal
 
-from sets import Set
+    from sets import Set
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdown.netlink import netlink
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
 
-import ifupdown.policymanager as policymanager
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
 
-from ifupdownaddons.utilsbase import *
-from ifupdownaddons.bondutil import bondutil
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.dhclient import dhclient
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.bondutil import bondutil
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class vrfPrivFlags:

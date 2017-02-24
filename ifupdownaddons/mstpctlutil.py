@@ -4,13 +4,16 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import json
+try:
+    import json
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
 
-from ifupdownaddons.cache import *
-from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.cache import *
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class mstpctlutil(utilsBase):

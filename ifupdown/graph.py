@@ -7,10 +7,13 @@
 #    graph helper module for ifupdown
 #
 
-import copy
-import logging
+try:
+    import copy
+    import logging
 
-from collections import deque
+    from collections import deque
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 try:
     from gvgen import *

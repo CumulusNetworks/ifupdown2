@@ -5,19 +5,22 @@
 #
 #
 
-import os
-import re
-import sys
-import json
-import errno
-import struct
-import select
-import socket
-import signal
+try:
+    import os
+    import re
+    import sys
+    import json
+    import errno
+    import struct
+    import select
+    import socket
+    import signal
 
-import ifupdown.config
+    import ifupdown.config
 
-from ifupdown.log import log
+    from ifupdown.log import log
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class Ifupdown2Complete(Exception):

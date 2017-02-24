@@ -4,10 +4,13 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
+try:
+    import os
 
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdown.utils import utils
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class usercmds(moduleBase):

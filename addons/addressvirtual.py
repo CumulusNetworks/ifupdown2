@@ -4,20 +4,23 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import glob
+try:
+    import os
+    import glob
 
-from ipaddr import IPNetwork
+    from ipaddr import IPNetwork
 
-import ifupdown.statemanager as statemanager
-import ifupdown.ifupdownflags as ifupdownflags
-import ifupdown.ifupdownconfig as ifupdownConfig
+    import ifupdown.statemanager as statemanager
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownconfig as ifupdownConfig
 
-from ifupdown.iface import *
-from ifupdown.netlink import netlink
+    from ifupdown.iface import *
+    from ifupdown.netlink import netlink
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class addressvirtual(moduleBase):

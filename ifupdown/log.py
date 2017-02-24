@@ -5,14 +5,17 @@
 #
 #
 
-import sys
-import json
-import struct
-import select
-import logging
-import logging.handlers
+try:
+    import sys
+    import json
+    import struct
+    import select
+    import logging
+    import logging.handlers
 
-from cStringIO import StringIO
+    from cStringIO import StringIO
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class Log:

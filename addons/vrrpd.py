@@ -4,18 +4,21 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import re
-import glob
-import signal
+try:
+    import os
+    import re
+    import glob
+    import signal
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class vrrpd(moduleBase):

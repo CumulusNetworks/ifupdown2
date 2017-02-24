@@ -4,15 +4,18 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import re
+try:
+    import os
+    import re
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    import ifupdown.ifupdownflags as ifupdownflags
 
-from ifupdownaddons.cache import *
-from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.cache import *
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class brctl(utilsBase):

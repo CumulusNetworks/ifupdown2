@@ -28,9 +28,12 @@ Provides: an API to retrieve link attributes based on addon module name,
             )
 '''
 
-import json
-import glob
-import logging
+try:
+    import json
+    import glob
+    import logging
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class policymanager():

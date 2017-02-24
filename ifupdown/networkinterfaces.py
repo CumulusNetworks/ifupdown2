@@ -7,15 +7,18 @@
 #    ifupdown network interfaces file parser
 #
 
-import re
-import copy
-import glob
-import logging
-import collections
+try:
+    import re
+    import copy
+    import glob
+    import logging
+    import collections
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdown.template import templateEngine
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.template import templateEngine
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 whitespaces = '\n\t\r '

@@ -13,9 +13,12 @@ It is modeled based on the 'iface' section in /etc/network/interfaces
 file. But can be extended to include any other network interface format
 """
 
-import json
+try:
+    import json
 
-from collections import OrderedDict
+    from collections import OrderedDict
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class ifaceStatusUserStrs():

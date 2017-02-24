@@ -9,22 +9,25 @@
 #    tool to configure network interfaces
 #
 
-import os
-import re
-import json
-import fcntl
-import struct
-import signal
-import socket
-import daemon
-import select
-import datetime
-import threading
+try:
+    import os
+    import re
+    import json
+    import fcntl
+    import struct
+    import signal
+    import socket
+    import daemon
+    import select
+    import datetime
+    import threading
 
-import ifupdown.argv
+    import ifupdown.argv
 
-from ifupdown.log import log
-from ifupdown.main import Ifupdown2
+    from ifupdown.log import log
+    from ifupdown.main import Ifupdown2
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class Daemon:
@@ -104,57 +107,60 @@ class Daemon:
             preloading all the necessary modules
             at first will increase performances
         """
-        import io
-        import pdb
-        import imp
-        import sets
-        import json
-        import glob
-        import time
-        import copy
-        import errno
-        import pprint
-        import atexit
-        import ipaddr
-        import cPickle
-        import logging
-        import argparse
-        import StringIO
-        import datetime
-        import traceback
-        import itertools
-        import subprocess
-        import argcomplete
-        import collections
-        import ConfigParser
-        import pkg_resources
+        try:
+            import io
+            import pdb
+            import imp
+            import sets
+            import json
+            import glob
+            import time
+            import copy
+            import errno
+            import pprint
+            import atexit
+            import ipaddr
+            import cPickle
+            import logging
+            import argparse
+            import StringIO
+            import datetime
+            import traceback
+            import itertools
+            import subprocess
+            import argcomplete
+            import collections
+            import ConfigParser
+            import pkg_resources
 
-        import ifupdown.exceptions
-        import ifupdown.graph
-        import ifupdown.iface
-        import ifupdown.iff
-        import ifupdown.ifupdownbase
-        import ifupdown.ifupdownbase
-        import ifupdown.ifupdownconfig
-        import ifupdown.ifupdownflags
-        import ifupdown.ifupdownmain
-        import ifupdown.netlink
-        import ifupdown.networkinterfaces
-        import ifupdown.policymanager
-        import ifupdown.scheduler
-        import ifupdown.statemanager
-        import ifupdown.template
-        import ifupdown.utils
+            import ifupdown.exceptions
+            import ifupdown.graph
+            import ifupdown.iface
+            import ifupdown.iff
+            import ifupdown.ifupdownbase
+            import ifupdown.ifupdownbase
+            import ifupdown.ifupdownconfig
+            import ifupdown.ifupdownflags
+            import ifupdown.ifupdownmain
+            import ifupdown.netlink
+            import ifupdown.networkinterfaces
+            import ifupdown.policymanager
+            import ifupdown.scheduler
+            import ifupdown.statemanager
+            import ifupdown.template
+            import ifupdown.utils
 
-        import ifupdownaddons.bondutil
-        import ifupdownaddons.bridgeutils
-        import ifupdownaddons.cache
-        import ifupdownaddons.dhclient
-        import ifupdownaddons.iproute2
-        import ifupdownaddons.modulebase
-        import ifupdownaddons.mstpctlutil
-        import ifupdownaddons.systemutils
-        import ifupdownaddons.utilsbase
+            import ifupdownaddons.bondutil
+            import ifupdownaddons.bridgeutils
+            import ifupdownaddons.cache
+            import ifupdownaddons.dhclient
+            import ifupdownaddons.iproute2
+            import ifupdownaddons.modulebase
+            import ifupdownaddons.mstpctlutil
+            import ifupdownaddons.systemutils
+            import ifupdownaddons.utilsbase
+        except ImportError, e:
+            raise ImportError('%s - required module not found' % str(e))
 
     @staticmethod
     def signal_handler(sig, frame):

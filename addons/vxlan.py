@@ -1,16 +1,19 @@
 #!/usr/bin/python
 
-from sets import Set
+try:
+    from sets import Set
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdown.netlink import netlink
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
 
-import ifupdown.policymanager as policymanager
+    import ifupdown.policymanager as policymanager
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.systemutils import systemUtils
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.systemutils import systemUtils
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class vxlan(moduleBase):

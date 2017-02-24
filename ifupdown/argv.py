@@ -6,11 +6,14 @@
 #           Julien Fortin, julien@cumulusnetworks.com
 #
 
-import argparse
-import argcomplete
-import pkg_resources
+try:
+    import argparse
+    import argcomplete
+    import pkg_resources
 
-from ifupdown.exceptions import ArgvParseError
+    from ifupdown.exceptions import ArgvParseError
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class Parse:

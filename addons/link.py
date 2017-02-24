@@ -6,12 +6,15 @@
 # The config file should probably just indicate that the type is
 # loopback or dummy.
 
-from ifupdown.iface import *
+try:
+    from ifupdown.iface import *
 
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
 
-import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class link(moduleBase):

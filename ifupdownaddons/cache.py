@@ -4,7 +4,10 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import pprint
+try:
+    import pprint
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class MSTPAttrsCache():
