@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 #
-# Copyright 2016 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2016-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Julien Fortin, julien@cumulusnetworks.com
-#
 #
 
 try:

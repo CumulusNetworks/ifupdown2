@@ -1,7 +1,9 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
-# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Authors:
+#           Roopa Prabhu, roopa@cumulusnetworks.com
+#           Julien Fortin, julien@cumulusnetworks.com
 #
 # ifupdown --
 #    exceptions

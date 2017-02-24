@@ -1,5 +1,8 @@
 #!/usr/bin/python
-
+#
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
 # This should be pretty simple and might not really even need to exist.
 # The key is that we need to call link_create with a type of "dummy"
 # since that will translate to 'ip link add loopbackX type dummy'
