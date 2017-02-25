@@ -358,7 +358,7 @@ class address(moduleBase):
                     if syntaxcheck:
                         lowerdev_mtu = lowerobj[0].get_attr_value_first('mtu')
                     else:
-                        lowerdev_mtu = self.ipcmd.link_get_mtu(lowerobj[0].name)
+                        lowerdev_mtu = self.ipcmd.link_get_mtu_sysfs(lowerobj[0].name)
                     if lowerdev_mtu and int(mtu) > int(lowerdev_mtu):
                         self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
                                          %(ifaceobj.name, mtu, lowerobj[0].name, lowerdev_mtu))
