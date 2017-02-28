@@ -1,25 +1,30 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # utils --
 #    helper class
 #
 
-import os
-import re
-import shlex
-import fcntl
-import signal
-import logging
-import subprocess
-import ifupdownflags
+try:
+    import os
+    import re
+    import shlex
+    import fcntl
+    import signal
+    import logging
+    import subprocess
 
-from functools import partial
-from ipaddr import IPNetwork, IPAddress
+    from functools import partial
+    from ipaddr import IPNetwork, IPAddress
 
-from ifupdown.iface import *
+    from ifupdown.iface import *
+
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 def signal_handler_f(ps, sig, frame):
     if ps:

@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #
-# Copyright 2015 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2015-2017 Cumulus Networks, Inc. All rights reserved.
 #
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
-#
 #
 
 class ifupdownFlags():
@@ -22,4 +21,8 @@ class ifupdownFlags():
                 # Flags
                 self.CACHE_FLAGS = 0x0
 
-flags = ifupdownFlags()
+flags = None
+
+def reset():
+    global flags
+    flags = ifupdownFlags()

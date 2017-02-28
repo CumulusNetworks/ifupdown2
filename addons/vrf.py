@@ -1,27 +1,33 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import signal
-import errno
-import fcntl
-import atexit
-import re
-from sets import Set
-from ifupdown.iface import *
-from ifupdown.utils import utils
-import ifupdown.policymanager as policymanager
-import ifupdownaddons
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bondutil import bondutil
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.dhclient import dhclient
-from ifupdownaddons.utilsbase import *
+try:
+    import re
+    import os
+    import fcntl
+    import atexit
+    import signal
+
+    from sets import Set
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+
+    from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.bondutil import bondutil
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class vrfPrivFlags:
     PROCESSED = 0x1
@@ -53,7 +59,7 @@ class vrf(moduleBase):
                                  '253' : 'default', '0' : 'unspec'}
 
     def __init__(self, *args, **kargs):
-        ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
+        moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.bondcmd = None
         self.dhclientcmd = None

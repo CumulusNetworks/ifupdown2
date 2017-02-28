@@ -1,22 +1,30 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from sets import Set
-from ifupdown.iface import *
-import ifupdown.policymanager as policymanager
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.iproute2 import iproute2
-from collections import Counter
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
-import itertools
-import re
-import time
+try:
+    import re
+    import time
+    import itertools
+
+    from sets import Set
+    from collections import Counter
+
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class bridgeFlags:
     PORT_PROCESSED = 0x1
@@ -1245,7 +1253,7 @@ class bridge(moduleBase):
                 # Dont process bridge port if it already has been processed
                 # and there is no override on port_processed
                 if (not port_processed_override and
-                    (bportifaceobj.module_flags.get(self.name,0x0) & 
+                    (bportifaceobj.module_flags.get(self.name,0x0) &
                      bridgeFlags.PORT_PROCESSED)):
                     continue
                 try:
@@ -1444,7 +1452,7 @@ class bridge(moduleBase):
                 running_bridgeport_pvids.append(pvid)
 
         bridge_vids = None
-        if running_bridgeport_vids: 
+        if running_bridgeport_vids:
            (vidval, freq) = Counter(running_bridgeport_vids).most_common()[0]
            if freq == len(bridgeports):
               running_attrs['bridge-vids'] = vidval
@@ -1975,7 +1983,7 @@ class bridge(moduleBase):
                                                ifaceobjrunning,
                                                ifaceobj_getfunc,
                                                bridge_vlan_aware=True))
-        else: 
+        else:
             ifaceobjrunning.update_config_dict(self._query_running_attrs(
                                                ifaceobjrunning, None))
 

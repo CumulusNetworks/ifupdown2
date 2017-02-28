@@ -1,19 +1,25 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # graph --
 #    graph helper module for ifupdown
 #
 
-import logging
-import copy
-from collections import deque
+try:
+    import copy
+    import logging
+
+    from collections import deque
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 try:
     from gvgen import *
 except ImportError, e:
     pass
+
 
 class graph():
     """ graph functions to sort and print interface graph """
