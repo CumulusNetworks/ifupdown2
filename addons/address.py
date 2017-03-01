@@ -1,30 +1,26 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import os
+
 try:
-    import os
-
-    from ipaddr import IPNetwork, IPv4Network, IPv6Network
+    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPv4Address, IPv6Address
     from sets import Set
-
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
-
+    from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.dhclient import dhclient
-    from ifupdownaddons.modulebase import moduleBase
-
-    import ifupdown.statemanager as statemanager
     import ifupdown.policymanager as policymanager
-    import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.netlink import netlink
     import ifupdown.ifupdownconfig as ifupdownConfig
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.statemanager as statemanager
 except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+    raise ImportError (str(e) + "- required module not found")
 
 class address(moduleBase):
     """  ifupdown2 addon module to configure address, mtu, hwaddress, alias

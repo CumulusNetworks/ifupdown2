@@ -1,20 +1,16 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    from ifupdown.iface import *
-
-    from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.bridgeutils import brctl
-    from ifupdownaddons.modulebase import moduleBase
-
-    import ifupdown.ifupdownflags as ifupdownflags
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+from ifupdown.iface import *
+from ifupdownaddons.modulebase import moduleBase
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.bridgeutils import brctl
+from ipaddr import IPv4Address
+import ifupdown.ifupdownflags as ifupdownflags
+import logging
 
 class bridgevlan(moduleBase):
     """  ifupdown2 addon module to configure vlan attributes on a vlan

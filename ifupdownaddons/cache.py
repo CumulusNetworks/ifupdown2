@@ -1,13 +1,10 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    import pprint
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
+import pprint
 
 
 class MSTPAttrsCache():
@@ -32,6 +29,8 @@ class MSTPAttrsCache():
 class linkCache():
     """ This class contains methods and instance variables to cache
     link info """
+
+    _shared_state = {}
 
     """ { <ifacename> : { 'ifindex': <index>,
                           'mtu': <mtu>,
@@ -98,11 +97,6 @@ class linkCache():
     @classmethod
     def invalidate(cls):
         cls.links = {}
-
-    @classmethod
-    def reset(cls):
-        cls.invalidate()
-        cls.vrfs = {}
 
     @classmethod
     def dump(cls):

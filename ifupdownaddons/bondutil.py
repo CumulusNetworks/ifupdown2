@@ -1,23 +1,17 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    import os
-
-    import ifupdown.ifupdownflags as ifupdownflags
-
-    from ifupdown.utils import utils
-    from ifupdown.iface import *
-
-    from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.iproute2 import *
-    from ifupdownaddons.cache import *
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+import os
+import re
+import ifupdown.ifupdownflags as ifupdownflags
+from ifupdown.utils import utils
+from ifupdown.iface import *
+from utilsbase import *
+from iproute2 import *
+from cache import *
 
 class bondutil(utilsBase):
     """ This class contains methods to interact with linux kernel bond
@@ -30,10 +24,6 @@ class bondutil(utilsBase):
         if ifupdownflags.flags.CACHE and not self._cache_fill_done:
             self._bond_linkinfo_fill_all()
             self._cache_fill_done = True
-
-    @classmethod
-    def reset(cls):
-        cls._cache_fill_done = False
 
     def _bond_linkinfo_fill_attrs(self, bondname):
         try:

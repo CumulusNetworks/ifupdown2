@@ -1,27 +1,21 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    import os
-    import glob
-    import shlex
-    import signal
-    import subprocess
+import os
+import glob
+import shlex
+import signal
+import subprocess
 
-    from collections import OrderedDict
-
-    from ifupdown.utils import utils
-
-    from ifupdownaddons.cache import *
-    from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.systemutils import *
-
-    import ifupdown.ifupdownflags as ifupdownflags
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
+from ifupdown.utils import utils
+from collections import OrderedDict
+from utilsbase import *
+from systemutils import *
+from cache import *
+import ifupdown.ifupdownflags as ifupdownflags
 
 VXLAN_UDP_PORT = 4789
 
@@ -41,13 +35,6 @@ class iproute2(utilsBase):
         self.supported_command = {
             '/sbin/bridge -c -json vlan show': True
         }
-
-    @classmethod
-    def reset(cls):
-        cls._cache_fill_done = False
-        cls.ipbatchbuf = ''
-        cls.ipbatch = False
-        cls.ipbatch_pause = False
 
     def _fill_cache(self):
         if not iproute2._cache_fill_done:

@@ -1,24 +1,16 @@
 #!/usr/bin/python
-#
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
-# Author: Roopa Prabhu, roopa@cumulusnetworks.com
-#
+
 # This should be pretty simple and might not really even need to exist.
 # The key is that we need to call link_create with a type of "dummy"
 # since that will translate to 'ip link add loopbackX type dummy'
 # The config file should probably just indicate that the type is
 # loopback or dummy.
 
-try:
-    from ifupdown.iface import *
-
-    from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.modulebase import moduleBase
-
-    import ifupdown.ifupdownflags as ifupdownflags
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+from ifupdown.iface import *
+from ifupdownaddons.modulebase import moduleBase
+from ifupdownaddons.iproute2 import iproute2
+import ifupdown.ifupdownflags as ifupdownflags
+import logging
 
 class link(moduleBase):
     _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2015-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2015 Cumulus Networks, Inc. All rights reserved.
 #
 #
 '''
@@ -28,13 +28,9 @@ Provides: an API to retrieve link attributes based on addon module name,
             )
 '''
 
-try:
-    import json
-    import glob
-    import logging
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+import json
+import logging
+import glob
 
 class policymanager():
     def __init__(self):
@@ -215,8 +211,4 @@ class policymanager():
         return mod_array
 
 
-policymanager_api = None
-
-def reset():
-    global policymanager_api
-    policymanager_api = policymanager()
+policymanager_api = policymanager()

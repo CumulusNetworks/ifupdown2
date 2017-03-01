@@ -1,48 +1,33 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # ifupdownMain --
 #    ifupdown main module
 #
 
-try:
-    import os
-    import re
-    import sys
-    import copy
-    import json
-    import pprint
-    import logging
-    import traceback
+import os
+import re
+import imp
+import pprint
+import logging
+import sys, traceback
+import copy
+import json
+import ifupdown.statemanager as statemanager
+import ifupdown.ifupdownconfig as ifupdownConfig
+import ifupdown.ifupdownflags as ifupdownflags
+from networkinterfaces import *
+from iface import *
+from scheduler import *
+from collections import deque
+from collections import OrderedDict
+from graph import *
+from exceptions import *
+from sets import Set
 
-    from sets import Set
-    from collections import deque, OrderedDict
-
-    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
-
-    import ifupdown.policymanager
-    import ifupdown.ifupdownflags
-
-    import ifupdownaddons.cache
-    import ifupdownaddons.bondutil
-    import ifupdownaddons.iproute2
-    import ifupdownaddons.bridgeutils
-    import ifupdownaddons.mstpctlutil
-
-    import ifupdown.statemanager as statemanager
-    import ifupdown.ifupdownflags as ifupdownflags
-    import ifupdown.ifupdownconfig as ifupdownConfig
-
-    from ifupdown.graph import *
-    from ifupdown.iface import *
-    from ifupdown.scheduler import *
-    from ifupdown.exceptions import *
-    from ifupdown.networkinterfaces import *
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
 
 """
 .. module:: ifupdownmain
@@ -81,6 +66,45 @@ class ifupdownMain(ifupdownBase):
     scripts_dir='/etc/network'
     addon_modules_dir='/usr/share/ifupdown2/addons'
     addon_modules_configfile='/etc/network/ifupdown2/addons.conf'
+
+    # iface dictionary in the below format:
+    # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
+    # eg:
+    # { 'swp1' : [<iface swp1>, <iface swp2> ..] }
+    #
+    # Each ifaceobject corresponds to a configuration block for
+    # that interface
+    # The value in the dictionary is a list because the network
+    # interface configuration file supports more than one iface section
+    # in the interfaces file
+    ifaceobjdict = OrderedDict()
+
+    # iface dictionary representing the curr running state of an iface
+    # in the below format:
+    # {'<ifacename>' : <ifaceobject>}
+    ifaceobjcurrdict = OrderedDict()
+
+    # Dictionary representing operation and modules
+    # for every operation
+    module_ops = OrderedDict([('pre-up', []),
+                              ('up' , []),
+                              ('post-up' , []),
+                              ('query-checkcurr', []),
+                              ('query-running', []),
+                              ('query-dependency', []),
+                              ('query', []),
+                              ('query-raw', []),
+                              ('pre-down', []),
+                              ('down' , []),
+                              ('post-down' , [])])
+
+    # For old style /etc/network/ bash scripts
+    script_ops = OrderedDict([('pre-up', []),
+                                    ('up' , []),
+                                    ('post-up' , []),
+                                    ('pre-down', []),
+                                    ('down' , []),
+                                    ('post-down' , [])])
 
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
@@ -155,24 +179,8 @@ class ifupdownMain(ifupdownBase):
     # ifupdown object interface scheduler pre and posthooks
     sched_hooks = {'posthook' : run_sched_ifaceobj_posthook}
 
-    def reset_ifupdown2(self):
-        ifaceScheduler.reset()
-
-        ifupdown.statemanager.reset()
-        ifupdown.policymanager.reset()
-        ifupdown.ifupdownflags.reset()
-        ifupdown.ifupdownconfig.reset()
-
-        ifupdownaddons.bondutil.bondutil.reset()
-        ifupdownaddons.iproute2.iproute2.reset()
-        ifupdownaddons.bridgeutils.brctl.reset()
-        ifupdownaddons.mstpctlutil.mstpctlutil.reset()
-
-        ifupdownaddons.cache.linkCache.reset()
-        ifupdownaddons.cache.MSTPAttrsCache.invalidate()
-
     def __init__(self, config={},
-                 daemon=False, force=False, dryrun=False, nowait=False,
+                 force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
                  cache=False, addons_enable=True, statemanager_enable=True,
                  interfacesfile='/etc/network/interfaces',
@@ -191,49 +199,6 @@ class ifupdownMain(ifupdownBase):
 
         Raises:
             AttributeError, KeyError """
-
-        if daemon:
-            self.reset_ifupdown2()
-
-        # iface dictionary in the below format:
-        # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
-        # eg:
-        # { 'swp1' : [<iface swp1>, <iface swp2> ..] }
-        #
-        # Each ifaceobject corresponds to a configuration block for
-        # that interface
-        # The value in the dictionary is a list because the network
-        # interface configuration file supports more than one iface section
-        # in the interfaces file
-        self.ifaceobjdict = OrderedDict()
-
-        # iface dictionary representing the curr running state of an iface
-        # in the below format:
-        # {'<ifacename>' : <ifaceobject>}
-        self.ifaceobjcurrdict = OrderedDict()
-
-        # Dictionary representing operation and modules
-        # for every operation
-        self.module_ops = OrderedDict([('pre-up', []),
-                                  ('up', []),
-                                  ('post-up', []),
-                                  ('query-checkcurr', []),
-                                  ('query-running', []),
-                                  ('query-dependency', []),
-                                  ('query', []),
-                                  ('query-raw', []),
-                                  ('pre-down', []),
-                                  ('down', []),
-                                  ('post-down', [])])
-
-        # For old style /etc/network/ bash scripts
-        self.script_ops = OrderedDict([('pre-up', []),
-                                  ('up', []),
-                                  ('post-up', []),
-                                  ('pre-down', []),
-                                  ('down', []),
-                                  ('post-down', [])])
-
 
         self.logger = logging.getLogger('ifupdown')
         ifupdownflags.flags.FORCE = force

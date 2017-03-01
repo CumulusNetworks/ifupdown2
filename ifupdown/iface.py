@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # iface --
@@ -13,13 +13,9 @@ It is modeled based on the 'iface' section in /etc/network/interfaces
 file. But can be extended to include any other network interface format
 """
 
-try:
-    import json
-
-    from collections import OrderedDict
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+from collections import OrderedDict
+import logging
+import json
 
 class ifaceStatusUserStrs():
     """ This class declares strings user can see during an ifquery --check

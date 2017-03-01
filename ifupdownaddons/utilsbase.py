@@ -1,22 +1,19 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-try:
-    import time
-    import logging
+import logging
+import re
+import io
 
-    from ifupdown.iface import *
-    from ifupdown.utils import utils
-
-    from ifupdownaddons.cache import *
-
-    import ifupdown.ifupdownflags as ifupdownflags
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+from ifupdown.utils import utils
+import ifupdown.ifupdownflags as ifupdownflags
+from ifupdown.iface import *
+from cache import *
+import time
+import logging
 
 def profile(func):
     def wrap(*args, **kwargs):

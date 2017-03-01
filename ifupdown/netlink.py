@@ -1,15 +1,14 @@
 #!/usr/bin/python
 #
-# Copyright 2016-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2016 Cumulus Networks, Inc. All rights reserved.
 # Author: Julien Fortin, julien@cumulusnetworks.com
 #
 
 try:
     from ifupdownaddons.utilsbase import utilsBase
-
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
+    raise ImportError(str(e) + "- required module not found")
 
 
 class Netlink(utilsBase):
@@ -23,7 +22,6 @@ class Netlink(utilsBase):
             from nlmanager.nlmanager import NetlinkManager
             # this should force the use of the local nlmanager
             self._nlmanager_api = NetlinkManager(extra_debug=False)
-            self._nlmanager_api.tx_socket_allocate()
         except Exception as e:
             self.logger.error('cannot initialize ifupdown2\'s '
                               'netlink manager: %s' % str(e))

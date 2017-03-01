@@ -1,25 +1,17 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # stateManager --
 #    interface state manager
 #
-
-try:
-    from collections import OrderedDict
-
-    import os
-    import cPickle
-    import logging
-
-    from ifupdown.iface import *
-
-    import ifupdown.exceptions as exceptions
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+import cPickle
+from collections import OrderedDict
+import logging
+import exceptions
+import os
+from iface import *
 
 class pickling():
     """ class with helper methods for pickling/unpickling iface objects """
@@ -193,8 +185,4 @@ class stateManager():
             for ifacename, ifaceobjs in self.ifaceobjdict.items():
                 [i.dump(self.logger) for i in ifaceobjs]
 
-statemanager_api = None
-
-def reset():
-    global statemanager_api
-    statemanager_api = stateManager()
+statemanager_api = stateManager()

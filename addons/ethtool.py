@@ -1,25 +1,24 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
+import json
+import ifupdown.policymanager as policymanager
 
 try:
     import os
-
-    import ifupdown.ifupdownflags as ifupdownflags
-    import ifupdown.policymanager as policymanager
-
+    from ipaddr import IPNetwork
+    from sets import Set
     from ifupdown.iface import *
-    from ifupdown.utils import utils
     from ifupdown.exceptions import moduleNotSupported
-
+    from ifupdown.utils import utils
     from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.modulebase import moduleBase, NotSupported
     from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.modulebase import moduleBase
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+    raise ImportError (str(e) + "- required module not found")
 
 class ethtool(moduleBase,utilsBase):
     """  ifupdown2 addon module to configure ethtool attributes """

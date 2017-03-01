@@ -1,19 +1,15 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # template --
 #    helper class to render templates
 #
 
-try:
-    import logging
-
-    from ifupdown.utils import *
-except ImportError, e:
-    raise ImportError('%s - required module not found' % str(e))
-
+import logging
+import traceback
+from utils import *
 
 class templateEngine():
     """ provides template rendering methods """
