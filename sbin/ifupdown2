@@ -18,7 +18,7 @@ import resource
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
-IFUPDOWN2_VERSION = '1.1-cl3u9'
+IFUPDOWN2_VERSION = '20170223-1'
 
 lockfile="/run/network/.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
