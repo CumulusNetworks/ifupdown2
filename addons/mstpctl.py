@@ -11,7 +11,6 @@ from ifupdown.utils import utils
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.bridgeutils import brctl
 from ifupdownaddons.iproute2 import iproute2
-from ifupdown.netlink import netlink
 from ifupdownaddons.mstpctlutil import mstpctlutil
 from ifupdownaddons.systemutils import systemUtils
 import ifupdown.ifupdownflags as ifupdownflags
@@ -303,7 +302,7 @@ class mstpctl(moduleBase):
         if not ifupdownflags.flags.PERFMODE:
             runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if runningbridgeports:
-                [netlink.link_set_nomaster(bport)
+                [self.ipcmd.link_set(bport, 'nomaster')
                     for bport in runningbridgeports
                         if not bridgeports or bport not in bridgeports]
             else:
@@ -319,7 +318,7 @@ class mstpctl(moduleBase):
                             %(ifaceobj.name, bridgeport))
                     err += 1
                     continue
-                netlink.link_set_master(bridgeport, ifaceobj.name)
+                self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
             except Exception, e:
                 self.log_error(str(e), ifaceobj)

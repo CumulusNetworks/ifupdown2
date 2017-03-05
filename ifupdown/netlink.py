@@ -77,30 +77,6 @@ class Netlink(utilsBase):
             raise Exception('netlink: cannot set link %s protodown %s: %s'
                             % (ifacename, state, str(e)))
 
-    def link_set_master(self, ifacename, master_dev, state=None):
-        self.logger.info('%s: netlink: ip link set dev %s master %s %s'
-                         % (ifacename, ifacename, master_dev,
-                            state if state else ''))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            master = 0 if not master_dev else self.get_iface_index(master_dev)
-            return self._nlmanager_api.link_set_master(ifacename, master,
-                                                       state=state)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot set %s master %s: %s'
-                            % (ifacename, ifacename, master_dev, str(e)))
-
-    def link_set_nomaster(self, ifacename, state=None):
-        self.logger.info('%s: netlink: ip link set dev %s nomaster %s'
-                         % (ifacename, ifacename, state if state else ''))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            return self._nlmanager_api.link_set_master(ifacename, 0,
-                                                       state=state)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot set %s nomaster: %s'
-                            % (ifacename, ifacename, str(e)))
-
     def link_add_bridge_vlan(self, ifacename, vlanid):
         self.logger.info('%s: netlink: bridge vlan add vid %s dev %s'
                          % (ifacename, vlanid, ifacename))

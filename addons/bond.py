@@ -267,7 +267,7 @@ class bond(moduleBase):
             raise
         finally:
             if have_attrs_to_set and linkup:
-                netlink.link_set_updown(ifaceobj.name, 'up')
+                self.ipcmd.link_up(ifaceobj.name)
 
     def _add_slaves(self, ifaceobj):
         runningslaves = []
@@ -300,7 +300,7 @@ class bond(moduleBase):
                     netlink.link_set_protodown(slave, "on")
                 except Exception, e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
-            netlink.link_set_master(slave, ifaceobj.name)
+            self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
                     netlink.link_set_updown(slave, "up")

@@ -362,7 +362,7 @@ class vrf(moduleBase):
                     raise
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
-        netlink.link_set_master(ifacename, vrfname)
+        self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
 
     def _down_dhcp_slave(self, ifaceobj, vrfname):
@@ -394,7 +394,7 @@ class vrf(moduleBase):
                 uppers = self.ipcmd.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
-                    netlink.link_set_master(ifacename, vrfname)
+                    self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
@@ -871,7 +871,7 @@ class vrf(moduleBase):
     def _down_vrf_slave(self, ifacename, ifaceobj=None, vrfname=None):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
-            netlink.link_set_nomaster(ifacename)
+            self.ipcmd.link_set(ifacename, 'nomaster')
             # Down this slave only if it is a slave ifupdown2 manages.
             # we dont want to down slaves that maybe up'ed by
             # somebody else. One such example is a macvlan device
