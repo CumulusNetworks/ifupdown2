@@ -1250,50 +1250,57 @@ class ifupdownMain(ifupdownBase):
         self.module_ops['query-raw'] = self.modules.keys()
 
 
-    def _modules_help(self):
+    def _modules_help(self, fmt):
         """ Prints addon modules supported syntax """
 
-        indent = '  '
-        for m, mdict in self.module_attrs.items():
-            if not mdict:
-                continue
-            print('%s: %s' %(m, mdict.get('mhelp')))
-            attrdict = mdict.get('attrs')
-            if not attrdict:
-                continue
-            try:
-                for attrname, attrvaldict in attrdict.items():
-                    if attrvaldict.get('compat', False):
-                        continue
-                    print('%s%s' %(indent, attrname))
-                    print('%shelp: %s' %(indent + '  ',
-                          attrvaldict.get('help', '')))
-                    print ('%srequired: %s' %(indent + '  ',
-                            attrvaldict.get('required', False)))
-                    default = attrvaldict.get('default')
-                    if default:
-                        print('%sdefault: %s' %(indent + '  ', default))
+        if fmt == 'json':
+            modinfos = {}
+            for key, value in self.modules.items():
+                if hasattr(value, '_modinfo'):
+                    modinfos[key] = value._modinfo
+            print json.dumps(modinfos)
+        else:
+            indent = '  '
+            for m, mdict in self.module_attrs.items():
+                if not mdict:
+                    continue
+                print('%s: %s' %(m, mdict.get('mhelp')))
+                attrdict = mdict.get('attrs')
+                if not attrdict:
+                    continue
+                try:
+                    for attrname, attrvaldict in attrdict.items():
+                        if attrvaldict.get('compat', False):
+                            continue
+                        print('%s%s' %(indent, attrname))
+                        print('%shelp: %s' %(indent + '  ',
+                              attrvaldict.get('help', '')))
+                        print ('%srequired: %s' %(indent + '  ',
+                                attrvaldict.get('required', False)))
+                        default = attrvaldict.get('default')
+                        if default:
+                            print('%sdefault: %s' %(indent + '  ', default))
 
-                    validrange = attrvaldict.get('validrange')
-                    if validrange:
-                        print('%svalidrange: %s-%s'
-                              %(indent + '  ', validrange[0], validrange[1]))
+                        validrange = attrvaldict.get('validrange')
+                        if validrange:
+                            print('%svalidrange: %s-%s'
+                                  %(indent + '  ', validrange[0], validrange[1]))
 
-                    validvals = attrvaldict.get('validvals')
-                    if validvals:
-                        print('%svalidvals: %s'
-                              %(indent + '  ', ','.join(validvals)))
+                        validvals = attrvaldict.get('validvals')
+                        if validvals:
+                            print('%svalidvals: %s'
+                                  %(indent + '  ', ','.join(validvals)))
 
-                    examples = attrvaldict.get('example')
-                    if not examples:
-                        continue
+                        examples = attrvaldict.get('example')
+                        if not examples:
+                            continue
 
-                    print '%sexample:' %(indent + '  ')
-                    for e in examples:
-                        print '%s%s' %(indent + '    ', e)
-            except:
-                pass
-            print ''
+                        print '%sexample:' %(indent + '  ')
+                        for e in examples:
+                            print '%s%s' %(indent + '    ', e)
+                except:
+                    pass
+                print ''
             
     def load_scripts(self, modules_dir):
         """ loading user modules from /etc/network/.
@@ -1662,7 +1669,7 @@ class ifupdownMain(ifupdownBase):
             ifupdownflags.flags.WITH_DEPENDS = True
 
         if ops[0] == 'query-syntax':
-            self._modules_help()
+            self._modules_help(format)
             return
         elif ops[0] == 'query-running':
             # create fake devices to all dependents that dont have config
