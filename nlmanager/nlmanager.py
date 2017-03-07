@@ -40,7 +40,7 @@ class Sequence(object):
 
 class NetlinkManager(object):
 
-    def __init__(self, pid_offset=0, use_color=True, extra_debug=False):
+    def __init__(self, pid_offset=0, use_color=True, log_level=None):
         # PID_MAX_LIMIT is 2^22 allowing 1024 sockets per-pid. We default to 0
         # in the upper space (top 10 bits), which will simply be the PID. Other
         # NetlinkManager instantiations in the same process can choose other
@@ -58,7 +58,10 @@ class NetlinkManager(object):
         self.debug_address(False)
         self.debug_neighbor(False)
         self.debug_route(False)
-        set_extra_debug(extra_debug)
+
+        if log_level:
+            log.setLevel(log_level)
+            set_log_level(log_level)
 
     def __str__(self):
         return 'NetlinkManager'
@@ -502,6 +505,19 @@ class NetlinkManager(object):
         if iface:
             return iface.ifindex
         return None
+
+    def link_dump(self, ifname=None):
+        msg = Link(RTM_GETLINK, False, use_color=self.use_color)
+        msg.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        msg.flags = NLM_F_REQUEST | NLM_F_ACK
+
+        if ifname:
+            msg.add_attribute(Link.IFLA_IFNAME, ifname)
+        else:
+            msg.flags |= NLM_F_DUMP
+
+        msg.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(msg)
 
     def _link_add(self, ifindex, ifname, kind, ifla_info_data):
         """

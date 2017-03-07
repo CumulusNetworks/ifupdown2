@@ -49,8 +49,10 @@ class NetlinkListener(Thread):
         self.rx_socket.bind((manager.pid | (self.pid_offset << 22), self.groups))
         self.rx_socket_prev_seq = {}
 
+        manager.target_lock.acquire()
         if not manager.tx_socket:
             manager.tx_socket_allocate()
+        manager.target_lock.release()
 
         my_sockets = (manager.tx_socket, self.rx_socket)
 
@@ -173,8 +175,8 @@ class NetlinkListener(Thread):
 
 class NetlinkManagerWithListener(NetlinkManager):
 
-    def __init__(self, groups, start_listener=True, use_color=True):
-        NetlinkManager.__init__(self, use_color=use_color)
+    def __init__(self, groups, start_listener=True, use_color=True, pid_offset=0):
+        NetlinkManager.__init__(self, use_color=use_color, pid_offset=pid_offset)
         self.groups = groups
         self.workq = Queue()
         self.netlinkq = []
@@ -195,7 +197,7 @@ class NetlinkManagerWithListener(NetlinkManager):
 
         # Listen to netlink messages
         if start_listener:
-            self.listener = NetlinkListener(self, self.groups)
+            self.listener = NetlinkListener(self, self.groups, pid_offset=pid_offset+1)
             self.listener.start()
         else:
             self.listener = None
@@ -233,10 +235,10 @@ class NetlinkManagerWithListener(NetlinkManager):
         self.target_lock.acquire()
         self.target_seq = nlpacket.seq
         self.target_pid = nlpacket.pid
-        self.target_lock.release()
 
         if not self.tx_socket:
             self.tx_socket_allocate()
+        self.target_lock.release()
 
         log.debug('%s TX: TXed %s seq %d, pid %d, %d bytes' %
                    (self,  NetlinkPacket.type_to_string[nlpacket.msgtype],
