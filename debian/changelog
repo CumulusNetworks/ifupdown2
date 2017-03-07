@@ -1,4 +1,4 @@
-ifupdown2 (1.0~git20170214-1) unstable; urgency=medium
+ifupdown2 (1.0~git20170307-1) unstable; urgency=medium
 
   * preinst: remove english word from grep filter (closes: #856970)
 
