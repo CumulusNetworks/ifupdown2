@@ -5,6 +5,8 @@
 #
 
 try:
+    import logging
+
     from ifupdownaddons.utilsbase import utilsBase
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
@@ -21,7 +23,7 @@ class Netlink(utilsBase):
             sys.path.insert(0, '/usr/share/ifupdown2/')
             from nlmanager.nlmanager import NetlinkManager
             # this should force the use of the local nlmanager
-            self._nlmanager_api = NetlinkManager(extra_debug=False)
+            self._nlmanager_api = NetlinkManager(log_level=logging.WARNING)
         except Exception as e:
             self.logger.error('cannot initialize ifupdown2\'s '
                               'netlink manager: %s' % str(e))
