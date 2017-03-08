@@ -47,34 +47,6 @@ class vlan(moduleBase):
             return True
         return False
 
-    def _get_vlan_id(self, ifaceobj):
-        """ Derives vlanid from iface name
-        
-        Example:
-            Returns 1 for ifname vlan0001 returns 1
-            Returns 1 for ifname vlan1
-            Returns 1 for ifname eth0.1
-
-            Returns -1 if vlan id cannot be determined
-        """
-        vid_str = ifaceobj.get_attr_value_first('vlan-id')
-        try:
-            if vid_str: return int(vid_str)
-        except:
-            return -1
-
-        if '.' in ifaceobj.name:
-            vid_str = ifaceobj.name.split('.', 1)[1]
-        elif ifaceobj.name.startswith('vlan'):
-            vid_str = ifaceobj.name[4:]
-        else:
-            return -1
-        try:
-            vid = int(vid_str)
-        except:
-            return -1
-        return vid
-
     def _is_vlan_by_name(self, ifacename):
         return '.' in ifacename
 

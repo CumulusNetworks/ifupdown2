@@ -46,8 +46,9 @@ class addressvirtual(moduleBase):
 
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 [self.ipcmd.bridge_fdb_add(bridgename, addr,
                     vlan) for addr in hwaddress]
@@ -57,8 +58,9 @@ class addressvirtual(moduleBase):
 
     def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 for addr in hwaddress:
                     try:
@@ -86,8 +88,9 @@ class addressvirtual(moduleBase):
     def _check_addresses_in_bridge(self, ifaceobj, hwaddress):
         """ If the device is a bridge, make sure the addresses
         are in the bridge """
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 fdb_addrs = self._get_bridge_fdbs(bridgename, vlan)
                 if not fdb_addrs or hwaddress not in fdb_addrs:
