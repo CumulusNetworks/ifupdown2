@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20170308-1) unstable; urgency=medium
+
+  * debian: add LC_ALL=C.UTF-8 directive in prestinst, postinst, postrm files
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 08 Mar 2017 18:39:02 +0100
+
 ifupdown2 (1.0~git20170307-1) unstable; urgency=medium
 
   * preinst: remove english word from grep filter (closes: #856970)
