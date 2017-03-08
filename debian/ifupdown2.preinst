@@ -2,6 +2,8 @@
 
 MYNAME="${0##*/}"
 
+LC_ALL=C.UTF-8
+
 report() { echo "${MYNAME}: $*" ; }
 report_err() { report "Error: $*" >&2 ; exit 1; }
 
