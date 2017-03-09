@@ -35,6 +35,8 @@ class iproute2(utilsBase):
         self.supported_command = {
             '/sbin/bridge -c -json vlan show': True
         }
+        self.bridge_vlan_cache = {}
+        self.bridge_vlan_cache_fill_done = False
 
     def _fill_cache(self):
         if not iproute2._cache_fill_done:
@@ -746,7 +748,6 @@ class iproute2(utilsBase):
                            (vid, bridgeportname))
 
     def bridge_port_vids_get(self, bridgeportname):
-        utils.exec_command('/sbin/bridge vlan show %s' % bridgeportname)
         bridgeout = utils.exec_command('/sbin/bridge vlan show dev %s' %
                                        bridgeportname)
         if not bridgeout: return []
@@ -792,6 +793,55 @@ class iproute2(utilsBase):
             self.logger.info('json loads failed with (%s)' %str(e))
             return {}
         return vlan_json_dict
+
+    def bridge_vlan_cache_get(self, ifacename, refresh=False):
+        if not self.bridge_vlan_cache_fill_done or refresh:
+            self.bridge_vlan_cache = self.bridge_port_vids_get_all_json()
+            self.bridge_vlan_cache_fill_done = True
+        return self.bridge_vlan_cache.get(ifacename, {})
+
+    def bridge_vlan_get_pvid(self, ifacename, refresh=False):
+        pvid = 0
+
+        for vinfo in self.bridge_vlan_cache_get(ifacename, refresh):
+            v = vinfo.get('vlan')
+            pvid = v if 'PVID' in vinfo.get('flags', []) else 0
+            if pvid:
+                return pvid
+        return pvid
+
+    def bridge_vlan_get_vids(self, ifacename, refresh=False):
+        vids = []
+
+        for vinfo in self.bridge_vlan_cache_get(ifacename, refresh):
+            v = vinfo.get('vlan')
+            ispvid = True if 'PVID' in vinfo.get('flags', []) else False
+            if ispvid:
+                pvid = v if 'PVID' in vinfo.get('flags', []) else 0
+                if pvid == 1:
+                    continue
+            vEnd = vinfo.get('vlanEnd')
+            if vEnd:
+               vids.extend(range(v, vEnd + 1))
+            else:
+               vids.append(v)
+        return vids
+
+    def bridge_vlan_get_vids_n_pvid(self, ifacename, refresh=False):
+        vids = []
+        pvid = 0
+
+        for vinfo in self.bridge_vlan_cache_get(ifacename, refresh):
+            v = vinfo.get('vlan')
+            ispvid = True if 'PVID' in vinfo.get('flags', []) else False
+            if ispvid:
+                pvid = v if 'PVID' in vinfo.get('flags', []) else 0
+            vEnd = vinfo.get('vlanEnd')
+            if vEnd:
+               vids.extend(range(v, vEnd + 1))
+            else:
+               vids.append(v)
+        return (vids, pvid)
 
     def bridge_port_pvid_add(self, bridgeportname, pvid):
         if self.ipbatch and not self.ipbatch_pause:

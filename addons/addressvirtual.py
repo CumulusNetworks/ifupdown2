@@ -92,7 +92,7 @@ class addressvirtual(moduleBase):
             bridgename = ifaceobj.lowerifaces[0]
             vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                fdb_addrs = self._get_bridge_fdbs(bridgename, vlan)
+                fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
                 if not fdb_addrs or hwaddress not in fdb_addrs:
                    return False
         return True
@@ -434,8 +434,9 @@ class addressvirtual(moduleBase):
                 elif '/' in cmp_av_addr and '/' not in cmp_raddr:
                     cmp_raddr = str(IPNetwork(cmp_raddr))
 
-                if (rhwaddress == av_attrs[0] and cmp_raddr == cmp_av_addr and
-                        self._check_addresses_in_bridge(ifaceobj, av_attrs[0])):
+                if (rhwaddress == av_attrs[0].lower() and
+                    cmp_raddr == cmp_av_addr and
+                    self._check_addresses_in_bridge(ifaceobj, av_attrs[0].lower())):
                     ifaceobjcurr.update_config_with_status('address-virtual',
                                                            address_virtual, 0)
                 else:

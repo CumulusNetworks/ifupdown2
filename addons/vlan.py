@@ -34,7 +34,6 @@ class vlan(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
-        self._bridge_vids_query_cache = {}
         self._resv_vlan_range =  self._get_reserved_vlan_range()
         self.logger.debug('%s: using reserved vlan range %s'
                   %(self.__class__.__name__, str(self._resv_vlan_range)))
@@ -90,10 +89,7 @@ class vlan(moduleBase):
         is configured on the bridge """
         if not self.ipcmd.bridge_is_vlan_aware(bridgename):
             return
-        vids = self._bridge_vids_query_cache.get(bridgename)
-        if vids == None:
-           vids = self.ipcmd.bridge_port_vids_get(bridgename)
-           self._bridge_vids_query_cache[bridgename] = vids
+        vids = self.ipcmd.bridge_vlan_get_vids(bridgename)
         if not vids or vlanid not in vids:
             ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.status_str = 'bridge vid error'
@@ -149,7 +145,7 @@ class vlan(moduleBase):
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 1)
             else:
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 0)
-            self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, vlanid)
+            self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, int(vlanid))
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
