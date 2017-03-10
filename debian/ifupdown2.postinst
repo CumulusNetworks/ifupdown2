@@ -5,8 +5,6 @@
 
 set -e
 
-LC_ALL=C.UTF-8
-
 # summary of how this script can be called:
 #        * <postinst> `configure' <most-recently-configured-version>
 #        * <old-postinst> `abort-upgrade' <new version>

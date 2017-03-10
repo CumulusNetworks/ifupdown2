@@ -2,14 +2,12 @@
 
 MYNAME="${0##*/}"
 
-LC_ALL=C.UTF-8
-
 report() { echo "${MYNAME}: $*" ; }
 report_err() { report "Error: $*" >&2 ; exit 1; }
 
 preinst_divert()
 {
-    diversions=$(dpkg-divert --list | grep "$1" | grep -v 'ifupdown2$'  | wc -l 2> /dev/null)
+    diversions=$(LC_ALL=C.UTF-8 dpkg-divert --list | grep "$1" | grep -v 'ifupdown2$'  | wc -l 2> /dev/null)
     if [ "$diversions" -gt 0 ];
     then
         report_err "existing diversion for $1"
