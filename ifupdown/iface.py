@@ -53,6 +53,19 @@ class ifaceLinkKind():
     VXLAN =   0x001000
     VRF =     0x010000
 
+    @classmethod
+    def to_str(cls, kind):
+        if kind == cls.BRIDGE:
+            return "bridge"
+        elif kind == cls.BOND:
+            return "bond"
+        elif kind == cls.VLAN:
+            return "vlan"
+        elif kind == cls.VXLAN:
+            return "vxlan"
+        elif kind == cls.VRF:
+            return "vrf"
+
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
         and can be BRIDGE_PORT, BOND_SLAVE etc """

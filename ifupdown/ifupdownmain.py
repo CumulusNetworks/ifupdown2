@@ -1943,6 +1943,16 @@ class ifupdownMain(ifupdownBase):
                                      % (newifaceobjlist[objidx].name,
                                         str(newifaceobjlist[objidx].upperifaces),
                                         newifaceobjlist[objidx].name))
+                if (lastifaceobjlist[0].link_kind and
+                    not newifaceobjlist[0].link_kind):
+                    self.logger.warn('%s: moved from being a %s to a'
+                                     ' physical interface (non-logical interface).\n'
+                                     'If this was not intentional, please restore the'
+                                     ' original interface definition and execute ifreload or\n'
+                                     'delete the interface with \'ip link del %s\''
+                                     % (newifaceobjlist[objidx].name,
+                                        ifaceLinkKind.to_str(lastifaceobjlist[0].link_kind),
+                                        newifaceobjlist[objidx].name))
                 if not down_changed:
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
