@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20170314-1) unstable; urgency=medium
+
+  * debian: install files: fix LC_ALL=C.UTF-8 following comments on #857258
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 14 Mar 2017 23:06:14 +0100
+
 ifupdown2 (1.0~git20170308-1) unstable; urgency=medium
 
   * debian: add LC_ALL=C.UTF-8 directive in prestinst, postinst, postrm files
