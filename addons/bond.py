@@ -60,7 +60,7 @@ class bond(moduleBase):
                           'example': ['bond-mode 802.3ad']},
                      'bond-lacp-rate':
                          {'help' : 'bond lacp rate',
-                          'validvals' : ['0', '1'],
+                          'validvals' : ['0', 'slow', '1', 'fast'],
                           'default' : '0',
                           'example' : ['bond-lacp-rate 0']},
                      'bond-min-links':
@@ -133,6 +133,11 @@ class bond(moduleBase):
                          '802.3ad': '4',
                          'balance-tlb': '5',
                          'balance-alb': '6'}
+
+    _bond_lacp_rate_str = {
+        'slow': '0',
+        'fast': '1'
+    }
 
     @staticmethod
     def _get_readable_bond_mode(mode):
@@ -211,6 +216,9 @@ class bond(moduleBase):
                              get_iface_default(module_name=self.__class__.__name__,
                                                ifname=ifaceobj.name,
                                                attr=attrname)
+        if not policy_default_val:
+            policy_default_val = self.get_attr_default_value(attrname)
+
         if attrval:
             if attrname == 'bond-mode':
                 attrval = bond._get_readable_bond_mode(attrval)
@@ -260,6 +268,9 @@ class bond(moduleBase):
             # support yes/no attrs
             utils.support_yesno_attrs(attrstoset, ['use_carrier', 'lacp_bypass'])
 
+            # support for 0slow/1fast
+            self._support_for_slow_fast_lacp_rate(attrstoset)
+
             have_attrs_to_set = 1
             self.bondcmd.set_attrs(ifaceobj.name, attrstoset,
                     self.ipcmd.link_down if linkup else None)
@@ -268,6 +279,13 @@ class bond(moduleBase):
         finally:
             if have_attrs_to_set and linkup:
                 self.ipcmd.link_up(ifaceobj.name)
+
+    def _support_for_slow_fast_lacp_rate(self, attrs):
+        if 'lacp_rate' in attrs:
+            value = attrs['lacp_rate']
+
+            if value in self._bond_lacp_rate_str:
+                attrs['lacp_rate'] = self._bond_lacp_rate_str[value]
 
     def _add_slaves(self, ifaceobj):
         runningslaves = []

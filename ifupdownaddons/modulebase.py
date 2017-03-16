@@ -373,6 +373,9 @@ class moduleBase(object):
         except:
             return {}
 
+    def get_attr_default_value(self, attrname):
+        return self.get_modinfo().get('attrs', {}).get(attrname, {}).get('default')
+
     def get_overrides_ifupdown_scripts(self):
         """ return the ifupdown scripts replaced by the current module """
         try:
