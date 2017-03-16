@@ -146,14 +146,9 @@ def mac_int_to_str(mac_int):
     Return an integer in MAC string format
     """
 
-    # [2:] to remove the leading 0x, then fill out to 12 zeroes, then uppercase
-    all_caps = hex(int(mac_int))[2:].zfill(12).upper()
-
-    if all_caps[-1] == 'L':
-        all_caps = all_caps[:-1]
-        all_caps = all_caps.zfill(12).upper()
-
-    return "%s.%s.%s" % (all_caps[0:4], all_caps[4:8], all_caps[8:12])
+    # [2:] to remove the leading 0x, then fill out to 12 zeroes
+    mac = hex(int(mac_int))[2:].zfill(12)
+    return ':'.join(mac[i:i + 2] for i in range(0, 12, 2))
 
 
 def data_to_color_text(line_number, color, data, extra=''):
@@ -543,11 +538,6 @@ class AttributeMACAddress(Attribute):
             dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12]))
             line_number += 1
         return line_number
-
-    def get_pretty_value(self, obj=None):
-        if obj and callable(obj):
-            return obj(self.value)
-        return ':'.join(self.value.replace('.', '')[i:i + 2] for i in range(0, 12, 2))
 
 
 class AttributeGeneric(Attribute):
@@ -2960,6 +2950,55 @@ class Neighbor(NetlinkPacket):
     def get_state_string(self, index):
         return self.get_string(self.state_to_string, index)
 
+    def get_states_string(self, states):
+        for_string = []
+
+        if states & Neighbor.NUD_INCOMPLETE:
+            for_string.append('NUD_INCOMPLETE')
+
+        if states & Neighbor.NUD_REACHABLE:
+            for_string.append('NUD_REACHABLE')
+
+        if states & Neighbor.NUD_STALE:
+            for_string.append('NUD_STALE')
+
+        if states & Neighbor.NUD_DELAY:
+            for_string.append('NUD_DELAY')
+
+        if states & Neighbor.NUD_PROBE:
+            for_string.append('NUD_PROBE')
+
+        if states & Neighbor.NUD_FAILED:
+            for_string.append('NUD_FAILED')
+
+        if states & Neighbor.NUD_NOARP:
+            for_string.append('NUD_NOARP')
+
+        if states & Neighbor.NUD_PERMANENT:
+            for_string.append('NUD_PERMANENT')
+
+        return ', '.join(for_string)
+
+    def get_flags_string(self, flags):
+        for_string = []
+
+        if flags & Neighbor.NTF_USE:
+            for_string.append('NTF_USE')
+
+        if flags & Neighbor.NTF_SELF:
+            for_string.append('NTF_SELF')
+
+        if flags & Neighbor.NTF_MASTER:
+            for_string.append('NTF_MASTER')
+
+        if flags & Neighbor.NTF_PROXY:
+            for_string.append('NTF_PROXY')
+
+        if flags & Neighbor.NTF_ROUTER:
+            for_string.append('NTF_ROUTER')
+
+        return ', '.join(for_string)
+
     def decode_service_header(self):
 
         # Nothing to do if the message did not contain a service header
@@ -2983,9 +3022,9 @@ class Neighbor(NetlinkPacket):
                 elif self.line_number == 6:
                     extra = "Interface Index %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)
                 elif self.line_number == 7:
-                    extra = "State %s (%d), Flags %s, Type %s (%d)" % \
-                        (zfilled_hex(self.state, 4), self.state,
-                         zfilled_hex(self.flags, 2),
+                    extra = "State %s (%d) %s, Flags %s (%s) %s, Type %s (%d)" % \
+                        (zfilled_hex(self.state, 4), self.state, self.get_states_string(self.state),
+                         zfilled_hex(self.flags, 2), self.flags, self.get_flags_string(self.flags),
                          zfilled_hex(self.neighbor_type, 4), self.neighbor_type)
                 else:
                     extra = "Unexpected line number %d" % self.line_number

@@ -496,6 +496,22 @@ class NetlinkManager(object):
             log.info("Netlink did not find interface %s" % ifname)
             return None
 
+    def _get_iface_by_index(self, ifindex):
+        """
+        Return a Link object for ifindex
+        """
+        debug = RTM_GETLINK in self.debug
+
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('=Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
+        link.build_message(self.sequence.next(), self.pid)
+        try:
+            return self.tx_nlpacket_get_response(link)[0]
+        except NetlinkNoAddressError:
+            log.info("Netlink did not find interface %s" % ifindex)
+            return None
+
     def get_iface_index(self, ifname):
         """
         Return the interface index for ifname
@@ -504,6 +520,13 @@ class NetlinkManager(object):
 
         if iface:
             return iface.ifindex
+        return None
+
+    def get_iface_name(self, ifindex):
+        iface = self._get_iface_by_index(ifindex)
+
+        if iface:
+            return iface.attributes[Link.IFLA_IFNAME].get_pretty_value(str)
         return None
 
     def link_dump(self, ifname=None):
