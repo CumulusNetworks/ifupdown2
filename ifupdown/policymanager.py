@@ -192,23 +192,19 @@ class policymanager():
 
         return val
 
-    def get_module_default(self,module_name=None):
-        '''
-        get_module_default: Addon modules can also access the entire config
-        This method returns indexed by "system" and "user": these are the
-        system-wide and user-defined policy arrays for a specific module.
-        '''
+    def get_module_defaults(self, module_name):
+        """
+            get_module_defaults: returns a merged dictionary of default values
+            specified in policy files. Users provided values override system
+            values.
+        """
+
         if not module_name:
-            return None
-        if self.system_policy_array.get(module_name) and \
-           self.user_policy_array.get(module_name):
-            mod_array = {"system":self.system_policy_array[module_name],
-                         "user":self.user_policy_array[module_name]}
-        else:
-            # the module must not have these defined, return None
-            mod_array = None
+            raise NotImplementedError('get_module_defaults: module name can\'t be None')
 
-        return mod_array
-
+        defaults = dict()
+        defaults.update(self.system_policy_array.get(module_name, {}).get('defaults', {}))
+        defaults.update(self.user_policy_array.get(module_name, {}).get('defaults', {}))
+        return defaults
 
 policymanager_api = policymanager()

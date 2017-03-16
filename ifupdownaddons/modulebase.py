@@ -24,8 +24,8 @@ class moduleBase(object):
     Provides common infrastructure methods for all addon modules """
 
     def __init__(self, *args, **kargs):
-        modulename = self.__class__.__name__
-        self.logger = logging.getLogger('ifupdown.' + modulename)
+        self.modulename = self.__class__.__name__
+        self.logger = logging.getLogger('ifupdown.' + self.modulename)
 
         # vrfs are a global concept and a vrf context can be applicable
         # to all global vrf commands. Get the default vrf-exec-cmd-prefix
@@ -39,6 +39,40 @@ class moduleBase(object):
 
         self._bridge_stp_user_space = None
 
+        self.merge_modinfo_with_policy_files()
+
+    def merge_modinfo_with_policy_files(self):
+        """
+            update addons modinfo dictionary with system/user defined values in policy files
+            Any value can be updated except the module help "mhelp"
+
+            We also check if the policy attributes really exist to make sure someone is not
+            trying to "inject" new attributes to prevent breakages and security issue
+        """
+        attrs = self.get_modinfo().get('attrs', {})
+
+        if not attrs:
+            return
+
+        error_msg = 'this attribute doesn\'t exist or isn\'t supported'
+
+        # first check module_defaults
+        for key, value in policymanager.policymanager_api.get_module_defaults(self.modulename).items():
+            if not key in attrs:
+                self.logger.warning('%s: %s: %s' % (self.modulename, key, error_msg))
+                continue
+            attrs[key]['default'] = value
+
+        # then check module_globals (overrides module_defaults)
+        policy_modinfo = policymanager.policymanager_api.get_module_globals(self.modulename, '_modinfo')
+        if policy_modinfo:
+            policy_attrs = policy_modinfo.get('attrs', {})
+
+            for attr in policy_attrs:
+                if attr not in attrs:
+                    self.logger.warning('%s: %s: %s' % (self.modulename, attr, error_msg))
+
+            attrs.update(policy_attrs)
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
@@ -337,7 +371,7 @@ class moduleBase(object):
         try:
             return self._modinfo
         except:
-            return None
+            return {}
 
     def get_overrides_ifupdown_scripts(self):
         """ return the ifupdown scripts replaced by the current module """
