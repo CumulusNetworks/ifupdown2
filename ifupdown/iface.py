@@ -56,6 +56,9 @@ class ifaceLinkKind():
     VLAN =    0x000100
     VXLAN =   0x001000
     VRF =     0x010000
+    # to indicate logical interface created by an external entity.
+    # the 'kind' of which ifupdown2 does not really understand
+    OTHER =     0x100000
 
     @classmethod
     def to_str(cls, kind):
