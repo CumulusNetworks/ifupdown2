@@ -53,13 +53,15 @@ class vlan(moduleBase):
         """ Returns vlan raw device from ifname
         Example:
             Returns eth0 for ifname eth0.100
-
+            Returns eth0.100 for ifname eth0.100.200
             Returns None if vlan raw device name cannot
             be determined
         """
-        vlist = ifacename.split('.', 1)
+        vlist = ifacename.split('.', 2)
         if len(vlist) == 2:
             return vlist[0]
+        elif len(vlist) == 3:
+            return vlist[0] + "." + vlist[1]
         return None
 
     def _get_vlan_raw_device(self, ifaceobj):

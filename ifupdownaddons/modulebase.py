@@ -419,7 +419,7 @@ class moduleBase(object):
             Returns 1 for ifname vlan0001 returns 1
             Returns 1 for ifname vlan1
             Returns 1 for ifname eth0.1
-
+            Returns 100 for ifname eth0.1.100
             Returns -1 if vlan id cannot be determined
         """
         vid_str = ifaceobj.get_attr_value_first('vlan-id')
@@ -429,7 +429,11 @@ class moduleBase(object):
             return -1
 
         if '.' in ifaceobj.name:
-            vid_str = ifaceobj.name.split('.', 1)[1]
+            vid_str = ifaceobj.name.split('.', 2)
+            if len(vid_str) == 2:
+                vid_str = vid_str[1]
+            elif len(vid_str) == 3:
+                vid_str = vid_str[2]
         elif ifaceobj.name.startswith('vlan'):
             vid_str = ifaceobj.name[4:]
         else:
