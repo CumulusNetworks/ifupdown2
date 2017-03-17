@@ -149,6 +149,12 @@ class brctl(utilsBase):
                          '/sys/class/net/%s/brport/multicast_fast_leave' %pname)
                 bportattrs['portprio'] = self.read_file_oneline(
                          '/sys/class/net/%s/brport/priority' %pname)
+                bportattrs['unicast-flood'] = self.read_file_oneline(
+                         '/sys/class/net/%s/brport/unicast_flood' %pname)
+                bportattrs['multicast-flood'] = self.read_file_oneline(
+                         '/sys/class/net/%s/brport/multicast_flood' %pname)
+                bportattrs['learning'] = self.read_file_oneline(
+                         '/sys/class/net/%s/brport/learning' %pname)
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
             except Exception, e:
@@ -271,8 +277,18 @@ class brctl(utilsBase):
                 curval = portattrs.get(k)
                 if curval and curval == v:
                     continue
-            utils.exec_command('/sbin/brctl set%s %s %s %s' %
-                               (k, bridgename, bridgeportname, v))
+            if k == 'unicast-flood':
+                self.write_file('/sys/class/net/%s/brport/'
+                                'unicast_flood' %bridgeportname, v)
+            elif k == 'multicast-flood':
+                self.write_file('/sys/class/net/%s/brport/'
+                                'multicast_flood' %bridgeportname, v)
+            elif k == 'learning':
+                self.write_file('/sys/class/net/%s/brport/'
+                                'learning' %bridgeportname, v)
+            else:
+                utils.exec_command('/sbin/brctl set%s %s %s %s' %
+                                   (k, bridgename, bridgeportname, v))
 
     def set_bridgeport_attr(self, bridgename, bridgeportname,
                             attrname, attrval):

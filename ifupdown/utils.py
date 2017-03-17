@@ -55,6 +55,17 @@ class utils():
         'no': 'off'
     }
 
+    _onoff_onezero = {
+        '1' : 'on',
+        '0' : 'off'
+    }
+
+    @staticmethod
+    def get_onff_from_onezero(value):
+        if value in utils._onoff_onezero:
+            return utils._onoff_onezero[value]
+        return value
+
     @staticmethod
     def get_onoff_bool(value):
         if value in utils._onoff_bool:

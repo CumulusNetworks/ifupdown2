@@ -81,7 +81,12 @@ class address(moduleBase):
                             { 'help'     : 'Anycast local IP address for ' +
                               'dual connected VxLANs',
                               'validvals' : ['<ipv4>', ],
-                              'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']}}}
+                              'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']},
+                      'ip-forward' :
+                            { 'help': 'ip forwarding flag',
+                              'validvals': ['on', 'off'],
+                              'default' : 'on',
+                              'example' : ['ip-forward off']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -443,6 +448,21 @@ class address(moduleBase):
             if running_mtu != self.default_mtu:
                 self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
 
+    def _sysctl_config(self, ifaceobj):
+        ipforward = ifaceobj.get_attr_value_first('ip-forward')
+        if not ipforward:
+            ipforward = self.get_mod_subattr('ip-forward', 'default')
+        ipforward = utils.boolean_support_binary(ipforward)
+        # File read has been used for better performance
+        # instead of using sysctl command
+        running_ipforward = self.read_file_oneline(
+                                '/proc/sys/net/ipv4/conf/%s/forwarding'
+                                %ifaceobj.name)
+        if ipforward != running_ipforward:
+            self.sysctl_set('net.ipv4.conf.%s.forwarding'
+                            %('/'.join(ifaceobj.name.split("."))),
+                            ipforward)
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -453,6 +473,8 @@ class address(moduleBase):
             self.ipcmd.link_set_alias(ifaceobj.name, alias)
         elif not alias and current_alias:
             self.ipcmd.link_set_alias(ifaceobj.name, '')
+
+        self._sysctl_config(ifaceobj)
 
         addr_method = ifaceobj.addr_method
         force_reapply = False
@@ -587,6 +609,18 @@ class address(moduleBase):
                    return False
         return True
 
+    def _query_sysctl(self, ifaceobj, ifaceobjcurr):
+        ipforward = ifaceobj.get_attr_value_first('ip-forward')
+        if ipforward:
+            running_ipforward = self.read_file_oneline(
+                                '/proc/sys/net/ipv4/conf/%s/forwarding'
+                                %ifaceobj.name)
+            running_ipforward = utils.get_onff_from_onezero(running_ipforward)
+            ifaceobjcurr.update_config_with_status('ip-forward',
+                                                   running_ipforward,
+                                                 ipforward != running_ipforward)
+        return
+
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         runningaddrsdict = None
         if not self.ipcmd.link_exists(ifaceobj.name):
@@ -611,6 +645,7 @@ class address(moduleBase):
                        0)
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                     'alias', self.ipcmd.link_get_alias)
+        self._query_sysctl(ifaceobj, ifaceobjcurr)
         # compare addresses
         if addr_method == 'dhcp':
            return
@@ -691,6 +726,10 @@ class address(moduleBase):
         alias = self.ipcmd.link_get_alias(ifaceobjrunning.name)
         if alias:
             ifaceobjrunning.update_config('alias', alias)
+
+        ipforward = self.read_file_oneline(
+                        '/proc/sys/net/ipv4/conf/%s/forwarding'
+                        %ifaceobjrunning.name)
 
 
     _run_ops = {'up' : _up,

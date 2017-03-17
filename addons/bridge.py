@@ -88,15 +88,15 @@ class bridge(moduleBase):
                         { 'help' : 'bridge set port path costs',
                           'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '65535'],
-                          'example' : ['under the bridge: bridge-pathcosts swp1=100 swp2=100',
-                                       'under the port (recommended): bridge-pathcosts 100'],
+                          'example' : ['under the port (for vlan aware bridge): bridge-pathcosts 100',
+                                       'under the bridge (for vlan unaware bridge): bridge-pathcosts swp1=100 swp2=100'],
                           'default' : '100'},
                    'bridge-portprios' :
                         { 'help' : 'bridge port prios',
                           'validvals': ['<interface-range-list>'],
                           'validrange' : ['0', '65535'],
-                          'example' : ['under the bridge: bridge-portprios swp1=32 swp2=32',
-                                       'under the port (recommended): bridge-portprios 32'],
+                          'example' : ['under the port (for vlan aware bridge): bridge-portprios 32',
+                                       'under the bridge (for vlan unaware bridge): bridge-portprios swp1=32 swp2=32'],
                           'default' : '32'},
                    'bridge-mclmc' :
                         { 'help' : 'set multicast last member count',
@@ -178,15 +178,15 @@ class bridge(moduleBase):
                         { 'help' : 'set port multicast routers',
                           'validvals' : ['<interface-yes-no-0-1-list>'],
                           'default' : 'yes',
-                          'example' : ['under the bridge: bridge-portmcrouter swp1=yes swp2=yes',
-                                       'under the port (recommended): bridge-portmcrouter yes']},
+                          'example' : ['under the port (for vlan aware bridge): bridge-portmcrouter yes',
+                                       'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=yes swp2=yes']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
                           'validvals': ['<interface-yes-no-0-1-list>'],
                           'validrange' : ['yes', 'no', '0', '1'],
                           'default' : 'no',
-                          'example' : ['under the bridge: bridge-portmcfl swp1=no swp2=no',
-                                       'under the port (recommended): bridge-portmcfl no']},
+                          'example' : ['under the port (for vlan aware bridge): bridge-portmcfl no',
+                                       'under the bridge (for vlan unaware bridge): bridge-portmcfl swp1=no swp2=no']},
                     'bridge-waitport' :
                         { 'help' : 'wait for a max of time secs for the' +
                                 ' specified ports to become available,' +
@@ -259,6 +259,18 @@ class bridge(moduleBase):
                         { 'help' : 'mcast mld version',
                           'default' : '1',
                           'example' : ['bridge-mld-version 1']},
+                    'bridge-unicast-flood' :
+                        { 'help' : 'bridge port unicast flood flag',
+                          'validvals': ['on', 'off'],
+                          'default': 'off',
+                          'example' : ['under the port (for vlan aware bridge): bridge-unicast-flood on',
+                                       'under the bridge (for vlan unaware bridge): bridge-unicast-flood swp1=on swp2=on']},
+                    'bridge-multicast-flood' :
+                        { 'help' : 'bridge port multicast flood flag',
+                          'validvals': ['on', 'off'],
+                          'default': 'off',
+                          'example' : ['under the port (for vlan aware bridge): bridge-multicast-flood on',
+                                       'under the bridge (for vlan unaware bridge): bridge-multicast-flood swp1=on swp2=on']},
                      }}
 
     def __init__(self, *args, **kargs):
@@ -735,6 +747,48 @@ class bridge(moduleBase):
             if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '0':
                 self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 1)
 
+    def _create_port_attrvallist(self, ifaceobj, attrname, dstattrname,
+                                 attrval, portattrs_dict):
+        portlist = self.parse_port_list(ifaceobj.name, attrval)
+        if not portlist:
+            self.log_error('%s: could not parse \'%s %s\''
+                 %(ifaceobj.name, attrname, attrval), ifaceobj,
+                   raise_error=False)
+            return
+        for p in portlist:
+            try:
+                (port, val) = p.split('=')
+                if not portattrs_dict.get(port):
+                    portattrs_dict[port] = {}
+                if attrname in ['bridge-portmcrouter',
+                                'bridge-portmcfl',
+                                'bridge-unicast-flood',
+                                'bridge-multicast-flood',
+                               ]:
+                    portattrs_dict[port].update({dstattrname:
+                                                 utils.boolean_support_binary(val)})
+                else:
+                    portattrs_dict[port].update({dstattrname : val})
+            except Exception, e:
+                self.log_error('%s: could not parse %s (%s)'
+                               %(ifaceobj.name, attrname, str(e)),
+                                 ifaceobj, raise_error=False)
+        return
+
+    def _create_port_attrvallist_default(self, attrname, dstattrname,
+                                         portattrs_dict, portlist):
+        for port in portlist:
+            if not portattrs_dict.get(port):
+                portattrs_dict[port] = {}
+            if attrname in ['bridge-unicast-flood',
+                            'bridge-multicast-flood',
+                           ]:
+                default = self.get_mod_subattr(attrname, 'default')
+                portattrs_dict[port].update({dstattrname:
+                                            utils.boolean_support_binary(
+                                                default)})
+        return
+
     def _apply_bridge_settings(self, ifaceobj):
         try:
             if self._is_config_stp_state_on(ifaceobj):
@@ -814,33 +868,26 @@ class bridge(moduleBase):
                                                         'mcsnoop'])
                 self.brctlcmd.set_bridge_attrs(ifaceobj.name, bridgeattrs)
             portattrs = {}
+            portlist = self._get_bridge_port_list(ifaceobj)
             for attrname, dstattrname in {'bridge-pathcosts' : 'pathcost',
                                 'bridge-portprios' : 'portprio',
                                 'bridge-portmcrouter' : 'portmcrouter',
-                                'bridge-portmcfl' : 'portmcfl'}.items():
+                                'bridge-portmcfl' : 'portmcfl',
+                                'bridge-unicast-flood' : 'unicast-flood',
+                                'bridge-multicast-flood' : 'multicast-flood',
+                                }.items():
                 attrval = ifaceobj.get_attr_value_first(attrname)
-                if not attrval:
-                    continue
-                portlist = self.parse_port_list(ifaceobj.name, attrval)
-                if not portlist:
-                    self.log_error('%s: could not parse \'%s %s\''
-                         %(ifaceobj.name, attrname, attrval), ifaceobj,
-                           raise_error=False)
-                    continue
-                for p in portlist:
-                    try:
-                        (port, val) = p.split('=')
-                        if not portattrs.get(port):
-                            portattrs[port] = {}
-                        if (attrname == 'bridge-portmcrouter'
-                                or attrname == 'bridge-portmcfl'):
-                            portattrs[port].update({dstattrname: utils.boolean_support_binary(val)})
-                        else:
-                            portattrs[port].update({dstattrname : val})
-                    except Exception, e:
-                        self.log_error('%s: could not parse %s (%s)'
-                                       %(ifaceobj.name, attrname, str(e)),
-                                         ifaceobj, raise_error=False)
+                if attrval:
+                    self._create_port_attrvallist(ifaceobj,
+                                                  attrname,
+                                                  dstattrname,
+                                                  attrval,
+                                                  portattrs)
+                elif not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
+                    self._create_port_attrvallist_default(attrname,
+                                                          dstattrname,
+                                                          portattrs,
+                                                          portlist)
             for port, attrdict in portattrs.iteritems():
                 try:
                     self.brctlcmd.set_bridgeport_attrs(ifaceobj.name, port,
@@ -1125,7 +1172,7 @@ class bridge(moduleBase):
                                          pvid_final, False)
 
     def _apply_bridge_port_settings(self, bportifaceobj, bridgename=None,
-                                    bridgeifaceobj=None):
+                                    bridgeifaceobj=None, vlan_aware=False):
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
         # Set other stp and igmp attributes
@@ -1152,6 +1199,31 @@ class bridge(moduleBase):
         if portmcfl:
             portattrs['portmcfl'] = utils.boolean_support_binary(portmcfl)
 
+        unicast_flood = bportifaceobj.get_attr_value_first('bridge-unicast-flood')
+        if unicast_flood:
+            portattrs['unicast-flood'] = utils.boolean_support_binary(unicast_flood)
+        elif vlan_aware:
+            portattrs['unicast-flood'] = utils.boolean_support_binary(
+                                            self.get_mod_subattr(
+                                                'bridge-unicast-flood',
+                                                'default'))
+
+        multicast_flood = bportifaceobj.get_attr_value_first('bridge-multicast-flood')
+        if multicast_flood:
+            portattrs['multicast-flood'] = utils.boolean_support_binary(multicast_flood)
+        elif vlan_aware:
+            portattrs['multicast-flood'] = utils.boolean_support_binary(
+                                            self.get_mod_subattr(
+                                                'bridge-multicast-flood',
+                                                'default'))
+
+        config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
+        running_learn = self.ipcmd.get_brport_learning(bportifaceobj.name)
+        if not config_learn:
+            config_learn = self.get_mod_subattr('bridge-learning', 'default')
+        if config_learn != running_learn:
+            portattrs['learning'] = utils.boolean_support_binary(config_learn)
+
         try:
             self.brctlcmd.set_bridgeport_attrs(bridgename,
                             bportifaceobj.name, portattrs)
@@ -1163,30 +1235,19 @@ class bridge(moduleBase):
         # we need to keep the bridge ports internal learning in sync
         # with bridge learning capability. This is true for vxlan ports
         # hence special case this for vxlan ports.
-        try:
-            config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
-            if not config_learn:
-                config_learn = self.get_mod_subattr('bridge-learning', 'default')
-            config_learn = utils.get_onoff_bool(config_learn)
-            running_learn = self.ipcmd.get_brport_learning(bportifaceobj.name)
-            if config_learn != running_learn:
-                self.ipcmd.set_brport_learning(bportifaceobj.name, config_learn)
-        except Exception, e:
-            self.log_error(str(e), bportifaceobj)
-
-        if not (bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
-            return
-        try:
-            vxlan_learn = self.ipcmd.get_vxlandev_learning(bportifaceobj.name)
-            if vxlan_learn:
-                vxlan_learn = utils.get_onoff_bool(vxlan_learn)
-            else:
-                vxlan_learn = 'on'
-            if vxlan_learn != config_learn:
-                self.ipcmd.set_vxlandev_learning(bportifaceobj.name, config_learn)
-        except Exception, e:
-            self.log_warn('%s: unable to propagate learning to vxlan dev (%s)'
-                          %(bportifaceobj.name, str(e)))
+        if (bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
+            try:
+                vxlan_learn = self.ipcmd.get_vxlandev_learning(bportifaceobj.name)
+                if vxlan_learn:
+                    vxlan_learn = utils.get_onoff_bool(vxlan_learn)
+                else:
+                    vxlan_learn = 'on'
+                if vxlan_learn != config_learn:
+                    self.ipcmd.set_vxlandev_learning(bportifaceobj.name, config_learn)
+            except Exception, e:
+                self.log_warn('%s: unable to propagate learning to vxlan dev (%s)'
+                            %(bportifaceobj.name, str(e)))
+                pass
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
                                         ifaceobj_getfunc=None,
@@ -1284,7 +1345,8 @@ class bridge(moduleBase):
             bridgename = self._get_bridgename(ifaceobj)
             add_port = True
         if bridgename:
-            if self.ipcmd.bridge_is_vlan_aware(bridgename):
+            vlan_aware_bridge = self.ipcmd.bridge_is_vlan_aware(bridgename)
+            if vlan_aware_bridge:
                 if add_port:
                     # add ifaceobj to bridge
                     self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
@@ -1299,7 +1361,8 @@ class bridge(moduleBase):
                 except Exception as e:
                     self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
                     return
-            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename)
+            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename,
+                                             vlan_aware=vlan_aware_bridge)
             ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
                                               bridgeFlags.PORT_PROCESSED
             return
@@ -1561,7 +1624,10 @@ class bridge(moduleBase):
         # Do this only for vlan-UNAWARE-bridge
         if ports and not bridge_vlan_aware:
             portconfig = {'bridge-pathcosts' : '',
-                          'bridge-portprios' : ''}
+                          'bridge-portprios' : '',
+                          'bridge-unicast-flood' : '',
+                          'bridge-multicast-flood' : '',
+                         }
             for p, v in ports.items():
                 v = self.brctlcmd.get_pathcost(ifaceobjrunning.name, p)
                 if v and v != self.get_mod_subattr('bridge-pathcosts',
@@ -1572,6 +1638,18 @@ class bridge(moduleBase):
                 if v and v != self.get_mod_subattr('bridge-portprios',
                                                    'default'):
                     portconfig['bridge-portprios'] += ' %s=%s' %(p, v)
+
+                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                      p, 'unicast-flood')
+                if v:
+                    portconfig['bridge-unicast-flood'] += ' %s=%s' %(p,
+                    utils.get_onff_from_onezero(v))
+
+                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                      p, 'multicast-flood')
+                if v:
+                    portconfig['bridge-multicast-flood'] += ' %s=%s' %(p,
+                    utils.get_onff_from_onezero(v))
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
@@ -1751,9 +1829,13 @@ class bridge(moduleBase):
                                                          (' '.join(port_list)
                                                           if port_list else ''),
                                                          portliststatus)
-            elif (k == 'bridge-pathcosts' or
-                  k == 'bridge-portprios' or k == 'bridge-portmcrouter'
-                  or k == 'bridge-portmcfl'):
+            elif k in ['bridge-pathcosts',
+                       'bridge-portprios',
+                       'bridge-portmcrouter',
+                       'bridge-portmcfl',
+                       'bridge-unicast-flood',
+                       'bridge-multicast-flood',
+                      ]:
                brctlcmdattrname = k[7:].rstrip('s')
                # for port attributes, the attributes are in a list
                # <portname>=<portattrvalue>
@@ -1766,6 +1848,17 @@ class bridge(moduleBase):
                    try:
                       (p, v) = vlistitem.split('=')
                       currv = self.brctlcmd.get_bridgeport_attr(
+                                         ifaceobj.name, p,
+                                         brctlcmdattrname)
+                      if k in ['bridge-unicast-flood',
+                               'bridge-multicast-flood',
+                              ]:
+                         currv = utils.get_onoff_bool(
+                                    self.brctlcmd.get_bridgeport_attr(
+                                         ifaceobj.name, p,
+                                         brctlcmdattrname))
+                      else:
+                         currv = self.brctlcmd.get_bridgeport_attr(
                                          ifaceobj.name, p,
                                          brctlcmdattrname)
                       if currv:
@@ -1903,7 +1996,9 @@ class bridge(moduleBase):
                     ['bridge-vids', 'bridge-trunk', 'bridge-pvid', 'bridge-access',
                      'bridge-pathcosts', 'bridge-portprios',
                      'bridge-portmcrouter',
-                     'bridge-portmcfl'], 1)
+                     'bridge-portmcfl', 'bridge-unicast-flood',
+                     'bridge-multicast-flood',
+                    ], 1)
             return
         bridgename = self._get_bridge_name(ifaceobj)
         if not bridgename:
@@ -1918,7 +2013,10 @@ class bridge(moduleBase):
         for attr, dstattr in {'bridge-pathcosts' : 'pathcost',
                               'bridge-portprios' : 'portprio',
                               'bridge-portmcrouter' : 'portmcrouter',
-                              'bridge-portmcfl' : 'portmcfl' }.items():
+                              'bridge-portmcfl' : 'portmcfl',
+                              'bridge-unicast-flood' : 'unicast-flood',
+                              'bridge-multicast-flood' : 'multicast-flood',
+                             }.items():
             attrval = ifaceobj.get_attr_value_first(attr)
             if not attrval:
                 continue
@@ -1931,6 +2029,12 @@ class bridge(moduleBase):
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_yesno_boolean(
                             utils.get_boolean_from_string(running_attrval))
+                elif dstattr in ['unicast-flood',
+                                 'multicast-flood',
+                                ]:
+                    if not utils.is_binary_bool(attrval) and running_attrval:
+                        running_attrval = utils.get_onff_from_onezero(
+                                                running_attrval)
 
                 if running_attrval != attrval:
                     ifaceobjcurr.update_config_with_status(attr,
@@ -2024,6 +2128,21 @@ class bridge(moduleBase):
                 if (not bridge_pvid or (bridge_port_pvid != bridge_pvid)):
                     ifaceobjrunning.update_config('bridge-pvid',
                                         bridge_port_pvid)
+
+        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
+                                              'unicast-flood')
+        if v:
+            ifaceobjrunning.update_config('bridge-unicast-flood',
+                utils.get_onff_from_onezero(v))
+                #utils.get_onoff_bool(utils.get_yesno_boolean(
+                #utils.get_boolean_from_string(v))))
+
+        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
+                                              'multicast-flood')
+        if v:
+            ifaceobjrunning.update_config('bridge-multicast-flood',
+                utils.get_onff_from_onezero(v))
+
         self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
@@ -2052,6 +2171,8 @@ class bridge(moduleBase):
                     runningattrs[attrl[0]] = utils.get_yesno_boolean(bool)
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcrouter', ifaceobj.get_attr_value_first('bridge-portmcrouter'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcfl', ifaceobj.get_attr_value_first('bridge-portmcfl'))
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'unicast-flood', ifaceobj.get_attr_value_first('bridge-unicast-flood'))
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'multicast-flood', ifaceobj.get_attr_value_first('bridge-multicast-flood'))
 
     def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:
