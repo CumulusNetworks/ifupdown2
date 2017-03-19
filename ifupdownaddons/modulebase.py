@@ -412,6 +412,24 @@ class moduleBase(object):
             return False
         return True
 
+    def _get_vlan_id_from_ifacename(self, ifacename):
+        if '.' in ifacename:
+            vid_str = ifacename.split('.', 2)
+            vlen = len(vid_str)
+            if vlen == 2:
+                vid_str = vid_str[1]
+            elif vlen == 3:
+                vid_str = vid_str[2]
+        elif ifacename.startswith('vlan'):
+            vid_str = ifacename[4:]
+        else:
+            return -1
+        try:
+            vid = int(vid_str)
+        except:
+            return -1
+        return vid
+
     def _get_vlan_id(self, ifaceobj):
         """ Derives vlanid from iface name
 
@@ -428,18 +446,4 @@ class moduleBase(object):
         except:
             return -1
 
-        if '.' in ifaceobj.name:
-            vid_str = ifaceobj.name.split('.', 2)
-            if len(vid_str) == 2:
-                vid_str = vid_str[1]
-            elif len(vid_str) == 3:
-                vid_str = vid_str[2]
-        elif ifaceobj.name.startswith('vlan'):
-            vid_str = ifaceobj.name[4:]
-        else:
-            return -1
-        try:
-            vid = int(vid_str)
-        except:
-            return -1
-        return vid
+        return self._get_vlan_id_from_ifacename(ifaceobj.name)

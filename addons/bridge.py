@@ -471,16 +471,16 @@ class bridge(moduleBase):
                 if self.sysctl_get('net.bridge.bridge-allow-multiple-vlans') == '0':
                     vlanid = None
                     for bport in bridgeports:
-                        ifattrs = bport.split('.')
+                        currvlanid = self._get_vlan_id_from_ifacename(bport)
                         if vlanid:
-                            if (len(ifattrs) == 1 or ifattrs[1] != vlanid):
+                            if currvlanid != vlanid:
                                 self.log_error('%s: ' %bridgeifaceobj.name +
                                                'net.bridge.bridge-allow-multiple-vlans not set, multiple vlans not allowed', bridgeifaceobj)
                                 break
-                        if len(ifattrs) == 2:
-                            vlanid = ifattrs[1]
-            except:
-                pass
+                        if currvlanid:
+                            vlanid = currvlanid
+            except Exception as e:
+                errstr += '\n%s' % str(e)
         self.log_error(bridgeifaceobj.name + ': ' + errstr, bridgeifaceobj)
 
     def _add_ports(self, ifaceobj):
