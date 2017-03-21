@@ -146,9 +146,14 @@ def mac_int_to_str(mac_int):
     Return an integer in MAC string format
     """
 
-    # [2:] to remove the leading 0x, then fill out to 12 zeroes
-    mac = hex(int(mac_int))[2:].zfill(12)
-    return ':'.join(mac[i:i + 2] for i in range(0, 12, 2))
+    # [2:] to remove the leading 0x, then fill out to 12 zeroes, then uppercase
+    all_caps = hex(int(mac_int))[2:].zfill(12).upper()
+
+    if all_caps[-1] == 'L':
+        all_caps = all_caps[:-1]
+        all_caps = all_caps.zfill(12).upper()
+
+    return "%s.%s.%s" % (all_caps[0:4], all_caps[4:8], all_caps[8:12])
 
 
 def data_to_color_text(line_number, color, data, extra=''):
@@ -538,6 +543,11 @@ class AttributeMACAddress(Attribute):
             dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12]))
             line_number += 1
         return line_number
+
+    def get_pretty_value(self, obj=None):
+        if obj and callable(obj):
+            return obj(self.value)
+        return ':'.join(self.value.replace('.', '')[i:i + 2] for i in range(0, 12, 2))
 
 
 class AttributeGeneric(Attribute):
