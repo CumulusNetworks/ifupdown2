@@ -90,7 +90,13 @@ class address(moduleBase):
                             { 'help': 'ip forwarding flag',
                               'validvals': ['on', 'off'],
                               'default' : 'on',
-                              'example' : ['ip-forward off']}}}
+                              'example' : ['ip-forward off']},
+                      'ip6-forward' :
+                            { 'help': 'ipv6 forwarding flag',
+                              'validvals': ['on', 'off'],
+                              'default' : 'on',
+                              'example' : ['ip6-forward off']},
+                }}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -110,7 +116,23 @@ class address(moduleBase):
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
-                and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc))
+                and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc)
+                and self.syntax_check_sysctls(ifaceobj))
+
+    def syntax_check_sysctls(self, ifaceobj):
+        result = True
+        bridge_port = (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)
+        ipforward = ifaceobj.get_attr_value_first('ip-forward')
+        if bridge_port and ipforward:
+            result = False
+            self.log_error('%s: \'ip-forward\' is not supported for '
+                           'bridge port' %ifaceobj.name)
+        ip6forward = ifaceobj.get_attr_value_first('ip6-forward')
+        if bridge_port and ip6forward:
+            result = False
+            self.log_error('%s: \'ip6-forward\' is not supported for '
+                           'bridge port' %ifaceobj.name)
+        return result
 
     def syntax_check_mtu(self, ifaceobj, ifaceobj_getfunc):
         mtu = ifaceobj.get_attr_value_first('mtu')
@@ -453,8 +475,38 @@ class address(moduleBase):
             if running_mtu != self.default_mtu:
                 self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
 
+    def _set_bridge_forwarding(self, ifaceobj):
+        """ set ip forwarding to 0 if bridge interface does not have a
+        ip nor svi """
+        if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address'):
+            # set forwarding = 0
+            if self.sysctl_get('net.ipv4.conf.%s.forwarding' %ifaceobj.name) == '1':
+                self.sysctl_set('net.ipv4.conf.%s.forwarding' %ifaceobj.name, 0)
+            if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '1':
+                self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 0)
+        else:
+            if self.sysctl_get('net.ipv4.conf.%s.forwarding' %ifaceobj.name) == '0':
+                self.sysctl_set('net.ipv4.conf.%s.forwarding' %ifaceobj.name, 1)
+            if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '0':
+                self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 1)
+
     def _sysctl_config(self, ifaceobj):
+        if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+            self._set_bridge_forwarding(ifaceobj)
+            return
+        if not self.syntax_check_sysctls(ifaceobj):
+            return
         ipforward = ifaceobj.get_attr_value_first('ip-forward')
+        ip6forward = ifaceobj.get_attr_value_first('ip6-forward')
+        bridge_port = ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT
+        if bridge_port:
+            if ipforward:
+                self.log_error('%s: \'ip-forward\' is not supported for '
+                               'bridge port' %ifaceobj.name)
+            if ip6forward:
+                self.log_error('%s: \'ip6-forward\' is not supported for '
+                               'bridge port' %ifaceobj.name)
+            return
         if not ipforward:
             ipforward = self.get_mod_subattr('ip-forward', 'default')
         ipforward = utils.boolean_support_binary(ipforward)
@@ -467,6 +519,19 @@ class address(moduleBase):
             self.sysctl_set('net.ipv4.conf.%s.forwarding'
                             %('/'.join(ifaceobj.name.split("."))),
                             ipforward)
+
+        if not ip6forward:
+            ip6forward = self.get_mod_subattr('ip6-forward', 'default')
+        ip6forward = utils.boolean_support_binary(ip6forward)
+        # File read has been used for better performance
+        # instead of using sysctl command
+        running_ip6forward = self.read_file_oneline(
+                                '/proc/sys/net/ipv6/conf/%s/forwarding'
+                                %ifaceobj.name)
+        if ip6forward != running_ip6forward:
+            self.sysctl_set('net.ipv6.conf.%s.forwarding'
+                            %('/'.join(ifaceobj.name.split("."))),
+                            ip6forward)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
@@ -616,15 +681,40 @@ class address(moduleBase):
         return True
 
     def _query_sysctl(self, ifaceobj, ifaceobjcurr):
+        bridge_port = ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT
         ipforward = ifaceobj.get_attr_value_first('ip-forward')
         if ipforward:
-            running_ipforward = self.read_file_oneline(
-                                '/proc/sys/net/ipv4/conf/%s/forwarding'
-                                %ifaceobj.name)
-            running_ipforward = utils.get_onff_from_onezero(running_ipforward)
-            ifaceobjcurr.update_config_with_status('ip-forward',
-                                                   running_ipforward,
+            if bridge_port:
+                ifaceobjcurr.status = ifaceStatus.ERROR
+                ifaceobjcurr.status_str = ('\'ip-forward\' not supported ' +
+                                           'for bridge port')
+                ifaceobjcurr.update_config_with_status('ip-forward', 1, None)
+            else:
+                running_ipforward = self.read_file_oneline(
+                                        '/proc/sys/net/ipv4/conf/%s/forwarding'
+                                        %ifaceobj.name)
+                running_ipforward = utils.get_onff_from_onezero(
+                                            running_ipforward)
+                ifaceobjcurr.update_config_with_status('ip-forward',
+                                                       running_ipforward,
                                                  ipforward != running_ipforward)
+
+        ip6forward = ifaceobj.get_attr_value_first('ip6-forward')
+        if ip6forward:
+            if bridge_port:
+                ifaceobjcurr.status = ifaceStatus.ERROR
+                ifaceobjcurr.status_str = ('\'ip6-forward\' not supported ' +
+                                           'for bridge port')
+                ifaceobjcurr.update_config_with_status('ip6-forward', 1, None)
+            else:
+                running_ip6forward = self.read_file_oneline(
+                                        '/proc/sys/net/ipv6/conf/%s/forwarding'
+                                        %ifaceobj.name)
+                running_ip6forward = utils.get_onff_from_onezero(
+                                            running_ip6forward)
+                ifaceobjcurr.update_config_with_status('ip6-forward',
+                                                       running_ip6forward,
+                                                 ip6forward != running_ip6forward)
         return
 
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
