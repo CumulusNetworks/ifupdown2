@@ -121,6 +121,13 @@ class brctl(utilsBase):
                 pass
 
             try:
+                battrs['vlan-protocol'] = VlanProtocols.ID_TO_ETHERTYPES[
+                    self.read_file_oneline(
+                    '/sys/class/net/%s/bridge/vlan_protocol' % bridgename)]
+            except:
+                pass
+
+            try:
                 battrs.update(self._bridge_get_mcattrs_from_sysfs(bridgename))
             except:
                 pass
@@ -322,6 +329,11 @@ class brctl(utilsBase):
                 elif k == 'mld-version':
                     self.write_file('/sys/class/net/%s/bridge/'
                                     'multicast_mld_version' %bridgename, v)
+                elif k == 'vlan-protocol':
+                    self.write_file('/sys/class/net/%s/bridge/'
+                                    'vlan_protocol' %bridgename,
+                                    VlanProtocols.ETHERTYPES_TO_ID.get(v.upper(),
+                                                                       None))
                 else:
                     cmd = '/sbin/brctl set%s %s %s' % (k, bridgename, v)
                     utils.exec_command(cmd)
@@ -338,6 +350,9 @@ class brctl(utilsBase):
         elif attrname == 'mld-version':
             self.write_file('/sys/class/net/%s/bridge/multicast_mld_version'
                             %bridgename, attrval)
+        elif attrname == 'vlan-protocol':
+            self.write_file('/sys/class/net/%s/bridge/vlan_protocol'
+                            %bridgename, VlanProtocols.ETHERTYPES_TO_ID[attrval.upper()])
         else:
             cmd = '/sbin/brctl set%s %s %s' %(attrname, bridgename, attrval)
             utils.exec_command(cmd)

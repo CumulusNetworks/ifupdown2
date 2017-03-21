@@ -30,6 +30,7 @@ class bridgeFlags:
     PORT_PROCESSED = 0x1
     PORT_PROCESSED_OVERRIDE = 0x2
 
+
 class bridge(moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
 
@@ -281,6 +282,11 @@ class bridge(moduleBase):
                           'default': 'on',
                           'example' : ['under the port (for vlan aware bridge): bridge-multicast-flood on',
                                        'under the bridge (for vlan unaware bridge): bridge-multicast-flood swp1=on swp2=on']},
+                    'bridge-vlan-protocol' :
+                        { 'help' : 'bridge vlan protocol',
+                          'default' : '802.1q',
+                          'validvals': ['802.1q', '802.1ad'],
+                          'example' : ['bridge-vlan-protocol 802.1q']},
                      }}
 
     def __init__(self, *args, **kargs):
@@ -868,7 +874,11 @@ class bridge(moduleBase):
                               'mld-version' :
                                 (ifaceobj.get_attr_value_first('bridge-mld-version')
                                  or self.get_mod_subattr('bridge-mld-version',
-                                                         'default'))
+                                                         'default')),
+                              'vlan-protocol':
+                                (ifaceobj.get_attr_value_first('bridge-vlan-protocol')
+                                 or self.get_mod_subattr('bridge-vlan-protocol',
+                                                         'default')),
                                }.items()
                             if v }
             if bridgeattrs:
@@ -1896,7 +1906,7 @@ class bridge(moduleBase):
                else:
                    ifaceobjcurr.update_config_with_status(k, 'notfound', 1)
                continue
-            elif v != rv:
+            elif v.upper() != rv.upper():
                ifaceobjcurr.update_config_with_status(k, rv, 1)
             else:
                ifaceobjcurr.update_config_with_status(k, rv, 0)

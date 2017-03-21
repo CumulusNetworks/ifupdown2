@@ -122,6 +122,18 @@ class ifaceLinkType():
     LINK_MASTER = 0x2
     LINK_NA = 0x3
 
+class VlanProtocols():
+    # Picked ID values from
+    # http://www.microhowto.info/howto/configure_an_ethernet_interface_as_a_qinq_vlan_trunk.html
+    ETHERTYPES_TO_ID = {
+                        '802.1Q'  : '0x8100',
+                        '802.1AD' : '0x88a8',
+                       }
+    ID_TO_ETHERTYPES = {
+                        '0x8100'  : '802.1Q',
+                        '0x88a8'  : '802.1AD',
+                       }
+
 class ifaceDependencyType():
     """ Indicates type of dependency.
 
