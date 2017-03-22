@@ -262,13 +262,13 @@ class bridge(moduleBase):
                     'bridge-unicast-flood' :
                         { 'help' : 'bridge port unicast flood flag',
                           'validvals': ['on', 'off'],
-                          'default': 'off',
+                          'default': 'on',
                           'example' : ['under the port (for vlan aware bridge): bridge-unicast-flood on',
                                        'under the bridge (for vlan unaware bridge): bridge-unicast-flood swp1=on swp2=on']},
                     'bridge-multicast-flood' :
                         { 'help' : 'bridge port multicast flood flag',
                           'validvals': ['on', 'off'],
-                          'default': 'off',
+                          'default': 'on',
                           'example' : ['under the port (for vlan aware bridge): bridge-multicast-flood on',
                                        'under the bridge (for vlan unaware bridge): bridge-multicast-flood swp1=on swp2=on']},
                      }}
