@@ -887,3 +887,21 @@ class NetlinkManager(object):
 
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
+
+    # =========
+    # Addresses
+    # =========
+    def addr_dump(self):
+        """
+            TODO: add ifname/ifindex filtering:
+                        - via the RTM_GETADDR request packet
+                        - or in python if kernel doesn't support per intf dump
+        """
+        debug = RTM_GETADDR in self.debug
+
+        msg = Address(RTM_GETADDR, debug, use_color=self.use_color)
+        msg.body = pack('=Bxxxi', socket.AF_UNSPEC, 0)
+        msg.flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP
+
+        msg.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(msg)
