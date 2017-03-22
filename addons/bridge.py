@@ -261,10 +261,12 @@ class bridge(moduleBase):
                           'example' : ['bridge-learning off']},
                     'bridge-igmp-version' :
                         { 'help' : 'mcast igmp version',
+                          'validvals': ['2', '3'],
                           'default' : '2',
                           'example' : ['bridge-igmp-version 2']},
                     'bridge-mld-version':
                         { 'help' : 'mcast mld version',
+                          'validvals': ['1', '2'],
                           'default' : '1',
                           'example' : ['bridge-mld-version 1']},
                     'bridge-unicast-flood' :
