@@ -3144,6 +3144,16 @@ class Route(NetlinkPacket):
         RT_SCOPE_NOWHERE  : 'RT_SCOPE_NOWHERE'
     }
 
+    # Route scope to string
+    # iproute2/lib/rt_names.c
+    rtnl_rtscope_tab = {
+        RT_SCOPE_UNIVERSE: 'global',
+        RT_SCOPE_NOWHERE: 'nowhere',
+        RT_SCOPE_HOST: 'host',
+        RT_SCOPE_LINK: 'link',
+        RT_SCOPE_SITE: 'site'
+    }
+
     # Routing stack
     # /usr/include/linux/rtnetlink.h
     RT_PROT_UNSPEC   = 0x00  # Identifies what/who added the route
