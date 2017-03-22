@@ -764,8 +764,7 @@ class bridge(moduleBase):
                 self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 1)
 
     def _create_port_attrvallist(self, ifaceobj, attrname, dstattrname,
-                                 attrval, portattrs_dict):
-        portlist = self.parse_port_list(ifaceobj.name, attrval)
+                                 attrval, portattrs_dict, portlist):
         if not portlist:
             self.log_error('%s: could not parse \'%s %s\''
                  %(ifaceobj.name, attrname, attrval), ifaceobj,
@@ -888,7 +887,7 @@ class bridge(moduleBase):
                                                         'mcsnoop'])
                 self.brctlcmd.set_bridge_attrs(ifaceobj.name, bridgeattrs)
             portattrs = {}
-            portlist = self._get_bridge_port_list(ifaceobj)
+            running_portlist = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             for attrname, dstattrname in {'bridge-pathcosts' : 'pathcost',
                                 'bridge-portprios' : 'portprio',
                                 'bridge-portmcrouter' : 'portmcrouter',
@@ -902,12 +901,13 @@ class bridge(moduleBase):
                                                   attrname,
                                                   dstattrname,
                                                   attrval,
-                                                  portattrs)
+                                                  portattrs,
+                                                  running_portlist)
                 elif not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
                     self._create_port_attrvallist_default(attrname,
                                                           dstattrname,
                                                           portattrs,
-                                                          portlist)
+                                                          running_portlist)
             for port, attrdict in portattrs.iteritems():
                 try:
                     self.brctlcmd.set_bridgeport_attrs(ifaceobj.name, port,
