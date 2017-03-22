@@ -544,11 +544,6 @@ class AttributeMACAddress(Attribute):
             line_number += 1
         return line_number
 
-    def get_pretty_value(self, obj=None):
-        if obj and callable(obj):
-            return obj(self.value)
-        return ':'.join(self.value.replace('.', '')[i:i + 2] for i in range(0, 12, 2))
-
 
 class AttributeGeneric(Attribute):
 
