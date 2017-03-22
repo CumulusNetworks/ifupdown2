@@ -1,20 +1,29 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-from sets import Set
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.mstpctlutil import mstpctlutil
-from ifupdownaddons.systemutils import systemUtils
-import ifupdown.ifupdownflags as ifupdownflags
-import ifupdown.policymanager as policymanager
+try:
+    import os
+
+    from sets import Set
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
+
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.mstpctlutil import mstpctlutil
+    from ifupdownaddons.systemutils import systemUtils
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class mstpctlFlags:
     PORT_PROCESSED = 0x1

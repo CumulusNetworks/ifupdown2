@@ -1,31 +1,30 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # networkInterfaces --
 #    ifupdown network interfaces file parser
 #
 
-import collections
-import logging
-import glob
-import re
-import os
-import copy
-from utils import utils
-from iface import *
-from template import templateEngine
+try:
+    import re
+    import copy
+    import glob
+    import logging
+    import collections
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.template import templateEngine
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 whitespaces = '\n\t\r '
 
 class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
-
-    hotplugs = {}
-    auto_ifaces = []
-    callbacks = {}
-    auto_all = False
 
     _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6'],
                  'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6']}
@@ -49,6 +48,10 @@ class networkInterfaces():
 
         Raises:
             AttributeError, KeyError """
+
+        self.auto_ifaces = []
+        self.callbacks = {}
+        self.auto_all = False
 
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)

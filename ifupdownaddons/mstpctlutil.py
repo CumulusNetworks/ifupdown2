@@ -1,15 +1,20 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from cache import MSTPAttrsCache
-from utilsbase import *
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from cache import *
-import json
+try:
+    import json
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+
+    from ifupdownaddons.cache import *
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class mstpctlutil(utilsBase):
     """ This class contains helper methods to interact with mstpd using
@@ -52,6 +57,10 @@ class mstpctlutil(utilsBase):
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
+
+    @classmethod
+    def reset(cls):
+        cls._cache_fill_done = False
 
     def is_mstpd_running(self):
         try:
@@ -183,13 +192,11 @@ class mstpctlutil(utilsBase):
                 return
         if attrname == 'treeprio':
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
-                                 '%s' % bridgename, '0', '%s' % attrvalue],
-                                stdout=False, stderr=None)
+                                 '%s' % bridgename, '0', '%s' % attrvalue], stderr=None)
             self.update_bridge_cache(bridgename, attrname, str(attrvalue))
         else:
             utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
-                                 '%s' % bridgename, '%s' % attrvalue],
-                                stdout=False, stderr=None)
+                                 '%s' % bridgename, '%s' % attrvalue], stderr=None)
             self.update_bridge_cache(bridgename,
                                      self._bridge_jsonAttr_map[attrname],
                                      str(attrvalue))
@@ -226,7 +233,7 @@ class mstpctlutil(utilsBase):
 
     def mstpbridge_exists(self, bridgename):
         try:
-            utils.exec_command('mstpctl showbridge %s' % bridgename, stdout=False)
+            utils.exec_command('mstpctl showbridge %s' % bridgename)
             return True
         except:
             return False

@@ -1,19 +1,23 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import re
-import io
-import logging
-import traceback
+try:
+    import os
+    import re
+    import logging
+    import traceback
 
-from ifupdown.utils import utils
-from ifupdown.iface import *
-import ifupdown.policymanager as policymanager
-import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class NotSupported(Exception):
     pass

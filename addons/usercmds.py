@@ -1,16 +1,19 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import ifupdownaddons
+try:
+    import os
 
-from ifupdown.utils import utils
-import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.utils import utils
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
-class usercmds(ifupdownaddons.modulebase.moduleBase):
+
+class usercmds(moduleBase):
     """  ifupdown2 addon module to configure user specified commands """
 
     _modinfo = {'mhelp' : 'user commands for interfaces',

@@ -1,12 +1,17 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.utils import utils
-from utilsbase import *
-import os
+try:
+    import os
+
+    from ifupdown.utils import utils
+
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 
 class dhclient(utilsBase):

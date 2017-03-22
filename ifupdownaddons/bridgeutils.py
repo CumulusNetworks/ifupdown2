@@ -1,17 +1,22 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
-from utilsbase import *
-import os
-import re
-import logging
-from ifupdown.utils import utils
-import ifupdown.ifupdownflags as ifupdownflags
-from cache import *
+try:
+    import os
+    import re
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    import ifupdown.ifupdownflags as ifupdownflags
+
+    from ifupdownaddons.cache import *
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class brctl(utilsBase):
     """ This class contains helper functions to interact with the bridgeutils
@@ -27,6 +32,9 @@ class brctl(utilsBase):
             brctl._cache_fill_done = True
         self.supported_command = {'showmcqv4src': True}
 
+    @classmethod
+    def reset(cls):
+        cls._cache_fill_done = False
 
     def _bridge_get_mcattrs_from_sysfs(self, bridgename):
         mcattrs = {}

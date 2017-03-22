@@ -1,17 +1,24 @@
 #!/usr/bin/python
+#
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.systemutils import systemUtils
-from ifupdown.netlink import netlink
-from ipaddr import IPv4Address
-import ifupdown.ifupdownflags as ifupdownflags
-import logging
-import ifupdown.policymanager as policymanager
-import os
-from sets import Set
+try:
+    from sets import Set
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    import ifupdown.policymanager as policymanager
+
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.systemutils import systemUtils
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class vxlan(moduleBase):
     _modinfo = {'mhelp' : 'vxlan module configures vxlan interfaces.',

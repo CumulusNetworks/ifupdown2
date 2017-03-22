@@ -1,19 +1,24 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from sets import Set
-from ifupdown.iface import *
-import ifupdownaddons
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bondutil import bondutil
-from ifupdownaddons.iproute2 import iproute2
-from ifupdown.netlink import netlink
-import ifupdown.policymanager as policymanager
-import ifupdown.ifupdownflags as ifupdownflags
-from ifupdown.utils import utils
+try:
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+
+    from sets import Set
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    from ifupdownaddons.bondutil import bondutil
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class bond(moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
@@ -147,7 +152,7 @@ class bond(moduleBase):
         return mode
 
     def __init__(self, *args, **kargs):
-        ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
+        moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.bondcmd = None
 
