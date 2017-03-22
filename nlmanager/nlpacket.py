@@ -1552,6 +1552,11 @@ class NetlinkPacket(object):
         RTM_GETQDISC  : 'RTM_GETQDISC'
     }
 
+    af_family_to_string = {
+        AF_INET     : 'inet',
+        AF_INET6    : 'inet6'
+    }
+
     def __init__(self, msgtype, debug, owner_logger=None, use_color=True):
         self.msgtype     = msgtype
         self.attributes  = {}
