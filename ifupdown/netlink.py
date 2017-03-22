@@ -6,11 +6,14 @@
 
 try:
     import sys
+    import socket
     import logging
+
+    from collections import OrderedDict
 
     import nlmanager.nlpacket
 
-    from nlmanager.nlmanager import Link
+    from nlmanager.nlmanager import Link, Address, Route, NetlinkPacket
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.utilsbase import utilsBase
@@ -344,6 +347,88 @@ class Netlink(utilsBase):
             except Exception as e:
                 self.logger.warning('netlink: ip link show: %s' % str(e))
         return links
+
+    def _addr_dump_extract_ifname(self, addr_packet):
+        addr_ifname_attr = addr_packet.attributes.get(Address.IFA_LABEL)
+
+        if addr_ifname_attr:
+            return addr_ifname_attr.get_pretty_value(str)
+        else:
+            return self.get_iface_name(addr_packet.ifindex)
+
+    @staticmethod
+    def _addr_filter(addr_ifname, addr, scope):
+        default_addrs = ['127.0.0.1/8', '::1/128', '0.0.0.0']
+
+        if addr_ifname == 'lo' and addr in default_addrs:
+            return True
+
+        if scope == Route.RT_SCOPE_LINK:
+            return True
+
+        return False
+
+    def _addr_dump_entry(self, ifaces, addr_packet, addr_ifname, ifa_attr):
+        attribute = addr_packet.attributes.get(ifa_attr)
+
+        if attribute:
+            address = attribute.get_pretty_value(str)
+
+            if hasattr(addr_packet, 'prefixlen'):
+                address = '%s/%d' % (address, addr_packet.prefixlen)
+
+            if self._addr_filter(addr_ifname, address, addr_packet.scope):
+                return
+
+            addr_family = NetlinkPacket.af_family_to_string.get(addr_packet.family)
+            if not addr_family:
+                return
+
+            addr_scope = Route.rtnl_rtscope_tab.get(addr_packet.scope)
+            if not addr_scope:
+                return
+
+            ifaces[addr_ifname]['addrs'][address] = {
+                'type': addr_family,
+                'scope': addr_scope
+            }
+
+    ifa_attributes = [
+        Address.IFA_ADDRESS,
+        Address.IFA_LOCAL,
+        Address.IFA_BROADCAST,
+        Address.IFA_ANYCAST,
+        Address.IFA_MULTICAST
+    ]
+
+    def addr_dump(self, ifname=None):
+        if ifname:
+            self.logger.info('netlink: ip addr show dev %s' % ifname)
+        else:
+            self.logger.info('netlink: ip addr show')
+
+        ifaces = dict()
+        addr_dump = self._nlmanager_api.addr_dump()
+
+        for addr_packet in addr_dump:
+            addr_ifname = self._addr_dump_extract_ifname(addr_packet)
+
+            if addr_packet.family not in [socket.AF_INET, socket.AF_INET6]:
+                continue
+
+            if ifname and ifname != addr_ifname:
+                continue
+
+            if addr_ifname not in ifaces:
+                ifaces[addr_ifname] = {'addrs': OrderedDict({})}
+
+            for ifa_attr in self.ifa_attributes:
+                self._addr_dump_entry(ifaces, addr_packet, addr_ifname, ifa_attr)
+
+        if ifname:
+            return {ifname: ifaces.get(ifname, {})}
+
+        return ifaces
 
 
 netlink = Netlink()

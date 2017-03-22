@@ -197,6 +197,36 @@ class iproute2(utilsBase):
         if ifacename argument given, fill cache for ifacename, else
         fill cache for all interfaces in the system
         """
+        if iproute2._cache_fill_done and not refresh: return
+
+        try:
+            # Check if ifacename is already full, in which case, return
+            if ifacename and not refresh:
+                linkCache.get_attr([ifacename, 'addrs'])
+                return
+        except:
+            pass
+
+        try:
+            [linkCache.update_attrdict([ifname], linkattrs)
+            for ifname, linkattrs in netlink.addr_dump(ifname=ifacename).items()]
+        except Exception as e:
+            self.logger.info(str(e))
+
+        # this netlink call replaces the call to _addr_fill_iproute2_cmd()
+        # We shouldn't have netlink calls in the iproute2 module, this will
+        # be removed in the future. We plan to release, a flexible backend
+        # (netlink+iproute2) by default we will use netlink backend but with
+        # a CLI arg we can switch to iproute2 backend.
+        # Until we decide to create this "backend" switch capability,
+        # we have to put the netlink call inside the iproute2 module.
+
+    def _addr_fill_iproute2_cmd(self, ifacename=None, refresh=False):
+        """ fills cache with address information
+
+        if ifacename argument given, fill cache for ifacename, else
+        fill cache for all interfaces in the system
+        """
         linkout = {}
         if iproute2._cache_fill_done and not refresh: return
 
