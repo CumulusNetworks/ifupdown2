@@ -17,6 +17,8 @@ from systemutils import *
 from cache import *
 import ifupdown.ifupdownflags as ifupdownflags
 
+from ifupdown.netlink import netlink
+
 VXLAN_UDP_PORT = 4789
 
 class iproute2(utilsBase):
@@ -64,6 +66,31 @@ class iproute2(utilsBase):
         fill cache for all interfaces in the system
         """
 
+        if iproute2._cache_fill_done and not refresh: return
+        try:
+            # if ifacename already present, return
+            if (ifacename and not refresh and
+                    linkCache.get_attr([ifacename, 'ifflag'])):
+                return
+        except:
+            pass
+
+        try:
+            [linkCache.update_attrdict([ifname], linkattrs)
+            for ifname, linkattrs in netlink.link_dump(ifacename).items()]
+        except Exception as e:
+            self.logger.info('%s' % str(e))
+
+        # this netlink call replaces the call to _link_fill_iproute2_cmd()
+        # We shouldn't have netlink calls in the iproute2 module, this will
+        # be removed in the future. We plan to release, a flexible backend
+        # (netlink+iproute2) by default we will use netlink backend but with
+        # a CLI arg we can switch to iproute2 backend.
+        # Until we decide to create this "backend" switch capability,
+        # we have to put the netlink call inside the iproute2 module.
+
+
+    def _link_fill_iproute2_cmd(self, ifacename=None, refresh=False):
         warn = True
         linkout = {}
         vxrd_running = False
