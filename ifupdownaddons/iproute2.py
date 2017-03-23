@@ -5,6 +5,7 @@
 #
 
 try:
+    import re
     import os
     import glob
     import shlex
@@ -88,19 +89,21 @@ class iproute2(utilsBase):
         except:
             pass
 
-        try:
-            [linkCache.update_attrdict([ifname], linkattrs)
-            for ifname, linkattrs in netlink.link_dump(ifacename).items()]
-        except Exception as e:
-            self.logger.info('%s' % str(e))
-
-        # this netlink call replaces the call to _link_fill_iproute2_cmd()
-        # We shouldn't have netlink calls in the iproute2 module, this will
-        # be removed in the future. We plan to release, a flexible backend
-        # (netlink+iproute2) by default we will use netlink backend but with
-        # a CLI arg we can switch to iproute2 backend.
-        # Until we decide to create this "backend" switch capability,
-        # we have to put the netlink call inside the iproute2 module.
+        if True:
+            try:
+                [linkCache.update_attrdict([ifname], linkattrs)
+                for ifname, linkattrs in netlink.link_dump(ifacename).items()]
+            except Exception as e:
+                self.logger.info('%s' % str(e))
+            # this netlink call replaces the call to _link_fill_iproute2_cmd()
+            # We shouldn't have netlink calls in the iproute2 module, this will
+            # be removed in the future. We plan to release, a flexible backend
+            # (netlink+iproute2) by default we will use netlink backend but with
+            # a CLI arg we can switch to iproute2 backend.
+            # Until we decide to create this "backend" switch capability,
+            # we have to put the netlink call inside the iproute2 module.
+        else:
+            self._link_fill_iproute2_cmd(ifacename, refresh)
 
 
     def _link_fill_iproute2_cmd(self, ifacename=None, refresh=False):
@@ -168,11 +171,6 @@ class iproute2(utilsBase):
                                 vattrs['ageing'] = citems[j + 1]
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
-                        # get vxlan peer nodes if provisioned by user and not by vxrd
-                        if not vxrd_running:
-                            peers = self.get_vxlan_peers(ifname, vattrs['svcnode'])
-                            if peers:
-                                vattrs['remote'] = peers
                         linkattrs['linkinfo'] = vattrs
                         break
                     elif citems[i] == 'vrf' and citems[i + 1] == 'table':
@@ -220,19 +218,23 @@ class iproute2(utilsBase):
         except:
             pass
 
-        try:
-            [linkCache.update_attrdict([ifname], linkattrs)
-            for ifname, linkattrs in netlink.addr_dump(ifname=ifacename).items()]
-        except Exception as e:
-            self.logger.info(str(e))
+        if True:
+            try:
+                [linkCache.update_attrdict([ifname], linkattrs)
+                for ifname, linkattrs in netlink.addr_dump(ifname=ifacename).items()]
+            except Exception as e:
+                self.logger.info(str(e))
 
-        # this netlink call replaces the call to _addr_fill_iproute2_cmd()
-        # We shouldn't have netlink calls in the iproute2 module, this will
-        # be removed in the future. We plan to release, a flexible backend
-        # (netlink+iproute2) by default we will use netlink backend but with
-        # a CLI arg we can switch to iproute2 backend.
-        # Until we decide to create this "backend" switch capability,
-        # we have to put the netlink call inside the iproute2 module.
+            # this netlink call replaces the call to _addr_fill_iproute2_cmd()
+            # We shouldn't have netlink calls in the iproute2 module, this will
+            # be removed in the future. We plan to release, a flexible backend
+            # (netlink+iproute2) by default we will use netlink backend but with
+            # a CLI arg we can switch to iproute2 backend.
+            # Until we decide to create this "backend" switch capability,
+            # we have to put the netlink call inside the iproute2 module.
+
+        else:
+            self._addr_fill_iproute2_cmd(ifacename, refresh)
 
     def _addr_fill_iproute2_cmd(self, ifacename=None, refresh=False):
         """ fills cache with address information

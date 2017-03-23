@@ -216,7 +216,7 @@ class vxlan(moduleBase):
             # understand
             self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
                            ifaceobj.get_attr_value('vxlan-remoteip'),
-                           vxlanattrs.get('remote', []))
+                                                 self.ipcmd.get_vxlan_peers(ifaceobj.name, vxlanattrs.get('svcnode')))
 
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
         if learning:
@@ -257,7 +257,7 @@ class vxlan(moduleBase):
         if purge_remotes:
             # if purge_remotes is on, it means we own the
             # remote ips. Query them and add it to the running config
-            attrval = vxlanattrs.get('remote')
+            attrval = self.ipcmd.get_vxlan_peers(ifaceobjrunning.name, vxlanattrs.get('svcnode'))
             if attrval:
                 [ifaceobjrunning.update_config('vxlan-remoteip', a)
                             for a in attrval]

@@ -17,7 +17,6 @@ try:
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.utilsbase import utilsBase
-    from ifupdownaddons.systemutils import systemUtils
 
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
@@ -38,9 +37,6 @@ class Netlink(utilsBase):
             # Override the nlmanager's mac_int_to_str function to print the MACs
             # like xx:xx:xx:xx:xx:xx instead of xxxx.xxxx.xxxx
             nlmanager.nlpacket.mac_int_to_str = self.mac_int_to_str
-
-            self.ipcmd = None
-            self.vxrd_running = None
 
             self.link_kind_handlers = {
                 'vlan': self._link_dump_info_data_vlan,
@@ -270,26 +266,12 @@ class Netlink(utilsBase):
     def _link_dump_info_data_vxlan(self, ifname, linkdata):
         vattrs = {
             'learning': 'on',
-            'remote': [],
             'svcnode': None,
             'vxlanid': str(linkdata[Link.IFLA_VXLAN_ID]),
             'ageing': str(linkdata[Link.IFLA_VXLAN_AGEING])
         }
 
         self._link_dump_linkdata_attr(linkdata, self.ifla_vxlan_attributes, vattrs)
-
-        # if none, vxrd is undefined and needs to be set to True/False
-        if self.vxrd_running == None:
-            self.vxrd_running = systemUtils.is_service_running(None, '/var/run/vxrd.pid')
-
-        if self.vxrd_running:
-            if not self.ipcmd:
-                from ifupdownaddons.iproute2 import iproute2
-                self.ipcmd = iproute2()
-            peers = self.ipcmd.get_vxlan_peers(ifname, vattrs['svcnode'])
-            if peers:
-                vattrs['remote'] = peers
-
         return vattrs
 
     def _link_dump_linkinfo(self, link, dump):
