@@ -221,8 +221,6 @@ class bond(moduleBase):
                              get_iface_default(module_name=self.__class__.__name__,
                                                ifname=ifaceobj.name,
                                                attr=attrname)
-        if not policy_default_val:
-            policy_default_val = self.get_attr_default_value(attrname)
 
         if attrval:
             if attrname == 'bond-mode':
