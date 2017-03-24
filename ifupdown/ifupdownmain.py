@@ -332,6 +332,7 @@ class ifupdownMain(ifupdownBase):
             '<ipv6/prefixlen>': self._keyword_ipv6_prefixlen,
             '<ip/prefixlen>': self._keyword_ip_prefixlen,
             '<number-range-list>': self._keyword_number_range_list,
+            '<number-comma-range-list>': self._keyword_number_comma_range_list,
             '<interface-range-list>': self._keyword_interface_range_list,
             '<mac-ip/prefixlen-list>': self._keyword_mac_ip_prefixlen_list,
             '<number-interface-list>': self._keyword_number_interface_list,
@@ -1283,6 +1284,9 @@ class ifupdownMain(ifupdownBase):
         self.module_ops['query-dependency'] = self.modules.keys()
         self.module_ops['query'] = self.modules.keys()
         self.module_ops['query-raw'] = self.modules.keys()
+
+    def _keyword_number_comma_range_list(self, value, validrange=None):
+        return self._keyword_number_range_list(value.replace(',', ' '), validrange=validrange)
 
 
     def _modules_help(self, fmt):
