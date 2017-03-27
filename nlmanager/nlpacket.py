@@ -33,7 +33,7 @@ import struct
 from ipaddr import IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
-from socket import AF_INET, AF_INET6, AF_BRIDGE
+from socket import AF_INET, AF_INET6, AF_BRIDGE, htons
 from string import printable
 from struct import pack, unpack, calcsize
 
@@ -920,6 +920,21 @@ class AttributeIFLA_LINKINFO(Attribute):
                             # pad 2 bytes
                             sub_attr_pack_layout.extend('xx')
 
+                        elif info_data_type == Link.IFLA_VLAN_PROTOCOL:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # vlan protocol
+                            vlan_protocol = Link.ifla_vlan_protocol_dict.get(info_data_value)
+                            if not vlan_protocol:
+                                raise NotImplementedError('vlan protocol %s not implemented' % info_data_value)
+
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(htons(vlan_protocol))
+
+                            # pad 2 bytes
+                            sub_attr_pack_layout.extend('xx')
                         else:
                             self.log.debug('Add support for encoding IFLA_INFO_DATA vlan sub-attribute type %d' % info_data_type)
 
@@ -2408,6 +2423,14 @@ class Link(NetlinkPacket):
         IFLA_VLAN_EGRESS_QOS  : 'IFLA_VLAN_EGRESS_QOS',
         IFLA_VLAN_INGRESS_QOS : 'IFLA_VLAN_INGRESS_QOS',
         IFLA_VLAN_PROTOCOL    : 'IFLA_VLAN_PROTOCOL'
+    }
+
+    ifla_vlan_protocol_dict = {
+        '802.1Q':   0x8100,
+        '802.1ad':  0x88A8,
+
+        0x8100:     '802.1Q',
+        0x88A8:     '802.1ad'
     }
 
     # =========================================

@@ -560,7 +560,7 @@ class NetlinkManager(object):
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
-    def link_add_vlan(self, ifindex, ifname, vlanid):
+    def link_add_vlan(self, ifindex, ifname, vlanid, vlan_protocol=None):
         """
         ifindex is the index of the parent interface that this sub-interface
         is being added to
@@ -581,7 +581,12 @@ class NetlinkManager(object):
                                                     "to VLAN %d (VLAN %d was requested)" %
                                                     (ifname, ifname_vlanid, vlanid))
 
-        return self._link_add(ifindex, ifname, 'vlan', {Link.IFLA_VLAN_ID: vlanid})
+        ifla_info_data = {Link.IFLA_VLAN_ID: vlanid}
+
+        if vlan_protocol:
+            ifla_info_data[Link.IFLA_VLAN_PROTOCOL] = vlan_protocol
+
+        return self._link_add(ifindex, ifname, 'vlan', ifla_info_data)
 
     def link_add_macvlan(self, ifindex, ifname):
         """
