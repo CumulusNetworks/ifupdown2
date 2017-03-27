@@ -199,7 +199,7 @@ class Netlink(utilsBase):
         {
             'attr': Link.IFLA_LINK,
             'name': 'link',
-            'func': lambda x: netlink.get_iface_name(x)
+            'func': lambda x: netlink.get_iface_name(x) if x > 0 else None
         },
         {
             'attr': Link.IFLA_IFNAME,
