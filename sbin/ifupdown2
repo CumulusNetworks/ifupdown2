@@ -15,9 +15,10 @@ import StringIO
 import logging
 import logging.handlers
 import resource
-import pkg_resources
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
+
+IFUPDOWN2_VERSION = '20170328-1~bpo8+1'
 
 lockfile="/run/network/.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
@@ -231,7 +232,7 @@ def update_argparser(argparser):
     argparser.add_argument('-q', '--quiet', dest='quiet',
                 action='store_true',
                 help=argparse.SUPPRESS)
-    argparser.add_argument('--allow', dest='CLASS', 
+    argparser.add_argument('--allow', dest='CLASS',
                 help='ignore non-\"allow-CLASS\" interfaces')
     argparser.add_argument('-w', '--with-depends', dest='withdepends',
                 action='store_true', help='run with all dependent interfaces.'+
@@ -397,10 +398,9 @@ def update_ifreload_argparser(argparser):
 def update_common_argparser(argparser):
     ''' general parsing rules '''
 
-    package = pkg_resources.get_distribution("ifupdown2")
     argparser.add_argument('-V', '--version',
                 action='version',
-                version='ifupdown2:%(prog)s ' + package.version,
+                version='ifupdown2:%(prog)s ' + IFUPDOWN2_VERSION,
                 help='display current ifupdown2 version')
 
 def parse_args(argsv, op):

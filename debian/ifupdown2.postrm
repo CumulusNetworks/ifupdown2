@@ -45,7 +45,7 @@ postrm_purge()
 # restore file if we diverted it on install/upgrade
 _postrm_divert()
 {
-    diversions=$(dpkg-divert --list | grep "^diversion of $1 .* by ifupdown2$"  | wc -l 2> /dev/null)
+    diversions=$(LC_ALL=C.UTF-8 dpkg-divert --list | grep "^diversion of $1 .* by ifupdown2$"  | wc -l 2> /dev/null)
     if [ $diversions -gt 0 ];
     then
         dpkg-divert --remove --package ifupdown2 --rename $1

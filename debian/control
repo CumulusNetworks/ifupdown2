@@ -12,6 +12,7 @@ Architecture: all
 Suggests: python-gvgen, python-mako
 Replaces: ifupdown
 Provides: ifupdown
+Conflicts: ifupdown
 Depends: ${python:Depends}, ${misc:Depends}, python-argcomplete, python-ipaddr, iproute2
 Recommends: isc-dhcp-client | dhcp-client
 Description: Network Interface Management tool similar to ifupdown

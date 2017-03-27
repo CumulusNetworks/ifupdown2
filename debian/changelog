@@ -1,3 +1,35 @@
+ifupdown2 (1.0~git20170328-1~bpo8+1) jessie-backports; urgency=medium
+
+  * Rebuild for jessie-backports.
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Mon, 27 Mar 2017 17:47:17 +0200
+
+ifupdown2 (1.0~git20170308-1) unstable; urgency=medium
+
+  * debian: add LC_ALL=C.UTF-8 directive in prestinst, postinst, postrm files
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 08 Mar 2017 18:39:02 +0100
+
+ifupdown2 (1.0~git20170307-1) unstable; urgency=medium
+
+  * preinst: remove english word from grep filter (closes: #856970)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 07 Mar 2017 11:24:37 +0100
+
+ifupdown2 (1.0~git20170223-1) unstable; urgency=medium
+
+  * drop the dependency to pkg_resources, hardcode version number (closes: #855401)
+  * adjust allow-hotplug behavior to ifupdown (closes: #855598)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 23 Feb 2017 11:24:37 +0100
+
+ifupdown2 (1.0~git20170214-1) unstable; urgency=medium
+
+  * closes: #854325 debian: control: add back "Conflicts: ifupdown"
+  * New. Enabled: support for GRE/SIT tunnels
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 14 Feb 2017 21:47:26 +0100
+
 ifupdown2 (1.0~git20170114-1~bpo8+1) jessie-backports; urgency=medium
 
   * Rebuild for jessie-backports.
