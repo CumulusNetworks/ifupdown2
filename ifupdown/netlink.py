@@ -146,14 +146,14 @@ class Netlink(utilsBase):
                             % (ifacename, vlanid, str(e)))
 
     def link_add_vxlan(self, ifacename, vxlanid, local=None, dstport=VXLAN_UDP_PORT,
-                       group=None, learning='on', ageing=None):
+                       group=None, learning=True, ageing=None):
         cmd = 'ip link add %s type vxlan id %s dstport %s' % (ifacename,
                                                               vxlanid,
                                                               dstport)
         cmd += ' local %s' % local if local else ''
         cmd += ' ageing %s' % ageing if ageing else ''
         cmd += ' remote %s' % group if group else ' noremote'
-        cmd += ' nolearning' if learning == 'off' else ''
+        cmd += ' nolearning' if not learning else ''
         self.logger.info('%s: netlink: %s' % (ifacename, cmd))
         if ifupdownflags.flags.DRYRUN: return
         try:

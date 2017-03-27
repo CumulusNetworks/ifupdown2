@@ -100,7 +100,7 @@ class vxlan(moduleBase):
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
-            learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
+            learning = utils.get_boolean_from_string(ifaceobj.get_attr_value_first('vxlan-learning'))
             purge_remotes = self._get_purge_remotes(ifaceobj)
             
             if self.ipcmd.link_exists(ifaceobj.name):
