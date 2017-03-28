@@ -337,6 +337,7 @@ class ifupdownMain(ifupdownBase):
             '<mac-ip/prefixlen-list>': self._keyword_mac_ip_prefixlen_list,
             '<number-interface-list>': self._keyword_number_interface_list,
             '<interface-yes-no-list>': self._keyword_interface_yes_no_list,
+            '<interface-on-off-list>': self._keyword_interface_on_off_list,
             '<interface-yes-no-0-1-list>': self._keyword_interface_yes_no_0_1_list,
             '<interface-yes-no-auto-list>': self._keyword_interface_yes_no_auto_list,
         }
@@ -927,6 +928,13 @@ class ifupdownMain(ifupdownBase):
         except Exception as e:
             self.logger.debug('keyword: interface list with value: %s' % str(e))
             return False
+
+    def _keyword_interface_on_off_list(self, value, validrange=None):
+        """
+            <yes|no> | ( <interface>=<on|off> [<interface>=<on|off> ...] )
+            ex: bridge-learning swp1=on swp2=off
+        """
+        return self._keyword_interface_list_with_value(value, ['on', 'off'])
 
     def _keyword_interface_yes_no_list(self, value, validrange=None):
         """

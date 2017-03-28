@@ -257,7 +257,7 @@ class bridge(moduleBase):
                           'example' : ['bridge-port-pvids bond0=100 bond1=200']},
                     'bridge-learning' :
                         { 'help' : 'bridge port learning flag',
-                          'validvals': ['on', 'off'],
+                          'validvals': ['on', 'off', '<interface-on-off-list>'],
                           'default': 'on',
                           'example' : ['bridge-learning off']},
                     'bridge-igmp-version' :
