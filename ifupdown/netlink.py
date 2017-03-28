@@ -171,26 +171,20 @@ class Netlink(utilsBase):
     @staticmethod
     def _link_dump_attr(link, ifla_attributes, dump):
         for obj in ifla_attributes:
-
-            attr = obj['attr']
-
-            if attr in link.attributes:
-                func = obj['func'] if 'func' in obj else None
-                dump[obj['name']] = link.attributes[attr].get_pretty_value(obj=func)
+            attr = link.attributes.get(obj['attr'])
+            if attr:
+                dump[obj['name']] = attr.get_pretty_value(obj=obj.get('func'))
 
     @staticmethod
     def _link_dump_linkdata_attr(linkdata, ifla_linkdata_attr, dump):
         for obj in ifla_linkdata_attr:
-
             attr = obj['attr']
-
             if attr in linkdata:
-                func = obj['func'] if 'func' in obj else None
+                func    = obj.get('func')
+                value   = linkdata.get(attr)
 
                 if func:
-                    value = func(linkdata[attr])
-                else:
-                    value = linkdata[attr]
+                    value = func(value)
 
                 if value or obj['accept_none']:
                     dump[obj['name']] = value
@@ -254,10 +248,10 @@ class Netlink(utilsBase):
     ]
 
     def _link_dump_info_data_vlan(self, ifname, linkdata):
-        return {'vlanid': str(linkdata[Link.IFLA_VLAN_ID])}
+        return {'vlanid': str(linkdata.get(Link.IFLA_VLAN_ID, ''))}
 
     def _link_dump_info_data_vrf(self, ifname, linkdata):
-        vrf_info = {'table': str(linkdata[Link.IFLA_VRF_TABLE])}
+        vrf_info = {'table': str(linkdata.get(Link.IFLA_VRF_TABLE, ''))}
 
         # to remove later when moved to a true netlink cache
         linkCache.vrfs[ifname] = vrf_info
@@ -267,8 +261,8 @@ class Netlink(utilsBase):
         vattrs = {
             'learning': 'on',
             'svcnode': None,
-            'vxlanid': str(linkdata[Link.IFLA_VXLAN_ID]),
-            'ageing': str(linkdata[Link.IFLA_VXLAN_AGEING])
+            'vxlanid': str(linkdata.get(Link.IFLA_VXLAN_ID, '')),
+            'ageing': str(linkdata.get(Link.IFLA_VXLAN_AGEING, ''))
         }
 
         self._link_dump_linkdata_attr(linkdata, self.ifla_vxlan_attributes, vattrs)
@@ -278,15 +272,13 @@ class Netlink(utilsBase):
         linkinfo = link.attributes[Link.IFLA_LINKINFO].get_pretty_value(dict)
 
         if linkinfo:
-            kind = linkinfo[Link.IFLA_INFO_KIND]
-            dump['kind'] = kind
+            dump['kind']    = linkinfo.get(Link.IFLA_INFO_KIND)
+            linkdata        = linkinfo.get(Link.IFLA_INFO_DATA)
 
-            if link.IFLA_INFO_DATA in linkinfo:
-                linkdata = linkinfo[Link.IFLA_INFO_DATA]
-
-                if linkdata:
-                    if kind in self.link_kind_handlers:
-                        dump['linkinfo'] = self.link_kind_handlers[kind](dump['ifname'], linkdata)
+            if linkdata:
+                link_kind_handler = self.link_kind_handlers.get(dump['kind'])
+                if link_kind_handler:
+                    dump['linkinfo'] = link_kind_handler(dump['ifname'], linkdata)
 
     def link_dump(self, ifname=None):
         if ifname:
@@ -296,7 +288,6 @@ class Netlink(utilsBase):
 
         if ifupdownflags.flags.DRYRUN: return {}
 
-        self.vxrd_running = None
         links = dict()
 
         try:
