@@ -1383,7 +1383,8 @@ class bridge(moduleBase):
                         self._apply_bridge_vlan_aware_port_settings_all(
                                 bportifaceobj, bridge_vids, bridge_pvid)
                         self._apply_bridge_port_settings(bportifaceobj,
-                                                 bridgeifaceobj=ifaceobj)
+                                                 bridgeifaceobj=ifaceobj,
+                                                 vlan_aware=bridge_vlan_aware)
                     elif self.warn_on_untagged_bridge_absence:
                         self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
                 except Exception, e:
