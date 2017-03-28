@@ -230,13 +230,13 @@ class Netlink(utilsBase):
         {
             'attr': Link.IFLA_VXLAN_GROUP,
             'name': 'svcnode',
-            'func': lambda x: x if not Netlink.IN_MULTICAST(x) else None,
+            'func': lambda x: str(x) if not Netlink.IN_MULTICAST(x) else None,
             'accept_none': False
         },
         {
             'attr': Link.IFLA_VXLAN_GROUP6,
             'name': 'svcnode',
-            'func': lambda x: x if not Netlink.IN_MULTICAST(x) else None,
+            'func': lambda x: str(x) if not Netlink.IN_MULTICAST(x) else None,
             'accept_none': False
         },
         {
