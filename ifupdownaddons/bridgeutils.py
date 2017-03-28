@@ -172,6 +172,8 @@ class brctl(utilsBase):
                          '/sys/class/net/%s/brport/multicast_flood' %pname)
                 bportattrs['learning'] = self.read_file_oneline(
                          '/sys/class/net/%s/brport/learning' %pname)
+                bportattrs['arp-suppress'] = self.read_file_oneline(
+                         '/sys/class/net/%s/brport/arp_suppress' %pname)
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
             except Exception, e:
@@ -303,6 +305,9 @@ class brctl(utilsBase):
             elif k == 'learning':
                 self.write_file('/sys/class/net/%s/brport/'
                                 'learning' %bridgeportname, v)
+            elif k == 'arp-suppress':
+                self.write_file('/sys/class/net/%s/brport/'
+                                'arp_suppress' %bridgeportname, v)
             else:
                 utils.exec_command('/sbin/brctl set%s %s %s %s' %
                                    (k, bridgename, bridgeportname, v))

@@ -292,6 +292,12 @@ class bridge(moduleBase):
                           'default' : 'on',
                           'validvals': ['on', 'off'],
                           'example' : ['bridge-vlan-stats off']},
+                    'bridge-arp-suppress' :
+                        { 'help' : 'bridge port arp suppress flag',
+                          'validvals': ['on', 'off'],
+                          'default': 'off',
+                          'example' : ['under the port (for vlan aware bridge): bridge-arp-suppress on',
+                                       'under the bridge (for vlan unaware bridge): bridge-arp-suppress swp1=on swp2=on']},
                      }}
 
     def __init__(self, *args, **kargs):
@@ -805,6 +811,7 @@ class bridge(moduleBase):
                                 'bridge-learning',
                                 'bridge-unicast-flood',
                                 'bridge-multicast-flood',
+                                'bridge-arp-suppress',
                                ]:
                     portattrs_dict[port].update({dstattrname:
                                                  utils.boolean_support_binary(val)})
@@ -824,6 +831,7 @@ class bridge(moduleBase):
             if attrname in ['bridge-learning',
                             'bridge-unicast-flood',
                             'bridge-multicast-flood',
+                            'bridge-arp-suppress',
                            ]:
                 default = self.get_mod_subattr(attrname, 'default')
                 portattrs_dict[port].update({dstattrname:
@@ -930,6 +938,7 @@ class bridge(moduleBase):
                                 'bridge-learning' : 'learning',
                                 'bridge-unicast-flood' : 'unicast-flood',
                                 'bridge-multicast-flood' : 'multicast-flood',
+                                'bridge-arp-suppress' : 'arp-suppress',
                                 }.items():
                 attrval = ifaceobj.get_attr_value_first(attrname)
                 if attrval:
@@ -1278,6 +1287,15 @@ class bridge(moduleBase):
             portattrs['multicast-flood'] = utils.boolean_support_binary(
                                             self.get_mod_subattr(
                                                 'bridge-multicast-flood',
+                                                'default'))
+
+        arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-suppress')
+        if arp_suppress:
+            portattrs['arp-suppress'] = utils.boolean_support_binary(arp_suppress)
+        elif vlan_aware:
+            portattrs['arp-suppress'] = utils.boolean_support_binary(
+                                            self.get_mod_subattr(
+                                                'bridge-arp-suppress',
                                                 'default'))
 
         config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
@@ -1689,6 +1707,7 @@ class bridge(moduleBase):
                           'bridge-learning' : '',
                           'bridge-unicast-flood' : '',
                           'bridge-multicast-flood' : '',
+                          'bridge-arp-suppress' : '',
                          }
             for p, v in ports.items():
                 v = self.brctlcmd.get_pathcost(ifaceobjrunning.name, p)
@@ -1717,6 +1736,12 @@ class bridge(moduleBase):
                                                       p, 'multicast-flood')
                 if v:
                     portconfig['bridge-multicast-flood'] += ' %s=%s' %(p,
+                    utils.get_onff_from_onezero(v))
+
+                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                      p, 'arp-suppress')
+                if v:
+                    portconfig['bridge-arp-suppress'] += ' %s=%s' %(p,
                     utils.get_onff_from_onezero(v))
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
@@ -1904,8 +1929,12 @@ class bridge(moduleBase):
                        'bridge-learning',
                        'bridge-unicast-flood',
                        'bridge-multicast-flood',
+                       'bridge-arp-suppress',
                       ]:
-               brctlcmdattrname = k[7:].rstrip('s')
+               if k == 'bridge-arp-suppress':
+                  brctlcmdattrname = k[7:]
+               else:
+                  brctlcmdattrname = k[7:].rstrip('s')
                # for port attributes, the attributes are in a list
                # <portname>=<portattrvalue>
                status = 0
@@ -1922,6 +1951,7 @@ class bridge(moduleBase):
                       if k in ['bridge-learning',
                                'bridge-unicast-flood',
                                'bridge-multicast-flood',
+                               'bridge-arp-suppress',
                               ]:
                          currv = utils.get_onoff_bool(
                                     self.brctlcmd.get_bridgeport_attr(
@@ -2075,6 +2105,7 @@ class bridge(moduleBase):
                      'bridge-learning',
                      'bridge-portmcfl', 'bridge-unicast-flood',
                      'bridge-multicast-flood',
+                     'bridge-arp-suppress',
                     ], 1)
             return
         bridgename = self._get_bridge_name(ifaceobj)
@@ -2094,6 +2125,7 @@ class bridge(moduleBase):
                               'bridge-learning' : 'learning',
                               'bridge-unicast-flood' : 'unicast-flood',
                               'bridge-multicast-flood' : 'multicast-flood',
+                              'bridge-arp-suppress' : 'arp-suppress',
                              }.items():
             attrval = ifaceobj.get_attr_value_first(attr)
             if not attrval:
@@ -2110,6 +2142,7 @@ class bridge(moduleBase):
                 elif dstattr in ['learning',
                                  'unicast-flood',
                                  'multicast-flood',
+                                 'arp-suppress',
                                 ]:
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_onff_from_onezero(
@@ -2213,6 +2246,12 @@ class bridge(moduleBase):
             ifaceobjrunning.update_config('bridge-multicast-flood',
                 utils.get_onff_from_onezero(v))
 
+        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
+                                              'arp-suppress')
+        if v:
+            ifaceobjrunning.update_config('bridge-arp-suppress',
+                utils.get_onff_from_onezero(v))
+
         self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
@@ -2244,6 +2283,7 @@ class bridge(moduleBase):
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'learning', ifaceobj.get_attr_value_first('bridge-learning'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'unicast-flood', ifaceobj.get_attr_value_first('bridge-unicast-flood'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'multicast-flood', ifaceobj.get_attr_value_first('bridge-multicast-flood'))
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'arp-suppress', ifaceobj.get_attr_value_first('bridge-arp-suppress'))
 
     def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:
