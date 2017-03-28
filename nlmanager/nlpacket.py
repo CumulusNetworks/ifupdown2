@@ -2427,7 +2427,12 @@ class Link(NetlinkPacket):
 
     ifla_vlan_protocol_dict = {
         '802.1Q':   0x8100,
+        '802.1q':   0x8100,
+
         '802.1ad':  0x88A8,
+        '802.1AD':  0x88A8,
+        '802.1Ad':  0x88A8,
+        '802.1aD':  0x88A8,
 
         0x8100:     '802.1Q',
         0x88A8:     '802.1ad'
@@ -2937,18 +2942,20 @@ class Neighbor(NetlinkPacket):
 
     # Neighbor flags
     # /usr/include/linux/neighbour.h
-    NTF_USE    = 0x01
-    NTF_SELF   = 0x02
-    NTF_MASTER = 0x04
-    NTF_PROXY  = 0x08  # A proxy ARP entry
-    NTF_ROUTER = 0x80  # An IPv6 router
+    NTF_USE         = 0x01
+    NTF_SELF        = 0x02
+    NTF_MASTER      = 0x04
+    NTF_PROXY       = 0x08  # A proxy ARP entry
+    NTF_EXT_LEARNED = 0x10  # neigh entry installed by an external APP
+    NTF_ROUTER      = 0x80  # An IPv6 router
 
     flag_to_string = {
-        NTF_USE    : 'NTF_USE',
-        NTF_SELF   : 'NTF_SELF',
-        NTF_MASTER : 'NTF_MASTER',
-        NTF_PROXY  : 'NTF_PROXY',
-        NTF_ROUTER : 'NTF_ROUTER'
+        NTF_USE          : 'NTF_USE',
+        NTF_SELF         : 'NTF_SELF',
+        NTF_MASTER       : 'NTF_MASTER',
+        NTF_PROXY        : 'NTF_PROXY',
+        NTF_EXT_LEARNED  : 'NTF_EXT_LEARNED',
+        NTF_ROUTER       : 'NTF_ROUTER'
     }
 
     # Neighbor states
