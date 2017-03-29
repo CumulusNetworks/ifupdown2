@@ -305,7 +305,7 @@ class Netlink(utilsBase):
                         flags.append(string[4:])
 
                 dump['flags'] = flags
-                dump['iiflags'] = 'UP' if 'UP' in flags else 'DOWN'
+                dump['ifflag'] = 'UP' if 'UP' in flags else 'DOWN'
                 dump['ifindex'] = str(link.ifindex)
 
                 if link.device_type == Link.ARPHRD_ETHER:
