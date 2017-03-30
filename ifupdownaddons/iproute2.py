@@ -18,7 +18,6 @@ try:
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.systemutils import *
 
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
@@ -109,7 +108,6 @@ class iproute2(utilsBase):
     def _link_fill_iproute2_cmd(self, ifacename=None, refresh=False):
         warn = True
         linkout = {}
-        vxrd_running = False
         if iproute2._cache_fill_done and not refresh: return
         try:
             # if ifacename already present, return
@@ -121,10 +119,6 @@ class iproute2(utilsBase):
         cmdout = self.link_show(ifacename=ifacename)
         if not cmdout:
             return
-        # read vxrd.pid and cache the running state before going through
-        # every interface in the system
-        if systemUtils.is_service_running(None, '/var/run/vxrd.pid'):
-            vxrd_running = True
         for c in cmdout.splitlines():
             citems = c.split()
             ifnamenlink = citems[1].split('@')
