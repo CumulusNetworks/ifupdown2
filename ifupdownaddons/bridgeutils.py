@@ -229,7 +229,7 @@ class brctl(utilsBase):
     def _cache_check(self, attrlist, value, refresh=False):
         try:
             attrvalue = self._cache_get(attrlist, refresh)
-            if attrvalue and attrvalue == value:
+            if attrvalue and attrvalue.upper() == value.upper():
                 return True
         except Exception, e:
             self.logger.debug('_cache_check(%s) : [%s]'

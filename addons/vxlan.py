@@ -102,10 +102,15 @@ class vxlan(moduleBase):
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             purge_remotes = self._get_purge_remotes(ifaceobj)
 
-            vxlan_learning = ifaceobj.get_attr_value_first('vxlan-learning')
-            if not vxlan_learning:
-                vxlan_learning = self.get_attr_default_value('vxlan-learning')
-            learning = utils.get_boolean_from_string(vxlan_learning)
+            if (not self.ipcmd.link_exists(ifaceobj.name) or
+                not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+                vxlan_learning = ifaceobj.get_attr_value_first('vxlan-learning')
+                if not vxlan_learning:
+                    vxlan_learning = self.get_attr_default_value('vxlan-learning')
+                learning = utils.get_boolean_from_string(vxlan_learning)
+            else:
+                learning = utils.get_boolean_from_string(
+                                self.ipcmd.get_vxlandev_learning(ifaceobj.name))
             
             if self.ipcmd.link_exists(ifaceobj.name):
                 vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
