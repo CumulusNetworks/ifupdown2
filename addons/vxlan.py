@@ -39,7 +39,8 @@ class vxlan(moduleBase):
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
                              'validvals' : ['<ipv4>'],
-                             'example': ['vxlan-remoteip 172.16.22.127']},
+                             'example': ['vxlan-remoteip 172.16.22.127'],
+                             'multiline': True},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',
                              'validvals' : ['yes', 'no', 'on', 'off'],
