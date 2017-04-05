@@ -50,7 +50,7 @@ class ethtool(moduleBase,utilsBase):
                       'link-fec' :
                             {'help': 'set forward error correction mode',
                              'example' : ['link-fec rs'],
-                             'validvals' : ['rs', 'baser', 'on', 'off'],
+                             'validvals' : ['rs', 'baser', 'auto', 'off'],
                              'default' : 'varies by platform and port'}}}
 
     def __init__(self, *args, **kargs):
