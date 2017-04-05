@@ -248,7 +248,10 @@ class Netlink(utilsBase):
     ]
 
     def _link_dump_info_data_vlan(self, ifname, linkdata):
-        return {'vlanid': str(linkdata.get(Link.IFLA_VLAN_ID, ''))}
+        return {
+            'vlanid': str(linkdata.get(Link.IFLA_VLAN_ID, '')),
+            'vlan_protocol': linkdata.get(Link.IFLA_VLAN_PROTOCOL)
+        }
 
     def _link_dump_info_data_vrf(self, ifname, linkdata):
         vrf_info = {'table': str(linkdata.get(Link.IFLA_VRF_TABLE, ''))}
