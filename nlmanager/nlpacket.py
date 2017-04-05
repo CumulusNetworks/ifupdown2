@@ -1103,6 +1103,16 @@ class AttributeIFLA_LINKINFO(Attribute):
                     elif self.value[Link.IFLA_INFO_KIND] == 'vlan':
                         if info_data_type == Link.IFLA_VLAN_ID:
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                        elif info_data_type == Link.IFLA_VLAN_PROTOCOL:
+                            hex_value = '0x%s' % sub_attr_data[4:6].encode('hex')
+                            vlan_protocol = Link.ifla_vlan_protocol_dict.get(int(hex_value, base=16))
+
+                            if vlan_protocol:
+                                self.value[Link.IFLA_INFO_DATA][info_data_type] = vlan_protocol
+                            else:
+                                self.log.warning('IFLA_VLAN_PROTOCOL: cannot decode vlan protocol %s' % hex_value)
+
                         else:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
