@@ -324,6 +324,8 @@ class bridge(moduleBase):
                                attr='warn_on_untagged_bridge_absence')
         self.warn_on_untagged_bridge_absence = should_warn == 'yes'
 
+        self._vxlan_bridge_default_igmp_snooping = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'vxlan_bridge_default_igmp_snooping'))
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
@@ -839,6 +841,14 @@ class bridge(moduleBase):
                                                 default)})
         return
 
+    def get_bridge_mcsnoop_value(self, ifaceobj):
+        mcsnoop = ifaceobj.get_attr_value_first('bridge-mcsnoop')
+
+        if not mcsnoop and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
+            return utils.get_yesno_boolean(self._vxlan_bridge_default_igmp_snooping)
+
+        return mcsnoop
+
     def _apply_bridge_settings(self, ifaceobj, ifaceobj_getfunc):
         try:
             if self._is_config_stp_state_on(ifaceobj):
@@ -875,8 +885,7 @@ class bridge(moduleBase):
                               'mcrouter' :
                                 ifaceobj.get_attr_value_first(
                                                             'bridge-mcrouter'),
-                              'mcsnoop' :
-                                ifaceobj.get_attr_value_first('bridge-mcsnoop'),
+                              'mcsnoop': self.get_bridge_mcsnoop_value(ifaceobj),
                               'mcsqc' :
                                 ifaceobj.get_attr_value_first('bridge-mcsqc'),
                               'mcqifaddr' :
@@ -1828,6 +1837,12 @@ class bridge(moduleBase):
         if vids[1]:
             ifaceobjcurr.update_config_with_status(vids[0], vids[1], -1)
 
+    def _query_check_snooping_wdefault(self, ifaceobj):
+        if (ifupdownflags.flags.WITHDEFAULTS
+            and not self._vxlan_bridge_default_igmp_snooping
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN):
+            ifaceobj.replace_config('bridge-mcsnoop', 'no')
+
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
                             ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
@@ -1835,6 +1850,8 @@ class bridge(moduleBase):
         if not self.brctlcmd.bridge_exists(ifaceobj.name):
             self.logger.info('%s: bridge: does not exist' %(ifaceobj.name))
             return
+
+        self._query_check_snooping_wdefault(ifaceobj)
 
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self.get_mod_attrs())
