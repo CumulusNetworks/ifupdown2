@@ -325,6 +325,10 @@ class bridge(moduleBase):
         self.warn_on_untagged_bridge_absence = should_warn == 'yes'
 
         self._vxlan_bridge_default_igmp_snooping = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'vxlan_bridge_default_igmp_snooping'))
+        arp_suppress_only_on_vxlan = policymanager.policymanager_api.\
+            get_module_globals(module_name=self.__class__.__name__,
+                               attr='allow_arp_suppress_only_on_vxlan')
+        self.arp_suppress_only_on_vxlan = arp_suppress_only_on_vxlan == 'yes'
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
@@ -356,6 +360,14 @@ class bridge(moduleBase):
                     self.logger.error('%s: %s: vlan sub-interface is not '
                                       'supported in a vlan-aware bridge'
                                       % (ifaceobj.name, port_name))
+                    result = False
+                if (port_obj_l and
+                    port_obj_l[0].get_attr_value('bridge-arp-suppress') and
+                    self.arp_suppress_only_on_vxlan and
+                    not port_obj_l[0].link_kind & ifaceLinkKind.VXLAN):
+                    self.log_error('\'bridge-arp-suppress\' is not '
+                                   'supported on a non-vxlan port %s'
+                                   %port_obj_l[0].name)
                     result = False
             return result
         return True
@@ -779,7 +791,7 @@ class bridge(moduleBase):
         return
 
     def _create_port_attrvallist(self, ifaceobj, attrname, dstattrname,
-                                 attrval, portattrs_dict, running_portlist):
+                                 attrval, portattrs_dict, running_portdict):
         config_portlist = self.parse_port_list(ifaceobj.name, attrval)
         if not config_portlist:
             self.log_error('%s: could not parse \'%s %s\''
@@ -789,7 +801,7 @@ class bridge(moduleBase):
         for p in config_portlist:
             try:
                 (port, val) = p.split('=')
-                if port not in running_portlist:
+                if port not in running_portdict:
                     continue
                 if not portattrs_dict.get(port):
                     portattrs_dict[port] = {}
@@ -800,6 +812,12 @@ class bridge(moduleBase):
                                 'bridge-multicast-flood',
                                 'bridge-arp-suppress',
                                ]:
+                    if (attrname == 'bridge-arp-suppress' and
+                        self.arp_suppress_only_on_vxlan and
+                        not running_portdict[port] & ifaceLinkKind.VXLAN):
+                        self.log_error('\'bridge-arp-suppress\' is not '
+                                       'supported on a non-vxlan port %s' %port)
+                        continue
                     portattrs_dict[port].update({dstattrname:
                                                  utils.boolean_support_binary(val)})
                 else:
@@ -811,8 +829,8 @@ class bridge(moduleBase):
         return
 
     def _create_port_attrvallist_default(self, attrname, dstattrname,
-                                         portattrs_dict, portlist):
-        for port in portlist:
+                                         portattrs_dict, portdict):
+        for port in portdict:
             if not portattrs_dict.get(port):
                 portattrs_dict[port] = {}
             if attrname in ['bridge-learning',
@@ -820,6 +838,10 @@ class bridge(moduleBase):
                             'bridge-multicast-flood',
                             'bridge-arp-suppress',
                            ]:
+                if (attrname == 'bridge-arp-suppress' and
+                    self.arp_suppress_only_on_vxlan and
+                    not portdict[port] & ifaceLinkKind.VXLAN):
+                    continue
                 default = self.get_mod_subattr(attrname, 'default')
                 portattrs_dict[port].update({dstattrname:
                                             utils.boolean_support_binary(
@@ -922,7 +944,9 @@ class bridge(moduleBase):
                                                         'mcsnoop'])
                 self.brctlcmd.set_bridge_attrs(ifaceobj.name, bridgeattrs)
             portattrs = {}
-            running_portlist = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            running_port_dict = {}
+            for port in self.brctlcmd.get_bridge_ports(ifaceobj.name):
+                running_port_dict[port] = ifaceobj_getfunc(port)[0].link_kind
             for attrname, dstattrname in {'bridge-pathcosts' : 'pathcost',
                                 'bridge-portprios' : 'portprio',
                                 'bridge-portmcrouter' : 'portmcrouter',
@@ -939,12 +963,12 @@ class bridge(moduleBase):
                                                   dstattrname,
                                                   attrval,
                                                   portattrs,
-                                                  running_portlist)
+                                                  running_port_dict)
                 elif not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
                     self._create_port_attrvallist_default(attrname,
                                                           dstattrname,
                                                           portattrs,
-                                                          running_portlist)
+                                                          running_port_dict)
             for port, attrdict in portattrs.iteritems():
                 try:
                     self.brctlcmd.set_bridgeport_attrs(ifaceobj.name, port,
@@ -1283,12 +1307,19 @@ class bridge(moduleBase):
 
         arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-suppress')
         if arp_suppress:
-            portattrs['arp-suppress'] = utils.boolean_support_binary(arp_suppress)
-        elif vlan_aware:
-            portattrs['arp-suppress'] = utils.boolean_support_binary(
-                                            self.get_mod_subattr(
-                                                'bridge-arp-suppress',
-                                                'default'))
+            if (self.arp_suppress_only_on_vxlan and
+                not bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
+                self.log_error('\'bridge-arp-suppress\' is not '
+                               'supported on a non-vxlan port %s'
+                               %bportifaceobj.name)
+            else:
+                portattrs['arp-suppress'] = utils.boolean_support_binary(arp_suppress)
+        elif (vlan_aware and
+              (not self.arp_suppress_only_on_vxlan or
+               (self.arp_suppress_only_on_vxlan and
+                bportifaceobj.link_kind & ifaceLinkKind.VXLAN))):
+            default = self.get_mod_subattr('bridge-arp-suppress','default')
+            portattrs['arp-suppress'] = utils.boolean_support_binary(default)
 
         config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
         running_learn = self.ipcmd.get_brport_learning(bportifaceobj.name)
