@@ -81,13 +81,13 @@ class Netlink(utilsBase):
         except Exception as e:
             raise Exception('netlink: cannot get ifname for index %s: %s' % (ifindex, str(e)))
 
-    def link_add_vlan(self, vlanrawdevice, ifacename, vlanid):
-        self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s'
-                         % (ifacename, vlanrawdevice, ifacename, vlanid))
+    def link_add_vlan(self, vlanrawdevice, ifacename, vlanid, vlan_protocol):
+        self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s protocol %s'
+                         % (ifacename, vlanrawdevice, ifacename, vlanid, vlan_protocol))
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(vlanrawdevice)
         try:
-            return self._nlmanager_api.link_add_vlan(ifindex, ifacename, vlanid)
+            return self._nlmanager_api.link_add_vlan(ifindex, ifacename, vlanid, vlan_protocol)
         except Exception as e:
             raise Exception('netlink: %s: cannot create vlan %s: %s'
                             % (vlanrawdevice, vlanid, str(e)))

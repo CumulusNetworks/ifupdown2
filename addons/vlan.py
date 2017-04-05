@@ -30,7 +30,13 @@ class vlan(moduleBase):
                              'validvals': ['<interface>']},
                         'vlan-id' :
                             {'help' : 'vlan id',
-                             'validrange' : ['0', '4096']}}}
+                             'validrange' : ['0', '4096']},
+                        'vlan-protocol' :
+                            {'help' : 'vlan protocol',
+                             'default' : '802.1q',
+                             'validvals': ['802.1q', '802.1ad'],
+                             'example' : ['vlan-protocol 802.1q']},
+               }}
 
 
     def __init__(self, *args, **kargs):
@@ -111,7 +117,8 @@ class vlan(moduleBase):
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 return
-        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid)
+        vlan_protocol = ifaceobj.get_attr_value_first('vlan-protocol')
+        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
 
     def _down(self, ifaceobj):
@@ -135,7 +142,7 @@ class vlan(moduleBase):
            return
         if not '.' in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
-            (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobj.name)
+            (vlanrawdev, vlanid, protocol) = self.ipcmd.get_vlandev_attrs(ifaceobj.name)
             if vlanrawdev != ifaceobj.get_attr_value_first('vlan-raw-device'):
                 ifaceobjcurr.update_config_with_status('vlan-raw-device',
                         vlanrawdev, 1)
@@ -149,20 +156,29 @@ class vlan(moduleBase):
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 1)
             else:
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 0)
+            protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
+            if protocol_config:
+                if protocol_config.upper() != protocol.upper():
+                    ifaceobjcurr.update_config_with_status('vlan-protocol',
+                                                           protocol, 1)
+                else:
+                    ifaceobjcurr.update_config_with_status('vlan-protocol',
+                                                           protocol, 0)
             self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, int(vlanid))
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             return
-        (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
+        (vlanrawdev, vlanid, protocol) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
         if not vlanid:
             return
         # If vlan name is not in the dot format, get the
         # vlan dev and vlan id
         if not '.' in ifaceobjrunning.name:
-            ifaceobjrunning.update_config_dict({(k, v) for k, v in
+            ifaceobjrunning.update_config_dict({k: [v] for k, v in
                                                 {'vlan-raw-device' : vlanrawdev,
-                                                 'vlan-id' : vlanid}.items()
+                                                 'vlan-id' : vlanid,
+                                                 'vlan-protocol' : protocol}.items()
                                                 if v})
 
     _run_ops = {'pre-up' : _up,
