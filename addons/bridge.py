@@ -289,7 +289,7 @@ class bridge(moduleBase):
                           'example' : ['bridge-vlan-protocol 802.1q']},
                     'bridge-vlan-stats' :
                         { 'help' : 'bridge vlan stats',
-                          'default' : 'on',
+                          'default' : 'off',
                           'validvals': ['on', 'off'],
                           'example' : ['bridge-vlan-stats off']},
                     'bridge-arp-suppress' :
@@ -298,6 +298,11 @@ class bridge(moduleBase):
                           'default': 'off',
                           'example' : ['under the port (for vlan aware bridge): bridge-arp-suppress on',
                                        'under the bridge (for vlan unaware bridge): bridge-arp-suppress swp1=on swp2=on']},
+                    'bridge-mcstats' :
+                        { 'help' : 'bridge multicast stats',
+                          'default' : 'off',
+                          'validvals': ['on', 'off'],
+                          'example' : ['bridge-mcstats off']},
                      }}
 
     def __init__(self, *args, **kargs):
@@ -316,8 +321,10 @@ class bridge(moduleBase):
             self.default_stp_on = True
         else:
             self.default_stp_on = False
-        self.defult_vlan_stats = policymanager.policymanager_api.get_attr_default(
+        self.default_vlan_stats = policymanager.policymanager_api.get_attr_default(
                 module_name=self.__class__.__name__, attr='bridge-vlan-stats')
+        self.default_mcstats = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__, attr='bridge-mcstats')
 
         should_warn = policymanager.policymanager_api.\
             get_module_globals(module_name=self.__class__.__name__,
@@ -930,10 +937,15 @@ class bridge(moduleBase):
                               'vlan-stats':
                                 utils.boolean_support_binary(
                                  ifaceobj.get_attr_value_first('bridge-vlan-stats')
-                                 or self.defult_vlan_stats
+                                 or self.default_vlan_stats
                                  or self.get_mod_subattr('bridge-vlan-stats',
                                                          'default')) if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
                                                                      else None,
+                              'mcstats':
+                                utils.boolean_support_binary(
+                                 ifaceobj.get_attr_value_first('bridge-mcstats')
+                                 or self.default_mcstats
+                                 or self.get_mod_subattr('bridge-mcstats','default'))
                                }.items()
                             if v }
 
@@ -1687,6 +1699,12 @@ class bridge(moduleBase):
             vlan_stats != self.get_mod_subattr('bridge-vlan-stats', 'default')):
             bridgeattrdict['bridge-vlan-stats'] = [vlan_stats]
 
+        mcstats = utils.get_onff_from_onezero(
+                            tmpbridgeattrdict.get('mcstats', None))
+        if (mcstats and
+            mcstats != self.get_mod_subattr('bridge-mcstats', 'default')):
+            bridgeattrdict['bridge-mcstats'] = [mcstats]
+
         bool2str = {'0': 'no', '1': 'yes'}
         # pick all other attributes
         for k,v in tmpbridgeattrdict.items():
@@ -2003,7 +2021,7 @@ class bridge(moduleBase):
                       self.log_warn(str(e))
                    pass
                ifaceobjcurr.update_config_with_status(k, currstr, status)
-            elif k == 'bridge-vlan-stats':
+            elif k == 'bridge-vlan-stats' or k == 'bridge-mcstats':
                 rv = utils.get_onff_from_onezero(rv)
                 if v != rv:
                     ifaceobjcurr.update_config_with_status(k, rv, 1)

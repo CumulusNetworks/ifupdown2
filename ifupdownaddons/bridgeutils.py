@@ -55,6 +55,7 @@ class brctl(utilsBase):
                      'igmp-version': 'multicast_igmp_version',
                      'mld-version': 'multicast_mld_version',
                      'vlan-stats' : 'vlan_stats_enabled',
+                     'mcstats' : 'multicast_stats_enabled',
                     }
 
         mcattrsdivby100 = ['mclmi', 'mcmi', 'mcqpi', 'mcqi', 'mcqri', 'mcsqi']
@@ -344,6 +345,9 @@ class brctl(utilsBase):
                 elif k == 'vlan-stats':
                     self.write_file('/sys/class/net/%s/bridge/'
                                     'vlan_stats_enabled' %bridgename, v)
+                elif k == 'mcstats':
+                    self.write_file('/sys/class/net/%s/bridge/'
+                                    'multicast_stats_enabled' %bridgename, v)
                 else:
                     cmd = '/sbin/brctl set%s %s %s' % (k, bridgename, v)
                     utils.exec_command(cmd)
@@ -365,6 +369,9 @@ class brctl(utilsBase):
                             %bridgename, VlanProtocols.ETHERTYPES_TO_ID[attrval.upper()])
         elif attrname == 'vlan-stats':
             self.write_file('/sys/class/net/%s/bridge/vlan_stats_enabled'
+                            %bridgename, attrval)
+        elif attrname == 'mcstats':
+            self.write_file('/sys/class/net/%s/bridge/multicast_stats_enabled'
                             %bridgename, attrval)
         else:
             cmd = '/sbin/brctl set%s %s %s' %(attrname, bridgename, attrval)
