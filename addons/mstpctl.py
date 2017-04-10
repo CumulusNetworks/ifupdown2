@@ -335,15 +335,13 @@ class mstpctl(moduleBase):
         if err:
             self.log_error('error configuring bridge (missing ports)')
 
-    def _apply_bridge_settings(self, ifaceobj):
+    def _apply_bridge_settings(self, ifaceobj, ifaceobj_getfunc):
         check = False if ifupdownflags.flags.PERFMODE else True
         try:
             # set bridge attributes
             for attrname, dstattrname in self._attrs_map.items():
                 config_val = ifaceobj.get_attr_value_first(attrname)
                 default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attrname)
-                if not default_val:
-                    default_val = self.get_mod_subattr(attrname,'default')
                 jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
                 try:
                     running_val = self.mstpctlcmd.get_bridge_attr(
@@ -386,12 +384,18 @@ class mstpctl(moduleBase):
                             for port in bridgeports:
                                 if not self.brctlcmd.is_bridge_port(port):
                                     continue
+
+                                bport_ifaceobj = ifaceobj_getfunc(port)
+                                if bport_ifaceobj:
+                                    default_val = self._get_default_val(attrname, bport_ifaceobj[0], ifaceobj)
+
                                 self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                                      port,
                                                                      dstattrname,
                                                                      default_val,
                                                                      json_attr=jsonAttr)
-                    except:
+                    except Exception as e:
+                        self.logger.debug('%s' % str(e))
                         self.logger.info('%s: not resetting %s config'
                                          %(ifaceobj.name, attrname))
                     # leave the loop for this attribute
@@ -608,7 +612,7 @@ class mstpctl(moduleBase):
                stp = self.brctlcmd.get_stp(ifaceobj.name)
             if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
-                self._apply_bridge_settings(ifaceobj)
+                self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
