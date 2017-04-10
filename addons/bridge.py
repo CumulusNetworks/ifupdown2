@@ -1725,6 +1725,8 @@ class bridge(moduleBase):
                 bridgeattrdict[attrname] = [v]
 
         if bridge_vlan_aware:
+            if not ports:
+                ports = {}
             bridgevidinfo = self._query_running_vidinfo(ifaceobjrunning,
                                                         ifaceobj_getfunc,
                                                         ports.keys())
