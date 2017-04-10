@@ -290,7 +290,7 @@ class bond(moduleBase):
             if value in self._bond_lacp_rate_str:
                 attrs['lacp_rate'] = self._bond_lacp_rate_str[value]
 
-    def _add_slaves(self, ifaceobj):
+    def _add_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         runningslaves = []
 
         slaves = self._get_slave_list(ifaceobj)
@@ -324,7 +324,11 @@ class bond(moduleBase):
             self.ipcmd.link_set(slave, 'master', ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
-                    netlink.link_set_updown(slave, "up")
+                    if (ifaceobj_getfunc(slave)[0].link_privflags &
+                        ifaceLinkPrivFlags.KEEP_LINK_DOWN):
+                        netlink.link_set_updown(slave, "down")
+                    else:
+                        netlink.link_set_updown(slave, "up")
                except Exception, e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
@@ -339,22 +343,22 @@ class bond(moduleBase):
                         except Exception, e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
-    def _up(self, ifaceobj):
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.bondcmd.create_bond(ifaceobj.name)
             self._apply_master_settings(ifaceobj)
-            self._add_slaves(ifaceobj)
+            self._add_slaves(ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             self.bondcmd.delete_bond(ifaceobj.name)
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         slaves = None
 
         if not self.bondcmd.bond_exists(ifaceobj.name):
@@ -452,7 +456,7 @@ class bond(moduleBase):
             bondattrs['bond-slaves'] = slaves
         return bondattrs
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         if not self.bondcmd.bond_exists(ifaceobjrunning.name):
             return
         bondattrs = self._query_running_attrs(ifaceobjrunning.name)
@@ -477,7 +481,8 @@ class bond(moduleBase):
         if not self.bondcmd:
             self.bondcmd = bondutil()
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None,
+            ifaceobj_getfunc=None):
         """ run bond configuration on the interface object passed as argument
 
         Args:
@@ -501,6 +506,7 @@ class bond(moduleBase):
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj,
+                       ifaceobj_getfunc=ifaceobj_getfunc)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)

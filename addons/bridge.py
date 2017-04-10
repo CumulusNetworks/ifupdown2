@@ -1543,6 +1543,9 @@ class bridge(moduleBase):
         finally:
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
+                    if (ifaceobj_getfunc(p)[0].link_privflags &
+                        ifaceLinkPrivFlags.KEEP_LINK_DOWN):
+                        continue
                     try:
                         netlink.link_set_updown(p, "up")
                     except Exception, e:
