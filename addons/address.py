@@ -632,9 +632,7 @@ class address(moduleBase):
                 self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
             alias = ifaceobj.get_attr_value_first('alias')
             if alias:
-                filename = '/sys/class/net/%s/ifalias' %ifaceobj.name
-                self.logger.info('executing echo "" > %s' %filename)
-                os.system('echo "" > %s' %filename)
+                self.write_file('/sys/class/net/%s/ifalias' % ifaceobj.name, '\n')
             # XXX hwaddress reset cannot happen because we dont know last
             # address.
 

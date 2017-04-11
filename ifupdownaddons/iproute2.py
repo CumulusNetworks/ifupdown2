@@ -545,11 +545,8 @@ class iproute2(utilsBase):
         self._cache_update([ifacename, 'mtu'], mtu)
 
     def link_set_alias(self, ifacename, alias):
-        if not alias:
-            utils.exec_user_command('echo "" > /sys/class/net/%s/ifalias'
-                                    % ifacename)
-        else:
-            self.write_file('/sys/class/net/%s/ifalias' % ifacename, alias)
+        self.write_file('/sys/class/net/%s/ifalias' % ifacename,
+                        '\n' if not alias else alias)
 
     def link_get_alias(self, ifacename):
         return self.read_file_oneline('/sys/class/net/%s/ifalias'
