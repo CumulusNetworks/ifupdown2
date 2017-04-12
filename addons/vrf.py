@@ -132,6 +132,26 @@ class vrf(moduleBase):
         self.vrf_close_socks_on_down = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-close-socks-on-down')
         self.warn_on_vrf_map_write_err = True
 
+    def _check_vrf_table_id(self, ifaceobj):
+        vrf_table = ifaceobj.get_attr_value_first('vrf-table')
+        if not vrf_table:
+            return False
+        if (vrf_table != 'auto' and
+            (int(vrf_table) < self.vrf_table_id_start or
+             int(vrf_table) > self.vrf_table_id_end)):
+            self.logger.error('%s: vrf table id %s out of reserved range [%d,%d]'
+                             %(ifaceobj.name,
+                               vrf_table,
+                               self.vrf_table_id_start,
+                               self.vrf_table_id_end))
+            return False
+        return True
+
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        if ifaceobj.link_kind & ifaceLinkKind.VRF:
+            return self._check_vrf_table_id(ifaceobj)
+        return True
+
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
             return
