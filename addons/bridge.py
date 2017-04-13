@@ -272,13 +272,13 @@ class bridge(moduleBase):
                           'example' : ['bridge-mld-version 1']},
                     'bridge-unicast-flood' :
                         { 'help' : 'bridge port unicast flood flag',
-                          'validvals': ['on', 'off'],
+                          'validvals': ['on', 'off', '<interface-on-off-list>'],
                           'default': 'on',
                           'example' : ['under the port (for vlan aware bridge): bridge-unicast-flood on',
                                        'under the bridge (for vlan unaware bridge): bridge-unicast-flood swp1=on swp2=on']},
                     'bridge-multicast-flood' :
                         { 'help' : 'bridge port multicast flood flag',
-                          'validvals': ['on', 'off'],
+                          'validvals': ['on', 'off', '<interface-on-off-list>'],
                           'default': 'on',
                           'example' : ['under the port (for vlan aware bridge): bridge-multicast-flood on',
                                        'under the bridge (for vlan unaware bridge): bridge-multicast-flood swp1=on swp2=on']},
@@ -294,7 +294,7 @@ class bridge(moduleBase):
                           'example' : ['bridge-vlan-stats off']},
                     'bridge-arp-nd-suppress' :
                         { 'help' : 'bridge port arp nd suppress flag',
-                          'validvals': ['on', 'off'],
+                          'validvals': ['on', 'off', '<interface-on-off-list>'],
                           'default': 'off',
                           'example' : ['under the port (for vlan aware bridge): bridge-arp-nd-suppress on',
                                        'under the bridge (for vlan unaware bridge): bridge-arp-nd-suppress swp1=on swp2=on']},
