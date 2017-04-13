@@ -292,12 +292,12 @@ class bridge(moduleBase):
                           'default' : 'off',
                           'validvals': ['on', 'off'],
                           'example' : ['bridge-vlan-stats off']},
-                    'bridge-arp-suppress' :
-                        { 'help' : 'bridge port arp suppress flag',
+                    'bridge-arp-nd-suppress' :
+                        { 'help' : 'bridge port arp nd suppress flag',
                           'validvals': ['on', 'off'],
                           'default': 'off',
-                          'example' : ['under the port (for vlan aware bridge): bridge-arp-suppress on',
-                                       'under the bridge (for vlan unaware bridge): bridge-arp-suppress swp1=on swp2=on']},
+                          'example' : ['under the port (for vlan aware bridge): bridge-arp-nd-suppress on',
+                                       'under the bridge (for vlan unaware bridge): bridge-arp-nd-suppress swp1=on swp2=on']},
                     'bridge-mcstats' :
                         { 'help' : 'bridge multicast stats',
                           'default' : 'off',
@@ -369,10 +369,10 @@ class bridge(moduleBase):
                                       % (ifaceobj.name, port_name))
                     result = False
                 if (port_obj_l and
-                    port_obj_l[0].get_attr_value('bridge-arp-suppress') and
+                    port_obj_l[0].get_attr_value('bridge-arp-nd-suppress') and
                     self.arp_suppress_only_on_vxlan and
                     not port_obj_l[0].link_kind & ifaceLinkKind.VXLAN):
-                    self.log_error('\'bridge-arp-suppress\' is not '
+                    self.log_error('\'bridge-arp-nd-suppress\' is not '
                                    'supported on a non-vxlan port %s'
                                    %port_obj_l[0].name)
                     result = False
@@ -817,12 +817,12 @@ class bridge(moduleBase):
                                 'bridge-learning',
                                 'bridge-unicast-flood',
                                 'bridge-multicast-flood',
-                                'bridge-arp-suppress',
+                                'bridge-arp-nd-suppress',
                                ]:
-                    if (attrname == 'bridge-arp-suppress' and
+                    if (attrname == 'bridge-arp-nd-suppress' and
                         self.arp_suppress_only_on_vxlan and
                         not running_portdict[port] & ifaceLinkKind.VXLAN):
-                        self.log_error('\'bridge-arp-suppress\' is not '
+                        self.log_error('\'bridge-arp-nd-suppress\' is not '
                                        'supported on a non-vxlan port %s' %port)
                         continue
                     portattrs_dict[port].update({dstattrname:
@@ -843,9 +843,9 @@ class bridge(moduleBase):
             if attrname in ['bridge-learning',
                             'bridge-unicast-flood',
                             'bridge-multicast-flood',
-                            'bridge-arp-suppress',
+                            'bridge-arp-nd-suppress',
                            ]:
-                if (attrname == 'bridge-arp-suppress' and
+                if (attrname == 'bridge-arp-nd-suppress' and
                     self.arp_suppress_only_on_vxlan and
                     not portdict[port] & ifaceLinkKind.VXLAN):
                     continue
@@ -966,7 +966,7 @@ class bridge(moduleBase):
                                 'bridge-learning' : 'learning',
                                 'bridge-unicast-flood' : 'unicast-flood',
                                 'bridge-multicast-flood' : 'multicast-flood',
-                                'bridge-arp-suppress' : 'arp-suppress',
+                                'bridge-arp-nd-suppress' : 'arp-nd-suppress',
                                 }.items():
                 attrval = ifaceobj.get_attr_value_first(attrname)
                 if attrval:
@@ -1317,21 +1317,21 @@ class bridge(moduleBase):
                                                 'bridge-multicast-flood',
                                                 'default'))
 
-        arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-suppress')
+        arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-nd-suppress')
         if arp_suppress:
             if (self.arp_suppress_only_on_vxlan and
                 not bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
-                self.log_error('\'bridge-arp-suppress\' is not '
+                self.log_error('\'bridge-arp-nd-suppress\' is not '
                                'supported on a non-vxlan port %s'
                                %bportifaceobj.name)
             else:
-                portattrs['arp-suppress'] = utils.boolean_support_binary(arp_suppress)
+                portattrs['arp-nd-suppress'] = utils.boolean_support_binary(arp_suppress)
         elif (vlan_aware and
               (not self.arp_suppress_only_on_vxlan or
                (self.arp_suppress_only_on_vxlan and
                 bportifaceobj.link_kind & ifaceLinkKind.VXLAN))):
-            default = self.get_mod_subattr('bridge-arp-suppress','default')
-            portattrs['arp-suppress'] = utils.boolean_support_binary(default)
+            default = self.get_mod_subattr('bridge-arp-nd-suppress','default')
+            portattrs['arp-nd-suppress'] = utils.boolean_support_binary(default)
 
         config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
         running_learn = self.ipcmd.get_brport_learning(bportifaceobj.name)
@@ -1754,7 +1754,7 @@ class bridge(moduleBase):
                           'bridge-learning' : '',
                           'bridge-unicast-flood' : '',
                           'bridge-multicast-flood' : '',
-                          'bridge-arp-suppress' : '',
+                          'bridge-arp-nd-suppress' : '',
                          }
             for p, v in ports.items():
                 v = self.brctlcmd.get_pathcost(ifaceobjrunning.name, p)
@@ -1786,9 +1786,9 @@ class bridge(moduleBase):
                     utils.get_onff_from_onezero(v))
 
                 v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                                                      p, 'arp-suppress')
+                                                      p, 'arp-nd-suppress')
                 if v:
-                    portconfig['bridge-arp-suppress'] += ' %s=%s' %(p,
+                    portconfig['bridge-arp-nd-suppress'] += ' %s=%s' %(p,
                     utils.get_onff_from_onezero(v))
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
@@ -1984,9 +1984,9 @@ class bridge(moduleBase):
                        'bridge-learning',
                        'bridge-unicast-flood',
                        'bridge-multicast-flood',
-                       'bridge-arp-suppress',
+                       'bridge-arp-nd-suppress',
                       ]:
-               if k == 'bridge-arp-suppress':
+               if k == 'bridge-arp-nd-suppress':
                   brctlcmdattrname = k[7:]
                else:
                   brctlcmdattrname = k[7:].rstrip('s')
@@ -2006,7 +2006,7 @@ class bridge(moduleBase):
                       if k in ['bridge-learning',
                                'bridge-unicast-flood',
                                'bridge-multicast-flood',
-                               'bridge-arp-suppress',
+                               'bridge-arp-nd-suppress',
                               ]:
                          currv = utils.get_onoff_bool(
                                     self.brctlcmd.get_bridgeport_attr(
@@ -2160,7 +2160,7 @@ class bridge(moduleBase):
                      'bridge-learning',
                      'bridge-portmcfl', 'bridge-unicast-flood',
                      'bridge-multicast-flood',
-                     'bridge-arp-suppress',
+                     'bridge-arp-nd-suppress',
                     ], 1)
             return
         bridgename = self._get_bridge_name(ifaceobj)
@@ -2180,7 +2180,7 @@ class bridge(moduleBase):
                               'bridge-learning' : 'learning',
                               'bridge-unicast-flood' : 'unicast-flood',
                               'bridge-multicast-flood' : 'multicast-flood',
-                              'bridge-arp-suppress' : 'arp-suppress',
+                              'bridge-arp-nd-suppress' : 'arp-nd-suppress',
                              }.items():
             attrval = ifaceobj.get_attr_value_first(attr)
             if not attrval:
@@ -2197,7 +2197,7 @@ class bridge(moduleBase):
                 elif dstattr in ['learning',
                                  'unicast-flood',
                                  'multicast-flood',
-                                 'arp-suppress',
+                                 'arp-nd-suppress',
                                 ]:
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_onff_from_onezero(
@@ -2302,9 +2302,9 @@ class bridge(moduleBase):
                 utils.get_onff_from_onezero(v))
 
         v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
-                                              'arp-suppress')
+                                              'arp-nd-suppress')
         if v:
-            ifaceobjrunning.update_config('bridge-arp-suppress',
+            ifaceobjrunning.update_config('bridge-arp-nd-suppress',
                 utils.get_onff_from_onezero(v))
 
         self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
@@ -2338,7 +2338,7 @@ class bridge(moduleBase):
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'learning', ifaceobj.get_attr_value_first('bridge-learning'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'unicast-flood', ifaceobj.get_attr_value_first('bridge-unicast-flood'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'multicast-flood', ifaceobj.get_attr_value_first('bridge-multicast-flood'))
-        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'arp-suppress', ifaceobj.get_attr_value_first('bridge-arp-suppress'))
+        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'arp-nd-suppress', ifaceobj.get_attr_value_first('bridge-arp-nd-suppress'))
 
     def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:
