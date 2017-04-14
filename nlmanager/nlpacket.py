@@ -1352,7 +1352,8 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_FLUSH,
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
-                                     Link.IFLA_BRPORT_DUAL_LINK):
+                                     Link.IFLA_BRPORT_DUAL_LINK,
+                                     Link.IFLA_BRPORT_ARP_SUPPRESS):
                     sub_attr_pack_layout.append('B')
                     sub_attr_payload.append(sub_attr_value)
                     sub_attr_pack_layout.extend('xxx')
@@ -1449,7 +1450,8 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_FLUSH,
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
-                                     Link.IFLA_BRPORT_DUAL_LINK):
+                                     Link.IFLA_BRPORT_DUAL_LINK,
+                                     Link.IFLA_BRPORT_ARP_SUPPRESS):
                     self.value[sub_attr_type] = unpack('=B', data[4])[0]
 
                 # 2 Byte attributes
@@ -2645,6 +2647,7 @@ class Link(NetlinkPacket):
     IFLA_BRPORT_MULTICAST_ROUTER    = 25
     IFLA_BRPORT_PEER_LINK           = 150
     IFLA_BRPORT_DUAL_LINK           = 151
+    IFLA_BRPORT_ARP_SUPPRESS        = 152
 
     ifla_bridge_to_string = {
         IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
@@ -2674,7 +2677,8 @@ class Link(NetlinkPacket):
         IFLA_BRPORT_FLUSH               : 'IFLA_BRPORT_FLUSH',
         IFLA_BRPORT_MULTICAST_ROUTER    : 'IFLA_BRPORT_MULTICAST_ROUTER',
         IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
-        IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK'
+        IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
+        IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS'
     }
 
     # BRIDGE IFLA_AF_SPEC attributes

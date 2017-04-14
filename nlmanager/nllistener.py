@@ -315,6 +315,24 @@ class NetlinkManagerWithListener(NetlinkManager):
 
         self.tx_nlpacket_get_response(link)
 
+    def get_all_br_links(self, compress_vlans=True):
+        family = socket.AF_BRIDGE
+        debug = RTM_GETLINK in self.debug
+
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_DUMP
+        link.body = pack('Bxxxiii', family, 0, 0, 0)
+        if compress_vlans:
+            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN_COMPRESSED)
+        else:
+            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN)
+        link.build_message(self.sequence.next(), self.pid)
+
+        if debug:
+            self.debug_seq_pid[(link.seq, link.pid)] = True
+
+        self.tx_nlpacket_get_response(link)
+
     def get_all_neighbors(self):
         family = socket.AF_UNSPEC
         debug = RTM_GETNEIGH in self.debug
