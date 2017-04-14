@@ -9,11 +9,12 @@
 try:
     import argparse
     import argcomplete
-    import pkg_resources
 
     from ifupdown.exceptions import ArgvParseError
 except ImportError, e:
     raise ImportError('%s - required module not found' % str(e))
+
+IFUPDOWN2_VERSION = '1.1-cl3u10'
 
 
 class Parse:
@@ -196,8 +197,7 @@ class Parse:
     def update_common_argparser(self, argparser):
         ''' general parsing rules '''
 
-        package = pkg_resources.get_distribution("ifupdown2")
         argparser.add_argument('-V', '--version',
                                action='version',
-                               version='ifupdown2:%(prog)s ' + package.version,
+                               version='ifupdown2:%(prog)s ' + IFUPDOWN2_VERSION,
                                help='display current ifupdown2 version')
