@@ -332,10 +332,10 @@ class bridge(moduleBase):
         self.warn_on_untagged_bridge_absence = should_warn == 'yes'
 
         self._vxlan_bridge_default_igmp_snooping = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'vxlan_bridge_default_igmp_snooping'))
-        arp_suppress_only_on_vxlan = policymanager.policymanager_api.\
+        arp_nd_suppress_only_on_vxlan = policymanager.policymanager_api.\
             get_module_globals(module_name=self.__class__.__name__,
-                               attr='allow_arp_suppress_only_on_vxlan')
-        self.arp_suppress_only_on_vxlan = arp_suppress_only_on_vxlan == 'yes'
+                               attr='allow_arp_nd_suppress_only_on_vxlan')
+        self.arp_nd_suppress_only_on_vxlan = arp_nd_suppress_only_on_vxlan == 'yes'
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
@@ -370,7 +370,7 @@ class bridge(moduleBase):
                     result = False
                 if (port_obj_l and
                     port_obj_l[0].get_attr_value('bridge-arp-nd-suppress') and
-                    self.arp_suppress_only_on_vxlan and
+                    self.arp_nd_suppress_only_on_vxlan and
                     not port_obj_l[0].link_kind & ifaceLinkKind.VXLAN):
                     self.log_error('\'bridge-arp-nd-suppress\' is not '
                                    'supported on a non-vxlan port %s'
@@ -820,7 +820,7 @@ class bridge(moduleBase):
                                 'bridge-arp-nd-suppress',
                                ]:
                     if (attrname == 'bridge-arp-nd-suppress' and
-                        self.arp_suppress_only_on_vxlan and
+                        self.arp_nd_suppress_only_on_vxlan and
                         not running_portdict[port] & ifaceLinkKind.VXLAN):
                         self.log_error('\'bridge-arp-nd-suppress\' is not '
                                        'supported on a non-vxlan port %s' %port)
@@ -846,7 +846,7 @@ class bridge(moduleBase):
                             'bridge-arp-nd-suppress',
                            ]:
                 if (attrname == 'bridge-arp-nd-suppress' and
-                    self.arp_suppress_only_on_vxlan and
+                    self.arp_nd_suppress_only_on_vxlan and
                     not portdict[port] & ifaceLinkKind.VXLAN):
                     continue
                 default = self.get_mod_subattr(attrname, 'default')
@@ -1319,7 +1319,7 @@ class bridge(moduleBase):
 
         arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-nd-suppress')
         if arp_suppress:
-            if (self.arp_suppress_only_on_vxlan and
+            if (self.arp_nd_suppress_only_on_vxlan and
                 not bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
                 self.log_error('\'bridge-arp-nd-suppress\' is not '
                                'supported on a non-vxlan port %s'
@@ -1327,8 +1327,8 @@ class bridge(moduleBase):
             else:
                 portattrs['arp-nd-suppress'] = utils.boolean_support_binary(arp_suppress)
         elif (vlan_aware and
-              (not self.arp_suppress_only_on_vxlan or
-               (self.arp_suppress_only_on_vxlan and
+              (not self.arp_nd_suppress_only_on_vxlan or
+               (self.arp_nd_suppress_only_on_vxlan and
                 bportifaceobj.link_kind & ifaceLinkKind.VXLAN))):
             default = self.get_mod_subattr('bridge-arp-nd-suppress','default')
             portattrs['arp-nd-suppress'] = utils.boolean_support_binary(default)
