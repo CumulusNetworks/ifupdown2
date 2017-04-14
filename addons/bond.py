@@ -400,7 +400,7 @@ class bond(moduleBase):
             else:
                 ifaceobjcurr.update_config_with_status(k, rv,
                                                        1 if v != rv else 0)
-        runningslaves = runningattrs.get('bond-slaves')
+        runningslaves = runningattrs.get('bond-slaves', [])
         if not slaves and not runningslaves:
             return
         retslave = 1

@@ -423,7 +423,7 @@ class bondutil(utilsBase):
             if buf:
                 slaves = buf.split()
         if not slaves:
-            return slaves
+            return []
         self._cache_update([bondname, 'linkinfo', 'slaves'], slaves)
         return list(slaves)
 
