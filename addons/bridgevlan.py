@@ -133,6 +133,15 @@ class bridgevlan(moduleBase):
         # XXX not supported
         return
 
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        ret = True
+        bvlan_intf = self._is_bridge_vlan_device(ifaceobj)
+        if (ifaceobj.get_attr_value_first('bridge-igmp-querier-src') and
+            not bvlan_intf):
+            self.logger.error('%s: bridge-igmp-querier-src only allowed under vlan stanza' %ifaceobj.name)
+            ret = False
+        return ret
+
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
                'query-checkcurr' : _query_check,
@@ -169,6 +178,14 @@ class bridgevlan(moduleBase):
             return
         if (operation != 'query-running' and
                 not self._is_bridge_vlan_device(ifaceobj)):
+            # most common problem is people specify BRIDGE_VLAN
+            # attribute on a bridge or a vlan device, which
+            # is incorrect. So, catch them here and warn before
+            # giving up processing the interface
+            if ((ifaceobj.link_kind & ifaceLinkKind.BRIDGE or
+                ifaceobj.link_kind & ifaceLinkKind.VLAN) and
+                not self.syntax_check(ifaceobj, None)):
+                ifaceobj.status = ifaceStatus.ERROR
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':
