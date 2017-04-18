@@ -1484,10 +1484,10 @@ class bridge(moduleBase):
         try:
             if not ifupdownflags.flags.PERFMODE:
                 if not self.ipcmd.link_exists(ifaceobj.name):
-                   self.ipcmd.link_create(ifaceobj.name, 'bridge')
-                   bridge_just_created = True
+                    netlink.link_add_bridge(ifaceobj.name)
+                    bridge_just_created = True
             else:
-                self.ipcmd.link_create(ifaceobj.name, 'bridge')
+                netlink.link_add_bridge(ifaceobj.name)
                 bridge_just_created = True
         except Exception, e:
             raise Exception(str(e))

@@ -552,13 +552,19 @@ class NetlinkManager(object):
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
-        link.add_attribute(Link.IFLA_LINK, ifindex)
+
+        if ifindex:
+            link.add_attribute(Link.IFLA_LINK, ifindex)
+
         link.add_attribute(Link.IFLA_LINKINFO, {
             Link.IFLA_INFO_KIND: kind,
             Link.IFLA_INFO_DATA: ifla_info_data
         })
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
+
+    def link_add_bridge(self, ifname):
+        return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data={})
 
     def link_add_vlan(self, ifindex, ifname, vlanid, vlan_protocol=None):
         """

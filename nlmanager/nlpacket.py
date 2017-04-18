@@ -882,7 +882,7 @@ class AttributeIFLA_LINKINFO(Attribute):
 
         kind = self.value[Link.IFLA_INFO_KIND]
 
-        if kind not in ('vlan', 'macvlan', 'vxlan', 'bond'):
+        if kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge'):
             raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
 
         # For now this assumes that all data will be packed in the native endian
