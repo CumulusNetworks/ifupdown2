@@ -164,9 +164,9 @@ class bondutil(utilsBase):
         if ifupdownflags.flags.DRYRUN: return
         try:
             if attrlist[-1] == 'slaves':
-                linkCache.add_to_attrlist(attrlist, value)
+                linkCache.append_to_attrlist(attrlist, value)
                 return
-            linkCache.add_attr(attrlist, value)
+            linkCache.set_attr(attrlist, value)
         except:
             pass
 
@@ -377,7 +377,7 @@ class bondutil(utilsBase):
             raise Exception('error reading slaves of bond %s' %bondname
                 + '(' + str(e) + ')')
         for slave in slaves:
-            ipcmd.ip_link_down(slave)
+            ipcmd.link_down(slave)
             try:
                 self.remove_slave(bondname, slave)
             except Exception, e:
@@ -387,7 +387,7 @@ class bondutil(utilsBase):
                         '(%s)' %str(e))
                 else:
                     pass
-        self._cache_del([bondname, 'linkinfo', 'slaves'])
+        self._cache_delete([bondname, 'linkinfo', 'slaves'])
 
     def load_bonding_module(self):
         return utils.exec_command('modprobe -q bonding')
