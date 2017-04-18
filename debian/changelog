@@ -1,10 +1,19 @@
-ifupdown2 (1.1-cl3u10) UNRELEASED; urgency=medium
+ifupdown2 (1.1-cl3u10) RELEASED; urgency=medium
 
   * New. Enabled: drop the dependency to pkg_resources, hardcode version number (closes: #855401)
   * New. Enabled: adjust allow-hotplug behavior to ifupdown (closes: #855598)
-  * Closes: CM-8424. bond: adding attribute bond-(up|down)delay
+  * New. Enabled: bond-lacp-rate support slow/fast argument
+  * New. Enabled: ifquery --syntax-help: add support for json output
+  * New. Enabled: vlan: add new attribute 'vlan-protocol'
+  * New. Enabled: address: add new attribute 'ip6-forward'
+  * New. Enabled: bridge: add new attribute 'bridge-mcstats'
+  * New. Enabled: bridge: add new attribute 'bridge-vlan-stats'
+  * New. Enabled: bridge: add new attribute 'bridge-vlan-protocol'
+  * New. Enabled: bridge: add new attribute 'bridge-arp-nd-suppress'
+  * Closes: CM-8424. bond: add attribute bond-(up|down)delay
+  * Closes: CM-12320. bridge-vids: --syntax-check accepts legacy syntax
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 23 Feb 2017 10:50:14 +0100
+ -- dev-support <dev-support@cumulusnetworks.com>  Mon, 17 Apr 2017 06:18:04 +0200
 
 ifupdown2 (1.1-cl3u9) RELEASED; urgency=medium
 
