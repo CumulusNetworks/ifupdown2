@@ -1702,12 +1702,6 @@ class bridge(moduleBase):
             vlan_stats != self.get_mod_subattr('bridge-vlan-stats', 'default')):
             bridgeattrdict['bridge-vlan-stats'] = [vlan_stats]
 
-        mcstats = utils.get_onff_from_onezero(
-                            tmpbridgeattrdict.get('mcstats', None))
-        if (mcstats and
-            mcstats != self.get_mod_subattr('bridge-mcstats', 'default')):
-            bridgeattrdict['bridge-mcstats'] = [mcstats]
-
         bool2str = {'0': 'no', '1': 'yes'}
         # pick all other attributes
         for k,v in tmpbridgeattrdict.items():
