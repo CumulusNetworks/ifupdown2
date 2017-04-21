@@ -840,9 +840,15 @@ class bridge(moduleBase):
         for port in portdict:
             if not portattrs_dict.get(port):
                 portattrs_dict[port] = {}
+
+            # 'bridge-unicast-flood' and 'bridge-multicast-flood' has
+            # been removed from the below list to avoid unnecessary
+            # setting of unicast_flood and mulitcast_flood to modinfo
+            # or kernel default values.
+            # These attributes will be added back when the cache
+            # handling is improved.
+
             if attrname in ['bridge-learning',
-                            'bridge-unicast-flood',
-                            'bridge-multicast-flood',
                             'bridge-arp-nd-suppress',
                            ]:
                 if (attrname == 'bridge-arp-nd-suppress' and
@@ -1299,23 +1305,20 @@ class bridge(moduleBase):
         if portmcfl:
             portattrs['portmcfl'] = utils.boolean_support_binary(portmcfl)
 
+        # 'bridge-unicast-flood' and 'bridge-multicast-flood' has
+        # been removed from the below list to avoid unnecessary
+        # setting of unicast_flood and mulitcast_flood to modinfo
+        # or kernel default values.
+        # These attributes will be added back when the cache
+        # handling is improved
+
         unicast_flood = bportifaceobj.get_attr_value_first('bridge-unicast-flood')
         if unicast_flood:
             portattrs['unicast-flood'] = utils.boolean_support_binary(unicast_flood)
-        elif vlan_aware:
-            portattrs['unicast-flood'] = utils.boolean_support_binary(
-                                            self.get_mod_subattr(
-                                                'bridge-unicast-flood',
-                                                'default'))
 
         multicast_flood = bportifaceobj.get_attr_value_first('bridge-multicast-flood')
         if multicast_flood:
             portattrs['multicast-flood'] = utils.boolean_support_binary(multicast_flood)
-        elif vlan_aware:
-            portattrs['multicast-flood'] = utils.boolean_support_binary(
-                                            self.get_mod_subattr(
-                                                'bridge-multicast-flood',
-                                                'default'))
 
         arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-nd-suppress')
         if arp_suppress:
