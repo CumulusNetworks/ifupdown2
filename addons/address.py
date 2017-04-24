@@ -397,7 +397,8 @@ class address(moduleBase):
                         retval = False
                     elif (not lowerobj[0].link_kind and
                           not (lowerobj[0].link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
-                          self.default_mtu and (int(mtu) > int(self.default_mtu))):
+                          not lowerdev_mtu and self.default_mtu and
+                          (int(mtu) > int(self.default_mtu))):
                         # only check default mtu on lower device which is a physical interface
                         self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
                                          %(ifaceobj.name, mtu, lowerobj[0].name, self.default_mtu))
