@@ -74,7 +74,7 @@ class ifacePrivFlags():
     def __init__(self, builtin=False, noconfig=False):
         self.BUILTIN = builtin
         self.NOCONFIG = noconfig
-    
+
 class ifupdownMain(ifupdownBase):
     """ ifupdown2 main class """
 
@@ -343,7 +343,7 @@ class ifupdownMain(ifupdownBase):
         }
 
     def link_master_slave_ignore_error(self, errorstr):
-        # If link master slave flag is set, 
+        # If link master slave flag is set,
         # there may be cases where the lowerdev may not be
         # up resulting in 'Network is down' error
         # This can happen if the lowerdev is a LINK_SLAVE
@@ -409,7 +409,7 @@ class ifupdownMain(ifupdownBase):
 
     def create_n_save_ifaceobjcurr(self, ifaceobj):
         """ creates a copy of iface object and adds it to the iface
-            dict containing current iface objects 
+            dict containing current iface objects
         """
         ifaceobjcurr = iface()
         ifaceobjcurr.name = ifaceobj.name
@@ -446,7 +446,7 @@ class ifupdownMain(ifupdownBase):
 
     def is_iface_builtin_byname(self, ifacename):
         """ Returns true if iface name is a builtin interface.
-        
+
         A builtin interface is an interface which ifupdown understands.
         The following are currently considered builtin ifaces:
             - vlan interfaces in the format <ifacename>.<vlanid>
@@ -455,7 +455,7 @@ class ifupdownMain(ifupdownBase):
 
     def is_ifaceobj_builtin(self, ifaceobj):
         """ Returns true if iface name is a builtin interface.
-        
+
         A builtin interface is an interface which ifupdown understands.
         The following are currently considered builtin ifaces:
             - vlan interfaces in the format <ifacename>.<vlanid>
@@ -466,7 +466,7 @@ class ifupdownMain(ifupdownBase):
 
     def is_ifaceobj_noconfig(self, ifaceobj):
         """ Returns true if iface object did not have a user defined config.
-       
+
         These interfaces appear only when they are dependents of interfaces
         which have user defined config
         """
@@ -547,7 +547,7 @@ class ifupdownMain(ifupdownBase):
             ifaceobj.link_type = ifaceLinkType.LINK_NA
 
     def dump_iface_dependency_info(self):
-        """ debug funtion to print raw dependency 
+        """ debug funtion to print raw dependency
         info - lower and upper devices"""
 
         for ifacename, ifaceobjs in self.ifaceobjdict.iteritems():
@@ -1257,7 +1257,7 @@ class ifupdownMain(ifupdownBase):
         self.logger.info('loading builtin modules from %s' %modules_dir)
         self._load_addon_modules_config()
         if not modules_dir in sys.path:
-            sys.path.append(modules_dir)
+            sys.path.insert(1, modules_dir)
         try:
             for op, mlist in self.module_ops.items():
                 for mname in mlist:
@@ -1287,7 +1287,7 @@ class ifupdownMain(ifupdownBase):
                             self.module_attrs[mname] = minstance.get_modinfo()
                         except:
                             pass
-        except: 
+        except:
             raise
 
         # Assign all modules to query operations
@@ -1355,7 +1355,7 @@ class ifupdownMain(ifupdownBase):
                 except:
                     pass
                 print ''
-            
+
     def load_scripts(self, modules_dir):
         """ loading user modules from /etc/network/.
 
@@ -1374,7 +1374,7 @@ class ifupdownMain(ifupdownBase):
                     if self.modules.get(module) or module in self.overridden_ifupdown_scripts:
                         continue
                     self.script_ops[op].append(msubdir + '/' + module)
-            except: 
+            except:
                 # continue reading
                 pass
 
@@ -1407,7 +1407,7 @@ class ifupdownMain(ifupdownBase):
 
     def _preprocess_ifacenames(self, ifacenames):
         """ validates interface list for config existance.
-       
+
         returns -1 if one or more interface not found. else, returns 0
 
         """
@@ -1431,7 +1431,7 @@ class ifupdownMain(ifupdownBase):
                 new_ifacenames.append(i)
         if err_iface:
             raise Exception('cannot find interfaces:%s' %err_iface)
-        return new_ifacenames 
+        return new_ifacenames
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
         """ Checks if interface is whitelisted depending on set of parameters.
@@ -1561,7 +1561,7 @@ class ifupdownMain(ifupdownBase):
            excludepats=None, printdependency=None, syntaxcheck=False,
            type=None, skipupperifaces=False):
         """This brings the interface(s) up
-        
+
         Args:
             ops (list): list of ops to perform on the interface(s).
             Eg: ['pre-up', 'up', 'post-up'
@@ -1658,7 +1658,7 @@ class ifupdownMain(ifupdownBase):
             self.logger.debug('Looking at old state ..')
             self.read_old_iface_config()
         else:
-            # If no old state available 
+            # If no old state available
             try:
                 self.read_iface_config()
             except Exception, e:
@@ -1707,7 +1707,7 @@ class ifupdownMain(ifupdownBase):
 
         self.set_type(type)
 
-        # Let us forget internal squashing when it comes to 
+        # Let us forget internal squashing when it comes to
         # ifquery. It can surprise people relying of ifquery
         # output
         self._ifaceobj_squash_internal = False
@@ -1839,7 +1839,7 @@ class ifupdownMain(ifupdownBase):
            # old interface config is read into self.ifaceobjdict
            self.read_old_iface_config()
 
-           # reinitialize dependency graph 
+           # reinitialize dependency graph
            self.dependency_graph = OrderedDict({})
            falready_up_ifacenames_not_present = [i for i in
                                     already_up_ifacenames_not_present
@@ -1943,14 +1943,14 @@ class ifupdownMain(ifupdownBase):
             # these are saved interfaces and dependency for these
             # have been checked before they became part of saved state.
             try:
-                self.flags.CHECK_SHARED_DEPENDENTS = False 
+                self.flags.CHECK_SHARED_DEPENDENTS = False
                 self.populate_dependency_info(upops)
                 self.flags.CHECK_SHARED_DEPENDENTS = True
             except Exception, e:
                 self.logger.info("error generating dependency graph for "
                                  "saved interfaces (%s)" %str(e))
                 pass
-            
+
             # make sure we pick up built-in interfaces
             # if config file had 'ifreload_down_changed' variable
             # set, also look for interfaces that changed to down them
@@ -1984,7 +1984,7 @@ class ifupdownMain(ifupdownBase):
                 # for example: remove a bond section from the interfaces
                 # file, but leave it around as a bridge port
                 # XXX: Ideally its better to just add it to the
-                # ifacedownlist. But we will be cautious here 
+                # ifacedownlist. But we will be cautious here
                 # and just print a warning
                 if (self.is_ifaceobj_noconfig(newifaceobjlist[0]) and
                     not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
@@ -2026,7 +2026,7 @@ class ifupdownMain(ifupdownBase):
             if ifacedownlist:
                 self.logger.info('reload: scheduling down on interfaces: %s'
                                   %str(ifacedownlist))
-                # reinitialize dependency graph 
+                # reinitialize dependency graph
                 self.dependency_graph = OrderedDict({})
 
                 # Generate dependency info for old config
@@ -2041,7 +2041,7 @@ class ifupdownMain(ifupdownBase):
                     # Hence during reload, set  this to true.
                     # This is being added to avoid a failure in
                     # scheduler._check_upperifaces when we are dowing
-                    # a builtin bridge port 
+                    # a builtin bridge port
                     self.flags.SCHED_SKIP_CHECK_UPPERIFACES = True
                     self._sched_ifaces(ifacedownlist, downops,
                                        followdependents=False,
@@ -2136,7 +2136,7 @@ class ifupdownMain(ifupdownBase):
 
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
-                if (self.is_ifaceobj_builtin(ifaceobj) or 
+                if (self.is_ifaceobj_builtin(ifaceobj) or
                     not ifaceobj.is_config_present()):
                     continue
                 ifaceobj.dump_raw(self.logger)

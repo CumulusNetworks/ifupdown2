@@ -1,45 +1,30 @@
 import errno
+import glob
 import os
 import subprocess
+import warnings
 
 from setuptools import find_packages, setup
 from setuptools.command.install import install
 
-import warnings
-
-DATA_FILES = [('/etc/network/ifupdown2/',
-               ['config/ifupdown2.conf']),
-              ('/etc/bash_completion.d/',
-               ['completion/ifup']),
-              ('/usr/share/ifupdown2/addons/',
-               ['addons/bridge.py',
-                'addons/bond.py',
-                'addons/vlan.py',
-                'addons/mstpctl.py',
-                'addons/address.py',
-                'addons/dhcp.py',
-                'addons/usercmds.py',
-                'addons/ethtool.py',
-                'addons/addressvirtual.py',
-                'addons/vxlan.py',
-                'addons/link.py',
-                'addons/vrf.py',
-                'addons/bridgevlan.py']),
-              ('/usr/share/ifupdown2/nlmanager/',
-               ['nlmanager/nllistener.py',
-                'nlmanager/nlmanager.py',
-                'nlmanager/nlpacket.py',
-                'nlmanager/__init__.py',
-                'nlmanager/README']),
+DATA_FILES = [('/etc/network/ifupdown2/', ['config/ifupdown2.conf']),
+              ('/etc/bash_completion.d/', ['completion/ifup']),
               ('/etc/network/ifupdown2/', ['config/addons.conf']),
               ('/var/lib/ifupdown2/policy.d/', []),
               ('/etc/network/ifupdown2/policy.d/', []),
               ('/usr/share/ifupdown2/',
                ['sbin/ifupdown2',
                 'sbin/ifupdown2d']),
-              ('/usr/share/ifupdown2/sbin/',
-               ['sbin/start-networking'])
+              ('/usr/share/ifupdown2/sbin/', ['sbin/start-networking'])
               ]
+
+PKG_LOCATION = '/usr/share/ifupdown2'
+# Include ifupdown files into PKG_LOCATION
+DATA_FILES.append((PKG_LOCATION, glob.glob('ifupdown/*.py')))
+# Include addons files into PKG_LOCATION
+DATA_FILES.append((os.path.join(PKG_LOCATION, 'addons'), glob.glob('addons/*.py')))
+# Include nlmanager files into PKG_LOCATION
+DATA_FILES.append((os.path.join(PKG_LOCATION, 'nlmanager'), glob.glob('nlamanger/*')))
 
 INSTALL_REQUIRES = [
     'docutils>=0.12',
