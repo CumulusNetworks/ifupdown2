@@ -840,9 +840,15 @@ class bridge(moduleBase):
         for port in portdict:
             if not portattrs_dict.get(port):
                 portattrs_dict[port] = {}
+
+            # 'bridge-unicast-flood' and 'bridge-multicast-flood' has
+            # been removed from the below list to avoid unnecessary
+            # setting of unicast_flood and mulitcast_flood to modinfo
+            # or kernel default values.
+            # These attributes will be added back when the cache
+            # handling is improved.
+
             if attrname in ['bridge-learning',
-                            'bridge-unicast-flood',
-                            'bridge-multicast-flood',
                             'bridge-arp-nd-suppress',
                            ]:
                 if (attrname == 'bridge-arp-nd-suppress' and
@@ -1299,23 +1305,20 @@ class bridge(moduleBase):
         if portmcfl:
             portattrs['portmcfl'] = utils.boolean_support_binary(portmcfl)
 
+        # 'bridge-unicast-flood' and 'bridge-multicast-flood' has
+        # been removed from the below list to avoid unnecessary
+        # setting of unicast_flood and mulitcast_flood to modinfo
+        # or kernel default values.
+        # These attributes will be added back when the cache
+        # handling is improved
+
         unicast_flood = bportifaceobj.get_attr_value_first('bridge-unicast-flood')
         if unicast_flood:
             portattrs['unicast-flood'] = utils.boolean_support_binary(unicast_flood)
-        elif vlan_aware:
-            portattrs['unicast-flood'] = utils.boolean_support_binary(
-                                            self.get_mod_subattr(
-                                                'bridge-unicast-flood',
-                                                'default'))
 
         multicast_flood = bportifaceobj.get_attr_value_first('bridge-multicast-flood')
         if multicast_flood:
             portattrs['multicast-flood'] = utils.boolean_support_binary(multicast_flood)
-        elif vlan_aware:
-            portattrs['multicast-flood'] = utils.boolean_support_binary(
-                                            self.get_mod_subattr(
-                                                'bridge-multicast-flood',
-                                                'default'))
 
         arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-nd-suppress')
         if arp_suppress:
@@ -1702,12 +1705,6 @@ class bridge(moduleBase):
             vlan_stats != self.get_mod_subattr('bridge-vlan-stats', 'default')):
             bridgeattrdict['bridge-vlan-stats'] = [vlan_stats]
 
-        mcstats = utils.get_onff_from_onezero(
-                            tmpbridgeattrdict.get('mcstats', None))
-        if (mcstats and
-            mcstats != self.get_mod_subattr('bridge-mcstats', 'default')):
-            bridgeattrdict['bridge-mcstats'] = [mcstats]
-
         bool2str = {'0': 'no', '1': 'yes'}
         # pick all other attributes
         for k,v in tmpbridgeattrdict.items():
@@ -1767,29 +1764,36 @@ class bridge(moduleBase):
                                                    'default'):
                     portconfig['bridge-portprios'] += ' %s=%s' %(p, v)
 
-                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                                                      p, 'learning')
-                if v:
-                    portconfig['bridge-learning'] += ' %s=%s' %(p,
-                    utils.get_onff_from_onezero(v))
+                v = utils.get_onff_from_onezero(
+                        self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                          p, 'learning'))
+                if (v and
+                    v != self.get_mod_subattr('bridge-learning', 'default')):
+                    portconfig['bridge-learning'] += ' %s=%s' %(p, v)
 
-                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                                                      p, 'unicast-flood')
-                if v:
-                    portconfig['bridge-unicast-flood'] += ' %s=%s' %(p,
-                    utils.get_onff_from_onezero(v))
+                v = utils.get_onff_from_onezero(
+                        self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                          p, 'unicast-flood'))
+                if (v and
+                    v != self.get_mod_subattr('bridge-unicast-flood',
+                                              'default')):
+                    portconfig['bridge-unicast-flood'] += ' %s=%s' %(p, v)
 
-                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                                                      p, 'multicast-flood')
-                if v:
-                    portconfig['bridge-multicast-flood'] += ' %s=%s' %(p,
-                    utils.get_onff_from_onezero(v))
+                v = utils.get_onff_from_onezero(
+                        self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                          p, 'multicast-flood'))
+                if (v and
+                    v != self.get_mod_subattr('bridge-multicast-flood',
+                                              'default')):
+                    portconfig['bridge-multicast-flood'] += ' %s=%s' %(p, v)
 
-                v = self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
-                                                      p, 'arp-nd-suppress')
-                if v:
-                    portconfig['bridge-arp-nd-suppress'] += ' %s=%s' %(p,
-                    utils.get_onff_from_onezero(v))
+                v = utils.get_onff_from_onezero(
+                        self.brctlcmd.get_bridgeport_attr(ifaceobjrunning.name,
+                                                          p, 'arp-nd-suppress'))
+                if (v and
+                    v != self.get_mod_subattr('bridge-arp-nd-suppress',
+                                              'default')):
+                    portconfig['bridge-arp-nd-suppress'] += ' %s=%s' %(p, v)
 
             bridgeattrdict.update({k : [v] for k, v in portconfig.items()
                                     if v})
@@ -2281,31 +2285,42 @@ class bridge(moduleBase):
                     ifaceobjrunning.update_config('bridge-pvid',
                                         bridge_port_pvid)
 
-        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
-                                              'learning')
-        if v:
-            ifaceobjrunning.update_config('bridge-learning',
-                utils.get_onff_from_onezero(v))
+        v = utils.get_onff_from_onezero(
+                self.brctlcmd.get_bridgeport_attr(bridgename,
+                                                  ifaceobjrunning.name,
+                                                  'learning'))
+        if v and v != self.get_mod_subattr('bridge-learning', 'default'):
+            ifaceobjrunning.update_config('bridge-learning', v)
 
-        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
-                                              'unicast-flood')
-        if v:
-            ifaceobjrunning.update_config('bridge-unicast-flood',
-                utils.get_onff_from_onezero(v))
-                #utils.get_onoff_bool(utils.get_yesno_boolean(
-                #utils.get_boolean_from_string(v))))
+        v = utils.get_onff_from_onezero(
+                self.brctlcmd.get_bridgeport_attr(bridgename,
+                                                  ifaceobjrunning.name,
+                                                  'unicast-flood'))
+        if v and v != self.get_mod_subattr('bridge-unicast-flood', 'default'):
+            ifaceobjrunning.update_config('bridge-unicast-flood', v)
 
-        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
-                                              'multicast-flood')
-        if v:
-            ifaceobjrunning.update_config('bridge-multicast-flood',
-                utils.get_onff_from_onezero(v))
+        v = utils.get_onff_from_onezero(
+                self.brctlcmd.get_bridgeport_attr(bridgename,
+                                                  ifaceobjrunning.name,
+                                                  'multicast-flood'))
+        if v and v != self.get_mod_subattr('bridge-multicast-flood', 'default'):
+            ifaceobjrunning.update_config('bridge-multicast-flood', v)
 
-        v = self.brctlcmd.get_bridgeport_attr(bridgename, ifaceobjrunning.name,
-                                              'arp-nd-suppress')
-        if v:
-            ifaceobjrunning.update_config('bridge-arp-nd-suppress',
-                utils.get_onff_from_onezero(v))
+        v = utils.get_onff_from_onezero(
+                self.brctlcmd.get_bridgeport_attr(bridgename,
+                                                  ifaceobjrunning.name,
+                                                  'arp-nd-suppress'))
+        # Display running 'arp-nd-suppress' only on vxlan ports
+        # if 'allow_arp_nd_suppress_only_on_vxlan' is set to 'yes'
+        # otherwise, display on all bridge-ports
+
+        bportifaceobj = ifaceobj_getfunc(ifaceobjrunning.name)[0]
+        if (v and
+            v != self.get_mod_subattr('bridge-arp-nd-suppress', 'default') and
+            (not self.arp_nd_suppress_only_on_vxlan or
+             (self.arp_nd_suppress_only_on_vxlan and
+              bportifaceobj.link_kind & ifaceLinkKind.VXLAN))):
+            ifaceobjrunning.update_config('bridge-arp-nd-suppress', v)
 
         self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
 
