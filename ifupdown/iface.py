@@ -289,13 +289,12 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
                 vitem_status = []
                 for vitem in v:
                     s = o.get_config_attr_status(k, idx)
-                    status_str = ''
-                    if s == -1:
-                        status_str = ifaceStatusUserStrs.UNKNOWN
-                    elif s == 1:
+                    if s == 1:
                         status_str = ifaceStatusUserStrs.ERROR
                     elif s == 0:
                         status_str = ifaceStatusUserStrs.SUCCESS
+                    else:
+                        status_str = ifaceStatusUserStrs.UNKNOWN
                     vitem_status.append('%s' %status_str)
                     idx += 1
                 retconfig[k] = v[0] if len(v) == 1 else v
