@@ -6,6 +6,7 @@
 
 try:
     from sets import Set
+    from ipaddr import IPv4Address
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
@@ -130,6 +131,11 @@ class vxlan(moduleBase):
                                    group=group)
 
             remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
+            try:
+                for remoteip in remoteips:
+                    IPv4Address(remoteip)
+            except Exception as e:
+                self.log_error('%s: vxlan-remoteip: %s' %(ifaceobj.name, str(e)))
             if purge_remotes or remoteips:
                 # figure out the diff for remotes and do the bridge fdb updates
                 # only if provisioned by user and not by an vxlan external
