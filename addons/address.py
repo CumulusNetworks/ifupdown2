@@ -521,7 +521,9 @@ class address(moduleBase):
                             %('/'.join(ifaceobj.name.split("."))),
                             ipforward)
 
+        setting_default_ip6forward = False
         if not ip6forward:
+            setting_default_ip6forward = True
             ip6forward = self.get_mod_subattr('ip6-forward', 'default')
         ip6forward = utils.boolean_support_binary(ip6forward)
         # File read has been used for better performance
@@ -530,9 +532,17 @@ class address(moduleBase):
                                 '/proc/sys/net/ipv6/conf/%s/forwarding'
                                 %ifaceobj.name)
         if ip6forward != running_ip6forward:
-            self.sysctl_set('net.ipv6.conf.%s.forwarding'
-                            %('/'.join(ifaceobj.name.split("."))),
-                            ip6forward)
+            try:
+                self.sysctl_set('net.ipv6.conf.%s.forwarding'
+                                %('/'.join(ifaceobj.name.split("."))),
+                                ip6forward)
+            except Exception as e:
+                # There is chance of ipv6 being removed because of,
+                # for example, setting mtu < 1280
+                # In such cases, log error only if user has configured
+                # ip6-forward
+                if not setting_default_ip6forward:
+                    self.log_error('%s: %s' %(ifaceobj.name, str(e)))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
