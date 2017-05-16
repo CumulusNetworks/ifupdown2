@@ -342,6 +342,18 @@ class bond(moduleBase):
                             netlink.link_set_protodown(s, "off")
                         except Exception, e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+                else:
+                    # apply link-down config changes on running slaves
+                    link_up = self.ipcmd.is_link_up(s)
+                    config_link_down = (ifaceobj_getfunc(s)[0].link_privflags &
+                                        ifaceLinkPrivFlags.KEEP_LINK_DOWN)
+                    try:
+                        if (config_link_down and link_up):
+                            netlink.link_set_updown(s, "down")
+                        elif (not config_link_down and not link_up):
+                            netlink.link_set_updown(s, "up")
+                    except Exception, e:
+                        self.logger.warn('%s: %s' % (ifaceobj.name, str(e)))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
