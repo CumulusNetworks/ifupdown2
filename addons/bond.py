@@ -344,10 +344,10 @@ class bond(moduleBase):
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
                 else:
                     # apply link-down config changes on running slaves
-                    link_up = self.ipcmd.is_link_up(s)
-                    config_link_down = (ifaceobj_getfunc(s)[0].link_privflags &
-                                        ifaceLinkPrivFlags.KEEP_LINK_DOWN)
                     try:
+                        link_up = self.ipcmd.is_link_up(s)
+                        config_link_down = (ifaceobj_getfunc(s)[0].link_privflags &
+                                            ifaceLinkPrivFlags.KEEP_LINK_DOWN)
                         if (config_link_down and link_up):
                             netlink.link_set_updown(s, "down")
                         elif (not config_link_down and not link_up):
