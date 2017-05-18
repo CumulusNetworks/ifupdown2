@@ -1,8 +1,9 @@
 ifupdown2 (1.1-cl3u11) RELEASED; urgency=medium
 
+  * Closes: CM-16341. Fix link-down attribute not applied on slave ports
   * Closes: CM-16225. Fix bug that prevented config of mtu below 1280
 
- -- dev-support <dev-support@cumulusnetworks.com>  Wed, 17 May 2017 12:45:21 -0700
+ -- dev-support <dev-support@cumulusnetworks.com>  Thu, 18 May 2017 12:45:21 -0700
 
 ifupdown2 (1.1-cl3u10) RELEASED; urgency=medium
 
