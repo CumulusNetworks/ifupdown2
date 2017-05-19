@@ -542,6 +542,44 @@ class NetlinkManager(object):
         msg.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(msg)
 
+    def link_add_set(self, kind, ifname=None, ifindex=0, ifla_info_data={}, iflink=0):
+        """
+        Build and TX a RTM_NEWLINK message to add the desired interface
+        """
+        debug = RTM_NEWLINK in self.debug
+
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
+
+        if ifname:
+            link.add_attribute(Link.IFLA_IFNAME, ifname)
+
+        if iflink:
+            link.add_attribute(Link.IFLA_LINK, iflink)
+
+        link.add_attribute(Link.IFLA_LINKINFO, {
+            Link.IFLA_INFO_KIND: kind,
+            Link.IFLA_INFO_DATA: ifla_info_data
+        })
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(link)
+
+    def link_del(self, ifindex=None, ifname=None):
+        if not ifindex and not ifname:
+            raise ValueError('invalid ifindex and/or ifname')
+
+        if not ifindex:
+            ifindex = self.get_iface_index(ifname)
+
+        debug = RTM_DELLINK in self.debug
+
+        link = Link(RTM_DELLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(link)
+
     def _link_add(self, ifindex, ifname, kind, ifla_info_data):
         """
         Build and TX a RTM_NEWLINK message to add the desired interface

@@ -120,6 +120,23 @@ green  = 92
 yellow = 93
 blue   = 94
 
+value_to_bool_dict = {
+    False: False,
+    None: False,
+    0: False,
+    '0': False,
+    'no': False,
+    'off': False,
+    'slow': False,
+    'None': False,
+    True: True,
+    1: True,
+    '1': True,
+    'on': True,
+    'yes': True,
+    'fast': True
+}
+
 
 def set_log_level(level):
     log.setLevel(level)
@@ -1023,6 +1040,92 @@ class AttributeIFLA_LINKINFO(Attribute):
                                 sub_attr_payload.append(int(mbyte, 16))
                             sub_attr_pack_layout.extend('xx')
 
+                        elif info_data_type == Link.IFLA_BOND_AD_ACTOR_SYS_PRIO:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 2 bytes
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(int(info_data_value))
+
+                            # pad 2 bytes
+                            sub_attr_pack_layout.extend('xx')
+
+                        elif info_data_type == Link.IFLA_BOND_NUM_PEER_NOTIF:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(5)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 1 byte
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(int(info_data_value))
+
+                            # pad 3 bytes
+                            sub_attr_pack_layout.extend('xxx')
+
+
+                        elif info_data_type in (Link.IFLA_BOND_AD_LACP_RATE,
+                                                Link.IFLA_BOND_AD_LACP_BYPASS,
+                                                Link.IFLA_BOND_USE_CARRIER):
+                            # converts yes/no/on/off/0/1 strings to boolean value
+                            bool_value = self.get_bool_value(info_data_value)
+
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(5)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 1 byte
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(bool_value)
+
+                            # pad 3 bytes
+                            sub_attr_pack_layout.extend('xxx')
+
+                        elif info_data_type == Link.IFLA_BOND_XMIT_HASH_POLICY:
+                            index = self.get_index(Link.ifla_bond_xmit_hash_policy_tbl,
+                                                   'bond xmit hash policy',
+                                                   info_data_value)
+
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(5)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 1 byte
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(index)
+
+                            # pad 3 bytes
+                            sub_attr_pack_layout.extend('xxx')
+
+                        elif info_data_type == Link.IFLA_BOND_MODE:
+                            index = self.get_index(Link.ifla_bond_mode_tbl,
+                                                   'bond mode',
+                                                   info_data_value)
+
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(5)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 1 byte
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(index)
+
+                            # pad 3 bytes
+                            sub_attr_pack_layout.extend('xxx')
+
+                        elif info_data_type in (Link.IFLA_BOND_MIIMON,
+                                                Link.IFLA_BOND_UPDELAY,
+                                                Link.IFLA_BOND_DOWNDELAY,
+                                                Link.IFLA_BOND_MIN_LINKS):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(int(info_data_value))
+
+
             else:
                 self.log.debug('Add support for encoding IFLA_LINKINFO sub-attribute type %d' % sub_attr_type)
                 continue
@@ -1052,6 +1155,20 @@ class AttributeIFLA_LINKINFO(Attribute):
         raw = pack(pack_layout, *payload)
         raw = self.pad(length, raw)
         return raw
+
+    def get_bool_value(self, value, default=None):
+        try:
+            return value_to_bool_dict[value]
+        except KeyError:
+            self.log.debug('%s: unsupported boolean value' % value)
+            return default
+
+    def get_index(self, tbl, attr, value, default=None):
+        try:
+            return tbl[value]
+        except KeyError:
+            self.log.debug('unsupported %s value %s (%s)' % (attr, value, tbl.keys()))
+            return default
 
     def decode(self, parent_msg, data):
         """
@@ -1179,13 +1296,32 @@ class AttributeIFLA_LINKINFO(Attribute):
                                     self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO][ad_data_type] = mac_int_to_str(data1 << 16 | data2)
 
                                 ad_attr_data = ad_attr_data[ad_data_end:]
+
                         # 1-byte int
-                        elif info_data_type in (Link.IFLA_BOND_MODE, ):
+                        elif info_data_type in (Link.IFLA_BOND_MODE,
+                                                Link.IFLA_BOND_USE_CARRIER,
+                                                Link.IFLA_BOND_AD_LACP_RATE,
+                                                Link.IFLA_BOND_AD_LACP_BYPASS,
+                                                Link.IFLA_BOND_XMIT_HASH_POLICY,
+                                                Link.IFLA_BOND_NUM_PEER_NOTIF):
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                        # 2-bytes int
+                        elif info_data_type == Link.IFLA_BOND_AD_ACTOR_SYS_PRIO:
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                        # 4-bytes int
+                        elif info_data_type in (Link.IFLA_BOND_MIIMON,
+                                                Link.IFLA_BOND_UPDELAY,
+                                                Link.IFLA_BOND_DOWNDELAY,
+                                                Link.IFLA_BOND_MIN_LINKS):
+                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
                         # mac address
                         elif info_data_type in (Link.IFLA_BOND_AD_ACTOR_SYSTEM, ):
                             (data1, data2) = unpack('>LHxx', sub_attr_data[4:12])
                             self.value[Link.IFLA_INFO_DATA][info_data_type] = mac_int_to_str(data1 << 16 | data2)
+
                         else:
                             self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
                                            (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
@@ -2614,6 +2750,66 @@ class Link(NetlinkPacket):
         IFLA_BOND_AD_INFO_ACTOR_KEY         : 'IFLA_BOND_AD_INFO_ACTOR_KEY',
         IFLA_BOND_AD_INFO_PARTNER_KEY       : 'IFLA_BOND_AD_INFO_PARTNER_KEY',
         IFLA_BOND_AD_INFO_PARTNER_MAC       : 'IFLA_BOND_AD_INFO_PARTNER_MAC'
+    }
+
+    ifla_bond_mode_tbl = {
+        'balance-rr': 0,
+        'active-backup': 1,
+        'balance-xor': 2,
+        'broadcast': 3,
+        '802.3ad': 4,
+        'balance-tlb': 5,
+        'balance-alb': 6,
+        '0': 0,
+        '1': 1,
+        '2': 2,
+        '3': 3,
+        '4': 4,
+        '5': 5,
+        '6': 6,
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4,
+        5: 5,
+        6: 6
+    }
+
+    ifla_bond_mode_pretty_tbl = {
+        0: 'balance-rr',
+        1: 'active-backup',
+        2: 'balance-xor',
+        3: 'broadcast',
+        4: '802.3ad',
+        5: 'balance-tlb',
+        6: 'balance-alb'
+    }
+
+    ifla_bond_xmit_hash_policy_tbl = {
+        'layer2': 0,
+        'layer3+4': 1,
+        'layer2+3': 2,
+        'encap2+3': 3,
+        'encap3+4': 4,
+        '0': 0,
+        '1': 1,
+        '2': 2,
+        '3': 3,
+        '4': 4,
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4
+    }
+
+    ifla_bond_xmit_hash_policy_pretty_tbl = {
+        0: 'layer2',
+        1: 'layer3+4',
+        2: 'layer2+3',
+        3: 'encap2+3',
+        4: 'encap3+4',
     }
 
     # =========================================

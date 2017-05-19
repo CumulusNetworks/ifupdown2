@@ -1304,7 +1304,10 @@ class ifupdownMain(ifupdownBase):
             modinfos = {}
             for key, value in self.modules.items():
                 if hasattr(value, '_modinfo'):
-                    modinfos[key] = value._modinfo
+                    modinfos[key] = {
+                        'mhelp': value._modinfo['mhelp'],
+                        'attrs': value.merge_modinfo_with_policy_files()
+                    }
             print json.dumps(modinfos)
         else:
             indent = '  '
@@ -1312,7 +1315,7 @@ class ifupdownMain(ifupdownBase):
                 if not mdict:
                     continue
                 print('%s: %s' %(m, mdict.get('mhelp')))
-                attrdict = mdict.get('attrs')
+                attrdict = self.modules[m].merge_modinfo_with_policy_files()
                 if not attrdict:
                     continue
                 try:

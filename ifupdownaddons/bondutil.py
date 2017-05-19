@@ -9,8 +9,11 @@ try:
 
     import ifupdown.ifupdownflags as ifupdownflags
 
+    from ifupdown.netlink import netlink
     from ifupdown.utils import utils
     from ifupdown.iface import *
+
+    from nlmanager.nlmanager import Link
 
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.iproute2 import *
@@ -29,7 +32,7 @@ class bondutil(utilsBase):
         utilsBase.__init__(self, *args, **kargs)
         if ifupdownflags.flags.CACHE and not self._cache_fill_done:
             self._bond_linkinfo_fill_all()
-            self._cache_fill_done = True
+            bondutil._cache_fill_done = True
 
     @classmethod
     def reset(cls):
@@ -42,18 +45,30 @@ class bondutil(utilsBase):
             linkCache.links[bondname] = {'linkinfo': {}}
 
         try:
-            linkCache.set_attr([bondname, 'linkinfo', 'min_links'],
-                               self.read_file_oneline(
-                                   '/sys/class/net/%s/bonding/min_links'
-                                   % bondname))
+            [linkCache.update_attrdict([ifname], linkattrs)
+             for ifname, linkattrs in netlink.link_dump(bondname).items()]
         except Exception as e:
-            self.logger.debug(str(e))
+            self.logger.warning('%s: %s' % (bondname, str(e)))
+
         try:
             linkCache.set_attr([bondname, 'linkinfo', 'slaves'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/slaves'
                 %bondname).split())
         except Exception as e:
             self.logger.debug(str(e))
+
+        return
+        # move bondutils backend to use netlink for now.
+        # we are keeping the code for a future use
+
+        try:
+            linkCache.set_attr([bondname, 'linkinfo', 'min_links'],
+                               self.read_file_oneline(
+                                   '/sys/class/net/%s/bonding/min_links'
+                                   % bondname))
+        except Exception as e:
+            self.logger.debug(str(e))
+
         try:
             linkCache.set_attr([bondname, 'linkinfo', 'mode'],
                 self.read_file_oneline('/sys/class/net/%s/bonding/mode'
@@ -135,7 +150,7 @@ class bondutil(utilsBase):
             if ifupdownflags.flags.DRYRUN:
                 return None
             if ifupdownflags.flags.CACHE:
-                if not bondutil._cache_fill_done: 
+                if not bondutil._cache_fill_done:
                     self._bond_linkinfo_fill_all()
                     bondutil._cache_fill_done = True
                     return linkCache.get_attr(attrlist)
@@ -149,16 +164,23 @@ class bondutil(utilsBase):
             pass
         return None
 
+    def cache_get(self, attrlist, refresh=False):
+        return self._cache_get(attrlist, refresh)
+
+    def cache_check(self, attrlist, value, refresh=False):
+        return self._cache_check(attrlist, value, refresh)
+
     def _cache_check(self, attrlist, value, refresh=False):
         try:
-            attrvalue = self._cache_get(attrlist, refresh)
-            if attrvalue and attrvalue == value:
-                return True
+            return self._cache_get(attrlist, refresh) == value
         except Exception, e:
             self.logger.debug('_cache_check(%s) : [%s]'
                     %(str(attrlist), str(e)))
             pass
         return False
+
+    def cache_update(self, attrlist, value):
+        return self._cache_update(attrlist, value)
 
     def _cache_update(self, attrlist, value):
         if ifupdownflags.flags.DRYRUN: return
@@ -170,12 +192,12 @@ class bondutil(utilsBase):
         except:
             pass
 
+    def cache_delete(self, attrlist, value=None):
+        return self._cache_delete(attrlist, value)
+
     def _cache_delete(self, attrlist, value=None):
         if ifupdownflags.flags.DRYRUN: return
         try:
-            if attrlist[-1] == 'slaves':
-                linkCache.remove_from_attrlist(attrlist, value)
-                return
             linkCache.del_attr(attrlist)
         except:
             pass
@@ -183,6 +205,36 @@ class bondutil(utilsBase):
     def _cache_invalidate(self):
         if ifupdownflags.flags.DRYRUN: return
         linkCache.invalidate()
+
+    bondcmd_attrmap = {
+        Link.IFLA_BOND_MODE: 'mode',
+        Link.IFLA_BOND_MIIMON: 'miimon',
+        Link.IFLA_BOND_USE_CARRIER: 'use_carrier',
+        Link.IFLA_BOND_AD_LACP_RATE: 'lacp_rate',
+        Link.IFLA_BOND_XMIT_HASH_POLICY: 'xmit_hash_policy',
+        Link.IFLA_BOND_MIN_LINKS: 'min_links',
+        Link.IFLA_BOND_NUM_PEER_NOTIF: 'num_grat_arp',
+        Link.IFLA_BOND_AD_ACTOR_SYSTEM: 'ad_actor_system',
+        Link.IFLA_BOND_AD_ACTOR_SYS_PRIO: 'ad_actor_sys_prio',
+        Link.IFLA_BOND_AD_LACP_BYPASS: 'lacp_bypass',
+        Link.IFLA_BOND_UPDELAY: 'updelay',
+        Link.IFLA_BOND_DOWNDELAY: 'downdelay',
+    }
+
+    def set_attrs_nl(self, bondname, ifla_info_data):
+        bond_attr_name = 'None'  # for log purpose (in case an exception raised)
+        for nl_attr, value in ifla_info_data.items():
+            try:
+                bond_attr_name = self.bondcmd_attrmap[nl_attr]
+                file_path = '/sys/class/net/%s/bonding/%s' % (bondname, bond_attr_name)
+                if os.path.exists(file_path):
+                    self.write_file(file_path, str(value))
+            except Exception as e:
+                exception_str = '%s: %s %s: %s' % (bondname, bond_attr_name, value, str(e))
+                if ifupdownflags.flags.FORCE:
+                    self.logger.warning(exception_str)
+                else:
+                    self.logger.debug(exception_str)
 
     def set_attrs(self, bondname, attrdict, prehook):
         for attrname, attrval in attrdict.items():
@@ -221,6 +273,9 @@ class bondutil(utilsBase):
     def get_use_carrier(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'use_carrier'])
 
+    def get_use_carrier_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_USE_CARRIER])
+
     def set_xmit_hash_policy(self, bondname, hash_policy, prehook=None):
         valid_values = ['layer2', 'layer3+4', 'layer2+3']
         if not hash_policy:
@@ -240,6 +295,9 @@ class bondutil(utilsBase):
     def get_xmit_hash_policy(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'xmit_hash_policy'])
 
+    def get_xmit_hash_policy_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_XMIT_HASH_POLICY])
+
     def set_miimon(self, bondname, miimon):
         if (self._cache_check([bondname, 'linkinfo', 'miimon'],
                 miimon)):
@@ -250,6 +308,9 @@ class bondutil(utilsBase):
 
     def get_miimon(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'miimon'])
+
+    def get_miimon_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_MIIMON])
 
     def set_mode(self, bondname, mode, prehook=None):
         valid_modes = ['balance-rr', 'active-backup', 'balance-xor',
@@ -268,6 +329,9 @@ class bondutil(utilsBase):
 
     def get_mode(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'mode'])
+
+    def get_mode_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_MODE])
 
     def set_lacp_rate(self, bondname, lacp_rate, prehook=None, posthook=None):
         if not lacp_rate or (lacp_rate != '0' and lacp_rate != '1'):
@@ -291,6 +355,9 @@ class bondutil(utilsBase):
     def get_lacp_rate(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'lacp_rate'])
 
+    def get_lacp_rate_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_LACP_RATE])
+
     def set_lacp_bypass_allow(self, bondname, allow, prehook=None, posthook=None):
         if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass'], allow)):
             return
@@ -310,6 +377,9 @@ class bondutil(utilsBase):
     def get_lacp_bypass_allow(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'lacp_bypass'])
 
+    def get_lacp_bypass_allow_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_LACP_BYPASS])
+
     def set_min_links(self, bondname, min_links, prehook=None):
         if (self._cache_check([bondname, 'linkinfo', 'min_links'],
                 min_links)):
@@ -323,23 +393,44 @@ class bondutil(utilsBase):
     def get_min_links(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'min_links'])
 
+    def get_min_links_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_MIN_LINKS])
+
     def get_ad_actor_system(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'ad_actor_system'])
+
+    def get_ad_actor_system_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_ACTOR_SYSTEM])
 
     def get_ad_actor_sys_prio(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'ad_actor_sys_prio'])
 
+    def get_ad_actor_sys_prio_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_ACTOR_SYS_PRIO])
+
     def get_num_unsol_na(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'num_unsol_na'])
+
+    def get_num_unsol_na_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_NUM_PEER_NOTIF])
 
     def get_num_grat_arp(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'num_grat_arp'])
 
+    def get_num_grat_arp_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_NUM_PEER_NOTIF])
+
     def get_updelay(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'updelay'])
 
+    def get_updelay_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_UPDELAY])
+
     def get_downdelay(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'downdelay'])
+
+    def get_downdelay_nl(self, bondname):
+        return self._cache_get([bondname, 'linkinfo', Link.IFLA_BOND_DOWNDELAY])
 
     def enslave_slave(self, bondname, slave, prehook=None, posthook=None):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
@@ -395,12 +486,8 @@ class bondutil(utilsBase):
     def create_bond(self, bondname):
         if self.bond_exists(bondname):
             return
-        sysfs_net = '/sys/class/net/'
-        sysfs_bonding_masters = sysfs_net + 'bonding_masters'
-        if not os.path.exists(sysfs_bonding_masters):
-            self.logger.debug('loading bonding driver')
-            self.load_bonding_module()
-        self.write_file(sysfs_bonding_masters, '+' + bondname)
+        # load_bonding_module() has already been run
+        self.write_file('/sys/class/net/bonding_masters', '+' + bondname)
         self._cache_update([bondname], {})
 
     def delete_bond(self, bondname):

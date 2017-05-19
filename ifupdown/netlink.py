@@ -41,7 +41,8 @@ class Netlink(utilsBase):
             self.link_kind_handlers = {
                 'vlan': self._link_dump_info_data_vlan,
                 'vrf': self._link_dump_info_data_vrf,
-                'vxlan': self._link_dump_info_data_vxlan
+                'vxlan': self._link_dump_info_data_vxlan,
+                'bond': self._link_dump_info_data_bond
             }
 
         except Exception as e:
@@ -80,6 +81,56 @@ class Netlink(utilsBase):
             return self._nlmanager_api.get_iface_name(ifindex)
         except Exception as e:
             raise Exception('netlink: cannot get ifname for index %s: %s' % (ifindex, str(e)))
+
+    def link_add_set(self, kind, ifname=None, ifindex=0, ifla_info_data={}, iflink=0, up=False):
+        action = 'set' if ifindex else 'add'
+
+        self.logger.info('%s: netlink: ip link %s %s type %s' % (ifname, action, ifname, kind))
+        self.logger.debug('%s: ifla_info_data %s' % (ifname, ifla_info_data))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            self._nlmanager_api.link_add_set(kind,
+                                         ifname=ifname,
+                                         ifindex=ifindex,
+                                         ifla_info_data=ifla_info_data,
+                                         iflink=iflink)
+        except Exception as e:
+            raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind, ifname, str(e)))
+
+    def link_del(self, ifname):
+        self.logger.info('%s: netlink: ip link del %s' % (ifname, ifname))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            self._nlmanager_api.link_del(ifname=ifname)
+        except Exception as e:
+            raise Exception('netlink: cannot delete link %s: %s' % (ifname, str(e)))
+
+    def link_set_master(self, ifacename, master_dev, state=None):
+        self.logger.info('%s: netlink: ip link set dev %s master %s %s'
+                         % (ifacename, ifacename, master_dev,
+                            state if state else ''))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            master = 0 if not master_dev else self.get_iface_index(master_dev)
+            return self._nlmanager_api.link_set_master(ifacename,
+                                                       master_ifindex=master,
+                                                       state=state)
+        except Exception as e:
+            raise Exception('netlink: %s: cannot set %s master %s: %s'
+                            % (ifacename, ifacename, master_dev, str(e)))
+
+    def link_set_nomaster(self, ifacename, state=None):
+        self.logger.info('%s: netlink: ip link set dev %s nomaster %s'
+                         % (ifacename, ifacename, state if state else ''))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            return self._nlmanager_api.link_set_master(ifacename,
+                                                       master_ifindex=0,
+                                                       state=state)
+        except Exception as e:
+            raise Exception('netlink: %s: cannot set %s nomaster: %s'
+                            % (ifacename, ifacename, str(e)))
+
 
     def link_add_vlan(self, vlanrawdevice, ifacename, vlanid, vlan_protocol):
         self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s protocol %s'
@@ -278,6 +329,30 @@ class Netlink(utilsBase):
 
         self._link_dump_linkdata_attr(linkdata, self.ifla_vxlan_attributes, vattrs)
         return vattrs
+
+    ifla_bond_attributes = (
+        Link.IFLA_BOND_MODE,
+        Link.IFLA_BOND_MIIMON,
+        Link.IFLA_BOND_USE_CARRIER,
+        Link.IFLA_BOND_AD_LACP_RATE,
+        Link.IFLA_BOND_XMIT_HASH_POLICY,
+        Link.IFLA_BOND_MIN_LINKS,
+        Link.IFLA_BOND_NUM_PEER_NOTIF,
+        Link.IFLA_BOND_AD_ACTOR_SYSTEM,
+        Link.IFLA_BOND_AD_ACTOR_SYS_PRIO,
+        Link.IFLA_BOND_AD_LACP_BYPASS,
+        Link.IFLA_BOND_UPDELAY,
+        Link.IFLA_BOND_DOWNDELAY,
+    )
+
+    def _link_dump_info_data_bond(self, ifname, linkdata):
+        linkinfo = {}
+        for nl_attr in self.ifla_bond_attributes:
+            try:
+                linkinfo[nl_attr] = linkdata.get(nl_attr)
+            except Exception as e:
+                self.logger.debug('%s: parsing bond IFLA_INFO_DATA: %s' % (ifname, str(e)))
+        return linkinfo
 
     def _link_dump_linkinfo(self, link, dump):
         linkinfo = link.attributes[Link.IFLA_LINKINFO].get_pretty_value(dict)
