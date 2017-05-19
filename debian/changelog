@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u12) UNRELEASED; urgency=medium
+
+  *
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 19 May 2017 12:45:21 -0700
+
 ifupdown2 (1.1-cl3u11) RELEASED; urgency=medium
 
   * Closes: CM-16341. Fix link-down attribute not applied on slave ports
