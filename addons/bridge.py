@@ -533,7 +533,7 @@ class bridge(moduleBase):
                 errstr += '\n%s' % str(e)
         self.log_error(bridgeifaceobj.name + ': ' + errstr, bridgeifaceobj)
 
-    def _add_ports(self, ifaceobj):
+    def _add_ports(self, ifaceobj, ifaceobj_getfunc):
         bridgeports = self._get_bridge_port_list(ifaceobj)
         runningbridgeports = []
         removedbridgeports = []
@@ -548,6 +548,10 @@ class bridge(moduleBase):
                 for bport in runningbridgeports:
                     if not bridgeports or bport not in bridgeports:
                         self.ipcmd.link_set(bport, 'nomaster')
+                        # set admin DOWN on all removed ports
+                        # that don't have config outside bridge
+                        if not ifaceobj_getfunc(bport):
+                            netlink.link_set_updown(bport, "down")
                         removedbridgeports.append(bport)
             else:
                 runningbridgeports = []
@@ -1517,7 +1521,7 @@ class bridge(moduleBase):
             raise Exception(str(e))
 
         try:
-            self._add_ports(ifaceobj)
+            self._add_ports(ifaceobj, ifaceobj_getfunc)
         except Exception, e:
             err = True
             errstr = str(e)
