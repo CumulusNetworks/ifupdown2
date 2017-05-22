@@ -67,10 +67,21 @@ class utils():
         '0' : 'off'
     }
 
+    _yesno_onezero = {
+        '1' : 'yes',
+        '0' : 'no'
+    }
+
     @staticmethod
     def get_onff_from_onezero(value):
         if value in utils._onoff_onezero:
             return utils._onoff_onezero[value]
+        return value
+
+    @staticmethod
+    def get_yesno_from_onezero(value):
+        if value in utils._yesno_onezero:
+            return utils._yesno_onezero[value]
         return value
 
     @staticmethod
