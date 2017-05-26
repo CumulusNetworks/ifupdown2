@@ -505,7 +505,7 @@ class ifupdownMain(ifupdownBase):
     def _set_iface_role(self, ifaceobj, role, upperifaceobj):
         if (self.flags.CHECK_SHARED_DEPENDENTS and
             (ifaceobj.role & ifaceRole.SLAVE) and
-            (role == ifaceRole.SLAVE) and (upperifaceobj.role == ifaceRole.MASTER)):
+            (role == ifaceRole.SLAVE) and (upperifaceobj.role & ifaceRole.MASTER)):
 		self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
                                   %(ifaceobj.name,
                                     ifaceLinkPrivFlags.get_all_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
