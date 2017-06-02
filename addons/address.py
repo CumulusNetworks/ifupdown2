@@ -718,7 +718,7 @@ class address(moduleBase):
             bridgename = ifaceobj.lowerifaces[0]
             vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                fdb_addrs = self._get_bridge_fdbs(bridgename, vlan)
+                fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
                 if not fdb_addrs or hwaddress not in fdb_addrs:
                    return False
         return True
