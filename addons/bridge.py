@@ -504,7 +504,9 @@ class bridge(moduleBase):
             self.logger.info(str(e))
 
     def handle_ipv6(self, ports, state, ifaceobj=None):
-        if ifaceobj and (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN):
+        if (ifaceobj and
+            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN) and
+            not ifaceobj.get_attr_value('address')):
             self._enable_disable_ipv6(ifaceobj.name, state)
         for p in ports:
             self._enable_disable_ipv6(p, state)
