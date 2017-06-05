@@ -292,11 +292,11 @@ class moduleBase(object):
 
     def sysctl_set(self, variable, value):
         """ set sysctl variable to value passed as argument """
-        utils.exec_command('sysctl %s=%s' % (variable, value))
+        utils.exec_command('/sbin/sysctl %s=%s' % (variable, value))
 
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
-        output = utils.exec_command('sysctl %s' % variable)
+        output = utils.exec_command('/sbin/sysctl %s' % variable)
         split = output.split('=')
         if len(split) > 1:
             return split[1].strip()

@@ -85,14 +85,14 @@ class vrf(moduleBase):
                     self.logger.debug('vrf: removing file failed (%s)'
                                       %str(e))
         try:
-            ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
+            ip_rules = utils.exec_command('/bin/ip rule show').splitlines()
             self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip_rule_cache = []
             self.logger.warn('vrf: cache v4: %s' % str(e))
 
         try:
-            ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
+            ip_rules = utils.exec_command('/bin/ip -6 rule show').splitlines()
             self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip6_rule_cache = []
@@ -455,7 +455,7 @@ class vrf(moduleBase):
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
-        ip_rule_cmd = 'ip %s rule del pref %s %s %s table %s' 
+        ip_rule_cmd = '/bin/ip %s rule del pref %s %s %s table %s'
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
@@ -490,31 +490,31 @@ class vrf(moduleBase):
         return False
 
     def _rule_cache_fill(self):
-        ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
+        ip_rules = utils.exec_command('/bin/ip rule show').splitlines()
         self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         self.l3mdev4_rule = self._l3mdev_rule(self.ip_rule_cache)
-        ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
+        ip_rules = utils.exec_command('/bin/ip -6 rule show').splitlines()
         self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         self.l3mdev6_rule = self._l3mdev_rule(self.ip6_rule_cache)
 
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
-        ip_rule_cmd = 'ip %s rule add pref %s %s %s table %s' 
+        ip_rule_cmd = '/bin/ip %s rule add pref %s %s %s table %s'
         if self.vrf_fix_local_table:
             self.vrf_fix_local_table = False
             rule = '0: from all lookup local'
             if rule in self.ip_rule_cache:
                 try:
-                    utils.exec_command('ip rule del pref 0')
-                    utils.exec_command('ip rule add pref 32765 table local')
+                    utils.exec_command('/bin/ip rule del pref 0')
+                    utils.exec_command('/bin/ip rule add pref 32765 table local')
                 except Exception, e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
             if rule in self.ip6_rule_cache:
                 try:
-                    utils.exec_command('ip -6 rule del pref 0')
-                    utils.exec_command('ip -6 rule add pref 32765 table local')
+                    utils.exec_command('/bin/ip -6 rule del pref 0')
+                    utils.exec_command('/bin/ip -6 rule add pref 32765 table local')
                 except Exception, e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass

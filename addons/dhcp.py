@@ -96,7 +96,7 @@ class dhcp(moduleBase):
                     timeout = 10
                     while timeout:
                         timeout -= 2
-                        addr_output = utils.exec_command('ip -6 addr show %s'
+                        addr_output = utils.exec_command('/bin/ip -6 addr show %s'
                                                          % ifaceobj.name)
                         r = re.search('inet6 .* scope link', addr_output)
                         if r:

@@ -233,7 +233,7 @@ class mstpctlutil(utilsBase):
 
     def mstpbridge_exists(self, bridgename):
         try:
-            utils.exec_command('mstpctl showbridge %s' % bridgename)
+            utils.exec_command('/sbin/mstpctl showbridge %s' % bridgename)
             return True
         except:
             return False
