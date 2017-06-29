@@ -18,7 +18,7 @@ import resource
 from ifupdown.ifupdownmain import *
 from ifupdown.utils import *
 
-IFUPDOWN2_VERSION = '20170314-1~bpo8+1'
+IFUPDOWN2_VERSION = '20170314'
 
 lockfile="/run/network/.lock"
 configfile="/etc/network/ifupdown2/ifupdown2.conf"
@@ -232,7 +232,7 @@ def update_argparser(argparser):
     argparser.add_argument('-q', '--quiet', dest='quiet',
                 action='store_true',
                 help=argparse.SUPPRESS)
-    argparser.add_argument('--allow', dest='CLASS',
+    argparser.add_argument('--allow', dest='CLASS', 
                 help='ignore non-\"allow-CLASS\" interfaces')
     argparser.add_argument('-w', '--with-depends', dest='withdepends',
                 action='store_true', help='run with all dependent interfaces.'+
