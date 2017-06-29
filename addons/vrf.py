@@ -66,6 +66,8 @@ class vrf(moduleBase):
         self.name = self.__class__.__name__
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
 
+        self.user_reserved_vrf_table = []
+
         if (ifupdownflags.flags.PERFMODE and
             not (self.vrf_mgmt_devname and os.path.exists('/sys/class/net/%s'
             %self.vrf_mgmt_devname))):
@@ -282,6 +284,14 @@ class vrf(moduleBase):
             ifaceobj.link_type = ifaceLinkType.LINK_MASTER
             ifaceobj.link_kind |= ifaceLinkKind.VRF
             ifaceobj.role |= ifaceRole.MASTER
+
+            if vrf_table != 'auto':
+                # if the user didn't specify auto we need to store the desired
+                # vrf tables ids, in case the configuration has both auto and
+                # hardcoded vrf-table ids. We need to create them all without
+                # collisions.
+                self.user_reserved_vrf_table.append(int(vrf_table))
+
         vrf_iface_name = ifaceobj.get_attr_value_first('vrf')
         if not vrf_iface_name:
             return None
@@ -304,9 +314,9 @@ class vrf(moduleBase):
             table_id_start = self.vrf_table_id_start
         else:
             table_id_start = self.last_used_vrf_table + 1
-        for t in range(table_id_start,
-                       self.vrf_table_id_end):
-            if not self.iproute2_vrf_map.get(t):
+        for t in range(table_id_start, self.vrf_table_id_end):
+            if (not self.iproute2_vrf_map.get(t)
+                    and t not in self.user_reserved_vrf_table):
                 self.last_used_vrf_table = t
                 return str(t)
         return None
