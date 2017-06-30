@@ -1,3 +1,9 @@
+ifupdown2 (1.0~git20170314-1-ubuntu) xenial; urgency=high
+
+  * Rebuild for ubuntu Xenial and higher
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 30 Jun 2017 11:50:57 +0200
+
 ifupdown2 (1.0~git20170314-1) unstable; urgency=medium
 
   * debian: install files: fix LC_ALL=C.UTF-8 following comments on #857258
