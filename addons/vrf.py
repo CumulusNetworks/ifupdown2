@@ -151,7 +151,21 @@ class vrf(moduleBase):
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if ifaceobj.link_kind & ifaceLinkKind.VRF:
-            return self._check_vrf_table_id(ifaceobj)
+            try:
+                check_vrf_table_id  = self._check_vrf_table_id(ifaceobj)
+                check_vrf_sys_names = self._check_vrf_system_reserved_names(ifaceobj)
+                return check_vrf_table_id and check_vrf_sys_names
+            except Exception as e:
+                self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+                return False
+        return True
+
+    def _check_vrf_system_reserved_names(self, ifaceobj):
+        system_reserved_names = self.system_reserved_rt_tables.values()
+        if ifaceobj.name in system_reserved_names:
+            self.log_error('cannot use system reserved %s vrf names'
+                           % (str(system_reserved_names)), ifaceobj)
+            return False
         return True
 
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
@@ -635,10 +649,8 @@ class vrf(moduleBase):
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
         if not self.ipcmd.link_exists(ifaceobj.name):
-            if ifaceobj.name in self.system_reserved_rt_tables.values():
-                self.log_error('cannot use system reserved %s vrf names'
-                                %(str(self.system_reserved_rt_tables.values())),
-                                ifaceobj)
+            self._check_vrf_system_reserved_names(ifaceobj)
+
             if self.vrf_count == self.vrf_max_count:
                 self.log_error('max vrf count %d hit...not '
                                'creating vrf' % self.vrf_count, ifaceobj)
