@@ -1252,6 +1252,8 @@ class ifupdownMain(ifupdownBase):
         Default modules_dir is /usr/share/ifupdownmodules
 
         """
+        failed_import = list()
+
         self.logger.info('loading builtin modules from %s' %modules_dir)
         self._load_addon_modules_config()
         if not modules_dir in sys.path:
@@ -1262,12 +1264,14 @@ class ifupdownMain(ifupdownBase):
                     if self.modules.get(mname):
                         continue
                     mpath = modules_dir + '/' + mname + '.py'
-                    if os.path.exists(mpath):
+                    if os.path.exists(mpath) and mpath not in failed_import:
                         try:
                             m = __import__(mname)
                             mclass = getattr(m, mname)
-                        except:
-                            raise
+                        except Exception as e:
+                            self.logger.warning('cannot load "%s" module: %s' % (mname, str(e)))
+                            failed_import.append(mpath)
+                            continue
                         try:
                             minstance = mclass()
                             script_override = minstance.get_overrides_ifupdown_scripts()
