@@ -968,7 +968,7 @@ class ifupdownMain(ifupdownBase):
         """
         values = value.split()
         try:
-            if len(values) == 1:
+            if len(values) == 1 and '=' not in values[0]:
                 try:
                     n = int(values[0])
                     if n < int(validrange[0]) or n > int(
