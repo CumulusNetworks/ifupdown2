@@ -1783,17 +1783,17 @@ class bridge(moduleBase):
         if not self.ipcmd.link_exists(ifname):
             return
         try:
-            netlink.link_del(ifname)
-        except Exception as e:
-            ifaceobj.set_status(ifaceStatus.ERROR)
-            self.logger.error(str(e))
-            # netlink exception already contains the ifname
-        try:
             running_ports = self.brctlcmd.get_bridge_ports(ifname)
             if running_ports:
                 self.handle_ipv6(running_ports, '0', down=True)
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+        try:
+            netlink.link_del(ifname)
+        except Exception as e:
+            ifaceobj.set_status(ifaceStatus.ERROR)
+            self.logger.error(str(e))
+            # netlink exception already contains the ifname
 
     def _query_running_vidinfo_compat(self, ifaceobjrunning, ports):
         running_attrs = {}
