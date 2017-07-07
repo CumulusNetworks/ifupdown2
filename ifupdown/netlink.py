@@ -42,7 +42,8 @@ class Netlink(utilsBase):
                 'vlan': self._link_dump_info_data_vlan,
                 'vrf': self._link_dump_info_data_vrf,
                 'vxlan': self._link_dump_info_data_vxlan,
-                'bond': self._link_dump_info_data_bond
+                'bond': self._link_dump_info_data_bond,
+                'bridge': self._link_dump_info_data_bridge
             }
 
         except Exception as e:
@@ -82,20 +83,62 @@ class Netlink(utilsBase):
         except Exception as e:
             raise Exception('netlink: cannot get ifname for index %s: %s' % (ifindex, str(e)))
 
-    def link_add_set(self, kind, ifname=None, ifindex=0, ifla_info_data={}, iflink=0, up=False):
-        action = 'set' if ifindex else 'add'
-
-        self.logger.info('%s: netlink: ip link %s %s type %s' % (ifname, action, ifname, kind))
-        self.logger.debug('%s: ifla_info_data %s' % (ifname, ifla_info_data))
+    def get_bridge_vlan(self, ifname):
+        self.logger.info('%s: netlink: /sbin/bridge -d -c -json vlan show' % ifname)
         if ifupdownflags.flags.DRYRUN: return
         try:
-            self._nlmanager_api.link_add_set(kind,
-                                         ifname=ifname,
-                                         ifindex=ifindex,
-                                         ifla_info_data=ifla_info_data,
-                                         iflink=iflink)
+            return self._nlmanager_api.vlan_get()
         except Exception as e:
-            raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind, ifname, str(e)))
+            raise Exception('netlink: get bridge vlan: %s' % str(e))
+
+    def bridge_set_vlan_filtering(self, ifname, vlan_filtering):
+        self.logger.info('%s: netlink: ip link set dev %s type bridge vlan_filtering %s'
+                         % (ifname, ifname, vlan_filtering))
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            ifla_info_data = {Link.IFLA_BR_VLAN_FILTERING: int(vlan_filtering)}
+            return self._nlmanager_api.link_set_attrs(ifname, 'bridge', ifla_info_data=ifla_info_data)
+        except Exception as e:
+            raise Exception('%s: cannot set %s vlan_filtering %s' % (ifname, ifname, vlan_filtering))
+
+    def link_add_set(self,
+                     ifname=None, ifindex=0,
+                     kind=None, slave_kind=None,
+                     ifla={},
+                     ifla_info_data={},
+                     ifla_info_slave_data={},
+                     link_exists=False):
+        action = 'set' if ifindex or link_exists else 'add'
+
+        if slave_kind:
+            self.logger.info('%s: netlink: ip link set dev %s: %s slave attributes' % (ifname, ifname, slave_kind))
+        else:
+            self.logger.info('%s: netlink: ip link %s %s type %s with attributes' % (ifname, action, ifname, kind))
+        if ifla:
+            self.logger.debug('%s: ifla attributes a %s' % (ifname, ifla))
+        if ifla_info_data:
+            self.logger.debug('%s: ifla_info_data %s' % (ifname, ifla_info_data))
+        if ifla_info_slave_data:
+            self.logger.debug('%s: ifla_info_slave_data %s' % (ifname, ifla_info_slave_data))
+
+        if ifupdownflags.flags.DRYRUN: return
+        try:
+            self._nlmanager_api.link_add_set(ifname=ifname,
+                                             ifindex=ifindex,
+                                             kind=kind,
+                                             slave_kind=slave_kind,
+                                             ifla=ifla,
+                                             ifla_info_data=ifla_info_data,
+                                             ifla_info_slave_data=ifla_info_slave_data)
+        except Exception as e:
+            if kind and not slave_kind:
+                kind_str = kind
+            elif kind and slave_kind:
+                kind_str = '%s (%s slave)' % (kind, slave_kind)
+            else:
+                kind_str = '(%s slave)' % slave_kind
+
+            raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind_str, ifname, str(e)))
 
     def link_del(self, ifname):
         self.logger.info('%s: netlink: ip link del %s' % (ifname, ifname))
@@ -131,10 +174,14 @@ class Netlink(utilsBase):
             raise Exception('netlink: %s: cannot set %s nomaster: %s'
                             % (ifacename, ifacename, str(e)))
 
-
     def link_add_vlan(self, vlanrawdevice, ifacename, vlanid, vlan_protocol):
-        self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s protocol %s'
-                         % (ifacename, vlanrawdevice, ifacename, vlanid, vlan_protocol))
+        if vlan_protocol:
+            self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s protocol %s'
+                             % (ifacename, vlanrawdevice, ifacename, vlanid, vlan_protocol))
+
+        else:
+            self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s'
+                             % (ifacename, vlanrawdevice, ifacename, vlanid))
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(vlanrawdevice)
         try:
@@ -255,6 +302,11 @@ class Netlink(utilsBase):
             'func': lambda x: netlink.get_iface_name(x) if x > 0 else None
         },
         {
+            'attr': Link.IFLA_MASTER,
+            'name': 'master',
+            'func': lambda x: netlink.get_iface_name(x) if x > 0 else None
+        },
+        {
             'attr': Link.IFLA_IFNAME,
             'name': 'ifname',
             'func': str,
@@ -351,20 +403,102 @@ class Netlink(utilsBase):
             try:
                 linkinfo[nl_attr] = linkdata.get(nl_attr)
             except Exception as e:
-                self.logger.debug('%s: parsing bond IFLA_INFO_DATA: %s' % (ifname, str(e)))
+                self.logger.debug('%s: parsing bond IFLA_INFO_DATA (%s): %s'
+                                  % (ifname, nl_attr, str(e)))
         return linkinfo
+
+    # this dict contains the netlink attribute, cache key,
+    # and a callable to translate the netlink value into
+    # whatever value we need to store in the old cache to
+    # make sure we don't break anything
+    ifla_bridge_attributes = (
+        (Link.IFLA_BR_UNSPEC, Link.IFLA_BR_UNSPEC, None),
+        (Link.IFLA_BR_FORWARD_DELAY, "fd", lambda x: str(x / 100)),
+        (Link.IFLA_BR_HELLO_TIME, "hello", lambda x: str(x / 100)),
+        (Link.IFLA_BR_MAX_AGE, "maxage", lambda x: str(x / 100)),
+        (Link.IFLA_BR_AGEING_TIME, "ageing", lambda x: str(x / 100)),
+        (Link.IFLA_BR_STP_STATE, "stp", lambda x: 'yes' if x else 'no'),
+        (Link.IFLA_BR_PRIORITY, "bridgeprio", str),
+        (Link.IFLA_BR_VLAN_FILTERING, 'vlan_filtering', str),
+        (Link.IFLA_BR_VLAN_PROTOCOL, "vlan-protocol", str),
+        (Link.IFLA_BR_GROUP_FWD_MASK, Link.IFLA_BR_GROUP_FWD_MASK, None),
+        (Link.IFLA_BR_ROOT_ID, Link.IFLA_BR_ROOT_ID, None),
+        (Link.IFLA_BR_BRIDGE_ID, Link.IFLA_BR_BRIDGE_ID, None),
+        (Link.IFLA_BR_ROOT_PORT, Link.IFLA_BR_ROOT_PORT, None),
+        (Link.IFLA_BR_ROOT_PATH_COST, Link.IFLA_BR_ROOT_PATH_COST, None),
+        (Link.IFLA_BR_TOPOLOGY_CHANGE, Link.IFLA_BR_TOPOLOGY_CHANGE, None),
+        (Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED, Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED, None),
+        (Link.IFLA_BR_HELLO_TIMER, Link.IFLA_BR_HELLO_TIMER, None),
+        (Link.IFLA_BR_TCN_TIMER, Link.IFLA_BR_TCN_TIMER, None),
+        (Link.IFLA_BR_TOPOLOGY_CHANGE_TIMER, Link.IFLA_BR_TOPOLOGY_CHANGE_TIMER, None),
+        (Link.IFLA_BR_GC_TIMER, Link.IFLA_BR_GC_TIMER, None),
+        (Link.IFLA_BR_GROUP_ADDR, Link.IFLA_BR_GROUP_ADDR, None),
+        (Link.IFLA_BR_FDB_FLUSH, Link.IFLA_BR_FDB_FLUSH, None),
+        (Link.IFLA_BR_MCAST_ROUTER, "mcrouter", str),
+        (Link.IFLA_BR_MCAST_SNOOPING, "mcsnoop", str),
+        (Link.IFLA_BR_MCAST_QUERY_USE_IFADDR, "mcqifaddr", str),
+        (Link.IFLA_BR_MCAST_QUERIER, "mcquerier", str),
+        (Link.IFLA_BR_MCAST_HASH_ELASTICITY, "hashel", str),
+        (Link.IFLA_BR_MCAST_HASH_MAX, "hashmax", str),
+        (Link.IFLA_BR_MCAST_LAST_MEMBER_CNT, "mclmc", str),
+        (Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT, "mcsqc", str),
+        (Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL, "mclmi", lambda x: str(x / 100)),
+        (Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL, "mcmi", lambda x: str(x / 100)),
+        (Link.IFLA_BR_MCAST_QUERIER_INTVL, "mcqpi", lambda x: str(x / 100)),
+        (Link.IFLA_BR_MCAST_QUERY_INTVL, "mcqi", lambda x: str(x / 100)),
+        (Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL, "mcqri", lambda x: str(x / 100)),
+        (Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL, "mcsqi", lambda x: str(x / 100)),
+        (Link.IFLA_BR_NF_CALL_IPTABLES, Link.IFLA_BR_NF_CALL_IPTABLES, None),
+        (Link.IFLA_BR_NF_CALL_IP6TABLES, Link.IFLA_BR_NF_CALL_IP6TABLES, None),
+        (Link.IFLA_BR_NF_CALL_ARPTABLES, Link.IFLA_BR_NF_CALL_ARPTABLES, None),
+        (Link.IFLA_BR_VLAN_DEFAULT_PVID, Link.IFLA_BR_VLAN_DEFAULT_PVID, None),
+        (Link.IFLA_BR_PAD, Link.IFLA_BR_PAD, None),
+        (Link.IFLA_BR_VLAN_STATS_ENABLED, "vlan-stats", str),
+        (Link.IFLA_BR_MCAST_STATS_ENABLED, "mcstats", str),
+        (Link.IFLA_BR_MCAST_IGMP_VERSION, "igmp-version", str),
+        (Link.IFLA_BR_MCAST_MLD_VERSION, "mld-version", str)
+    )
+
+    def _link_dump_info_data_bridge(self, ifname, linkdata):
+        linkinfo = {}
+        for nl_attr, cache_key, func in self.ifla_bridge_attributes:
+            try:
+                if func:
+                    linkinfo[cache_key] = func(linkdata.get(nl_attr))
+                else:
+                    linkinfo[cache_key] = linkdata.get(nl_attr)
+
+                # we also store the value in pure netlink,
+                # to make the transition easier in the future
+                linkinfo[nl_attr] = linkdata.get(nl_attr)
+            except Exception as e:
+                self.logger.error('%s: parsing birdge IFLA_INFO_DATA %s: %s'
+                                  % (ifname, nl_attr, str(e)))
+        return linkinfo
+
+    def _link_dump_info_slave_data_bridge(self, ifname, info_slave_data):
+        return info_slave_data
 
     def _link_dump_linkinfo(self, link, dump):
         linkinfo = link.attributes[Link.IFLA_LINKINFO].get_pretty_value(dict)
 
         if linkinfo:
-            dump['kind']    = linkinfo.get(Link.IFLA_INFO_KIND)
-            linkdata        = linkinfo.get(Link.IFLA_INFO_DATA)
+            info_kind = linkinfo.get(Link.IFLA_INFO_KIND)
+            info_data = linkinfo.get(Link.IFLA_INFO_DATA)
 
-            if linkdata:
-                link_kind_handler = self.link_kind_handlers.get(dump['kind'])
-                if link_kind_handler:
-                    dump['linkinfo'] = link_kind_handler(dump['ifname'], linkdata)
+            info_slave_kind = linkinfo.get(Link.IFLA_INFO_SLAVE_KIND)
+            info_slave_data = linkinfo.get(Link.IFLA_INFO_SLAVE_DATA)
+
+            dump['kind']        = info_kind
+            dump['slave_kind']  = info_slave_kind
+
+            if info_data:
+                link_kind_handler = self.link_kind_handlers.get(info_kind)
+                if callable(link_kind_handler):
+                    dump['linkinfo'] = link_kind_handler(dump['ifname'], info_data)
+
+            if info_slave_data:
+                dump['info_slave_data'] = info_slave_data
 
     def link_dump(self, ifname=None):
         if ifname:

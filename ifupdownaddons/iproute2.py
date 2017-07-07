@@ -20,6 +20,8 @@ try:
     from ifupdownaddons.utilsbase import *
 
     import ifupdown.ifupdownflags as ifupdownflags
+
+    from nlmanager.nlmanager import Link
 except ImportError, e:
     raise ImportError('%s - required module not found' % str(e))
 
@@ -305,11 +307,12 @@ class iproute2(utilsBase):
             pass
         return None
 
+    def cache_check(self, type, attrlist, value, refresh=False):
+        self._cache_check(type, attrlist, value, refresh=refresh)
+
     def _cache_check(self, type, attrlist, value, refresh=False):
         try:
-            attrvalue = self._cache_get(type, attrlist, refresh)
-            if attrvalue and attrvalue == value:
-                return True
+            return self._cache_get(type, attrlist, refresh) == value
         except Exception, e:
             self.logger.debug('_cache_check(%s) : [%s]'
                     %(str(attrlist), str(e)))
@@ -1077,6 +1080,9 @@ class iproute2(utilsBase):
             return 'on'
         else:
             return 'off'
+
+    def get_brport_learning_bool(self, ifacename):
+        return utils.get_boolean_from_string(self.read_file_oneline('/sys/class/net/%s/brport/learning' % ifacename))
 
     def set_brport_learning(self, ifacename, learn):
         if learn == 'off':

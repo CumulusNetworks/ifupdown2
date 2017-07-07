@@ -12,12 +12,17 @@ try:
     from sets import Set
     from collections import Counter
 
+    from nlmanager.nlmanager import Link
+
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
+
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
+
+    from ifupdownaddons.cache import *
 
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.bridgeutils import brctl
@@ -305,6 +310,194 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcstats off']},
                      }}
 
+    # Netlink attributes not associated with ifupdown2
+    # attributes are left commented-out for a future use
+    # and kept in order :)
+    _ifla_br_attributes_map = (
+        # Link.IFLA_BR_UNSPEC,
+        ('bridge-fd', Link.IFLA_BR_FORWARD_DELAY),
+        ('bridge-hello', Link.IFLA_BR_HELLO_TIME),
+        ('bridge-maxage', Link.IFLA_BR_MAX_AGE),
+        ('bridge-ageing', Link.IFLA_BR_AGEING_TIME),
+        ('bridge-stp', Link.IFLA_BR_STP_STATE),
+        ('bridge-bridgeprio', Link.IFLA_BR_PRIORITY),
+        ('bridge-vlan-aware', Link.IFLA_BR_VLAN_FILTERING),
+        ('bridge-vlan-protocol', Link.IFLA_BR_VLAN_PROTOCOL),
+        # Link.IFLA_BR_GROUP_FWD_MASK,
+        # Link.IFLA_BR_ROOT_ID,
+        # Link.IFLA_BR_BRIDGE_ID,
+        # Link.IFLA_BR_ROOT_PORT,
+        # (Link.IFLA_BR_ROOT_PATH_COST,,
+        # Link.IFLA_BR_TOPOLOGY_CHANGE,
+        # Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED,
+        # Link.IFLA_BR_HELLO_TIMER,
+        # Link.IFLA_BR_TCN_TIMER,
+        # Link.IFLA_BR_TOPOLOGY_CHANGE_TIMER,
+        # Link.IFLA_BR_GC_TIMER,
+        # Link.IFLA_BR_GROUP_ADDR,
+        # Link.IFLA_BR_FDB_FLUSH,
+        ('bridge-mcrouter', Link.IFLA_BR_MCAST_ROUTER),
+        ('bridge-mcsnoop', Link.IFLA_BR_MCAST_SNOOPING),
+        ('bridge-mcqifaddr', Link.IFLA_BR_MCAST_QUERY_USE_IFADDR),
+        ('bridge-mcquerier', Link.IFLA_BR_MCAST_QUERIER),
+        ('bridge-hashel', Link.IFLA_BR_MCAST_HASH_ELASTICITY),
+        ('bridge-hashmax', Link.IFLA_BR_MCAST_HASH_MAX),
+        ('bridge-mclmc', Link.IFLA_BR_MCAST_LAST_MEMBER_CNT),
+        ('bridge-mcsqc', Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT),
+        ('bridge-mclmi', Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL),
+        ('bridge-mcmi', Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL),
+        ('bridge-mcqpi', Link.IFLA_BR_MCAST_QUERIER_INTVL),
+        ('bridge-mcqi', Link.IFLA_BR_MCAST_QUERY_INTVL),
+        ('bridge-mcqri', Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL),
+        ('bridge-mcsqi', Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL),
+        # Link.IFLA_BR_NF_CALL_IPTABLES,
+        # Link.IFLA_BR_NF_CALL_IP6TABLES,
+        # Link.IFLA_BR_NF_CALL_ARPTABLES,
+        # Link.IFLA_BR_VLAN_DEFAULT_PVID,
+        # Link.IFLA_BR_PAD,
+        # (Link.IFLA_BR_VLAN_STATS_ENABLED, 'bridge-vlan-stats'), #  already dealt with, in a separate loop
+        ('bridge-igmp-version', Link.IFLA_BR_MCAST_IGMP_VERSION, ),
+        ('bridge-mcstats', Link.IFLA_BR_MCAST_STATS_ENABLED),
+        ('bridge-mld-version', Link.IFLA_BR_MCAST_MLD_VERSION)
+    )
+    # 'bridge-vlan-stats & bridge-mcstat are commented out even though, today
+    # they are supported. It is done this way because this dictionary is used
+    # in a loop, but these attributes require additional work. Thus they are
+    # excluded from this loop without overhead.
+
+    # we are still using the old linkCache we need an easy way
+    # to use this cache with the new full-netlink approach
+    _ifla_br_attributes_old_cache_key_map = dict(
+        (
+            (Link.IFLA_BR_FORWARD_DELAY, 'fd'),
+            (Link.IFLA_BR_HELLO_TIME, 'hello'),
+            (Link.IFLA_BR_MAX_AGE, 'maxage'),
+            (Link.IFLA_BR_AGEING_TIME, 'ageing'),
+            (Link.IFLA_BR_STP_STATE, 'stp'),
+            (Link.IFLA_BR_PRIORITY, 'bridgeprio'),
+            (Link.IFLA_BR_VLAN_FILTERING, 'vlan_filtering'),
+            (Link.IFLA_BR_VLAN_PROTOCOL, 'vlan-protocol'),
+            (Link.IFLA_BR_MCAST_ROUTER, 'mcrouter'),
+            (Link.IFLA_BR_MCAST_SNOOPING, 'mcsnoop'),
+            (Link.IFLA_BR_MCAST_QUERY_USE_IFADDR, 'mcqifaddr'),
+            (Link.IFLA_BR_MCAST_QUERIER, 'mcquerier'),
+            (Link.IFLA_BR_MCAST_HASH_ELASTICITY, 'hashel'),
+            (Link.IFLA_BR_MCAST_HASH_MAX, 'hashmax'),
+            (Link.IFLA_BR_MCAST_LAST_MEMBER_CNT, 'mclmc'),
+            (Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT, 'mcsqc'),
+            (Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL, 'mclmi'),
+            (Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL, 'mcmi'),
+            (Link.IFLA_BR_MCAST_QUERIER_INTVL, 'mcqpi'),
+            (Link.IFLA_BR_MCAST_QUERY_INTVL, 'mcqi'),
+            (Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL, 'mcqri'),
+            (Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL, 'mcsqi'),
+            (Link.IFLA_BR_VLAN_STATS_ENABLED, 'vlan-stats'),
+            (Link.IFLA_BR_MCAST_STATS_ENABLED, 'mcstats'),
+            (Link.IFLA_BR_MCAST_IGMP_VERSION, 'igmp-version'),
+            (Link.IFLA_BR_MCAST_MLD_VERSION, 'mld-version')
+        )
+    )
+
+    _ifla_br_attributes_translate_user_config_to_netlink_map = dict(
+        (
+            # Link.IFLA_BR_UNSPEC,
+            (Link.IFLA_BR_FORWARD_DELAY, lambda x: int(x) * 100),
+            (Link.IFLA_BR_HELLO_TIME, lambda x: int(x) * 100),
+            (Link.IFLA_BR_MAX_AGE, lambda x: int(x) * 100),
+            (Link.IFLA_BR_AGEING_TIME, lambda x: int(x) * 100),
+            # Link.IFLA_BR_STP_STATE, #  STP is treated outside the loop
+            (Link.IFLA_BR_PRIORITY, int),
+            (Link.IFLA_BR_VLAN_FILTERING, utils.get_boolean_from_string),
+            (Link.IFLA_BR_VLAN_PROTOCOL, str),
+            # Link.IFLA_BR_GROUP_FWD_MASK,
+            # Link.IFLA_BR_ROOT_ID,
+            # Link.IFLA_BR_BRIDGE_ID,
+            # Link.IFLA_BR_ROOT_PORT,
+            # Link.IFLA_BR_ROOT_PATH_COST,
+            # Link.IFLA_BR_TOPOLOGY_CHANGE,
+            # Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED,
+            # Link.IFLA_BR_HELLO_TIMER,
+            # Link.IFLA_BR_TCN_TIMER,
+            # Link.IFLA_BR_TOPOLOGY_CHANGE_TIMER,
+            # Link.IFLA_BR_GC_TIMER,
+            # Link.IFLA_BR_GROUP_ADDR,
+            # Link.IFLA_BR_FDB_FLUSH,
+            (Link.IFLA_BR_MCAST_ROUTER, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_SNOOPING, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_QUERY_USE_IFADDR, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_QUERIER, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_HASH_ELASTICITY, int),
+            (Link.IFLA_BR_MCAST_HASH_MAX, int),
+            (Link.IFLA_BR_MCAST_LAST_MEMBER_CNT, int),
+            (Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT, int),
+            (Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL, lambda x: int(x) * 100),
+            (Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL, lambda x: int(x) * 100),
+            (Link.IFLA_BR_MCAST_QUERIER_INTVL, lambda x: int(x) * 100),
+            (Link.IFLA_BR_MCAST_QUERY_INTVL, lambda x: int(x) * 100),
+            (Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL, lambda x: int(x) * 100),
+            (Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL, lambda x: int(x) * 100),
+            # Link.IFLA_BR_NF_CALL_IPTABLES,
+            # Link.IFLA_BR_NF_CALL_IP6TABLES,
+            # Link.IFLA_BR_NF_CALL_ARPTABLES,
+            # Link.IFLA_BR_VLAN_DEFAULT_PVID,
+            # Link.IFLA_BR_PAD,
+            (Link.IFLA_BR_VLAN_STATS_ENABLED, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_IGMP_VERSION, int),
+            (Link.IFLA_BR_MCAST_STATS_ENABLED, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_MLD_VERSION, int)
+        )
+    )
+
+    _ifla_brport_attributes_map = (
+        # Link.IFLA_BRPORT_UNSPEC,
+        # Link.IFLA_BRPORT_STATE,
+        ('bridge-portprios', Link.IFLA_BRPORT_PRIORITY),
+        ('bridge-pathcosts', Link.IFLA_BRPORT_COST),
+        # Link.IFLA_BRPORT_MODE,
+        # Link.IFLA_BRPORT_GUARD,
+        # Link.IFLA_BRPORT_PROTECT,
+        ('bridge-portmcfl', Link.IFLA_BRPORT_FAST_LEAVE),
+        ('bridge-learning', Link.IFLA_BRPORT_LEARNING),
+        ('bridge-unicast-flood', Link.IFLA_BRPORT_UNICAST_FLOOD),
+        # Link.IFLA_BRPORT_PROXYARP,
+        # Link.IFLA_BRPORT_LEARNING_SYNC,
+        # Link.IFLA_BRPORT_PROXYARP_WIFI,
+        # Link.IFLA_BRPORT_ROOT_ID,
+        # Link.IFLA_BRPORT_BRIDGE_ID,
+        # Link.IFLA_BRPORT_DESIGNATED_PORT,
+        # Link.IFLA_BRPORT_DESIGNATED_COST,
+        # Link.IFLA_BRPORT_ID,
+        # Link.IFLA_BRPORT_NO,
+        # Link.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
+        # Link.IFLA_BRPORT_CONFIG_PENDING,
+        # Link.IFLA_BRPORT_MESSAGE_AGE_TIMER,
+        # Link.IFLA_BRPORT_FORWARD_DELAY_TIMER,
+        # Link.IFLA_BRPORT_HOLD_TIMER,
+        # Link.IFLA_BRPORT_FLUSH,
+        ('bridge-portmcrouter', Link.IFLA_BRPORT_MULTICAST_ROUTER),
+        # Link.IFLA_BRPORT_PAD,
+        ('bridge-multicast-flood', Link.IFLA_BRPORT_MCAST_FLOOD),
+        # Link.IFLA_BRPORT_MCAST_TO_UCAST,
+        # Link.IFLA_BRPORT_VLAN_TUNNEL,
+        # Link.IFLA_BRPORT_PEER_LINK,
+        # Link.IFLA_BRPORT_DUAL_LINK,
+        ('bridge-arp-nd-suppress', Link.IFLA_BRPORT_ARP_SUPPRESS),
+    )
+
+    # callable to translate <interface-yes-no-0-1-list> to netlink value
+    _ifla_brport_attributes_translate_user_config_to_netlink_map = dict(
+        (
+            (Link.IFLA_BRPORT_PRIORITY, int),
+            (Link.IFLA_BRPORT_COST, int),
+            (Link.IFLA_BRPORT_MULTICAST_ROUTER, utils.get_boolean_from_string),
+            (Link.IFLA_BRPORT_FAST_LEAVE, utils.get_boolean_from_string),
+            (Link.IFLA_BRPORT_LEARNING, utils.get_boolean_from_string),
+            (Link.IFLA_BRPORT_UNICAST_FLOOD, utils.get_boolean_from_string),
+            (Link.IFLA_BRPORT_MCAST_FLOOD, utils.get_boolean_from_string),
+            (Link.IFLA_BRPORT_ARP_SUPPRESS, utils.get_boolean_from_string)
+        )
+    )
+
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
@@ -313,38 +506,78 @@ class bridge(moduleBase):
         self._running_vidinfo = {}
         self._running_vidinfo_valid = False
         self._resv_vlan_range =  self._get_reserved_vlan_range()
-        self.logger.debug('%s: using reserved vlan range %s'
-                  %(self.__class__.__name__, str(self._resv_vlan_range)))
-        default_stp_attr = policymanager.policymanager_api.get_attr_default(
-                module_name=self.__class__.__name__, attr='bridge-stp')
-        if (default_stp_attr and (default_stp_attr == 'on' or default_stp_attr == 'yes')):
-            self.default_stp_on = True
-        else:
-            self.default_stp_on = False
+        self.logger.debug('%s: using reserved vlan range %s' % (self.__class__.__name__, str(self._resv_vlan_range)))
+
+        self.default_stp_on = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr='bridge-stp'
+            )
+        )
+
         self.default_vlan_stats = policymanager.policymanager_api.get_attr_default(
-                module_name=self.__class__.__name__, attr='bridge-vlan-stats')
-        self.default_mcstats = policymanager.policymanager_api.get_attr_default(
-                module_name=self.__class__.__name__, attr='bridge-mcstats')
+            module_name=self.__class__.__name__,
+            attr='bridge-vlan-stats'
+        )
 
-        should_warn = policymanager.policymanager_api.\
-            get_module_globals(module_name=self.__class__.__name__,
-                               attr='warn_on_untagged_bridge_absence')
-        self.warn_on_untagged_bridge_absence = should_warn == 'yes'
+        self.warn_on_untagged_bridge_absence = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='warn_on_untagged_bridge_absence'
+            )
+        )
+        self.logger.info('bridge ini: warn_on_untagged_bridge_absence=%s'
+                         % self.warn_on_untagged_bridge_absence)
 
-        self._vxlan_bridge_default_igmp_snooping = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'vxlan_bridge_default_igmp_snooping'))
-        arp_nd_suppress_only_on_vxlan = policymanager.policymanager_api.\
-            get_module_globals(module_name=self.__class__.__name__,
-                               attr='allow_arp_nd_suppress_only_on_vxlan')
-        self.arp_nd_suppress_only_on_vxlan = arp_nd_suppress_only_on_vxlan == 'yes'
+        self._vxlan_bridge_default_igmp_snooping = policymanager.policymanager_api.get_module_globals(
+            self.__class__.__name__,
+            'vxlan_bridge_default_igmp_snooping'
+        )
+        self.logger.info('bridge: init: vxlan_bridge_default_igmp_snooping=%s'
+                          % self._vxlan_bridge_default_igmp_snooping)
+
+        self.arp_nd_suppress_only_on_vxlan = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='allow_arp_nd_suppress_only_on_vxlan'
+            )
+        )
+        self.logger.info('bridge: init: arp_nd_suppress_only_on_vxlan=%s' % self.arp_nd_suppress_only_on_vxlan)
+
+        try:
+            self.bridge_allow_multiple_vlans = utils.get_boolean_from_string(
+                self.sysctl_get('net.bridge.bridge-allow-multiple-vlans')
+            )
+        except:
+            # Cumulus Linux specific variable. Failure probably means that
+            # ifupdown2 is running a a different system.
+            self.bridge_allow_multiple_vlans = True
+        self.logger.info('bridge: init: multiple vlans allowed %s' % self.bridge_allow_multiple_vlans)
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
             if not self.check_bridge_port_vid_attrs(ifaceobj):
                 retval = False
-        c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj,
-                                                      ifaceobj_getfunc=ifaceobj_getfunc)
-        return retval and c1
+        c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_getfunc)
+        c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
+        return retval and c1 and c2
+
+    def syntax_check_bridge_allow_multiple_vlans(self, ifaceobj, ifaceobj_getfunc):
+        result = True
+        if not self.bridge_allow_multiple_vlans and ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
+            bridge_has_vlan = False
+            for brport_name in ifaceobj.lowerifaces:
+                for obj in ifaceobj_getfunc(brport_name) or []:
+                    if obj.link_kind & ifaceLinkKind.VLAN:
+                        if bridge_has_vlan:
+                            self.logger.error('%s: ignore %s: multiple vlans not allowed under bridge '
+                                              '(sysctl net.bridge.bridge-allow-multiple-vlans not set)'
+                                              % (ifaceobj.name, brport_name))
+                            result = False
+                            continue
+                        bridge_has_vlan = True
+        return result
 
     def check_bridge_port_vid_attrs(self, ifaceobj):
         if (ifaceobj.get_attr_value('bridge-access') and
@@ -410,11 +643,11 @@ class bridge(moduleBase):
                         return False
         return True
 
-    def _is_bridge(self, ifaceobj):
-        if (ifaceobj.get_attr_value_first('bridge-ports') or
-            ifaceobj.get_attr_value_first('bridge-vlan-aware')):
-            return True
-        return False
+    @staticmethod
+    def _is_bridge(ifaceobj):
+        return (ifaceobj.link_kind & ifaceLinkKind.BRIDGE or
+                ifaceobj.get_attr_value_first('bridge-ports') or
+                ifaceobj.get_attr_value_first('bridge-vlan-aware'))
 
     def _get_ifaceobj_bridge_ports(self, ifaceobj, warn=True):
         ports = ifaceobj.get_attr_value('bridge-ports')
@@ -435,7 +668,7 @@ class bridge(moduleBase):
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
         # for special vlan aware bridges, we need to add another bit
-        if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
+        if utils.get_boolean_from_string(ifaceobj.get_attr_value_first('bridge-vlan-aware')):
             ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
         ifaceobj.role |= ifaceRole.MASTER
@@ -474,7 +707,7 @@ class bridge(moduleBase):
                 waitporttime = int(waitportvals[0])
             except:
                 self.log_warn('%s: invalid waitport value \'%s\''
-                        %(ifaceobj.name, waitporttime))
+                        %(ifaceobj.name, waitportvals[0]))
                 return
             if waitporttime <= 0: return
             try:
@@ -503,13 +736,15 @@ class bridge(moduleBase):
         except Exception, e:
             self.logger.info(str(e))
 
-    def handle_ipv6(self, ports, state, ifaceobj=None):
+    def handle_ipv6(self, ports, state, ifaceobj=None, down=False):
         if (ifaceobj and
-            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN) and
-            not ifaceobj.get_attr_value('address')):
+                (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN) and
+                not ifaceobj.get_attr_value('address')):
             self._enable_disable_ipv6(ifaceobj.name, state)
         for p in ports:
             self._enable_disable_ipv6(p, state)
+            if down:
+                netlink.link_set_updown(p, 'down')
 
     def _pretty_print_add_ports_error(self, errstr, bridgeifaceobj, bridgeports):
         """ pretty print bridge port add errors.
@@ -538,7 +773,6 @@ class bridge(moduleBase):
     def _add_ports(self, ifaceobj, ifaceobj_getfunc):
         bridgeports = self._get_bridge_port_list(ifaceobj)
         runningbridgeports = []
-        removedbridgeports = []
 
         self.ipcmd.batch_start()
         self._process_bridge_waitport(ifaceobj, bridgeports)
@@ -554,7 +788,8 @@ class bridge(moduleBase):
                         # that don't have config outside bridge
                         if not ifaceobj_getfunc(bport):
                             netlink.link_set_updown(bport, "down")
-                        removedbridgeports.append(bport)
+                        # enable ipv6 for ports that were removed
+                        self.handle_ipv6([bport], '0')
             else:
                 runningbridgeports = []
         if not bridgeports:
@@ -578,6 +813,7 @@ class bridge(moduleBase):
                                   %hwaddress)
                     continue
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
+                self.handle_ipv6([bridgeport], '1')
                 self.ipcmd.addr_flush(bridgeport)
                 ports += 1
                 if ports == 250:
@@ -594,11 +830,8 @@ class bridge(moduleBase):
                                                bridgeports)
             pass
 
-        # enable ipv6 for ports that were removed
-        self.handle_ipv6(removedbridgeports, '0')
         if err:
             self.log_error('bridge configuration failed (missing ports)')
-
 
     def _process_bridge_maxwait(self, ifaceobj, portlist):
         maxwait = ifaceobj.get_attr_value_first('bridge-maxwait')
@@ -655,10 +888,7 @@ class bridge(moduleBase):
                        for start, end in self._ints_to_ranges(vids_ints)]
 
     def _diff_vids(self, vids1_ints, vids2_ints):
-        vids_to_add = Set(vids1_ints).difference(vids2_ints)
-        vids_to_del = Set(vids2_ints).difference(vids1_ints)
-
-        return (vids_to_del, vids_to_add)
+        return Set(vids2_ints).difference(vids1_ints), Set(vids1_ints).difference(vids2_ints)
 
     def _compare_vids(self, vids1, vids2, pvid=None):
         """ Returns true if the vids are same else return false """
@@ -771,12 +1001,11 @@ class bridge(moduleBase):
         """ Returns True if running stp state is on, else False """
 
         stp_state_file = '/sys/class/net/%s/bridge/stp_state' %bridgename
-        if not stp_state_file:
+        try:
+            running_stp_state = self.read_file_oneline(stp_state_file)
+            return running_stp_state and running_stp_state != '0'
+        except:
             return False
-        running_stp_state = self.read_file_oneline(stp_state_file)
-        if running_stp_state and running_stp_state != '0':
-            return True
-        return False
 
     def _is_config_stp_state_on(self, ifaceobj):
         """ Returns true if user specified stp state is on, else False """
@@ -784,236 +1013,137 @@ class bridge(moduleBase):
         stp_attr = ifaceobj.get_attr_value_first('bridge-stp')
         if not stp_attr:
             return self.default_stp_on
-        if (stp_attr and (stp_attr == 'on' or stp_attr == 'yes')):
-            return True
-        return False
-
-    def _sync_bridge_learning_to_vxlan_port(self, port, bridge_learning):
-        try:
-            vxlan_learn = self.ipcmd.get_vxlandev_learning(port)
-            if vxlan_learn:
-                vxlan_learn = utils.get_onoff_bool(vxlan_learn)
-            else:
-                vxlan_learn = 'on'
-            if vxlan_learn != bridge_learning:
-                self.ipcmd.set_vxlandev_learning(port, bridge_learning)
-        except Exception, e:
-            self.log_warn('%s: unable to propagate learning to vxlan dev (%s)'
-                          %(port, str(e)))
-            pass
-        return
-
-    def _create_port_attrvallist(self, ifaceobj, attrname, dstattrname,
-                                 attrval, portattrs_dict, running_portdict):
-        config_portlist = self.parse_port_list(ifaceobj.name, attrval)
-        if not config_portlist:
-            self.log_error('%s: could not parse \'%s %s\''
-                 %(ifaceobj.name, attrname, attrval), ifaceobj,
-                   raise_error=False)
-            return
-        for p in config_portlist:
-            try:
-                (port, val) = p.split('=')
-                if port not in running_portdict:
-                    continue
-                if not portattrs_dict.get(port):
-                    portattrs_dict[port] = {}
-                if attrname in ['bridge-portmcrouter',
-                                'bridge-portmcfl',
-                                'bridge-learning',
-                                'bridge-unicast-flood',
-                                'bridge-multicast-flood',
-                                'bridge-arp-nd-suppress',
-                               ]:
-                    if (attrname == 'bridge-arp-nd-suppress' and
-                        self.arp_nd_suppress_only_on_vxlan and
-                        not running_portdict[port] & ifaceLinkKind.VXLAN):
-                        self.log_error('\'bridge-arp-nd-suppress\' is not '
-                                       'supported on a non-vxlan port %s' %port)
-                        continue
-                    portattrs_dict[port].update({dstattrname:
-                                                 utils.boolean_support_binary(val)})
-                else:
-                    portattrs_dict[port].update({dstattrname : val})
-            except Exception, e:
-                self.log_error('%s: could not parse %s (%s)'
-                               %(ifaceobj.name, attrname, str(e)),
-                                 ifaceobj, raise_error=False)
-        return
-
-    def _create_port_attrvallist_default(self, attrname, dstattrname,
-                                         portattrs_dict, portdict):
-        for port in portdict:
-            if not portattrs_dict.get(port):
-                portattrs_dict[port] = {}
-
-            # 'bridge-unicast-flood' and 'bridge-multicast-flood' has
-            # been removed from the below list to avoid unnecessary
-            # setting of unicast_flood and mulitcast_flood to modinfo
-            # or kernel default values.
-            # These attributes will be added back when the cache
-            # handling is improved.
-
-            if attrname in ['bridge-learning',
-                            'bridge-arp-nd-suppress',
-                           ]:
-                if (attrname == 'bridge-arp-nd-suppress' and
-                    self.arp_nd_suppress_only_on_vxlan and
-                    not portdict[port] & ifaceLinkKind.VXLAN):
-                    continue
-                default = self.get_mod_subattr(attrname, 'default')
-                portattrs_dict[port].update({dstattrname:
-                                            utils.boolean_support_binary(
-                                                default)})
-        return
+        return utils.get_boolean_from_string(stp_attr)
 
     def get_bridge_mcsnoop_value(self, ifaceobj):
         mcsnoop = ifaceobj.get_attr_value_first('bridge-mcsnoop')
-
         if not mcsnoop and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
-            return utils.get_yesno_boolean(self._vxlan_bridge_default_igmp_snooping)
-
+            return self._vxlan_bridge_default_igmp_snooping
         return mcsnoop
 
-    def _apply_bridge_settings(self, ifaceobj, ifaceobj_getfunc):
+    def fill_ifla_info_data_with_ifla_br_attribute(self,
+                                                   ifla_info_data,
+                                                   link_just_created,
+                                                   ifname,
+                                                   nl_attr,
+                                                   attr_name,
+                                                   user_config):
+        try:
+            translate_func = self._ifla_br_attributes_translate_user_config_to_netlink_map.get(nl_attr)
+
+            if not callable(translate_func):
+                return
+
+            if not user_config:
+                user_config = policymanager.policymanager_api.get_iface_default(
+                    module_name=self.__class__.__name__,
+                    ifname=ifname,
+                    attr=attr_name
+                )
+
+            old_cache_key = self._ifla_br_attributes_old_cache_key_map.get(nl_attr)
+            if old_cache_key and not link_just_created:
+                cached_value = self.brctlcmd.cache_get([ifname, 'linkinfo', old_cache_key])
+                if not cached_value:
+                    # the link already exists but we don't have any value
+                    # cached for this attr, it probably means that the
+                    # capability is not available on this system (i.e old kernel)
+                    self.logger.debug('%s: ignoring %s %s: capability '
+                                      'probably not supported on this system'
+                                      % (ifname, attr_name, user_config))
+                    return
+                # we need to convert the cache value to "netlink" format
+                cached_value = translate_func(cached_value.lower())
+            else:
+                cached_value = None
+
+            if not user_config and not link_just_created and cached_value:
+                # there is no user configuration for this attribute
+                # if the bridge existed before we need to check if
+                # this attribute needs to be reset to default value
+                default_value = self.get_attr_default_value(attr_name)
+
+                if default_value:
+                    # the attribute has a default value, we need to convert it to
+                    # netlink format to compare it with the cache value
+                    default_value = translate_func(default_value)  # default_value.lower()
+
+                    if default_value != cached_value:
+                        # the running value difers from the default value
+                        # but the user didn't specify any config
+                        # resetting attribute to default
+                        ifla_info_data[nl_attr] = default_value
+                        self.logger.info('%s: reset %s to default %s' % (ifname, attr_name, default_value))
+            elif user_config:
+                user_config_nl = translate_func(user_config)  # user_config.lower()
+
+                if user_config_nl != cached_value:
+                    ifla_info_data[nl_attr] = user_config_nl
+
+                    if cached_value is not None:
+                        self.logger.info('%s: set %s %s (cache %s)' % (ifname, attr_name, user_config_nl, cached_value))
+                    else:
+                        self.logger.info('%s: set %s %s' % (ifname, attr_name, user_config))
+        except Exception as e:
+            self.logger.warning('%s: %s: %s' % (ifname, attr_name, str(e)))
+
+    def up_apply_bridge_settings(self, ifaceobj, link_just_created, bridge_vlan_aware):
+        ifla_info_data = dict()
+        ifname = ifaceobj.name
+
+        self.logger.info('%s: apply bridge settings' % ifname)
+
+        for attr_name, nl_attr in self._ifla_br_attributes_map:
+            self.fill_ifla_info_data_with_ifla_br_attribute(
+                ifla_info_data=ifla_info_data,
+                link_just_created=link_just_created,
+                ifname=ifname,
+                nl_attr=nl_attr,
+                attr_name=attr_name,
+                user_config=ifaceobj.get_attr_value_first(attr_name)
+            )
+
+        # bridge-mcsnoop
+        ifla_br_mcast_snooping = self.get_bridge_mcsnoop_value(ifaceobj)
+        if ifla_br_mcast_snooping:
+            self.fill_ifla_info_data_with_ifla_br_attribute(
+                ifla_info_data=ifla_info_data,
+                link_just_created=link_just_created,
+                ifname=ifname,
+                nl_attr=Link.IFLA_BR_MCAST_SNOOPING,
+                attr_name='bridge-mcsnoop',
+                user_config=ifla_br_mcast_snooping
+            )
+
+        # bridge-vlan-stats
+        if bridge_vlan_aware:
+            self.fill_ifla_info_data_with_ifla_br_attribute(
+                ifla_info_data=ifla_info_data,
+                link_just_created=link_just_created,
+                ifname=ifname,
+                nl_attr=Link.IFLA_BR_VLAN_STATS_ENABLED,
+                attr_name='bridge-vlan-stats',
+                user_config=ifaceobj.get_attr_value_first('bridge-vlan-stats') or self.default_vlan_stats
+            )
+
         try:
             if self._is_config_stp_state_on(ifaceobj):
-                if not self._is_running_stp_state_on(ifaceobj.name):
-                    self.brctlcmd.set_stp(ifaceobj.name, "on")
-                    self.logger.info('%s: stp state reset, reapplying port '
-                                     'settings' %ifaceobj.name)
+                if not self._is_running_stp_state_on(ifname):
+                    ifla_info_data[Link.IFLA_BR_STP_STATE] = 1
+                    self.logger.info('%s: stp state reset, reapplying port settings' % ifname)
                     ifaceobj.module_flags[ifaceobj.name] = \
-                        ifaceobj.module_flags.setdefault(self.name,0) | \
+                        ifaceobj.module_flags.setdefault(self.name, 0) | \
                         bridgeFlags.PORT_PROCESSED_OVERRIDE
             else:
                 # If stp not specified and running stp state on, set it to off
-                if self._is_running_stp_state_on(ifaceobj.name):
-                   self.brctlcmd.set_stp(ifaceobj.name, 'no')
+                if self._is_running_stp_state_on(ifname):
+                    self.logger.info('%s: bridge-stp not specified but running: turning stp off')
+                    ifla_info_data[Link.IFLA_BR_STP_STATE] = 0
+        except Exception as e:
+            self.logger.warning('%s: bridge stp: %s' % (ifname, str(e)))
 
-            # Use the brctlcmd bulk set method: first build a dictionary
-            # and then call set
-            bridgeattrs = { k:v for k,v in
-                             {'ageing' :
-                                ifaceobj.get_attr_value_first('bridge-ageing'),
-                              'bridgeprio' :
-                                ifaceobj.get_attr_value_first(
-                                                        'bridge-bridgeprio'),
-                              'fd' :
-                                ifaceobj.get_attr_value_first('bridge-fd'),
-                              'hello' :
-                                ifaceobj.get_attr_value_first('bridge-hello'),
-                              'maxage' :
-                                ifaceobj.get_attr_value_first('bridge-maxage'),
-                              'mclmc' :
-                                ifaceobj.get_attr_value_first('bridge-mclmc'),
-                              'mcrouter' :
-                                ifaceobj.get_attr_value_first(
-                                                            'bridge-mcrouter'),
-                              'mcsnoop': self.get_bridge_mcsnoop_value(ifaceobj),
-                              'mcsqc' :
-                                ifaceobj.get_attr_value_first('bridge-mcsqc'),
-                              'mcqifaddr' :
-                                ifaceobj.get_attr_value_first(
-                                                            'bridge-mcqifaddr'),
-                              'mcquerier' :
-                                ifaceobj.get_attr_value_first(
-                                                            'bridge-mcquerier'),
-                              'hashel' :
-                                ifaceobj.get_attr_value_first('bridge-hashel'),
-                              'hashmax' :
-                                ifaceobj.get_attr_value_first('bridge-hashmax'),
-                              'mclmi' :
-                                ifaceobj.get_attr_value_first('bridge-mclmi'),
-                              'mcmi' :
-                                ifaceobj.get_attr_value_first('bridge-mcmi'),
-                              'mcqpi' :
-                                ifaceobj.get_attr_value_first('bridge-mcqpi'),
-                              'mcqi' :
-                                ifaceobj.get_attr_value_first('bridge-mcqi'),
-                              'mcqri' :
-                                ifaceobj.get_attr_value_first('bridge-mcqri'),
-                              'mcsqi' :
-                                ifaceobj.get_attr_value_first('bridge-mcsqi'),
-                              'igmp-version':
-                                (ifaceobj.get_attr_value_first('bridge-igmp-version')
-                                 or self.get_mod_subattr('bridge-igmp-version',
-                                                         'default')),
-                              'mld-version' :
-                                (ifaceobj.get_attr_value_first('bridge-mld-version')
-                                 or self.get_mod_subattr('bridge-mld-version',
-                                                         'default')),
-                              'vlan-protocol':
-                                (ifaceobj.get_attr_value_first('bridge-vlan-protocol')
-                                 or self.get_mod_subattr('bridge-vlan-protocol',
-                                                         'default')),
-                              'vlan-stats':
-                                utils.boolean_support_binary(
-                                 ifaceobj.get_attr_value_first('bridge-vlan-stats')
-                                 or self.default_vlan_stats
-                                 or self.get_mod_subattr('bridge-vlan-stats',
-                                                         'default')) if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
-                                                                     else None,
-                              'mcstats':
-                                utils.boolean_support_binary(
-                                 ifaceobj.get_attr_value_first('bridge-mcstats')
-                                 or self.default_mcstats
-                                 or self.get_mod_subattr('bridge-mcstats','default'))
-                               }.items()
-                            if v }
-
-            if bridgeattrs:
-                utils.support_yesno_attrs(bridgeattrs, ['mcqifaddr',
-                                                        'mcquerier',
-                                                        'mcrouter',
-                                                        'mcsnoop'])
-                self.brctlcmd.set_bridge_attrs(ifaceobj.name, bridgeattrs)
-            portattrs = {}
-            running_port_dict = {}
-            for port in self.brctlcmd.get_bridge_ports(ifaceobj.name):
-                running_port_dict[port] = ifaceobj_getfunc(port)[0].link_kind
-            for attrname, dstattrname in {'bridge-pathcosts' : 'pathcost',
-                                'bridge-portprios' : 'portprio',
-                                'bridge-portmcrouter' : 'portmcrouter',
-                                'bridge-portmcfl' : 'portmcfl',
-                                'bridge-learning' : 'learning',
-                                'bridge-unicast-flood' : 'unicast-flood',
-                                'bridge-multicast-flood' : 'multicast-flood',
-                                'bridge-arp-nd-suppress' : 'arp-nd-suppress',
-                                }.items():
-                attrval = ifaceobj.get_attr_value_first(attrname)
-                if attrval:
-                    self._create_port_attrvallist(ifaceobj,
-                                                  attrname,
-                                                  dstattrname,
-                                                  attrval,
-                                                  portattrs,
-                                                  running_port_dict)
-                elif not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
-                    self._create_port_attrvallist_default(attrname,
-                                                          dstattrname,
-                                                          portattrs,
-                                                          running_port_dict)
-            for port, attrdict in portattrs.iteritems():
-                try:
-                    self.brctlcmd.set_bridgeport_attrs(ifaceobj.name, port,
-                                                       attrdict)
-                    bridge_learning = attrdict.get('learning', None)
-                    if bridge_learning:
-                        bportifaceobj = ifaceobj_getfunc(port)[0]
-                        if bportifaceobj.link_kind & ifaceLinkKind.VXLAN:
-                            self._sync_bridge_learning_to_vxlan_port(port,
-                                    utils.get_onff_from_onezero(bridge_learning))
-                except Exception, e:
-                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj,
-                                   raise_error=False)
-                    pass
-
-            self._set_bridge_vidinfo_compat(ifaceobj)
-            self._set_bridge_mcqv4src_compat(ifaceobj)
-            self._process_bridge_maxwait(ifaceobj,
-                    self._get_bridge_port_list(ifaceobj))
-        except Exception, e:
-            self.log_error(str(e), ifaceobj)
+        if ifla_info_data:
+            netlink.link_add_set(ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data, link_exists=True)
 
     def _check_vids(self, ifaceobj, vids):
         ret = True
@@ -1034,20 +1164,6 @@ class bridge(moduleBase):
                                  %(ifaceobj.name, v))
         return ret
 
-    def _apply_bridge_port_pvids(self, bportifaceobj, pvid, running_pvid):
-        # Install pvids
-        try:
-            if running_pvid:
-                if running_pvid != pvid:
-                    self.ipcmd.bridge_port_pvid_del(bportifaceobj.name,
-                                                    running_pvid)
-                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid)
-            else:
-                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name, pvid)
-        except Exception, e:
-            self.log_error('%s: failed to set pvid `%s` (%s)'
-                           %(bportifaceobj.name, pvid, str(e)), bportifaceobj)
-
     def _get_running_pvid(self, ifacename):
         pvid = 0
 
@@ -1058,41 +1174,6 @@ class bridge(moduleBase):
             if pvid:
                 return pvid
         return pvid
-
-    def _get_running_vids(self, ifacename):
-        vids = []
-
-        running_vidinfo = self._get_running_vidinfo()
-        for vinfo in running_vidinfo.get(ifacename, {}):
-            v = vinfo.get('vlan')
-            ispvid = True if 'PVID' in vinfo.get('flags', []) else False
-            if ispvid:
-                pvid = v if 'PVID' in vinfo.get('flags', []) else 0
-                if pvid == 1:
-                    continue
-            vEnd = vinfo.get('vlanEnd')
-            if vEnd:
-               vids.extend(range(v, vEnd + 1))
-            else:
-               vids.append(v)
-        return vids
-
-    def _get_running_vids_n_pvid(self, ifacename):
-        vids = []
-        pvid = 0
-
-        running_vidinfo = self._get_running_vidinfo()
-        for vinfo in running_vidinfo.get(ifacename, {}):
-            v = vinfo.get('vlan')
-            ispvid = True if 'PVID' in vinfo.get('flags', []) else False
-            if ispvid:
-                pvid = v if 'PVID' in vinfo.get('flags', []) else 0
-            vEnd = vinfo.get('vlanEnd')
-            if vEnd:
-               vids.extend(range(v, vEnd + 1))
-            else:
-               vids.append(v)
-        return (vids, pvid)
 
     def _get_running_vids_n_pvid_str(self, ifacename):
         vids = []
@@ -1110,22 +1191,6 @@ class bridge(moduleBase):
         else:
             ret_pvid = None
         return (ret_vids, ret_pvid)
-
-    def _get_running_vids_n_pvid_str2(self, ifacename):
-        vids = []
-        pvid = None
-
-        running_vidinfo = self._get_running_vidinfo()
-        for vinfo in running_vidinfo.get(ifacename, {}):
-            v = vinfo.get('vlan')
-            if not pvid:
-                pvid = '%s' %v if 'PVID' in vinfo.get('flags', []) else None
-            vEnd = vinfo.get('vlanEnd')
-            if vEnd:
-               vids.append('%s-%s' %(v, vEnd))
-            else:
-               vids.append('%s' %v)
-        return (vids, pvid)
 
     def _apply_bridge_vids_and_pvid(self, bportifaceobj, vids, pvid,
                                     isbridge):
@@ -1283,92 +1348,7 @@ class bridge(moduleBase):
         self._apply_bridge_vids_and_pvid(bportifaceobj, vids_final,
                                          pvid_final, False)
 
-    def _apply_bridge_port_settings(self, bportifaceobj, bridgename=None,
-                                    bridgeifaceobj=None, vlan_aware=False):
-        if not bridgename and bridgeifaceobj:
-            bridgename = bridgeifaceobj.name
-        # Set other stp and igmp attributes
-        portattrs = {}
-        for attrname, dstattrname in {
-            'bridge-pathcosts' : 'pathcost',
-            'bridge-portprios' : 'portprio'}.items():
-            attrval = bportifaceobj.get_attr_value_first(attrname)
-            if not attrval:
-                # Check if bridge has that attribute
-                #if bridgeifaceobj:
-                #    attrval = bridgeifaceobj.get_attr_value_first(attrname)
-                #    if not attrval:
-                #        continue
-                #else:
-                continue
-            portattrs[dstattrname] = attrval
-
-        portmcrouter = bportifaceobj.get_attr_value_first('bridge-portmcrouter')
-        if portmcrouter:
-            portattrs['portmcrouter'] = utils.boolean_support_binary(portmcrouter)
-
-        portmcfl = bportifaceobj.get_attr_value_first('bridge-portmcfl')
-        if portmcfl:
-            portattrs['portmcfl'] = utils.boolean_support_binary(portmcfl)
-
-        # 'bridge-unicast-flood' and 'bridge-multicast-flood' has
-        # been removed from the below list to avoid unnecessary
-        # setting of unicast_flood and mulitcast_flood to modinfo
-        # or kernel default values.
-        # These attributes will be added back when the cache
-        # handling is improved
-
-        unicast_flood = bportifaceobj.get_attr_value_first('bridge-unicast-flood')
-        if unicast_flood:
-            portattrs['unicast-flood'] = utils.boolean_support_binary(unicast_flood)
-
-        multicast_flood = bportifaceobj.get_attr_value_first('bridge-multicast-flood')
-        if multicast_flood:
-            portattrs['multicast-flood'] = utils.boolean_support_binary(multicast_flood)
-
-        arp_suppress = bportifaceobj.get_attr_value_first('bridge-arp-nd-suppress')
-        if arp_suppress:
-            if (self.arp_nd_suppress_only_on_vxlan and
-                not bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
-                self.log_error('\'bridge-arp-nd-suppress\' is not '
-                               'supported on a non-vxlan port %s'
-                               %bportifaceobj.name)
-            else:
-                portattrs['arp-nd-suppress'] = utils.boolean_support_binary(arp_suppress)
-        elif (vlan_aware and
-              (not self.arp_nd_suppress_only_on_vxlan or
-               (self.arp_nd_suppress_only_on_vxlan and
-                bportifaceobj.link_kind & ifaceLinkKind.VXLAN))):
-            default = self.get_mod_subattr('bridge-arp-nd-suppress','default')
-            portattrs['arp-nd-suppress'] = utils.boolean_support_binary(default)
-
-        config_learn = bportifaceobj.get_attr_value_first('bridge-learning')
-        running_learn = self.ipcmd.get_brport_learning(bportifaceobj.name)
-        if config_learn and config_learn != running_learn:
-            portattrs['learning'] = utils.boolean_support_binary(config_learn)
-        elif not config_learn and vlan_aware:
-            config_learn = self.get_mod_subattr('bridge-learning', 'default')
-            if config_learn != running_learn:
-                portattrs['learning'] = utils.boolean_support_binary(config_learn)
-
-        try:
-            self.brctlcmd.set_bridgeport_attrs(bridgename,
-                            bportifaceobj.name, portattrs)
-        except Exception, e:
-            self.log_error(str(e), bportifaceobj)
-
-        # special handling for learning:
-        # bridge ports may have learning capability, in which case
-        # we need to keep the bridge ports internal learning in sync
-        # with bridge learning capability. This is true for vxlan ports
-        # hence special case this for vxlan ports.
-        if (bportifaceobj.link_kind & ifaceLinkKind.VXLAN):
-            self._sync_bridge_learning_to_vxlan_port(bportifaceobj.name,
-                                                         config_learn)
-
-    def _apply_bridge_port_settings_all(self, ifaceobj,
-                                        ifaceobj_getfunc=None,
-                                        bridge_vlan_aware=False):
+    def _apply_bridge_port_settings_all(self, ifaceobj, ifaceobj_getfunc, bridge_vlan_aware):
         err = False
 
         if (ifaceobj.get_attr_value_first('bridge-port-vids') and
@@ -1426,9 +1406,6 @@ class bridge(moduleBase):
                     if bridge_vlan_aware:
                         self._apply_bridge_vlan_aware_port_settings_all(
                                 bportifaceobj, bridge_vids, bridge_pvid)
-                        self._apply_bridge_port_settings(bportifaceobj,
-                                                 bridgeifaceobj=ifaceobj,
-                                                 vlan_aware=bridge_vlan_aware)
                     elif self.warn_on_untagged_bridge_absence:
                         self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
                 except Exception, e:
@@ -1447,135 +1424,375 @@ class bridge(moduleBase):
                 self.logger.warn('%s: untagged bridge not found. Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.' % bridgename)
                 self.warn_on_untagged_bridge_absence = False
 
-    def _get_bridgename(self, ifaceobj):
-        for u in ifaceobj.upperifaces:
-            if self.ipcmd.is_bridge(u):
-                return u
+    def bridge_port_get_bridge_name(self, ifaceobj):
+        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        if not bridgename:
+            # bridge port is not enslaved to a bridge we need to find
+            # the bridge in it's upper ifaces then enslave it
+            for u in ifaceobj.upperifaces:
+                if self.ipcmd.is_bridge(u):
+                    return True, u
+            return False, None
+        # return should_enslave port, bridgename
+        return False, bridgename
+
+    def up_bridge_port_vlan_aware_bridge(self, ifaceobj, ifaceobj_getfunc, bridge_name, should_enslave_port):
+        if should_enslave_port:
+            netlink.link_set_master(ifaceobj.name, bridge_name)
+            self.handle_ipv6([ifaceobj.name], '1')
+
+        bridge_vids = self._get_bridge_vids(bridge_name, ifaceobj_getfunc)
+        bridge_pvid = self._get_bridge_pvid(bridge_name, ifaceobj_getfunc)
+        try:
+            self._apply_bridge_vlan_aware_port_settings_all(ifaceobj, bridge_vids, bridge_pvid)
+        except Exception as e:
+            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+            return
+
+    def up_bridge_port(self, ifaceobj, ifaceobj_getfunc):
+        should_enslave_port, bridge_name = self.bridge_port_get_bridge_name(ifaceobj)
+
+        if not bridge_name:
+            # bridge doesn't exist
+            return
+
+        vlan_aware_bridge = self.ipcmd.bridge_is_vlan_aware(bridge_name)
+        if vlan_aware_bridge:
+            self.up_bridge_port_vlan_aware_bridge(ifaceobj,
+                                                  ifaceobj_getfunc,
+                                                  bridge_name,
+                                                  should_enslave_port)
+
+        bridge_ifaceobj = ifaceobj_getfunc(bridge_name)[0]
+
+        self.up_apply_brports_attributes(target_ports=[ifaceobj.name],
+                                         ifaceobj=bridge_ifaceobj,
+                                         ifaceobj_getfunc=ifaceobj_getfunc,
+                                         bridge_vlan_aware=vlan_aware_bridge)
+
+        ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | bridgeFlags.PORT_PROCESSED
+
+    def up_check_bridge_vlan_aware(self, ifaceobj, ifaceobj_getfunc, link_exists):
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
+            if not self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc):
+                raise
+            if link_exists:
+                ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
+            return True
+        return False
+
+    @staticmethod
+    def parse_interface_list_value(user_config, func=None):
+        config = dict()
+        for entry in user_config.split():
+            ifname, value = entry.split('=')
+            if func:
+                config[ifname] = func(value)
+            else:
+                config[ifname] = value
+        return config
+
+    def sync_bridge_learning_to_vxlan_brport(self, bridge_name, bridge_vlan_aware, brport_ifaceobj, brport_name, brport_ifla_info_slave_data):
+        """
+            brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN
+            and
+            brport_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT
+
+            Checks are not performed in this function and must be verified
+             before. This is done this way to avoid calling this method on
+             non vlan & bridge port interfaces thus wasting a bit less time
+        """
+
+        kind = None
+        ifla_info_data = {}
+
+        #if (brport_ifaceobj
+        #   and brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN
+        #    and brport_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+
+        brport_learning = brport_ifla_info_slave_data.get(Link.IFLA_BRPORT_LEARNING)
+        brport_vxlan_learning = utils.get_boolean_from_string(self.ipcmd.get_vxlandev_learning(brport_name))
+
+        # if BRIDGE_LEARNING is in the desired configuration
+        # and differs from the running vxlan configuration
+        if brport_learning is not None and brport_learning != brport_vxlan_learning:
+            kind = 'vxlan'
+            ifla_info_data = {Link.IFLA_VXLAN_LEARNING: brport_learning}
+            self.logger.info('%s: %s: vxlan learning and bridge learning out of sync: set %s'
+                             % (bridge_name, brport_name, brport_learning))
+
+        elif brport_learning is None and bridge_vlan_aware:
+            # is bridge-learning is not configured but the bridge is vlan-aware
+
+            running_value = self.ipcmd.get_brport_learning_bool(brport_name)
+            default_value = utils.get_boolean_from_string(self.get_mod_subattr('bridge-learning', 'default'))
+
+            if default_value != running_value:
+                brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING] = default_value
+                kind = 'vxlan'
+                ifla_info_data = {Link.IFLA_VXLAN_LEARNING: brport_learning}
+                self.logger.info('%s: %s: reset brport learning to %s and sync vxlan learning'
+                                 % (bridge_name, brport_name, brport_learning))
+
+        # if kind and ifla_info_data are set they will be added to the
+        # netlink request on the VXLAN brport, to sync IFLA_VXLAN_LEARNING
+        return kind, ifla_info_data
+
+    def check_vxlan_brport_arp_suppress(self, ifaceobj, bridge_vlan_aware, brport_ifaceobj, brport_name, user_config):
+        if user_config:
+            if self.arp_nd_suppress_only_on_vxlan and not brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+                self.logger.warning('%s: %s: \'bridge-arp-nd-suppress\' '
+                                    'is not supported on a non-vxlan port'
+                                    % (ifaceobj.name, brport_name))
+                raise
+        elif (bridge_vlan_aware and
+                  (not self.arp_nd_suppress_only_on_vxlan or
+                       (self.arp_nd_suppress_only_on_vxlan and
+                                brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN))):
+            return self.get_mod_subattr('bridge-arp-nd-suppress', 'default')
         return None
 
-    def _up(self, ifaceobj, ifaceobj_getfunc=None):
-        # Check if bridge port and see if we need to add it to the bridge
-        add_port = False
-        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
-        if (not bridgename and
-            (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT)):
-            # get bridgename and add port to bridge
-            bridgename = self._get_bridgename(ifaceobj)
-            add_port = True
-        if bridgename:
-            vlan_aware_bridge = self.ipcmd.bridge_is_vlan_aware(bridgename)
-            if vlan_aware_bridge:
-                if add_port:
-                    # add ifaceobj to bridge
-                    self.ipcmd.link_set(ifaceobj.name, 'master', bridgename)
-                bridge_vids = self._get_bridge_vids(bridgename,
-                                                    ifaceobj_getfunc)
-                bridge_pvid = self._get_bridge_pvid(bridgename,
-                                                    ifaceobj_getfunc)
-                try:
-                    self._apply_bridge_vlan_aware_port_settings_all(ifaceobj,
-                                                                    bridge_vids,
-                                                                    bridge_pvid)
-                except Exception as e:
-                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
-                    return
-            self._apply_bridge_port_settings(ifaceobj, bridgename=bridgename,
-                                             vlan_aware=vlan_aware_bridge)
-            ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | \
-                                              bridgeFlags.PORT_PROCESSED
-            return
-        if not self._is_bridge(ifaceobj):
-            return
-        err = False
-        errstr = ''
-        running_ports = ''
-        bridge_just_created = False
-        try:
-            if not ifupdownflags.flags.PERFMODE:
-                if not self.ipcmd.link_exists(ifaceobj.name):
-                    netlink.link_add_bridge(ifaceobj.name)
-                    bridge_just_created = True
-            else:
-                netlink.link_add_bridge(ifaceobj.name)
-                bridge_just_created = True
-        except Exception, e:
-            raise Exception(str(e))
+    def up_apply_brports_attributes(self, ifaceobj, ifaceobj_getfunc, bridge_vlan_aware, target_ports=[]):
+        ifname = ifaceobj.name
 
         try:
-            bridge_vlan_aware = False
-            if ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'yes':
-                if not self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc):
-                    return
-                bridge_vlan_aware = True
-                if (bridge_just_created or
-                        not self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
-                    self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '1',
-                                        False, "bridge")
-                    if not bridge_just_created:
-                        ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name,0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
-            elif (not bridge_just_created and
-                  ifaceobj.get_attr_value_first('bridge-vlan-aware') == 'no'
-                  and self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)):
-                  self.ipcmd.link_set(ifaceobj.name, 'vlan_filtering', '0',
-                                      False, "bridge")
-                  bridge_vlan_aware = False
-        except Exception, e:
-            raise Exception(str(e))
+            brports_ifla_info_slave_data    = dict()
+            brport_ifaceobj_dict            = dict()
+
+            running_brports = self.brctlcmd.get_bridge_ports(ifname)
+
+            if target_ports:
+                new_targets = []
+                for brport_name in target_ports:
+                    if brport_name not in running_brports:
+                        self.logger.info('%s: not enslaved to bridge %s: ignored for now' % (brport_name, ifname))
+                    else:
+                        new_targets.append(brport_name)
+                running_brports = new_targets
+
+            # If target_ports is specified we want to configure only this
+            # sub-list of port we need to check if these ports are already
+            # enslaved, if not they will be ignored.
+            # If target_ports is not populated we will apply the brport
+            # attributes on all running brport.
+
+            for port in running_brports:
+                brport_list = ifaceobj_getfunc(port)
+                if brport_list:
+                    brport_ifaceobj_dict[port] = brport_list[0]
+                    brports_ifla_info_slave_data[port] = dict()
+
+            # we iterate through all IFLA_BRPORT supported attributes
+            for attr_name, nl_attr in self._ifla_brport_attributes_map:
+                br_config = ifaceobj.get_attr_value_first(attr_name)
+                translate_func = self._ifla_brport_attributes_translate_user_config_to_netlink_map.get(nl_attr)
+
+                if not translate_func:
+                    # if no translation function is found,
+                    # we ignore this attribute and continue
+                    continue
+
+                if not br_config:
+                    # user didn't specify any value for this attribute
+                    # looking at policy overrides
+                    br_config = policymanager.policymanager_api.get_iface_default(
+                        module_name=self.__class__.__name__,
+                        ifname=ifname,
+                        attr=attr_name
+                    )
+
+                if br_config:
+                    #if bridge_vlan_aware:
+                    #    self.logger.info('%s: is a vlan-aware bridge, "%s %s" '
+                    #                     'should be configured under the ports'
+                    #                     % (ifname, attr_name, br_config))
+
+                    # convert the <interface-yes-no-0-1-list> and <interface-range-list> value to subdict
+                    # brport_name: { attr: value }
+                    # example:
+                    #   bridge-portprios swp1=5 swp2=32
+                    # swp1: { bridge-portprios: 5 } swp2: { bridge-portprios: 32}
+                    if '=' in br_config:
+                        br_config = self.parse_interface_list_value(br_config)
+
+                for brport_ifaceobj in brport_ifaceobj_dict.values():
+                    brport_config = brport_ifaceobj.get_attr_value_first(attr_name)
+                    brport_name = brport_ifaceobj.name
+
+                    cached_value = self.brctlcmd.cache_get_info_slave([brport_name, 'info_slave_data', nl_attr])
+                    # if not cached_value and link_exists:
+                    #       this probably means that the current kernel doesn't support this attribute
+
+                    if not brport_config:
+                        brport_config = policymanager.policymanager_api.get_iface_default(
+                            module_name=self.__class__.__name__,
+                            ifname=brport_name,
+                            attr=attr_name
+                        )
+
+                    user_config = brport_config
+                    if not user_config:
+                        # if a brport attribute was specified under the bridge and not under the port
+                        # we assign the bridge value to the port. If an attribute is both defined under
+                        # the bridge and the brport we keep the value of the port and ignore the br val.
+                        if type(br_config) == dict:
+                            # if the attribute value was in the format interface-list-value swp1=XX swp2=YY
+                            # br_config is a dictionary, example:
+                            # bridge-portprios swp1=5 swp2=32 = {swp1: 5, swp2: 32}
+                            user_config = br_config.get(brport_name)
+                        else:
+                            user_config = br_config
+
+                    # attribute specific work
+                    # This shouldn't be here but we don't really have a choice otherwise this
+                    # will require too much code duplication and will make the code very complex
+                    if nl_attr == Link.IFLA_BRPORT_ARP_SUPPRESS:
+                        try:
+                            arp_suppress = self.check_vxlan_brport_arp_suppress(ifaceobj,
+                                                                                bridge_vlan_aware,
+                                                                                brport_ifaceobj,
+                                                                                brport_name,
+                                                                                user_config)
+                            if arp_suppress:
+                                user_config = arp_suppress
+                        except:
+                            continue
+
+                    #if brport_config:
+                    #    if not bridge_vlan_aware:
+                    #        self.logger.info('%s: %s: is not a vlan-aware bridge, "%s %s" '
+                    #                         'should be configured under the bridge'
+                    #                         % (ifname, brport_name,
+                    #                            attr_name, brport_config))
+
+                    if user_config:
+                        user_config_nl = translate_func(user_config)
+                        # check config value against running value
+                        if user_config_nl != cached_value:
+                            brports_ifla_info_slave_data[brport_name][nl_attr] = user_config_nl
+                            self.logger.info('%s: %s: set %s %s' % (ifname, brport_name, attr_name, brport_config))
+                            self.logger.debug('(cache %s)' % cached_value)
+
+                    elif cached_value is not None:
+                        # no config found, do we need to reset to default?
+                        default = self.get_attr_default_value(attr_name)
+                        if default:
+                            default_netlink = translate_func(default)
+                            if default_netlink != cached_value:
+                                self.logger.info('%s: %s: %s: no configuration detected, resetting to default %s'
+                                                 % (ifname, brport_name, attr_name, default))
+                                self.logger.debug('(cache %s)' % cached_value)
+                                brports_ifla_info_slave_data[brport_name][nl_attr] = default_netlink
+
+            # applying bridge port configuration via netlink
+            for brport_name, brport_ifla_info_slave_data in brports_ifla_info_slave_data.items():
+
+                brport_ifaceobj = brport_ifaceobj_dict.get(brport_name)
+                if (brport_ifaceobj
+                    and brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN
+                    and brport_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+                    # if the brport is a VXLAN, we might need to sync the VXLAN learning with the brport_learning val
+                    # we use the same netlink request, by specfying kind=vxlan and ifla_info_data={vxlan_learning=0/1}
+                    kind, ifla_info_data = self.sync_bridge_learning_to_vxlan_brport(ifaceobj.name,
+                                                                                     bridge_vlan_aware,
+                                                                                     brport_ifaceobj,
+                                                                                     brport_name,
+                                                                                     brport_ifla_info_slave_data)
+                else:
+                    kind = None
+                    ifla_info_data = {}
+
+                if brport_ifla_info_slave_data or ifla_info_data:
+                    try:
+                        netlink.link_add_set(ifname=brport_name,
+                                             kind=kind,
+                                             ifla_info_data=ifla_info_data,
+                                             slave_kind='bridge',
+                                             ifla_info_slave_data=brport_ifla_info_slave_data)
+                    except Exception as e:
+                        self.logger.warning('%s: %s: %s' % (ifname, brport_name, str(e)))
+
+            self._set_bridge_vidinfo_compat(ifaceobj)
+            self._set_bridge_mcqv4src_compat(ifaceobj)
+            self._process_bridge_maxwait(ifaceobj, self._get_bridge_port_list(ifaceobj))
+
+        except Exception as e:
+            self.log_error(str(e), ifaceobj)
+
+    def up_bridge(self, ifaceobj, ifaceobj_getfunc):
+        ifname = ifaceobj.name
+
+        if ifupdownflags.flags.PERFMODE:
+            link_just_created = True
+            link_exists = False
+        else:
+            link_exists = self.ipcmd.link_exists(ifaceobj.name)
+            link_just_created = not link_exists
+
+        if not link_exists:
+            netlink.link_add_bridge(ifname)
+        else:
+            self.logger.info('%s: bridge already exists' % ifname)
+
+        bridge_vlan_aware = self.up_check_bridge_vlan_aware(ifaceobj, ifaceobj_getfunc, not link_just_created)
+
+        self.up_apply_bridge_settings(ifaceobj, link_just_created, bridge_vlan_aware)
 
         try:
             self._add_ports(ifaceobj, ifaceobj_getfunc)
-        except Exception, e:
-            err = True
-            errstr = str(e)
-            pass
+            self.up_apply_brports_attributes(ifaceobj, ifaceobj_getfunc, bridge_vlan_aware)
+        except Exception as e:
+            self.logger.warning('%s: apply bridge ports settings: %s' % (ifname, str(e)))
 
-        try:
-            self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)
-        except Exception, e:
-            err = True
-            errstr = str(e)
-            pass
-
+        running_ports = ''
         try:
             running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if not running_ports:
-               return
-            # disable ipv6 for ports that were added to bridge
-            self.handle_ipv6(running_ports, '1', ifaceobj=ifaceobj)
+                return
+            self.handle_ipv6([], '1', ifaceobj=ifaceobj)
             self._apply_bridge_port_settings_all(ifaceobj,
-                            ifaceobj_getfunc=ifaceobj_getfunc,
-                            bridge_vlan_aware=bridge_vlan_aware)
-        except Exception, e:
-            err = True
-            errstr = str(e)
-            pass
+                                                 ifaceobj_getfunc=ifaceobj_getfunc,
+                                                 bridge_vlan_aware=bridge_vlan_aware)
+        except Exception as e:
+            self.logger.warning('%s: apply bridge settings: %s' % (ifname, str(e)))
         finally:
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
                     if (ifaceobj_getfunc(p)[0].link_privflags &
-                        ifaceLinkPrivFlags.KEEP_LINK_DOWN):
+                            ifaceLinkPrivFlags.KEEP_LINK_DOWN):
                         netlink.link_set_updown(p, "down")
                         continue
                     try:
                         netlink.link_set_updown(p, "up")
                     except Exception, e:
                         self.logger.debug('%s: %s: link set up (%s)'
-                                          %(ifaceobj.name, p, str(e)))
+                                          % (ifaceobj.name, p, str(e)))
                         pass
-        if err:
-            raise Exception(errstr)
+
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+            self.up_bridge_port(ifaceobj, ifaceobj_getfunc)
+
+        elif ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
+            self.up_bridge(ifaceobj, ifaceobj_getfunc)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
+        if not self._is_bridge(ifaceobj):
+            return
+        ifname = ifaceobj.name
+        if not self.ipcmd.link_exists(ifname):
+            return
         try:
-            if self._get_ifaceobj_bridge_ports(ifaceobj, warn=False):
-                ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
-                self.brctlcmd.delete_bridge(ifaceobj.name)
-                if ports:
-                    self.handle_ipv6(ports, '0')
-                    if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                        map(lambda p: netlink.link_set_updown(p, "down"),
-                            ports)
-        except Exception, e:
+            netlink.link_del(ifname)
+        except Exception as e:
+            ifaceobj.set_status(ifaceStatus.ERROR)
+            self.logger.error(str(e))
+            # netlink exception already contains the ifname
+        try:
+            running_ports = self.brctlcmd.get_bridge_ports(ifname)
+            if running_ports:
+                self.handle_ipv6(running_ports, '0', down=True)
+        except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _query_running_vidinfo_compat(self, ifaceobjrunning, ports):
@@ -2332,10 +2549,13 @@ class bridge(moduleBase):
         self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
-        if self.brctlcmd.bridge_exists(ifaceobjrunning.name):
-            self._query_running_bridge(ifaceobjrunning, ifaceobj_getfunc)
-        elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
-            self._query_running_bridge_port(ifaceobjrunning, ifaceobj_getfunc)
+        try:
+            if self.brctlcmd.bridge_exists(ifaceobjrunning.name):
+                self._query_running_bridge(ifaceobjrunning, ifaceobj_getfunc)
+            elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
+                self._query_running_bridge_port(ifaceobjrunning, ifaceobj_getfunc)
+        except Exception as e:
+            raise Exception('%s: %s' % (ifaceobjrunning.name, str(e)))
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
@@ -2375,11 +2595,13 @@ class bridge(moduleBase):
                     runningattrs['ports'][port][attr] = utils.get_yesno_boolean(
                         utils.get_boolean_from_string(runningattrs['ports'][port][attr]))
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check,
-               'query-running' : _query_running,
-               'query' : _query}
+    _run_ops = {
+        'pre-up': _up,
+        'post-down': _down,
+        'query-checkcurr': _query_check,
+        'query-running': _query_running,
+        'query': _query
+    }
 
     def get_ops(self):
         """ returns list of ops supported by this module """
@@ -2391,8 +2613,7 @@ class bridge(moduleBase):
         if not self.brctlcmd:
             self.brctlcmd = brctl()
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None,
-            ifaceobj_getfunc=None):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run bridge configuration on the interface object passed as
             argument. Can create bridge interfaces if they dont exist already
 

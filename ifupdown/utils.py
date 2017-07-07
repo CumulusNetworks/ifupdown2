@@ -92,9 +92,7 @@ class utils():
 
     @staticmethod
     def get_boolean_from_string(value):
-        if value in utils._string_values:
-            return utils._string_values[value]
-        return False
+        return utils._string_values.get(value, False)
 
     @staticmethod
     def get_yesno_boolean(bool):

@@ -567,7 +567,39 @@ class NetlinkManager(object):
         msg.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(msg)
 
-    def link_add_set(self, kind, ifname=None, ifindex=0, ifla_info_data={}, iflink=0):
+    def link_set_attrs(self, ifname, kind=None, slave_kind=None, ifindex=0, ifla={}, ifla_info_data={}, ifla_info_slave_data={}):
+        debug = RTM_NEWLINK in self.debug
+
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
+        link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
+
+        for nl_attr, value in ifla.items():
+            link.add_attribute(nl_attr, value)
+
+        if ifname:
+            link.add_attribute(Link.IFLA_IFNAME, ifname)
+
+        linkinfo = dict()
+
+        if kind:
+            linkinfo[Link.IFLA_INFO_KIND] = kind
+            linkinfo[Link.IFLA_INFO_DATA] = ifla_info_data
+        elif slave_kind:
+            linkinfo[Link.IFLA_INFO_SLAVE_KIND] = slave_kind,
+            linkinfo[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
+
+        link.add_attribute(Link.IFLA_LINKINFO, linkinfo)
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(link)
+
+    def link_add_set(self, kind,
+                     ifname=None,
+                     ifindex=0,
+                     slave_kind=None,
+                     ifla={},
+                     ifla_info_data={},
+                     ifla_info_slave_data={}):
         """
         Build and TX a RTM_NEWLINK message to add the desired interface
         """
@@ -577,16 +609,21 @@ class NetlinkManager(object):
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
 
+        for nl_attr, value in ifla.items():
+            link.add_attribute(nl_attr, value)
+
         if ifname:
             link.add_attribute(Link.IFLA_IFNAME, ifname)
 
-        if iflink:
-            link.add_attribute(Link.IFLA_LINK, iflink)
+        linkinfo = dict()
+        if kind:
+            linkinfo[Link.IFLA_INFO_KIND] = kind
+            linkinfo[Link.IFLA_INFO_DATA] = ifla_info_data
+        if slave_kind:
+            linkinfo[Link.IFLA_INFO_SLAVE_KIND] = slave_kind
+            linkinfo[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
+        link.add_attribute(Link.IFLA_LINKINFO, linkinfo)
 
-        link.add_attribute(Link.IFLA_LINKINFO, {
-            Link.IFLA_INFO_KIND: kind,
-            Link.IFLA_INFO_DATA: ifla_info_data
-        })
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
@@ -626,8 +663,8 @@ class NetlinkManager(object):
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
-    def link_add_bridge(self, ifname):
-        return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data={})
+    def link_add_bridge(self, ifname, ifla_info_data={}):
+        return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data)
 
     def link_add_vlan(self, ifindex, ifname, vlanid, vlan_protocol=None):
         """
@@ -664,7 +701,7 @@ class NetlinkManager(object):
         """
         return self._link_add(ifindex, ifname, 'macvlan', {Link.IFLA_MACVLAN_MODE: Link.MACVLAN_MODE_PRIVATE})
 
-    def vlan_get(self, filter_ifindex=(), filter_vlanid=(), compress_vlans=True):
+    def vlan_get(self, filter_ifindex=None, filter_vlanid=None, compress_vlans=True):
         """
         filter_ifindex should be a tuple if interface indexes, this is a whitelist filter
         filter_vlandid should be a tuple if VLAN IDs, this is a whitelist filter

@@ -33,7 +33,7 @@ import struct
 from ipaddr import IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
-from socket import AF_INET, AF_INET6, AF_BRIDGE, htons
+from socket import AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE, htons
 from string import printable
 from struct import pack, unpack, calcsize
 
@@ -697,9 +697,56 @@ class AttributeIFLA_AF_SPEC(Attribute):
             Link.IFLA_BRIDGE_FLAGS: flags,
             Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
         }
+
+        FROM: David Ahern
+        The encoding of the IFLA_AF_SPEC attribute varies depending on the family
+        used for the request (RTM_GETLINK) message. For AF_UNSPEC the encoding
+        has another level of nesting for each address family with the type encoded
+        first. i.e.,
+            af_spec = nla_nest_start(skb, IFLA_AF_SPEC)
+            for each family:
+                af = nla_nest_start(skb, af_ops->family)
+                af_ops->fill_link_af(skb, dev, ext_filter_mask)
+                nest_end
+            nest_end
+
+        This allows the parser to find the address family by looking at the first
+        type.
+
+        Whereas AF_BRIDGE encoding is just:
+            af_spec = nla_nest_start(skb, IFLA_AF_SPEC)
+            br_fill_ifvlaninfo{_compressed}(skb, vg)
+            nest_end
+
+        which means the parser can not use the attribute itself to know the family
+        to which the attribute belongs.
+
+        /include/uapi/linux/if_link.h
+        /*
+         * IFLA_AF_SPEC
+         *   Contains nested attributes for address family specific attributes.
+         *   Each address family may create a attribute with the address family
+         *   number as type and create its own attribute structure in it.
+         *
+         *   Example:
+         *   [IFLA_AF_SPEC] = {
+         *       [AF_INET] = {
+         *           [IFLA_INET_CONF] = ...,
+         *       },
+         *       [AF_INET6] = {
+         *           [IFLA_INET6_FLAGS] = ...,
+         *           [IFLA_INET6_CONF] = ...,
+         *       }
+         *   }
+         */
+
         """
         self.decode_length_type(data)
         self.value = {}
+
+        # opti for now, since we only support AF_BRIDGE
+        if self.family != AF_BRIDGE:
+            return
 
         data = self.data[4:]
 
@@ -723,8 +770,20 @@ class AttributeIFLA_AF_SPEC(Attribute):
                     self.value[Link.IFLA_BRIDGE_VLAN_INFO].append(tuple(unpack("=HH", sub_attr_data[0:4])))
 
                 else:
-                    self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute type %s (%d), length %d, padded to %d' %
-                                   (parent_msg.get_ifla_bridge_af_spec_to_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
+                    self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute '
+                                   'type %s (%d), length %d, padded to %d' %
+                                   (parent_msg.get_ifla_bridge_af_spec_to_string(sub_attr_type),
+                                    sub_attr_type, sub_attr_length, sub_attr_end))
+
+            elif self.family == AF_UNSPEC:
+                self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute '
+                               'type AF_UNSPEC (0), length %d, padded to %d'
+                               % (sub_attr_length, sub_attr_end))
+
+            else:
+                self.log.debug('Add support for decoding IFLA_AF_SPEC sub-attribute '
+                               'family %d, length %d, padded to %d'
+                               % (self.family, sub_attr_length, sub_attr_end))
 
             data = data[sub_attr_end:]
 
@@ -897,10 +956,14 @@ class AttributeIFLA_LINKINFO(Attribute):
         payload = [0, self.atype | NLA_F_NESTED]
         attr_length_index = 0
 
-        kind = self.value[Link.IFLA_INFO_KIND]
+        kind        = self.value.get(Link.IFLA_INFO_KIND)
+        slave_kind  = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
 
-        if kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge'):
+        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge'):
             raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
+        elif not kind and slave_kind != 'bridge':
+            # only support brport for now.
+            raise Exception('Unsupported IFLA_INFO_SLAVE_KIND %s' % slave_kind)
 
         # For now this assumes that all data will be packed in the native endian
         # order (=). If a field is added that needs to be packed via network
@@ -1125,6 +1188,176 @@ class AttributeIFLA_LINKINFO(Attribute):
                             sub_attr_pack_layout.append('L')
                             sub_attr_payload.append(int(info_data_value))
 
+                        else:
+                            self.log.debug('Add support for encoding IFLA_INFO_DATA bond sub-attribute type %d' % info_data_type)
+
+                    elif kind == 'bridge':
+                        if info_data_type == Link.IFLA_BR_VLAN_PROTOCOL:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # vlan protocol
+                            vlan_protocol = Link.ifla_vlan_protocol_dict.get(info_data_value)
+                            if not vlan_protocol:
+                                raise NotImplementedError('vlan protocol %s not implemented' % info_data_value)
+
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(htons(vlan_protocol))
+
+                            # pad 2 bytes
+                            sub_attr_pack_layout.extend('xx')
+
+                        # 1 byte
+                        elif info_data_type in (Link.IFLA_BR_VLAN_FILTERING,
+                                              Link.IFLA_BR_TOPOLOGY_CHANGE,
+                                              Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED,
+                                              Link.IFLA_BR_MCAST_ROUTER,
+                                              Link.IFLA_BR_MCAST_SNOOPING,
+                                              Link.IFLA_BR_MCAST_QUERY_USE_IFADDR,
+                                              Link.IFLA_BR_MCAST_QUERIER,
+                                              Link.IFLA_BR_NF_CALL_IPTABLES,
+                                              Link.IFLA_BR_NF_CALL_IP6TABLES,
+                                              Link.IFLA_BR_NF_CALL_ARPTABLES,
+                                              Link.IFLA_BR_VLAN_STATS_ENABLED,
+                                              Link.IFLA_BR_MCAST_STATS_ENABLED,
+                                              Link.IFLA_BR_MCAST_IGMP_VERSION,
+                                              Link.IFLA_BR_MCAST_MLD_VERSION):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(5)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 1 byte
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(int(info_data_value))
+
+                            # pad 3 bytes
+                            sub_attr_pack_layout.extend('xxx')
+
+                        # 2 bytes
+                        elif info_data_type in (Link.IFLA_BR_PRIORITY,
+                                              Link.IFLA_BR_GROUP_FWD_MASK,
+                                              Link.IFLA_BR_ROOT_PORT,
+                                              Link.IFLA_BR_VLAN_DEFAULT_PVID):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            # 2 bytes
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(int(info_data_value))
+
+                            # pad 2 bytes
+                            sub_attr_pack_layout.extend('xx')
+
+                        # 4 bytes
+                        elif info_data_type in (Link.IFLA_BR_FORWARD_DELAY,
+                                                Link.IFLA_BR_HELLO_TIME,
+                                                Link.IFLA_BR_MAX_AGE,
+                                                Link.IFLA_BR_AGEING_TIME,
+                                                Link.IFLA_BR_STP_STATE,
+                                                Link.IFLA_BR_ROOT_PATH_COST,
+                                                Link.IFLA_BR_MCAST_QUERIER,
+                                                Link.IFLA_BR_MCAST_HASH_ELASTICITY,
+                                                Link.IFLA_BR_MCAST_HASH_MAX,
+                                                Link.IFLA_BR_MCAST_LAST_MEMBER_CNT,
+                                                Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(int(info_data_value))
+
+                        # 8 bytes
+                        elif info_data_type in (Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL,
+                                                Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
+                                                Link.IFLA_BR_MCAST_QUERIER_INTVL,
+                                                Link.IFLA_BR_MCAST_QUERY_INTVL,
+                                                Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
+                                                Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(12)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('Q')
+                            sub_attr_payload.append(int(info_data_value))
+
+                        else:
+                            pass
+                            # DEBUG ADD SUPPORT ETC...
+
+            elif sub_attr_type == Link.IFLA_INFO_SLAVE_DATA:
+
+                sub_attr_payload = [0, sub_attr_type | NLA_F_NESTED]
+
+                for (info_slave_data_type, info_slave_data_value) in sub_attr_value.iteritems():
+
+                    if slave_kind == 'bridge':
+
+                        # 1 byte
+                        if info_slave_data_type in (Link.IFLA_BRPORT_STATE,
+                                                    Link.IFLA_BRPORT_MODE,
+                                                    Link.IFLA_BRPORT_GUARD,
+                                                    Link.IFLA_BRPORT_PROTECT,
+                                                    Link.IFLA_BRPORT_FAST_LEAVE,
+                                                    Link.IFLA_BRPORT_LEARNING,
+                                                    Link.IFLA_BRPORT_UNICAST_FLOOD,
+                                                    Link.IFLA_BRPORT_PROXYARP,
+                                                    Link.IFLA_BRPORT_LEARNING_SYNC,
+                                                    Link.IFLA_BRPORT_PROXYARP_WIFI,
+                                                    Link.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
+                                                    Link.IFLA_BRPORT_CONFIG_PENDING,
+                                                    Link.IFLA_BRPORT_MULTICAST_ROUTER,
+                                                    Link.IFLA_BRPORT_MCAST_FLOOD,
+                                                    Link.IFLA_BRPORT_MCAST_TO_UCAST,
+                                                    Link.IFLA_BRPORT_VLAN_TUNNEL,
+                                                    Link.IFLA_BRPORT_BCAST_FLOOD,
+                                                    Link.IFLA_BRPORT_PEER_LINK,
+                                                    Link.IFLA_BRPORT_DUAL_LINK,
+                                                    Link.IFLA_BRPORT_ARP_SUPPRESS):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(5)  # length
+                            sub_attr_payload.append(info_slave_data_type)
+
+                            # 1 byte
+                            sub_attr_pack_layout.append('B')
+                            sub_attr_payload.append(int(info_slave_data_value))
+
+                            # pad 3 bytes
+                            sub_attr_pack_layout.extend('xxx')
+
+                        # 2 bytes
+                        elif info_slave_data_type in (Link.IFLA_BRPORT_PRIORITY,
+                                                      Link.IFLA_BRPORT_DESIGNATED_PORT,
+                                                      Link.IFLA_BRPORT_DESIGNATED_COST,
+                                                      Link.IFLA_BRPORT_ID,
+                                                      Link.IFLA_BRPORT_NO):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(6)  # length
+                            sub_attr_payload.append(info_slave_data_type)
+
+                            # 2 bytes
+                            sub_attr_pack_layout.append('H')
+                            sub_attr_payload.append(int(info_slave_data_value))
+
+                            # pad 2 bytes
+                            sub_attr_pack_layout.extend('xx')
+
+                        # 4 bytes
+                        elif info_slave_data_type == Link.IFLA_BRPORT_COST:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_slave_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(int(info_slave_data_value))
+
+                        else:
+                            self.log.debug('Add support for encoding IFLA_INFO_SLAVE_DATA bond sub-attribute type %d' % info_slave_data_type)
+
+                    else:
+                        self.log.debug('Add support for encoding IFLA_LINKINFO kind %s' % slave_kind)
 
             else:
                 self.log.debug('Add support for encoding IFLA_LINKINFO sub-attribute type %d' % sub_attr_type)
@@ -1189,6 +1422,7 @@ class AttributeIFLA_LINKINFO(Attribute):
         # IFLA_MACVLAN_MODE and IFLA_VLAN_ID both have a value of 1 and both are
         # valid IFLA_INFO_DATA entries :( The sender must TX IFLA_INFO_KIND
         # first in order for us to know if "1" is IFLA_MACVLAN_MODE vs IFLA_VLAN_ID.
+
         while data:
             (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
             sub_attr_end = padded_length(sub_attr_length)
@@ -1197,162 +1431,264 @@ class AttributeIFLA_LINKINFO(Attribute):
                 self.log.error('parsed a zero length sub-attr')
                 return
 
-            if sub_attr_type == Link.IFLA_INFO_KIND:
-                self.value[Link.IFLA_INFO_KIND] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+            if sub_attr_type in (Link.IFLA_INFO_KIND, Link.IFLA_INFO_SLAVE_KIND):
+                self.value[sub_attr_type] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+
+            elif sub_attr_type == Link.IFLA_INFO_SLAVE_DATA:
+                sub_attr_data = data[4:sub_attr_end]
+
+                ifla_info_slave_data = dict()
+                ifla_info_slave_kind = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
+
+                if not ifla_info_slave_kind:
+                    self.log.warning('IFLA_INFO_SLAVE_KIND is not known...we cannot parse IFLA_INFO_SLAVE_DATA')
+                else:
+                    while sub_attr_data:
+                        (info_data_length, info_data_type) = unpack('=HH', sub_attr_data[:4])
+                        info_data_end = padded_length(info_data_length)
+                        try:
+                            if ifla_info_slave_kind == 'bridge':
+                                # 1 byte
+                                if info_data_type in (Link.IFLA_BRPORT_STATE,
+                                                      Link.IFLA_BRPORT_MODE,
+                                                      Link.IFLA_BRPORT_GUARD,
+                                                      Link.IFLA_BRPORT_PROTECT,
+                                                      Link.IFLA_BRPORT_FAST_LEAVE,
+                                                      Link.IFLA_BRPORT_LEARNING,
+                                                      Link.IFLA_BRPORT_UNICAST_FLOOD,
+                                                      Link.IFLA_BRPORT_PROXYARP,
+                                                      Link.IFLA_BRPORT_LEARNING_SYNC,
+                                                      Link.IFLA_BRPORT_PROXYARP_WIFI,
+                                                      Link.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
+                                                      Link.IFLA_BRPORT_CONFIG_PENDING,
+                                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
+                                                      Link.IFLA_BRPORT_MCAST_FLOOD,
+                                                      Link.IFLA_BRPORT_MCAST_TO_UCAST,
+                                                      Link.IFLA_BRPORT_VLAN_TUNNEL,
+                                                      Link.IFLA_BRPORT_PEER_LINK,
+                                                      Link.IFLA_BRPORT_DUAL_LINK,
+                                                      Link.IFLA_BRPORT_ARP_SUPPRESS):
+                                    ifla_info_slave_data[info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                                # 2 bytes
+                                elif info_data_type in (Link.IFLA_BRPORT_PRIORITY,
+                                                        Link.IFLA_BRPORT_DESIGNATED_PORT,
+                                                        Link.IFLA_BRPORT_DESIGNATED_COST,
+                                                        Link.IFLA_BRPORT_ID,
+                                                        Link.IFLA_BRPORT_NO):
+                                    ifla_info_slave_data[info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                                # 4 bytes
+                                elif info_data_type == Link.IFLA_BRPORT_COST:
+                                    ifla_info_slave_data[info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                        except Exception as e:
+                            self.log.debug('%s: attribute %s: %s'
+                                            % (self.value[Link.IFLA_INFO_SLAVE_KIND],
+                                               info_data_type,
+                                               str(e)))
+                        sub_attr_data = sub_attr_data[info_data_end:]
+
+                self.value[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
 
             elif sub_attr_type == Link.IFLA_INFO_DATA:
-
                 sub_attr_data = data[4:sub_attr_end]
                 self.value[Link.IFLA_INFO_DATA] = {}
 
-                while sub_attr_data:
-                    (info_data_length, info_data_type) = unpack('=HH', sub_attr_data[:4])
-                    info_data_end = padded_length(info_data_length)
-                    # self.log.info('sub attr length %d, end %d, type %d' % (info_data_length, info_data_end, info_data_type))
+                ifla_info_kind = self.value.get(Link.IFLA_INFO_KIND)
+                if not ifla_info_kind:
+                    self.log.warning('IFLA_INFO_KIND is not known...we cannot parse IFLA_INFO_DATA')
+                else:
+                    while sub_attr_data:
+                        (info_data_length, info_data_type) = unpack('=HH', sub_attr_data[:4])
+                        info_data_end = padded_length(info_data_length)
+                        try:
+                            if ifla_info_kind == 'vlan':
+                                if info_data_type == Link.IFLA_VLAN_ID:
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
 
-                    if not sub_attr_data:
-                        self.log.error('RXed zero length sub-attribute')
-                        break
+                                elif info_data_type == Link.IFLA_VLAN_PROTOCOL:
+                                    hex_value = '0x%s' % sub_attr_data[4:6].encode('hex')
+                                    vlan_protocol = Link.ifla_vlan_protocol_dict.get(int(hex_value, base=16))
 
-                    if Link.IFLA_INFO_KIND not in self.value:
-                        self.log.warning('IFLA_INFO_KIND is not known...we cannot parse IFLA_INFO_DATA')
+                                    if vlan_protocol:
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = vlan_protocol
+                                    else:
+                                        self.log.warning('IFLA_VLAN_PROTOCOL: cannot decode vlan protocol %s' % hex_value)
 
-                    elif self.value[Link.IFLA_INFO_KIND] == 'vlan':
-                        if info_data_type == Link.IFLA_VLAN_ID:
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+                                else:
+                                    self.log.debug('Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
+                                                   (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
-                        elif info_data_type == Link.IFLA_VLAN_PROTOCOL:
-                            hex_value = '0x%s' % sub_attr_data[4:6].encode('hex')
-                            vlan_protocol = Link.ifla_vlan_protocol_dict.get(int(hex_value, base=16))
+                            elif ifla_info_kind == 'macvlan':
+                                if info_data_type == Link.IFLA_MACVLAN_MODE:
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+                                else:
+                                    self.log.debug('Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
+                                                   (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
-                            if vlan_protocol:
-                                self.value[Link.IFLA_INFO_DATA][info_data_type] = vlan_protocol
+                            elif ifla_info_kind == 'vxlan':
+
+                                # IPv4Address
+                                if info_data_type in (Link.IFLA_VXLAN_GROUP,
+                                                      Link.IFLA_VXLAN_LOCAL):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack('>L', sub_attr_data[4:8])[0])
+
+                                # 4-byte int
+                                elif info_data_type in (Link.IFLA_VXLAN_ID,
+                                                        Link.IFLA_VXLAN_LINK,
+                                                        Link.IFLA_VXLAN_AGEING,
+                                                        Link.IFLA_VXLAN_LIMIT,
+                                                        Link.IFLA_VXLAN_PORT_RANGE):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                                # 2-byte int
+                                elif info_data_type in (Link.IFLA_VXLAN_PORT, ):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                                # 1-byte int
+                                elif info_data_type in (Link.IFLA_VXLAN_TTL,
+                                                        Link.IFLA_VXLAN_TOS,
+                                                        Link.IFLA_VXLAN_LEARNING,
+                                                        Link.IFLA_VXLAN_PROXY,
+                                                        Link.IFLA_VXLAN_RSC,
+                                                        Link.IFLA_VXLAN_L2MISS,
+                                                        Link.IFLA_VXLAN_L3MISS,
+                                                        Link.IFLA_VXLAN_UDP_CSUM,
+                                                        Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
+                                                        Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
+                                                        Link.IFLA_VXLAN_REMCSUM_TX,
+                                                        Link.IFLA_VXLAN_REMCSUM_RX,
+                                                        Link.IFLA_VXLAN_REPLICATION_TYPE):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                                else:
+                                    # sub_attr_end = padded_length(sub_attr_length)
+                                    self.log.debug('Add support for decoding IFLA_INFO_KIND vxlan type %s (%d), length %d, padded to %d' %
+                                                   (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                            elif ifla_info_kind == 'bond':
+
+                                if info_data_type in (Link.IFLA_BOND_AD_INFO, ):
+                                    ad_attr_data = sub_attr_data[4:info_data_end]
+                                    self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO] = {}
+
+                                    while ad_attr_data:
+                                        (ad_data_length, ad_data_type) = unpack('=HH', ad_attr_data[:4])
+                                        ad_data_end = padded_length(ad_data_length)
+
+                                        if ad_data_type in (Link.IFLA_BOND_AD_INFO_PARTNER_MAC,):
+                                            (data1, data2) = unpack('>LHxx', ad_attr_data[4:12])
+                                            self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO][ad_data_type] = mac_int_to_str(data1 << 16 | data2)
+
+                                        ad_attr_data = ad_attr_data[ad_data_end:]
+
+                                # 1-byte int
+                                elif info_data_type in (Link.IFLA_BOND_MODE,
+                                                        Link.IFLA_BOND_USE_CARRIER,
+                                                        Link.IFLA_BOND_AD_LACP_RATE,
+                                                        Link.IFLA_BOND_AD_LACP_BYPASS,
+                                                        Link.IFLA_BOND_XMIT_HASH_POLICY,
+                                                        Link.IFLA_BOND_NUM_PEER_NOTIF):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                                # 2-bytes int
+                                elif info_data_type == Link.IFLA_BOND_AD_ACTOR_SYS_PRIO:
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                                # 4-bytes int
+                                elif info_data_type in (Link.IFLA_BOND_MIIMON,
+                                                        Link.IFLA_BOND_UPDELAY,
+                                                        Link.IFLA_BOND_DOWNDELAY,
+                                                        Link.IFLA_BOND_MIN_LINKS):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                                # mac address
+                                elif info_data_type in (Link.IFLA_BOND_AD_ACTOR_SYSTEM, ):
+                                    (data1, data2) = unpack('>LHxx', sub_attr_data[4:12])
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = mac_int_to_str(data1 << 16 | data2)
+
+                                else:
+                                    self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
+                                                   (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                            elif ifla_info_kind == 'bridge':
+                                # 4 bytes
+                                if info_data_type in (Link.IFLA_BR_AGEING_TIME,
+                                                      Link.IFLA_BR_FORWARD_DELAY,
+                                                      Link.IFLA_BR_HELLO_TIME,
+                                                      Link.IFLA_BR_MAX_AGE,
+                                                      Link.IFLA_BR_STP_STATE,
+                                                      Link.IFLA_BR_ROOT_PATH_COST,
+                                                      Link.IFLA_BR_MCAST_HASH_ELASTICITY,
+                                                      Link.IFLA_BR_MCAST_HASH_MAX,
+                                                      Link.IFLA_BR_MCAST_LAST_MEMBER_CNT,
+                                                      Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                                # 2 bytes
+                                elif info_data_type in (Link.IFLA_BR_PRIORITY,
+                                                        Link.IFLA_BR_GROUP_FWD_MASK,
+                                                        Link.IFLA_BR_ROOT_PORT,
+                                                        Link.IFLA_BR_VLAN_DEFAULT_PVID):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                                elif info_data_type == Link.IFLA_BR_VLAN_PROTOCOL:
+                                    hex_value = '0x%s' % sub_attr_data[4:6].encode('hex')
+                                    vlan_protocol = Link.ifla_vlan_protocol_dict.get(int(hex_value, base=16))
+
+                                    if vlan_protocol:
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = vlan_protocol
+                                    else:
+                                        self.log.warning('IFLA_VLAN_PROTOCOL: cannot decode vlan protocol %s' % hex_value)
+
+                                # 8 bytes
+                                elif info_data_type in (Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
+                                                        Link.IFLA_BR_MCAST_QUERIER_INTVL,
+                                                        Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL,
+                                                        Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
+                                                        Link.IFLA_BR_MCAST_QUERIER_INTVL,
+                                                        Link.IFLA_BR_MCAST_QUERY_INTVL,
+                                                        Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
+                                                        Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=Q', sub_attr_data[4:12])[0]
+
+                                # 1 bytes
+                                elif info_data_type in (Link.IFLA_BR_VLAN_FILTERING,
+                                                        Link.IFLA_BR_TOPOLOGY_CHANGE,
+                                                        Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED,
+                                                        Link.IFLA_BR_MCAST_ROUTER,
+                                                        Link.IFLA_BR_MCAST_SNOOPING,
+                                                        Link.IFLA_BR_MCAST_QUERY_USE_IFADDR,
+                                                        Link.IFLA_BR_MCAST_QUERIER,
+                                                        Link.IFLA_BR_NF_CALL_IPTABLES,
+                                                        Link.IFLA_BR_NF_CALL_IP6TABLES,
+                                                        Link.IFLA_BR_NF_CALL_ARPTABLES,
+                                                        Link.IFLA_BR_VLAN_STATS_ENABLED,
+                                                        Link.IFLA_BR_MCAST_STATS_ENABLED,
+                                                        Link.IFLA_BR_MCAST_IGMP_VERSION,
+                                                        Link.IFLA_BR_MCAST_MLD_VERSION):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+                                else:
+                                    self.log.debug('Add support for decoding IFLA_INFO_KIND bridge type %s (%d), length %d, padded to %d' %
+                                                   (parent_msg.get_ifla_br_string(info_data_type), info_data_type, info_data_length, info_data_end))
+
+                            elif ifla_info_kind == 'vrf':
+
+                                if info_data_type in (Link.IFLA_VRF_TABLE,):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+
                             else:
-                                self.log.warning('IFLA_VLAN_PROTOCOL: cannot decode vlan protocol %s' % hex_value)
+                                self.log.debug("Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
+                                                (ifla_info_kind, info_data_type, info_data_length, info_data_end))
 
-                        else:
-                            self.log.debug('Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
-                                           (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                    elif self.value[Link.IFLA_INFO_KIND] == 'macvlan':
-                        if info_data_type == Link.IFLA_MACVLAN_MODE:
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-                        else:
-                            self.log.debug('Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
-                                           (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                    elif self.value[Link.IFLA_INFO_KIND] == 'vxlan':
-
-                        # IPv4Address
-                        if info_data_type in (Link.IFLA_VXLAN_GROUP,
-                                              Link.IFLA_VXLAN_LOCAL):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack('>L', sub_attr_data[4:8])[0])
-
-                        # 4-byte int
-                        elif info_data_type in (Link.IFLA_VXLAN_ID,
-                                                Link.IFLA_VXLAN_LINK,
-                                                Link.IFLA_VXLAN_AGEING,
-                                                Link.IFLA_VXLAN_LIMIT,
-                                                Link.IFLA_VXLAN_PORT_RANGE):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                        # 2-byte int
-                        elif info_data_type in (Link.IFLA_VXLAN_PORT, ):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                        # 1-byte int
-                        elif info_data_type in (Link.IFLA_VXLAN_TTL,
-                                                Link.IFLA_VXLAN_TOS,
-                                                Link.IFLA_VXLAN_LEARNING,
-                                                Link.IFLA_VXLAN_PROXY,
-                                                Link.IFLA_VXLAN_RSC,
-                                                Link.IFLA_VXLAN_L2MISS,
-                                                Link.IFLA_VXLAN_L3MISS,
-                                                Link.IFLA_VXLAN_UDP_CSUM,
-                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
-                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-                                                Link.IFLA_VXLAN_REMCSUM_TX,
-                                                Link.IFLA_VXLAN_REMCSUM_RX,
-                                                Link.IFLA_VXLAN_REPLICATION_TYPE):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                        else:
-                            # sub_attr_end = padded_length(sub_attr_length)
-                            self.log.debug('Add support for decoding IFLA_INFO_KIND vxlan type %s (%d), length %d, padded to %d' %
-                                           (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                    elif self.value[Link.IFLA_INFO_KIND] == 'bond':
-
-                        if info_data_type in (Link.IFLA_BOND_AD_INFO, ):
-                            ad_attr_data = sub_attr_data[4:info_data_end]
-                            self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO] = {}
-
-                            while ad_attr_data:
-                                (ad_data_length, ad_data_type) = unpack('=HH', ad_attr_data[:4])
-                                ad_data_end = padded_length(ad_data_length)
-
-                                if ad_data_type in (Link.IFLA_BOND_AD_INFO_PARTNER_MAC,):
-                                    (data1, data2) = unpack('>LHxx', ad_attr_data[4:12])
-                                    self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO][ad_data_type] = mac_int_to_str(data1 << 16 | data2)
-
-                                ad_attr_data = ad_attr_data[ad_data_end:]
-
-                        # 1-byte int
-                        elif info_data_type in (Link.IFLA_BOND_MODE,
-                                                Link.IFLA_BOND_USE_CARRIER,
-                                                Link.IFLA_BOND_AD_LACP_RATE,
-                                                Link.IFLA_BOND_AD_LACP_BYPASS,
-                                                Link.IFLA_BOND_XMIT_HASH_POLICY,
-                                                Link.IFLA_BOND_NUM_PEER_NOTIF):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                        # 2-bytes int
-                        elif info_data_type == Link.IFLA_BOND_AD_ACTOR_SYS_PRIO:
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                        # 4-bytes int
-                        elif info_data_type in (Link.IFLA_BOND_MIIMON,
-                                                Link.IFLA_BOND_UPDELAY,
-                                                Link.IFLA_BOND_DOWNDELAY,
-                                                Link.IFLA_BOND_MIN_LINKS):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                        # mac address
-                        elif info_data_type in (Link.IFLA_BOND_AD_ACTOR_SYSTEM, ):
-                            (data1, data2) = unpack('>LHxx', sub_attr_data[4:12])
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = mac_int_to_str(data1 << 16 | data2)
-
-                        else:
-                            self.log.debug('Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
-                                           (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                    elif self.value[Link.IFLA_INFO_KIND] == 'bridge':
-
-                        if info_data_type in (Link.IFLA_BR_AGEING_TIME, ):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-                        elif info_data_type in (Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
-                                                Link.IFLA_BR_MCAST_QUERIER_INTVL):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=Q', sub_attr_data[4:12])[0]
-                        elif info_data_type in (Link.IFLA_BR_VLAN_FILTERING, ):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-                        else:
-                            self.log.debug('Add support for decoding IFLA_INFO_KIND bridge type %s (%d), length %d, padded to %d' %
-                                           (parent_msg.get_ifla_br_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                    elif self.value[Link.IFLA_INFO_KIND] == 'vrf':
-
-                        if info_data_type in (Link.IFLA_VRF_TABLE,):
-                            self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-
-                    else:
-                        self.log.debug("Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
-                                        (self.value[Link.IFLA_INFO_KIND], info_data_type, info_data_length, info_data_end))
-
-                    sub_attr_data = sub_attr_data[info_data_end:]
-
-            elif sub_attr_type == Link.IFLA_INFO_SLAVE_KIND:
-                self.value[Link.IFLA_INFO_SLAVE_KIND] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+                        except Exception as e:
+                            self.log.debug('%s: attribute %s: %s'
+                                           % (self.value[Link.IFLA_INFO_KIND],
+                                              info_data_type,
+                                              str(e)))
+                        sub_attr_data = sub_attr_data[info_data_end:]
 
             else:
                 self.log.debug('Add support for decoding IFLA_LINKINFO sub-attribute type %s (%d), length %d, padded to %d' %
@@ -1407,35 +1743,42 @@ class AttributeIFLA_LINKINFO(Attribute):
         if obj and callable(obj):
             return obj(self.value)
 
-        value_pretty = self.value
-        ifla_info_kind = self.value.get(Link.IFLA_INFO_KIND)
+        value_pretty            = self.value
+        ifla_info_kind          = self.value.get(Link.IFLA_INFO_KIND)
+        ifla_info_slave_kind    = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
+
+        kind_dict = dict()
 
         # We do this so we can print a more human readable dictionary
         # with the names of the nested keys instead of their numbers
 
         # Most of these are placeholders...we need to add support
         # for more human readable dictionaries for bond, bridge, etc
-        kind_to_string_dicts = {
-            'bond'    : Link.ifla_bond_to_string,
-            'bridge'  : Link.ifla_bridge_to_string,
-            'macvlan' : Link.ifla_macvlan_to_string,
-            'vlan'    : Link.ifla_vlan_to_string,
-            'vxlan'   : Link.ifla_vxlan_to_string
-        }
-        kind_to_string_dict = kind_to_string_dicts.get(ifla_info_kind)
+        kind_dict[Link.IFLA_INFO_DATA] = {
+            'bond':     Link.ifla_bond_to_string,
+            'vlan':     Link.ifla_vlan_to_string,
+            'vxlan':    Link.ifla_vxlan_to_string,
+            'bridge':   Link.ifla_br_to_string,
+            'macvlan':  Link.ifla_macvlan_to_string
+        }.get(ifla_info_kind, {})
 
-        if kind_to_string_dict:
+        kind_dict[Link.IFLA_INFO_SLAVE_DATA] = {
+            'bridge': Link.ifla_brport_to_string,
+        }.get(ifla_info_slave_kind, {})
+
+        if ifla_info_kind or ifla_info_slave_kind:
             value_pretty = {}
 
             for (sub_key, sub_value) in self.value.iteritems():
                 sub_key_pretty = "(%2d) %s" % (sub_key, Link.ifla_info_to_string.get(sub_key, 'UNKNOWN'))
                 sub_value_pretty = sub_value
 
-                if sub_key == Link.IFLA_INFO_DATA:
+                if sub_key in (Link.IFLA_INFO_DATA, Link.IFLA_INFO_SLAVE_DATA):
+                    kind_to_string_dict = kind_dict.get(sub_key, {})
                     sub_value_pretty = {}
 
                     for (sub_sub_key, sub_sub_value) in sub_value.iteritems():
-                        sub_sub_key_pretty = "(%2d) %s" % (sub_sub_key, kind_to_string_dict.get(sub_sub_key,'UNKNOWN'))
+                        sub_sub_key_pretty = "(%2d) %s" % (sub_sub_key, kind_to_string_dict.get(sub_sub_key, 'UNKNOWN'))
                         sub_value_pretty[sub_sub_key_pretty] = sub_sub_value
 
                 value_pretty[sub_key_pretty] = sub_value_pretty
@@ -1610,7 +1953,7 @@ class AttributeIFLA_PROTINFO(Attribute):
 
                 else:
                     self.log.debug('Add support for decoding IFLA_PROTINFO sub-attribute type %s (%d), length %d, padded to %d' %
-                                   (parent_msg.get_ifla_bridge_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
+                                   (parent_msg.get_ifla_brport_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
 
             data = data[sub_attr_end:]
 
@@ -1645,7 +1988,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                         (zfilled_hex(sub_attr_length, 4), sub_attr_length,
                          padded_to,
                          zfilled_hex(sub_attr_type, 4), sub_attr_type,
-                         Link.ifla_bridge_to_string.get(sub_attr_type))
+                         Link.ifla_brport_to_string.get(sub_attr_type))
             else:
                 extra = ''
 
@@ -1662,7 +2005,7 @@ class AttributeIFLA_PROTINFO(Attribute):
         value_pretty = {}
 
         for (sub_key, sub_value) in self.value.iteritems():
-            sub_key_pretty = "(%2d) %s" % (sub_key, Link.ifla_bridge_to_string.get(sub_key, 'UNKNOWN'))
+            sub_key_pretty = "(%2d) %s" % (sub_key, Link.ifla_brport_to_string.get(sub_key, 'UNKNOWN'))
             sub_value_pretty = sub_value
             value_pretty[sub_key_pretty] = sub_value_pretty
 
@@ -2841,11 +3184,16 @@ class Link(NetlinkPacket):
     IFLA_BRPORT_HOLD_TIMER          = 23
     IFLA_BRPORT_FLUSH               = 24
     IFLA_BRPORT_MULTICAST_ROUTER    = 25
+    IFLA_BRPORT_PAD                 = 26
+    IFLA_BRPORT_MCAST_FLOOD         = 27
+    IFLA_BRPORT_MCAST_TO_UCAST      = 28
+    IFLA_BRPORT_VLAN_TUNNEL         = 29
+    IFLA_BRPORT_BCAST_FLOOD         = 30
     IFLA_BRPORT_PEER_LINK           = 150
     IFLA_BRPORT_DUAL_LINK           = 151
     IFLA_BRPORT_ARP_SUPPRESS        = 152
 
-    ifla_bridge_to_string = {
+    ifla_brport_to_string = {
         IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
         IFLA_BRPORT_STATE               : 'IFLA_BRPORT_STATE',
         IFLA_BRPORT_PRIORITY            : 'IFLA_BRPORT_PRIORITY',
@@ -2872,6 +3220,11 @@ class Link(NetlinkPacket):
         IFLA_BRPORT_HOLD_TIMER          : 'IFLA_BRPORT_HOLD_TIMER',
         IFLA_BRPORT_FLUSH               : 'IFLA_BRPORT_FLUSH',
         IFLA_BRPORT_MULTICAST_ROUTER    : 'IFLA_BRPORT_MULTICAST_ROUTER',
+        IFLA_BRPORT_PAD                 : 'IFLA_BRPORT_PAD',
+        IFLA_BRPORT_MCAST_FLOOD         : 'IFLA_BRPORT_MCAST_FLOOD',
+        IFLA_BRPORT_MCAST_TO_UCAST      : 'IFLA_BRPORT_MCAST_TO_UCAST',
+        IFLA_BRPORT_VLAN_TUNNEL         : 'IFLA_BRPORT_VLAN_TUNNEL',
+        IFLA_BRPORT_BCAST_FLOOD         : 'IFLA_BRPORT_BCAST_FLOOD',
         IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
         IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
         IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS'
@@ -2889,18 +3242,20 @@ class Link(NetlinkPacket):
     }
 
     # BRIDGE_VLAN_INFO flags
-    BRIDGE_VLAN_INFO_MASTER      = 1 << 0
-    BRIDGE_VLAN_INFO_PVID        = 1 << 1
-    BRIDGE_VLAN_INFO_UNTAGGED    = 1 << 2
-    BRIDGE_VLAN_INFO_RANGE_BEGIN = 1 << 3
-    BRIDGE_VLAN_INFO_RANGE_END   = 1 << 4
+    BRIDGE_VLAN_INFO_MASTER      = 1 << 0  # Operate on Bridge device as well
+    BRIDGE_VLAN_INFO_PVID        = 1 << 1  # VLAN is PVID, ingress untagged
+    BRIDGE_VLAN_INFO_UNTAGGED    = 1 << 2  # VLAN egresses untagged
+    BRIDGE_VLAN_INFO_RANGE_BEGIN = 1 << 3  # VLAN is start of vlan range
+    BRIDGE_VLAN_INFO_RANGE_END   = 1 << 4  # VLAN is end of vlan range
+    BRIDGE_VLAN_INFO_BRENTRY     = 1 << 5  # Global bridge VLAN entry
 
     bridge_vlan_to_string = {
         BRIDGE_VLAN_INFO_MASTER      : 'BRIDGE_VLAN_INFO_MASTER',
         BRIDGE_VLAN_INFO_PVID        : 'BRIDGE_VLAN_INFO_PVID',
         BRIDGE_VLAN_INFO_UNTAGGED    : 'BRIDGE_VLAN_INFO_UNTAGGED',
         BRIDGE_VLAN_INFO_RANGE_BEGIN : 'BRIDGE_VLAN_INFO_RANGE_BEGIN',
-        BRIDGE_VLAN_INFO_RANGE_END   : 'BRIDGE_VLAN_INFO_RANGE_END'
+        BRIDGE_VLAN_INFO_RANGE_END   : 'BRIDGE_VLAN_INFO_RANGE_END',
+        BRIDGE_VLAN_INFO_BRENTRY     : 'BRIDGE_VLAN_INFO_BRENTRY'
     }
 
     # Bridge flags
@@ -2965,6 +3320,11 @@ class Link(NetlinkPacket):
     IFLA_BR_NF_CALL_IP6TABLES          = 37
     IFLA_BR_NF_CALL_ARPTABLES          = 38
     IFLA_BR_VLAN_DEFAULT_PVID          = 39
+    IFLA_BR_PAD                        = 40
+    IFLA_BR_VLAN_STATS_ENABLED         = 41
+    IFLA_BR_MCAST_STATS_ENABLED        = 42
+    IFLA_BR_MCAST_IGMP_VERSION         = 43
+    IFLA_BR_MCAST_MLD_VERSION          = 44
 
     ifla_br_to_string = {
         IFLA_BR_UNSPEC                     : 'IFLA_BR_UNSPEC',
@@ -3007,6 +3367,11 @@ class Link(NetlinkPacket):
         IFLA_BR_NF_CALL_IP6TABLES          : 'IFLA_BR_NF_CALL_IP6TABLES',
         IFLA_BR_NF_CALL_ARPTABLES          : 'IFLA_BR_NF_CALL_ARPTABLES',
         IFLA_BR_VLAN_DEFAULT_PVID          : 'IFLA_BR_VLAN_DEFAULT_PVID',
+        IFLA_BR_PAD                        : 'IFLA_BR_PAD',
+        IFLA_BR_VLAN_STATS_ENABLED         : 'IFLA_BR_VLAN_STATS_ENABLED',
+        IFLA_BR_MCAST_STATS_ENABLED        : 'IFLA_BR_MCAST_STATS_ENABLED',
+        IFLA_BR_MCAST_IGMP_VERSION         : 'IFLA_BR_MCAST_IGMP_VERSION',
+        IFLA_BR_MCAST_MLD_VERSION          : 'IFLA_BR_MCAST_MLD_VERSION'
     }
 
     # =========================================
@@ -3052,8 +3417,8 @@ class Link(NetlinkPacket):
     def get_ifla_bond_ad_string(self, index):
         return self.get_string(self.ifla_bond_ad_to_string, index)
 
-    def get_ifla_bridge_string(self, index):
-        return self.get_string(self.ifla_bridge_to_string, index)
+    def get_ifla_brport_string(self, index):
+        return self.get_string(self.ifla_brport_to_string, index)
 
     def get_ifla_br_string(self, index):
         return self.get_string(self.ifla_br_to_string, index)

@@ -8,12 +8,16 @@ try:
     import os
     import re
 
+    from nlmanager.nlmanager import Link
+
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.netlink import netlink
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.utilsbase import *
+
+    import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
     raise ImportError('%s - required module not found' % str(e))
 
@@ -34,7 +38,7 @@ class brctl(utilsBase):
 
     @classmethod
     def reset(cls):
-        cls._cache_fill_done = False
+        brctl._cache_fill_done = False
 
     def _bridge_get_mcattrs_from_sysfs(self, bridgename):
         mcattrs = {}
@@ -182,44 +186,98 @@ class brctl(utilsBase):
             bports[pname] = bportattrs
             linkCache.update_attrdict([bridgename, 'linkinfo', 'ports'], bports)
 
-    def _bridge_fill(self, bridgename=None, refresh=False):
+    def _bridge_fill(self, bridgename=None):
         try:
             # if cache is already filled, return
             linkCache.get_attr([bridgename, 'linkinfo', 'fd'])
             return
         except:
             pass
-        if not bridgename:
-            brctlout = utils.exec_command('/sbin/brctl show')
-        else:
-            brctlout = utils.exec_command('/sbin/brctl show %s' % bridgename)
-        if not brctlout:
-            return
-
-        for bline in brctlout.splitlines()[1:]:
-            bitems = bline.split()
-            if len(bitems) < 2:
-                continue
+        if True:  # netlink
             try:
-                linkCache.update_attrdict([bitems[0], 'linkinfo'],
-                                      {'stp' : bitems[2]})
-            except KeyError:
-                linkCache.update_attrdict([bitems[0]], 
-                                {'linkinfo' : {'stp' : bitems[2]}})
-            self._bridge_attrs_fill(bitems[0])
+                [linkCache.update_attrdict([ifname], linkattrs)
+                 for ifname, linkattrs in netlink.link_dump().items()]
+
+                brports = {}
+
+                for ifname, obj in linkCache.links.items():
+                    slave_kind = obj.get('slave_kind')
+                    if not slave_kind and slave_kind != 'bridge':
+                        continue
+
+                    info_slave_data = obj.get('info_slave_data')
+                    if not info_slave_data:
+                        continue
+
+                    ifla_master = obj.get('master')
+                    if not ifla_master:
+                        raise Exception('No master associated with bridge port %s' % ifname)
+
+                    brport_attrs = {
+                        'pathcost': str(info_slave_data.get(Link.IFLA_BRPORT_COST, 0)),
+                        'fdelay': format(float(info_slave_data.get(Link.IFLA_BRPORT_FORWARD_DELAY_TIMER, 0) / 100), '.2f'),
+                        'portmcrouter': str(info_slave_data.get(Link.IFLA_BRPORT_MULTICAST_ROUTER, 0)),
+                        'portmcfl': str(info_slave_data.get(Link.IFLA_BRPORT_FAST_LEAVE, 0)),
+                        'portprio': str(info_slave_data.get(Link.IFLA_BRPORT_PRIORITY, 0)),
+                        'unicast-flood': str(info_slave_data.get(Link.IFLA_BRPORT_UNICAST_FLOOD, 0)),
+                        'multicast-flood': str(info_slave_data.get(Link.IFLA_BRPORT_MCAST_FLOOD, 0)),
+                        'learning': str(info_slave_data.get(Link.IFLA_BRPORT_LEARNING, 0)),
+                        'arp-nd-suppress': str(info_slave_data.get(Link.IFLA_BRPORT_ARP_SUPPRESS, 0))
+                    }
+
+                    if ifla_master in brports:
+                        brports[ifla_master][ifname] = brport_attrs
+                    else:
+                        brports[ifla_master] = {ifname: brport_attrs}
+
+                    linkCache.update_attrdict([ifla_master, 'linkinfo', 'ports'], brports[ifla_master])
+
+            except Exception as e:
+                self.logger.warning('%s: %s' % (bridgename if bridgename else 'bridge dump', str(e)))
+
+        else:
+            if not bridgename:
+                brctlout = utils.exec_command('/sbin/brctl show')
+            else:
+                brctlout = utils.exec_command('/sbin/brctl show %s' % bridgename)
+            if not brctlout:
+                return
+
+            for bline in brctlout.splitlines()[1:]:
+                bitems = bline.split()
+                if len(bitems) < 2:
+                    continue
+                try:
+                    linkCache.update_attrdict([bitems[0], 'linkinfo'],
+                                          {'stp' : bitems[2]})
+                except KeyError:
+                    linkCache.update_attrdict([bitems[0]],
+                                    {'linkinfo' : {'stp' : bitems[2]}})
+                self._bridge_attrs_fill(bitems[0])
+
+    def cache_get(self, attr_list, refresh=False):
+        return self._cache_get(attr_list, refresh)
+
+    def cache_get_info_slave(self, attrlist):
+        try:
+            if attrlist[0] not in linkCache.links:
+                self._bridge_fill(attrlist[0])
+            return linkCache.get_attr(attrlist)
+        except:
+            return self._cache_get(attrlist, refresh=True)
 
     def _cache_get(self, attrlist, refresh=False):
         try:
             if ifupdownflags.flags.DRYRUN:
                 return None
             if ifupdownflags.flags.CACHE:
-                if not self._cache_fill_done: 
+                if not brctl._cache_fill_done:
                     self._bridge_fill()
-                    self._cache_fill_done = True
+                    brctl._cache_fill_done = True
                     return linkCache.get_attr(attrlist)
                 if not refresh:
                     return linkCache.get_attr(attrlist)
-            self._bridge_fill(attrlist[0], refresh)
+            self._bridge_fill(attrlist[0])
             return linkCache.get_attr(attrlist)
         except Exception, e:
             self.logger.debug('_cache_get(%s) : [%s]'
@@ -241,7 +299,7 @@ class brctl(utilsBase):
     def _cache_update(self, attrlist, value):
         if ifupdownflags.flags.DRYRUN: return
         try:
-            linkCache.add_attr(attrlist, value)
+            linkCache.set_attr(attrlist, value)
         except:
             pass
 
@@ -378,7 +436,12 @@ class brctl(utilsBase):
             utils.exec_command(cmd)
 
     def get_bridge_attrs(self, bridgename):
-        return self._cache_get([bridgename, 'linkinfo'])
+        attrs = self._cache_get([bridgename, 'linkinfo'])
+        no_ints_attrs = {}
+        for key, value in attrs.items():
+            if type(key) == str:
+                no_ints_attrs[key] = value
+        return no_ints_attrs
 
     def get_bridgeport_attrs(self, bridgename, bridgeportname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',

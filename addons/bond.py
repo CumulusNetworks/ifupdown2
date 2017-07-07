@@ -486,10 +486,10 @@ class bond(moduleBase):
                     # all the user/policy defined values without extra checks
                     ifla_info_data[netlink_attr] = nl_value
 
-                    if cached_value:
-                        self.logger.debug('%s: set %s %s (cache %s)' % (ifname, attr_name, user_config, cached_value))
+                    if cached_value is not None:
+                        self.logger.info('%s: set %s %s (cache %s)' % (ifname, attr_name, user_config, cached_value))
                     else:
-                        self.logger.debug('%s: set %s %s' % (ifname, attr_name, user_config))
+                        self.logger.info('%s: set %s %s' % (ifname, attr_name, user_config))
 
                 except KeyError:
                     self.logger.warning('%s: invalid %s value %s' % (ifname, attr_name, user_config))
@@ -562,7 +562,7 @@ class bond(moduleBase):
             self.logger.info('%s: already exists, no change detected' % ifname)
         else:
             try:
-                netlink.link_add_set('bond', ifname=ifname, ifla_info_data=ifla_info_data)
+                netlink.link_add_set(kind='bond', ifname=ifname, ifla_info_data=ifla_info_data)
             except Exception as e:
                 # defensive code
                 # if anything happens, we try to set up the bond with the sysfs api
