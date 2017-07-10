@@ -726,6 +726,9 @@ class iproute2(utilsBase):
                 self._cache_get('link', [ifacename, 'linkinfo', 'vlanid']),
                 self._cache_get('link', [ifacename, 'linkinfo', 'vlan_protocol']))
 
+    def get_vlan_protocol(self, ifacename):
+        return self._cache_get('link', [ifacename, 'linkinfo', 'vlan_protocol'])
+
     def get_vxlandev_attrs(self, ifacename):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 

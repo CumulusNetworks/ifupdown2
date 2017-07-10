@@ -111,13 +111,23 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
+
+        vlan_protocol = ifaceobj.get_attr_value_first('vlan-protocol')
+        if vlan_protocol:
+            cached_vlan_protocol = self.ipcmd.get_vlan_protocol(ifaceobj.name)
+            if cached_vlan_protocol and vlan_protocol.lower() != cached_vlan_protocol.lower():
+                self.logger.error('%s: cannot change vlan-protocol to %s: operation not supported. '
+                                  'Please delete the device with \'ifdown %s\' and recreate it to '
+                                  'apply the change.'
+                                  % (ifaceobj.name, vlan_protocol, ifaceobj.name))
+
         if not ifupdownflags.flags.PERFMODE:
             if not self.ipcmd.link_exists(vlanrawdevice):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 return
-        vlan_protocol = ifaceobj.get_attr_value_first('vlan-protocol')
+
         netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
 
