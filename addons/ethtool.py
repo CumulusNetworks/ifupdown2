@@ -61,9 +61,9 @@ class ethtool(moduleBase,utilsBase):
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
 
-    def _post_up(self, ifaceobj, operation='post_up'):
+    def _pre_up(self, ifaceobj, operation='post_up'):
         """
-        _post_up and _pre_down will reset the layer 2 attributes to default policy
+        _pre_up and _pre_down will reset the layer 2 attributes to default policy
         settings.
         """
         if not self.ipcmd.link_exists(ifaceobj.name):
@@ -331,7 +331,7 @@ class ethtool(moduleBase,utilsBase):
             ifaceobj.update_config('link-%s' %attr, default)
 
     _run_ops = {'pre-down' : _pre_down,
-                'post-up' : _post_up,
+                'pre-up' : _pre_up,
                 'query-checkcurr' : _query_check,
                 'query-running' : _query_running,
                 'query' : _query}
