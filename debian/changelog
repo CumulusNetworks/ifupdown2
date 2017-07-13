@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u10-jd1) UNRELEASED; urgency=medium
+
+  * New. Add ppp support
+
+ -- Joerg Dorchain <joerg@dorchain.net>  Thu, 13 Jul 2017 20:00:00 +0200
+
 ifupdown2 (1.1-cl3u10) UNRELEASED; urgency=medium
 
   * New. Enabled: drop the dependency to pkg_resources, hardcode version number (closes: #855401)

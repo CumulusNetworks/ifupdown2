@@ -4,7 +4,9 @@
 #  13 Jul 2017
 
 import os
-from ifupdpwnaddons.modulebase import modulebase
+from ifupdownaddons.modulebase import moduleBase
+from ifupdownaddons.iproute2 import iproute2
+from ifupdownaddons.pppd import pppd
 
 from ifupdown.utils import utils
 import ifupdown.ifupdownflags as ifupdownflags
@@ -24,37 +26,53 @@ class ppp(moduleBase):
                         {'help' : 'Pass string as additional options to pon.'},
 			}
 		}
-    def __init__ (self, *args, **kkargs):
-    	moduleBase.__init))(self, *args, **kargs)
+    def __init__ (self, *args, **kargs):
+    	moduleBase.__init__(self, *args, **kargs)
+	self.pppcmd = pppd(**kargs)
 	self.ipcmd = None;
 
-    def _run_command (self, ifaceobj, cmd):
-    	try:
-		utils.exec_command(cmd)
-	except Exception, e:
-		self.logger.warn('%s: %s %s' % (ifaceobj.name, cmd, str(e),strip('\n')))
+    def _is_my_interface (self, ifaceobj):
+    	if ifaceobj.addr_method == "ppp" and ifaceobj.get_attr_value_first ('provider'):
+		return True
+	return False
 
     def _up (self, ifaceobj):
-    	cmd = 'pon ' + ifaceobj.get_attr_value_first ('provider')
-	if ifaceobj.get_attr_value_first ('unit')
-		cmd += ' unit ' + get_attr_value_first ('unit')
-	if ifaceobj.get_attr_value_first ('options')
-		cmd += ' ' + get_attr_value_first ('options')
-	_run_command (self, ifaceobj, cmd)
+    	self.pppcmd.start(ifaceobj)
 
     def _down (self, ifaceobj):
-    	cmd = 'poff ' + ifaceobj.get_attr_value_first ('provider')
-	_run_command (self, ifaceobj, cmd)
+    	self.pppcmd.stop(ifaceobj)
+
+    def _query_check (self, ifaceobj, ifaceobjcurr):
+	status = ifaceStatus.SUCCESS
+	pppd_running = False
+
+	if self.pppcmd.is_running(ifaceobjcurr.name):
+		pppd_running = True
+	ifaceobjcurr.addr_method = 'ppp'
+	ifaceobjcurr.addr_family = ifaceobj.addr_family
+	if not pppd_running:
+		ifaceobjcurr.addr_family = []
+		status = ifaceStatus.ERROR
+	ifaceobjcurr.status = status
 
     _run_ops = {
     	'up' : _up,
-	'down' : _down
+	'down' : _down,
+	'pre-down' : _down,
+	'query-checkcurr' : _query_check
     }
     def get_ops (self):
     	return self._run_ops.keys()
 
     def run (self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
-    	op_handler = self,_run_ops.get (operation)
+    	op_handler = self._run_ops.get(operation)
 	if not op_handler:
 		return
-	op_handler (self, ifaceobj)
+	if operation != 'query-running' and not self._is_my_interface (ifaceobj):
+		return
+	if not self.ipcmd:
+		self.ipcmd = iproute2 ()
+	if operation == 'query-checkcurr':
+		op_handler (self, ifaceobj, query_ifaceobj)
+	else:
+		op_handler (self, ifaceobj)
