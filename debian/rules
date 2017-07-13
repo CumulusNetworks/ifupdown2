@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
 export PYBUILD_NAME=ifupdown2
 export PYBUILD_INSTALL_ARGS=--install-lib=/usr/share/ifupdown2 --install-scripts=/usr/share/ifupdown2
 
@@ -19,3 +19,6 @@ override_dh_systemd_enable:
 
 override_dh_compress:
 	dh_compress -X.py
+
+override_dh_installinit:
+	dh_installinit --name=networking --no-start
