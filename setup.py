@@ -27,9 +27,8 @@ DATA_FILES.append((os.path.join(PKG_LOCATION, 'addons'), glob.glob('addons/*.py'
 DATA_FILES.append((os.path.join(PKG_LOCATION, 'nlmanager'), glob.glob('nlamanger/*')))
 
 INSTALL_REQUIRES = [
-    'docutils>=0.12',
-    'argcomplete==0.8.1',
-    'ipaddr==2.1.11',
+    'argcomplete',
+    'ipaddr',
 ]
 
 
