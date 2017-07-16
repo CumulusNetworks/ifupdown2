@@ -20,8 +20,9 @@ try:
     from ifupdownaddons.utilsbase import *
 
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.statemanager as statemanager
 
-    from nlmanager.nlmanager import Link
+    from nlmanager.nlmanager import Link, Route
 except ImportError, e:
     raise ImportError('%s - required module not found' % str(e))
 
@@ -445,7 +446,7 @@ class iproute2(utilsBase):
 
     def del_addr_all(self, ifacename, skip_addrs=[]):
         if not skip_addrs: skip_addrs = []
-        runningaddrsdict = self.addr_get(ifacename)
+        runningaddrsdict = self.get_running_addrs(ifname=ifacename)
         try:
             # XXX: ignore errors. Fix this to delete secondary addresses
             # first
@@ -456,13 +457,59 @@ class iproute2(utilsBase):
             pass
 
     def addr_get(self, ifacename, details=True, refresh=False):
-        addrs = self._cache_get('addr', [ifacename, 'addrs'],
-                                refresh=refresh)
+        addrs = self._cache_get('addr', [ifacename, 'addrs'], refresh=refresh)
         if not addrs:
             return None
         if details:
             return addrs
         return addrs.keys()
+
+    def get_running_addrs(self, ifaceobj=None, ifname=None, details=True):
+        """
+            We now support addr with link scope. Since the kernel may add it's
+            own link address to some interfaces we need to filter them out and
+            make sure we only deal with the addresses set by ifupdown2.
+
+            To do so we look at the previous configuration made by ifupdown2
+            (with the help of the statemanager) together with the addresses
+            specified by the user in /etc/network/interfaces, these addresses
+            are then compared to the running state of the intf (ip addr show)
+            made via a netlink addr dump.
+            For each configured addresses of scope link, we check if it was
+            previously configured by ifupdown2 to create a final set of the
+            addresses watched by ifupdown2
+        """
+        if not ifaceobj and not ifname:
+            return None
+
+        config_addrs = set()
+
+        if ifaceobj:
+            for addr in ifaceobj.get_attr_value('address') or []:
+                config_addrs.add(addr)
+
+            interface_name = ifaceobj.name
+        else:
+            interface_name = ifname
+
+        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(interface_name)
+        for saved_ifaceobj in saved_ifaceobjs or []:
+            for addr in saved_ifaceobj.get_attr_value('address') or []:
+                config_addrs.add(addr)
+
+        running_addrs = OrderedDict()
+        cached_addrs = self.addr_get(interface_name)
+        if cached_addrs:
+            for addr, addr_details in cached_addrs.items():
+                scope = addr_details['scope']
+                if (scope & Route.RT_SCOPE_LINK and addr in config_addrs) or not scope & Route.RT_SCOPE_LINK:
+                    running_addrs[addr] = addr_details
+        else:
+            return None
+
+        if details:
+            return running_addrs
+        return running_addrs.keys()
 
     def addr_add_multiple(self, ifacename, addrs, purge_existing=False):
         # purges address
@@ -470,7 +517,7 @@ class iproute2(utilsBase):
             # if perfmode is not set and also if iface has no sibling
             # objects, purge addresses that are not present in the new
             # config
-            runningaddrs = self.addr_get(ifacename, details=False)
+            runningaddrs = self.get_running_addrs(ifname=ifacename, details=False)
             if addrs == runningaddrs:
                 return
             try:
@@ -482,7 +529,7 @@ class iproute2(utilsBase):
                 else:
                     self.del_addr_all(ifacename, addrs)
             except Exception, e:
-                self.log_warn(str(e))
+                self.logger.warning('%s: %s' % (ifacename, str(e)))
         for a in addrs:
             try:
                 self.addr_add(ifacename, a)

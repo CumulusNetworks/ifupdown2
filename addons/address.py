@@ -318,7 +318,7 @@ class address(moduleBase):
         if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
-            runningaddrs = utils.get_normalized_ip_addr(ifaceobj.name, self.ipcmd.addr_get(ifaceobj.name, details=False))
+            runningaddrs = self.ipcmd.get_running_addrs(ifaceobj, details=False)
 
             # if anycast address is configured on 'lo' and is in running config
             # add it to newaddrs so that ifreload doesn't wipe it out
@@ -333,11 +333,14 @@ class address(moduleBase):
             try:
                 # if primary address is not same, there is no need to keep any.
                 # reset all addresses
-                if (newaddrs and runningaddrs and
-                        (newaddrs[0] != runningaddrs[0])):
-                    self.ipcmd.del_addr_all(ifaceobj.name)
+                if newaddrs and runningaddrs and newaddrs[0] != runningaddrs[0]:
+                    skip_addrs = []
                 else:
-                    self.ipcmd.del_addr_all(ifaceobj.name, newaddrs)
+                    skip_addrs = newaddrs or []
+                for addr in runningaddrs or []:
+                    if addr in skip_addrs:
+                        continue
+                    self.ipcmd.addr_del(ifaceobj.name, addr)
             except Exception, e:
                 self.log_warn(str(e))
         if not newaddrs:
@@ -800,7 +803,7 @@ class address(moduleBase):
            return
         addrs = utils.get_normalized_ip_addr(ifaceobj.name,
                                              self._get_iface_addresses(ifaceobj))
-        runningaddrsdict = self.ipcmd.addr_get(ifaceobj.name)
+        runningaddrsdict = self.ipcmd.get_running_addrs(ifaceobj)
         # if anycast address is configured on 'lo' and is in running config
         # add it to addrs so that query_check doesn't fail
         anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip'))
@@ -861,7 +864,7 @@ class address(moduleBase):
             ifaceobjrunning.addr_method = 'loopback'
         else:
             default_addrs = []
-        runningaddrsdict = self.ipcmd.addr_get(ifaceobjrunning.name)
+        runningaddrsdict = self.ipcmd.get_running_addrs(ifaceobjrunning)
         if runningaddrsdict:
             [ifaceobjrunning.update_config('address', addr)
                 for addr, addrattrs in runningaddrsdict.items()

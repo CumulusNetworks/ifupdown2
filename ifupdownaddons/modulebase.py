@@ -88,6 +88,7 @@ class moduleBase(object):
         if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+                traceback.print_exc()
             self.logger.warn(str)
             if ifaceobj:
                 ifaceobj.set_status(ifaceStatus.WARNING)
@@ -98,6 +99,7 @@ class moduleBase(object):
         if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+                traceback.print_exc()
             if raise_error:
                 if ifaceobj:
                     ifaceobj.set_status(ifaceStatus.ERROR)

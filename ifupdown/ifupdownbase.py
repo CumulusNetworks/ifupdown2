@@ -35,6 +35,7 @@ class ifupdownBase(object):
         if self.ignore_error(str) == False:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+                traceback.print_exc()
             self.logger.warn(str)
         pass
 

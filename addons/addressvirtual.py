@@ -417,7 +417,7 @@ class addressvirtual(moduleBase):
                 continue
             # Check mac and ip address
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
-            raddrs = self.ipcmd.addr_get(macvlan_ifacename)
+            raddrs = self.ipcmd.get_running_addrs(None, macvlan_ifacename)
             if not raddrs or not rhwaddress:
                ifaceobjcurr.update_config_with_status('address-virtual', '', 1)
                av_idx += 1
@@ -462,7 +462,7 @@ class addressvirtual(moduleBase):
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
-            raddress = self.ipcmd.addr_get(macvlan_ifacename)
+            raddress = self.ipcmd.get_running_addrs(None, macvlan_ifacename)
             if not raddress:
                 self.logger.warn('%s: no running addresses'
                                  %ifaceobjrunning.name)

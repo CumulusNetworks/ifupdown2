@@ -550,16 +550,8 @@ class Netlink(utilsBase):
             return self.get_iface_name(addr_packet.ifindex)
 
     @staticmethod
-    def _addr_filter(addr_ifname, addr, scope):
-        default_addrs = ['127.0.0.1/8', '::1/128', '0.0.0.0']
-
-        if addr_ifname == 'lo' and addr in default_addrs:
-            return True
-
-        if scope == Route.RT_SCOPE_LINK:
-            return True
-
-        return False
+    def _addr_filter(addr_ifname, addr):
+        return addr_ifname == 'lo' and addr in ['127.0.0.1/8', '::1/128', '0.0.0.0']
 
     def _addr_dump_entry(self, ifaces, addr_packet, addr_ifname, ifa_attr):
         attribute = addr_packet.attributes.get(ifa_attr)
@@ -570,23 +562,19 @@ class Netlink(utilsBase):
             if hasattr(addr_packet, 'prefixlen'):
                 address = '%s/%d' % (address, addr_packet.prefixlen)
 
-            if self._addr_filter(addr_ifname, address, addr_packet.scope):
+            if self._addr_filter(addr_ifname, address):
                 return
 
             addr_family = NetlinkPacket.af_family_to_string.get(addr_packet.family)
             if not addr_family:
                 return
 
-            addr_scope = Route.rtnl_rtscope_tab.get(addr_packet.scope)
-            if not addr_scope:
-                return
-
             ifaces[addr_ifname]['addrs'][address] = {
                 'type': addr_family,
-                'scope': addr_scope
+                'scope': addr_packet.scope
             }
 
-    ifa_attributes = [
+    ifa_address_attributes = [
         Address.IFA_ADDRESS,
         Address.IFA_LOCAL,
         Address.IFA_BROADCAST,
@@ -615,7 +603,7 @@ class Netlink(utilsBase):
             if addr_ifname not in ifaces:
                 ifaces[addr_ifname] = {'addrs': OrderedDict({})}
 
-            for ifa_attr in self.ifa_attributes:
+            for ifa_attr in self.ifa_address_attributes:
                 self._addr_dump_entry(ifaces, addr_packet, addr_ifname, ifa_attr)
 
         if ifname:
