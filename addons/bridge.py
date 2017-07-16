@@ -1492,7 +1492,8 @@ class bridge(moduleBase):
                 config[ifname] = value
         return config
 
-    def sync_bridge_learning_to_vxlan_brport(self, bridge_name, bridge_vlan_aware, brport_ifaceobj, brport_name, brport_ifla_info_slave_data):
+    def sync_bridge_learning_to_vxlan_brport(self, bridge_name, bridge_vlan_aware, brport_ifaceobj,
+                                             brport_name, brport_ifla_info_slave_data, brport_learning):
         """
             brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN
             and
@@ -1506,16 +1507,15 @@ class bridge(moduleBase):
         kind = None
         ifla_info_data = {}
 
-        #if (brport_ifaceobj
-        #   and brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN
-        #    and brport_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+        brport_vxlan_learning_config = brport_ifaceobj.get_attr_value_first('vxlan-learning')
+        # if the user explicitly defined vxlan-learning we need to honor his config
+        # and not sync vxlan-learning with bridge-learning
 
-        brport_learning = brport_ifla_info_slave_data.get(Link.IFLA_BRPORT_LEARNING)
         brport_vxlan_learning = utils.get_boolean_from_string(self.ipcmd.get_vxlandev_learning(brport_name))
 
         # if BRIDGE_LEARNING is in the desired configuration
         # and differs from the running vxlan configuration
-        if brport_learning is not None and brport_learning != brport_vxlan_learning:
+        if brport_learning is not None and brport_learning != brport_vxlan_learning and not brport_vxlan_learning_config:
             kind = 'vxlan'
             ifla_info_data = {Link.IFLA_VXLAN_LEARNING: brport_learning}
             self.logger.info('%s: %s: vxlan learning and bridge learning out of sync: set %s'
@@ -1529,10 +1529,12 @@ class bridge(moduleBase):
 
             if default_value != running_value:
                 brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING] = default_value
-                kind = 'vxlan'
-                ifla_info_data = {Link.IFLA_VXLAN_LEARNING: brport_learning}
-                self.logger.info('%s: %s: reset brport learning to %s and sync vxlan learning'
-                                 % (bridge_name, brport_name, brport_learning))
+
+                if not brport_vxlan_learning_config:
+                    kind = 'vxlan'
+                    ifla_info_data = {Link.IFLA_VXLAN_LEARNING: default_value}
+                    self.logger.info('%s: %s: reset brport learning to %s and sync vxlan learning'
+                                     % (bridge_name, brport_name, default_value))
 
         # if kind and ifla_info_data are set they will be added to the
         # netlink request on the VXLAN brport, to sync IFLA_VXLAN_LEARNING
@@ -1570,6 +1572,8 @@ class bridge(moduleBase):
                         new_targets.append(brport_name)
                 running_brports = new_targets
 
+            self.logger.info('%s: applying bridge port configuration: %s' % (ifname, running_brports))
+
             # If target_ports is specified we want to configure only this
             # sub-list of port we need to check if these ports are already
             # enslaved, if not they will be ignored.
@@ -1581,6 +1585,8 @@ class bridge(moduleBase):
                 if brport_list:
                     brport_ifaceobj_dict[port] = brport_list[0]
                     brports_ifla_info_slave_data[port] = dict()
+
+            bridge_ports_learning = {}
 
             # we iterate through all IFLA_BRPORT supported attributes
             for attr_name, nl_attr in self._ifla_brport_attributes_map:
@@ -1673,6 +1679,14 @@ class bridge(moduleBase):
                             self.logger.info('%s: %s: set %s %s' % (ifname, brport_name, attr_name, brport_config))
                             self.logger.debug('(cache %s)' % cached_value)
 
+                        if nl_attr == Link.IFLA_BRPORT_LEARNING:
+                            # for vxlan-learning sync purposes we need to save the user config for each brports.
+                            # The dictionary 'brports_ifla_info_slave_data' might not contain any value for
+                            # IFLA_BRPORT_LEARNING if the user value is already configured and running
+                            # nevertheless we still need to check if the vxlan-learning is rightly synced with
+                            # the brport since it might go out of sync for X and Y reasons.
+                            bridge_ports_learning[brport_name] = user_config_nl
+
                     elif cached_value is not None:
                         # no config found, do we need to reset to default?
                         default = self.get_attr_default_value(attr_name)
@@ -1683,6 +1697,9 @@ class bridge(moduleBase):
                                                  % (ifname, brport_name, attr_name, default))
                                 self.logger.debug('(cache %s)' % cached_value)
                                 brports_ifla_info_slave_data[brport_name][nl_attr] = default_netlink
+
+                            if nl_attr == Link.IFLA_BRPORT_LEARNING:
+                                bridge_ports_learning[brport_name] = default_netlink
 
             # applying bridge port configuration via netlink
             for brport_name, brport_ifla_info_slave_data in brports_ifla_info_slave_data.items():
@@ -1697,7 +1714,8 @@ class bridge(moduleBase):
                                                                                      bridge_vlan_aware,
                                                                                      brport_ifaceobj,
                                                                                      brport_name,
-                                                                                     brport_ifla_info_slave_data)
+                                                                                     brport_ifla_info_slave_data,
+                                                                                     bridge_ports_learning.get(brport_name))
                 else:
                     kind = None
                     ifla_info_data = {}
