@@ -123,6 +123,9 @@ class vxlan(moduleBase):
                     if (anycastip and running_localtunnelip and
                                 anycastip == running_localtunnelip):
                         local = running_localtunnelip
+                    if vxlanattrs.get('vxlanid') != vxlanid:
+                        self.log_error('%s: Cannot change running vxlan id: '
+                                       'Operation not supported' % ifaceobj.name, ifaceobj)
 
             netlink.link_add_vxlan(ifaceobj.name, vxlanid,
                                    local=local,
