@@ -1692,14 +1692,23 @@ class bridge(moduleBase):
                         default = self.get_attr_default_value(attr_name)
                         if default:
                             default_netlink = translate_func(default)
+
+                            if nl_attr == Link.IFLA_BRPORT_LEARNING:
+                                try:
+                                    if self.brctlcmd.get_brport_peer_link(brport_name):
+                                        if default_netlink != cached_value:
+                                            self.logger.debug('%s: %s: bridge port peerlink: ignoring bridge-learning'
+                                                              % (ifname, brport_name))
+                                        continue
+                                    bridge_ports_learning[brport_name] = default_netlink
+                                except Exception as e:
+                                    self.logger.debug('%s: %s: peerlink check: %s' % (ifname, brport_name, str(e)))
+
                             if default_netlink != cached_value:
                                 self.logger.info('%s: %s: %s: no configuration detected, resetting to default %s'
                                                  % (ifname, brport_name, attr_name, default))
                                 self.logger.debug('(cache %s)' % cached_value)
                                 brports_ifla_info_slave_data[brport_name][nl_attr] = default_netlink
-
-                            if nl_attr == Link.IFLA_BRPORT_LEARNING:
-                                bridge_ports_learning[brport_name] = default_netlink
 
             # applying bridge port configuration via netlink
             for brport_name, brport_ifla_info_slave_data in brports_ifla_info_slave_data.items():

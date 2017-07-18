@@ -231,7 +231,7 @@ class brctl(utilsBase):
                         brports[ifla_master] = {ifname: brport_attrs}
 
                     linkCache.update_attrdict([ifla_master, 'linkinfo', 'ports'], brports[ifla_master])
-
+                    brctl._cache_fill_done = True
             except Exception as e:
                 self.logger.warning('%s: %s' % (bridgename if bridgename else 'bridge dump', str(e)))
 
@@ -446,6 +446,9 @@ class brctl(utilsBase):
     def get_bridgeport_attrs(self, bridgename, bridgeportname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',
                                       bridgeportname])
+
+    def get_brport_peer_link(self, bridgename):
+        return self._cache_get([bridgename, 'info_slave_data', Link.IFLA_BRPORT_PEER_LINK])
 
     def get_bridgeport_attr(self, bridgename, bridgeportname, attrname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',
