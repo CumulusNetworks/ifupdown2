@@ -560,8 +560,8 @@ class bridge(moduleBase):
             if not self.check_bridge_port_vid_attrs(ifaceobj):
                 retval = False
         c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_getfunc)
-        c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
-        return retval and c1 and c2
+        #c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
+        return retval and c1 #and c2
 
     def syntax_check_bridge_allow_multiple_vlans(self, ifaceobj, ifaceobj_getfunc):
         result = True
