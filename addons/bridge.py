@@ -736,15 +736,13 @@ class bridge(moduleBase):
         except Exception, e:
             self.logger.info(str(e))
 
-    def handle_ipv6(self, ports, state, ifaceobj=None, down=False):
+    def handle_ipv6(self, ports, state, ifaceobj=None):
         if (ifaceobj and
                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN) and
                 not ifaceobj.get_attr_value('address')):
             self._enable_disable_ipv6(ifaceobj.name, state)
         for p in ports:
             self._enable_disable_ipv6(p, state)
-            if down:
-                netlink.link_set_updown(p, 'down')
 
     def _pretty_print_add_ports_error(self, errstr, bridgeifaceobj, bridgeports):
         """ pretty print bridge port add errors.
@@ -1812,7 +1810,9 @@ class bridge(moduleBase):
         try:
             running_ports = self.brctlcmd.get_bridge_ports(ifname)
             if running_ports:
-                self.handle_ipv6(running_ports, '0', down=True)
+                self.handle_ipv6(running_ports, '0')
+                if ifaceobj.link_type != ifaceLinkType.LINK_NA:
+                    map(lambda p: netlink.link_set_updown(p, 'down'), running_ports)
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         try:
