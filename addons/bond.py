@@ -580,7 +580,7 @@ class bond(moduleBase):
             for key, value in ifla_info_data.items():
                 self.bondcmd.cache_update([ifname, 'linkinfo', key], value)
 
-        if not is_link_up:
+        if link_exists and ifla_info_data and not is_link_up:
             netlink.link_set_updown(ifname, 'up')
 
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
