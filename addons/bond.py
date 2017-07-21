@@ -344,7 +344,7 @@ class bond(moduleBase):
             if updelay and int(updelay):
                 result = self._check_updown_delay_log(ifaceobj, 'bond-updelay', updelay)
             if downdelay and int(downdelay):
-                result = self._check_updown_delay_log(ifaceobj, 'bond-downdelay', updelay)
+                result = self._check_updown_delay_log(ifaceobj, 'bond-downdelay', downdelay)
 
         return result
 
@@ -375,7 +375,7 @@ class bond(moduleBase):
                 # if up-down-delay exists we need to remove it, if non zero log error
                 if delay is not None:
                     if delay > 0:
-                        self._check_updown_delay_log(ifaceobj, attr_name, ifla_info_data[nl_attr])
+                        self._check_updown_delay_log(ifaceobj, attr_name, delay)
                     del ifla_info_data[nl_attr]
             return True
         return False
