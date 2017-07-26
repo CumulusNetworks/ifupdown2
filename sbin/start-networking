@@ -87,10 +87,9 @@ ifup_hotplug () {
 			    do
 				    link=${iface##:*}
 				    link=${link##.*}
-				    ip link set "$iface" up || true
-				    if [ "$(cat /sys/class/net/$link/operstate)" = up ]
+				    if [ -e "/sys/class/net/$link" ]
 				    then
-					    echo "$iface"
+				        echo "$iface"
 				    fi
 			    done)
 	    if [ -n "$ifaces" ]
