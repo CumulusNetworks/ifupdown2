@@ -334,10 +334,15 @@ class bond(moduleBase):
             return True
 
         try:
-            miimon = int(ifaceobj.get_attr_value_first('bond-miimon')
-                         or self.bondcmd.cache_get([ifaceobj.name, 'linkinfo', Link.IFLA_BOND_MIIMON]))
+            miimon = int(ifaceobj.get_attr_value_first('bond-miimon'))
         except:
-            miimon = 0
+            try:
+                miimon = int(policymanager.policymanager_api.get_iface_default(
+                    module_name=self.__class__.__name__,
+                    ifname=ifaceobj.name,
+                    attr='bond-miimon'))
+            except:
+                miimon = 0
 
         if not miimon:
             # self._check_updown_delay_log returns False no matter what
