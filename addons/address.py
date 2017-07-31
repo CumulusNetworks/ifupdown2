@@ -89,12 +89,12 @@ class address(moduleBase):
                       'ip-forward' :
                             { 'help': 'ip forwarding flag',
                               'validvals': ['on', 'off'],
-                              'default' : 'on',
+                              'default' : 'off',
                               'example' : ['ip-forward off']},
                       'ip6-forward' :
                             { 'help': 'ipv6 forwarding flag',
                               'validvals': ['on', 'off'],
-                              'default' : 'on',
+                              'default' : 'off',
                               'example' : ['ip6-forward off']},
                       'mpls-enable' :
                             { 'help': 'mpls enable flag',
@@ -109,6 +109,8 @@ class address(moduleBase):
         self._bridge_fdb_query_cache = {}
         self.default_mtu = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='mtu')
         self.max_mtu = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='max_mtu')
+        self.ipforward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip-forward')
+        self.ip6forward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip6-forward')
 
         if not self.default_mtu:
             self.default_mtu = '1500'
@@ -540,7 +542,8 @@ class address(moduleBase):
         setting_default_value = False
         if not ipforward:
             setting_default_value = True
-            ipforward = self.get_mod_subattr('ip-forward', 'default')
+            ipforward = (self.ipforward or
+                         self.get_mod_subattr('ip-forward', 'default'))
         ipforward = utils.boolean_support_binary(ipforward)
         # File read has been used for better performance
         # instead of using sysctl command
@@ -560,7 +563,8 @@ class address(moduleBase):
         setting_default_value = False
         if not ip6forward:
             setting_default_value = True
-            ip6forward = self.get_mod_subattr('ip6-forward', 'default')
+            ip6forward = (self.ip6forward or
+                          self.get_mod_subattr('ip6-forward', 'default'))
         ip6forward = utils.boolean_support_binary(ip6forward)
         # File read has been used for better performance
         # instead of using sysctl command
