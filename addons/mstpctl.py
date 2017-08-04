@@ -65,20 +65,20 @@ class mstpctl(moduleBase):
                         { 'help' : 'max message age',
                           'validrange' : ['0', '255'],
                           'default' : '20',
-                          'jsonAttr': 'maxAge',
+                          'jsonAttr': 'bridgeMaxAge',
                           'required' : False,
                           'example' : ['mstpctl-maxage 20']},
                     'mstpctl-fdelay' :
                         { 'help' : 'set forwarding delay',
                           'validrange' : ['0', '255'],
                           'default' : '15',
-                          'jsonAttr': 'fwdDelay',
+                          'jsonAttr': 'bridgeFwdDelay',
                           'required' : False,
                           'example' : ['mstpctl-fdelay 15']},
                     'mstpctl-maxhops' :
                         { 'help' : 'bridge max hops',
                           'validrange' : ['0', '255'],
-                          'default' : '15',
+                          'default' : '20',
                           'jsonAttr': 'maxHops',
                           'required' : False,
                           'example' : ['mstpctl-maxhops 15']},
@@ -342,7 +342,9 @@ class mstpctl(moduleBase):
             for attrname, dstattrname in self._attrs_map.items():
                 config_val = ifaceobj.get_attr_value_first(attrname)
                 default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attrname)
-                jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
+                if not default_val:
+                    default_val = self.get_mod_subattr(attrname, 'default')
+                jsonAttr = self.get_mod_subattr(attrname, 'jsonAttr')
                 try:
                     running_val = self.mstpctlcmd.get_bridge_attr(
                                     ifaceobj.name, jsonAttr)
