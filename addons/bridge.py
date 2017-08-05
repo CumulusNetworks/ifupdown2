@@ -1079,7 +1079,7 @@ class bridge(moduleBase):
                     ifla_info_data[nl_attr] = user_config_nl
 
                     if cached_value is not None:
-                        self.logger.info('%s: set %s %s (cache %s)' % (ifname, attr_name, user_config_nl, cached_value))
+                        self.logger.info('%s: set %s %s (cache %s)' % (ifname, attr_name, user_config, cached_value))
                     else:
                         self.logger.info('%s: set %s %s' % (ifname, attr_name, user_config))
         except Exception as e:
@@ -1674,7 +1674,7 @@ class bridge(moduleBase):
                         # check config value against running value
                         if user_config_nl != cached_value:
                             brports_ifla_info_slave_data[brport_name][nl_attr] = user_config_nl
-                            self.logger.info('%s: %s: set %s %s' % (ifname, brport_name, attr_name, brport_config))
+                            self.logger.info('%s: %s: set %s %s' % (ifname, brport_name, attr_name, user_config))
                             self.logger.debug('(cache %s)' % cached_value)
 
                         if nl_attr == Link.IFLA_BRPORT_LEARNING:
