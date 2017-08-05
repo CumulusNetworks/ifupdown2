@@ -526,14 +526,14 @@ class bridge(moduleBase):
                 attr='warn_on_untagged_bridge_absence'
             )
         )
-        self.logger.info('bridge ini: warn_on_untagged_bridge_absence=%s'
+        self.logger.debug('bridge: init: warn_on_untagged_bridge_absence=%s'
                          % self.warn_on_untagged_bridge_absence)
 
         self._vxlan_bridge_default_igmp_snooping = policymanager.policymanager_api.get_module_globals(
             self.__class__.__name__,
             'vxlan_bridge_default_igmp_snooping'
         )
-        self.logger.info('bridge: init: vxlan_bridge_default_igmp_snooping=%s'
+        self.logger.debug('bridge: init: vxlan_bridge_default_igmp_snooping=%s'
                           % self._vxlan_bridge_default_igmp_snooping)
 
         self.arp_nd_suppress_only_on_vxlan = utils.get_boolean_from_string(
@@ -542,7 +542,7 @@ class bridge(moduleBase):
                 attr='allow_arp_nd_suppress_only_on_vxlan'
             )
         )
-        self.logger.info('bridge: init: arp_nd_suppress_only_on_vxlan=%s' % self.arp_nd_suppress_only_on_vxlan)
+        self.logger.debug('bridge: init: arp_nd_suppress_only_on_vxlan=%s' % self.arp_nd_suppress_only_on_vxlan)
 
         try:
             self.bridge_allow_multiple_vlans = utils.get_boolean_from_string(
@@ -552,7 +552,7 @@ class bridge(moduleBase):
             # Cumulus Linux specific variable. Failure probably means that
             # ifupdown2 is running a a different system.
             self.bridge_allow_multiple_vlans = True
-        self.logger.info('bridge: init: multiple vlans allowed %s' % self.bridge_allow_multiple_vlans)
+        self.logger.debug('bridge: init: multiple vlans allowed %s' % self.bridge_allow_multiple_vlans)
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
