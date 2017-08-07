@@ -5,7 +5,7 @@ ifupdown2 (1.1-cl3u12) RELEASED; urgency=medium
   * New. Enabled: handle a mix of auto and specified vrf table ids
   * Closes: CM-14152. igmp attribute reset to defaults when removed from config
 
- -- dev-support <dev-support@cumulusnetworks.com>  Fri, 19 May 2017 12:45:21 -0700
+ -- dev-support <dev-support@cumulusnetworks.com>  Mon, 07 Aug 2017 22:14:03 +0200
 
 ifupdown2 (1.1-cl3u11) RELEASED; urgency=medium
 
