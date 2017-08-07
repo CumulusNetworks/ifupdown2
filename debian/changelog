@@ -1,6 +1,9 @@
-ifupdown2 (1.1-cl3u12) UNRELEASED; urgency=medium
+ifupdown2 (1.1-cl3u12) RELEASED; urgency=medium
 
-  *
+  * New. Enabled: mpls-enable attribute
+  * New. Enabled: bond and bridge module moved to netlink configuration
+  * New. Enabled: handle a mix of auto and specified vrf table ids
+  * Closes: CM-14152. igmp attribute reset to defaults when removed from config
 
  -- dev-support <dev-support@cumulusnetworks.com>  Fri, 19 May 2017 12:45:21 -0700
 
