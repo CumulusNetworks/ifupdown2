@@ -850,6 +850,12 @@ class iproute2(utilsBase):
         else:
             return self._cache_get('link', [ifacename, 'master'])
 
+    def get_brport_peer_link(self, bridgename):
+        try:
+            return self._cache_get('link', [bridgename, 'info_slave_data', Link.IFLA_BRPORT_PEER_LINK])
+        except Exception as e:
+            return None
+
     def bridge_port_vids_add(self, bridgeportname, vids):
         [utils.exec_command('/sbin/bridge vlan add vid %s dev %s' %
                             (v, bridgeportname)) for v in vids]
@@ -1120,8 +1126,15 @@ class iproute2(utilsBase):
             return None
 
     def link_get_vrfs(self):
-        self._fill_cache()
+        if not iproute2._cache_fill_done:
+            self._fill_cache()
         return linkCache.vrfs
+
+    def cache_get_info_slave(self, attrlist):
+        try:
+            return linkCache.get_attr(attrlist)
+        except:
+            return None
 
     def get_brport_learning(self, ifacename):
         learn = self.read_file_oneline('/sys/class/net/%s/brport/learning'

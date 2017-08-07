@@ -31,8 +31,7 @@ class brctl(utilsBase):
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
         if ifupdownflags.flags.CACHE and not brctl._cache_fill_done:
-            if os.path.exists('/sbin/brctl'):
-                self._bridge_fill()
+            self._bridge_fill()
             brctl._cache_fill_done = True
         self.supported_command = {'showmcqv4src': True}
 
@@ -258,14 +257,6 @@ class brctl(utilsBase):
     def cache_get(self, attr_list, refresh=False):
         return self._cache_get(attr_list, refresh)
 
-    def cache_get_info_slave(self, attrlist):
-        try:
-            if attrlist[0] not in linkCache.links:
-                self._bridge_fill(attrlist[0])
-            return linkCache.get_attr(attrlist)
-        except:
-            return self._cache_get(attrlist, refresh=True)
-
     def _cache_get(self, attrlist, refresh=False):
         try:
             if ifupdownflags.flags.DRYRUN:
@@ -446,9 +437,6 @@ class brctl(utilsBase):
     def get_bridgeport_attrs(self, bridgename, bridgeportname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',
                                       bridgeportname])
-
-    def get_brport_peer_link(self, bridgename):
-        return self._cache_get([bridgename, 'info_slave_data', Link.IFLA_BRPORT_PEER_LINK])
 
     def get_bridgeport_attr(self, bridgename, bridgeportname, attrname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',

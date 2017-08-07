@@ -792,10 +792,11 @@ class bridge(moduleBase):
                 runningbridgeports = []
         if not bridgeports:
             self.ipcmd.batch_commit()
-            return
+            return []
         err = 0
         ports = 0
         newbridgeports = Set(bridgeports).difference(Set(runningbridgeports))
+        newly_enslaved_ports = []
         for bridgeport in newbridgeports:
             try:
                 if (not ifupdownflags.flags.DRYRUN and
@@ -811,6 +812,7 @@ class bridge(moduleBase):
                                   %hwaddress)
                     continue
                 self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
+                newly_enslaved_ports.append(bridgeport)
                 self.handle_ipv6([bridgeport], '1')
                 self.ipcmd.addr_flush(bridgeport)
                 ports += 1
@@ -830,6 +832,8 @@ class bridge(moduleBase):
 
         if err:
             self.log_error('bridge configuration failed (missing ports)')
+
+        return newly_enslaved_ports
 
     def _process_bridge_maxwait(self, ifaceobj, portlist):
         maxwait = ifaceobj.get_attr_value_first('bridge-maxwait')
@@ -1552,7 +1556,7 @@ class bridge(moduleBase):
             return self.get_mod_subattr('bridge-arp-nd-suppress', 'default')
         return None
 
-    def up_apply_brports_attributes(self, ifaceobj, ifaceobj_getfunc, bridge_vlan_aware, target_ports=[]):
+    def up_apply_brports_attributes(self, ifaceobj, ifaceobj_getfunc, bridge_vlan_aware, target_ports=[], newly_enslaved_ports=[]):
         ifname = ifaceobj.name
 
         try:
@@ -1623,9 +1627,11 @@ class bridge(moduleBase):
                     brport_config = brport_ifaceobj.get_attr_value_first(attr_name)
                     brport_name = brport_ifaceobj.name
 
-                    cached_value = self.brctlcmd.cache_get_info_slave([brport_name, 'info_slave_data', nl_attr])
-                    # if not cached_value and link_exists:
-                    #       this probably means that the current kernel doesn't support this attribute
+                    if not ifupdownflags.flags.PERFMODE and brport_name not in newly_enslaved_ports:
+                        # if the port has just been enslaved, info_slave_data is not cached yet
+                        cached_value = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', nl_attr])
+                    else:
+                        cached_value = None
 
                     if not brport_config:
                         brport_config = policymanager.policymanager_api.get_iface_default(
@@ -1691,9 +1697,11 @@ class bridge(moduleBase):
                         if default:
                             default_netlink = translate_func(default)
 
-                            if nl_attr == Link.IFLA_BRPORT_LEARNING:
+                            if (nl_attr == Link.IFLA_BRPORT_LEARNING
+                                and not ifupdownflags.flags.PERFMODE
+                                    and brport_name not in newly_enslaved_ports):
                                 try:
-                                    if self.brctlcmd.get_brport_peer_link(brport_name):
+                                    if self.ipcmd.get_brport_peer_link(brport_name):
                                         if default_netlink != cached_value:
                                             self.logger.debug('%s: %s: bridge port peerlink: ignoring bridge-learning'
                                                               % (ifname, brport_name))
@@ -1764,8 +1772,9 @@ class bridge(moduleBase):
         self.up_apply_bridge_settings(ifaceobj, link_just_created, bridge_vlan_aware)
 
         try:
-            self._add_ports(ifaceobj, ifaceobj_getfunc)
-            self.up_apply_brports_attributes(ifaceobj, ifaceobj_getfunc, bridge_vlan_aware)
+            newly_enslaved_ports = self._add_ports(ifaceobj, ifaceobj_getfunc)
+            self.up_apply_brports_attributes(ifaceobj, ifaceobj_getfunc, bridge_vlan_aware,
+                                             newly_enslaved_ports=newly_enslaved_ports)
         except Exception as e:
             self.logger.warning('%s: apply bridge ports settings: %s' % (ifname, str(e)))
 
