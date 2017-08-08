@@ -150,7 +150,8 @@ class ethtool(moduleBase,utilsBase):
                 # we also need to set this here in case we changed
                 # something.  this prevents unconfigured ifaces from resetting to default
                 self.ifaceobjs_modified_configs.append(ifaceobj.name)
-                cmd = '/sbin/ethtool -s %s %s' %(ifaceobj.name, cmd)
+                cmd = ('%s -s %s %s' %
+                       (utils.ethtool_cmd, ifaceobj.name, cmd))
                 utils.exec_command(cmd)
             except Exception, e:
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
@@ -165,7 +166,8 @@ class ethtool(moduleBase,utilsBase):
                 # we also need to set this here in case we changed
                 # something.  this prevents unconfigured ifaces from resetting to default
                 self.ifaceobjs_modified_configs.append(ifaceobj.name)
-                feccmd = '/sbin/ethtool --set-fec %s %s' %(ifaceobj.name, feccmd)
+                feccmd = ('%s --set-fec %s %s' %
+                           (utils.ethtool_cmd, ifaceobj.name, feccmd))
                 utils.exec_command(feccmd)
             except Exception, e:
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
@@ -266,10 +268,11 @@ class ethtool(moduleBase,utilsBase):
         running_attr = None
         try:
             if attr == 'autoneg':
-                output = utils.exec_commandl(['/sbin/ethtool', ifaceobj.name])
+                output = utils.exec_commandl([utils.ethtool_cmd, ifaceobj.name])
                 running_attr = self.get_autoneg(ethtool_output=output)
             elif attr == 'fec':
-                output = utils.exec_command('/sbin/ethtool --show-fec %s'%(ifaceobj.name))
+                output = utils.exec_command('%s --show-fec %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
                 running_attr = self.get_fec_encoding(ethtool_output=output)
             else:
                 running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \

@@ -67,7 +67,10 @@ class utilsBase(object):
         return None
 
     def sysctl_set(self, variable, value):
-        utils.exec_command('/sbin/sysctl %s=%s' % (variable, value))
+        utils.exec_command('%s %s=%s' %
+                           (utils.sysctl_cmd, variable, value))
 
     def sysctl_get(self, variable):
-        return utils.exec_command('/sbin/sysctl %s' % variable).split('=')[1].strip()
+        return utils.exec_command('%s %s' %
+                                  (utils.sysctl_cmd,
+                                   variable)).split('=')[1].strip()

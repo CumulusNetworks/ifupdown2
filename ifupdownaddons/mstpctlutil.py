@@ -64,7 +64,7 @@ class mstpctlutil(utilsBase):
 
     def is_mstpd_running(self):
         try:
-            utils.exec_command('/bin/pidof mstpd')
+            utils.exec_command('%s mstpd'%utils.pidof_cmd)
         except:
             return False
         else:
@@ -82,7 +82,8 @@ class mstpctlutil(utilsBase):
             return attrs
         mstpctl_bridgeport_attrs_dict = {}
         try:
-            cmd = ['/sbin/mstpctl', 'showportdetail', bridgename, 'json']
+            cmd = [utils.mstpctl_cmd,
+                   'showportdetail', bridgename, 'json']
             output = utils.exec_commandl(cmd)
             if not output:
                 return mstpctl_bridgeport_attrs_dict
@@ -104,7 +105,8 @@ class mstpctlutil(utilsBase):
 
         mstpctl_bridge_attrs_dict = {}
         try:
-            cmd = ['/sbin/mstpctl', 'showbridge', 'json', bridgename]
+            cmd = [utils.mstpctl_cmd,
+                   'showbridge', 'json', bridgename]
             output = utils.exec_commandl(cmd)
             if not output:
                 return mstpctl_bridge_attrs_dict
@@ -156,10 +158,10 @@ class mstpctlutil(utilsBase):
         if cache_value and cache_value == value:
             return
         if attrname == 'treeportcost' or attrname == 'treeportprio':
-            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
                                  bridgename, portname, '0', value])
         else:
-            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
                                  bridgename, portname, value])
         if json_attr:
             self.update_bridge_port_cache(bridgename, portname, json_attr, value)
@@ -191,11 +193,11 @@ class mstpctlutil(utilsBase):
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
         if attrname == 'treeprio':
-            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
                                  '%s' % bridgename, '0', '%s' % attrvalue], stderr=None)
             self.update_bridge_cache(bridgename, attrname, str(attrvalue))
         else:
-            utils.exec_commandl(['/sbin/mstpctl', 'set%s' % attrname,
+            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
                                  '%s' % bridgename, '%s' % attrvalue], stderr=None)
             self.update_bridge_cache(bridgename,
                                      self._bridge_jsonAttr_map[attrname],
@@ -218,22 +220,26 @@ class mstpctlutil(utilsBase):
             attrvalue_curr = self.get_bridge_treeprio(bridgename)
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
-        utils.exec_commandl(['/sbin/mstpctl', 'settreeprio', bridgename, '0',
+        utils.exec_commandl([utils.mstpctl_cmd,
+                             'settreeprio', bridgename, '0',
                              str(attrvalue)])
         self.update_bridge_cache(bridgename, 'treeprio', str(attrvalue))
 
     def showbridge(self, bridgename=None):
         if bridgename:
-            return utils.exec_command('/sbin/mstpctl showbridge %s' % bridgename)
+            return utils.exec_command('%s showbridge %s' %
+                                       (utils.mstpctl_cmd, bridgename))
         else:
-            return utils.exec_command('/sbin/mstpctl showbridge')
+            return utils.exec_command('%s showbridge' %utils.mstpctl_cmd)
 
     def showportdetail(self, bridgename):
-        return utils.exec_command('/sbin/mstpctl showportdetail %s' % bridgename)
+        return utils.exec_command('%s showportdetail %s' %
+                                  (utils.mstpctl_cmd, bridgename))
 
     def mstpbridge_exists(self, bridgename):
         try:
-            utils.exec_command('/sbin/mstpctl showbridge %s' % bridgename)
+            utils.exec_command('%s showbridge %s' %
+                               (utils.mstpctl_cmd, bridgename))
             return True
         except:
             return False

@@ -47,7 +47,7 @@ class vrrpd(moduleBase):
         targetpids = []
         pidstr = ''
         try:
-            cmdl = ['/bin/pidof', cmdname]
+            cmdl = [utils.pidof_cmd, cmdname]
             pidstr = utils.exec_commandl(cmdl, stderr=None).strip('\n')
         except:
             pass
@@ -98,11 +98,13 @@ class vrrpd(moduleBase):
             self.logger.warn('%s: incomplete vrrp arguments ' %ifaceobj.name,
                     '(virtual ip not found)')
             return
-        cmd = '/usr/sbin/vrrpd -n -D -i %s %s' %(ifaceobj.name, cmd)
+        cmd = ('%s -n -D -i %s %s' %
+               (utils.vrrpd_cmd, ifaceobj.name, cmd))
         utils.exec_command(cmd)
 
-        cmd = '/usr/sbin/ifplugd -i %s -b -f -u0 -d1 -I -p -q' %ifaceobj.name
-        if self._check_if_process_is_running('/usr/sbin/ifplugd', cmd):
+        cmd = ('%s -i %s -b -f -u0 -d1 -I -p -q' %
+               (utils.ifplugd_cmd, ifaceobj.name))
+        if self._check_if_process_is_running(utils.ifplugd_cmd, cmd):
            self.logger.info('%s: ifplugd already running' %ifaceobj.name)
            return
         utils.exec_command(cmd)
@@ -120,7 +122,8 @@ class vrrpd(moduleBase):
         if not attrval:
             return
         try:
-            utils.exec_command('/usr/sbin/ifplugd -k -i %s' % ifaceobj.name)
+            utils.exec_command('%s -k -i %s' %
+                               (utils.ifplugd_cmd, ifaceobj.name))
         except Exception, e:
             self.logger.debug('%s: ifplugd down error (%s)'
                               %(ifaceobj.name, str(e)))

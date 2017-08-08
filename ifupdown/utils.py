@@ -72,6 +72,39 @@ class utils():
         '0' : 'no'
     }
 
+    """
+    Set debian path as default path for all the commands.
+    If command not present in debian path, search for the
+    commands in the other system directories.
+    This search is carried out to handle different locations
+    on different distros.
+    If the command is not found in any of the system
+    directories, command execution will fail because we have
+    set default path same as debian path.
+    """
+    for cmd, default_path in {'bridge' : '/sbin/bridge',
+                             'ip' : '/bin/ip',
+                             'brctl' : '/sbin/brctl',
+                             'pidof' : '/bin/pidof',
+                             'service' : '/usr/sbin/service',
+                             'sysctl' : '/sbin/sysctl',
+                             'modprobe' : '/sbin/modprobe',
+                             'pstree' : '/usr/bin/pstree',
+                             'ss' : '/bin/ss',
+                             'vrrpd' : '/usr/sbin/vrrpd',
+                             'ifplugd' : '/usr/sbin/ifplugd',
+                             'mstpctl' : '/sbin/mstpctl',
+                             'ethtool' : '/sbin/ethtool'}.iteritems():
+        vars()[cmd + '_cmd'] = default_path
+        if os.path.exists(default_path):
+            continue
+        for path in ['/bin/',
+                     '/sbin/',
+                     '/usr/bin/',
+                     '/usr/sbin/',]:
+            if os.path.exists(path + cmd):
+                vars()[cmd + '_cmd'] = path + cmd
+
     @staticmethod
     def get_onff_from_onezero(value):
         if value in utils._onoff_onezero:

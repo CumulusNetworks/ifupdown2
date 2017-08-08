@@ -87,14 +87,16 @@ class vrf(moduleBase):
                     self.logger.debug('vrf: removing file failed (%s)'
                                       %str(e))
         try:
-            ip_rules = utils.exec_command('/bin/ip rule show').splitlines()
+            ip_rules = utils.exec_command('%s rule show'
+                                          %utils.ip_cmd).splitlines()
             self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip_rule_cache = []
             self.logger.warn('vrf: cache v4: %s' % str(e))
 
         try:
-            ip_rules = utils.exec_command('/bin/ip -6 rule show').splitlines()
+            ip_rules = utils.exec_command('%s -6 rule show'
+                                          %utils.ip_cmd).splitlines()
             self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip6_rule_cache = []
@@ -479,29 +481,33 @@ class vrf(moduleBase):
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
-        ip_rule_cmd = '/bin/ip %s rule del pref %s %s %s table %s'
+        ip_rule_cmd = '%s %s rule del pref %s %s %s table %s'
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
@@ -514,31 +520,37 @@ class vrf(moduleBase):
         return False
 
     def _rule_cache_fill(self):
-        ip_rules = utils.exec_command('/bin/ip rule show').splitlines()
+        ip_rules = utils.exec_command('%s rule show'
+                                      %utils.ip_cmd).splitlines()
         self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         self.l3mdev4_rule = self._l3mdev_rule(self.ip_rule_cache)
-        ip_rules = utils.exec_command('/bin/ip -6 rule show').splitlines()
+        ip_rules = utils.exec_command('%s -6 rule show'
+                                      %utils.ip_cmd).splitlines()
         self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         self.l3mdev6_rule = self._l3mdev_rule(self.ip6_rule_cache)
 
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
-        ip_rule_cmd = '/bin/ip %s rule add pref %s %s %s table %s'
+        ip_rule_cmd = '%s %s rule add pref %s %s %s table %s'
         if self.vrf_fix_local_table:
             self.vrf_fix_local_table = False
             rule = '0: from all lookup local'
             if rule in self.ip_rule_cache:
                 try:
-                    utils.exec_command('/bin/ip rule del pref 0')
-                    utils.exec_command('/bin/ip rule add pref 32765 table local')
+                    utils.exec_command('%s rule del pref 0'
+                                       %utils.ip_cmd)
+                    utils.exec_command('%s rule add pref 32765 table local'
+                                       %utils.ip_cmd)
                 except Exception, e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
             if rule in self.ip6_rule_cache:
                 try:
-                    utils.exec_command('/bin/ip -6 rule del pref 0')
-                    utils.exec_command('/bin/ip -6 rule add pref 32765 table local')
+                    utils.exec_command('%s -6 rule del pref 0'
+                                       %utils.ip_cmd)
+                    utils.exec_command('%s -6 rule add pref 32765 table local'
+                                       %utils.ip_cmd)
                 except Exception, e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
@@ -552,25 +564,29 @@ class vrf(moduleBase):
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
@@ -749,7 +765,7 @@ class vrf(moduleBase):
             #Example output:
             #ESTAB      0      0      10.0.1.84:ssh       10.0.1.228:45186     
             #users:(("sshd",pid=2528,fd=3))
-            cmdl = ['/bin/ss', '-t', '-p']
+            cmdl = [utils.ss_cmd, '-t', '-p']
             for line in utils.exec_commandl(cmdl).splitlines():
                 citems = line.split()
                 addr = None
@@ -770,7 +786,8 @@ class vrf(moduleBase):
             # 'systemd(1)---sshd(990)---sshd(16112)---sshd(16126)---bash(16127)---sudo(16756)---ifreload(16761)---pstree(16842)\n'
             # get the above output to following format
             # ['systemd(1)', 'sshd(990)', 'sshd(16112)', 'sshd(16126)', 'bash(16127)', 'sudo(16756)', 'ifreload(16761)', 'pstree(16850)']
-            pstree = list(reversed(utils.exec_command('/usr/bin/pstree -Aps %s' %os.getpid()).strip().split('---')))
+            pstree = list(reversed(utils.exec_command('%s -Aps %s' %
+                                                       (utils.pstree_cmd, os.getpid())).strip().split('---')))
             for index, process in enumerate(pstree):
                 # check the parent of SSH process to make sure
                 # we don't kill SSH server or systemd process
@@ -853,8 +870,8 @@ class vrf(moduleBase):
             return
 
         try:
-            utils.exec_command('/bin/ss -aK \"dev == %s\"'
-                               %ifindex)
+            utils.exec_command('%s -aK \"dev == %s\"'
+                               %(utils.ss_cmd, ifindex))
         except Exception, e:
             self.logger.info('%s: closing socks using ss'
                              ' failed (%s)\n' %(ifaceobj.name, str(e)))

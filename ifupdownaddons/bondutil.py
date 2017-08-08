@@ -481,7 +481,8 @@ class bondutil(utilsBase):
         self._cache_delete([bondname, 'linkinfo', 'slaves'])
 
     def load_bonding_module(self):
-        return utils.exec_command('/sbin/modprobe -q bonding')
+        return utils.exec_command('%s -q bonding'
+                                  %utils.modprobe_cmd)
 
     def create_bond(self, bondname):
         if self.bond_exists(bondname):

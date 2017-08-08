@@ -82,7 +82,8 @@ class brctl(utilsBase):
         battrs = {}
         bports = {}
 
-        brout = utils.exec_command('/sbin/brctl showstp %s' % bridgename)
+        brout = utils.exec_command('%s showstp %s' %
+                                   (utils.brctl_cmd, bridgename))
         chunks = re.split(r'\n\n', brout, maxsplit=0, flags=re.MULTILINE)
 
         try:
@@ -236,9 +237,11 @@ class brctl(utilsBase):
 
         else:
             if not bridgename:
-                brctlout = utils.exec_command('/sbin/brctl show')
+                brctlout = utils.exec_command('%s show'
+                                              %utils.brctl_cmd)
             else:
-                brctlout = utils.exec_command('/sbin/brctl show %s' % bridgename)
+                brctlout = utils.exec_command('%s show %s' %
+                                              (utils.brctl_cmd, bridgename))
             if not brctlout:
                 return
 
@@ -308,13 +311,15 @@ class brctl(utilsBase):
     def create_bridge(self, bridgename):
         if self.bridge_exists(bridgename):
             return
-        utils.exec_command('/sbin/brctl addbr %s' % bridgename)
+        utils.exec_command('%s addbr %s' %
+                            (utils.brctl_cmd, bridgename))
         self._cache_update([bridgename], {})
 
     def delete_bridge(self, bridgename):
         if not self.bridge_exists(bridgename):
             return
-        utils.exec_command('/sbin/brctl delbr %s' % bridgename)
+        utils.exec_command('%s delbr %s' %
+                            (utils.brctl_cmd, bridgename))
         self._cache_invalidate()
 
     def add_bridge_port(self, bridgename, bridgeportname):
@@ -322,8 +327,9 @@ class brctl(utilsBase):
         ports = self._cache_get([bridgename, 'linkinfo', 'ports'])
         if ports and ports.get(bridgeportname):
             return
-        utils.exec_command('/sbin/brctl addif %s %s' %
-                           (bridgename, bridgeportname))
+        utils.exec_command('%s addif %s %s' %
+                           (utils.brctl_cmd,
+                            bridgename, bridgeportname))
         self._cache_update([bridgename, 'linkinfo', 'ports',
                             bridgeportname], {})
 
@@ -332,8 +338,9 @@ class brctl(utilsBase):
         ports = self._cache_get([bridgename, 'linkinfo', 'ports'])
         if not ports or not ports.get(bridgeportname):
             return
-        utils.exec_command('/sbin/brctl delif %s %s' %
-                           (bridgename, bridgeportname))
+        utils.exec_command('%s delif %s %s' %
+                           (utils.brctl_cmd,
+                            bridgename, bridgeportname))
         self._cache_delete([bridgename, 'linkinfo', 'ports',
                            'bridgeportname'])
 
@@ -359,16 +366,18 @@ class brctl(utilsBase):
                 self.write_file('/sys/class/net/%s/brport/'
                                 'neigh_suppress' %bridgeportname, v)
             else:
-                utils.exec_command('/sbin/brctl set%s %s %s %s' %
-                                   (k, bridgename, bridgeportname, v))
+                utils.exec_command('%s set%s %s %s %s' %
+                                   (utils.brctl_cmd,
+                                    k, bridgename, bridgeportname, v))
 
     def set_bridgeport_attr(self, bridgename, bridgeportname,
                             attrname, attrval):
         if self._cache_check([bridgename, 'linkinfo', 'ports',
                         bridgeportname, attrname], attrval):
             return
-        utils.exec_command('/sbin/brctl set%s %s %s %s' %
-                           (attrname,
+        utils.exec_command('%s set%s %s %s %s' %
+                           (utils.brctl_cmd,
+                            attrname,
                             bridgename,
                             bridgeportname,
                             attrval))
@@ -398,7 +407,8 @@ class brctl(utilsBase):
                     self.write_file('/sys/class/net/%s/bridge/'
                                     'multicast_stats_enabled' %bridgename, v)
                 else:
-                    cmd = '/sbin/brctl set%s %s %s' % (k, bridgename, v)
+                    cmd = ('%s set%s %s %s' %
+                           (utils.brctl_cmd, k, bridgename, v))
                     utils.exec_command(cmd)
             except Exception, e:
                 self.logger.warn('%s: %s' %(bridgename, str(e)))
@@ -423,7 +433,8 @@ class brctl(utilsBase):
             self.write_file('/sys/class/net/%s/bridge/multicast_stats_enabled'
                             %bridgename, attrval)
         else:
-            cmd = '/sbin/brctl set%s %s %s' %(attrname, bridgename, attrval)
+            cmd = '%s set%s %s %s' %(utils.brctl_cmd,
+                                              attrname, bridgename, attrval)
             utils.exec_command(cmd)
 
     def get_bridge_attrs(self, bridgename):
@@ -443,7 +454,8 @@ class brctl(utilsBase):
                                       bridgeportname, attrname])
 
     def set_stp(self, bridge, stp_state):
-        utils.exec_command('/sbin/brctl stp %s %s' % (bridge, stp_state))
+        utils.exec_command('%s stp %s %s' % (utils.brctl_cmd,
+                                                      bridge, stp_state))
 
     def get_stp(self, bridge):
         sysfs_stpstate = '/sys/class/net/%s/bridge/stp_state' %bridge
@@ -475,21 +487,24 @@ class brctl(utilsBase):
         return preprocess_func(value)
 
     def set_ageing(self, bridge, ageing):
-        utils.exec_command('/sbin/brctl setageing %s %s' % (bridge, ageing))
+        utils.exec_command('%s setageing %s %s' %
+                           (utils.brctl_cmd, bridge, ageing))
 
     def get_ageing(self, bridge):
         return self.read_value_from_sysfs('/sys/class/net/%s/bridge/ageing_time'
                                      %bridge, self.conv_value_to_user)
 
     def set_bridgeprio(self, bridge, prio):
-        utils.exec_command('/sbin/brctl setbridgeprio %s %s' % (bridge, prio))
+        utils.exec_command('%s setbridgeprio %s %s' %
+                           (utils.brctl_cmd, bridge, prio))
 
     def get_bridgeprio(self, bridge):
         return self.read_file_oneline(
                        '/sys/class/net/%s/bridge/priority' %bridge)
 
     def set_fd(self, bridge, fd):
-        utils.exec_command('/sbin/brctl setfd %s %s' % (bridge, fd))
+        utils.exec_command('%s setfd %s %s' %
+                           (utils.brctl_cmd, bridge, fd))
 
     def get_fd(self, bridge):
         return self.read_value_from_sysfs(
@@ -497,55 +512,59 @@ class brctl(utilsBase):
                             %bridge, self.conv_value_to_user)
 
     def set_gcint(self, bridge, gcint):
-        #cmd = '/sbin/brctl setgcint ' + bridge + ' ' + gcint
         raise Exception('set_gcint not implemented')
 
     def set_hello(self, bridge, hello):
-        utils.exec_command('/sbin/brctl sethello %s %s' % (bridge, hello))
+        utils.exec_command('%s sethello %s %s' %
+                           (utils.brctl_cmd, bridge, hello))
 
     def get_hello(self, bridge):
         return self.read_value_from_sysfs('/sys/class/net/%s/bridge/hello_time'
                                           %bridge, self.conv_value_to_user)
 
     def set_maxage(self, bridge, maxage):
-        utils.exec_command('/sbin/brctl setmaxage %s %s' % (bridge, maxage))
+        utils.exec_command('%s setmaxage %s %s' %
+                           (utils.brctl_cmd, bridge, maxage))
 
     def get_maxage(self, bridge):
         return self.read_value_from_sysfs('/sys/class/net/%s/bridge/max_age'
                                           %bridge, self.conv_value_to_user)
 
     def set_pathcost(self, bridge, port, pathcost):
-        utils.exec_command('/sbin/brctl setpathcost %s %s %s' %
-                           (bridge, port, pathcost))
+        utils.exec_command('%s setpathcost %s %s %s' %
+                           (utils.brctl_cmd, bridge, port, pathcost))
 
     def get_pathcost(self, bridge, port):
         return self.read_file_oneline('/sys/class/net/%s/brport/path_cost'
                                         %port)
 
     def set_portprio(self, bridge, port, prio):
-        utils.exec_command('/sbin/brctl setportprio %s %s %s' %
-                           (bridge, port, prio))
+        utils.exec_command('%s setportprio %s %s %s' %
+                           (utils.brctl_cmd, bridge, port, prio))
 
     def get_portprio(self, bridge, port):
         return self.read_file_oneline('/sys/class/net/%s/brport/priority'
                                         %port)
 
     def set_hashmax(self, bridge, hashmax):
-        utils.exec_command('/sbin/brctl sethashmax %s %s' % (bridge, hashmax))
+        utils.exec_command('%s sethashmax %s %s' %
+                           (utils.brctl_cmd, bridge, hashmax))
 
     def get_hashmax(self, bridge):
         return self.read_file_oneline('/sys/class/net/%s/bridge/hash_max'
                                         %bridge)
 
     def set_hashel(self, bridge, hashel):
-        utils.exec_command('/sbin/brctl sethashel %s %s' % (bridge, hashel))
+        utils.exec_command('%s sethashel %s %s' %
+                           (utils.brctl_cmd, bridge, hashel))
 
     def get_hashel(self, bridge):
         return self.read_file_oneline('/sys/class/net/%s/bridge/hash_elasticity'
                                         %bridge)
 
     def set_mclmc(self, bridge, mclmc):
-        utils.exec_command('/sbin/brctl setmclmc %s %s' % (bridge, mclmc))
+        utils.exec_command('%s setmclmc %s %s' %
+                           (utils.brctl_cmd, bridge, mclmc))
 
     def get_mclmc(self, bridge):
         return self.read_file_oneline(
@@ -553,21 +572,24 @@ class brctl(utilsBase):
                     %bridge)
 
     def set_mcrouter(self, bridge, mcrouter):
-        utils.exec_command('/sbin/brctl setmcrouter %s %s' % (bridge, mcrouter))
+        utils.exec_command('%s setmcrouter %s %s' %
+                           (utils.brctl_cmd, bridge, mcrouter))
 
     def get_mcrouter(self, bridge):
         return self.read_file_oneline(
                     '/sys/class/net/%s/bridge/multicast_router' %bridge)
 
     def set_mcsnoop(self, bridge, mcsnoop):
-        utils.exec_command('/sbin/brctl setmcsnoop %s %s' % (bridge, mcsnoop))
+        utils.exec_command('%s setmcsnoop %s %s' %
+                           (utils.brctl_cmd, bridge, mcsnoop))
 
     def get_mcsnoop(self, bridge):
         return self.read_file_oneline(
                     '/sys/class/net/%s/bridge/multicast_snooping' %bridge)
 
     def set_mcsqc(self, bridge, mcsqc):
-        utils.exec_command('/sbin/brctl setmcsqc %s %s' % (bridge, mcsqc))
+        utils.exec_command('%s setmcsqc %s %s' %
+                           (utils.brctl_cmd, bridge, mcsqc))
 
     def get_mcsqc(self, bridge):
         return self.read_file_oneline(
@@ -575,8 +597,8 @@ class brctl(utilsBase):
                     %bridge)
 
     def set_mcqifaddr(self, bridge, mcqifaddr):
-        utils.exec_command('/sbin/brctl setmcqifaddr %s %s' %
-                           (bridge, mcqifaddr))
+        utils.exec_command('%s setmcqifaddr %s %s' %
+                           (utils.brctl_cmd, bridge, mcqifaddr))
 
     def get_mcqifaddr(self, bridge):
         return self.read_file_oneline(
@@ -584,8 +606,8 @@ class brctl(utilsBase):
                  %bridge)
 
     def set_mcquerier(self, bridge, mcquerier):
-        utils.exec_command('/sbin/brctl setmcquerier %s %s' %
-                           (bridge, mcquerier))
+        utils.exec_command('%s setmcquerier %s %s' %
+                           (utils.brctl_cmd, bridge, mcquerier))
 
     def get_mcquerier(self, bridge):
         return self.read_file_oneline(
@@ -605,23 +627,26 @@ class brctl(utilsBase):
                 self.logger.warn('mcqv4src \'%s\' invalid IPv4 address' %mcquerier)
                 return
 
-        utils.exec_command('/sbin/brctl setmcqv4src %s %d %s' %
-                           (bridge, vlan, mcquerier))
+        utils.exec_command('%s setmcqv4src %s %d %s' %
+                           (utils.brctl_cmd, bridge, vlan, mcquerier))
 
     def del_mcqv4src(self, bridge, vlan):
-        utils.exec_command('/sbin/brctl delmcqv4src %s %d' % (bridge, vlan))
+        utils.exec_command('%s delmcqv4src %s %d' %
+                           (utils.brctl_cmd, bridge, vlan))
 
     def get_mcqv4src(self, bridge, vlan=None):
         if not self.supported_command['showmcqv4src']:
             return {}
         mcqv4src = {}
         try:
-            mcqout = utils.exec_command('/sbin/brctl showmcqv4src %s' % bridge)
+            mcqout = utils.exec_command('%s showmcqv4src %s' %
+                                        (utils.brctl_cmd, bridge))
         except Exception as e:
             s = str(e).lower()
             if 'never heard' in s:
-                self.logger.info('/sbin/brctl showmcqv4src: '
-                                 'skipping unsupported command')
+                msg = ('%s showmcqv4src: skipping unsupported command'
+                        %utils.brctl_cmd)
+                self.logger.info(msg)
                 self.supported_command['showmcqv4src'] = False
                 return {}
             raise
@@ -638,7 +663,8 @@ class brctl(utilsBase):
         return mcqv4src
 
     def set_mclmi(self, bridge, mclmi):
-        utils.exec_command('/sbin/brctl setmclmi %s %s' % (bridge, mclmi))
+        utils.exec_command('%s setmclmi %s %s' %
+                           (utils.brctl_cmd, bridge, mclmi))
 
     def get_mclmi(self, bridge):
         return self.read_file_oneline(
@@ -646,7 +672,8 @@ class brctl(utilsBase):
                  %bridge)
 
     def set_mcmi(self, bridge, mcmi):
-        utils.exec_command('/sbin/brctl setmcmi %s %s' % (bridge, mcmi))
+        utils.exec_command('%s setmcmi %s %s' %
+                           (utils.brctl_cmd, bridge, mcmi))
 
     def get_mcmi(self, bridge):
         return self.read_file_oneline(

@@ -111,7 +111,8 @@ class moduleBase(object):
 
     def is_process_running(self, procName):
         try:
-            utils.exec_command('/bin/pidof -x %s' % procName)
+            utils.exec_command('%s -x %s' %
+                               (utils.pidof_cmd, procName))
         except:
             return False
         else:
@@ -294,11 +295,13 @@ class moduleBase(object):
 
     def sysctl_set(self, variable, value):
         """ set sysctl variable to value passed as argument """
-        utils.exec_command('/sbin/sysctl %s=%s' % (variable, value))
+        utils.exec_command('%s %s=%s' %
+                           (utils.sysctl_cmd, variable, value))
 
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
-        output = utils.exec_command('/sbin/sysctl %s' % variable)
+        output = utils.exec_command('%s %s' %
+                                    (utils.sysctl_cmd, variable))
         split = output.split('=')
         if len(split) > 1:
             return split[1].strip()
