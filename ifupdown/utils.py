@@ -153,6 +153,13 @@ class utils():
                 if attr in attrsdict:
                     attrsdict[attr] = utils.boolean_support_binary(attrsdict[attr])
 
+    @staticmethod
+    def get_int_from_boolean_and_string(value):
+        try:
+            return int(value)
+        except:
+            return int(utils.get_boolean_from_string(value))
+
     @classmethod
     def importName(cls, modulename, name):
         """ Import a named object """

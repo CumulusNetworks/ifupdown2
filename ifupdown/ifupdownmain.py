@@ -959,7 +959,7 @@ class ifupdownMain(ifupdownBase):
             ex: bridge-portmcrouter swp1=yes swp2=yes swp3=1
         """
         return self._keyword_interface_list_with_value(value,
-                                                       ['yes', 'no', '1', '0'])
+                                                       ['yes', 'no', '1', '0', '2'])
 
     def _keyword_interface_range_list(self, value, validrange):
         """

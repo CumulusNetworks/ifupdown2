@@ -119,9 +119,8 @@ class bridge(moduleBase):
                           'default' : '2'},
                     'bridge-mcrouter' :
                         { 'help' : 'set multicast router',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'yes',
-                          'example' : ['bridge-mcrouter yes']},
+                          'validvals' : ['yes', 'no', '0', '1', '2'],
+                          'example' : ['bridge-mcrouter 1']},
                     'bridge-mcsnoop' :
                         { 'help' : 'set multicast snooping',
                           'validvals' : ['yes', 'no', '0', '1'],
@@ -191,9 +190,8 @@ class bridge(moduleBase):
                     'bridge-portmcrouter' :
                         { 'help' : 'set port multicast routers',
                           'validvals' : ['<interface-yes-no-0-1-list>'],
-                          'default' : 'yes',
-                          'example' : ['under the port (for vlan aware bridge): bridge-portmcrouter yes',
-                                       'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=yes swp2=yes']},
+                          'example' : ['under the port (for vlan aware bridge): bridge-portmcrouter 2',
+                                       'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=0 swp2=1']},
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
                           'validvals': ['<interface-yes-no-0-1-list>'],
@@ -422,7 +420,7 @@ class bridge(moduleBase):
             # Link.IFLA_BR_GC_TIMER,
             # Link.IFLA_BR_GROUP_ADDR,
             # Link.IFLA_BR_FDB_FLUSH,
-            (Link.IFLA_BR_MCAST_ROUTER, utils.get_boolean_from_string),
+            (Link.IFLA_BR_MCAST_ROUTER, utils.get_int_from_boolean_and_string),
             (Link.IFLA_BR_MCAST_SNOOPING, utils.get_boolean_from_string),
             (Link.IFLA_BR_MCAST_QUERY_USE_IFADDR, utils.get_boolean_from_string),
             (Link.IFLA_BR_MCAST_QUERIER, utils.get_boolean_from_string),
@@ -489,7 +487,7 @@ class bridge(moduleBase):
         (
             (Link.IFLA_BRPORT_PRIORITY, int),
             (Link.IFLA_BRPORT_COST, int),
-            (Link.IFLA_BRPORT_MULTICAST_ROUTER, utils.get_boolean_from_string),
+            (Link.IFLA_BRPORT_MULTICAST_ROUTER, utils.get_int_from_boolean_and_string),
             (Link.IFLA_BRPORT_FAST_LEAVE, utils.get_boolean_from_string),
             (Link.IFLA_BRPORT_LEARNING, utils.get_boolean_from_string),
             (Link.IFLA_BRPORT_UNICAST_FLOOD, utils.get_boolean_from_string),
@@ -2604,19 +2602,46 @@ class bridge(moduleBase):
     def _query_check_support_yesno_attrs(self, runningattrs, ifaceobj):
         for attrl in [['mcqifaddr', 'bridge-mcqifaddr'],
                      ['mcquerier', 'bridge-mcquerier'],
-                     ['mcrouter', 'bridge-mcrouter'],
                      ['mcsnoop', 'bridge-mcsnoop']]:
             value = ifaceobj.get_attr_value_first(attrl[1])
             if value and not utils.is_binary_bool(value):
                 if attrl[0] in runningattrs:
                     bool = utils.get_boolean_from_string(runningattrs[attrl[0]])
                     runningattrs[attrl[0]] = utils.get_yesno_boolean(bool)
-        self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcrouter', ifaceobj.get_attr_value_first('bridge-portmcrouter'))
+
+        self._query_check_mcrouter(ifaceobj, runningattrs)
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'portmcfl', ifaceobj.get_attr_value_first('bridge-portmcfl'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'learning', ifaceobj.get_attr_value_first('bridge-learning'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'unicast-flood', ifaceobj.get_attr_value_first('bridge-unicast-flood'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'multicast-flood', ifaceobj.get_attr_value_first('bridge-multicast-flood'))
         self._query_check_support_yesno_attr_port(runningattrs, ifaceobj, 'arp-nd-suppress', ifaceobj.get_attr_value_first('bridge-arp-nd-suppress'))
+
+    def _query_check_mcrouter(self, ifaceobj, running_attrs):
+        """
+        bridge-mcrouter and bridge-portmcrouter supports: yes-no-0-1-2
+        """
+        if 'mcrouter' in running_attrs:
+            value = ifaceobj.get_attr_value_first('bridge-mcrouter')
+            if value:
+                running_attrs['mcrouter'] = str(utils.get_int_from_boolean_and_string(value))
+
+        portmcrouter_config = ifaceobj.get_attr_value_first('bridge-portmcrouter')
+        if portmcrouter_config:
+            portlist = self.parse_port_list(ifaceobj.name, portmcrouter_config)
+            if portlist:
+                to_convert = []
+                for p in portlist:
+                    (port, val) = p.split('=')
+                    if val not in ['0', '1', '2']:
+                        to_convert.append(port)
+                for port in to_convert:
+                    running_value = running_attrs['ports'][port]['portmcrouter']
+                    running_value_query = 'no'
+                    if running_value == '1':
+                        running_value_query = 'yes'
+                    elif running_value == '2':
+                        running_value_query = '2'
+                    running_attrs['ports'][port]['portmcrouter'] = running_value_query
 
     def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:
