@@ -530,6 +530,16 @@ class address(moduleBase):
             return
         ipforward = ifaceobj.get_attr_value_first('ip-forward')
         ip6forward = ifaceobj.get_attr_value_first('ip6-forward')
+        if ifupdownflags.flags.PERFMODE:
+            if ipforward:
+                self.sysctl_set('net.ipv4.conf.%s.forwarding'
+                                 %('/'.join(ifaceobj.name.split("."))),
+                                ipforward)
+            if ip6forward:
+                self.sysctl_set('net.ipv6.conf.%s.forwarding'
+                                %('/'.join(ifaceobj.name.split("."))),
+                                ip6forward)
+            return
         bridge_port = ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT
         if bridge_port:
             if ipforward:
