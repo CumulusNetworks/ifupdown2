@@ -372,15 +372,15 @@ class Netlink(utilsBase):
         return vrf_info
 
     def _link_dump_info_data_vxlan(self, ifname, linkdata):
-        vattrs = {
-            'learning': 'on',
-            'svcnode': None,
-            'vxlanid': str(linkdata.get(Link.IFLA_VXLAN_ID, '')),
-            'ageing': str(linkdata.get(Link.IFLA_VXLAN_AGEING, ''))
-        }
-
-        self._link_dump_linkdata_attr(linkdata, self.ifla_vxlan_attributes, vattrs)
-        return vattrs
+        for attr, value in (
+                ('learning', 'on'),
+                ('svcnode', None),
+                ('vxlanid', str(linkdata.get(Link.IFLA_VXLAN_ID, ''))),
+                ('ageing', str(linkdata.get(Link.IFLA_VXLAN_AGEING, '')))
+        ):
+            linkdata[attr] = value
+        self._link_dump_linkdata_attr(linkdata, self.ifla_vxlan_attributes, linkdata)
+        return linkdata
 
     ifla_bond_attributes = (
         Link.IFLA_BOND_MODE,

@@ -308,8 +308,8 @@ class iproute2(utilsBase):
             pass
         return None
 
-    def cache_check(self, type, attrlist, value, refresh=False):
-        self._cache_check(type, attrlist, value, refresh=refresh)
+    def cache_check(self, attrlist, value, refresh=False):
+        return self._cache_check('link', attrlist, value, refresh=refresh)
 
     def _cache_check(self, type, attrlist, value, refresh=False):
         try:
