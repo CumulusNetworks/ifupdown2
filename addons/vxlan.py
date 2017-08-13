@@ -14,6 +14,7 @@ try:
 
     import ifupdown.policymanager as policymanager
 
+    from ifupdownaddons.cache import *
     from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.systemutils import systemUtils
@@ -149,14 +150,27 @@ class vxlan(moduleBase):
                         self.log_error('%s: Cannot change running vxlan id: '
                                        'Operation not supported' % ifname, ifaceobj)
 
-            if self.should_create_set_vxlan(link_exists, ifname, int(vxlanid), local, learning, group):
+            vxlanid = int(vxlanid)
+            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, group):
                 netlink.link_add_vxlan(ifname, vxlanid,
                                        local=local,
                                        learning=learning,
                                        ageing=ageing,
                                        group=group)
+                # manually adding an entry to the caching after creating/updating the vxlan
+                if not ifname in linkCache.links:
+                    linkCache.links[ifname] = {'linkinfo': {}}
+                linkCache.links[ifname]['linkinfo'].update({
+                    'learning': learning,
+                    Link.IFLA_VXLAN_LEARNING: learning,
+                    'vxlanid': vxlanid,
+                    Link.IFLA_VXLAN_ID: vxlanid,
+                    'ageing': ageing,
+                    Link.IFLA_VXLAN_AGEING: int(ageing),
+                })
             else:
                 self.logger.info('%s: vxlan already exists' % ifname)
+                # if the vxlan already exists it's already cached
 
             remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
             if remoteips:

@@ -1511,7 +1511,7 @@ class bridge(moduleBase):
         # if the user explicitly defined vxlan-learning we need to honor his config
         # and not sync vxlan-learning with bridge-learning
 
-        brport_vxlan_learning = utils.get_boolean_from_string(self.ipcmd.get_vxlandev_learning(brport_name))
+        brport_vxlan_learning = self.ipcmd.get_vxlandev_learning(brport_name)
 
         # if BRIDGE_LEARNING is in the desired configuration
         # and differs from the running vxlan configuration

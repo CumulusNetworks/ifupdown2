@@ -792,7 +792,7 @@ class iproute2(utilsBase):
         return self._cache_get('link', [ifacename, 'linkinfo'])
 
     def get_vxlandev_learning(self, ifacename):
-        return self._cache_get('link', [ifacename, 'linkinfo', 'learning'])
+        return self._cache_get('link', [ifacename, 'linkinfo', Link.IFLA_VXLAN_LEARNING])
 
     def set_vxlandev_learning(self, ifacename, learn):
         if learn == 'on':
