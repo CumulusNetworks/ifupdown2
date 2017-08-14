@@ -149,25 +149,33 @@ class vxlan(moduleBase):
                     if vxlanattrs.get('vxlanid') != vxlanid:
                         self.log_error('%s: Cannot change running vxlan id: '
                                        'Operation not supported' % ifname, ifaceobj)
-
-            vxlanid = int(vxlanid)
+            try:
+                vxlanid = int(vxlanid)
+            except:
+                self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
             if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, group):
                 netlink.link_add_vxlan(ifname, vxlanid,
                                        local=local,
                                        learning=learning,
                                        ageing=ageing,
                                        group=group)
-                # manually adding an entry to the caching after creating/updating the vxlan
-                if not ifname in linkCache.links:
-                    linkCache.links[ifname] = {'linkinfo': {}}
-                linkCache.links[ifname]['linkinfo'].update({
-                    'learning': learning,
-                    Link.IFLA_VXLAN_LEARNING: learning,
-                    'vxlanid': vxlanid,
-                    Link.IFLA_VXLAN_ID: vxlanid,
-                    'ageing': ageing,
-                    Link.IFLA_VXLAN_AGEING: int(ageing),
-                })
+                try:
+                    # manually adding an entry to the caching after creating/updating the vxlan
+                    if not ifname in linkCache.links:
+                        linkCache.links[ifname] = {'linkinfo': {}}
+                    linkCache.links[ifname]['linkinfo'].update({
+                        'learning': learning,
+                        Link.IFLA_VXLAN_LEARNING: learning,
+                        'vxlanid': vxlanid,
+                        Link.IFLA_VXLAN_ID: vxlanid
+                    })
+                    if ageing:
+                        linkCache.links[ifname]['linkinfo'].update({
+                            'ageing': ageing,
+                            Link.IFLA_VXLAN_AGEING: int(ageing)
+                        })
+                except:
+                    pass
             else:
                 self.logger.info('%s: vxlan already exists' % ifname)
                 # if the vxlan already exists it's already cached
