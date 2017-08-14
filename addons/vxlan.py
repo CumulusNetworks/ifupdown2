@@ -166,7 +166,7 @@ class vxlan(moduleBase):
                     linkCache.links[ifname]['linkinfo'].update({
                         'learning': learning,
                         Link.IFLA_VXLAN_LEARNING: learning,
-                        'vxlanid': vxlanid,
+                        'vxlanid': str(vxlanid),
                         Link.IFLA_VXLAN_ID: vxlanid
                     })
                     if ageing:
