@@ -144,8 +144,7 @@ class Ifupdown2:
             if len(args.iflist) == 0:
                 iflist = None
             log.debug('creating ifupdown object ..')
-            cachearg = (False if (iflist or args.nocache or
-                                  args.perfmode or args.noact)
+            cachearg = (False if (iflist or args.nocache or args.noact)
                         else True)
             import ifupdown.ifupdownmain
             ifupdown_handle = ifupdown.ifupdownmain.ifupdownMain(daemon=self.daemon,
@@ -222,8 +221,7 @@ class Ifupdown2:
                 qop = 'query-savedstate'
             else:
                 qop = 'query'
-            cachearg = (False if (iflist or args.nocache or
-                                  args.perfmode or args.syntaxhelp or
+            cachearg = (False if (iflist or args.nocache or args.syntaxhelp or
                                   (qop != 'query-checkcurr' and
                                    qop != 'query-running')) else True)
             if not iflist and qop == 'query-running':
