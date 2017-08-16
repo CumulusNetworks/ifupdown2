@@ -98,15 +98,23 @@ class vxlan(moduleBase):
             purge_remotes = self._purge_remotes
         return purge_remotes
 
-    def should_create_set_vxlan(self, link_exists, ifname, vxlan_id, local, learning, group):
+    def should_create_set_vxlan(self, link_exists, ifname, vxlan_id, local, learning, ageing, group):
         """
             should we issue a netlink: ip link add dev %ifname type vxlan ...?
             checking each attribute against the cache
         """
         if not link_exists:
             return True
+
+        try:
+            if ageing:
+                ageing = int(ageing)
+        except:
+            pass
+
         for attr_list, value in (
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_ID), vxlan_id),
+            ((ifname, 'linkinfo', Link.IFLA_VXLAN_AGEING), ageing),
             ((ifname, 'linkinfo', 'local'), local),
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_LEARNING), learning),
             ((ifname, 'linkinfo', 'svcnode'), group)
@@ -153,7 +161,7 @@ class vxlan(moduleBase):
                 vxlanid = int(vxlanid)
             except:
                 self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
-            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, group):
+            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group):
                 netlink.link_add_vxlan(ifname, vxlanid,
                                        local=local,
                                        learning=learning,
