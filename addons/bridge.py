@@ -558,23 +558,24 @@ class bridge(moduleBase):
             if not self.check_bridge_port_vid_attrs(ifaceobj):
                 retval = False
         c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_getfunc)
-        #c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
+        c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
         return retval and c1 #and c2
 
     def syntax_check_bridge_allow_multiple_vlans(self, ifaceobj, ifaceobj_getfunc):
         result = True
         if not self.bridge_allow_multiple_vlans and ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
-            bridge_has_vlan = False
+            vlan_id = None
             for brport_name in ifaceobj.lowerifaces:
                 for obj in ifaceobj_getfunc(brport_name) or []:
                     if obj.link_kind & ifaceLinkKind.VLAN:
-                        if bridge_has_vlan:
+                        sub_intf_vlan_id = self._get_vlan_id(obj)
+                        if vlan_id and vlan_id != sub_intf_vlan_id:
                             self.logger.error('%s: ignore %s: multiple vlans not allowed under bridge '
                                               '(sysctl net.bridge.bridge-allow-multiple-vlans not set)'
                                               % (ifaceobj.name, brport_name))
                             result = False
                             continue
-                        bridge_has_vlan = True
+                        vlan_id = sub_intf_vlan_id
         return result
 
     def check_bridge_port_vid_attrs(self, ifaceobj):
