@@ -116,6 +116,8 @@ RTMGRP_ALL = (RTMGRP_LINK | RTMGRP_NOTIFY | RTMGRP_NEIGH | RTMGRP_TC |
               RTMGRP_DECnet_IFADDR | RTMGRP_DECnet_ROUTE |
               RTMGRP_IPV6_PREFIX)
 
+AF_MPLS = 28
+
 # Colors for logging
 red    = 91
 green  = 92
@@ -561,6 +563,44 @@ class AttributeMACAddress(Attribute):
         if len(self.data) >= 12:
             dump_buffer.append(data_to_color_text(line_number, color, self.data[8:12]))
             line_number += 1
+        return line_number
+
+
+class AttributeMplsLabel(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.value_int = None
+        self.value_int_str = None
+        self.family = family
+        self.PACK = '>HBB'
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+
+        try:
+            (label_high, label_low_tc_s, self.ttl) = unpack(self.PACK, self.data[4:])
+            self.s_bit = label_low_tc_s & 0x1
+            self.traffic_class = ((label_low_tc_s & 0xf) >> 1)
+            self.label = (label_high << 4) | (label_low_tc_s >> 4)
+            self.value = self.label
+            self.value_int = self.value
+            self.value_int_str = str(self.value_int)
+
+        except struct.error:
+            self.value = None
+            self.value_int = None
+            self.value_int_str = None
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+            raise
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[4:8],
+                                              'label %s, TC %s, bottom-of-stack %s, TTL %d' %
+                                              (self.label, self.traffic_class, self.s_bit, self.ttl)))
+        line_number += 1
+
         return line_number
 
 
@@ -2264,6 +2304,16 @@ class NetlinkPacket(object):
         # case of RTA_DST.
         if attr_type in self.attribute_to_class:
             (attr_string, attr_class) = self.attribute_to_class[attr_type]
+
+            '''
+            attribute_to_class is a dictionary where the key is the attr_type, it doesn't
+            take the family into account. For now we'll handle this as a special case for
+            MPLS but long term we may need to make key a tuple of the attr_type and family.
+            '''
+            if attr_type == Route.RTA_DST and self.family == AF_MPLS:
+                attr_string = 'RTA_DST'
+                attr_class = AttributeMplsLabel
+
         else:
             attr_string = "UNKNOWN_ATTRIBUTE_%d" % attr_type
             attr_class = AttributeGeneric
@@ -3951,6 +4001,39 @@ class Route(NetlinkPacket):
                 else:
                     extra = "Unexpected line number %d" % self.line_number
 
+                start = x * 4
+                end = start + 4
+                self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
+                self.line_number += 1
+
+class Done(NetlinkPacket):
+    """
+    NLMSG_DONE
+
+    Service Header
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                             TBD                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
+        self.PACK = 'i'
+        self.LEN = calcsize(self.PACK)
+
+    def decode_service_header(self):
+        foo = unpack(self.PACK, self.msg_data[:self.LEN])
+
+        if self.debug:
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
+
+            for x in range(0, self.LEN/4):
+                extra = ''
                 start = x * 4
                 end = start + 4
                 self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
