@@ -160,6 +160,12 @@ class utils():
         except:
             return int(utils.get_boolean_from_string(value))
 
+    @staticmethod
+    def strip_hwaddress(hwaddress):
+        if hwaddress and hwaddress.startswith("ether"):
+            hwaddress = hwaddress[5:].strip()
+        return hwaddress
+
     @classmethod
     def importName(cls, modulename, name):
         """ Import a named object """
