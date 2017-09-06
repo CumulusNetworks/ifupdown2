@@ -755,7 +755,7 @@ class vrf(moduleBase):
 
     def _kill_ssh_connections(self, ifacename):
         try:
-            runningaddrsdict = self.ipcmd.self.ipcmd.get_running_addrs(None, ifacename)
+            runningaddrsdict = self.ipcmd.get_running_addrs(None, ifacename)
             if not runningaddrsdict:
                 return
             iplist = [i.split('/', 1)[0] for i in runningaddrsdict.keys()]
