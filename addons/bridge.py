@@ -552,29 +552,33 @@ class bridge(moduleBase):
             self.bridge_allow_multiple_vlans = True
         self.logger.debug('bridge: init: multiple vlans allowed %s' % self.bridge_allow_multiple_vlans)
 
+        self.bridge_mac_iface_list = policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'bridge_mac_iface') or []
+        self.bridge_mac_iface = None, None  # ifname, mac
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         retval = self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc)
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
             if not self.check_bridge_port_vid_attrs(ifaceobj):
                 retval = False
         c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_getfunc)
-        #c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
+        c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
         return retval and c1 #and c2
 
     def syntax_check_bridge_allow_multiple_vlans(self, ifaceobj, ifaceobj_getfunc):
         result = True
         if not self.bridge_allow_multiple_vlans and ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
-            bridge_has_vlan = False
+            vlan_id = None
             for brport_name in ifaceobj.lowerifaces:
                 for obj in ifaceobj_getfunc(brport_name) or []:
                     if obj.link_kind & ifaceLinkKind.VLAN:
-                        if bridge_has_vlan:
+                        sub_intf_vlan_id = self._get_vlan_id(obj)
+                        if vlan_id and vlan_id != sub_intf_vlan_id:
                             self.logger.error('%s: ignore %s: multiple vlans not allowed under bridge '
                                               '(sysctl net.bridge.bridge-allow-multiple-vlans not set)'
                                               % (ifaceobj.name, brport_name))
                             result = False
                             continue
-                        bridge_has_vlan = True
+                        vlan_id = sub_intf_vlan_id
         return result
 
     def check_bridge_port_vid_attrs(self, ifaceobj):
@@ -1800,6 +1804,81 @@ class bridge(moduleBase):
                         self.logger.debug('%s: %s: link set up (%s)'
                                           % (ifaceobj.name, p, str(e)))
                         pass
+
+        try:
+            self._up_bridge_mac(ifaceobj, ifaceobj_getfunc)
+        except Exception as e:
+            self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
+
+    def _get_bridge_mac(self, ifaceobj_getfunc):
+        if self.bridge_mac_iface and self.bridge_mac_iface[0] and self.bridge_mac_iface[1]:
+            return self.bridge_mac_iface
+
+        for bridge_mac_intf in self.bridge_mac_iface_list:
+            ifaceobj_list = ifaceobj_getfunc(bridge_mac_intf)
+            iface_mac = None
+
+            if ifaceobj_list:
+                for obj in ifaceobj_list:
+                    iface_user_configured_hwaddress = utils.strip_hwaddress(obj.get_attr_value_first('hwaddress'))
+                    # if user did configured 'hwaddress' we need to use this value instead of the cached value.
+                    if iface_user_configured_hwaddress:
+                        iface_mac = iface_user_configured_hwaddress.lower()
+                        # we need to "normalize" the user provided MAC so it can match with
+                        # what we have in the cache (data retrieved via a netlink dump by
+                        # nlmanager). nlmanager return all macs in lower-case
+
+            if not iface_mac and not self.ipcmd.link_exists(bridge_mac_intf):
+                continue
+
+            if not iface_mac:
+                iface_mac = self.ipcmd.cache_get('link', [bridge_mac_intf, 'hwaddress'])
+                # if hwaddress attribute is not configured we use the running mac addr
+
+            self.bridge_mac_iface = (bridge_mac_intf, iface_mac)
+            return self.bridge_mac_iface
+
+        return None, None
+
+    def _up_bridge_mac(self, ifaceobj, ifaceobj_getfunc):
+        """
+        We have a day one bridge mac changing problem with changing ports
+        (basically bridge mac changes when the port it inherited the mac from
+        gets de-enslaved).
+
+        We have discussed this problem many times before and tabled it.
+        The issue has aggravated with vxlan bridge ports having auto-generated
+        random macs...which change on every reboot.
+
+        ifupdown2 extract from policy files an iface to select a mac from and
+        configure it automatically.
+        """
+        if ifaceobj.get_attr_value('hwaddress'):
+            # if the user configured a static hwaddress
+            # there is no need to assign one
+            return
+
+        mac_intf, bridge_mac = self._get_bridge_mac(ifaceobj_getfunc)
+        ifname = ifaceobj.name
+
+        if bridge_mac:
+            # if an interface is configured with the following attribute:
+            # hwaddress 08:00:27:42:42:4
+            # the cache_check won't match because nlmanager return "08:00:27:42:42:04"
+            # from the kernel. The only way to counter that is to convert all mac to int
+            # and compare the ints, it will increase perfs and be safer.
+            cached_value = self.ipcmd.cache_get('link', [ifname, 'hwaddress'])
+            if cached_value and cached_value == bridge_mac:
+                # the bridge mac is already set to the bridge_mac_intf's mac
+                return
+
+            self.logger.info('%s: configuring %s MAC on bridge' % (ifname, mac_intf))
+            self.logger.debug('%s: hwaddress cached value: %s' % (ifname, cached_value))
+            try:
+                self.ipcmd.link_set(ifname, 'address', value=bridge_mac, force=True)
+            except Exception as e:
+                self.logger.info('%s: %s' % (ifname, str(e)))
+                # log info this error because the user didn't explicitly configured this
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:

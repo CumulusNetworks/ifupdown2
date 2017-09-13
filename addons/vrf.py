@@ -843,7 +843,7 @@ class vrf(moduleBase):
                     # This is a vrf slave
                     self._up_vrf_slave(ifaceobj.name, vrf, ifaceobj,
                                        ifaceobj_getfunc)
-                else:
+                elif not ifupdownflags.flags.PERFMODE:
                     # check if we were a slave before
                     master = self.ipcmd.link_get_master(ifaceobj.name)
                     if master:

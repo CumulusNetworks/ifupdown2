@@ -284,6 +284,9 @@ class iproute2(utilsBase):
         [linkCache.update_attrdict([ifname], linkattrs)
                     for ifname, linkattrs in linkout.items()]
 
+    def cache_get(self, type, attrlist, refresh=False):
+        return self._cache_get(type, attrlist, refresh)
+
     def _cache_get(self, type, attrlist, refresh=False):
         try:
             if ifupdownflags.flags.DRYRUN:

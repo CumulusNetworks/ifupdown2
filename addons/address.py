@@ -188,10 +188,7 @@ class address(moduleBase):
         return False
 
     def _get_hwaddress(self, ifaceobj):
-        hwaddress = ifaceobj.get_attr_value_first('hwaddress')
-        if hwaddress and hwaddress.startswith("ether"):
-            hwaddress = hwaddress[5:].strip()
-        return hwaddress
+        return utils.strip_hwaddress(ifaceobj.get_attr_value_first('hwaddress'))
 
     def _process_bridge(self, ifaceobj, up):
         hwaddress = self._get_hwaddress(ifaceobj)
