@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u13) RELEASED; urgency=medium
+
+  * Closes: CM-17789: fix: VRF: ssh session not killed on ifreload
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 15 Sep 2017 22:43:12 +0200
+
 ifupdown2 (1.1-cl3u12) RELEASED; urgency=medium
 
   * New. Enabled: mpls-enable attribute
