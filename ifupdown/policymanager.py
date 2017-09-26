@@ -211,6 +211,17 @@ class policymanager():
         defaults.update(self.user_policy_array.get(module_name, {}).get('defaults', {}))
         return defaults
 
+    def get_iface_defaults(self, module_name):
+        defaults = dict()
+
+        if not module_name:
+            self.logger.info('get_iface_defaults: module name can\'t be None')
+        else:
+            defaults.update(self.system_policy_array.get(module_name, {}).get('iface_defaults', {}))
+            defaults.update(self.user_policy_array.get(module_name, {}).get('iface_defaults', {}))
+        return defaults
+
+
 policymanager_api = policymanager()
 
 def reset():

@@ -111,6 +111,7 @@ class address(moduleBase):
         self.max_mtu = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='max_mtu')
         self.ipforward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip-forward')
         self.ip6forward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip6-forward')
+        self.ifaces_defaults = policymanager.policymanager_api.get_iface_defaults(module_name=self.__class__.__name__)
 
         if not self.default_mtu:
             self.default_mtu = '1500'
@@ -434,8 +435,7 @@ class address(moduleBase):
                 if not running_mtu or (running_mtu != mtu):
                     self.ipcmd.link_set(u, 'mtu', mtu)
 
-    def _process_mtu_config(self, ifaceobj, ifaceobj_getfunc):
-        mtu = ifaceobj.get_attr_value_first('mtu')
+    def _process_mtu_config(self, ifaceobj, ifaceobj_getfunc, mtu):
         if mtu:
             if not self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc):
                 return
@@ -592,6 +592,22 @@ class address(moduleBase):
                     ifaceobj.status = ifaceStatus.ERROR
                     self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
+    def process_mtu(self, ifaceobj, ifaceobj_getfunc):
+        mtu = ifaceobj.get_attr_value_first('mtu')
+
+        if not mtu:
+            default_iface_mtu = self.ifaces_defaults.get(ifaceobj.name, {}).get('mtu')
+
+            if default_iface_mtu:
+                try:
+                    mtu = default_iface_mtu
+                    int(default_iface_mtu)
+                except Exception as e:
+                    self.logger.warning('%s: MTU value from policy file: %s' % (ifaceobj.name, str(e)))
+                    return
+
+        self._process_mtu_config(ifaceobj, ifaceobj_getfunc, mtu)
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -629,7 +645,8 @@ class address(moduleBase):
         if addr_method != "dhcp":
             self._inet_address_config(ifaceobj, ifaceobj_getfunc,
                                       force_reapply)
-        self._process_mtu_config(ifaceobj, ifaceobj_getfunc)
+
+        self.process_mtu(ifaceobj, ifaceobj_getfunc)
 
         try:
             self.ipcmd.batch_commit()
