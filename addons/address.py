@@ -7,7 +7,7 @@
 try:
     import os
 
-    from ipaddr import IPNetwork, IPv4Network, IPv6Network
+    from ipaddr import IPNetwork, IPv4Network, IPv6Network, _BaseV4, _BaseV6
     from sets import Set
 
     from ifupdown.iface import *
@@ -303,8 +303,11 @@ class address(moduleBase):
         else:
             ifaceobjlist = [ifaceobj]
 
+        module_name = self.__class__.__name__
+        ifname = ifaceobj.name
+
         (addr_supported, newaddrs, newaddr_attrs) = self._inet_address_convert_to_cidr(ifaceobjlist)
-        newaddrs = utils.get_normalized_ip_addr(ifaceobj.name, newaddrs)
+        newaddrs = utils.get_ip_objs(module_name, ifname, newaddrs)
         if not addr_supported:
             return
         if (not squash_addr_config and (ifaceobj.flags & iface.HAS_SIBLINGS)):
@@ -318,17 +321,22 @@ class address(moduleBase):
         if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
-            runningaddrs = self.ipcmd.get_running_addrs(ifaceobj, details=False)
+            runningaddrs = utils.get_ip_objs(module_name, ifname,
+                                             self.ipcmd.get_running_addrs(ifaceobj, details=False))
 
             # if anycast address is configured on 'lo' and is in running config
             # add it to newaddrs so that ifreload doesn't wipe it out
-            anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, self._get_anycast_addr(ifaceobjlist))
+            anycast_addr = utils.get_ip_obj(module_name, ifname,
+                                            self._get_anycast_addr(ifaceobjlist))
 
             if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
                 newaddrs.append(anycast_addr)
+
+            newaddrs = self.order_user_configured_addrs(newaddrs)
+
             if newaddrs == runningaddrs:
                 if force_reapply:
-                    self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
+                    self._inet_address_list_config(ifaceobj, [str(a) for a in newaddrs], newaddr_attrs)
                 return
             try:
                 # if primary address is not same, there is no need to keep any.
@@ -337,15 +345,28 @@ class address(moduleBase):
                     skip_addrs = []
                 else:
                     skip_addrs = newaddrs or []
+
                 for addr in runningaddrs or []:
                     if addr in skip_addrs:
                         continue
-                    self.ipcmd.addr_del(ifaceobj.name, addr)
+                    self.ipcmd.addr_del(ifaceobj.name, str(addr))
             except Exception, e:
                 self.log_warn(str(e))
         if not newaddrs:
             return
-        self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
+        self._inet_address_list_config(ifaceobj, [str(a) for a in newaddrs], newaddr_attrs)
+
+    def order_user_configured_addrs(self, user_config_addrs):
+        ip4 = []
+        ip6 = []
+
+        for a in user_config_addrs:
+            if isinstance(a, _BaseV6):
+                ip6.append(a)
+            else:
+                ip4.append(a)
+
+        return ip4 + ip6
 
     def _add_delete_gateway(self, ifaceobj, gateways=[], prev_gw=[]):
         vrf = ifaceobj.get_attr_value_first('vrf')
