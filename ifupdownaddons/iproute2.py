@@ -525,6 +525,8 @@ class iproute2(utilsBase):
             # objects, purge addresses that are not present in the new
             # config
             runningaddrs = self.get_running_addrs(ifname=ifacename, details=False)
+            addrs = utils.get_normalized_ip_addr(ifacename, addrs)
+
             if addrs == runningaddrs:
                 return
             try:
