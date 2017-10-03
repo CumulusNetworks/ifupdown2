@@ -936,7 +936,12 @@ class iproute2(utilsBase):
                                    %utils.bridge_cmd] = False
             self.logger.info('%s -c -json vlan show: skipping unsupported command'
                              %utils.bridge_cmd)
-            return {}
+            try:
+                return self.get_bridge_vlan_nojson()
+            except Exception as e:
+                self.logger.info('bridge: get_bridge_vlan_nojson: %s' % str(e))
+                return {}
+
         if not bridgeout: return brvlaninfo
         try:
             vlan_json_dict = json.loads(bridgeout, encoding="utf-8")
@@ -944,6 +949,48 @@ class iproute2(utilsBase):
             self.logger.info('json loads failed with (%s)' %str(e))
             return {}
         return vlan_json_dict
+
+    def get_bridge_vlan_nojson(self):
+        vlan_json = {}
+        bridgeout = utils.exec_commandl(['bridge', '-c', 'vlan', 'show'])
+        if bridgeout:
+            output = [line.split('\n') for line in bridgeout.split('\n\n')]
+            output[0] = output[0][1:]
+            for line in output:
+                current_swp = None
+                if not line:
+                    continue
+                for entry in line:
+                    if not entry:
+                        continue
+                    prefix, vlan = entry.split('\t')
+                    if prefix:
+                        current_swp = prefix
+                        vlan_json[prefix] = []
+                    v = {}
+                    vlan = vlan[1:]
+                    try:
+                        v['vlan'] = int(vlan)
+                    except:
+                        try:
+                            if '-' in vlan:
+                                start, end = vlan.split('-')
+                                if ' ' in end:
+                                    end = end[0:end.index(' ')]
+                                v['vlan'] = int(start)
+                                v['vlanEnd'] = int(end)
+                            else:
+                                v['vlan'] = int(vlan[0:vlan.index(' ')])
+                            flags = []
+                            if 'PVID' in vlan:
+                                flags.append('PVID')
+                            if 'Egress Untagged' in vlan:
+                                flags.append('Egress Untagged')
+                            v['flags'] = flags
+                        except:
+                            continue
+                    vlan_json[current_swp].append(v)
+        return vlan_json
 
     def bridge_vlan_cache_get(self, ifacename, refresh=False):
         if not self.bridge_vlan_cache_fill_done or refresh:
