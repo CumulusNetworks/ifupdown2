@@ -18,7 +18,7 @@ class tunnel (moduleBase):
                  'attrs' : {
                    'mode' :
                         { 'help' : 'type of tunnel as in \'ip link\' command.',
-                          'validvals' : ['gre' 'ipip', 'sit'],
+                          'validvals' : ['gre', 'ipip', 'sit'],
                           'required' : True,
                           'example' : ['mode gre']},
                    'local' :
