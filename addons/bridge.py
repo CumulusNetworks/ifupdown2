@@ -566,7 +566,7 @@ class bridge(moduleBase):
 
     def syntax_check_bridge_allow_multiple_vlans(self, ifaceobj, ifaceobj_getfunc):
         result = True
-        if not self.bridge_allow_multiple_vlans and ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
+        if not self.bridge_allow_multiple_vlans and ifaceobj.link_kind & ifaceLinkKind.BRIDGE and ifaceobj.lowerifaces:
             vlan_id = None
             for brport_name in ifaceobj.lowerifaces:
                 for obj in ifaceobj_getfunc(brport_name) or []:
