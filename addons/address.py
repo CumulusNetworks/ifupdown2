@@ -373,8 +373,12 @@ class address(moduleBase):
             return True
 
         len_ip4 = len(user_ip4)
-        i = 0
+        len_running_addrs = len(running_addrs)
 
+        if len_ip4 > len_running_addrs:
+            return False
+
+        i = 0
         while i < len_ip4:
             if user_ip4[i] != running_addrs[i]:
                 return False
