@@ -94,7 +94,9 @@ class utils():
                              'vrrpd' : '/usr/sbin/vrrpd',
                              'ifplugd' : '/usr/sbin/ifplugd',
                              'mstpctl' : '/sbin/mstpctl',
-                             'ethtool' : '/sbin/ethtool'}.iteritems():
+                             'ethtool' : '/sbin/ethtool',
+                             'systemctl' : '/bin/systemctl',
+                              }.iteritems():
         vars()[cmd + '_cmd'] = default_path
         if os.path.exists(default_path):
             continue
