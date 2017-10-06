@@ -96,6 +96,7 @@ class utils():
                              'mstpctl' : '/sbin/mstpctl',
                              'ethtool' : '/sbin/ethtool',
                              'systemctl' : '/bin/systemctl',
+                             'dpkg': '/usr/bin/dpkg'
                               }.iteritems():
         vars()[cmd + '_cmd'] = default_path
         if os.path.exists(default_path):
