@@ -1373,7 +1373,9 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                       Link.IFLA_BRPORT_DESIGNATED_PORT,
                                                       Link.IFLA_BRPORT_DESIGNATED_COST,
                                                       Link.IFLA_BRPORT_ID,
-                                                      Link.IFLA_BRPORT_NO):
+                                                      Link.IFLA_BRPORT_NO,
+                                                      Link.IFLA_BRPORT_GROUP_FWD_MASK,
+                                                      Link.IFLA_BRPORT_GROUP_FWD_MASKHI):
                             sub_attr_pack_layout.append('HH')
                             sub_attr_payload.append(6)  # length
                             sub_attr_payload.append(info_slave_data_type)
@@ -1516,7 +1518,9 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                         Link.IFLA_BRPORT_DESIGNATED_PORT,
                                                         Link.IFLA_BRPORT_DESIGNATED_COST,
                                                         Link.IFLA_BRPORT_ID,
-                                                        Link.IFLA_BRPORT_NO):
+                                                        Link.IFLA_BRPORT_NO,
+                                                        Link.IFLA_BRPORT_GROUP_FWD_MASK,
+                                                        Link.IFLA_BRPORT_GROUP_FWD_MASKHI):
                                     ifla_info_slave_data[info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
 
                                 # 4 bytes
@@ -3240,9 +3244,11 @@ class Link(NetlinkPacket):
     IFLA_BRPORT_MCAST_TO_UCAST      = 28
     IFLA_BRPORT_VLAN_TUNNEL         = 29
     IFLA_BRPORT_BCAST_FLOOD         = 30
+    IFLA_BRPORT_GROUP_FWD_MASK      = 31
     IFLA_BRPORT_PEER_LINK           = 150
     IFLA_BRPORT_DUAL_LINK           = 151
     IFLA_BRPORT_ARP_SUPPRESS        = 152
+    IFLA_BRPORT_GROUP_FWD_MASKHI    = 153
 
     ifla_brport_to_string = {
         IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
@@ -3276,9 +3282,11 @@ class Link(NetlinkPacket):
         IFLA_BRPORT_MCAST_TO_UCAST      : 'IFLA_BRPORT_MCAST_TO_UCAST',
         IFLA_BRPORT_VLAN_TUNNEL         : 'IFLA_BRPORT_VLAN_TUNNEL',
         IFLA_BRPORT_BCAST_FLOOD         : 'IFLA_BRPORT_BCAST_FLOOD',
+        IFLA_BRPORT_GROUP_FWD_MASK      : 'IFLA_BRPORT_GROUP_FWD_MASK',
         IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
         IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
-        IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS'
+        IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS',
+        IFLA_BRPORT_GROUP_FWD_MASKHI    : 'IFLA_BRPORT_GROUP_FWD_MASKHI'
     }
 
     # BRIDGE IFLA_AF_SPEC attributes
