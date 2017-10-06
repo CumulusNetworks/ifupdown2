@@ -952,7 +952,7 @@ class iproute2(utilsBase):
 
     def get_bridge_vlan_nojson(self):
         vlan_json = {}
-        bridgeout = utils.exec_commandl(['bridge', '-c', 'vlan', 'show'])
+        bridgeout = utils.exec_commandl([utils.bridge_cmd, '-c', 'vlan', 'show'])
         if bridgeout:
             output = [line.split('\n') for line in bridgeout.split('\n\n')]
             output[0] = output[0][1:]
