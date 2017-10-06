@@ -412,16 +412,22 @@ class moduleBase(object):
             pass
         return (start, end)
 
-    def _handle_reserved_vlan(self, vlanid, logprefix=''):
+    def _handle_reserved_vlan(self, vlanid, logprefix='', end=-1):
         """ Helper function to check and warn if the vlanid falls in the
         reserved vlan range """
-        if vlanid in range(self._resv_vlan_range[0],
-                           self._resv_vlan_range[1]):
-           self.logger.error('%s: reserved vlan %d being used'
-                   %(logprefix, vlanid) + ' (reserved vlan range %d-%d)'
-                   %(self._resv_vlan_range[0], self._resv_vlan_range[1]))
-           return True
-        return False
+        error = False
+
+        if end == -1 and vlanid in range(self._resv_vlan_range[0], self._resv_vlan_range[1]):
+            error = True
+        elif end > 0 and vlanid < self._resv_vlan_range[0] and end > self._resv_vlan_range[1]:
+            error = True
+            vlanid = self._resv_vlan_range[0]
+
+        if error:
+            self.logger.error('%s: reserved vlan %d being used (reserved vlan range %d-%d)'
+                              % (logprefix, vlanid, self._resv_vlan_range[0], self._resv_vlan_range[1]))
+
+        return error
 
     def _valid_ethaddr(self, ethaddr):
         """ Check if address is 00:00:00:00:00:00 """
