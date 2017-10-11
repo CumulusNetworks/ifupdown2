@@ -1156,7 +1156,8 @@ class bridge(moduleBase):
                 if '-' in v:
                     va, vb = v.split('-')
                     va, vb = int(va), int(vb)
-                    return self._handle_reserved_vlan(va, ifaceobj.name, end=vb)
+                    if self._handle_reserved_vlan(va, ifaceobj.name, end=vb):
+                        return False
                 else:
                     va = int(v)
                     if self._handle_reserved_vlan(va, ifaceobj.name):
