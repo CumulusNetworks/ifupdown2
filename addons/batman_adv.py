@@ -36,9 +36,31 @@ class batman_adv (moduleBase):
                 'required' : False,
             },
 
+            'batman-distributed-arp-table' : {
+                'help' : 'B.A.T.M.A.N. distributed ARP table',
+                'validvals' : [ 'enabled', 'disabled' ],
+                'required' : False,
+                'batman-attr' : True,
+            },
+
+            'batman-gw-mode' : {
+                'help' : 'B.A.T.M.A.N. gateway mode',
+                'validvals' : [ 'off', 'client', 'server' ],
+                'required' : False,
+                'example' : [ 'batman-gw-mode client' ],
+                'batman-attr' : True,
+            },
+
             'batman-hop-penalty' : {
                 'help' : 'B.A.T.M.A.N. hop penalty',
                 'validvals' : [ '<number>' ],
+                'required' : False,
+                'batman-attr' : True,
+            },
+
+            'batman-multicast-mode' : {
+                'help' : 'B.A.T.M.A.N. multicast mode',
+                'validvals' : [ 'enabled', 'disabled' ],
                 'required' : False,
                 'batman-attr' : True,
             },
