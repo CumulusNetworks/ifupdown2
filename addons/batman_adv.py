@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
-# Copyright 2016 Maximilian Wilhelm <max@rfc2324.org>
-# Author: Maximilian Wilhelm, max@rfc2324.org
+# Copyright 2016-2017 Maximilian Wilhelm <max@sdn.clinic>
+# Author: Maximilian Wilhelm, max@sdn.clinic
 #
 
 from ifupdown.iface import *
@@ -17,23 +17,50 @@ import subprocess
 class batman_adv (moduleBase):
     """  ifupdown2 addon module to configure B.A.T.M.A.N. advanced interfaces """
 
-    _modinfo = {'mhelp' : 'batman_adv module configures B.A.T.M.A.N. advanced interfaces.' +
-                        'Every B.A.T.M.A.N. advanced interface needs at least on ethernet ' +
-                        'interface to be creatable. You can specify a space separated list' +
-                        'of interfaces by using the "batma-ifaces" paramater. If this parameter' +
-                        'is set for an interfaces this module will do the magic.',
-                'attrs' : {
-                        'batman-ifaces' :
-                            {'help' : 'Interfaces to be part of this B.A.T.M.A.N. advanced instance'},
-                        'batman-ifaces-ignore-regex' :
-                            {'help' : 'Interfaces to ignore when verifying configuration (regexp)'},
-                        'batman-hop-penalty' :
-                            {'help' : 'B.A.T.M.A.N. hop penalty'}}}
+    _modinfo = {
+        'mhelp' : 'batman_adv module configures B.A.T.M.A.N. advanced interfaces.' +
+                  'Every B.A.T.M.A.N. advanced interface needs at least on ethernet ' +
+                  'interface to be creatable. You can specify a space separated list' +
+                  'of interfaces by using the "batma-ifaces" paramater. If this parameter' +
+                  'is set for an interfaces this module will do the magic.',
+
+        'attrs' : {
+            'batman-ifaces' : {
+                'help' : 'Interfaces to be part of this B.A.T.M.A.N. advanced instance',
+		'validvals' : [ '<interface-list>' ],
+                'required' : True,
+            },
+
+            'batman-ifaces-ignore-regex' : {
+                'help' : 'Interfaces to ignore when verifying configuration (regexp)',
+                'required' : False,
+            },
+
+            'batman-hop-penalty' : {
+                'help' : 'B.A.T.M.A.N. hop penalty',
+                'validvals' : [ '<number>' ],
+                'required' : False,
+                'batman-attr' : True,
+            },
+        }
+    }
+
+    _batman_attrs = {
+    }
 
 
     def __init__ (self, *args, **kargs):
         moduleBase.__init__ (self, *args, **kargs)
         self.ipcmd = None
+
+        for longname, entry in self._modinfo['attrs'].items ():
+            if entry.get ('batman-attr', False) == False:
+                continue
+
+            attr = longname.replace ("batman-", "")
+            self._batman_attrs[attr] = {
+                 'filename' : attr.replace ("-", "_"),
+            }
 
 
     def _is_batman_device (self, ifaceobj):
@@ -56,33 +83,43 @@ class batman_adv (moduleBase):
         return None
 
 
-    def _get_batman_hop_penalty (self, ifaceobj):
-        # XXX config option for default value?
-        hop_penalty = ifaceobj.get_attr_value_first ('batman-hop-penalty')
-        if hop_penalty:
-            return int (hop_penalty)
-        return 15
+    def _get_batman_attr (self, ifaceobj, attr):
+        if attr not in self._batman_attrs:
+            raise ValueError ("_get_batman_attr: Invalid or unsupported B.A.T.M.A.N. adv. attribute: %s" % attr)
 
-    def _read_current_hop_penalty (self, ifaceobj):
-        hop_penalty_file_path = "/sys/class/net/%s/mesh/hop_penalty" % ifaceobj.name
+        value = ifaceobj.get_attr_value_first ('batman-%s' % attr)
+        if value:
+            return value
+
+        return None
+
+
+    def _read_current_batman_attr (self, ifaceobj, attr):
+        if attr not in self._batman_attrs:
+            raise ValueError ("_read_current_batman_attr: Invalid or unsupported B.A.T.M.A.N. adv. attribute: %s" % attr)
+
+        attr_file_name = self._batman_attrs[attr]['filename']
+        attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr_file_name)
         try:
-            with open (hop_penalty_file_path, "r") as fh:
-                 return int (fh.readline ().strip ())
+            with open (attr_file_path, "r") as fh:
+                 return fh.readline ().strip ()
         except IOError as i:
-             raise Exception ("_read_current_hop_penalty: %s" % i)
+            raise Exception ("_read_current_batman_attr (%s) %s" % (attr, i))
         except ValueError:
-             raise Exception ("Hop penalty not an integer value!")
+            raise Exception ("_read_current_batman_attr: Integer value expected, got: %s" % value)
 
 
-    def _set_hop_penalty (self, ifaceobj, hop_penalty):
-        hop_penalty_file_path = "/sys/class/net/%s/mesh/hop_penalty" % ifaceobj.name
+    def _set_batman_attr (self, ifaceobj, attr, value):
+        if attr not in self._batman_attrs:
+            raise ValueError ("_set_batman_attr: Invalid or unsupported B.A.T.M.A.N. adv. attribute: %s" % attr)
+
+        attr_file_name = self._batman_attrs[attr]['filename']
+        attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr_file_name)
         try:
-            with open (hop_penalty_file_path, "w") as fh:
-                 fh.write ("%d\n" % int (hop_penalty))
+            with open (attr_file_path, "w") as fh:
+                 fh.write ("%s\n" % value)
         except IOError as i:
-             raise Exception ("_set_hop_penalty: %s" % i)
-        except ValueError:
-             raise Exception ("Hop penalty not an integer value!")
+            raise Exception ("_set_batman_attr (%s): %s" % (attr, i))
 
 
     def _batctl_if (self, bat_iface, mesh_iface, op):
@@ -157,10 +194,11 @@ class batman_adv (moduleBase):
             for iface in batman_ifaces:
                 self._batctl_if (ifaceobj.name, iface, 'add')
 
-        # Check/set Hop Penalty
-        hop_penalty_cfg = self._get_batman_hop_penalty (ifaceobj)
-        if hop_penalty_cfg != self._read_current_hop_penalty (ifaceobj):
-            self._set_hop_penalty (ifaceobj, hop_penalty_cfg)
+        # Check/set any B.A.T.M.A.N. adv. set within interface configuration
+        for attr in self._batman_attrs:
+            value_cfg = self._get_batman_attr (ifaceobj, attr)
+            if value_cfg and value_cfg != self._read_current_batman_attr (ifaceobj, attr):
+                self._set_batman_attr (ifaceobj, attr, value_cfg)
 
         if ifaceobj.addr_method == 'manual':
             netlink.link_set_updown(ifaceobj.name, "up")
@@ -183,11 +221,9 @@ class batman_adv (moduleBase):
         if not self.ipcmd.link_exists (ifaceobj.name):
             return
 
-        hop_penalty = self._get_batman_hop_penalty (ifaceobj)
-        hop_penalty_curr = self._read_current_hop_penalty (ifaceobj)
         batman_ifaces_cfg = self._get_batman_ifaces (ifaceobj)
         batman_ifaces_real = self._find_member_ifaces (ifaceobj, False)
-        # Produce list of all current interfaces, tag interfaces ignore by
+        # Produce list of all current interfaces, tag interfaces ignored by
         # regex with () around the iface name.
         batman_ifaces_real_tagged = []
         iface_ignore_re_str = ifaceobj.get_attr_value_first ('batman-ifaces-ignore-regex')
@@ -195,6 +231,7 @@ class batman_adv (moduleBase):
 
         # Assume everything's fine and wait for reality to prove us otherwise
         ifaces_ok = 0
+
         # Interfaces configured but not active?
         for iface in batman_ifaces_cfg:
             if iface not in batman_ifaces_real:
@@ -215,11 +252,20 @@ class batman_adv (moduleBase):
         ifaceobjcurr.update_config_with_status ('batman-ifaces', ifaces_str, ifaces_ok)
         ifaceobjcurr.update_config_with_status ('batman-ifaces-ignore-regex', iface_ignore_re_str, 0)
 
-        # Check Hop Penalty
-        hop_penalty_ok = 0
-        if hop_penalty != hop_penalty_curr:
-             hop_penalty_ok = 1
-        ifaceobjcurr.update_config_with_status ('batman-hop-penalty', hop_penalty_curr, hop_penalty_ok)
+        # Check any B.A.T.M.A.N. adv. set within interface configuration
+        for attr in self._batman_attrs:
+            value_cfg = self._get_batman_attr (ifaceobj, attr)
+            value_curr = self._read_current_batman_attr (ifaceobj, attr)
+
+            # Ignore this attribute if its'nt configured for this interface
+            if not value_cfg:
+                continue
+
+            value_ok = 0
+            if value_cfg != value_curr:
+                value_ok = 1
+
+            ifaceobjcurr.update_config_with_status ('batman-%s' % attr, value_curr, value_ok)
 
 
     def _query_running (self, ifaceobjrunning):
