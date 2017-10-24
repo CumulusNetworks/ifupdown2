@@ -528,14 +528,14 @@ class LinkUtils(utilsBase):
                         linkattrs['state'] = citems[i + 1]
                     elif citems[i] == 'link/ether':
                         linkattrs['hwaddress'] = citems[i + 1]
-                    elif citems[i] in [ 'link/gre', 'link/sit' ]:
+                    elif citems[i] in ['link/gre', 'link/sit', 'gretap']:
                         linkattrs['kind'] = 'tunnel'
-                        tunattrs = {'mode' : citems[i].split ('/')[1],
+                        tunattrs = {'mode': citems[i].split('/')[-1],
                                     'endpoint' : None,
                                     'local' : None,
                                     'ttl' : None,
                                     'physdev' : None}
-                        for j in range(i + 2, len(citems)):
+                        for j in range(i, len(citems)):
                             if citems[j] == 'local':
                                 tunattrs['local'] = citems[j + 1]
                             elif citems[j] == 'remote':
