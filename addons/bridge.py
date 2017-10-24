@@ -351,7 +351,13 @@ class bridge(moduleBase):
         if warn and ports and len(ports) > 1:
             self.log_warn('%s: ignoring duplicate bridge-ports lines: %s'
                           %(ifaceobj.name, ports[1:]))
-        return ports[0] if ports else None
+        if ports:
+            if 'none' in ports[0]:
+                return []
+
+            return ports[0]
+
+        return None
 
     def _is_bridge_port(self, ifaceobj):
         if self.brctlcmd.is_bridge_port(ifaceobj.name):
