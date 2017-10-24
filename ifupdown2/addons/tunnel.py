@@ -14,11 +14,11 @@ import logging
 # TODO: Add checks for ipip tunnels.
 #
 class tunnel (moduleBase):
-    _modinfo = { 'mhelp' : 'create/configure GRE/IPIP/SIT tunnel interfaces',
+    _modinfo = { 'mhelp' : 'create/configure GRE/IPIP/SIT and GRETAP tunnel interfaces',
                  'attrs' : {
                    'mode' :
                         { 'help' : 'type of tunnel as in \'ip link\' command.',
-                          'validvals' : ['gre', 'ipip', 'sit'],
+                          'validvals' : ['gre', 'gretap', 'ipip', 'sit'],
                           'required' : True,
                           'example' : ['mode gre']},
                    'local' :
