@@ -109,6 +109,10 @@ class ifaceScheduler():
 
         if ifupdownobj.config.get('addon_scripts_support', '0') == '1':
             # execute /etc/network/ scripts 
+            os.environ['IFACE'] = ifaceobj.name if ifaceobj.name else ''
+            os.environ['LOGICAL'] = ifaceobj.name if ifaceobj.name else ''
+            os.environ['METHOD'] = ifaceobj.addr_method if ifaceobj.addr_method else ''
+            os.environ['ADDRFAM'] = ifaceobj.addr_family if ifaceobj.addr_family else ''
             for mname in ifupdownobj.script_ops.get(op, []):
                 ifupdownobj.logger.debug('%s: %s : running script %s'
                     %(ifacename, op, mname))
