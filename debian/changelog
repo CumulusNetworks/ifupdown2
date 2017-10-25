@@ -1,8 +1,9 @@
 ifupdown2 (1.1-cl3u14) UNRELEASED; urgency=medium
 
   * New. Enabled: default policy for bridge MAC address
+  * Closes: CM-18458. ethtool: don't set link speed and duplex if autoneg is on
 
- -- dev-support <dev-support@cumulusnetworks.com>  Fri, 15 Sep 2017 23:42:42 +0200
+ -- dev-support <dev-support@cumulusnetworks.com>  Wed, 25 Oct 2017 23:12:27 +0200
 
 ifupdown2 (1.1-cl3u13) RELEASED; urgency=medium
 
