@@ -70,13 +70,7 @@ class ethtool(moduleBase,utilsBase):
             return
         cmd = ''
         feccmd = ''
-        autoneg_is_on = False
-
-        for attr in ['fec', 'autoneg', 'speed', 'duplex']:
-
-            if autoneg_is_on:
-                break
-
+        for attr in ['speed', 'duplex', 'autoneg', 'fec']:
             # attribute existed before but we must reset to default
             config_val = ifaceobj.get_attr_value_first('link-%s'%attr)
             default_val = policymanager.policymanager_api.get_iface_default(
@@ -93,15 +87,6 @@ class ethtool(moduleBase,utilsBase):
 
             if attr == 'autoneg':
                 config_val = utils.get_onoff_bool(config_val)
-
-                if config_val:
-                    if utils.get_boolean_from_string(config_val):
-                        autoneg_is_on = True
-                elif default_val:
-                    if utils.get_boolean_from_string(default_val):
-                        autoneg_is_on = True
-                elif running_val and utils.get_boolean_from_string(running_val):
-                    autoneg_is_on = True
 
             # we need to track if an interface has a configured value
             # this will be used if there are duplicate iface stanza and
@@ -169,7 +154,7 @@ class ethtool(moduleBase,utilsBase):
                        (utils.ethtool_cmd, ifaceobj.name, cmd))
                 utils.exec_command(cmd)
             except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj, raise_error=False)
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
 
@@ -185,7 +170,7 @@ class ethtool(moduleBase,utilsBase):
                            (utils.ethtool_cmd, ifaceobj.name, feccmd))
                 utils.exec_command(feccmd)
             except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj, raise_error=False)
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
 
