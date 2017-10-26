@@ -61,111 +61,40 @@ class ethtool(moduleBase,utilsBase):
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
 
-    def _pre_up(self, ifaceobj, operation='post_up'):
-        """
-        _pre_up and _pre_down will reset the layer 2 attributes to default policy
-        settings.
-        """
-        if not self.ipcmd.link_exists(ifaceobj.name):
-            return
-        cmd = ''
+    def do_fec_settings(self, ifaceobj):
         feccmd = ''
-        for attr in ['speed', 'duplex', 'autoneg', 'fec']:
-            # attribute existed before but we must reset to default
-            config_val = ifaceobj.get_attr_value_first('link-%s'%attr)
-            default_val = policymanager.policymanager_api.get_iface_default(
-                module_name='ethtool',
-                ifname=ifaceobj.name,
-                attr='link-%s'%attr)
 
-            if not default_val and not config_val:
-                # there is no point in checking the running config
-                # if we have no default and the user did not have settings
-                continue
-            # check running values
-            running_val = self.get_running_attr(attr, ifaceobj)
+        # attribute existed before but we must reset to default
+        config_val = ifaceobj.get_attr_value_first('link-fec')
+        default_val = policymanager.policymanager_api.get_iface_default(
+                            module_name='ethtool',
+                            ifname=ifaceobj.name,
+                            attr='link-fec')
 
-            if attr == 'autoneg':
-                config_val = utils.get_onoff_bool(config_val)
+        if not default_val and not config_val:
+            # there is no point in checking the running config
+            # if we have no default and the user did not have settings
+            return
 
-            # we need to track if an interface has a configured value
-            # this will be used if there are duplicate iface stanza and
-            # the configured interface will always take precedence.
-            # so even if we do not change the settings because they match
-            # what is configured, we need to append it here so that later duplicate
-            # ifaces will see that we had a configured iface and not change things.
-            if config_val and config_val == running_val:
-                # running value is what is configured, do nothing
-                # this prevents unconfigured ifaces from resetting to default
-                self.ifaceobjs_modified_configs.append(ifaceobj.name)
-                continue
+        # check running values
+        running_val = self.get_running_attr('fec', ifaceobj)
+        if config_val and config_val == running_val:
+            return
 
-            if not config_val and default_val and default_val == running_val:
-                # nothing configured but the default is running
-                continue
-            # if we are the oldest sibling, we have to reset to defaults
-            # unless a previous sibling had link attr configured and made changes
-            if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
-                (ifaceobj.flags & iface.OLDEST_SIBLING) and
-                (ifaceobj.name in self.ifaceobjs_modified_configs)):
-                continue
+        if not config_val and default_val and default_val == running_val:
+            # nothing configured but the default is running
+            return
 
-            # If we have siblings AND are not the oldest AND we have no configs,
-            # do not change anything. The only way a non-oldest sibling would
-            # change values is if it had configured settings. iface stanzas may
-            # not be squashed if addr_config_squash is not set so we still need this.
-            if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
-                not (ifaceobj.flags & iface.OLDEST_SIBLING) and
-                not config_val):
-                continue
-
-            if attr == 'fec':
-                # if we got this far, we need to change it
-                if config_val and (config_val != running_val):
-                    # if the configured value is not set, set it
-                    feccmd = ' %s %s' % ("encoding", config_val)
-                elif default_val and (default_val != running_val):
-                    # or if it has a default not equal to running value, set it
-                    feccmd = ' %s %s' % ("encoding", default_val)
-                else:
-                    # no value set nor default, leave it alone
-                    pass
-            else:
-                # if we got this far, we need to change it
-                if config_val and (config_val != running_val):
-                    # if the configured value is not set, set it
-                    cmd += ' %s %s' % (attr, config_val)
-                elif default_val and (default_val != running_val):
-                    # or if it has a default not equal to running value, set it
-                    cmd += ' %s %s' % (attr, default_val)
-                else:
-                    # no value set nor default, leave it alone
-                    pass
-
-        if cmd:
-            try:
-                # we should only be calling ethtool if there
-                # is a speed set or we can find a default speed
-                # because we should only be calling ethtool on swp ports
-                # we also need to set this here in case we changed
-                # something.  this prevents unconfigured ifaces from resetting to default
-                self.ifaceobjs_modified_configs.append(ifaceobj.name)
-                cmd = ('%s -s %s %s' %
-                       (utils.ethtool_cmd, ifaceobj.name, cmd))
-                utils.exec_command(cmd)
-            except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
-        else:
-            pass
+        # if we got this far, we need to change it
+        if config_val and (config_val != running_val):
+            # if the configured value is not set, set it
+            feccmd = ' %s %s' % ("encoding", config_val)
+        elif default_val and (default_val != running_val):
+            # or if it has a default not equal to running value, set it
+            feccmd = ' %s %s' % ("encoding", default_val)
 
         if feccmd:
             try:
-                # we should only be calling ethtool if there
-                # is a speed set or we can find a default speed
-                # because we should only be calling ethtool on swp ports
-                # we also need to set this here in case we changed
-                # something.  this prevents unconfigured ifaces from resetting to default
-                self.ifaceobjs_modified_configs.append(ifaceobj.name)
                 feccmd = ('%s --set-fec %s %s' %
                            (utils.ethtool_cmd, ifaceobj.name, feccmd))
                 utils.exec_command(feccmd)
@@ -173,6 +102,92 @@ class ethtool(moduleBase,utilsBase):
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
+
+    def do_speed_settings(self, ifaceobj, operation='post_up'):
+        cmd = ''
+
+        autoneg_to_configure = None
+        speed_to_configure = None
+        duplex_to_configure = None
+
+        config_speed = ifaceobj.get_attr_value_first('link-speed')
+        config_duplex = ifaceobj.get_attr_value_first('link-duplex')
+        config_autoneg = ifaceobj.get_attr_value_first('link-autoneg')
+
+        # autoneg wins if provided by user and is on
+        if config_autoneg and utils.get_boolean_from_string(config_autoneg):
+            autoneg_to_configure = config_autoneg
+            speed_to_configure = None
+            duplex_to_configure = None
+        elif config_speed:
+            # Any speed settings configured by the user wins
+            autoneg_to_configure = None
+            speed_to_configure = config_speed
+            duplex_to_configure = config_duplex
+        else:
+            default_speed = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-speed'
+            )
+            default_duplex = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-duplex'
+            )
+            default_autoneg = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-autoneg'
+            )
+
+            if default_autoneg and utils.get_boolean_from_string(default_autoneg):
+                autoneg_to_configure = utils.get_onoff_bool(default_autoneg)
+                speed_to_configure = None
+                duplex_to_configure = None
+            else:
+                autoneg_to_configure = None
+                speed_to_configure = default_speed
+                duplex_to_configure = default_duplex
+
+        if autoneg_to_configure:
+            autoneg_to_configure = utils.get_onoff_bool(autoneg_to_configure)
+            # check running values
+            running_val = self.get_running_attr('autoneg', ifaceobj)
+            if autoneg_to_configure != running_val:
+                # if the configured value is not set, set it
+                cmd += ' autoneg %s' % autoneg_to_configure
+        else:
+            if speed_to_configure:
+                # check running values
+                running_val = self.get_running_attr('speed', ifaceobj)
+                if speed_to_configure != running_val:
+                    # if the configured value is not set, set it
+                    cmd += ' autoneg off speed %s' % speed_to_configure
+            if duplex_to_configure:
+                # check running values
+                running_val = self.get_running_attr('duplex', ifaceobj)
+                if duplex_to_configure != running_val:
+                    # if the configured value is not set, set it
+                    cmd += ' duplex %s' % duplex_to_configure
+
+        if cmd:
+            try:
+                cmd = ('%s -s %s %s' % (utils.ethtool_cmd, ifaceobj.name, cmd))
+                utils.exec_command(cmd)
+            except Exception, e:
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj, raise_error=False)
+
+    def _pre_up(self, ifaceobj, operation='post_up'):
+        """
+        _pre_up and _pre_down will reset the layer 2 attributes to default policy
+        settings.
+        """
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            return
+
+        self.do_speed_settings(ifaceobj)
+        self.do_fec_settings(ifaceobj)
 
     def _pre_down(self, ifaceobj):
         pass #self._post_up(ifaceobj,operation="_pre_down")
