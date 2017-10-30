@@ -160,10 +160,14 @@ class ethtool(moduleBase,utilsBase):
         else:
             if speed_to_configure:
                 # check running values
+
+                if utils.get_boolean_from_string(self.get_running_attr('autoneg', ifaceobj) or 'off'):
+                    cmd = 'autoneg off'
+
                 running_val = self.get_running_attr('speed', ifaceobj)
                 if speed_to_configure != running_val:
                     # if the configured value is not set, set it
-                    cmd += ' autoneg off speed %s' % speed_to_configure
+                    cmd += ' speed %s' % speed_to_configure
             if duplex_to_configure:
                 # check running values
                 running_val = self.get_running_attr('duplex', ifaceobj)
