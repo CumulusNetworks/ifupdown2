@@ -135,11 +135,17 @@ class ethtool(moduleBase,utilsBase):
                 ifname=ifaceobj.name,
                 attr='link-duplex'
             )
-            default_autoneg = policymanager.policymanager_api.get_iface_default(
-                module_name='ethtool',
-                ifname=ifaceobj.name,
-                attr='link-autoneg'
-            )
+
+            # if user given autoneg config is off, we must respect that and
+            # override any default autoneg config
+            if config_autoneg and not utils.get_boolean_from_string(config_autoneg):
+                default_autoneg = 'off'
+            else:
+                default_autoneg = policymanager.policymanager_api.get_iface_default(
+                    module_name='ethtool',
+                    ifname=ifaceobj.name,
+                    attr='link-autoneg'
+                )
 
             if default_autoneg and utils.get_boolean_from_string(default_autoneg):
                 autoneg_to_configure = utils.get_onoff_bool(default_autoneg)
