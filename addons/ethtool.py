@@ -114,6 +114,24 @@ class ethtool(moduleBase,utilsBase):
         config_duplex = ifaceobj.get_attr_value_first('link-duplex')
         config_autoneg = ifaceobj.get_attr_value_first('link-autoneg')
 
+        default_speed = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-speed'
+            )
+
+        default_duplex = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-duplex'
+            )
+
+        default_autoneg = policymanager.policymanager_api.get_iface_default(
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-autoneg'
+        )
+
         # autoneg wins if provided by user and is on
         if config_autoneg and utils.get_boolean_from_string(config_autoneg):
             autoneg_to_configure = config_autoneg
@@ -124,28 +142,13 @@ class ethtool(moduleBase,utilsBase):
             autoneg_to_configure = None
             speed_to_configure = config_speed
             duplex_to_configure = config_duplex
+            if not config_duplex:
+                duplex_to_configure = default_duplex
         else:
-            default_speed = policymanager.policymanager_api.get_iface_default(
-                module_name='ethtool',
-                ifname=ifaceobj.name,
-                attr='link-speed'
-            )
-            default_duplex = policymanager.policymanager_api.get_iface_default(
-                module_name='ethtool',
-                ifname=ifaceobj.name,
-                attr='link-duplex'
-            )
-
             # if user given autoneg config is off, we must respect that and
             # override any default autoneg config
             if config_autoneg and not utils.get_boolean_from_string(config_autoneg):
                 default_autoneg = 'off'
-            else:
-                default_autoneg = policymanager.policymanager_api.get_iface_default(
-                    module_name='ethtool',
-                    ifname=ifaceobj.name,
-                    attr='link-autoneg'
-                )
 
             if default_autoneg and utils.get_boolean_from_string(default_autoneg):
                 autoneg_to_configure = utils.get_onoff_bool(default_autoneg)
@@ -164,20 +167,24 @@ class ethtool(moduleBase,utilsBase):
                 # if the configured value is not set, set it
                 cmd += ' autoneg %s' % autoneg_to_configure
         else:
+            force_set = False
             if speed_to_configure:
                 # check running values
-
                 if utils.get_boolean_from_string(self.get_running_attr('autoneg', ifaceobj) or 'off'):
                     cmd = 'autoneg off'
+                    # if we are transitioning from autoneg 'on' to 'off'
+                    # don't check running speed
+                    force_set = True
 
                 running_val = self.get_running_attr('speed', ifaceobj)
-                if speed_to_configure != running_val:
+                if force_set or (speed_to_configure != running_val):
                     # if the configured value is not set, set it
                     cmd += ' speed %s' % speed_to_configure
+
             if duplex_to_configure:
                 # check running values
                 running_val = self.get_running_attr('duplex', ifaceobj)
-                if duplex_to_configure != running_val:
+                if force_set or (duplex_to_configure != running_val):
                     # if the configured value is not set, set it
                     cmd += ' duplex %s' % duplex_to_configure
 
