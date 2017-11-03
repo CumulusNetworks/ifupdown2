@@ -389,8 +389,8 @@ class address(moduleBase):
         else:
             running_ip6 = running_addrs
 
-        for ip6 in user_ip6:
-            if ip6 not in running_ip6:
+        for ip6 in running_ip6:
+            if ip6 not in user_ip6:
                 return False
 
         return True
