@@ -24,8 +24,7 @@ try:
 
     from ifupdownaddons.cache import *
 
-    from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 except ImportError, e:
     raise ImportError('%s - required module not found' % str(e))
@@ -1002,7 +1001,7 @@ class bridge(moduleBase):
         if attrval:
             running_mcqv4src = {}
             if not ifupdownflags.flags.PERFMODE:
-                running_mcqv4src = self.brctlcmd.get_mcqv4src(ifaceobj.name)
+                running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(ifaceobj.name)
             mcqs = {}
             srclist = attrval.split()
             for s in srclist:
@@ -1011,9 +1010,9 @@ class bridge(moduleBase):
 
             k_to_del = Set(running_mcqv4src.keys()).difference(mcqs.keys())
             for v in k_to_del:
-                self.brctlcmd.del_mcqv4src(ifaceobj.name, v)
+                self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
             for v in mcqs.keys():
-                self.brctlcmd.set_mcqv4src(ifaceobj.name, v, mcqs[v])
+                self.brctlcmd.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
 
     def _get_running_vidinfo(self):
         if self._running_vidinfo_valid:
@@ -1134,7 +1133,7 @@ class bridge(moduleBase):
 
             old_cache_key = self._ifla_br_attributes_old_cache_key_map.get(nl_attr)
             if old_cache_key and not link_just_created:
-                cached_value = self.brctlcmd.cache_get([ifname, 'linkinfo', old_cache_key])
+                cached_value = self.brctlcmd.link_cache_get([ifname, 'linkinfo', old_cache_key])
                 if not cached_value:
                     # the link already exists but we don't have any value
                     # cached for this attr, it probably means that the
@@ -2142,7 +2141,7 @@ class bridge(moduleBase):
         return running_attrs
 
     def _query_running_mcqv4src(self, ifaceobjrunning):
-        running_mcqv4src = self.brctlcmd.get_mcqv4src(ifaceobjrunning.name)
+        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(ifaceobjrunning.name)
         mcqs = ['%s=%s' %(v, i) for v, i in running_mcqv4src.items()]
         mcqs.sort()
         mcq = ' '.join(mcqs)
@@ -2233,12 +2232,12 @@ class bridge(moduleBase):
                           'bridge-arp-nd-suppress' : '',
                          }
             for p, v in ports.items():
-                v = self.brctlcmd.get_pathcost(ifaceobjrunning.name, p)
+                v = self.brctlcmd.bridge_get_pathcost(ifaceobjrunning.name, p)
                 if v and v != self.get_mod_subattr('bridge-pathcosts',
                                                    'default'):
                     portconfig['bridge-pathcosts'] += ' %s=%s' %(p, v)
 
-                v = self.brctlcmd.get_portprio(ifaceobjrunning.name, p)
+                v = self.brctlcmd.bridge_get_portprio(ifaceobjrunning.name, p)
                 if v and v != self.get_mod_subattr('bridge-portprios',
                                                    'default'):
                     portconfig['bridge-portprios'] += ' %s=%s' %(p, v)
@@ -2804,11 +2803,11 @@ class bridge(moduleBase):
         if self.systcl_get_net_bridge_stp_user_space() == '1':
             return
 
-        v = self.brctlcmd.get_pathcost(bridgename, ifaceobjrunning.name)
+        v = self.brctlcmd.bridge_get_pathcost(bridgename, ifaceobjrunning.name)
         if v and v != self.get_mod_subattr('bridge-pathcosts', 'default'):
             ifaceobjrunning.update_config('bridge-pathcosts', v)
 
-        v = self.brctlcmd.get_pathcost(bridgename, ifaceobjrunning.name)
+        v = self.brctlcmd.bridge_get_pathcost(bridgename, ifaceobjrunning.name)
         if v and v != self.get_mod_subattr('bridge-portprios', 'default'):
             ifaceobjrunning.update_config('bridge-portprios', v)
 
@@ -2985,9 +2984,7 @@ class bridge(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
-        if not self.brctlcmd:
-            self.brctlcmd = brctl()
+            self.ipcmd = self.brctlcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run bridge configuration on the interface object passed as

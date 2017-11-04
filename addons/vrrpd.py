@@ -13,7 +13,6 @@ try:
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
-    from ifupdownaddons.iproute2 import iproute2
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -41,7 +40,6 @@ class vrrpd(moduleBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
 
     def _check_if_process_is_running(self, cmdname, cmdline):
         targetpids = []

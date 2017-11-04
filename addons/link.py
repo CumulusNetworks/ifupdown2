@@ -13,7 +13,7 @@ try:
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
-    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -106,7 +106,7 @@ class link(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)

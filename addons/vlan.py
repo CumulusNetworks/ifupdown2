@@ -8,7 +8,7 @@ try:
     from ifupdown.iface import *
     from ifupdown.netlink import netlink
 
-    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -202,7 +202,7 @@ class vlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

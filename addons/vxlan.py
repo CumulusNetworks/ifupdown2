@@ -15,7 +15,7 @@ try:
     import ifupdown.policymanager as policymanager
 
     from ifupdownaddons.cache import *
-    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.systemutils import systemUtils
 
@@ -354,7 +354,7 @@ class vxlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)

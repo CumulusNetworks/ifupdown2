@@ -26,10 +26,8 @@ try:
     import ifupdown.ifupdownflags
 
     import ifupdownaddons.cache
-    import ifupdownaddons.bondutil
-    import ifupdownaddons.iproute2
-    import ifupdownaddons.bridgeutils
     import ifupdownaddons.mstpctlutil
+    import ifupdownaddons.LinkUtils
 
     import ifupdown.statemanager as statemanager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -162,11 +160,8 @@ class ifupdownMain(ifupdownBase):
         ifupdown.policymanager.reset()
         ifupdown.ifupdownflags.reset()
         ifupdown.ifupdownconfig.reset()
-
-        ifupdownaddons.bondutil.bondutil.reset()
-        ifupdownaddons.iproute2.iproute2.reset()
-        ifupdownaddons.bridgeutils.brctl.reset()
         ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+        ifupdownaddons.LinkUtils.LinkUtils.reset()
 
         ifupdownaddons.cache.linkCache.reset()
         ifupdownaddons.cache.MSTPAttrsCache.invalidate()

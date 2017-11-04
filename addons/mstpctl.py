@@ -16,8 +16,7 @@ try:
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
-    from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdownaddons.systemutils import systemUtils
@@ -609,9 +608,9 @@ class mstpctl(moduleBase):
             stp = ifaceobj.get_attr_value_first('mstpctl-stp')
             if stp:
                self.set_iface_attr(ifaceobj, 'mstpctl-stp',
-                                    self.brctlcmd.set_stp)
+                                   self.brctlcmd.bridge_set_stp)
             else:
-               stp = self.brctlcmd.get_stp(ifaceobj.name)
+               stp = self.brctlcmd.bridge_get_stp(ifaceobj.name)
             if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
                 self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)
@@ -705,7 +704,7 @@ class mstpctl(moduleBase):
         return utils.get_boolean_from_string(stp)
 
     def _get_running_stp(self, ifaceobj):
-        stp = self.brctlcmd.get_stp(ifaceobj.name)
+        stp = self.brctlcmd.bridge_get_stp(ifaceobj.name)
         return utils.get_boolean_from_string(stp)
 
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
@@ -802,7 +801,7 @@ class mstpctl(moduleBase):
                 # contain more than one valid values
                 stp_on_vals = ['on', 'yes']
                 stp_off_vals = ['off']
-                rv = self.brctlcmd.get_stp(ifaceobj.name)
+                rv = self.brctlcmd.bridge_get_stp(ifaceobj.name)
                 if ((v in stp_on_vals and rv in stp_on_vals) or
                     (v in stp_off_vals and rv in stp_off_vals)):
                     ifaceobjcurr.update_config_with_status('mstpctl-stp', v, 0)
@@ -968,7 +967,7 @@ class mstpctl(moduleBase):
             self.logger.warn('%s: unable to determine bridgename'
                              %ifaceobjrunning.name)
             return
-        if self.brctlcmd.get_stp(bridgename) == 'no':
+        if self.brctlcmd.bridge_get_stp(bridgename) == 'no':
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
@@ -1027,7 +1026,7 @@ class mstpctl(moduleBase):
         #    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
 
     def _query_running_bridge(self, ifaceobjrunning):
-        if self.brctlcmd.get_stp(ifaceobjrunning.name) == 'no':
+        if self.brctlcmd.bridge_get_stp(ifaceobjrunning.name) == 'no':
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
@@ -1172,9 +1171,7 @@ class mstpctl(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
-        if not self.brctlcmd:
-            self.brctlcmd = brctl()
+            self.ipcmd = self.brctlcmd = LinkUtils()
         if not self.mstpctlcmd:
             self.mstpctlcmd = mstpctlutil()
 

@@ -14,7 +14,7 @@ try:
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
 
-    from ifupdownaddons.iproute2 import iproute2
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.modulebase import moduleBase
 
@@ -983,7 +983,7 @@ class address(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument

@@ -7,8 +7,7 @@
 try:
     from ifupdown.iface import *
 
-    from ifupdownaddons.iproute2 import iproute2
-    from ifupdownaddons.bridgeutils import brctl
+    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -75,7 +74,7 @@ class bridgevlan(moduleBase):
 
         running_mcqv4src = {}
         if not ifupdownflags.flags.PERFMODE:
-            running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
+            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(bridgename)
         if running_mcqv4src:
             r_mcqv4src = running_mcqv4src.get(vlan)
         else:
@@ -83,14 +82,14 @@ class bridgevlan(moduleBase):
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if not mcqv4src:
             if r_mcqv4src:
-                self.brctlcmd.del_mcqv4src(bridgename, vlanid)
+                self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
             return
 
         if r_mcqv4src and r_mcqv4src != mcqv4src:
-            self.brctlcmd.del_mcqv4src(bridgename, vlanid)
-            self.brctlcmd.set_mcqv4src(bridgename, vlanid, mcqv4src)
+            self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
+            self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
         else:
-            self.brctlcmd.set_mcqv4src(bridgename, vlanid, mcqv4src)
+            self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
 
     def _down(self, ifaceobj):
         try:
@@ -107,11 +106,11 @@ class bridgevlan(moduleBase):
             return
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if mcqv4src:
-           self.brctlcmd.del_mcqv4src(bridgename, vlanid)
+           self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
 
     def _query_running_bridge_igmp_querier_src(self, ifaceobj):
         (bridgename, vlanid) = ifaceobj.name.split('.')
-        running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
+        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(bridgename)
         if running_mcqv4src:
            return running_mcqv4src.get(vlanid)
         return None
@@ -153,9 +152,7 @@ class bridgevlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
-        if not self.brctlcmd:
-            self.brctlcmd = brctl()
+            self.ipcmd = self.brctlcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
