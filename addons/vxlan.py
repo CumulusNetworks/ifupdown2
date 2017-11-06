@@ -161,6 +161,29 @@ class vxlan(moduleBase):
                 vxlanid = int(vxlanid)
             except:
                 self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
+
+            if not group:
+                group = policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-svcnodeip'
+                )
+
+            if not local:
+                local = policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-local-tunnelip'
+                )
+
+            if not ageing:
+                ageing = policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-ageing'
+                )
+
+                if not ageing and link_exists:
+                    # if link doesn't exist we let the kernel define ageing
+                    ageing = self.get_attr_default_value('vxlan-ageing')
+
             if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group):
                 netlink.link_add_vxlan(ifname, vxlanid,
                                        local=local,
