@@ -346,7 +346,7 @@ class bridge(moduleBase):
         # Link.IFLA_BR_GROUP_ADDR,
         # Link.IFLA_BR_FDB_FLUSH,
         ('bridge-mcrouter', Link.IFLA_BR_MCAST_ROUTER),
-        ('bridge-mcsnoop', Link.IFLA_BR_MCAST_SNOOPING),
+        #('bridge-mcsnoop', Link.IFLA_BR_MCAST_SNOOPING), # requires special handling so we won't loop on this attr
         ('bridge-mcqifaddr', Link.IFLA_BR_MCAST_QUERY_USE_IFADDR),
         ('bridge-mcquerier', Link.IFLA_BR_MCAST_QUERIER),
         ('bridge-hashel', Link.IFLA_BR_MCAST_HASH_ELASTICITY),
@@ -1147,7 +1147,7 @@ class bridge(moduleBase):
             else:
                 cached_value = None
 
-            if not user_config and not link_just_created and cached_value:
+            if not user_config and not link_just_created and cached_value is not None:
                 # there is no user configuration for this attribute
                 # if the bridge existed before we need to check if
                 # this attribute needs to be reset to default value
@@ -1156,14 +1156,14 @@ class bridge(moduleBase):
                 if default_value:
                     # the attribute has a default value, we need to convert it to
                     # netlink format to compare it with the cache value
-                    default_value = translate_func(default_value)  # default_value.lower()
+                    default_value_nl = translate_func(default_value)  # default_value.lower()
 
-                    if default_value != cached_value:
+                    if default_value_nl != cached_value:
                         # the running value difers from the default value
                         # but the user didn't specify any config
                         # resetting attribute to default
-                        ifla_info_data[nl_attr] = default_value
-                        self.logger.info('%s: reset %s to default %s' % (ifname, attr_name, default_value))
+                        ifla_info_data[nl_attr] = default_value_nl
+                        self.logger.info('%s: reset %s to default: %s' % (ifname, attr_name, default_value))
             elif user_config:
                 user_config_nl = translate_func(user_config)  # user_config.lower()
 
@@ -1194,16 +1194,14 @@ class bridge(moduleBase):
             )
 
         # bridge-mcsnoop
-        ifla_br_mcast_snooping = self.get_bridge_mcsnoop_value(ifaceobj)
-        if ifla_br_mcast_snooping:
-            self.fill_ifla_info_data_with_ifla_br_attribute(
-                ifla_info_data=ifla_info_data,
-                link_just_created=link_just_created,
-                ifname=ifname,
-                nl_attr=Link.IFLA_BR_MCAST_SNOOPING,
-                attr_name='bridge-mcsnoop',
-                user_config=ifla_br_mcast_snooping
-            )
+        self.fill_ifla_info_data_with_ifla_br_attribute(
+            ifla_info_data=ifla_info_data,
+            link_just_created=link_just_created,
+            ifname=ifname,
+            nl_attr=Link.IFLA_BR_MCAST_SNOOPING,
+            attr_name='bridge-mcsnoop',
+            user_config=self.get_bridge_mcsnoop_value(ifaceobj)
+        )
 
         # bridge-vlan-stats
         if bridge_vlan_aware:
