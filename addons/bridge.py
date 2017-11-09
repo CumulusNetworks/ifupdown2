@@ -143,12 +143,12 @@ class bridge(moduleBase):
                     'bridge-hashel' :
                         { 'help' : 'set hash elasticity',
                           'validrange' : ['0', '4096'],
-                          'default' : '4096',
+                          'default' : '4',
                           'example' : ['bridge-hashel 4096']},
                     'bridge-hashmax' :
                         { 'help' : 'set hash max',
                           'validrange' : ['0', '4096'],
-                          'default' : '4096',
+                          'default' : '512',
                           'example' : ['bridge-hashmax 4096']},
                     'bridge-mclmi' :
                         { 'help' : 'set multicast last member interval (in secs)',
