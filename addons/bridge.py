@@ -3006,6 +3006,14 @@ class bridge(moduleBase):
         if not op_handler:
            return
         self._init_command_handlers()
+
+        if (not LinkUtils.bridge_utils_is_installed
+                and (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT or ifaceobj.link_kind & ifaceLinkKind.BRIDGE)
+                    and LinkUtils.bridge_utils_missing_warning):
+            self.logger.warning('%s: missing - bridge operation may not work as expected. '
+                                'Please check if \'bridge-utils\' package is installed' % utils.brctl_cmd)
+            LinkUtils.bridge_utils_missing_warning = False
+
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)

@@ -42,11 +42,11 @@ class LinkUtils(utilsBase):
     ipbatch = False
     ipbatch_pause = False
 
+    bridge_utils_is_installed = os.path.exists(utils.brctl_cmd)
+    bridge_utils_missing_warning = True
+
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
-
-        if not ifupdownflags.flags.PERFMODE and not LinkUtils._CACHE_FILL_DONE:
-            self._fill_cache()
 
         self.supported_command = {
             '%s -c -json vlan show' % utils.bridge_cmd: True,
@@ -54,6 +54,9 @@ class LinkUtils(utilsBase):
         }
         self.bridge_vlan_cache = {}
         self.bridge_vlan_cache_fill_done = False
+
+        if not ifupdownflags.flags.PERFMODE and not LinkUtils._CACHE_FILL_DONE:
+            self._fill_cache()
 
     @classmethod
     def reset(cls):
@@ -155,7 +158,8 @@ class LinkUtils(utilsBase):
 
                 linkCache.update_attrdict([ifla_master, 'linkinfo', 'ports'], brports[ifla_master])
         else:
-            self._fill_bridge_info_brctl()
+            if LinkUtils.bridge_utils_is_installed:
+                self._fill_bridge_info_brctl()
 
     def _fill_bridge_info_brctl(self):
         brctlout = utils.exec_command('%s show' % utils.brctl_cmd)
@@ -1918,12 +1922,16 @@ class LinkUtils(utilsBase):
     #################################################################################
 
     def create_bridge(self, bridgename):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         if self.bridge_exists(bridgename):
             return
         utils.exec_command('%s addbr %s' % (utils.brctl_cmd, bridgename))
         self._cache_update([bridgename], {})
 
     def delete_bridge(self, bridgename):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         if not self.bridge_exists(bridgename):
             return
         utils.exec_command('%s delbr %s' % (utils.brctl_cmd, bridgename))
@@ -1931,6 +1939,8 @@ class LinkUtils(utilsBase):
 
     def add_bridge_port(self, bridgename, bridgeportname):
         """ Add port to bridge """
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         ports = self._link_cache_get([bridgename, 'linkinfo', 'ports'])
         if ports and ports.get(bridgeportname):
             return
@@ -1939,6 +1949,8 @@ class LinkUtils(utilsBase):
 
     def delete_bridge_port(self, bridgename, bridgeportname):
         """ Delete port from bridge """
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         ports = self._link_cache_get([bridgename, 'linkinfo', 'ports'])
         if not ports or not ports.get(bridgeportname):
             return
@@ -1963,10 +1975,14 @@ class LinkUtils(utilsBase):
             elif k == 'arp-nd-suppress':
                 self.write_file('/sys/class/net/%s/brport/neigh_suppress' % bridgeportname, v)
             else:
+                if not LinkUtils.bridge_utils_is_installed:
+                    continue
                 utils.exec_command('%s set%s %s %s %s' % (utils.brctl_cmd, k, bridgename, bridgeportname, v))
 
     def set_bridgeport_attr(self, bridgename, bridgeportname,
                             attrname, attrval):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         if self._link_cache_check([bridgename, 'linkinfo', 'ports', bridgeportname, attrname], attrval):
             return
         utils.exec_command('%s set%s %s %s %s' %
@@ -2001,6 +2017,8 @@ class LinkUtils(utilsBase):
                     self.write_file('/sys/class/net/%s/bridge/'
                                     'multicast_stats_enabled' % bridgename, v)
                 else:
+                    if not LinkUtils.bridge_utils_is_installed:
+                        continue
                     cmd = ('%s set%s %s %s' %
                            (utils.brctl_cmd, k, bridgename, v))
                     utils.exec_command(cmd)
@@ -2027,6 +2045,8 @@ class LinkUtils(utilsBase):
             self.write_file('/sys/class/net/%s/bridge/multicast_stats_enabled'
                             % bridgename, attrval)
         else:
+            if not LinkUtils.bridge_utils_is_installed:
+                return
             cmd = '%s set%s %s %s' % (utils.brctl_cmd,
                                       attrname, bridgename, attrval)
             utils.exec_command(cmd)
@@ -2049,6 +2069,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_stp(bridge, stp_state):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s stp %s %s' % (utils.brctl_cmd, bridge, stp_state))
 
     def bridge_get_stp(self, bridge):
@@ -2082,6 +2104,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_ageing(bridge, ageing):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setageing %s %s' % (utils.brctl_cmd, bridge, ageing))
 
     def bridge_get_ageing(self, bridge):
@@ -2090,6 +2114,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def set_bridgeprio(bridge, prio):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setbridgeprio %s %s' % (utils.brctl_cmd, bridge, prio))
 
     def get_bridgeprio(self, bridge):
@@ -2098,6 +2124,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_fd(bridge, fd):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setfd %s %s' % (utils.brctl_cmd, bridge, fd))
 
     def bridge_get_fd(self, bridge):
@@ -2110,6 +2138,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_hello(bridge, hello):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s sethello %s %s' % (utils.brctl_cmd, bridge, hello))
 
     def bridge_get_hello(self, bridge):
@@ -2118,6 +2148,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_maxage(bridge, maxage):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmaxage %s %s' % (utils.brctl_cmd, bridge, maxage))
 
     def bridge_get_maxage(self, bridge):
@@ -2126,6 +2158,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_pathcost(bridge, port, pathcost):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setpathcost %s %s %s' % (utils.brctl_cmd, bridge, port, pathcost))
 
     def bridge_get_pathcost(self, bridge, port):
@@ -2134,6 +2168,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_portprio(bridge, port, prio):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setportprio %s %s %s' % (utils.brctl_cmd, bridge, port, prio))
 
     def bridge_get_portprio(self, bridge, port):
@@ -2142,6 +2178,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_hashmax(bridge, hashmax):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s sethashmax %s %s' % (utils.brctl_cmd, bridge, hashmax))
 
     def bridge_get_hashmax(self, bridge):
@@ -2150,6 +2188,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_hashel(bridge, hashel):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s sethashel %s %s' % (utils.brctl_cmd, bridge, hashel))
 
     def bridge_get_hashel(self, bridge):
@@ -2158,6 +2198,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mclmc(bridge, mclmc):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmclmc %s %s' % (utils.brctl_cmd, bridge, mclmc))
 
     def bridge_get_mclmc(self, bridge):
@@ -2167,6 +2209,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mcrouter(bridge, mcrouter):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmcrouter %s %s' % (utils.brctl_cmd, bridge, mcrouter))
 
     def bridge_get_mcrouter(self, bridge):
@@ -2175,6 +2219,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mcsnoop(bridge, mcsnoop):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmcsnoop %s %s' % (utils.brctl_cmd, bridge, mcsnoop))
 
     def bridge_get_mcsnoop(self, bridge):
@@ -2183,6 +2229,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mcsqc(bridge, mcsqc):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmcsqc %s %s' % (utils.brctl_cmd, bridge, mcsqc))
 
     def bridge_get_mcsqc(self, bridge):
@@ -2192,6 +2240,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mcqifaddr(bridge, mcqifaddr):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmcqifaddr %s %s' % (utils.brctl_cmd, bridge, mcqifaddr))
 
     def bridge_get_mcqifaddr(self, bridge):
@@ -2201,6 +2251,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mcquerier(bridge, mcquerier):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmcquerier %s %s' % (utils.brctl_cmd, bridge, mcquerier))
 
     def bridge_get_mcquerier(self, bridge):
@@ -2221,14 +2273,21 @@ class LinkUtils(utilsBase):
                 self.logger.warn('mcqv4src \'%s\' invalid IPv4 address' % mcquerier)
                 return
 
+        if not LinkUtils.bridge_utils_is_installed:
+            return
+
         utils.exec_command('%s setmcqv4src %s %d %s' %
                            (utils.brctl_cmd, bridge, vlan, mcquerier))
 
     @staticmethod
     def bridge_del_mcqv4src(bridge, vlan):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s delmcqv4src %s %d' % (utils.brctl_cmd, bridge, vlan))
 
     def bridge_get_mcqv4src(self, bridge, vlan=None):
+        if not LinkUtils.bridge_utils_is_installed:
+            return {}
         if not self.supported_command['showmcqv4src']:
             return {}
         mcqv4src = {}
@@ -2259,6 +2318,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mclmi(bridge, mclmi):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmclmi %s %s' % (utils.brctl_cmd, bridge, mclmi))
 
     def bridge_get_mclmi(self, bridge):
@@ -2268,6 +2329,8 @@ class LinkUtils(utilsBase):
 
     @staticmethod
     def bridge_set_mcmi(bridge, mcmi):
+        if not LinkUtils.bridge_utils_is_installed:
+            return
         utils.exec_command('%s setmcmi %s %s' % (utils.brctl_cmd, bridge, mcmi))
 
     def bridge_get_mcmi(self, bridge):
