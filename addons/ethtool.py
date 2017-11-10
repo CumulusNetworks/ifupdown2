@@ -55,8 +55,8 @@ class ethtool(moduleBase,utilsBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
-        if not os.path.exists('/sbin/ethtool'):
-            raise moduleNotSupported('module init failed: no /sbin/ethtool found')
+        if not os.path.exists(utils.ethtool_cmd):
+            raise moduleNotSupported('module init failed: %s: not found' % utils.ethtool_cmd)
         self.ipcmd = None
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
