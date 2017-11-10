@@ -188,7 +188,10 @@ class addressvirtual(moduleBase):
             link_created = False
             macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
-                netlink.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
+                try:
+                    netlink.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
+                except:
+                    self.ipcmd.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
             ips = av_attrs[1:]
             if mac != 'None':

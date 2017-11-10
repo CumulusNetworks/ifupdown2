@@ -139,6 +139,15 @@ class LinkUtils(utilsBase):
                 if not ifla_master:
                     raise Exception('No master associated with bridge port %s' % ifname)
 
+                for nl_attr in [
+                    Link.IFLA_BRPORT_STATE,
+                    Link.IFLA_BRPORT_COST,
+                    Link.IFLA_BRPORT_PRIORITY,
+                ]:
+                    if nl_attr not in info_slave_data and LinkUtils.bridge_utils_is_installed:
+                        self._fill_bridge_info_brctl()
+                        return
+
                 brport_attrs = {
                     'pathcost': str(info_slave_data.get(Link.IFLA_BRPORT_COST, 0)),
                     'fdelay': format(float(info_slave_data.get(Link.IFLA_BRPORT_FORWARD_DELAY_TIMER, 0) / 100), '.2f'),
@@ -332,15 +341,21 @@ class LinkUtils(utilsBase):
                 linkCache.set_attr([bondname, 'linkinfo', 'slaves'],
                                    self.read_file_oneline('/sys/class/net/%s/bonding/slaves'
                                                           % bondname).split())
+                try:
+                    # if some attribute are missing we try to get the bond attributes via sysfs
+                    bond_linkinfo = linkCache.links[bondname]['linkinfo']
+                    for attr in ['mode', 'xmit_hash_policy', 'min_links']:
+                        if attr not in bond_linkinfo:
+                            self._fill_bond_info_sysfs(bondname)
+                            # after we fill in the cache we can continue to the next bond
+                            break
+                except:
+                    self._fill_bond_info_sysfs(bondname)
+
             except Exception as e:
                 self.logger.debug('LinkUtils: bond cache error: %s' % str(e))
 
-                # self._fill_bond_info_sysfs()
-
     def _fill_bond_info_sysfs(self, bondname):
-        return
-        # move bondutils backend to use netlink for now.
-        # we are keeping the code for a future use
         try:
             linkCache.set_attr([bondname, 'linkinfo', 'min_links'],
                                self.read_file_oneline(
@@ -1083,7 +1098,7 @@ class LinkUtils(utilsBase):
             utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
 
         # XXX: update linkinfo correctly
-        self._cache_update([name], {})
+        #self._cache_update([name], {})
 
     @staticmethod
     def link_exists(ifacename):
@@ -1100,6 +1115,10 @@ class LinkUtils(utilsBase):
         if re.search(r'\.', ifacename):
             return True
         return False
+
+    @staticmethod
+    def link_add_macvlan(ifname, macvlan_ifacename):
+        utils.exec_commandl(['ip', 'link', 'add',  'link', ifname, 'name', macvlan_ifacename, 'type', 'macvlan', 'mode', 'private'])
 
     @staticmethod
     def route_add(route):

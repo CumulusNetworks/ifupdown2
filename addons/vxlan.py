@@ -185,11 +185,25 @@ class vxlan(moduleBase):
                     ageing = self.get_attr_default_value('vxlan-ageing')
 
             if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group):
-                netlink.link_add_vxlan(ifname, vxlanid,
-                                       local=local,
-                                       learning=learning,
-                                       ageing=ageing,
-                                       group=group)
+                try:
+                    netlink.link_add_vxlan(ifname, vxlanid,
+                                           local=local,
+                                           learning=learning,
+                                           ageing=ageing,
+                                           group=group)
+                except Exception as e_netlink:
+                    self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
+                    try:
+                        self.ipcmd.link_create_vxlan(ifname, vxlanid,
+                                                     localtunnelip=local,
+                                                     svcnodeip=group,
+                                                     remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
+                                                     learning='on' if learning else 'off',
+                                                     ageing=anycastip)
+                    except Exception as e_iproute2:
+                        self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
+                        return
+
                 try:
                     # manually adding an entry to the caching after creating/updating the vxlan
                     if not ifname in linkCache.links:
