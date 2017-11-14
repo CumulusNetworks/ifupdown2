@@ -389,9 +389,9 @@ class bond(moduleBase):
         (Link.IFLA_BOND_AD_LACP_BYPASS, 'bond-lacp-bypass')
     )
 
-    def _check_bond_mode_user_config(self, ifname, ifla_info_data):
+    def _check_bond_mode_user_config(self, ifname, link_exists, ifla_info_data):
         ifla_bond_mode = ifla_info_data.get(Link.IFLA_BOND_MODE)
-        if ifla_bond_mode is None:
+        if ifla_bond_mode is None and link_exists:
             ifla_bond_mode = self.bondcmd.link_cache_get([ifname, 'linkinfo', Link.IFLA_BOND_MODE])
             # in this case the link already exists (we have a cached value):
             # if IFLA_BOND_MODE is not present in ifla_info_data it means:
@@ -498,8 +498,7 @@ class bond(moduleBase):
                 except KeyError:
                     self.logger.warning('%s: invalid %s value %s' % (ifname, attr_name, user_config))
 
-        self._check_bond_mode_user_config(ifname, ifla_info_data)
-
+        self._check_bond_mode_user_config(ifname, link_exists, ifla_info_data)
         return ifla_info_data
 
     _bond_down_nl_attributes_list = (
