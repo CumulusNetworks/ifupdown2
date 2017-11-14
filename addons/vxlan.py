@@ -119,7 +119,7 @@ class vxlan(moduleBase):
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_LEARNING), learning),
             ((ifname, 'linkinfo', 'svcnode'), group)
         ):
-            if not self.ipcmd.cache_check(attr_list, value):
+            if value and not self.ipcmd.cache_check(attr_list, value):
                 return True
         return False
 
