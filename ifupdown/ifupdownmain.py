@@ -273,13 +273,13 @@ class ifupdownMain(ifupdownBase):
         self._cache_no_repeats = {}
 
         if self.flags.STATEMANAGER_ENABLE:
+            self.statemanager = statemanager.statemanager_api
             try:
-                self.statemanager = statemanager.statemanager_api
                 self.statemanager.read_saved_state()
             except Exception, e:
-                # XXX Maybe we should continue by ignoring old state
+                # if read_saved_state fails, state file might be corrupt.
+                # Ignore old state and continue
                 self.logger.warning('error reading state (%s)' %str(e))
-                raise
         else:
             self.flags.STATEMANAGER_UPDATE = False
         self._delay_admin_state = True if self.config.get(
