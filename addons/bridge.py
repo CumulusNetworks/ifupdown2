@@ -2944,7 +2944,10 @@ class bridge(moduleBase):
         if 'mcrouter' in running_attrs:
             value = ifaceobj.get_attr_value_first('bridge-mcrouter')
             if value:
-                running_attrs['mcrouter'] = str(utils.get_int_from_boolean_and_string(value))
+                try:
+                    int(value)
+                except:
+                    running_attrs['mcrouter'] = 'yes' if utils.get_boolean_from_string(running_attrs['mcrouter']) else 'no'
 
         portmcrouter_config = ifaceobj.get_attr_value_first('bridge-portmcrouter')
         if portmcrouter_config:
