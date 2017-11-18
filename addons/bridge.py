@@ -1013,6 +1013,11 @@ class bridge(moduleBase):
                 self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
             for v in mcqs.keys():
                 self.brctlcmd.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
+        elif not ifupdownflags.flags.PERFMODE:
+            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(ifaceobj.name)
+            if running_mcqv4src:
+                for v in running_mcqv4src.keys():
+                    self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
 
     def _get_running_vidinfo(self):
         if self._running_vidinfo_valid:
