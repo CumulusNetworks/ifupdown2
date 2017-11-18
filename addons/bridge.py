@@ -1729,14 +1729,6 @@ class bridge(moduleBase):
                         cached_value = None
 
                     if not brport_config:
-                        brport_config = policymanager.policymanager_api.get_iface_default(
-                            module_name=self.__class__.__name__,
-                            ifname=brport_name,
-                            attr=attr_name
-                        )
-
-                    user_config = brport_config
-                    if not user_config:
                         # if a brport attribute was specified under the bridge and not under the port
                         # we assign the bridge value to the port. If an attribute is both defined under
                         # the bridge and the brport we keep the value of the port and ignore the br val.
@@ -1744,9 +1736,18 @@ class bridge(moduleBase):
                             # if the attribute value was in the format interface-list-value swp1=XX swp2=YY
                             # br_config is a dictionary, example:
                             # bridge-portprios swp1=5 swp2=32 = {swp1: 5, swp2: 32}
-                            user_config = br_config.get(brport_name)
+                            brport_config = br_config.get(brport_name)
                         else:
-                            user_config = br_config
+                            brport_config = br_config
+
+                    if not brport_config:
+                        brport_config = policymanager.policymanager_api.get_iface_default(
+                            module_name=self.__class__.__name__,
+                            ifname=brport_name,
+                            attr=attr_name
+                        )
+
+                    user_config = brport_config
 
                     # attribute specific work
                     # This shouldn't be here but we don't really have a choice otherwise this
