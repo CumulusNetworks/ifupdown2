@@ -50,7 +50,9 @@ class bridge(moduleBase):
                                   'attribute to yes enables vlan filtering' +
                                   ' on the bridge',
                          'validvals' : ['yes', 'no'],
-                         'example' : ['bridge-vlan-aware yes/no']},
+                         'example' : ['bridge-vlan-aware yes/no'],
+                         'default': 'no'
+                         },
                    'bridge-ports' :
                         {'help' : 'bridge ports',
                          'multivalue' : True,
@@ -119,7 +121,9 @@ class bridge(moduleBase):
                     'bridge-mcrouter' :
                         { 'help' : 'set multicast router',
                           'validvals' : ['yes', 'no', '0', '1', '2'],
-                          'example' : ['bridge-mcrouter 1']},
+                          'example' : ['bridge-mcrouter 1'],
+                          'default': 'yes'
+                          },
                     'bridge-mcsnoop' :
                         { 'help' : 'set multicast snooping',
                           'validvals' : ['yes', 'no', '0', '1'],
