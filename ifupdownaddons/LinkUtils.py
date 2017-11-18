@@ -2279,6 +2279,11 @@ class LinkUtils(utilsBase):
             '/sys/class/net/%s/bridge/multicast_querier' % bridge)
 
     def bridge_set_mcqv4src(self, bridge, vlan, mcquerier):
+        try:
+            vlan = int(vlan)
+        except:
+            self.logger.info('%s: set mcqv4src vlan: invalid parameter %s: %s' %(bridge, vlan, str(e)))
+            return
         if vlan == 0 or vlan > 4095:
             self.logger.warn('mcqv4src vlan \'%d\' invalid range' % vlan)
             return
@@ -2298,9 +2303,13 @@ class LinkUtils(utilsBase):
         utils.exec_command('%s setmcqv4src %s %d %s' %
                            (utils.brctl_cmd, bridge, vlan, mcquerier))
 
-    @staticmethod
-    def bridge_del_mcqv4src(bridge, vlan):
+    def bridge_del_mcqv4src(self, bridge, vlan):
         if not LinkUtils.bridge_utils_is_installed:
+            return
+        try:
+            vlan = int(vlan)
+        except:
+            self.logger.info('%s: del mcqv4src vlan: invalid parameter %s: %s' %(bridge, vlan, str(e)))
             return
         utils.exec_command('%s delmcqv4src %s %d' % (utils.brctl_cmd, bridge, vlan))
 
