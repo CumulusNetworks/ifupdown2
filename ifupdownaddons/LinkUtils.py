@@ -338,6 +338,8 @@ class LinkUtils(utilsBase):
             return
         for bondname in bonding_masters.split():
             try:
+                if bondname not in linkCache.links:
+                    linkCache.set_attr([bondname], {'linkinfo': {}})
                 linkCache.set_attr([bondname, 'linkinfo', 'slaves'],
                                    self.read_file_oneline('/sys/class/net/%s/bonding/slaves'
                                                           % bondname).split())
