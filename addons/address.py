@@ -389,11 +389,15 @@ class address(moduleBase):
         else:
             running_ip6 = running_addrs
 
+        i = 0
+        len_ip6 = len(user_ip6)
+
         for ip6 in running_ip6:
             if ip6 not in user_ip6:
                 return False
+            i += 1
 
-        return True
+        return i == len_ip6
 
     def order_user_configured_addrs(self, user_config_addrs):
         ip4 = []
