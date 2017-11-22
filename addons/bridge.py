@@ -311,14 +311,46 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcstats off']},
                      'bridge-l2protocol-tunnel': {
                          'help': 'layer 2 protocol tunneling',
-                         'validvals': ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst', '<interface-l2protocol-tunnel-list>'],
+                         'validvals': [ # XXX: lists all combinations, should move to
+                                        # a better representation
+                                        'all',
+                                        'cdp',
+                                        'cdp lacp',
+                                        'cdp lacp lldp',
+                                        'cdp lacp lldp pvst',
+                                        'cdp lacp lldp stp',
+                                        'cdp lacp pvst',
+                                        'cdp lacp pvst stp',
+                                        'cdp lacp stp',
+                                        'cdp lldp',
+                                        'cdp lldp pvst',
+                                        'cdp lldp pvst stp',
+                                        'cdp lldp stp',
+                                        'cdp pvst',
+                                        'cdp pvst stp',
+                                        'cdp stp',
+                                        'lacp',
+                                        'lacp lldp',
+                                        'lacp lldp pvst',
+                                        'lacp lldp pvst stp',
+                                        'lacp lldp stp',
+                                        'lacp pvst',
+                                        'lacp pvst stp',
+                                        'lacp stp',
+                                        'lldp',
+                                        'lldp pvst',
+                                        'lldp pvst stp',
+                                        'lldp stp',
+                                        'pvst',
+                                        'pvst stp',
+                                        'stp',
+                                        '<interface-l2protocol-tunnel-list>'],
                          'example': [
-                             'bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all',
-                             'bridge-l2protocol-tunnel lacp stp,lldp,cdp',
-                             'bridge-l2protocol-tunnel stp lacp cdp',
-                             'bridge-l2protocol-tunnel lldp pvst',
-                             'bridge-l2protocol-tunnel stp',
-                             'bridge-l2protocol-tunnel all'
+                             'under the bridge (for vlan unaware bridge): bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel lacp stp lldp cdp pvst',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel lldp pvst',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel stp',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel all'
                          ]
                      }
                      }}
