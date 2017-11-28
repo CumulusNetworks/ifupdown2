@@ -89,7 +89,7 @@ DESCRIPTION
     ifupdown supports python-mako style templates in the interfaces file.
     See examples section for details.
 
-    See **/usr/share/doc/python-ifupdown2/examples/** for **interfaces(5)**
+    See **/usr/share/doc/ifupdown2/examples/** for **interfaces(5)**
     file examples and interfaces file generation scripts.
 
 METHODS
