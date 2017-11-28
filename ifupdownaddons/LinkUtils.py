@@ -118,15 +118,20 @@ class LinkUtils(utilsBase):
         else:
             self._link_fill_iproute2_cmd(ifacename, refresh)
 
-        self._fill_bond_info()
-        self._fill_bridge_info()
+        self._fill_bond_info(ifacename)
+        self._fill_bridge_info(ifacename)
 
-    def _fill_bridge_info(self):
+    def _fill_bridge_info(self, ifacename):
 
         if True:  # netlink
             brports = {}
 
-            for ifname, obj in linkCache.links.items():
+            if ifacename:
+                cache_dict = {ifacename: linkCache.links.get(ifacename, {})}
+            else:
+                cache_dict = linkCache.links
+
+            for ifname, obj in cache_dict.items():
                 slave_kind = obj.get('slave_kind')
                 if not slave_kind and slave_kind != 'bridge':
                     continue
@@ -332,11 +337,21 @@ class LinkUtils(utilsBase):
                 mcattrs[m] = n
         return mcattrs
 
-    def _fill_bond_info(self):
+    def _fill_bond_info(self, ifacename):
         bonding_masters = self.read_file_oneline('/sys/class/net/bonding_masters')
         if not bonding_masters:
             return
-        for bondname in bonding_masters.split():
+
+        bond_masters_list = bonding_masters.split()
+
+        if ifacename:
+            if ifacename in bond_masters_list:
+                bond_masters_list = [ifacename]
+            else:
+                # we want to refresh this interface only if it's a bond master
+                return
+
+        for bondname in bond_masters_list:
             try:
                 if bondname not in linkCache.links:
                     linkCache.set_attr([bondname], {'linkinfo': {}})
