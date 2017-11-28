@@ -936,8 +936,7 @@ class LinkUtils(utilsBase):
         if ifupdownflags.flags.DRYRUN:
             return True
         if not mtu or not ifacename: return
-        with open('/sys/class/net/%s/mtu' % ifacename, 'w') as f:
-            f.write(mtu)
+        self.write_file('/sys/class/net/%s/mtu' % ifacename, mtu)
         self._cache_update([ifacename, 'mtu'], mtu)
 
     def link_set_alias(self, ifacename, alias):

@@ -121,6 +121,8 @@ class address(moduleBase):
         if self.max_mtu:
             self.logger.info('address: using max mtu %s' %self.max_mtu)
 
+        self.lower_iface_mtu_checked_list = list()
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
@@ -528,8 +530,15 @@ class address(moduleBase):
                 and ifaceobj.lowerifaces):
                 # set vlan interface mtu to lower device mtu
                 if (ifaceobj.link_kind & ifaceLinkKind.VLAN):
-                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
-                    if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
+                    lower_iface = ifaceobj.lowerifaces[0]
+                    if lower_iface not in self.lower_iface_mtu_checked_list:
+                        lower_iface_mtu = self.ipcmd.link_get_mtu_sysfs(lower_iface)
+                        self.ipcmd.cache_update([lower_iface, 'mtu'], lower_iface_mtu)
+                        self.lower_iface_mtu_checked_list.append(lower_iface)
+                    else:
+                        lower_iface_mtu = self.ipcmd.link_get_mtu(lower_iface)
+
+                    if lower_iface_mtu != self.ipcmd.link_get_mtu_sysfs(ifaceobj.name):
                         self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
 
         elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
