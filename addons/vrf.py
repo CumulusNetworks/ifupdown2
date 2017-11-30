@@ -704,7 +704,7 @@ class vrf(moduleBase):
         else:
             if vrf_table == 'auto':
                 vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
-                if not vrf_table:
+                if not vrf_table and not ifupdownflags.flags.DRYRUN:
                     self.log_error('unable to get vrf table id', ifaceobj)
 
             # if the device exists, check if table id is same
