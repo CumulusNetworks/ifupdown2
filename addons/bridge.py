@@ -50,7 +50,9 @@ class bridge(moduleBase):
                                   'attribute to yes enables vlan filtering' +
                                   ' on the bridge',
                          'validvals' : ['yes', 'no'],
-                         'example' : ['bridge-vlan-aware yes/no']},
+                         'example' : ['bridge-vlan-aware yes/no'],
+                         'default': 'no'
+                         },
                    'bridge-ports' :
                         {'help' : 'bridge ports',
                          'multivalue' : True,
@@ -119,7 +121,9 @@ class bridge(moduleBase):
                     'bridge-mcrouter' :
                         { 'help' : 'set multicast router',
                           'validvals' : ['yes', 'no', '0', '1', '2'],
-                          'example' : ['bridge-mcrouter 1']},
+                          'example' : ['bridge-mcrouter 1'],
+                          'default': 'yes'
+                          },
                     'bridge-mcsnoop' :
                         { 'help' : 'set multicast snooping',
                           'validvals' : ['yes', 'no', '0', '1'],
@@ -307,14 +311,46 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcstats off']},
                      'bridge-l2protocol-tunnel': {
                          'help': 'layer 2 protocol tunneling',
-                         'validvals': ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst', '<interface-l2protocol-tunnel-list>'],
+                         'validvals': [ # XXX: lists all combinations, should move to
+                                        # a better representation
+                                        'all',
+                                        'cdp',
+                                        'cdp lacp',
+                                        'cdp lacp lldp',
+                                        'cdp lacp lldp pvst',
+                                        'cdp lacp lldp stp',
+                                        'cdp lacp pvst',
+                                        'cdp lacp pvst stp',
+                                        'cdp lacp stp',
+                                        'cdp lldp',
+                                        'cdp lldp pvst',
+                                        'cdp lldp pvst stp',
+                                        'cdp lldp stp',
+                                        'cdp pvst',
+                                        'cdp pvst stp',
+                                        'cdp stp',
+                                        'lacp',
+                                        'lacp lldp',
+                                        'lacp lldp pvst',
+                                        'lacp lldp pvst stp',
+                                        'lacp lldp stp',
+                                        'lacp pvst',
+                                        'lacp pvst stp',
+                                        'lacp stp',
+                                        'lldp',
+                                        'lldp pvst',
+                                        'lldp pvst stp',
+                                        'lldp stp',
+                                        'pvst',
+                                        'pvst stp',
+                                        'stp',
+                                        '<interface-l2protocol-tunnel-list>'],
                          'example': [
-                             'bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all',
-                             'bridge-l2protocol-tunnel lacp stp,lldp,cdp',
-                             'bridge-l2protocol-tunnel stp lacp cdp',
-                             'bridge-l2protocol-tunnel lldp pvst',
-                             'bridge-l2protocol-tunnel stp',
-                             'bridge-l2protocol-tunnel all'
+                             'under the bridge (for vlan unaware bridge): bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel lacp stp lldp cdp pvst',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel lldp pvst',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel stp',
+                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel all'
                          ]
                      }
                      }}
@@ -1017,6 +1053,11 @@ class bridge(moduleBase):
                 self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
             for v in mcqs.keys():
                 self.brctlcmd.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
+        elif not ifupdownflags.flags.PERFMODE:
+            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(ifaceobj.name)
+            if running_mcqv4src:
+                for v in running_mcqv4src.keys():
+                    self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
 
     def _get_running_vidinfo(self):
         if self._running_vidinfo_valid:
@@ -1724,14 +1765,6 @@ class bridge(moduleBase):
                         cached_value = None
 
                     if not brport_config:
-                        brport_config = policymanager.policymanager_api.get_iface_default(
-                            module_name=self.__class__.__name__,
-                            ifname=brport_name,
-                            attr=attr_name
-                        )
-
-                    user_config = brport_config
-                    if not user_config:
                         # if a brport attribute was specified under the bridge and not under the port
                         # we assign the bridge value to the port. If an attribute is both defined under
                         # the bridge and the brport we keep the value of the port and ignore the br val.
@@ -1739,9 +1772,18 @@ class bridge(moduleBase):
                             # if the attribute value was in the format interface-list-value swp1=XX swp2=YY
                             # br_config is a dictionary, example:
                             # bridge-portprios swp1=5 swp2=32 = {swp1: 5, swp2: 32}
-                            user_config = br_config.get(brport_name)
+                            brport_config = br_config.get(brport_name)
                         else:
-                            user_config = br_config
+                            brport_config = br_config
+
+                    if not brport_config:
+                        brport_config = policymanager.policymanager_api.get_iface_default(
+                            module_name=self.__class__.__name__,
+                            ifname=brport_name,
+                            attr=attr_name
+                        )
+
+                    user_config = brport_config
 
                     # attribute specific work
                     # This shouldn't be here but we don't really have a choice otherwise this
@@ -2939,7 +2981,10 @@ class bridge(moduleBase):
         if 'mcrouter' in running_attrs:
             value = ifaceobj.get_attr_value_first('bridge-mcrouter')
             if value:
-                running_attrs['mcrouter'] = str(utils.get_int_from_boolean_and_string(value))
+                try:
+                    int(value)
+                except:
+                    running_attrs['mcrouter'] = 'yes' if utils.get_boolean_from_string(running_attrs['mcrouter']) else 'no'
 
         portmcrouter_config = ifaceobj.get_attr_value_first('bridge-portmcrouter')
         if portmcrouter_config:

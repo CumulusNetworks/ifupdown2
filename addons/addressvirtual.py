@@ -210,7 +210,7 @@ class addressvirtual(moduleBase):
                     lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.name, refresh=True)
                     update_mtu = False
 
-                if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
+                if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename, refresh=True):
                     try:
                         self.ipcmd.link_set_mtu(macvlan_ifacename,
                                                 lower_iface_mtu)

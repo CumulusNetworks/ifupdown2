@@ -10,7 +10,7 @@ Keep the following points in mind before you start configuring interfaces using
 ``ifupdown2``:
 
 * IPv4 and IPv6 addresses for an interface can be listed in the same ``iface`` 
-  section. For examples, see ``/usr/share/doc/python-ifupdown2/examples/``.
+  section. For examples, see ``/usr/share/doc/ifupdown2/examples/``.
 
 * Do not use a legacy interface alias. They are only supported for backward 
   compatibility with ``ifupdown``. They do get configured, but ``ifquery`` has 
