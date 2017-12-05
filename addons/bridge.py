@@ -1607,7 +1607,7 @@ class bridge(moduleBase):
     def up_check_bridge_vlan_aware(self, ifaceobj, ifaceobj_getfunc, link_exists):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
             if not self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc):
-                raise
+                return False
             if link_exists:
                 ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
             return True
@@ -1675,7 +1675,7 @@ class bridge(moduleBase):
                 self.logger.warning('%s: %s: \'bridge-arp-nd-suppress\' '
                                     'is not supported on a non-vxlan port'
                                     % (ifaceobj.name, brport_name))
-                raise
+                raise Exception()
         elif (bridge_vlan_aware and
                   (not self.arp_nd_suppress_only_on_vxlan or
                        (self.arp_nd_suppress_only_on_vxlan and
