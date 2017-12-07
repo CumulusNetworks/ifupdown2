@@ -14,6 +14,7 @@ try:
 
     from nlmanager.nlmanager import Link
 
+    import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -1285,12 +1286,12 @@ class bridge(moduleBase):
                 if '-' in v:
                     va, vb = v.split('-')
                     va, vb = int(va), int(vb)
-                    if self._handle_reserved_vlan(va, ifaceobj.name, end=vb):
-                        return False
+                    self._handle_reserved_vlan(va, ifaceobj.name, end=vb)
                 else:
                     va = int(v)
-                    if self._handle_reserved_vlan(va, ifaceobj.name):
-                        ret = False
+                    self._handle_reserved_vlan(va, ifaceobj.name)
+            except exceptions.ReservedVlanException as e:
+                raise e
             except Exception:
                 self.logger.warn('%s: unable to parse vid \'%s\''
                                  %(ifaceobj.name, v))
@@ -1395,6 +1396,8 @@ class bridge(moduleBase):
                 #       pvid 101
                 #       vid 100 102
                 vids_to_add.add(pvid_to_del)
+        except exceptions.ReservedVlanException as e:
+            raise e
         except Exception, e:
             self.log_error('%s: failed to process vids/pvids'
                            %bportifaceobj.name + ' vids = %s' %str(vids) +
@@ -1540,6 +1543,8 @@ class bridge(moduleBase):
                                 bportifaceobj, bridge_vids, bridge_pvid)
                     elif self.warn_on_untagged_bridge_absence:
                         self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
+                except exceptions.ReservedVlanException as e:
+                    raise e
                 except Exception, e:
                     err = True
                     self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
@@ -1974,6 +1979,8 @@ class bridge(moduleBase):
             self._apply_bridge_port_settings_all(ifaceobj,
                                                  ifaceobj_getfunc=ifaceobj_getfunc,
                                                  bridge_vlan_aware=bridge_vlan_aware)
+        except exceptions.ReservedVlanException as e:
+            raise e
         except Exception as e:
             self.logger.warning('%s: apply bridge settings: %s' % (ifname, str(e)))
         finally:
