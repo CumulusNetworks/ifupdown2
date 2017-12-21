@@ -1,6 +1,6 @@
 ifupdown2 (1.1-cl3u16) UNRELEASED; urgency=medium
 
-  * Closes: CM-18647. fix python exception on macvlans address dump
+  * Closes: CM-18647, CM-19279. fix python exception on macvlans address dump
 
  -- root <root@debian>  Wed, 22 Nov 2017 19:07:43 +0100
 
