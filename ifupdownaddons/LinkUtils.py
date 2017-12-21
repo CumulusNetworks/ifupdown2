@@ -14,6 +14,8 @@ try:
     import signal
     import subprocess
 
+    from ipaddr import IPNetwork, IPv6Network
+
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.statemanager as statemanager
 
@@ -877,7 +879,20 @@ class LinkUtils(utilsBase):
         cached_addrs = self.addr_get(interface_name)
         if cached_addrs:
             for addr, addr_details in cached_addrs.items():
-                scope = addr_details['scope']
+                try:
+                    scope = int(addr_details['scope'])
+                except Exception:
+                    try:
+                        details = {}
+                        addr_obj = IPNetwork(addr)
+                        if isinstance(addr_obj, IPv6Network):
+                            details['family'] = 'inet6'
+                        else:
+                            details['family'] = 'inet'
+                        running_addrs[addr] = details
+                    except:
+                        running_addrs[addr] = {}
+                    continue
                 if (scope & Route.RT_SCOPE_LINK and addr in config_addrs) or not scope & Route.RT_SCOPE_LINK:
                     running_addrs[addr] = addr_details
         else:
