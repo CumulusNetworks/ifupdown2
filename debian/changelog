@@ -1,10 +1,15 @@
+ifupdown2 (1.1-cl3u16) UNRELEASED; urgency=medium
+
+  * Closes: CM-18647. fix python exception on macvlans address dump
+
+ -- root <root@debian>  Wed, 22 Nov 2017 19:07:43 +0100
+
 ifupdown2 (1.1-cl3u15) RELEASED; urgency=medium
 
   * New. Enabled: bridge: add support for bridge-l2protocol-tunnel
   * New. Enabled: bridge attributes, when removed reset to default
   * New. Enabled: vxlan attributes, when removed reset to default
   * New. Enabled: improve handling of optional resources (if missing bridge-utils/ethtool)
-  * Closes: CM-18647. fix python exception on macvlans address dump
   * Closes: CM-17577 & CM-18951. fix policy "iface_defaults" not supported for MTU
   * Closes: CM-18161. fix address module: handling of ipv4 & ipv6 (add/remove)
   * Closes: CM-18262. fix warning for vlan reserved range
