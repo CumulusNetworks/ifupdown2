@@ -127,6 +127,12 @@ class vrf(moduleBase):
         self.vrf_table_id_end = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-table-id-end')
         if not self.vrf_table_id_end:
             self.vrf_table_id_end = self.VRF_TABLE_END
+
+        self._modinfo['attrs']['vrf-table']['validrange'] = [
+            str(self.vrf_table_id_start),
+            str(self.vrf_table_id_end)
+        ]
+
         self.vrf_max_count = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-max-count')
 
         self.vrf_fix_local_table = True
