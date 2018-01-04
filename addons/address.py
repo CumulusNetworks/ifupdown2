@@ -773,7 +773,7 @@ class address(moduleBase):
                     for addr in addrlist:
                         self.ipcmd.addr_del(ifaceobj.name, addr)
                     #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
-                elif not ifaceobj.link_kind & ifaceLinkKind.VLAN:
+                elif not ifaceobj.link_kind:
                     # for logical interfaces we don't need to remove the ip addresses
                     # kernel will do it for us on 'ip link del'
                     self.ipcmd.del_addr_all(ifaceobj.name)
