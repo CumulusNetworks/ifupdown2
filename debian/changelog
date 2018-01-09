@@ -1,4 +1,4 @@
-ifupdown2 (1.1-cl3u16) UNRELEASED; urgency=medium
+ifupdown2 (1.1-cl3u16) RELEASED; urgency=medium
 
   * Closes: CM-18647, CM-19279. fix python exception on macvlans address dump
 
