@@ -2,7 +2,7 @@ ifupdown2 (1.1-cl3u16) RELEASED; urgency=medium
 
   * Closes: CM-18647, CM-19279. fix python exception on macvlans address dump
 
- -- root <root@debian>  Wed, 22 Nov 2017 19:07:43 +0100
+ -- dev-support <dev-support@cumulusnetworks.com>  Tue, 09 Jan 2018 02:02:58 +0100
 
 ifupdown2 (1.1-cl3u15) RELEASED; urgency=medium
 
