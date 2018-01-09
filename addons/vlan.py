@@ -1,18 +1,20 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-import ifupdown.ifupdownconfig as ifupdownConfig
+try:
+    from ifupdown.iface import *
+    from ifupdown.netlink import netlink
 
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
-import logging
-import re
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
+
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class vlan(moduleBase):
     """  ifupdown2 addon module to configure vlans """
@@ -28,13 +30,18 @@ class vlan(moduleBase):
                              'validvals': ['<interface>']},
                         'vlan-id' :
                             {'help' : 'vlan id',
-                             'validrange' : ['0', '4096']}}}
+                             'validrange' : ['0', '4096']},
+                        'vlan-protocol' :
+                            {'help' : 'vlan protocol',
+                             'default' : '802.1q',
+                             'validvals': ['802.1q', '802.1ad'],
+                             'example' : ['vlan-protocol 802.1q']},
+               }}
 
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
-        self._bridge_vids_query_cache = {}
         self._resv_vlan_range =  self._get_reserved_vlan_range()
         self.logger.debug('%s: using reserved vlan range %s'
                   %(self.__class__.__name__, str(self._resv_vlan_range)))
@@ -47,34 +54,6 @@ class vlan(moduleBase):
             return True
         return False
 
-    def _get_vlan_id(self, ifaceobj):
-        """ Derives vlanid from iface name
-        
-        Example:
-            Returns 1 for ifname vlan0001 returns 1
-            Returns 1 for ifname vlan1
-            Returns 1 for ifname eth0.1
-
-            Returns -1 if vlan id cannot be determined
-        """
-        vid_str = ifaceobj.get_attr_value_first('vlan-id')
-        try:
-            if vid_str: return int(vid_str)
-        except:
-            return -1
-
-        if '.' in ifaceobj.name:
-            vid_str = ifaceobj.name.split('.', 1)[1]
-        elif ifaceobj.name.startswith('vlan'):
-            vid_str = ifaceobj.name[4:]
-        else:
-            return -1
-        try:
-            vid = int(vid_str)
-        except:
-            return -1
-        return vid
-
     def _is_vlan_by_name(self, ifacename):
         return '.' in ifacename
 
@@ -82,13 +61,15 @@ class vlan(moduleBase):
         """ Returns vlan raw device from ifname
         Example:
             Returns eth0 for ifname eth0.100
-
+            Returns eth0.100 for ifname eth0.100.200
             Returns None if vlan raw device name cannot
             be determined
         """
-        vlist = ifacename.split('.', 1)
+        vlist = ifacename.split('.', 2)
         if len(vlist) == 2:
             return vlist[0]
+        elif len(vlist) == 3:
+            return vlist[0] + "." + vlist[1]
         return None
 
     def _get_vlan_raw_device(self, ifaceobj):
@@ -118,10 +99,7 @@ class vlan(moduleBase):
         is configured on the bridge """
         if not self.ipcmd.bridge_is_vlan_aware(bridgename):
             return
-        vids = self._bridge_vids_query_cache.get(bridgename)
-        if vids == None:
-           vids = self.ipcmd.bridge_port_vids_get(bridgename)
-           self._bridge_vids_query_cache[bridgename] = vids
+        vids = self.ipcmd.bridge_vlan_get_vids(bridgename)
         if not vids or vlanid not in vids:
             ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.status_str = 'bridge vid error'
@@ -133,13 +111,24 @@ class vlan(moduleBase):
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
+
+        vlan_protocol = ifaceobj.get_attr_value_first('vlan-protocol')
+        if vlan_protocol:
+            cached_vlan_protocol = self.ipcmd.get_vlan_protocol(ifaceobj.name)
+            if cached_vlan_protocol and vlan_protocol.lower() != cached_vlan_protocol.lower():
+                self.logger.error('%s: cannot change vlan-protocol to %s: operation not supported. '
+                                  'Please delete the device with \'ifdown %s\' and recreate it to '
+                                  'apply the change.'
+                                  % (ifaceobj.name, vlan_protocol, ifaceobj.name))
+
         if not ifupdownflags.flags.PERFMODE:
             if not self.ipcmd.link_exists(vlanrawdevice):
                 raise Exception('rawdevice %s not present' %vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 return
-        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid)
+
+        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
 
     def _down(self, ifaceobj):
@@ -163,7 +152,7 @@ class vlan(moduleBase):
            return
         if not '.' in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
-            (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobj.name)
+            (vlanrawdev, vlanid, protocol) = self.ipcmd.get_vlandev_attrs(ifaceobj.name)
             if vlanrawdev != ifaceobj.get_attr_value_first('vlan-raw-device'):
                 ifaceobjcurr.update_config_with_status('vlan-raw-device',
                         vlanrawdev, 1)
@@ -177,20 +166,29 @@ class vlan(moduleBase):
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 1)
             else:
                 ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 0)
-            self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, vlanid)
+            protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
+            if protocol_config:
+                if protocol_config.upper() != protocol.upper():
+                    ifaceobjcurr.update_config_with_status('vlan-protocol',
+                                                           protocol, 1)
+                else:
+                    ifaceobjcurr.update_config_with_status('vlan-protocol',
+                                                           protocol, 0)
+            self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, int(vlanid))
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             return
-        (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
+        (vlanrawdev, vlanid, protocol) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
         if not vlanid:
             return
         # If vlan name is not in the dot format, get the
         # vlan dev and vlan id
         if not '.' in ifaceobjrunning.name:
-            ifaceobjrunning.update_config_dict({(k, v) for k, v in
+            ifaceobjrunning.update_config_dict({k: [v] for k, v in
                                                 {'vlan-raw-device' : vlanrawdev,
-                                                 'vlan-id' : vlanid}.items()
+                                                 'vlan-id' : vlanid,
+                                                 'vlan-protocol' : protocol}.items()
                                                 if v})
 
     _run_ops = {'pre-up' : _up,
@@ -204,7 +202,7 @@ class vlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

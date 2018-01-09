@@ -1,20 +1,23 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # ifupdownBase --
 #    base object for various ifupdown objects
 #
 
-import logging
-import re
-import os
-import traceback
-from ifupdown.netlink import netlink
+try:
+    import re
+    import os
+    import logging
+    import traceback
 
-from iface import *
-import ifupdownflags as ifupdownflags
+    from ifupdown.netlink import netlink
+
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 class ifupdownBase(object):
 
@@ -32,6 +35,7 @@ class ifupdownBase(object):
         if self.ignore_error(str) == False:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+                traceback.print_exc()
             self.logger.warn(str)
         pass
 

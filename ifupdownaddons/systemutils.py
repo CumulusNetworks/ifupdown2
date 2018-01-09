@@ -1,12 +1,16 @@
 #!/usr/bin/python
 #
-# Copyright 2015 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2015-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-from utilsbase import *
-from ifupdown.utils import utils
+try:
+    import os
+
+    from ifupdown.utils import utils
+    from ifupdownaddons.utilsbase import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
 
 class systemUtils():
     @classmethod
@@ -23,7 +27,8 @@ class systemUtils():
 
         if procname:
             try:
-                utils.exec_command('/bin/pidof %s' % procname, stdout=False)
+                utils.exec_command('%s %s' %
+                                    (utils.pidof_cmd, procname))
             except:
                 return False
             else:
@@ -36,8 +41,8 @@ class systemUtils():
         if not servicename:
             return False
         try:
-            utils.exec_commandl(['/usr/sbin/service', servicename, 'status'],
-                                stdout=False)
+            utils.exec_commandl([utils.service_cmd,
+                                 servicename, 'status'])
         except Exception:
             # XXX: check for subprocess errors vs os error
             return False
@@ -48,7 +53,8 @@ class systemUtils():
         if not processname:
             return False
         try:
-            utils.exec_command('/bin/pidof %s' % processname, stdout=False)
+            utils.exec_command('%s %s' %
+                               (utils.pidof_cmd, processname))
         except:
             return False
         else:

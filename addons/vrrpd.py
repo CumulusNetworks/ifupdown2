@@ -1,24 +1,24 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
 try:
-    from ipaddr import IPNetwork
-    from sets import Set
+    import os
+    import re
+    import glob
+    import signal
+
     from ifupdown.iface import *
     from ifupdown.utils import utils
+
     from ifupdownaddons.modulebase import moduleBase
-    from ifupdownaddons.iproute2 import iproute2
+
     import ifupdown.ifupdownflags as ifupdownflags
-    import os
-    import glob
-    import logging
-    import signal
-    import re
 except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class vrrpd(moduleBase):
     """  ifupdown2 addon module to configure vrrpd attributes """
@@ -40,13 +40,12 @@ class vrrpd(moduleBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
 
     def _check_if_process_is_running(self, cmdname, cmdline):
         targetpids = []
         pidstr = ''
         try:
-            cmdl = ['/bin/pidof', cmdname]
+            cmdl = [utils.pidof_cmd, cmdname]
             pidstr = utils.exec_commandl(cmdl, stderr=None).strip('\n')
         except:
             pass
@@ -97,11 +96,13 @@ class vrrpd(moduleBase):
             self.logger.warn('%s: incomplete vrrp arguments ' %ifaceobj.name,
                     '(virtual ip not found)')
             return
-        cmd = '/usr/sbin/vrrpd -n -D -i %s %s' %(ifaceobj.name, cmd)
+        cmd = ('%s -n -D -i %s %s' %
+               (utils.vrrpd_cmd, ifaceobj.name, cmd))
         utils.exec_command(cmd)
 
-        cmd = '/usr/sbin/ifplugd -i %s -b -f -u0 -d1 -I -p -q' %ifaceobj.name
-        if self._check_if_process_is_running('/usr/sbin/ifplugd', cmd):
+        cmd = ('%s -i %s -b -f -u0 -d1 -I -p -q' %
+               (utils.ifplugd_cmd, ifaceobj.name))
+        if self._check_if_process_is_running(utils.ifplugd_cmd, cmd):
            self.logger.info('%s: ifplugd already running' %ifaceobj.name)
            return
         utils.exec_command(cmd)
@@ -119,7 +120,8 @@ class vrrpd(moduleBase):
         if not attrval:
             return
         try:
-            utils.exec_command('/usr/sbin/ifplugd -k -i %s' % ifaceobj.name)
+            utils.exec_command('%s -k -i %s' %
+                               (utils.ifplugd_cmd, ifaceobj.name))
         except Exception, e:
             self.logger.debug('%s: ifplugd down error (%s)'
                               %(ifaceobj.name, str(e)))

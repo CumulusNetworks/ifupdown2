@@ -5,36 +5,14 @@ This package contains modules that provide helper methods
 for ifupdown2 addon modules to interact directly with tools
 like iproute2, brctl etc.
 
-
-bridgeutils
+LinkUtils
 ===========
 
-Helper module to work with bridgeutil commands
+Helper module to work with brctl, bonds, iproute2, mstpctl commands
 
-.. automodule:: bridgeutils
+.. automodule:: LinkUtils
 
-.. autoclass:: brctl
-
-<<<<<<< HEAD
-ifenslaveutil
-=============
-=======
-bondutil
-========
->>>>>>> cumulus/dev
-
-Helper module to interact with linux api to create bonds.
-Currently this is via sysfs.
-
-<<<<<<< HEAD
-.. automodule:: ifenslaveutil
-
-.. autoclass:: ifenslaveutil
-=======
-.. automodule:: bondutil
-
-.. autoclass:: bondutil
->>>>>>> cumulus/dev
+.. autoclass:: LinkUtils
 
 dhclient
 ========
@@ -44,12 +22,3 @@ Helper module to interact with dhclient tools.
 .. automodule:: dhclient
 
 .. autoclass:: dhclient
-
-iproute2
-========
-
-Helper module to interact with iproute2 tools.
-
-.. automodule:: iproute2
-
-.. autoclass:: iproute2

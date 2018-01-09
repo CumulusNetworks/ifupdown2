@@ -1,24 +1,25 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
 try:
     import re
-    from ipaddr import IPNetwork
-    from sets import Set
-    from ifupdown.iface import *
-    import ifupdown.policymanager as policymanager
-    from ifupdownaddons.modulebase import moduleBase
-    from ifupdownaddons.dhclient import dhclient
-    from ifupdownaddons.iproute2 import iproute2
-    import ifupdown.ifupdownflags as ifupdownflags
-    from ifupdown.utils import utils
     import time
-    from ifupdown.netlink import netlink
+
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+
+    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
 except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class dhcp(moduleBase):
     """ ifupdown2 addon module to configure dhcp on interface """
@@ -95,8 +96,8 @@ class dhcp(moduleBase):
                     timeout = 10
                     while timeout:
                         timeout -= 2
-                        addr_output = utils.exec_command('ip -6 addr show %s'
-                                                         % ifaceobj.name)
+                        addr_output = utils.exec_command('%s -6 addr show %s'
+                                                         %(utils.ip_cmd, ifaceobj.name))
                         r = re.search('inet6 .* scope link', addr_output)
                         if r:
                             self.dhclientcmd.start6(ifaceobj.name,
@@ -179,7 +180,7 @@ class dhcp(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run dhcp configuration on the interface object passed as argument

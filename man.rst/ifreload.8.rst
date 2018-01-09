@@ -54,10 +54,10 @@ OPTIONS
 
     -f, --force           force run all operations
 
-    -c, --currently-up    only reload auto and other interfaces that are
-                          currently up. This can be used as a non-disruptive
-                          alternative to -a because it will not down any
-                          interfaces
+    -c, --currently-up    Reload the configuration for all interfaces which
+                          are currently up regardless of whether an interface
+                          has "auto <interface>" configuration within the
+                          /etc/network/interfaces file.
 
     -X EXCLUDEPATS, --exclude EXCLUDEPATS
                           Exclude interfaces from the list of interfaces to

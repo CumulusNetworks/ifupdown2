@@ -1,19 +1,23 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import re
-import io
-import logging
-import traceback
+try:
+    import os
+    import re
+    import logging
+    import traceback
 
-from ifupdown.utils import utils
-from ifupdown.iface import *
-import ifupdown.policymanager as policymanager
-import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class NotSupported(Exception):
     pass
@@ -24,8 +28,8 @@ class moduleBase(object):
     Provides common infrastructure methods for all addon modules """
 
     def __init__(self, *args, **kargs):
-        modulename = self.__class__.__name__
-        self.logger = logging.getLogger('ifupdown.' + modulename)
+        self.modulename = self.__class__.__name__
+        self.logger = logging.getLogger('ifupdown.' + self.modulename)
 
         # vrfs are a global concept and a vrf context can be applicable
         # to all global vrf commands. Get the default vrf-exec-cmd-prefix
@@ -39,12 +43,52 @@ class moduleBase(object):
 
         self._bridge_stp_user_space = None
 
+        self.merge_modinfo_with_policy_files()
+
+    def merge_modinfo_with_policy_files(self):
+        """
+            update addons modinfo dictionary with system/user defined values in policy files
+            Any value can be updated except the module help "mhelp"
+
+            We also check if the policy attributes really exist to make sure someone is not
+            trying to "inject" new attributes to prevent breakages and security issue
+        """
+        attrs = dict(self.get_modinfo().get('attrs', {}))
+
+        if not attrs:
+            return
+
+        error_msg = 'this attribute doesn\'t exist or isn\'t supported'
+
+        # first check module_defaults
+        for key, value in policymanager.policymanager_api.get_module_defaults(self.modulename).items():
+            if not key in attrs:
+                self.logger.warning('%s: %s: %s' % (self.modulename, key, error_msg))
+                continue
+            attrs[key]['default'] = value
+
+        # then check module_globals (overrides module_defaults)
+        policy_modinfo = policymanager.policymanager_api.get_module_globals(self.modulename, '_modinfo')
+        if policy_modinfo:
+            policy_attrs = policy_modinfo.get('attrs', {})
+            update_attrs = dict()
+
+            for attr_name, attr_description in policy_attrs.items():
+                if attr_name not in attrs:
+                    self.logger.warning('%s: %s: %s' % (self.modulename, attr_name, error_msg))
+                else:
+                    update_attrs[attr_name] = attr_description
+
+            attrs.update(update_attrs)
+
+        return attrs
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
         if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+                traceback.print_exc()
             self.logger.warn(str)
             if ifaceobj:
                 ifaceobj.set_status(ifaceStatus.WARNING)
@@ -55,6 +99,7 @@ class moduleBase(object):
         if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
+                traceback.print_exc()
             if raise_error:
                 if ifaceobj:
                     ifaceobj.set_status(ifaceStatus.ERROR)
@@ -66,7 +111,8 @@ class moduleBase(object):
 
     def is_process_running(self, procName):
         try:
-            utils.exec_command('/bin/pidof -x %s' % procName)
+            utils.exec_command('%s -x %s' %
+                               (utils.pidof_cmd, procName))
         except:
             return False
         else:
@@ -249,11 +295,13 @@ class moduleBase(object):
 
     def sysctl_set(self, variable, value):
         """ set sysctl variable to value passed as argument """
-        utils.exec_command('sysctl %s=%s' % (variable, value))
+        utils.exec_command('%s %s=%s' %
+                           (utils.sysctl_cmd, variable, value))
 
     def sysctl_get(self, variable):
         """ get value of sysctl variable """
-        output = utils.exec_command('sysctl %s' % variable)
+        output = utils.exec_command('%s %s' %
+                                    (utils.sysctl_cmd, variable))
         split = output.split('=')
         if len(split) > 1:
             return split[1].strip()
@@ -337,7 +385,10 @@ class moduleBase(object):
         try:
             return self._modinfo
         except:
-            return None
+            return {}
+
+    def get_attr_default_value(self, attrname):
+        return self.get_modinfo().get('attrs', {}).get(attrname, {}).get('default')
 
     def get_overrides_ifupdown_scripts(self):
         """ return the ifupdown scripts replaced by the current module """
@@ -361,19 +412,61 @@ class moduleBase(object):
             pass
         return (start, end)
 
-    def _handle_reserved_vlan(self, vlanid, logprefix=''):
+    def _handle_reserved_vlan(self, vlanid, logprefix='', end=-1):
         """ Helper function to check and warn if the vlanid falls in the
         reserved vlan range """
-        if vlanid in range(self._resv_vlan_range[0],
-                           self._resv_vlan_range[1]):
-           self.logger.error('%s: reserved vlan %d being used'
-                   %(logprefix, vlanid) + ' (reserved vlan range %d-%d)'
-                   %(self._resv_vlan_range[0], self._resv_vlan_range[1]))
-           return True
-        return False
+        error = False
+
+        if end == -1 and vlanid in range(self._resv_vlan_range[0], self._resv_vlan_range[1]):
+            error = True
+        elif end > 0 and vlanid < self._resv_vlan_range[0] and end > self._resv_vlan_range[1]:
+            error = True
+            vlanid = self._resv_vlan_range[0]
+
+        if error:
+            self.logger.error('%s: reserved vlan %d being used (reserved vlan range %d-%d)'
+                              % (logprefix, vlanid, self._resv_vlan_range[0], self._resv_vlan_range[1]))
+
+        return error
 
     def _valid_ethaddr(self, ethaddr):
         """ Check if address is 00:00:00:00:00:00 """
         if not ethaddr or re.match('00:00:00:00:00:00', ethaddr):
             return False
         return True
+
+    def _get_vlan_id_from_ifacename(self, ifacename):
+        if '.' in ifacename:
+            vid_str = ifacename.split('.', 2)
+            vlen = len(vid_str)
+            if vlen == 2:
+                vid_str = vid_str[1]
+            elif vlen == 3:
+                vid_str = vid_str[2]
+        elif ifacename.startswith('vlan'):
+            vid_str = ifacename[4:]
+        else:
+            return -1
+        try:
+            vid = int(vid_str)
+        except:
+            return -1
+        return vid
+
+    def _get_vlan_id(self, ifaceobj):
+        """ Derives vlanid from iface name
+
+        Example:
+            Returns 1 for ifname vlan0001 returns 1
+            Returns 1 for ifname vlan1
+            Returns 1 for ifname eth0.1
+            Returns 100 for ifname eth0.1.100
+            Returns -1 if vlan id cannot be determined
+        """
+        vid_str = ifaceobj.get_attr_value_first('vlan-id')
+        try:
+            if vid_str: return int(vid_str)
+        except:
+            return -1
+
+        return self._get_vlan_id_from_ifacename(ifaceobj.name)

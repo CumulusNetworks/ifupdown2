@@ -36,13 +36,13 @@ EXTRA_ARGS=
 
 gen_examples() {
     # Generate sample interfaces file. The interfaces files are
-    # generated under /usr/share/doc/python-ifupdown2/examples/
+    # generated under /usr/share/doc/ifupdown2/examples/
     #
 
     # generate files only at boot
     [ -f ${IFSTATE_LOCKFILE} ] && return
 
-    python_ifupdown2_docdir="/usr/share/doc/python-ifupdown2"
+    python_ifupdown2_docdir="/usr/share/doc/ifupdown2"
     swpfile=${python_ifupdown2_docdir}"/examples/swp_defaults"
     bridgedefaultfile=${python_ifupdown2_docdir}"/examples/bridge_untagged_default"
     interfaces_gen_script=${python_ifupdown2_docdir}"/examples/generate_interfaces.py"

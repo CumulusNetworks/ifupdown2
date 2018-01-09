@@ -1,16 +1,19 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.bridgeutils import brctl
-from ipaddr import IPv4Address
-import ifupdown.ifupdownflags as ifupdownflags
-import logging
+try:
+    from ifupdown.iface import *
+
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
+
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class bridgevlan(moduleBase):
     """  ifupdown2 addon module to configure vlan attributes on a vlan
@@ -71,7 +74,7 @@ class bridgevlan(moduleBase):
 
         running_mcqv4src = {}
         if not ifupdownflags.flags.PERFMODE:
-            running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
+            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(bridgename)
         if running_mcqv4src:
             r_mcqv4src = running_mcqv4src.get(vlan)
         else:
@@ -79,14 +82,14 @@ class bridgevlan(moduleBase):
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if not mcqv4src:
             if r_mcqv4src:
-                self.brctlcmd.del_mcqv4src(bridgename, vlanid)
+                self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
             return
 
         if r_mcqv4src and r_mcqv4src != mcqv4src:
-            self.brctlcmd.del_mcqv4src(bridgename, vlanid)
-            self.brctlcmd.set_mcqv4src(bridgename, vlanid, mcqv4src)
+            self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
+            self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
         else:
-            self.brctlcmd.set_mcqv4src(bridgename, vlanid, mcqv4src)
+            self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
 
     def _down(self, ifaceobj):
         try:
@@ -103,11 +106,11 @@ class bridgevlan(moduleBase):
             return
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if mcqv4src:
-           self.brctlcmd.del_mcqv4src(bridgename, vlanid)
+           self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
 
     def _query_running_bridge_igmp_querier_src(self, ifaceobj):
         (bridgename, vlanid) = ifaceobj.name.split('.')
-        running_mcqv4src = self.brctlcmd.get_mcqv4src(bridgename)
+        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(bridgename)
         if running_mcqv4src:
            return running_mcqv4src.get(vlanid)
         return None
@@ -129,6 +132,15 @@ class bridgevlan(moduleBase):
         # XXX not supported
         return
 
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        ret = True
+        bvlan_intf = self._is_bridge_vlan_device(ifaceobj)
+        if (ifaceobj.get_attr_value_first('bridge-igmp-querier-src') and
+            not bvlan_intf):
+            self.logger.error('%s: bridge-igmp-querier-src only allowed under vlan stanza' %ifaceobj.name)
+            ret = False
+        return ret
+
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
                'query-checkcurr' : _query_check,
@@ -140,9 +152,7 @@ class bridgevlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
-        if not self.brctlcmd:
-            self.brctlcmd = brctl()
+            self.ipcmd = self.brctlcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
@@ -165,6 +175,14 @@ class bridgevlan(moduleBase):
             return
         if (operation != 'query-running' and
                 not self._is_bridge_vlan_device(ifaceobj)):
+            # most common problem is people specify BRIDGE_VLAN
+            # attribute on a bridge or a vlan device, which
+            # is incorrect. So, catch them here and warn before
+            # giving up processing the interface
+            if ((ifaceobj.link_kind & ifaceLinkKind.BRIDGE or
+                ifaceobj.link_kind & ifaceLinkKind.VLAN) and
+                not self.syntax_check(ifaceobj, None)):
+                ifaceobj.status = ifaceStatus.ERROR
             return
         self._init_command_handlers()
         if operation == 'query-checkcurr':

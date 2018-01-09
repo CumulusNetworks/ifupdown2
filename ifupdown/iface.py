@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # iface --
@@ -13,9 +13,13 @@ It is modeled based on the 'iface' section in /etc/network/interfaces
 file. But can be extended to include any other network interface format
 """
 
-from collections import OrderedDict
-import logging
-import json
+try:
+    import json
+
+    from collections import OrderedDict
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class ifaceStatusUserStrs():
     """ This class declares strings user can see during an ifquery --check
@@ -52,6 +56,22 @@ class ifaceLinkKind():
     VLAN =    0x000100
     VXLAN =   0x001000
     VRF =     0x010000
+    # to indicate logical interface created by an external entity.
+    # the 'kind' of which ifupdown2 does not really understand
+    OTHER =     0x100000
+
+    @classmethod
+    def to_str(cls, kind):
+        if kind == cls.BRIDGE:
+            return "bridge"
+        elif kind == cls.BOND:
+            return "bond"
+        elif kind == cls.VLAN:
+            return "vlan"
+        elif kind == cls.VXLAN:
+            return "vxlan"
+        elif kind == cls.VRF:
+            return "vrf"
 
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
@@ -101,6 +121,18 @@ class ifaceLinkType():
     LINK_SLAVE = 0x1
     LINK_MASTER = 0x2
     LINK_NA = 0x3
+
+class VlanProtocols():
+    # Picked ID values from
+    # http://www.microhowto.info/howto/configure_an_ethernet_interface_as_a_qinq_vlan_trunk.html
+    ETHERTYPES_TO_ID = {
+                        '802.1Q'  : '0x8100',
+                        '802.1AD' : '0x88a8',
+                       }
+    ID_TO_ETHERTYPES = {
+                        '0x8100'  : '802.1Q',
+                        '0x88a8'  : '802.1AD',
+                       }
 
 class ifaceDependencyType():
     """ Indicates type of dependency.
@@ -257,12 +289,12 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
                 vitem_status = []
                 for vitem in v:
                     s = o.get_config_attr_status(k, idx)
-                    if s == -1:
-                        status_str = ifaceStatusUserStrs.UNKNOWN
-                    elif s == 1:
+                    if s == 1:
                         status_str = ifaceStatusUserStrs.ERROR
                     elif s == 0:
                         status_str = ifaceStatusUserStrs.SUCCESS
+                    else:
+                        status_str = ifaceStatusUserStrs.UNKNOWN
                     vitem_status.append('%s' %status_str)
                     idx += 1
                 retconfig[k] = v[0] if len(v) == 1 else v

@@ -1,27 +1,32 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-import signal
-import errno
-import fcntl
-import atexit
-import re
-from sets import Set
-from ifupdown.iface import *
-from ifupdown.utils import utils
-import ifupdown.policymanager as policymanager
-import ifupdownaddons
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bondutil import bondutil
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.dhclient import dhclient
-from ifupdownaddons.utilsbase import *
+try:
+    import re
+    import os
+    import fcntl
+    import atexit
+    import signal
+
+    from sets import Set
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
+
+    from ifupdownaddons.utilsbase import *
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class vrfPrivFlags:
     PROCESSED = 0x1
@@ -53,12 +58,14 @@ class vrf(moduleBase):
                                  '253' : 'default', '0' : 'unspec'}
 
     def __init__(self, *args, **kargs):
-        ifupdownaddons.modulebase.moduleBase.__init__(self, *args, **kargs)
+        moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.bondcmd = None
         self.dhclientcmd = None
         self.name = self.__class__.__name__
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
+
+        self.user_reserved_vrf_table = []
 
         if (ifupdownflags.flags.PERFMODE and
             not (self.vrf_mgmt_devname and os.path.exists('/sys/class/net/%s'
@@ -79,14 +86,16 @@ class vrf(moduleBase):
                     self.logger.debug('vrf: removing file failed (%s)'
                                       %str(e))
         try:
-            ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
+            ip_rules = utils.exec_command('%s rule show'
+                                          %utils.ip_cmd).splitlines()
             self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip_rule_cache = []
             self.logger.warn('vrf: cache v4: %s' % str(e))
 
         try:
-            ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
+            ip_rules = utils.exec_command('%s -6 rule show'
+                                          %utils.ip_cmd).splitlines()
             self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception, e:
             self.ip6_rule_cache = []
@@ -125,6 +134,40 @@ class vrf(moduleBase):
         self.vrf_helper = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-helper')
         self.vrf_close_socks_on_down = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-close-socks-on-down')
         self.warn_on_vrf_map_write_err = True
+
+    def _check_vrf_table_id(self, ifaceobj):
+        vrf_table = ifaceobj.get_attr_value_first('vrf-table')
+        if not vrf_table:
+            return False
+        if (vrf_table != 'auto' and
+            (int(vrf_table) < self.vrf_table_id_start or
+             int(vrf_table) > self.vrf_table_id_end)):
+            self.logger.error('%s: vrf table id %s out of reserved range [%d,%d]'
+                             %(ifaceobj.name,
+                               vrf_table,
+                               self.vrf_table_id_start,
+                               self.vrf_table_id_end))
+            return False
+        return True
+
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        if ifaceobj.link_kind & ifaceLinkKind.VRF:
+            try:
+                check_vrf_table_id  = self._check_vrf_table_id(ifaceobj)
+                check_vrf_sys_names = self._check_vrf_system_reserved_names(ifaceobj)
+                return check_vrf_table_id and check_vrf_sys_names
+            except Exception as e:
+                self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+                return False
+        return True
+
+    def _check_vrf_system_reserved_names(self, ifaceobj):
+        system_reserved_names = self.system_reserved_rt_tables.values()
+        if ifaceobj.name in system_reserved_names:
+            self.log_error('cannot use system reserved %s vrf names'
+                           % (str(system_reserved_names)), ifaceobj)
+            return False
+        return True
 
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
@@ -256,6 +299,14 @@ class vrf(moduleBase):
             ifaceobj.link_type = ifaceLinkType.LINK_MASTER
             ifaceobj.link_kind |= ifaceLinkKind.VRF
             ifaceobj.role |= ifaceRole.MASTER
+
+            if vrf_table != 'auto':
+                # if the user didn't specify auto we need to store the desired
+                # vrf tables ids, in case the configuration has both auto and
+                # hardcoded vrf-table ids. We need to create them all without
+                # collisions.
+                self.user_reserved_vrf_table.append(int(vrf_table))
+
         vrf_iface_name = ifaceobj.get_attr_value_first('vrf')
         if not vrf_iface_name:
             return None
@@ -278,9 +329,9 @@ class vrf(moduleBase):
             table_id_start = self.vrf_table_id_start
         else:
             table_id_start = self.last_used_vrf_table + 1
-        for t in range(table_id_start,
-                       self.vrf_table_id_end):
-            if not self.iproute2_vrf_map.get(t):
+        for t in range(table_id_start, self.vrf_table_id_end):
+            if (not self.iproute2_vrf_map.get(t)
+                    and t not in self.user_reserved_vrf_table):
                 self.last_used_vrf_table = t
                 return str(t)
         return None
@@ -362,7 +413,7 @@ class vrf(moduleBase):
                     raise
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
-        netlink.link_set_master(ifacename, vrfname)
+        self.ipcmd.link_set(ifacename, 'master', vrfname)
         return
 
     def _down_dhcp_slave(self, ifaceobj, vrfname):
@@ -394,7 +445,7 @@ class vrf(moduleBase):
                 uppers = self.ipcmd.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
-                    netlink.link_set_master(ifacename, vrfname)
+                    self.ipcmd.link_set(ifacename, 'master', vrfname)
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
@@ -429,29 +480,33 @@ class vrf(moduleBase):
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
-        ip_rule_cmd = 'ip %s rule del pref %s %s %s table %s' 
+        ip_rule_cmd = '%s %s rule del pref %s %s %s table %s'
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if rule in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
@@ -464,31 +519,37 @@ class vrf(moduleBase):
         return False
 
     def _rule_cache_fill(self):
-        ip_rules = utils.exec_command('/sbin/ip rule show').splitlines()
+        ip_rules = utils.exec_command('%s rule show'
+                                      %utils.ip_cmd).splitlines()
         self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         self.l3mdev4_rule = self._l3mdev_rule(self.ip_rule_cache)
-        ip_rules = utils.exec_command('/sbin/ip -6 rule show').splitlines()
+        ip_rules = utils.exec_command('%s -6 rule show'
+                                      %utils.ip_cmd).splitlines()
         self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         self.l3mdev6_rule = self._l3mdev_rule(self.ip6_rule_cache)
 
     def _add_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
         ip_rule_out_format = '%s: from all %s %s lookup %s'
-        ip_rule_cmd = 'ip %s rule add pref %s %s %s table %s' 
+        ip_rule_cmd = '%s %s rule add pref %s %s %s table %s'
         if self.vrf_fix_local_table:
             self.vrf_fix_local_table = False
             rule = '0: from all lookup local'
             if rule in self.ip_rule_cache:
                 try:
-                    utils.exec_command('ip rule del pref 0')
-                    utils.exec_command('ip rule add pref 32765 table local')
+                    utils.exec_command('%s rule del pref 0'
+                                       %utils.ip_cmd)
+                    utils.exec_command('%s rule add pref 32765 table local'
+                                       %utils.ip_cmd)
                 except Exception, e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
             if rule in self.ip6_rule_cache:
                 try:
-                    utils.exec_command('ip -6 rule del pref 0')
-                    utils.exec_command('ip -6 rule add pref 32765 table local')
+                    utils.exec_command('%s -6 rule del pref 0'
+                                       %utils.ip_cmd)
+                    utils.exec_command('%s -6 rule add pref 32765 table local'
+                                       %utils.ip_cmd)
                 except Exception, e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
                     pass
@@ -502,25 +563,29 @@ class vrf(moduleBase):
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
-            rule_cmd = ip_rule_cmd %('', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'oif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'oif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
         rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
         if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
-            rule_cmd = ip_rule_cmd %('-6', pref, 'iif', vrf_dev_name,
+            rule_cmd = ip_rule_cmd %(utils.ip_cmd,
+                                     '-6', pref, 'iif', vrf_dev_name,
                                      vrf_dev_name)
             utils.exec_command(rule_cmd)
 
@@ -599,10 +664,8 @@ class vrf(moduleBase):
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
         if not self.ipcmd.link_exists(ifaceobj.name):
-            if ifaceobj.name in self.system_reserved_rt_tables.values():
-                self.log_error('cannot use system reserved %s vrf names'
-                                %(str(self.system_reserved_rt_tables.values())),
-                                ifaceobj)
+            self._check_vrf_system_reserved_names(ifaceobj)
+
             if self.vrf_count == self.vrf_max_count:
                 self.log_error('max vrf count %d hit...not '
                                'creating vrf' % self.vrf_count, ifaceobj)
@@ -691,7 +754,7 @@ class vrf(moduleBase):
 
     def _kill_ssh_connections(self, ifacename):
         try:
-            runningaddrsdict = self.ipcmd.addr_get(ifacename)
+            runningaddrsdict = self.ipcmd.get_running_addrs(None, ifacename)
             if not runningaddrsdict:
                 return
             iplist = [i.split('/', 1)[0] for i in runningaddrsdict.keys()]
@@ -701,7 +764,7 @@ class vrf(moduleBase):
             #Example output:
             #ESTAB      0      0      10.0.1.84:ssh       10.0.1.228:45186     
             #users:(("sshd",pid=2528,fd=3))
-            cmdl = ['/bin/ss', '-t', '-p']
+            cmdl = [utils.ss_cmd, '-t', '-p']
             for line in utils.exec_commandl(cmdl).splitlines():
                 citems = line.split()
                 addr = None
@@ -722,7 +785,8 @@ class vrf(moduleBase):
             # 'systemd(1)---sshd(990)---sshd(16112)---sshd(16126)---bash(16127)---sudo(16756)---ifreload(16761)---pstree(16842)\n'
             # get the above output to following format
             # ['systemd(1)', 'sshd(990)', 'sshd(16112)', 'sshd(16126)', 'bash(16127)', 'sudo(16756)', 'ifreload(16761)', 'pstree(16850)']
-            pstree = list(reversed(utils.exec_command('/usr/bin/pstree -Aps %s' %os.getpid()).strip().split('---')))
+            pstree = list(reversed(utils.exec_command('%s -Aps %s' %
+                                                       (utils.pstree_cmd, os.getpid())).strip().split('---')))
             for index, process in enumerate(pstree):
                 # check the parent of SSH process to make sure
                 # we don't kill SSH server or systemd process
@@ -778,7 +842,7 @@ class vrf(moduleBase):
                     # This is a vrf slave
                     self._up_vrf_slave(ifaceobj.name, vrf, ifaceobj,
                                        ifaceobj_getfunc)
-                else:
+                elif not ifupdownflags.flags.PERFMODE:
                     # check if we were a slave before
                     master = self.ipcmd.link_get_master(ifaceobj.name)
                     if master:
@@ -805,8 +869,8 @@ class vrf(moduleBase):
             return
 
         try:
-            utils.exec_command('/bin/ss -aK \"dev == %s\"'
-                               %ifindex)
+            utils.exec_command('%s -aK \"dev == %s\"'
+                               %(utils.ss_cmd, ifindex))
         except Exception, e:
             self.logger.info('%s: closing socks using ss'
                              ' failed (%s)\n' %(ifaceobj.name, str(e)))
@@ -871,7 +935,7 @@ class vrf(moduleBase):
     def _down_vrf_slave(self, ifacename, ifaceobj=None, vrfname=None):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
-            netlink.link_set_nomaster(ifacename)
+            self.ipcmd.link_set(ifacename, 'nomaster')
             # Down this slave only if it is a slave ifupdown2 manages.
             # we dont want to down slaves that maybe up'ed by
             # somebody else. One such example is a macvlan device
@@ -1000,9 +1064,7 @@ class vrf(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
-        if not self.bondcmd:
-            self.bondcmd = bondutil()
+            self.ipcmd = self.bondcmd = LinkUtils()
         if not self.dhclientcmd:
             self.dhclientcmd = dhclient()
 

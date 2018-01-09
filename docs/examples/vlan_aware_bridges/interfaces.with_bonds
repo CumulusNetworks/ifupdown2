@@ -4,13 +4,13 @@
 # uplink1, peerlink and downlink are bond interfaces.
 # 'bridge' is a vlan aware bridge with ports uplink1, peerlink
 # and downlink (swp2-20).
-#
+# 
 # native vlan is by default 1
 #
 # 'bridge-vids' attribute is used to declare vlans.
 # 'bridge-pvid' attribute is used to specify native vlans if other than 1
 # 'bridge-access' attribute is used to declare access port
-#
+# 
 auto lo
 iface lo
 

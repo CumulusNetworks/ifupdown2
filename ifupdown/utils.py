@@ -1,25 +1,30 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # utils --
 #    helper class
 #
 
-import os
-import re
-import shlex
-import fcntl
-import signal
-import logging
-import subprocess
-import ifupdownflags
+try:
+    import os
+    import re
+    import shlex
+    import fcntl
+    import signal
+    import logging
+    import subprocess
 
-from functools import partial
-from ipaddr import IPNetwork, IPAddress
+    from functools import partial
+    from ipaddr import IPNetwork, IPAddress
 
-from ifupdown.iface import *
+    from ifupdown.iface import *
+
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 def signal_handler_f(ps, sig, frame):
     if ps:
@@ -35,9 +40,11 @@ class utils():
         "on": True,
         "yes": True,
         "1": True,
+        "fast": True,
         "off": False,
         "no": False,
         "0": False,
+        "slow": False
     }
 
     _binary_bool = {
@@ -55,6 +62,81 @@ class utils():
         'no': 'off'
     }
 
+    _onoff_onezero = {
+        '1' : 'on',
+        '0' : 'off'
+    }
+
+    _yesno_onezero = {
+        '1' : 'yes',
+        '0' : 'no'
+    }
+
+    """
+    Set debian path as default path for all the commands.
+    If command not present in debian path, search for the
+    commands in the other system directories.
+    This search is carried out to handle different locations
+    on different distros.
+    If the command is not found in any of the system
+    directories, command execution will fail because we have
+    set default path same as debian path.
+    """
+    bridge_cmd      = '/sbin/bridge'
+    ip_cmd          = '/bin/ip'
+    brctl_cmd       = '/sbin/brctl'
+    pidof_cmd       = '/bin/pidof'
+    service_cmd     = '/usr/sbin/service'
+    sysctl_cmd      = '/sbin/sysctl'
+    modprobe_cmd    = '/sbin/modprobe'
+    pstree_cmd      = '/usr/bin/pstree'
+    ss_cmd          = '/bin/ss'
+    vrrpd_cmd       = '/usr/sbin/vrrpd'
+    ifplugd_cmd     = '/usr/sbin/ifplugd'
+    mstpctl_cmd     = '/sbin/mstpctl'
+    ethtool_cmd     = '/sbin/ethtool'
+    systemctl_cmd   = '/bin/systemctl'
+    dpkg_cmd        = '/usr/bin/dpkg'
+
+    for cmd in ['bridge',
+                'ip',
+                'brctl',
+                'pidof',
+                'service',
+                'sysctl',
+                'modprobe',
+                'pstree',
+                'ss',
+                'vrrpd',
+                'ifplugd',
+                'mstpctl',
+                'ethtool',
+                'systemctl',
+                'dpkg'
+                ]:
+        if os.path.exists(vars()[cmd + '_cmd']):
+            continue
+        for path in ['/bin/',
+                     '/sbin/',
+                     '/usr/bin/',
+                     '/usr/sbin/',]:
+            if os.path.exists(path + cmd):
+                vars()[cmd + '_cmd'] = path + cmd
+            else:
+                logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
+
+    @staticmethod
+    def get_onff_from_onezero(value):
+        if value in utils._onoff_onezero:
+            return utils._onoff_onezero[value]
+        return value
+
+    @staticmethod
+    def get_yesno_from_onezero(value):
+        if value in utils._yesno_onezero:
+            return utils._yesno_onezero[value]
+        return value
+
     @staticmethod
     def get_onoff_bool(value):
         if value in utils._onoff_bool:
@@ -63,9 +145,7 @@ class utils():
 
     @staticmethod
     def get_boolean_from_string(value):
-        if value in utils._string_values:
-            return utils._string_values[value]
-        return False
+        return utils._string_values.get(value, False)
 
     @staticmethod
     def get_yesno_boolean(bool):
@@ -92,6 +172,19 @@ class utils():
             for attr in attrslist:
                 if attr in attrsdict:
                     attrsdict[attr] = utils.boolean_support_binary(attrsdict[attr])
+
+    @staticmethod
+    def get_int_from_boolean_and_string(value):
+        try:
+            return int(value)
+        except:
+            return int(utils.get_boolean_from_string(value))
+
+    @staticmethod
+    def strip_hwaddress(hwaddress):
+        if hwaddress and hwaddress.startswith("ether"):
+            hwaddress = hwaddress[5:].strip()
+        return hwaddress
 
     @classmethod
     def importName(cls, modulename, name):
@@ -211,6 +304,25 @@ class utils():
             except Exception as e:
                 cls.logger.warning('%s: %s' % (ifacename, e))
             return ipaddrs
+
+    @classmethod
+    def get_ip_objs(cls, module_name, ifname, addrs_list):
+        addrs_obj_list = []
+        for a in addrs_list or []:
+            try:
+                addrs_obj_list.append(IPNetwork(a) if '/' in a else IPAddress(a))
+            except Exception as e:
+                cls.logger.warning('%s: %s: %s' % (module_name, ifname, str(e)))
+        return addrs_obj_list
+
+    @classmethod
+    def get_ip_obj(cls, module_name, ifname, addr):
+        if addr:
+            try:
+                return IPNetwork(addr) if '/' in addr else IPAddress(addr)
+            except Exception as e:
+                cls.logger.warning('%s: %s: %s' % (module_name, ifname, str(e)))
+        return None
 
     @classmethod
     def is_addr_ip_allowed_on(cls, ifaceobj, syntax_check=False):

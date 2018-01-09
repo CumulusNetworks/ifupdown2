@@ -1,21 +1,28 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import os
-from sets import Set
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.bridgeutils import brctl
-from ifupdownaddons.iproute2 import iproute2
-from ifupdown.netlink import netlink
-from ifupdownaddons.mstpctlutil import mstpctlutil
-from ifupdownaddons.systemutils import systemUtils
-import ifupdown.ifupdownflags as ifupdownflags
-import ifupdown.policymanager as policymanager
+try:
+    import os
+
+    from sets import Set
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
+
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.mstpctlutil import mstpctlutil
+    from ifupdownaddons.systemutils import systemUtils
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class mstpctlFlags:
     PORT_PROCESSED = 0x1
@@ -57,20 +64,20 @@ class mstpctl(moduleBase):
                         { 'help' : 'max message age',
                           'validrange' : ['0', '255'],
                           'default' : '20',
-                          'jsonAttr': 'maxAge',
+                          'jsonAttr': 'bridgeMaxAge',
                           'required' : False,
                           'example' : ['mstpctl-maxage 20']},
                     'mstpctl-fdelay' :
                         { 'help' : 'set forwarding delay',
                           'validrange' : ['0', '255'],
                           'default' : '15',
-                          'jsonAttr': 'fwdDelay',
+                          'jsonAttr': 'bridgeFwdDelay',
                           'required' : False,
                           'example' : ['mstpctl-fdelay 15']},
                     'mstpctl-maxhops' :
                         { 'help' : 'bridge max hops',
                           'validrange' : ['0', '255'],
-                          'default' : '15',
+                          'default' : '20',
                           'jsonAttr': 'maxHops',
                           'required' : False,
                           'example' : ['mstpctl-maxhops 15']},
@@ -303,7 +310,7 @@ class mstpctl(moduleBase):
         if not ifupdownflags.flags.PERFMODE:
             runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if runningbridgeports:
-                [netlink.link_set_nomaster(bport)
+                [self.ipcmd.link_set(bport, 'nomaster')
                     for bport in runningbridgeports
                         if not bridgeports or bport not in bridgeports]
             else:
@@ -319,7 +326,7 @@ class mstpctl(moduleBase):
                             %(ifaceobj.name, bridgeport))
                     err += 1
                     continue
-                netlink.link_set_master(bridgeport, ifaceobj.name)
+                self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
                 self.ipcmd.addr_flush(bridgeport)
             except Exception, e:
                 self.log_error(str(e), ifaceobj)
@@ -327,7 +334,7 @@ class mstpctl(moduleBase):
         if err:
             self.log_error('error configuring bridge (missing ports)')
 
-    def _apply_bridge_settings(self, ifaceobj):
+    def _apply_bridge_settings(self, ifaceobj, ifaceobj_getfunc):
         check = False if ifupdownflags.flags.PERFMODE else True
         try:
             # set bridge attributes
@@ -335,8 +342,8 @@ class mstpctl(moduleBase):
                 config_val = ifaceobj.get_attr_value_first(attrname)
                 default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attrname)
                 if not default_val:
-                    default_val = self.get_mod_subattr(attrname,'default')
-                jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
+                    default_val = self.get_mod_subattr(attrname, 'default')
+                jsonAttr = self.get_mod_subattr(attrname, 'jsonAttr')
                 try:
                     running_val = self.mstpctlcmd.get_bridge_attr(
                                     ifaceobj.name, jsonAttr)
@@ -378,12 +385,18 @@ class mstpctl(moduleBase):
                             for port in bridgeports:
                                 if not self.brctlcmd.is_bridge_port(port):
                                     continue
+
+                                bport_ifaceobj = ifaceobj_getfunc(port)
+                                if bport_ifaceobj:
+                                    default_val = self._get_default_val(attrname, bport_ifaceobj[0], ifaceobj)
+
                                 self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                                      port,
                                                                      dstattrname,
                                                                      default_val,
                                                                      json_attr=jsonAttr)
-                    except:
+                    except Exception as e:
+                        self.logger.debug('%s' % str(e))
                         self.logger.info('%s: not resetting %s config'
                                          %(ifaceobj.name, attrname))
                     # leave the loop for this attribute
@@ -595,12 +608,12 @@ class mstpctl(moduleBase):
             stp = ifaceobj.get_attr_value_first('mstpctl-stp')
             if stp:
                self.set_iface_attr(ifaceobj, 'mstpctl-stp',
-                                    self.brctlcmd.set_stp)
+                                   self.brctlcmd.bridge_set_stp)
             else:
-               stp = self.brctlcmd.get_stp(ifaceobj.name)
+               stp = self.brctlcmd.bridge_get_stp(ifaceobj.name)
             if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
-                self._apply_bridge_settings(ifaceobj)
+                self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
         except Exception, e:
@@ -691,7 +704,7 @@ class mstpctl(moduleBase):
         return utils.get_boolean_from_string(stp)
 
     def _get_running_stp(self, ifaceobj):
-        stp = self.brctlcmd.get_stp(ifaceobj.name)
+        stp = self.brctlcmd.bridge_get_stp(ifaceobj.name)
         return utils.get_boolean_from_string(stp)
 
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
@@ -788,7 +801,7 @@ class mstpctl(moduleBase):
                 # contain more than one valid values
                 stp_on_vals = ['on', 'yes']
                 stp_off_vals = ['off']
-                rv = self.brctlcmd.get_stp(ifaceobj.name)
+                rv = self.brctlcmd.bridge_get_stp(ifaceobj.name)
                 if ((v in stp_on_vals and rv in stp_on_vals) or
                     (v in stp_off_vals and rv in stp_off_vals)):
                     ifaceobjcurr.update_config_with_status('mstpctl-stp', v, 0)
@@ -954,7 +967,7 @@ class mstpctl(moduleBase):
             self.logger.warn('%s: unable to determine bridgename'
                              %ifaceobjrunning.name)
             return
-        if self.brctlcmd.get_stp(bridgename) == 'no':
+        if self.brctlcmd.bridge_get_stp(bridgename) == 'no':
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
@@ -1013,7 +1026,7 @@ class mstpctl(moduleBase):
         #    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
 
     def _query_running_bridge(self, ifaceobjrunning):
-        if self.brctlcmd.get_stp(ifaceobjrunning.name) == 'no':
+        if self.brctlcmd.bridge_get_stp(ifaceobjrunning.name) == 'no':
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
@@ -1158,9 +1171,7 @@ class mstpctl(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
-        if not self.brctlcmd:
-            self.brctlcmd = brctl()
+            self.ipcmd = self.brctlcmd = LinkUtils()
         if not self.mstpctlcmd:
             self.mstpctlcmd = mstpctlutil()
 

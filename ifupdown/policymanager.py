@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2015 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2015-2017 Cumulus Networks, Inc. All rights reserved.
 #
 #
 '''
@@ -28,9 +28,13 @@ Provides: an API to retrieve link attributes based on addon module name,
             )
 '''
 
-import json
-import logging
-import glob
+try:
+    import json
+    import glob
+    import logging
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class policymanager():
     def __init__(self):
@@ -192,23 +196,34 @@ class policymanager():
 
         return val
 
-    def get_module_default(self,module_name=None):
-        '''
-        get_module_default: Addon modules can also access the entire config
-        This method returns indexed by "system" and "user": these are the
-        system-wide and user-defined policy arrays for a specific module.
-        '''
-        if not module_name:
-            return None
-        if self.system_policy_array.get(module_name) and \
-           self.user_policy_array.get(module_name):
-            mod_array = {"system":self.system_policy_array[module_name],
-                         "user":self.user_policy_array[module_name]}
-        else:
-            # the module must not have these defined, return None
-            mod_array = None
+    def get_module_defaults(self, module_name):
+        """
+            get_module_defaults: returns a merged dictionary of default values
+            specified in policy files. Users provided values override system
+            values.
+        """
 
-        return mod_array
+        if not module_name:
+            raise NotImplementedError('get_module_defaults: module name can\'t be None')
+
+        defaults = dict()
+        defaults.update(self.system_policy_array.get(module_name, {}).get('defaults', {}))
+        defaults.update(self.user_policy_array.get(module_name, {}).get('defaults', {}))
+        return defaults
+
+    def get_iface_defaults(self, module_name):
+        defaults = dict()
+
+        if not module_name:
+            self.logger.info('get_iface_defaults: module name can\'t be None')
+        else:
+            defaults.update(self.system_policy_array.get(module_name, {}).get('iface_defaults', {}))
+            defaults.update(self.user_policy_array.get(module_name, {}).get('iface_defaults', {}))
+        return defaults
 
 
 policymanager_api = policymanager()
+
+def reset():
+    global policymanager_api
+    policymanager_api = policymanager()

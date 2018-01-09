@@ -32,21 +32,12 @@ ethtool
 
 .. autoclass:: ethtool
 
-<<<<<<< HEAD
-ifenslave
-=========
-
-.. automodule:: ifenslave
-
-.. autoclass:: ifenslave
-=======
 bond
 ====
 
 .. automodule:: bond
 
 .. autoclass:: bond
->>>>>>> cumulus/dev
 
 mstpctl
 =======

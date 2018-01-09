@@ -1,4 +1,29 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2015, 2017 Cumulus Networks, Inc. all rights reserved
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; version 2.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+#
+# https://www.gnu.org/licenses/gpl-2.0-standalone.html
+#
+# Authors:
+#       Daniel Walton, dwalton@cumulusnetworks.com
+#       Julien Fortin, julien@cumulusnetworks.com
+#
+# Netlink Listener --
+#
 
 from nlpacket import *
 from nlmanager import NetlinkManager
@@ -8,13 +33,14 @@ from threading import Thread, Event, Lock
 from Queue import Queue
 import logging
 import socket
+import errno
 
 log = logging.getLogger(__name__)
 
 
 class NetlinkListener(Thread):
 
-    def __init__(self, manager, groups, pid_offset=1):
+    def __init__(self, manager, groups, pid_offset=1, error_notification=False, rcvbuf_sz=10000000):
         """
         groups controls what types of messages we are interested in hearing
         To get everything pass:
@@ -29,9 +55,36 @@ class NetlinkListener(Thread):
         self.shutdown_event = Event()
         self.groups = groups
         self.pid_offset = pid_offset
+        self.rcvbuf_sz = rcvbuf_sz
+
+        # if the app has requested for error notification socket errors will
+        # be sent via the SERVICE_ERROR event
+        self.error_notification = error_notification
+
+        self.supported_messages = [RTM_NEWLINK, RTM_DELLINK, RTM_NEWADDR,
+                                   RTM_DELADDR, RTM_NEWNEIGH, RTM_DELNEIGH,
+                                   RTM_NEWROUTE, RTM_DELROUTE]
+        self.ignore_messages = [RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH,
+                                RTM_GETROUTE, RTM_GETQDISC, NLMSG_ERROR, NLMSG_DONE]
 
     def __str__(self):
         return 'NetlinkListener'
+
+    def supported_messages_add(self, msgtype):
+
+        if msgtype not in self.supported_messages:
+            self.supported_messages.append(msgtype)
+
+        if msgtype in self.ignore_messages:
+            self.ignore_messages.remove(msgtype)
+
+    def supported_messages_del(self, msgtype):
+
+        if msgtype in self.supported_messages:
+            self.supported_messages.remove(msgtype)
+
+        if msgtype not in self.ignore_messages:
+            self.ignore_messages.append(msgtype)
 
     def run(self):
         manager = self.manager
@@ -45,12 +98,15 @@ class NetlinkListener(Thread):
         # use 2 in the upper space (top 10 bits) instead of 0 to avoid conflicts
         # with the netlink manager which always attempts to bind with the pid.
         self.rx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
-        self.rx_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10000000)
+        _SO_RCVBUFFORCE = socket.SO_RCVBUFFORCE if hasattr(socket, 'SO_RCVBUFFORCE') else 33
+        self.rx_socket.setsockopt(socket.SOL_SOCKET, _SO_RCVBUFFORCE, self.rcvbuf_sz)
         self.rx_socket.bind((manager.pid | (self.pid_offset << 22), self.groups))
         self.rx_socket_prev_seq = {}
 
+        manager.target_lock.acquire()
         if not manager.tx_socket:
             manager.tx_socket_allocate()
+        manager.target_lock.release()
 
         my_sockets = (manager.tx_socket, self.rx_socket)
 
@@ -59,18 +115,11 @@ class NetlinkListener(Thread):
             self.rx_socket: "RX"
         }
 
-        supported_messages = (RTM_NEWLINK, RTM_DELLINK, RTM_NEWADDR,
-                              RTM_DELADDR, RTM_NEWNEIGH, RTM_DELNEIGH,
-                              RTM_NEWROUTE, RTM_DELROUTE)
-
-        ignore_messages = (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH,
-                           RTM_GETROUTE, RTM_GETQDISC, NLMSG_ERROR, NLMSG_DONE)
-
         while True:
 
             if self.shutdown_event.is_set():
                 log.info("%s: shutting down" % self)
-                return
+                break
 
             # Only block for 1 second so we can wake up to see if shutdown_event is set
             try:
@@ -83,6 +132,7 @@ class NetlinkListener(Thread):
                 continue
 
             set_alarm = False
+            set_overrun = False
             set_tx_socket_rxed_ack_alarm = False
 
             for s in readable:
@@ -90,9 +140,14 @@ class NetlinkListener(Thread):
 
                 try:
                     data = s.recv(4096)
+                except socket.error, e:
+                    log.error('recv() error: ' + str(e))
+                    data = []
+                    if e.errno is errno.ENOBUFS and self.error_notification:
+                        set_overrun = True
                 except Exception as e:
                     log.error('recv() error: ' + str(e))
-                    continue
+                    data = []
 
                 total_length = len(data)
                 while data:
@@ -125,13 +180,13 @@ class NetlinkListener(Thread):
                         set_tx_socket_rxed_ack_alarm = True
 
                     # Put the message on the manager's netlinkq
-                    if msgtype in supported_messages:
+                    if msgtype in self.supported_messages:
                         set_alarm = True
                         manager.netlinkq.append((msgtype, length, flags, seq, pid, data[0:length]))
 
                     # There are certain message types we do not care about
                     # (RTM_GETs for example)
-                    elif msgtype in ignore_messages:
+                    elif msgtype in self.ignore_messages:
                         pass
 
                     # And there are certain message types we have not added
@@ -166,6 +221,11 @@ class NetlinkListener(Thread):
 
             if set_alarm:
                 manager.workq.put(('SERVICE_NETLINK_QUEUE', None))
+
+            if set_overrun:
+                manager.workq.put(('SERVICE_ERROR', "OVERFLOW"))
+
+            if set_alarm or set_overrun:
                 manager.alarm.set()
 
         self.rx_socket.close()
@@ -173,8 +233,8 @@ class NetlinkListener(Thread):
 
 class NetlinkManagerWithListener(NetlinkManager):
 
-    def __init__(self, groups, start_listener=True, use_color=True):
-        NetlinkManager.__init__(self, use_color=use_color)
+    def __init__(self, groups, start_listener=True, use_color=True, pid_offset=0, error_notification=False, rcvbuf_sz=10000000):
+        NetlinkManager.__init__(self, use_color=use_color, pid_offset=pid_offset)
         self.groups = groups
         self.workq = Queue()
         self.netlinkq = []
@@ -192,16 +252,22 @@ class NetlinkManagerWithListener(NetlinkManager):
         self.ifname_by_index = {}
         self.blacklist_filter = {}
         self.whitelist_filter = {}
+        self.rcvbuf_sz = rcvbuf_sz
+        self.error_notification = error_notification
+        self.pid_offset = pid_offset
 
         # Listen to netlink messages
         if start_listener:
-            self.listener = NetlinkListener(self, self.groups)
-            self.listener.start()
+            self.restart_listener()
         else:
             self.listener = None
 
     def __str__(self):
         return 'NetlinkManagerWithListener'
+
+    def restart_listener(self):
+        self.listener = NetlinkListener(self, self.groups, self.pid_offset+1, self.error_notification, self.rcvbuf_sz)
+        self.listener.start()
 
     def signal_term_handler(self, signal, frame):
         log.info("NetlinkManagerWithListener: Caught SIGTERM")
@@ -233,10 +299,10 @@ class NetlinkManagerWithListener(NetlinkManager):
         self.target_lock.acquire()
         self.target_seq = nlpacket.seq
         self.target_pid = nlpacket.pid
-        self.target_lock.release()
 
         if not self.tx_socket:
             self.tx_socket_allocate()
+        self.target_lock.release()
 
         log.debug('%s TX: TXed %s seq %d, pid %d, %d bytes' %
                    (self,  NetlinkPacket.type_to_string[nlpacket.msgtype],
@@ -283,6 +349,9 @@ class NetlinkManagerWithListener(NetlinkManager):
         log.debug("RXed RTM_DELROUTE seq %d, pid %d, %d bytes, for %s%s" %
                   (msg.seq, msg.pid, msg.length, msg.get_prefix_string(), msg.get_nexthops_string(self.ifname_by_index)))
 
+    def rx_nlmsg_done(self, msg):
+        log.debug("RXed NLMSG_DONE seq %d, pid %d, %d bytes" % (msg.seq, msg.pid, msg.length))
+
     # Note that tx_nlpacket_get_response will block until NetlinkListener has RXed
     # an Ack/DONE for the message we TXed
     def get_all_addresses(self):
@@ -306,6 +375,24 @@ class NetlinkManagerWithListener(NetlinkManager):
         link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_DUMP
         link.body = pack('Bxxxiii', family, 0, 0, 0)
+        link.build_message(self.sequence.next(), self.pid)
+
+        if debug:
+            self.debug_seq_pid[(link.seq, link.pid)] = True
+
+        self.tx_nlpacket_get_response(link)
+
+    def get_all_br_links(self, compress_vlans=True):
+        family = socket.AF_BRIDGE
+        debug = RTM_GETLINK in self.debug
+
+        link = Link(RTM_GETLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_DUMP
+        link.body = pack('Bxxxiii', family, 0, 0, 0)
+        if compress_vlans:
+            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN_COMPRESSED)
+        else:
+            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN)
         link.build_message(self.sequence.next(), self.pid)
 
         if debug:
@@ -490,6 +577,9 @@ class NetlinkManagerWithListener(NetlinkManager):
             elif msgtype == RTM_NEWROUTE or msgtype == RTM_DELROUTE:
                 msg = Route(msgtype, debug, use_color=self.use_color)
 
+            elif msgtype == NLMSG_DONE:
+                msg = Done(msgtype, debug, use_color=self.use_color)
+
             else:
                 log.warning('RXed unknown netlink message type %s' % msgtype)
                 continue
@@ -539,6 +629,9 @@ class NetlinkManagerWithListener(NetlinkManager):
 
             elif msg.msgtype == RTM_DELROUTE:
                 self.rx_rtm_delroute(msg)
+
+            elif msg.msgtype == NLMSG_DONE:
+                self.rx_nlmsg_done(msg)
 
             else:
                 log.warning('RXed unknown netlink message type %s' % msgtype)

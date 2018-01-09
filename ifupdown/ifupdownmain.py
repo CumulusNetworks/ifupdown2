@@ -1,33 +1,46 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # ifupdownMain --
 #    ifupdown main module
 #
 
-import os
-import re
-import imp
-import pprint
-import logging
-import sys, traceback
-import copy
-import json
-import ifupdown.statemanager as statemanager
-import ifupdown.ifupdownconfig as ifupdownConfig
-import ifupdown.ifupdownflags as ifupdownflags
-from networkinterfaces import *
-from iface import *
-from scheduler import *
-from collections import deque
-from collections import OrderedDict
-from graph import *
-from exceptions import *
-from sets import Set
+try:
+    import os
+    import re
+    import sys
+    import copy
+    import json
+    import pprint
+    import logging
+    import traceback
 
-from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
+    from sets import Set
+    from collections import deque, OrderedDict
+
+    from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
+
+    import ifupdown.policymanager
+    import ifupdown.ifupdownflags
+
+    import ifupdownaddons.cache
+    import ifupdownaddons.mstpctlutil
+    import ifupdownaddons.LinkUtils
+
+    import ifupdown.statemanager as statemanager
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownconfig as ifupdownConfig
+
+    from ifupdown.graph import *
+    from ifupdown.iface import *
+    from ifupdown.scheduler import *
+    from ifupdown.exceptions import *
+    from ifupdown.networkinterfaces import *
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 """
 .. module:: ifupdownmain
@@ -59,52 +72,13 @@ class ifacePrivFlags():
     def __init__(self, builtin=False, noconfig=False):
         self.BUILTIN = builtin
         self.NOCONFIG = noconfig
-    
+
 class ifupdownMain(ifupdownBase):
     """ ifupdown2 main class """
 
     scripts_dir='/etc/network'
     addon_modules_dir='/usr/share/ifupdown2/addons'
     addon_modules_configfile='/etc/network/ifupdown2/addons.conf'
-
-    # iface dictionary in the below format:
-    # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
-    # eg:
-    # { 'swp1' : [<iface swp1>, <iface swp2> ..] }
-    #
-    # Each ifaceobject corresponds to a configuration block for
-    # that interface
-    # The value in the dictionary is a list because the network
-    # interface configuration file supports more than one iface section
-    # in the interfaces file
-    ifaceobjdict = OrderedDict()
-
-    # iface dictionary representing the curr running state of an iface
-    # in the below format:
-    # {'<ifacename>' : <ifaceobject>}
-    ifaceobjcurrdict = OrderedDict()
-
-    # Dictionary representing operation and modules
-    # for every operation
-    module_ops = OrderedDict([('pre-up', []),
-                              ('up' , []),
-                              ('post-up' , []),
-                              ('query-checkcurr', []),
-                              ('query-running', []),
-                              ('query-dependency', []),
-                              ('query', []),
-                              ('query-raw', []),
-                              ('pre-down', []),
-                              ('down' , []),
-                              ('post-down' , [])])
-
-    # For old style /etc/network/ bash scripts
-    script_ops = OrderedDict([('pre-up', []),
-                                    ('up' , []),
-                                    ('post-up' , []),
-                                    ('pre-down', []),
-                                    ('down' , []),
-                                    ('post-down' , [])])
 
     # Handlers for ops that ifupdown2 owns
     def run_up(self, ifaceobj):
@@ -179,8 +153,21 @@ class ifupdownMain(ifupdownBase):
     # ifupdown object interface scheduler pre and posthooks
     sched_hooks = {'posthook' : run_sched_ifaceobj_posthook}
 
+    def reset_ifupdown2(self):
+        ifaceScheduler.reset()
+
+        ifupdown.statemanager.reset()
+        ifupdown.policymanager.reset()
+        ifupdown.ifupdownflags.reset()
+        ifupdown.ifupdownconfig.reset()
+        ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+        ifupdownaddons.LinkUtils.LinkUtils.reset()
+
+        ifupdownaddons.cache.linkCache.reset()
+        ifupdownaddons.cache.MSTPAttrsCache.invalidate()
+
     def __init__(self, config={},
-                 force=False, dryrun=False, nowait=False,
+                 daemon=False, force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
                  cache=False, addons_enable=True, statemanager_enable=True,
                  interfacesfile='/etc/network/interfaces',
@@ -199,6 +186,49 @@ class ifupdownMain(ifupdownBase):
 
         Raises:
             AttributeError, KeyError """
+
+        if daemon:
+            self.reset_ifupdown2()
+
+        # iface dictionary in the below format:
+        # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
+        # eg:
+        # { 'swp1' : [<iface swp1>, <iface swp2> ..] }
+        #
+        # Each ifaceobject corresponds to a configuration block for
+        # that interface
+        # The value in the dictionary is a list because the network
+        # interface configuration file supports more than one iface section
+        # in the interfaces file
+        self.ifaceobjdict = OrderedDict()
+
+        # iface dictionary representing the curr running state of an iface
+        # in the below format:
+        # {'<ifacename>' : <ifaceobject>}
+        self.ifaceobjcurrdict = OrderedDict()
+
+        # Dictionary representing operation and modules
+        # for every operation
+        self.module_ops = OrderedDict([('pre-up', []),
+                                  ('up', []),
+                                  ('post-up', []),
+                                  ('query-checkcurr', []),
+                                  ('query-running', []),
+                                  ('query-dependency', []),
+                                  ('query', []),
+                                  ('query-raw', []),
+                                  ('pre-down', []),
+                                  ('down', []),
+                                  ('post-down', [])])
+
+        # For old style /etc/network/ bash scripts
+        self.script_ops = OrderedDict([('pre-up', []),
+                                  ('up', []),
+                                  ('post-up', []),
+                                  ('pre-down', []),
+                                  ('down', []),
+                                  ('post-down', [])])
+
 
         self.logger = logging.getLogger('ifupdown')
         ifupdownflags.flags.FORCE = force
@@ -243,13 +273,13 @@ class ifupdownMain(ifupdownBase):
         self._cache_no_repeats = {}
 
         if self.flags.STATEMANAGER_ENABLE:
+            self.statemanager = statemanager.statemanager_api
             try:
-                self.statemanager = statemanager.statemanager_api
                 self.statemanager.read_saved_state()
             except Exception, e:
-                # XXX Maybe we should continue by ignoring old state
+                # if read_saved_state fails, state file might be corrupt.
+                # Ignore old state and continue
                 self.logger.warning('error reading state (%s)' %str(e))
-                raise
         else:
             self.flags.STATEMANAGER_UPDATE = False
         self._delay_admin_state = True if self.config.get(
@@ -297,16 +327,19 @@ class ifupdownMain(ifupdownBase):
             '<ipv6/prefixlen>': self._keyword_ipv6_prefixlen,
             '<ip/prefixlen>': self._keyword_ip_prefixlen,
             '<number-range-list>': self._keyword_number_range_list,
+            '<number-comma-range-list>': self._keyword_number_comma_range_list,
             '<interface-range-list>': self._keyword_interface_range_list,
             '<mac-ip/prefixlen-list>': self._keyword_mac_ip_prefixlen_list,
             '<number-interface-list>': self._keyword_number_interface_list,
             '<interface-yes-no-list>': self._keyword_interface_yes_no_list,
+            '<interface-on-off-list>': self._keyword_interface_on_off_list,
             '<interface-yes-no-0-1-list>': self._keyword_interface_yes_no_0_1_list,
             '<interface-yes-no-auto-list>': self._keyword_interface_yes_no_auto_list,
+            '<interface-l2protocol-tunnel-list>': self._keyword_interface_l2protocol_tunnel_list
         }
 
     def link_master_slave_ignore_error(self, errorstr):
-        # If link master slave flag is set, 
+        # If link master slave flag is set,
         # there may be cases where the lowerdev may not be
         # up resulting in 'Network is down' error
         # This can happen if the lowerdev is a LINK_SLAVE
@@ -372,7 +405,7 @@ class ifupdownMain(ifupdownBase):
 
     def create_n_save_ifaceobjcurr(self, ifaceobj):
         """ creates a copy of iface object and adds it to the iface
-            dict containing current iface objects 
+            dict containing current iface objects
         """
         ifaceobjcurr = iface()
         ifaceobjcurr.name = ifaceobj.name
@@ -409,7 +442,7 @@ class ifupdownMain(ifupdownBase):
 
     def is_iface_builtin_byname(self, ifacename):
         """ Returns true if iface name is a builtin interface.
-        
+
         A builtin interface is an interface which ifupdown understands.
         The following are currently considered builtin ifaces:
             - vlan interfaces in the format <ifacename>.<vlanid>
@@ -418,7 +451,7 @@ class ifupdownMain(ifupdownBase):
 
     def is_ifaceobj_builtin(self, ifaceobj):
         """ Returns true if iface name is a builtin interface.
-        
+
         A builtin interface is an interface which ifupdown understands.
         The following are currently considered builtin ifaces:
             - vlan interfaces in the format <ifacename>.<vlanid>
@@ -429,7 +462,7 @@ class ifupdownMain(ifupdownBase):
 
     def is_ifaceobj_noconfig(self, ifaceobj):
         """ Returns true if iface object did not have a user defined config.
-       
+
         These interfaces appear only when they are dependents of interfaces
         which have user defined config
         """
@@ -468,7 +501,7 @@ class ifupdownMain(ifupdownBase):
     def _set_iface_role(self, ifaceobj, role, upperifaceobj):
         if (self.flags.CHECK_SHARED_DEPENDENTS and
             (ifaceobj.role & ifaceRole.SLAVE) and
-            (role == ifaceRole.SLAVE) and (upperifaceobj.role == ifaceRole.MASTER)):
+            (role == ifaceRole.SLAVE) and (upperifaceobj.role & ifaceRole.MASTER)):
 		self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
                                   %(ifaceobj.name,
                                     ifaceLinkPrivFlags.get_all_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
@@ -510,7 +543,7 @@ class ifupdownMain(ifupdownBase):
             ifaceobj.link_type = ifaceLinkType.LINK_NA
 
     def dump_iface_dependency_info(self):
-        """ debug funtion to print raw dependency 
+        """ debug funtion to print raw dependency
         info - lower and upper devices"""
 
         for ifacename, ifaceobjs in self.ifaceobjdict.iteritems():
@@ -892,6 +925,13 @@ class ifupdownMain(ifupdownBase):
             self.logger.debug('keyword: interface list with value: %s' % str(e))
             return False
 
+    def _keyword_interface_on_off_list(self, value, validrange=None):
+        """
+            <yes|no> | ( <interface>=<on|off> [<interface>=<on|off> ...] )
+            ex: bridge-learning swp1=on swp2=off
+        """
+        return self._keyword_interface_list_with_value(value, ['on', 'off'])
+
     def _keyword_interface_yes_no_list(self, value, validrange=None):
         """
             <yes|no> | ( <interface>=<yes|no> [<interface>=<yes|no> ...] )
@@ -908,6 +948,30 @@ class ifupdownMain(ifupdownBase):
         return self._keyword_interface_list_with_value(value,
                                                         ['yes', 'no', 'auto'])
 
+    def _keyword_interface_l2protocol_tunnel_list(self, value, validrange=None):
+        """
+            bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all
+            bridge-l2protocol-tunnel lacp stp,lldp,cdp
+            bridge-l2protocol-tunnel stp lacp cdp
+            bridge-l2protocol-tunnel lldp pvst
+            bridge-l2protocol-tunnel stp
+            bridge-l2protocol-tunnel all
+        """
+        try:
+            if '=' in value:
+                for intf_arg in value.split():
+                    intf_arg_split = intf_arg.split('=')
+                    for arg in re.split(',|\s*', intf_arg_split[1]):
+                        if arg not in ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst']:
+                            return False
+            else:
+                for arg in re.split(',|\s*', value):
+                    if arg not in ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst']:
+                        return False
+        except:
+            return False
+        return True
+
     def _keyword_interface_yes_no_0_1_list(self, value, validrange=None):
         """
             <yes|no|0|1> |
@@ -915,7 +979,7 @@ class ifupdownMain(ifupdownBase):
             ex: bridge-portmcrouter swp1=yes swp2=yes swp3=1
         """
         return self._keyword_interface_list_with_value(value,
-                                                       ['yes', 'no', '1', '0'])
+                                                       ['yes', 'no', '1', '0', '2'])
 
     def _keyword_interface_range_list(self, value, validrange):
         """
@@ -924,7 +988,7 @@ class ifupdownMain(ifupdownBase):
         """
         values = value.split()
         try:
-            if len(values) == 1:
+            if len(values) == 1 and '=' not in values[0]:
                 try:
                     n = int(values[0])
                     if n < int(validrange[0]) or n > int(
@@ -1208,22 +1272,26 @@ class ifupdownMain(ifupdownBase):
         Default modules_dir is /usr/share/ifupdownmodules
 
         """
+        failed_import = list()
+
         self.logger.info('loading builtin modules from %s' %modules_dir)
         self._load_addon_modules_config()
         if not modules_dir in sys.path:
-            sys.path.append(modules_dir)
+            sys.path.insert(1, modules_dir)
         try:
             for op, mlist in self.module_ops.items():
                 for mname in mlist:
                     if self.modules.get(mname):
                         continue
                     mpath = modules_dir + '/' + mname + '.py'
-                    if os.path.exists(mpath):
+                    if os.path.exists(mpath) and mpath not in failed_import:
                         try:
                             m = __import__(mname)
                             mclass = getattr(m, mname)
-                        except:
-                            raise
+                        except Exception as e:
+                            self.logger.warning('cannot load "%s" module: %s' % (mname, str(e)))
+                            failed_import.append(mpath)
+                            continue
                         try:
                             minstance = mclass()
                             script_override = minstance.get_overrides_ifupdown_scripts()
@@ -1239,7 +1307,7 @@ class ifupdownMain(ifupdownBase):
                             self.module_attrs[mname] = minstance.get_modinfo()
                         except:
                             pass
-        except: 
+        except:
             raise
 
         # Assign all modules to query operations
@@ -1249,52 +1317,65 @@ class ifupdownMain(ifupdownBase):
         self.module_ops['query'] = self.modules.keys()
         self.module_ops['query-raw'] = self.modules.keys()
 
+    def _keyword_number_comma_range_list(self, value, validrange=None):
+        return self._keyword_number_range_list(value.replace(',', ' '), validrange=validrange)
 
-    def _modules_help(self):
+
+    def _modules_help(self, fmt):
         """ Prints addon modules supported syntax """
 
-        indent = '  '
-        for m, mdict in self.module_attrs.items():
-            if not mdict:
-                continue
-            print('%s: %s' %(m, mdict.get('mhelp')))
-            attrdict = mdict.get('attrs')
-            if not attrdict:
-                continue
-            try:
-                for attrname, attrvaldict in attrdict.items():
-                    if attrvaldict.get('compat', False):
-                        continue
-                    print('%s%s' %(indent, attrname))
-                    print('%shelp: %s' %(indent + '  ',
-                          attrvaldict.get('help', '')))
-                    print ('%srequired: %s' %(indent + '  ',
-                            attrvaldict.get('required', False)))
-                    default = attrvaldict.get('default')
-                    if default:
-                        print('%sdefault: %s' %(indent + '  ', default))
+        if fmt == 'json':
+            modinfos = {}
+            for key, value in self.modules.items():
+                if hasattr(value, '_modinfo'):
+                    modinfos[key] = {
+                        'mhelp': value._modinfo['mhelp'],
+                        'attrs': value.merge_modinfo_with_policy_files()
+                    }
+            print json.dumps(modinfos)
+        else:
+            indent = '  '
+            for m, mdict in self.module_attrs.items():
+                if not mdict:
+                    continue
+                print('%s: %s' %(m, mdict.get('mhelp')))
+                attrdict = self.modules[m].merge_modinfo_with_policy_files()
+                if not attrdict:
+                    continue
+                try:
+                    for attrname, attrvaldict in attrdict.items():
+                        if attrvaldict.get('compat', False):
+                            continue
+                        print('%s%s' %(indent, attrname))
+                        print('%shelp: %s' %(indent + '  ',
+                              attrvaldict.get('help', '')))
+                        print ('%srequired: %s' %(indent + '  ',
+                                attrvaldict.get('required', False)))
+                        default = attrvaldict.get('default')
+                        if default:
+                            print('%sdefault: %s' %(indent + '  ', default))
 
-                    validrange = attrvaldict.get('validrange')
-                    if validrange:
-                        print('%svalidrange: %s-%s'
-                              %(indent + '  ', validrange[0], validrange[1]))
+                        validrange = attrvaldict.get('validrange')
+                        if validrange:
+                            print('%svalidrange: %s-%s'
+                                  %(indent + '  ', validrange[0], validrange[1]))
 
-                    validvals = attrvaldict.get('validvals')
-                    if validvals:
-                        print('%svalidvals: %s'
-                              %(indent + '  ', ','.join(validvals)))
+                        validvals = attrvaldict.get('validvals')
+                        if validvals:
+                            print('%svalidvals: %s'
+                                  %(indent + '  ', ','.join(validvals)))
 
-                    examples = attrvaldict.get('example')
-                    if not examples:
-                        continue
+                        examples = attrvaldict.get('example')
+                        if not examples:
+                            continue
 
-                    print '%sexample:' %(indent + '  ')
-                    for e in examples:
-                        print '%s%s' %(indent + '    ', e)
-            except:
-                pass
-            print ''
-            
+                        print '%sexample:' %(indent + '  ')
+                        for e in examples:
+                            print '%s%s' %(indent + '    ', e)
+                except:
+                    pass
+                print ''
+
     def load_scripts(self, modules_dir):
         """ loading user modules from /etc/network/.
 
@@ -1313,7 +1394,7 @@ class ifupdownMain(ifupdownBase):
                     if self.modules.get(module) or module in self.overridden_ifupdown_scripts:
                         continue
                     self.script_ops[op].append(msubdir + '/' + module)
-            except: 
+            except:
                 # continue reading
                 pass
 
@@ -1346,7 +1427,7 @@ class ifupdownMain(ifupdownBase):
 
     def _preprocess_ifacenames(self, ifacenames):
         """ validates interface list for config existance.
-       
+
         returns -1 if one or more interface not found. else, returns 0
 
         """
@@ -1370,7 +1451,7 @@ class ifupdownMain(ifupdownBase):
                 new_ifacenames.append(i)
         if err_iface:
             raise Exception('cannot find interfaces:%s' %err_iface)
-        return new_ifacenames 
+        return new_ifacenames
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
         """ Checks if interface is whitelisted depending on set of parameters.
@@ -1500,7 +1581,7 @@ class ifupdownMain(ifupdownBase):
            excludepats=None, printdependency=None, syntaxcheck=False,
            type=None, skipupperifaces=False):
         """This brings the interface(s) up
-        
+
         Args:
             ops (list): list of ops to perform on the interface(s).
             Eg: ['pre-up', 'up', 'post-up'
@@ -1597,7 +1678,7 @@ class ifupdownMain(ifupdownBase):
             self.logger.debug('Looking at old state ..')
             self.read_old_iface_config()
         else:
-            # If no old state available 
+            # If no old state available
             try:
                 self.read_iface_config()
             except Exception, e:
@@ -1646,7 +1727,7 @@ class ifupdownMain(ifupdownBase):
 
         self.set_type(type)
 
-        # Let us forget internal squashing when it comes to 
+        # Let us forget internal squashing when it comes to
         # ifquery. It can surprise people relying of ifquery
         # output
         self._ifaceobj_squash_internal = False
@@ -1662,7 +1743,7 @@ class ifupdownMain(ifupdownBase):
             ifupdownflags.flags.WITH_DEPENDS = True
 
         if ops[0] == 'query-syntax':
-            self._modules_help()
+            self._modules_help(format)
             return
         elif ops[0] == 'query-running':
             # create fake devices to all dependents that dont have config
@@ -1778,7 +1859,7 @@ class ifupdownMain(ifupdownBase):
            # old interface config is read into self.ifaceobjdict
            self.read_old_iface_config()
 
-           # reinitialize dependency graph 
+           # reinitialize dependency graph
            self.dependency_graph = OrderedDict({})
            falready_up_ifacenames_not_present = [i for i in
                                     already_up_ifacenames_not_present
@@ -1882,14 +1963,14 @@ class ifupdownMain(ifupdownBase):
             # these are saved interfaces and dependency for these
             # have been checked before they became part of saved state.
             try:
-                self.flags.CHECK_SHARED_DEPENDENTS = False 
+                self.flags.CHECK_SHARED_DEPENDENTS = False
                 self.populate_dependency_info(upops)
                 self.flags.CHECK_SHARED_DEPENDENTS = True
             except Exception, e:
                 self.logger.info("error generating dependency graph for "
                                  "saved interfaces (%s)" %str(e))
                 pass
-            
+
             # make sure we pick up built-in interfaces
             # if config file had 'ifreload_down_changed' variable
             # set, also look for interfaces that changed to down them
@@ -1923,7 +2004,7 @@ class ifupdownMain(ifupdownBase):
                 # for example: remove a bond section from the interfaces
                 # file, but leave it around as a bridge port
                 # XXX: Ideally its better to just add it to the
-                # ifacedownlist. But we will be cautious here 
+                # ifacedownlist. But we will be cautious here
                 # and just print a warning
                 if (self.is_ifaceobj_noconfig(newifaceobjlist[0]) and
                     not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
@@ -1936,6 +2017,16 @@ class ifupdownMain(ifupdownBase):
                                      % (newifaceobjlist[objidx].name,
                                         str(newifaceobjlist[objidx].upperifaces),
                                         newifaceobjlist[objidx].name))
+                if (lastifaceobjlist[0].link_kind and
+                    not newifaceobjlist[0].link_kind):
+                    self.logger.warn('%s: moved from being a %s to a'
+                                     ' physical interface (non-logical interface).'
+                                     'This interface will be downed.\n'
+                                     ' If this was not intentional, please restore the'
+                                     ' original interface definition and execute ifreload'
+                                     % (newifaceobjlist[objidx].name,
+                                        ifaceLinkKind.to_str(lastifaceobjlist[0].link_kind)))
+                    ifacedownlist.append(newifaceobjlist[objidx].name)
                 if not down_changed:
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
@@ -1955,7 +2046,7 @@ class ifupdownMain(ifupdownBase):
             if ifacedownlist:
                 self.logger.info('reload: scheduling down on interfaces: %s'
                                   %str(ifacedownlist))
-                # reinitialize dependency graph 
+                # reinitialize dependency graph
                 self.dependency_graph = OrderedDict({})
 
                 # Generate dependency info for old config
@@ -1970,7 +2061,7 @@ class ifupdownMain(ifupdownBase):
                     # Hence during reload, set  this to true.
                     # This is being added to avoid a failure in
                     # scheduler._check_upperifaces when we are dowing
-                    # a builtin bridge port 
+                    # a builtin bridge port
                     self.flags.SCHED_SKIP_CHECK_UPPERIFACES = True
                     self._sched_ifaces(ifacedownlist, downops,
                                        followdependents=False,
@@ -2065,7 +2156,7 @@ class ifupdownMain(ifupdownBase):
 
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
-                if (self.is_ifaceobj_builtin(ifaceobj) or 
+                if (self.is_ifaceobj_builtin(ifaceobj) or
                     not ifaceobj.is_config_present()):
                     continue
                 ifaceobj.dump_raw(self.logger)

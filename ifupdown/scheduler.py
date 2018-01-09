@@ -1,27 +1,31 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 # ifaceScheduler --
 #    interface scheduler
 #
 
-from statemanager import *
-import ifupdown.ifupdownflags as ifupdownflags
-from iface import *
-from graph import *
-from collections import deque
-from collections import OrderedDict
-import logging
-import traceback
-import sys
-from graph import *
-from collections import deque
-from threading import *
-from ifupdownbase import *
-from ifupdown.utils import utils
-from sets import Set
+try:
+    import sys
+    import logging
+    import traceback
+
+    from sets import Set
+    from threading import *
+    from collections import OrderedDict
+
+    from ifupdown.iface import *
+    from ifupdown.graph import *
+    from ifupdown.utils import utils
+    from ifupdown.statemanager import *
+    from ifupdown.ifupdownbase import *
+
+    import ifupdown.ifupdownflags as ifupdownflags
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
@@ -40,6 +44,11 @@ class ifaceScheduler():
     _STATE_CHECK = True
 
     _SCHED_STATUS = True
+
+    @classmethod
+    def reset(cls):
+        cls._STATE_CHECK = True
+        cls._SCHED_STATUS = True
 
     @classmethod
     def get_sched_status(cls):
@@ -109,10 +118,6 @@ class ifaceScheduler():
 
         if ifupdownobj.config.get('addon_scripts_support', '0') == '1':
             # execute /etc/network/ scripts 
-            os.environ['IFACE'] = ifaceobj.name if ifaceobj.name else ''
-            os.environ['LOGICAL'] = ifaceobj.name if ifaceobj.name else ''
-            os.environ['METHOD'] = ifaceobj.addr_method if ifaceobj.addr_method else ''
-            os.environ['ADDRFAM'] = ','.join(ifaceobj.addr_family) if ifaceobj.addr_family else ''
             for mname in ifupdownobj.script_ops.get(op, []):
                 ifupdownobj.logger.debug('%s: %s : running script %s'
                     %(ifacename, op, mname))

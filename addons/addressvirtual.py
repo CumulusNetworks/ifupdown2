@@ -1,21 +1,27 @@
 #!/usr/bin/python
 #
-# Copyright 2014 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-import ifupdown.ifupdownconfig as ifupdownConfig
-import ifupdown.statemanager as statemanager
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
+try:
+    import os
+    import glob
 
-from ipaddr import IPNetwork, IPv4Network
-import logging
-import os
-import glob
+    from ipaddr import IPNetwork
+
+    import ifupdown.statemanager as statemanager
+    import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.ifupdownconfig as ifupdownConfig
+
+    from ifupdown.iface import *
+    from ifupdown.netlink import netlink
+
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class addressvirtual(moduleBase):
     """  ifupdown2 addon module to configure virtual addresses """
@@ -46,8 +52,9 @@ class addressvirtual(moduleBase):
 
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 [self.ipcmd.bridge_fdb_add(bridgename, addr,
                     vlan) for addr in hwaddress]
@@ -57,8 +64,9 @@ class addressvirtual(moduleBase):
 
     def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
                 for addr in hwaddress:
                     try:
@@ -86,10 +94,11 @@ class addressvirtual(moduleBase):
     def _check_addresses_in_bridge(self, ifaceobj, hwaddress):
         """ If the device is a bridge, make sure the addresses
         are in the bridge """
-        if '.' in ifaceobj.name:
-            (bridgename, vlan) = ifaceobj.name.split('.')
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                fdb_addrs = self._get_bridge_fdbs(bridgename, vlan)
+                fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
                 if not fdb_addrs or hwaddress not in fdb_addrs:
                    return False
         return True
@@ -128,7 +137,7 @@ class addressvirtual(moduleBase):
     def _handle_vrf_slaves(self, macvlan_ifacename, ifaceobj):
         vrfname = self.ipcmd.link_get_master(ifaceobj.name)
         if vrfname:
-            netlink.link_set_master(macvlan_ifacename, vrfname)
+            self.ipcmd.link_set(macvlan_ifacename, 'master', vrfname)
 
     def _get_macs_from_old_config(self, ifaceobj=None):
         """ This method returns a list of the mac addresses
@@ -179,7 +188,10 @@ class addressvirtual(moduleBase):
             link_created = False
             macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
             if not self.ipcmd.link_exists(macvlan_ifacename):
-                netlink.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
+                try:
+                    netlink.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
+                except:
+                    self.ipcmd.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
             ips = av_attrs[1:]
             if mac != 'None':
@@ -198,7 +210,7 @@ class addressvirtual(moduleBase):
                     lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.name, refresh=True)
                     update_mtu = False
 
-                if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename):
+                if lower_iface_mtu and lower_iface_mtu != self.ipcmd.link_get_mtu(macvlan_ifacename, refresh=True):
                     try:
                         self.ipcmd.link_set_mtu(macvlan_ifacename,
                                                 lower_iface_mtu)
@@ -332,7 +344,8 @@ class addressvirtual(moduleBase):
                             # upper device list
                             if u == ifaceobj.name:
                                 continue
-                            netlink.link_set_master(u, ifaceobj.name, state='up')
+                            self.ipcmd.link_set(u, 'master', ifaceobj.name,
+                                                state='up')
         elif ((ifaceobj.link_privflags & ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE) and
               (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) and
               self.ipcmd.link_exists(ifaceobj.name)):
@@ -352,7 +365,8 @@ class addressvirtual(moduleBase):
                 if u == vrfname:
                     continue
                 if u.startswith(macvlan_prefix):
-                    netlink.link_set_master(u, vrfname, state='up')
+                    self.ipcmd.link_set(u, 'master', vrfname,
+                                        state='up')
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not ifupdownflags.flags.ALL:
@@ -406,7 +420,7 @@ class addressvirtual(moduleBase):
                 continue
             # Check mac and ip address
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
-            raddrs = self.ipcmd.addr_get(macvlan_ifacename)
+            raddrs = self.ipcmd.get_running_addrs(None, macvlan_ifacename)
             if not raddrs or not rhwaddress:
                ifaceobjcurr.update_config_with_status('address-virtual', '', 1)
                av_idx += 1
@@ -429,8 +443,9 @@ class addressvirtual(moduleBase):
                 elif '/' in cmp_av_addr and '/' not in cmp_raddr:
                     cmp_raddr = str(IPNetwork(cmp_raddr))
 
-                if (rhwaddress == av_attrs[0] and cmp_raddr == cmp_av_addr and
-                        self._check_addresses_in_bridge(ifaceobj, av_attrs[0])):
+                if (rhwaddress == av_attrs[0].lower() and
+                    cmp_raddr == cmp_av_addr and
+                    self._check_addresses_in_bridge(ifaceobj, av_attrs[0].lower())):
                     ifaceobjcurr.update_config_with_status('address-virtual',
                                                            address_virtual, 0)
                 else:
@@ -450,7 +465,7 @@ class addressvirtual(moduleBase):
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
-            raddress = self.ipcmd.addr_get(macvlan_ifacename)
+            raddress = self.ipcmd.get_running_addrs(None, macvlan_ifacename)
             if not raddress:
                 self.logger.warn('%s: no running addresses'
                                  %ifaceobjrunning.name)
@@ -470,7 +485,7 @@ class addressvirtual(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):

@@ -1,10 +1,67 @@
-ifupdown2 (1.1-cl3u10) UNRELEASED; urgency=medium
+ifupdown2 (1.1-cl3u16) RELEASED; urgency=medium
+
+  * Closes: CM-18647, CM-19279. fix python exception on macvlans address dump
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Tue, 09 Jan 2018 02:02:58 +0100
+
+ifupdown2 (1.1-cl3u15) RELEASED; urgency=medium
+
+  * New. Enabled: bridge: add support for bridge-l2protocol-tunnel
+  * New. Enabled: bridge attributes, when removed reset to default
+  * New. Enabled: vxlan attributes, when removed reset to default
+  * New. Enabled: improve handling of optional resources (if missing bridge-utils/ethtool)
+  * Closes: CM-17577 & CM-18951. fix policy "iface_defaults" not supported for MTU
+  * Closes: CM-18161. fix address module: handling of ipv4 & ipv6 (add/remove)
+  * Closes: CM-18262. fix warning for vlan reserved range
+  * Closes: CM-18886. fix MTU handling on bridge SVIs
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Wed, 22 Nov 2017 19:07:43 +0100
+
+ifupdown2 (1.1-cl3u14) RELEASED; urgency=medium
+
+  * New. Enabled: default policy for bridge MAC address
+  * Closes: CM-18458. ethtool: don't set link speed and duplex if autoneg is on
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Wed, 25 Oct 2017 23:12:27 +0200
+
+ifupdown2 (1.1-cl3u13) RELEASED; urgency=medium
+
+  * Closes: CM-17789: fix: VRF: ssh session not killed on ifreload
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 15 Sep 2017 22:43:12 +0200
+
+ifupdown2 (1.1-cl3u12) RELEASED; urgency=medium
+
+  * New. Enabled: mpls-enable attribute
+  * New. Enabled: bond and bridge module moved to netlink configuration
+  * New. Enabled: handle a mix of auto and specified vrf table ids
+  * Closes: CM-14152. igmp attribute reset to defaults when removed from config
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Mon, 07 Aug 2017 22:14:03 +0200
+
+ifupdown2 (1.1-cl3u11) RELEASED; urgency=medium
+
+  * Closes: CM-16341. Fix link-down attribute not applied on slave ports
+  * Closes: CM-16225. Fix bug that prevented config of mtu below 1280
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Thu, 18 May 2017 12:45:21 -0700
+
+ifupdown2 (1.1-cl3u10) RELEASED; urgency=medium
 
   * New. Enabled: drop the dependency to pkg_resources, hardcode version number (closes: #855401)
   * New. Enabled: adjust allow-hotplug behavior to ifupdown (closes: #855598)
-  * Closes: CM-8424. bond: adding attribute bond-(up|down)delay
+  * New. Enabled: bond-lacp-rate support slow/fast argument
+  * New. Enabled: ifquery --syntax-help: add support for json output
+  * New. Enabled: vlan: add new attribute 'vlan-protocol'
+  * New. Enabled: address: add new attribute 'ip6-forward'
+  * New. Enabled: bridge: add new attribute 'bridge-mcstats'
+  * New. Enabled: bridge: add new attribute 'bridge-vlan-stats'
+  * New. Enabled: bridge: add new attribute 'bridge-vlan-protocol'
+  * New. Enabled: bridge: add new attribute 'bridge-arp-nd-suppress'
+  * Closes: CM-8424. bond: add attribute bond-(up|down)delay
+  * Closes: CM-12320. bridge-vids: --syntax-check accepts legacy syntax
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 23 Feb 2017 10:50:14 +0100
+ -- dev-support <dev-support@cumulusnetworks.com>  Mon, 17 Apr 2017 06:18:04 +0200
 
 ifupdown2 (1.1-cl3u9) RELEASED; urgency=medium
 

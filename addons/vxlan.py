@@ -1,17 +1,28 @@
 #!/usr/bin/python
+#
+# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+#
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-from ifupdownaddons.systemutils import systemUtils
-from ifupdown.netlink import netlink
-from ipaddr import IPv4Address
-import ifupdown.ifupdownflags as ifupdownflags
-import logging
-import ifupdown.policymanager as policymanager
-import os
-from sets import Set
+try:
+    from sets import Set
+    from ipaddr import IPv4Address
+
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
+
+    import ifupdown.policymanager as policymanager
+
+    from ifupdownaddons.cache import *
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.systemutils import systemUtils
+
+    from nlmanager.nlmanager import Link
+except ImportError, e:
+    raise ImportError('%s - required module not found' % str(e))
+
 
 class vxlan(moduleBase):
     _modinfo = {'mhelp' : 'vxlan module configures vxlan interfaces.',
@@ -32,7 +43,8 @@ class vxlan(moduleBase):
                         'vxlan-remoteip' :
                             {'help' : 'vxlan remote ip',
                              'validvals' : ['<ipv4>'],
-                             'example': ['vxlan-remoteip 172.16.22.127']},
+                             'example': ['vxlan-remoteip 172.16.22.127'],
+                             'multiline': True},
                         'vxlan-learning' :
                             {'help' : 'vxlan learning yes/no',
                              'validvals' : ['yes', 'no', 'on', 'off'],
@@ -86,18 +98,55 @@ class vxlan(moduleBase):
             purge_remotes = self._purge_remotes
         return purge_remotes
 
+    def should_create_set_vxlan(self, link_exists, ifname, vxlan_id, local, learning, ageing, group):
+        """
+            should we issue a netlink: ip link add dev %ifname type vxlan ...?
+            checking each attribute against the cache
+        """
+        if not link_exists:
+            return True
+
+        try:
+            if ageing:
+                ageing = int(ageing)
+        except:
+            pass
+
+        for attr_list, value in (
+            ((ifname, 'linkinfo', Link.IFLA_VXLAN_ID), vxlan_id),
+            ((ifname, 'linkinfo', Link.IFLA_VXLAN_AGEING), ageing),
+            ((ifname, 'linkinfo', 'local'), local),
+            ((ifname, 'linkinfo', Link.IFLA_VXLAN_LEARNING), learning),
+            ((ifname, 'linkinfo', 'svcnode'), group)
+        ):
+            if value and not self.ipcmd.cache_check(attr_list, value):
+                return True
+        return False
+
     def _vxlan_create(self, ifaceobj):
         vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
         if vxlanid:
+            ifname = ifaceobj.name
             anycastip = self._clagd_vxlan_anycast_ip
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
-            learning = utils.get_onoff_bool(ifaceobj.get_attr_value_first('vxlan-learning'))
             purge_remotes = self._get_purge_remotes(ifaceobj)
+
+            link_exists = self.ipcmd.link_exists(ifname)
+
+            if (not link_exists or
+                not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+                vxlan_learning = ifaceobj.get_attr_value_first('vxlan-learning')
+                if not vxlan_learning:
+                    vxlan_learning = self.get_attr_default_value('vxlan-learning')
+                learning = utils.get_boolean_from_string(vxlan_learning)
+            else:
+                learning = utils.get_boolean_from_string(
+                                self.ipcmd.get_vxlandev_learning(ifname))
             
-            if self.ipcmd.link_exists(ifaceobj.name):
-                vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobj.name)
+            if link_exists:
+                vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifname)
                 # on ifreload do not overwrite anycast_ip to individual ip
                 # if clagd has modified
                 if vxlanattrs:
@@ -105,14 +154,85 @@ class vxlan(moduleBase):
                     if (anycastip and running_localtunnelip and
                                 anycastip == running_localtunnelip):
                         local = running_localtunnelip
+                    if vxlanattrs.get('vxlanid') != vxlanid:
+                        self.log_error('%s: Cannot change running vxlan id: '
+                                       'Operation not supported' % ifname, ifaceobj)
+            try:
+                vxlanid = int(vxlanid)
+            except:
+                self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
 
-            netlink.link_add_vxlan(ifaceobj.name, vxlanid,
-                                   local=local,
-                                   learning=learning,
-                                   ageing=ageing,
-                                   group=group)
+            if not group:
+                group = policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-svcnodeip'
+                )
+
+            if not local:
+                local = policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-local-tunnelip'
+                )
+
+            if not ageing:
+                ageing = policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-ageing'
+                )
+
+                if not ageing and link_exists:
+                    # if link doesn't exist we let the kernel define ageing
+                    ageing = self.get_attr_default_value('vxlan-ageing')
+
+            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group):
+                try:
+                    netlink.link_add_vxlan(ifname, vxlanid,
+                                           local=local,
+                                           learning=learning,
+                                           ageing=ageing,
+                                           group=group)
+                except Exception as e_netlink:
+                    self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
+                    try:
+                        self.ipcmd.link_create_vxlan(ifname, vxlanid,
+                                                     localtunnelip=local,
+                                                     svcnodeip=group,
+                                                     remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
+                                                     learning='on' if learning else 'off',
+                                                     ageing=anycastip)
+                    except Exception as e_iproute2:
+                        self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
+                        return
+
+                try:
+                    # manually adding an entry to the caching after creating/updating the vxlan
+                    if not ifname in linkCache.links:
+                        linkCache.links[ifname] = {'linkinfo': {}}
+                    linkCache.links[ifname]['linkinfo'].update({
+                        'learning': learning,
+                        Link.IFLA_VXLAN_LEARNING: learning,
+                        'vxlanid': str(vxlanid),
+                        Link.IFLA_VXLAN_ID: vxlanid
+                    })
+                    if ageing:
+                        linkCache.links[ifname]['linkinfo'].update({
+                            'ageing': ageing,
+                            Link.IFLA_VXLAN_AGEING: int(ageing)
+                        })
+                except:
+                    pass
+            else:
+                self.logger.info('%s: vxlan already exists' % ifname)
+                # if the vxlan already exists it's already cached
 
             remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
+            if remoteips:
+                try:
+                    for remoteip in remoteips:
+                        IPv4Address(remoteip)
+                except Exception as e:
+                    self.log_error('%s: vxlan-remoteip: %s' %(ifaceobj.name, str(e)))
+
             if purge_remotes or remoteips:
                 # figure out the diff for remotes and do the bridge fdb updates
                 # only if provisioned by user and not by an vxlan external
@@ -209,24 +329,21 @@ class vxlan(moduleBase):
             # understand
             self._query_check_n_update_addresses(ifaceobjcurr, 'vxlan-remoteip',
                            ifaceobj.get_attr_value('vxlan-remoteip'),
-                           vxlanattrs.get('remote', []))
+                                                 self.ipcmd.get_vxlan_peers(ifaceobj.name, vxlanattrs.get('svcnode')))
 
         learning = ifaceobj.get_attr_value_first('vxlan-learning')
-        if not learning:
-            learning = 'on'
-
-        running_learning = vxlanattrs.get('learning')
-        if learning == 'yes' and running_learning == 'on':
-            running_learning = 'yes'
-        elif learning == 'no' and running_learning == 'off':
-            running_learning = 'no'
-
-        if learning == running_learning:
-           ifaceobjcurr.update_config_with_status('vxlan-learning',
-                                                  running_learning, 0)
-        else:
-           ifaceobjcurr.update_config_with_status('vxlan-learning',
-                                                  running_learning, 1)
+        if learning:
+            running_learning = vxlanattrs.get('learning')
+            if learning == 'yes' and running_learning == 'on':
+                running_learning = 'yes'
+            elif learning == 'no' and running_learning == 'off':
+                running_learning = 'no'
+            if learning == running_learning:
+                ifaceobjcurr.update_config_with_status('vxlan-learning',
+                                                        running_learning, 0)
+            else:
+                ifaceobjcurr.update_config_with_status('vxlan-learning',
+                                                        running_learning, 1)
         ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
         if not ageing:
             ageing = self.get_mod_subattr('vxlan-ageing', 'default')
@@ -253,7 +370,7 @@ class vxlan(moduleBase):
         if purge_remotes:
             # if purge_remotes is on, it means we own the
             # remote ips. Query them and add it to the running config
-            attrval = vxlanattrs.get('remote')
+            attrval = self.ipcmd.get_vxlan_peers(ifaceobjrunning.name, vxlanattrs.get('svcnode'))
             if attrval:
                 [ifaceobjrunning.update_config('vxlan-remoteip', a)
                             for a in attrval]
@@ -274,7 +391,7 @@ class vxlan(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
