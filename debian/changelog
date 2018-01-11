@@ -1,6 +1,7 @@
 ifupdown2 (1.1-cl3u16) RELEASED; urgency=medium
 
   * Closes: CM-18647, CM-19279. fix python exception on macvlans address dump
+  * Closes: CM-19332. fix eth0 doesn't acquire DHCP address when mgmt VRF is enabled
 
  -- dev-support <dev-support@cumulusnetworks.com>  Tue, 09 Jan 2018 02:02:58 +0100
 
