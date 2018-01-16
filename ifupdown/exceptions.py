@@ -52,3 +52,7 @@ class errorReadingStateError(Error):
 
 class moduleNotSupported(Error):
     pass
+
+
+class ReservedVlanException(Error):
+    pass

@@ -13,6 +13,7 @@ try:
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
+    import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
@@ -424,8 +425,8 @@ class moduleBase(object):
             vlanid = self._resv_vlan_range[0]
 
         if error:
-            self.logger.error('%s: reserved vlan %d being used (reserved vlan range %d-%d)'
-                              % (logprefix, vlanid, self._resv_vlan_range[0], self._resv_vlan_range[1]))
+            raise exceptions.ReservedVlanException('%s: reserved vlan %d being used (reserved vlan range %d-%d)'
+                                                   % (logprefix, vlanid, self._resv_vlan_range[0], self._resv_vlan_range[1]))
 
         return error
 

@@ -14,6 +14,7 @@ try:
 
     from nlmanager.nlmanager import Link
 
+    import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -778,7 +779,11 @@ class bridge(moduleBase):
         if warn and ports and len(ports) > 1:
             self.log_warn('%s: ignoring duplicate bridge-ports lines: %s'
                           %(ifaceobj.name, ports[1:]))
-        return ports[0] if ports else None
+        if ports:
+            if 'none' in ports[0]:
+                return []
+            return ports[0]
+        return None
 
     def _is_bridge_port(self, ifaceobj):
         if self.brctlcmd.is_bridge_port(ifaceobj.name):
@@ -1281,12 +1286,12 @@ class bridge(moduleBase):
                 if '-' in v:
                     va, vb = v.split('-')
                     va, vb = int(va), int(vb)
-                    if self._handle_reserved_vlan(va, ifaceobj.name, end=vb):
-                        return False
+                    self._handle_reserved_vlan(va, ifaceobj.name, end=vb)
                 else:
                     va = int(v)
-                    if self._handle_reserved_vlan(va, ifaceobj.name):
-                        ret = False
+                    self._handle_reserved_vlan(va, ifaceobj.name)
+            except exceptions.ReservedVlanException as e:
+                raise e
             except Exception:
                 self.logger.warn('%s: unable to parse vid \'%s\''
                                  %(ifaceobj.name, v))
@@ -1391,6 +1396,8 @@ class bridge(moduleBase):
                 #       pvid 101
                 #       vid 100 102
                 vids_to_add.add(pvid_to_del)
+        except exceptions.ReservedVlanException as e:
+            raise e
         except Exception, e:
             self.log_error('%s: failed to process vids/pvids'
                            %bportifaceobj.name + ' vids = %s' %str(vids) +
@@ -1536,6 +1543,8 @@ class bridge(moduleBase):
                                 bportifaceobj, bridge_vids, bridge_pvid)
                     elif self.warn_on_untagged_bridge_absence:
                         self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
+                except exceptions.ReservedVlanException as e:
+                    raise e
                 except Exception, e:
                     err = True
                     self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
@@ -1603,7 +1612,7 @@ class bridge(moduleBase):
     def up_check_bridge_vlan_aware(self, ifaceobj, ifaceobj_getfunc, link_exists):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
             if not self.check_bridge_vlan_aware_port(ifaceobj, ifaceobj_getfunc):
-                raise
+                return False
             if link_exists:
                 ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
             return True
@@ -1671,7 +1680,7 @@ class bridge(moduleBase):
                 self.logger.warning('%s: %s: \'bridge-arp-nd-suppress\' '
                                     'is not supported on a non-vxlan port'
                                     % (ifaceobj.name, brport_name))
-                raise
+                raise Exception()
         elif (bridge_vlan_aware and
                   (not self.arp_nd_suppress_only_on_vxlan or
                        (self.arp_nd_suppress_only_on_vxlan and
@@ -1970,6 +1979,8 @@ class bridge(moduleBase):
             self._apply_bridge_port_settings_all(ifaceobj,
                                                  ifaceobj_getfunc=ifaceobj_getfunc,
                                                  bridge_vlan_aware=bridge_vlan_aware)
+        except exceptions.ReservedVlanException as e:
+            raise e
         except Exception as e:
             self.logger.warning('%s: apply bridge settings: %s' % (ifname, str(e)))
         finally:
