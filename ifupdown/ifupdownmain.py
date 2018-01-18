@@ -1123,6 +1123,8 @@ class ifupdownMain(ifupdownBase):
                     'message': 'invalid value "%s": valid attribute values: %s'
                                % (value, validvals)
                 }
+        elif validvals and value in validvals:
+            pass
         elif validrange:
             if len(validrange) != 2:
                 raise Exception('%s: invalid range in addon configuration'
