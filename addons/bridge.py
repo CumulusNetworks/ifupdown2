@@ -191,11 +191,22 @@ class bridge(moduleBase):
                           'multivalue' : True,
                           'compat' : True,
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
-                    'bridge-portmcrouter' :
-                        { 'help' : 'set port multicast routers',
-                          'validvals' : ['<interface-yes-no-0-1-list>'],
-                          'example' : ['under the port (for vlan aware bridge): bridge-portmcrouter 2',
-                                       'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=0 swp2=1']},
+                     'bridge-portmcrouter':
+                         {
+                             'help': 'set port multicast routers',
+                             'validvals': ['<interface-disabled-automatic-enabled>'],
+                             'example': [
+                                 'under the port (for vlan aware bridge): bridge-portmcrouter 0',
+                                 'under the port (for vlan aware bridge): bridge-portmcrouter 1',
+                                 'under the port (for vlan aware bridge): bridge-portmcrouter 2',
+                                 'under the port (for vlan aware bridge): bridge-portmcrouter disabled',
+                                 'under the port (for vlan aware bridge): bridge-portmcrouter automatic',
+                                 'under the port (for vlan aware bridge): bridge-portmcrouter enabled',
+                                 'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=0 swp2=1 swp2=2',
+                                 'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=disabled swp2=automatic swp3=enabled',
+                                 'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=2 swp2=disabled swp3=1',
+                             ]
+                         },
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
                           'validvals': ['<interface-yes-no-0-1-list>'],
@@ -532,12 +543,23 @@ class bridge(moduleBase):
         ('bridge-arp-nd-suppress', Link.IFLA_BRPORT_ARP_SUPPRESS),
     )
 
+    _ifla_brport_multicast_router_dict_to_int = {
+        'disabled': 0,
+        '0': 0,
+        'no': 0,
+        'automatic': 1,
+        '1': 1,
+        'yes': 1,
+        'enabled': 2,
+        '2': 2,
+    }
+
     # callable to translate <interface-yes-no-0-1-list> to netlink value
     _ifla_brport_attributes_translate_user_config_to_netlink_map = dict(
         (
             (Link.IFLA_BRPORT_PRIORITY, int),
             (Link.IFLA_BRPORT_COST, int),
-            (Link.IFLA_BRPORT_MULTICAST_ROUTER, utils.get_int_from_boolean_and_string),
+            (Link.IFLA_BRPORT_MULTICAST_ROUTER, lambda x: bridge._ifla_brport_multicast_router_dict_to_int.get(x, 0)),
             (Link.IFLA_BRPORT_FAST_LEAVE, utils.get_boolean_from_string),
             (Link.IFLA_BRPORT_LEARNING, utils.get_boolean_from_string),
             (Link.IFLA_BRPORT_UNICAST_FLOOD, utils.get_boolean_from_string),
@@ -2540,9 +2562,6 @@ class bridge(moduleBase):
                for vlistitem in vlist:
                    try:
                       (p, v) = vlistitem.split('=')
-                      currv = self.brctlcmd.get_bridgeport_attr(
-                                         ifaceobj.name, p,
-                                         brctlcmdattrname)
                       if k in ['bridge-learning',
                                'bridge-unicast-flood',
                                'bridge-multicast-flood',
@@ -2560,7 +2579,11 @@ class bridge(moduleBase):
                           currstr += ' %s=%s' %(p, currv)
                       else:
                           currstr += ' %s=%s' %(p, 'None')
-                      if currv != v:
+
+                      if k == 'bridge-portmcrouter':
+                          if self._ifla_brport_multicast_router_dict_to_int.get(v) != int(currv):
+                              status = 1
+                      elif currv != v:
                           status = 1
                    except Exception, e:
                       self.log_warn(str(e))
@@ -2731,10 +2754,16 @@ class bridge(moduleBase):
                 running_attrval = self.brctlcmd.get_bridgeport_attr(
                                        bridgename, ifaceobj.name, dstattr)
 
-                if dstattr == 'portmcrouter' or dstattr == 'portmcfl':
+                if dstattr == 'portmcfl':
                     if not utils.is_binary_bool(attrval) and running_attrval:
                         running_attrval = utils.get_yesno_boolean(
                             utils.get_boolean_from_string(running_attrval))
+                elif dstattr == 'portmcrouter':
+                    if self._ifla_brport_multicast_router_dict_to_int.get(attrval) == int(running_attrval):
+                        ifaceobjcurr.update_config_with_status(attr, attrval, 0)
+                    else:
+                        ifaceobjcurr.update_config_with_status(attr, attrval, 1)
+                    continue
                 elif dstattr in ['learning',
                                  'unicast-flood',
                                  'multicast-flood',
@@ -2992,24 +3021,6 @@ class bridge(moduleBase):
                     int(value)
                 except:
                     running_attrs['mcrouter'] = 'yes' if utils.get_boolean_from_string(running_attrs['mcrouter']) else 'no'
-
-        portmcrouter_config = ifaceobj.get_attr_value_first('bridge-portmcrouter')
-        if portmcrouter_config:
-            portlist = self.parse_port_list(ifaceobj.name, portmcrouter_config)
-            if portlist:
-                to_convert = []
-                for p in portlist:
-                    (port, val) = p.split('=')
-                    if val not in ['0', '1', '2']:
-                        to_convert.append(port)
-                for port in to_convert:
-                    running_value = running_attrs['ports'][port]['portmcrouter']
-                    running_value_query = 'no'
-                    if running_value == '1':
-                        running_value_query = 'yes'
-                    elif running_value == '2':
-                        running_value_query = '2'
-                    running_attrs['ports'][port]['portmcrouter'] = running_value_query
 
     def _query_check_support_yesno_attr_port(self, runningattrs, ifaceobj, attr, attrval):
         if attrval:

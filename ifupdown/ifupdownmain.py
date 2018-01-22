@@ -334,6 +334,7 @@ class ifupdownMain(ifupdownBase):
             '<interface-yes-no-list>': self._keyword_interface_yes_no_list,
             '<interface-on-off-list>': self._keyword_interface_on_off_list,
             '<interface-yes-no-0-1-list>': self._keyword_interface_yes_no_0_1_list,
+            '<interface-disabled-automatic-enabled>': self._keyword_interface_disabled_automatic_enabled_list,
             '<interface-yes-no-auto-list>': self._keyword_interface_yes_no_auto_list,
             '<interface-l2protocol-tunnel-list>': self._keyword_interface_l2protocol_tunnel_list
         }
@@ -980,6 +981,12 @@ class ifupdownMain(ifupdownBase):
         """
         return self._keyword_interface_list_with_value(value,
                                                        ['yes', 'no', '1', '0', '2'])
+
+    def _keyword_interface_disabled_automatic_enabled_list(self, value, validrange=None):
+        return self._keyword_interface_list_with_value(value, [
+            '0', 'disabled', 'no',
+            '1', 'automatic', 'yes',
+            '2', 'enabled'])
 
     def _keyword_interface_range_list(self, value, validrange):
         """
