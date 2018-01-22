@@ -973,7 +973,9 @@ class vrf(moduleBase):
                     if running_table:
                         ifaceobjrunning.update_config('vrf-table',
                                                       running_table)
-            elif kind == 'vrf_slave':
+                        return
+            slave_kind = self.ipcmd.link_get_slave_kind(ifaceobjrunning.name)
+            if slave_kind == 'vrf_slave':
                 vrf = self.ipcmd.link_get_master(ifaceobjrunning.name)
                 if vrf:
                     ifaceobjrunning.update_config('vrf', vrf)
