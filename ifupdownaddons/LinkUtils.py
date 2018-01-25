@@ -883,13 +883,13 @@ class LinkUtils(utilsBase):
                     scope = int(addr_details['scope'])
                 except Exception:
                     try:
-                        details = {}
+                        d = {}
                         addr_obj = IPNetwork(addr)
                         if isinstance(addr_obj, IPv6Network):
-                            details['family'] = 'inet6'
+                            d['family'] = 'inet6'
                         else:
-                            details['family'] = 'inet'
-                        running_addrs[addr] = details
+                            d['family'] = 'inet'
+                        running_addrs[addr] = d
                     except:
                         running_addrs[addr] = {}
                     continue
