@@ -527,8 +527,10 @@ class LinkUtils(utilsBase):
                         linkattrs['kind'] = 'vrf'
                         linkCache.vrfs[ifname] = vattrs
                         break
+                    elif citems[i] == 'veth':
+                        linkattrs['kind'] = 'veth'
                     elif citems[i] == 'vrf_slave':
-                        linkattrs['kind'] = 'vrf_slave'
+                        linkattrs['slave_kind'] = 'vrf_slave'
                         break
                     elif citems[i] == 'macvlan' and citems[i + 1] == 'mode':
                         linkattrs['kind'] = 'macvlan'
@@ -1217,6 +1219,9 @@ class LinkUtils(utilsBase):
 
     def link_get_kind(self, ifacename):
         return self._cache_get('link', [ifacename, 'kind'])
+
+    def link_get_slave_kind(self, ifacename):
+        return self._cache_get('link', [ifacename, 'slave_kind'])
 
     def link_get_hwaddress(self, ifacename):
         address = self._cache_get('link', [ifacename, 'hwaddress'])
