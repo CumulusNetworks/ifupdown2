@@ -697,7 +697,10 @@ class LinkUtils(utilsBase):
         if ifupdownflags.flags.DRYRUN:
             return
         try:
-            linkCache.del_attr(attrlist)
+            if value:
+                linkCache.remove_from_attrlist(attrlist, value)
+            else:
+                linkCache.del_attr(attrlist)
         except:
             pass
 
@@ -1912,7 +1915,7 @@ class LinkUtils(utilsBase):
 
     def bond_remove_slave(self, bondname, slave):
         slaves = self._link_cache_get([bondname, 'linkinfo', 'slaves'])
-        if slave not in slaves:
+        if not slaves or slave not in slaves:
             return
         sysfs_bond_path = ('/sys/class/net/%s' % bondname +
                            '/bonding/slaves')
