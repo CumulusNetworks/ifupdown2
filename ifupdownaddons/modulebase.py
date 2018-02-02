@@ -417,16 +417,21 @@ class moduleBase(object):
         """ Helper function to check and warn if the vlanid falls in the
         reserved vlan range """
         error = False
+        invalid_vlan = vlanid
 
-        if end == -1 and vlanid in range(self._resv_vlan_range[0], self._resv_vlan_range[1]):
+        if self._resv_vlan_range[0] <= vlanid <= self._resv_vlan_range[1]:
             error = True
-        elif end > 0 and vlanid < self._resv_vlan_range[0] and end > self._resv_vlan_range[1]:
-            error = True
-            vlanid = self._resv_vlan_range[0]
+        elif end > 0:
+            if self._resv_vlan_range[0] <= end <= self._resv_vlan_range[1]:
+                error = True
+                invalid_vlan = end
+            elif vlanid < self._resv_vlan_range[0] and end > self._resv_vlan_range[1]:
+                error = True
+                invalid_vlan = self._resv_vlan_range[0]
 
         if error:
             raise exceptions.ReservedVlanException('%s: reserved vlan %d being used (reserved vlan range %d-%d)'
-                                                   % (logprefix, vlanid, self._resv_vlan_range[0], self._resv_vlan_range[1]))
+                                                   % (logprefix, invalid_vlan, self._resv_vlan_range[0], self._resv_vlan_range[1]))
 
         return error
 
