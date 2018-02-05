@@ -604,11 +604,11 @@ class address(moduleBase):
             if ipforward:
                 self.sysctl_set('net.ipv4.conf.%s.forwarding'
                                  %('/'.join(ifaceobj.name.split("."))),
-                                ipforward)
+                                utils.boolean_support_binary(ipforward))
             if ip6forward:
                 self.sysctl_set('net.ipv6.conf.%s.forwarding'
                                 %('/'.join(ifaceobj.name.split("."))),
-                                ip6forward)
+                                utils.boolean_support_binary(ip6forward))
             return
         bridge_port = ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT
         if bridge_port:
