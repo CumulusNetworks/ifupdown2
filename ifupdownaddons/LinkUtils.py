@@ -1015,10 +1015,10 @@ class LinkUtils(utilsBase):
         if not gateway:
             return
         if not vrf:
-            cmd = '%s route add default via %s' % (utils.ip_cmd,
+            cmd = '%s route add default via %s proto kernel' % (utils.ip_cmd,
                                                    gateway)
         else:
-            cmd = ('%s route add table %s default via %s' %
+            cmd = ('%s route add table %s default via %s proto kernel' %
                    (utils.ip_cmd, vrf, gateway))
         # Add metric
         if metric:
