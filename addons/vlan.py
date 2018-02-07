@@ -42,9 +42,6 @@ class vlan(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
-        self._resv_vlan_range =  self._get_reserved_vlan_range()
-        self.logger.debug('%s: using reserved vlan range %s'
-                  %(self.__class__.__name__, str(self._resv_vlan_range)))
 
     def _is_vlan_device(self, ifaceobj):
         vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
