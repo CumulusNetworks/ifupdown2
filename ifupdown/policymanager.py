@@ -58,9 +58,9 @@ class policymanager():
                 self.logger.debug('reading %s system policy defaults config' \
                                   % filename)
             except Exception, e:
-                self.logger.info('could not read %s system policy defaults config' \
+                self.logger.warning('could not read %s system policy defaults config' \
                                   % filename)
-                self.logger.info('    exception is %s' % str(e))
+                self.logger.warning('    exception is %s' % str(e))
 
             for module in system_array.keys():
                 if self.system_policy_array.has_key(module):
@@ -78,9 +78,9 @@ class policymanager():
                 self.logger.debug('reading %s policy user defaults config' \
                                   % filename)
             except Exception, e:
-                self.logger.debug('could not read %s user policy defaults config' \
+                self.logger.warning('could not read %s user policy defaults config' \
                                   % filename)
-                self.logger.debug('    exception is %s' % str(e))
+                self.logger.warning('    exception is %s' % str(e))
             # customer added module attributes
             for module in user_array.keys():
                 if self.system_policy_array.has_key(module):
