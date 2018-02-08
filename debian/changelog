@@ -1,3 +1,9 @@
+ifupdown2 (1.1-cl3u17) RELEASED; urgency=medium
+
+  * Closes: CM-19671: ip[6]-forward attributes not set at boot
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Thu, 08 Feb 2018 09:48:37 +0100
+
 ifupdown2 (1.1-cl3u16) RELEASED; urgency=medium
 
   * Closes: CM-18647, CM-19279. fix python exception on macvlans address dump
