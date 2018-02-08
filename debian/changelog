@@ -1,3 +1,11 @@
+ifupdown2 (1.1-cl3u18) RELEASED; urgency=medium
+
+  * Closes: CM-19075: using reserved VLAN range reports error but ifreload returns 0
+  * Closes: CM-18882: unable to set bridge-portmcrouter to "2"
+  * Closes: github #39: addons: vrf: fix vrf slave link kind
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Thu, 08 Feb 2018 10:42:42 +0100
+
 ifupdown2 (1.1-cl3u17) RELEASED; urgency=medium
 
   * Closes: CM-19671: ip[6]-forward attributes not set at boot
