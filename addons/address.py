@@ -754,13 +754,11 @@ class address(moduleBase):
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
-        if addr_method != "dhcp":
-            gateways = ifaceobj.get_attr_value('gateway')
-            if not gateways:
-                gateways = []
-            prev_gw = self._get_prev_gateway(ifaceobj, gateways)
-            self._add_delete_gateway(ifaceobj, gateways, prev_gw)
-        return
+        gateways = ifaceobj.get_attr_value('gateway')
+        if not gateways:
+            gateways = []
+        prev_gw = self._get_prev_gateway(ifaceobj, gateways)
+        self._add_delete_gateway(ifaceobj, gateways, prev_gw)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
