@@ -58,7 +58,14 @@ class vxlan(moduleBase):
                         'vxlan-purge-remotes' :
                             {'help' : 'vxlan purge existing remote entries',
                              'validvals' : ['yes', 'no'],
-                             'example': ['vxlan-purge-remotes yes']}
+                             'example': ['vxlan-purge-remotes yes'],},
+                    'vxlan-port': {
+                        'help': 'vxlan UDP port (transmitted to vxlan driver)',
+                        'validvals': ['<number>'],
+                        'example': 'vxlan-port 4789',
+                        'validrange': ['1', '65536'],
+                        'default': '4789',
+                    }
                 }}
     _clagd_vxlan_anycast_ip = ""
 
@@ -131,6 +138,7 @@ class vxlan(moduleBase):
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
+            vxlan_port = ifaceobj.get_attr_value_first('vxlan-port')
             purge_remotes = self._get_purge_remotes(ifaceobj)
 
             link_exists = self.ipcmd.link_exists(ifname)
@@ -184,13 +192,37 @@ class vxlan(moduleBase):
                     # if link doesn't exist we let the kernel define ageing
                     ageing = self.get_attr_default_value('vxlan-ageing')
 
+            if not vxlan_port:
+                vxlan_port = policymanager.policymanager_api.get_attr_default(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-port'
+                )
+
+            try:
+                vxlan_port = int(vxlan_port)
+            except TypeError:
+                # TypeError means vxlan_port was None
+                # ie: not provided by the user or the policy
+                vxlan_port = netlink.VXLAN_UDP_PORT
+            except ValueError as e:
+                self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, netlink.VXLAN_UDP_PORT, str(e)))
+                vxlan_port = netlink.VXLAN_UDP_PORT
+
+            if link_exists:
+                cache_port = vxlanattrs.get(Link.IFLA_VXLAN_PORT)
+                if vxlan_port != cache_port:
+                    self.logger.warning('%s: vxlan-port (%s) cannot be changed - to apply the desired change please run: ifdown %s && ifup %s'
+                                        % (ifname, cache_port, ifname, ifname))
+                    vxlan_port = cache_port
+
             if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group):
                 try:
                     netlink.link_add_vxlan(ifname, vxlanid,
                                            local=local,
                                            learning=learning,
                                            ageing=ageing,
-                                           group=group)
+                                           group=group,
+                                           dstport=vxlan_port)
                 except Exception as e_netlink:
                     self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:
@@ -309,6 +341,14 @@ class vxlan(moduleBase):
                        ifaceobj.get_attr_value_first('vxlan-id'), 
                        vxlanattrs.get('vxlanid'))
 
+        self._query_check_n_update(
+            ifaceobj,
+            ifaceobjcurr,
+            'vxlan-port',
+            ifaceobj.get_attr_value_first('vxlan-port'),
+            str(vxlanattrs.get(Link.IFLA_VXLAN_PORT))
+        )
+
         running_attrval = vxlanattrs.get('local')
         attrval = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
         if running_attrval == self._clagd_vxlan_anycast_ip:
@@ -360,6 +400,9 @@ class vxlan(moduleBase):
         else:
             # if there is no vxlan id, this is not a vxlan port
             return
+
+        ifaceobjrunning.update_config('vxlan-port', vxlanattrs.get(Link.IFLA_VXLAN_PORT))
+
         attrval = vxlanattrs.get('local')
         if attrval:
             ifaceobjrunning.update_config('vxlan-local-tunnelip', attrval)

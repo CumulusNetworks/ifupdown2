@@ -376,7 +376,8 @@ class Netlink(utilsBase):
                 ('learning', 'on'),
                 ('svcnode', None),
                 ('vxlanid', str(linkdata.get(Link.IFLA_VXLAN_ID, ''))),
-                ('ageing', str(linkdata.get(Link.IFLA_VXLAN_AGEING, '')))
+                ('ageing', str(linkdata.get(Link.IFLA_VXLAN_AGEING, ''))),
+                (Link.IFLA_VXLAN_PORT, linkdata.get(Link.IFLA_VXLAN_PORT))
         ):
             linkdata[attr] = value
         self._link_dump_linkdata_attr(linkdata, self.ifla_vxlan_attributes, linkdata)

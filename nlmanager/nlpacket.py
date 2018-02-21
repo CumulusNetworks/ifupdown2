@@ -1589,7 +1589,9 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                                 # 2-byte int
                                 elif info_data_type in (Link.IFLA_VXLAN_PORT, ):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('!H', sub_attr_data[4:6])[0]
+                                    # The form '!' is available for those poor souls who claim they can't
+                                    # remember whether network byte order is big-endian or little-endian.
 
                                 # 1-byte int
                                 elif info_data_type in (Link.IFLA_VXLAN_TTL,
