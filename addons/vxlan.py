@@ -78,6 +78,13 @@ class vxlan(moduleBase):
         else:
             self._purge_remotes = False
 
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        if self._is_vxlan_device(ifaceobj):
+            if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip'):
+                self.logger.warning('%s: missing vxlan-local-tunnelip' % ifaceobj.name)
+                return False
+        return True
+
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
         if self._is_vxlan_device(ifaceobj):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
