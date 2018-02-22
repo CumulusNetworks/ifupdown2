@@ -17,6 +17,7 @@ try:
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
 except ImportError, e:
     raise ImportError('%s - required module not found' % str(e))
 
@@ -37,6 +38,18 @@ class link(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
+
+        self.check_physical_port_existance = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(
+            self.__class__.__name__,
+            'warn_on_physdev_not_present'
+        ))
+
+    def syntax_check(self, ifaceobj, ifaceobj_getfunc):
+        if self.check_physical_port_existance:
+            if not ifaceobj.link_kind and not LinkUtils.link_exists(ifaceobj.name):
+                self.logger.warning('%s: interface does not exist' % ifaceobj.name)
+                return False
+        return True
 
     def _is_my_interface(self, ifaceobj):
         if (ifaceobj.get_attr_value_first('link-type')
