@@ -167,6 +167,12 @@ class moduleBase(object):
         errmsg = ('error parsing glob expression \'%s\'' %expr +
                     ' (supported glob syntax: swp1-10.300 or swp[1-10].300' +
                     '  or swp[1-10]sub[0-4].300')
+
+        if ',' in expr:
+            self.logger.warn('%s: comma are not supported in glob: %s' % (ifacename, errmsg))
+            yield expr
+            return
+
         regexs = self.glob_regexs
 
         if regexs[0].match(expr):
