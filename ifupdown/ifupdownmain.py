@@ -329,6 +329,7 @@ class ifupdownMain(ifupdownBase):
             '<number-range-list>': self._keyword_number_range_list,
             '<number-comma-range-list>': self._keyword_number_comma_range_list,
             '<interface-range-list>': self._keyword_interface_range_list,
+            '<interface-range-list-multiple-of-16>': self._keyword_interface_range_list_multiple_of_16,
             '<mac-ip/prefixlen-list>': self._keyword_mac_ip_prefixlen_list,
             '<number-interface-list>': self._keyword_number_interface_list,
             '<interface-yes-no-list>': self._keyword_interface_yes_no_list,
@@ -988,7 +989,10 @@ class ifupdownMain(ifupdownBase):
             '1', 'automatic', 'yes',
             '2', 'enabled'])
 
-    def _keyword_interface_range_list(self, value, validrange):
+    def _keyword_interface_range_list_multiple_of_16(self, value, validrange):
+        return self._keyword_interface_range_list(value, validrange, multiple=16)
+
+    def _keyword_interface_range_list(self, value, validrange, multiple=None):
         """
             <number> | ( <interface>=<number> [ <interface>=number> ...] )
             ex: mstpctl-portpathcost swp1=0 swp2=1
@@ -1004,6 +1008,11 @@ class ifupdownMain(ifupdownBase):
                                                 ' valid attribute range: %s'
                                                 % (values[0],
                                                    '-'.join(validrange)))
+
+                    if multiple is not None:
+                        if not (n % multiple == 0):
+                            raise invalidValueError('invalid value %s: must be a multiple of %s' % (n, multiple))
+
                     return True
                 except invalidValueError as e:
                     raise e
@@ -1025,6 +1034,11 @@ class ifupdownMain(ifupdownBase):
                         % (iface_value[1],
                            iface_value[0],
                            '-'.join(validrange)))
+
+                if multiple is not None:
+                    if not (number % multiple == 0):
+                        raise invalidValueError('invalid value %s: must be a multiple of %s' % (number, multiple))
+
             return True
         except invalidValueError as e:
             raise e

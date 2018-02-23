@@ -140,10 +140,10 @@ class mstpctl(moduleBase):
                           'example' : ['under the bridge: mstpctl-bpduguard swp1=yes swp2=no',
                                        'under the port (recommended): mstpctl-bpduguard yes']},
                     'mstpctl-treeportprio' : 
-                        { 'help' :
-                          'port priority for MSTI instance',
+                        { 'help': 'Sets the <port>\'s priority MSTI instance. '
+                                  'The priority value must be a number between 0 and 240 and a multiple of 16.',
                           'default' : '128',
-                          'validvals': ['<interface-range-list>'],
+                          'validvals': ['<interface-range-list-multiple-of-16>'],
                           'validrange' : ['0', '240'],
                           'jsonAttr': 'treeportprio',
                           'required' : False,
