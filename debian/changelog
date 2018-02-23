@@ -4,6 +4,7 @@ ifupdown2 (1.1-cl3u18) RELEASED; urgency=medium
   * Closes: CM-18882: unable to set bridge-portmcrouter to "2"
   * Closes: github #39: addons: vrf: fix vrf slave link kind
   * New. Enabled: addons: vxlan: add support for vxlan-port attribute
+  * Closes: CM-19760: vxlan syntax-check warn on missing vxlan-local-tunnelip
 
  -- dev-support <dev-support@cumulusnetworks.com>  Thu, 08 Feb 2018 10:42:42 +0100
 
