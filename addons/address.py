@@ -413,17 +413,21 @@ class address(moduleBase):
 
         return ip4, ip6, ip4 + ip6
 
-    def _add_delete_gateway(self, ifaceobj, gateways=[], prev_gw=[]):
-        vrf = ifaceobj.get_attr_value_first('vrf')
-        metric = ifaceobj.get_attr_value_first('metric')
-        for del_gw in list(set(prev_gw) - set(gateways)):
+    def _delete_gateway(self, ifaceobj, gateways, vrf, metric):
+        for del_gw in gateways:
             try:
                 self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
             except Exception as e:
                 self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
+
+    def _add_delete_gateway(self, ifaceobj, gateways=[], prev_gw=[]):
+        vrf = ifaceobj.get_attr_value_first('vrf')
+        metric = ifaceobj.get_attr_value_first('metric')
+        self._delete_gateway(ifaceobj, list(set(prev_gw) - set(gateways)),
+                             vrf, metric)
         for add_gw in gateways:
             try:
-                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf)
+                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf, metric)
             except Exception as e:
                 self.log_error('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -775,6 +779,11 @@ class address(moduleBase):
                     # for logical interfaces we don't need to remove the ip addresses
                     # kernel will do it for us on 'ip link del'
                     self.ipcmd.del_addr_all(ifaceobj.name)
+            gateways = ifaceobj.get_attr_value('gateway')
+            if gateways:
+                self._delete_gateway(ifaceobj, gateways,
+                                     ifaceobj.get_attr_value_first('vrf'),
+                                     ifaceobj.get_attr_value_first('metric'))
             mtu = ifaceobj.get_attr_value_first('mtu')
             if (not ifaceobj.link_kind and mtu and
                 self.default_mtu and (mtu != self.default_mtu)):

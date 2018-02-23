@@ -1032,29 +1032,15 @@ class LinkUtils(utilsBase):
         if not gateway:
             return
         if not vrf:
-            cmd = ('%s route del default via %s' %
+            cmd = ('%s route del default via %s proto kernel' %
                    (utils.ip_cmd, gateway))
         else:
-            cmd = ('%s route del table %s default via %s' %
+            cmd = ('%s route del table %s default via %s proto kernel' %
                    (utils.ip_cmd, vrf, gateway))
         if metric:
             cmd += ' metric %s' % metric
         cmd += ' dev %s' % ifacename
         utils.exec_command(cmd)
-
-    @staticmethod
-    def route6_add_gateway(ifacename, gateway):
-        if not gateway:
-            return
-        return utils.exec_command('%s -6 route add default via %s dev %s' %
-                                  (utils.ip_cmd, gateway, ifacename))
-
-    @staticmethod
-    def route6_del_gateway(ifacename, gateway):
-        if not gateway:
-            return
-        return utils.exec_command('%s -6 route del default via %s dev %s' %
-                                  (utils.ip_cmd, gateway, ifacename))
 
     def link_create_vlan(self, vlan_device_name, vlan_raw_device, vlanid):
         if self.link_exists(vlan_device_name):
