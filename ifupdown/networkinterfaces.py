@@ -8,6 +8,7 @@
 #
 
 try:
+    import os
     import re
     import copy
     import glob
@@ -465,13 +466,24 @@ class networkInterfaces():
             return
         self._filestack.append(filename)
         self.logger.info('processing interfaces file %s' %filename)
+        filedata = ''
         try:
-            with open(filename) as f:
-                filedata = f.read()
+            if os.path.exists(filename):
+                with open(filename) as f:
+                    filedata = f.read()
         except Exception, e:
             self.logger.warn('error processing file %s (%s)',
                              filename, str(e))
             return
+
+        if not "iface lo" in filedata:
+            filedata = """
+            auto lo
+            iface lo inet loopback
+
+            %s
+            """ % filedata
+
         self.read_filedata(filedata)
         self._filestack.pop()
 
