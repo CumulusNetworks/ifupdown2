@@ -584,9 +584,14 @@ class address(moduleBase):
         mpls_enable = utils.boolean_support_binary(mpls_enable)
         # File read has been used for better performance
         # instead of using sysctl command
-        running_mpls_enable = self.read_file_oneline(
-                                '/proc/sys/net/mpls/conf/%s/input'
-                                %ifaceobj.name)
+        if ifupdownflags.flags.PERFMODE:
+            running_mpls_enable = '0'
+        else:
+            running_mpls_enable = self.read_file_oneline(
+                '/proc/sys/net/mpls/conf/%s/input'
+                % ifaceobj.name
+            )
+
         if mpls_enable != running_mpls_enable:
             try:
                 self.sysctl_set('net.mpls.conf.%s.input'
