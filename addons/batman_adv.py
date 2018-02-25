@@ -150,7 +150,7 @@ class batman_adv (moduleBase):
 
         try:
             self.logger.debug ("Running batctl -m %s if %s %s" % (bat_iface, op, mesh_iface))
-            batctl_output = subprocess.check_output (["/usr/sbin/batctl", "-m", bat_iface, "if", op, mesh_iface], stderr = subprocess.STDOUT)
+            batctl_output = subprocess.check_output (["batctl", "-m", bat_iface, "if", op, mesh_iface], stderr = subprocess.STDOUT)
         except subprocess.CalledProcessError as c:
             raise Exception ("Command \"batctl -m %s if %s %s\" failed: %s" % (bat_iface, op, mesh_iface, c.output))
         except Exception as e:
@@ -160,7 +160,7 @@ class batman_adv (moduleBase):
     def _find_member_ifaces (self, ifaceobj, ignore = True):
         members = []
         iface_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
-        batctl_fh = subprocess.Popen (["/usr/sbin/batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE).stdout
+        batctl_fh = subprocess.Popen (["batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE).stdout
         for line in batctl_fh.readlines ():
             iface = line.split (':')[0]
             if iface_ignore_re and iface_ignore_re.match (iface) and ignore:
