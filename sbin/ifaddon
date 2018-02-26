@@ -6,9 +6,9 @@ import re
 import argparse
 from collections import OrderedDict
 
-lockfile="/run/network/.lock"
-modules_configfile='/var/lib/ifupdownaddons/addons.conf'
-modules_dir='/usr/share/ifupdownaddons'
+lockfile = "/run/network/.lock"
+modules_configfile = '/var/lib/ifupdownaddons/addons.conf'
+modules_dir = '/usr/share/ifupdownaddons'
 
 addon_config = OrderedDict([('pre-up', []),
                             ('up', []),
@@ -16,6 +16,7 @@ addon_config = OrderedDict([('pre-up', []),
                             ('pre-down', []),
                             ('down', []),
                             ('post-down', [])])
+
 
 def read_modules_config():
     with open(modules_configfile, 'r') as f:
@@ -25,6 +26,7 @@ def read_modules_config():
             operation = litems[0]
             mname = litems[1]
             addon_config[operation].append(mname)
+
 
 def man_rst_header():
     print '=========================='
@@ -41,6 +43,7 @@ def man_rst_header():
     print ':Version: 0.1'
     print ':Manual section: 5'
     print '\n'
+
 
 def man_rst_body():
 
@@ -62,6 +65,7 @@ def man_rst_body():
 
     print '\n'
 
+
 def get_addon_modinfo(modules_dir):
     """ load python modules from modules_dir
 
@@ -75,7 +79,8 @@ def get_addon_modinfo(modules_dir):
     try:
         for op, mlist in addon_config.items():
             for mname in mlist:
-                if mname in modinfo.keys(): continue
+                if mname in modinfo.keys():
+                    continue
                 mpath = modules_dir + '/' + mname + '.py'
                 if os.path.exists(mpath):
                     try:
@@ -86,11 +91,12 @@ def get_addon_modinfo(modules_dir):
                         continue
                     minstance = mclass()
                     if hasattr(minstance, 'get_modinfo'):
-                       modinfo[mname] = minstance.get_modinfo()
-    except: 
+                        modinfo[mname] = minstance.get_modinfo()
+    except:
         raise
 
     return modinfo
+
 
 def print_long_string(indent, strarg):
     slen = 70 - len(indent)
@@ -98,9 +104,10 @@ def print_long_string(indent, strarg):
     l = len(strarg)
     while l > 0:
         rem = slen if l >= slen else l
-        print('%s%s' %(indent, tmphelpstr[:rem]))
+        print('%s%s' % (indent, tmphelpstr[:rem]))
         tmphelpstr = tmphelpstr[rem:].strip()
         l -= rem
+
 
 def man_rst_examples():
     print 'EXAMPLES'
@@ -116,7 +123,7 @@ def man_rst_examples():
         aindentplus = aindent + '  '
         if not mdict:
             continue
-        print_long_string(indent, '**%s**: %s' %(m, mdict.get('mhelp', '')))
+        print_long_string(indent, '**%s**: %s' % (m, mdict.get('mhelp', '')))
         attrdict = mdict.get('attrs')
         if not attrdict:
             continue
@@ -125,34 +132,35 @@ def man_rst_examples():
             for attrname, attrvaldict in attrdict.items():
                 if attrvaldict.get('compat', False):
                     continue
-                print('%s**%s**\n' %(aindent, attrname))
+                print('%s**%s**\n' % (aindent, attrname))
                 print_long_string(aindentplus, '**help**: %s'
-                        %(attrvaldict.get('help', '')))
+                                  % (attrvaldict.get('help', '')))
                 print '\n'
-                print('%s**required**: %s\n' %(aindentplus,
-                            attrvaldict.get('required', False)))
+                print('%s**required**: %s\n' % (aindentplus,
+                                                attrvaldict.get('required', False)))
                 default = attrvaldict.get('default')
                 if default:
-                    print('%s**default**: %s\n' %(aindentplus, default))
+                    print('%s**default**: %s\n' % (aindentplus, default))
                 validrange = attrvaldict.get('validrange')
                 if validrange:
                     print('%svalidrange: %s\n'
-                          %(aindentplus, '-'.join(validrange)))
+                          % (aindentplus, '-'.join(validrange)))
                 validvals = attrvaldict.get('validvals')
                 if validvals:
                     print('%s**validvals**: %s\n'
-                              %(aindentplus, ','.join(validvals)))
+                          % (aindentplus, ','.join(validvals)))
                 examples = attrvaldict.get('example')
                 if not examples:
                     continue
-                print '%s**example**:' %(aindentplus)
+                print '%s**example**:' % (aindentplus)
                 for e in examples:
-                    print '%s%s\n' %(aindentplus + indent, e)
+                    print '%s%s\n' % (aindentplus + indent, e)
                 print ''
         except Exception, e:
-            print "Roopa: m = %s, str(e) = %s\n"  %(m, str(e))
+            print "Roopa: m = %s, str(e) = %s\n" % (m, str(e))
             pass
         print ''
+
 
 def man_rst_see_also():
     print 'SEE ALSO'
@@ -165,23 +173,27 @@ def man_rst_see_also():
     ethtool(8),
     clagctl(8)'''
 
+
 def show_man_rst():
     man_rst_header()
     man_rst_body()
     man_rst_examples()
     man_rst_see_also()
 
+
 def show():
     for operation, mlist in addon_config.items():
         postion = 1
         for m in mlist:
-            print '%d. %s' %(postion, m)
+            print '%d. %s' % (postion, m)
             postion += 1
+
 
 def write_modules_config():
     with open(modules_configfile, 'w') as f:
         for op, mlist in addon_config.items():
-            [f.write('%s,%s\n' %(op, m)) for m in mlist]
+            [f.write('%s,%s\n' % (op, m)) for m in mlist]
+
 
 def process_add_cmd(args):
     op = args.operation
@@ -192,20 +204,20 @@ def process_add_cmd(args):
             if module not in vlist:
                 addon_config[k].append(module)
             else:
-                print '%s: module %s already present' %(k, module)
+                print '%s: module %s already present' % (k, module)
         return
     if module in addon_config.get(op):
         print 'module already present'
         return
     if position:
-       try:
+        try:
             addon_config[op].insert(position, module)
-       except Exception, e:
-           print ('error inserting module %s at postion %s (%s)'
-                    %(module, position, str(e)))
-           raise
+        except Exception, e:
+            print ('error inserting module %s at postion %s (%s)'
+                   % (module, position, str(e)))
+            raise
     else:
-       addon_config[op].append(module)
+        addon_config[op].append(module)
 
 
 def process_del_cmd(args):
@@ -215,10 +227,11 @@ def process_del_cmd(args):
     if op:
         del addon_config[op]
     else:
-       try:
+        try:
             [addon_config[op].remove(module) for op in addon_config.keys()]
-       except ValueError:
-           pass
+        except ValueError:
+            pass
+
 
 def process_move_cmd(args):
     op = args.operation
@@ -233,15 +246,17 @@ def process_move_cmd(args):
         raise
 
     if addon_config[op].index(module) == pos:
-        print '%s module %s already at location %d' %(op, module, pos)
+        print '%s module %s already at location %d' % (op, module, pos)
         return
 
     addon_config[op].remove(module)
     addon_config[op].insert(pos, module)
 
+
 def print_mlist(mlist, indent):
     for idx, val in enumerate(mlist):
-        print '%s%d. %s' %(indent, idx, val)
+        print '%s%d. %s' % (indent, idx, val)
+
 
 def process_show_cmd(args):
     indent = '   '
@@ -253,45 +268,49 @@ def process_show_cmd(args):
 
     if op:
         mlist = addon_config[op]
-        print '%s:' %op
+        print '%s:' % op
         print_mlist(mlist, indent)
     else:
         for op, mlist in addon_config.items():
-            print '%s:' %op
+            print '%s:' % op
             print_mlist(mlist, indent)
             print ''
 
-cmdhandlers = {'add' : process_add_cmd,
-               'del' : process_del_cmd,
-               'move' : process_move_cmd,
-               'show' : process_show_cmd}
+
+cmdhandlers = {'add': process_add_cmd,
+               'del': process_del_cmd,
+               'move': process_move_cmd,
+               'show': process_show_cmd}
+
 
 def update_subparser_add(subparser):
     subparser.add_argument('module', metavar='MODULE', help='module name')
     subparser.add_argument('operation', metavar='OPERATION',
                            choices=['pre-up', 'up', 'post-up',
                                     'pre-down', 'down', 'post-down'],
-                                    help='operations', nargs='?')
+                           help='operations', nargs='?')
     subparser.add_argument('position', metavar='POSITION', nargs='?',
                            help='position')
     subparser.set_defaults(func=process_add_cmd)
+
 
 def update_subparser_del(subparser):
     subparser.add_argument('module', metavar='MODULE', help='module name')
     subparser.add_argument('operation', metavar='OPERATION',
                            choices=['pre-up', 'up', 'post-up',
                                     'pre-down', 'down', 'post-down'],
-                                    help='operations', nargs='?')
+                           help='operations', nargs='?')
     subparser.add_argument('position', metavar='POSITION', nargs='?',
                            help='position')
     subparser.set_defaults(func=process_del_cmd)
+
 
 def update_subparser_move(subparser):
     subparser.add_argument('module', metavar='MODULE', help='module name')
     subparser.add_argument('operation', metavar='OPERATION',
                            choices=['pre-up', 'up', 'post-up',
                                     'pre-down', 'down', 'post-down'],
-                                    help='operations')
+                           help='operations')
     subparser.add_argument('position', metavar='POSITION',
                            help='position')
     subparser.set_defaults(func=process_move_cmd)
@@ -302,9 +321,10 @@ def update_subparser_show(subparser):
                            help=argparse.SUPPRESS)
     subparser.add_argument('operation', metavar='OPERATION',
                            choices=addon_config.keys(),
-                           help='operations %s' %str(addon_config.keys()),
+                           help='operations %s' % str(addon_config.keys()),
                            nargs='?')
     subparser.set_defaults(func=process_show_cmd)
+
 
 def update_argparser(argparser):
     subparsers = argparser.add_subparsers(help='sub-command help')
@@ -321,6 +341,7 @@ def update_argparser(argparser):
     parser_show = subparsers.add_parser('show', help='show help')
     update_subparser_show(parser_show)
 
+
 def parse_args(argsv):
     descr = 'ifupdown addon modules management command.\n \
             This command helps add/del/display/reorder modules \n \
@@ -332,6 +353,7 @@ def parse_args(argsv):
     args = argparser.parse_args(argsv)
     return args
 
+
 def main(argv):
     """ main function """
     try:
@@ -341,7 +363,8 @@ def main(argv):
         args.func(args)
         write_modules_config()
     except Exception, e:
-        print 'error processing command (%s)' %str(e)
+        print 'error processing command (%s)' % str(e)
+
 
 if __name__ == "__main__":
     if not os.geteuid() == 0:

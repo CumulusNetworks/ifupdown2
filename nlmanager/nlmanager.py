@@ -84,16 +84,19 @@ class NetlinkManager(object):
                     del self.debug[x]
 
     def debug_link(self, enabled):
-        self._debug_set_clear((RTM_NEWLINK, RTM_DELLINK, RTM_GETLINK, RTM_SETLINK), enabled)
+        self._debug_set_clear(
+            (RTM_NEWLINK, RTM_DELLINK, RTM_GETLINK, RTM_SETLINK), enabled)
 
     def debug_address(self, enabled):
         self._debug_set_clear((RTM_NEWADDR, RTM_DELADDR, RTM_GETADDR), enabled)
 
     def debug_neighbor(self, enabled):
-        self._debug_set_clear((RTM_NEWNEIGH, RTM_DELNEIGH, RTM_GETNEIGH), enabled)
+        self._debug_set_clear(
+            (RTM_NEWNEIGH, RTM_DELNEIGH, RTM_GETNEIGH), enabled)
 
     def debug_route(self, enabled):
-        self._debug_set_clear((RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE), enabled)
+        self._debug_set_clear(
+            (RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE), enabled)
 
     def debug_this_packet(self, mtype):
         if mtype in self.debug:
@@ -142,7 +145,7 @@ class NetlinkManager(object):
         # build_message() call...so avoid printing two messages for one packet.
         if not nlpacket.debug:
             log.debug("TXed %12s, pid %d, seq %d, %d bytes" %
-                     (nlpacket.get_type_string(), nlpacket.pid, nlpacket.seq, nlpacket.length))
+                      (nlpacket.get_type_string(), nlpacket.pid, nlpacket.seq, nlpacket.length))
 
         header_PACK = NetlinkPacket.header_PACK
         header_LEN = NetlinkPacket.header_LEN
@@ -161,12 +164,14 @@ class NetlinkManager(object):
 
             # Only block for 1 second so we can wake up to see if self.shutdown_flag is True
             try:
-                (readable, writeable, exceptional) = select([self.tx_socket, ], [], [self.tx_socket, ], 1)
+                (readable, writeable, exceptional) = select(
+                    [self.tx_socket, ], [], [self.tx_socket, ], 1)
             except Exception as e:
                 # 4 is Interrupted system call
                 if isinstance(e.args, tuple) and e[0] == 4:
                     nle_intr_count += 1
-                    log.info("select() Interrupted system call %d/%d" % (nle_intr_count, MAX_ERROR_NLE_INTR))
+                    log.info("select() Interrupted system call %d/%d" %
+                             (nle_intr_count, MAX_ERROR_NLE_INTR))
 
                     if nle_intr_count >= MAX_ERROR_NLE_INTR:
                         raise NetlinkInterruptedSystemCall(error_str)
@@ -183,7 +188,8 @@ class NetlinkManager(object):
                 # Safety net to make sure we do not spend too much time in
                 # this while True loop
                 if null_read >= MAX_NULL_READS:
-                    log.info('Socket was not readable for %d attempts' % null_read)
+                    log.info('Socket was not readable for %d attempts' %
+                             null_read)
                     return msgs
                 else:
                     continue
@@ -197,7 +203,8 @@ class NetlinkManager(object):
                     # 4 is Interrupted system call
                     if isinstance(e.args, tuple) and e[0] == 4:
                         nle_intr_count += 1
-                        log.info("%s: recv() Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
+                        log.info("%s: recv() Interrupted system call %d/%d" %
+                                 (s, nle_intr_count, MAX_ERROR_NLE_INTR))
 
                         if nle_intr_count >= MAX_ERROR_NLE_INTR:
                             raise NetlinkInterruptedSystemCall(error_str)
@@ -213,20 +220,22 @@ class NetlinkManager(object):
                 while data:
 
                     # Extract the length, etc from the header
-                    (length, msgtype, flags, seq, pid) = unpack(header_PACK, data[:header_LEN])
+                    (length, msgtype, flags, seq, pid) = unpack(
+                        header_PACK, data[:header_LEN])
 
-                    debug_str = "RXed %12s, pid %d, seq %d, %d bytes" % (NetlinkPacket.type_to_string[msgtype], pid, seq, length)
+                    debug_str = "RXed %12s, pid %d, seq %d, %d bytes" % (
+                        NetlinkPacket.type_to_string[msgtype], pid, seq, length)
 
                     # This shouldn't happen but it would be nice to be aware of it if it does
                     if pid != nlpacket.pid:
                         log.debug(debug_str + '...we are not interested in this pid %s since ours is %s' %
-                                    (pid, nlpacket.pid))
+                                  (pid, nlpacket.pid))
                         data = data[length:]
                         continue
 
                     if seq != nlpacket.seq:
                         log.debug(debug_str + '...we are not interested in this seq %s since ours is %s' %
-                                    (seq, nlpacket.seq))
+                                  (seq, nlpacket.seq))
                         data = data[length:]
                         continue
 
@@ -238,13 +247,15 @@ class NetlinkManager(object):
                     elif msgtype == NLMSG_ERROR:
 
                         # The error code is a signed negative number.
-                        error_code = abs(unpack('=i', data[header_LEN:header_LEN+4])[0])
+                        error_code = abs(
+                            unpack('=i', data[header_LEN:header_LEN+4])[0])
                         msg = Error(msgtype, nlpacket.debug)
                         msg.decode_packet(length, flags, seq, pid, data)
 
                         # 0 is NLE_SUCCESS...everything else is a true error
                         if error_code:
-                            error_code_str = msg.error_to_string.get(error_code)
+                            error_code_str = msg.error_to_string.get(
+                                error_code)
                             if error_code_str:
                                 error_str = 'Operation failed with \'%s\'' % error_code_str
                             else:
@@ -256,10 +267,12 @@ class NetlinkManager(object):
                                 raise NetlinkNoAddressError(error_str)
                             elif error_code == Error.NLE_INTR:
                                 nle_intr_count += 1
-                                log.debug("%s: RXed NLE_INTR Interrupted system call %d/%d" % (s, nle_intr_count, MAX_ERROR_NLE_INTR))
+                                log.debug("%s: RXed NLE_INTR Interrupted system call %d/%d" %
+                                          (s, nle_intr_count, MAX_ERROR_NLE_INTR))
 
                                 if nle_intr_count >= MAX_ERROR_NLE_INTR:
-                                    raise NetlinkInterruptedSystemCall(error_str)
+                                    raise NetlinkInterruptedSystemCall(
+                                        error_str)
 
                             else:
                                 msg.dump()
@@ -268,14 +281,16 @@ class NetlinkManager(object):
                                         # os.strerror might raise ValueError
                                         strerror = os.strerror(error_code)
                                         if strerror:
-                                            raise NetlinkError('Operation failed with \'%s\'' % strerror)
+                                            raise NetlinkError(
+                                                'Operation failed with \'%s\'' % strerror)
                                         else:
                                             raise NetlinkError(error_str)
                                     except ValueError:
                                         pass
                                 raise NetlinkError(error_str)
                         else:
-                            log.debug('%s code NLE_SUCCESS...this is an ACK' % debug_str)
+                            log.debug(
+                                '%s code NLE_SUCCESS...this is an ACK' % debug_str)
                             return msgs
 
                     # No ACK...create a nlpacket object and append it to msgs
@@ -295,7 +310,8 @@ class NetlinkManager(object):
                             msg = Route(msgtype, nlpacket.debug)
 
                         else:
-                            raise Exception("RXed unknown netlink message type %s" % msgtype)
+                            raise Exception(
+                                "RXed unknown netlink message type %s" % msgtype)
 
                         msg.decode_packet(length, flags, seq, pid, data)
                         msgs.append(msg)
@@ -418,14 +434,16 @@ class NetlinkManager(object):
                    protocol=Route.RT_PROT_XORP,
                    route_scope=Route.RT_SCOPE_UNIVERSE,
                    route_type=Route.RTN_UNICAST):
-        self._routes_add_or_delete(True, routes, ecmp_routes, table, protocol, route_scope, route_type)
+        self._routes_add_or_delete(
+            True, routes, ecmp_routes, table, protocol, route_scope, route_type)
 
     def routes_del(self, routes, ecmp_routes,
                    table=Route.RT_TABLE_MAIN,
                    protocol=Route.RT_PROT_XORP,
                    route_scope=Route.RT_SCOPE_UNIVERSE,
                    route_type=Route.RTN_UNICAST):
-        self._routes_add_or_delete(False, routes, ecmp_routes, table, protocol, route_scope, route_type)
+        self._routes_add_or_delete(
+            False, routes, ecmp_routes, table, protocol, route_scope, route_type)
 
     def route_get(self, ip, debug=False):
         """
@@ -557,7 +575,8 @@ class NetlinkManager(object):
         link.body = pack('Bxxxiii', socket.AF_BRIDGE, 0, 0, 0)
 
         if compress_vlans:
-            link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN_COMPRESSED)
+            link.add_attribute(Link.IFLA_EXT_MASK,
+                               Link.RTEXT_FILTER_BRVLAN_COMPRESSED)
         else:
             link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN)
 
@@ -617,7 +636,8 @@ class NetlinkManager(object):
 
             return ', '.join(flag_str)
 
-        iface_vlans = self.vlan_get(filter_ifindex, filter_vlanid, compress_vlans)
+        iface_vlans = self.vlan_get(
+            filter_ifindex, filter_vlanid, compress_vlans)
         log.debug("iface_vlans:\n%s\n" % pformat(iface_vlans))
         range_begin_vlan_id = None
         range_flag = None
@@ -636,33 +656,37 @@ class NetlinkManager(object):
                     range_flag |= vlan_flag
 
                     if not range_begin_vlan_id:
-                        log.warning("BRIDGE_VLAN_INFO_RANGE_END is %d but we never saw a BRIDGE_VLAN_INFO_RANGE_BEGIN" % vlan_id)
+                        log.warning(
+                            "BRIDGE_VLAN_INFO_RANGE_END is %d but we never saw a BRIDGE_VLAN_INFO_RANGE_BEGIN" % vlan_id)
                         range_begin_vlan_id = vlan_id
 
                     for x in xrange(range_begin_vlan_id, vlan_id + 1):
-                        print "  %10s  %4d  %s" % (ifname, x, vlan_flag_to_string(vlan_flag))
+                        print "  %10s  %4d  %s" % (
+                            ifname, x, vlan_flag_to_string(vlan_flag))
                         ifname = ''
 
                     range_begin_vlan_id = None
                     range_flag = None
 
                 else:
-                    print "  %10s  %4d  %s" % (ifname, vlan_id, vlan_flag_to_string(vlan_flag))
+                    print "  %10s  %4d  %s" % (
+                        ifname, vlan_id, vlan_flag_to_string(vlan_flag))
                     ifname = ''
-
 
     def vlan_modify(self, msgtype, ifindex, vlanid_start, vlanid_end=None, bridge_self=False, bridge_master=False, pvid=False, untagged=False):
         """
         iproute2 bridge/vlan.c vlan_modify()
         """
-        assert msgtype in (RTM_SETLINK, RTM_DELLINK), "Invalid msgtype %s, must be RTM_SETLINK or RTM_DELLINK" % msgtype
+        assert msgtype in (
+            RTM_SETLINK, RTM_DELLINK), "Invalid msgtype %s, must be RTM_SETLINK or RTM_DELLINK" % msgtype
         assert vlanid_start >= 1 and vlanid_start <= 4096, "Invalid VLAN start %s" % vlanid_start
 
         if vlanid_end is None:
             vlanid_end = vlanid_start
 
         assert vlanid_end >= 1 and vlanid_end <= 4096, "Invalid VLAN end %s" % vlanid_end
-        assert vlanid_start <= vlanid_end, "Invalid VLAN range %s-%s, start must be <= end" % (vlanid_start, vlanid_end)
+        assert vlanid_start <= vlanid_end, "Invalid VLAN range %s-%s, start must be <= end" % (
+            vlanid_start, vlanid_end)
 
         debug = msgtype in self.debug
         bridge_flags = 0
@@ -691,7 +715,8 @@ class NetlinkManager(object):
 
         # just one VLAN
         if vlanid_start == vlanid_end:
-            ifla_af_spec[Link.IFLA_BRIDGE_VLAN_INFO] = [(vlan_info_flags, vlanid_start), ]
+            ifla_af_spec[Link.IFLA_BRIDGE_VLAN_INFO] = [
+                (vlan_info_flags, vlanid_start), ]
 
         # a range of VLANs
         else:
@@ -709,14 +734,16 @@ class NetlinkManager(object):
         Add VLAN(s) to a bridge interface
         """
         bridge_self = False if master else True
-        self.vlan_modify(RTM_SETLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
+        self.vlan_modify(RTM_SETLINK, ifindex, vlanid_start,
+                         vlanid_end, bridge_self, master, pvid, untagged)
 
     def link_del_bridge_vlan(self, ifindex, vlanid_start, vlanid_end=None, pvid=False, untagged=False, master=False):
         """
         Delete VLAN(s) from a bridge interface
         """
         bridge_self = False if master else True
-        self.vlan_modify(RTM_DELLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
+        self.vlan_modify(RTM_DELLINK, ifindex, vlanid_start,
+                         vlanid_end, bridge_self, master, pvid, untagged)
 
     def link_set_updown(self, ifname, state):
         """
@@ -728,7 +755,8 @@ class NetlinkManager(object):
         elif state == 'down':
             if_flags = 0
         else:
-            raise Exception('Unsupported state %s, valid options are "up" and "down"' % state)
+            raise Exception(
+                'Unsupported state %s, valid options are "up" and "down"' % state)
 
         debug = RTM_NEWLINK in self.debug
         if_change = Link.IFF_UP
@@ -767,7 +795,8 @@ class NetlinkManager(object):
         nbr = Neighbor(RTM_NEWNEIGH, debug)
         nbr.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
-        nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
+        nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE,
+                        service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
@@ -780,7 +809,8 @@ class NetlinkManager(object):
         nbr = Neighbor(RTM_DELNEIGH, debug)
         nbr.flags = NLM_F_REQUEST | NLM_F_ACK
         nbr.family = afi
-        nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
+        nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE,
+                        service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
         nbr.build_message(self.sequence.next(), self.pid)
@@ -799,7 +829,7 @@ class NetlinkManager(object):
         if group:
             info_data[Link.IFLA_VXLAN_GROUP] = group
         if physdev:
-            info_data[Link.IFLA_VXLAN_LINK] = int (physdev)
+            info_data[Link.IFLA_VXLAN_LINK] = int(physdev)
 
         learning = 0 if learning == 'off' else 1
         info_data[Link.IFLA_VXLAN_LEARNING] = learning

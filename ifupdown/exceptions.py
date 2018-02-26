@@ -7,10 +7,12 @@
 #    exceptions
 #
 
+
 class Error(Exception):
     """Base class for exceptions in ifupdown"""
 
     pass
+
 
 class ifaceNotFoundError(Error):
     pass
@@ -19,8 +21,10 @@ class ifaceNotFoundError(Error):
 class invalidValueError(Error):
     pass
 
+
 class errorReadingStateError(Error):
     pass
+
 
 class moduleNotSupported(Error):
     pass

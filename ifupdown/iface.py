@@ -17,6 +17,7 @@ from collections import OrderedDict
 import logging
 import json
 
+
 class ifaceStatusUserStrs():
     """ This class declares strings user can see during an ifquery --check
     for example. These strings can be overridden by user defined strings from
@@ -25,10 +26,12 @@ class ifaceStatusUserStrs():
     FAILURE = "error",
     UNKNOWN = "unknown"
 
+
 class ifaceType():
-    UNKNOWN =     0x00
-    IFACE =       0x01
+    UNKNOWN = 0x00
+    IFACE = 0x01
     BRIDGE_VLAN = 0x10
+
 
 class ifaceRole():
     """ ifaceRole is used to classify the ifaceobj.role of
@@ -37,8 +40,9 @@ class ifaceRole():
         is both a master and slave (0x3)
     """
     UNKNOWN = 0x00
-    SLAVE =   0x01
-    MASTER =  0x10
+    SLAVE = 0x01
+    MASTER = 0x10
+
 
 class ifaceLinkKind():
     """ ifaceLlinkKind is used to identify interfaces
@@ -46,23 +50,24 @@ class ifaceLinkKind():
         bond have an ifaceobj.role attribute of SLAVE and the bridge or
         bond itself has ifaceobj.role of MASTER.
     """
-    UNKNOWN =    0x000000
-    BRIDGE =     0x000001
-    BOND =       0x000010
-    VLAN =       0x000100
-    VXLAN =      0x001000
-    VRF =        0x010000
+    UNKNOWN = 0x000000
+    BRIDGE = 0x000001
+    BOND = 0x000010
+    VLAN = 0x000100
+    VXLAN = 0x001000
+    VRF = 0x010000
     BATMAN_ADV = 0x100000
+
 
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
         and can be BRIDGE_PORT, BOND_SLAVE etc """
-    UNKNOWN =           0x00000
-    BRIDGE_PORT =       0x00001
-    BOND_SLAVE =        0x00010
-    VRF_SLAVE =         0x00100
+    UNKNOWN = 0x00000
+    BRIDGE_PORT = 0x00001
+    BOND_SLAVE = 0x00010
+    VRF_SLAVE = 0x00100
     BRIDGE_VLAN_AWARE = 0x01000
-    BRIDGE_VXLAN =      0x10000
+    BRIDGE_VXLAN = 0x10000
     ADDRESS_VIRTUAL_SLAVE = 0x100000
 
     @classmethod
@@ -95,11 +100,13 @@ class ifaceLinkPrivFlags():
             str += 'vxlanbridge '
         return str
 
+
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0
     LINK_SLAVE = 0x1
     LINK_MASTER = 0x2
     LINK_NA = 0x3
+
 
 class ifaceDependencyType():
     """ Indicates type of dependency.
@@ -117,7 +124,7 @@ class ifaceDependencyType():
         swp1.200 can both have 'link' swp1. swp1 is also a dependency
         of swp1.100 and swp1.200. As you can see dependency
         swp1 is shared between swp1.100 and swp1.200.
-         
+
         In a master/slave relationship like bridge and
         its ports: eg: bridge br0 and its ports swp1 and swp2.
         dependency swp1 and swp2 cannot be shared with any other
@@ -130,6 +137,7 @@ class ifaceDependencyType():
     UNKNOWN = 0x0
     LINK = 0x1
     MASTER_SLAVE = 0x2
+
 
 class ifaceStatus():
     """Enumerates iface status """
@@ -150,7 +158,7 @@ class ifaceStatus():
             return 'error'
         elif state == cls.NOTFOUND:
             return 'notfound'
-    
+
     @classmethod
     def from_str(cls, state_str):
         if state_str == 'unknown':
@@ -159,6 +167,7 @@ class ifaceStatus():
             return cls.SUCCESS
         elif state_str == 'error':
             return cls.ERROR
+
 
 class ifaceState():
     """Enumerates iface state """
@@ -222,13 +231,14 @@ class ifaceState():
         elif state_str == 'query-running':
             return cls.QUERY_RUNNING
 
+
 class ifaceJsonEncoder(json.JSONEncoder):
     def default(self, o):
         retconfig = {}
         retifacedict = OrderedDict([])
-        if o.config: 
+        if o.config:
             retconfig = dict((k, (v[0] if len(v) == 1 else v))
-                             for k,v in o.config.items())
+                             for k, v in o.config.items())
         retifacedict['name'] = o.name
         if o.addr_method:
             retifacedict['addr_method'] = o.addr_method
@@ -239,13 +249,14 @@ class ifaceJsonEncoder(json.JSONEncoder):
 
         return retifacedict
 
+
 class ifaceJsonEncoderWithStatus(json.JSONEncoder):
     def default(self, o):
         retconfig = {}
         retconfig_status = {}
         retifacedict = OrderedDict([])
         if o.config:
-            for k,v in o.config.items():
+            for k, v in o.config.items():
                 idx = 0
                 vitem_status = []
                 for vitem in v:
@@ -256,16 +267,17 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
                         status_str = ifaceStatusUserStrs.ERROR
                     elif s == 0:
                         status_str = ifaceStatusUserStrs.SUCCESS
-                    vitem_status.append('%s' %status_str)
+                    vitem_status.append('%s' % status_str)
                     idx += 1
                 retconfig[k] = v[0] if len(v) == 1 else v
-                retconfig_status[k] = vitem_status[0] if len(vitem_status) == 1 else vitem_status
+                retconfig_status[k] = vitem_status[0] if len(
+                    vitem_status) == 1 else vitem_status
 
         if (o.status == ifaceStatus.NOTFOUND or
                 o.status == ifaceStatus.ERROR):
-            status =  ifaceStatusUserStrs.ERROR
+            status = ifaceStatusUserStrs.ERROR
         else:
-            status =  ifaceStatusUserStrs.SUCCESS
+            status = ifaceStatusUserStrs.SUCCESS
 
         retifacedict['name'] = o.name
         if o.addr_method:
@@ -279,18 +291,20 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
 
         return retifacedict
 
+
 class ifaceJsonDecoder():
     @classmethod
     def json_to_ifaceobj(cls, ifaceattrdict):
         ifaceattrdict['config'] = OrderedDict([(k, (v if isinstance(v, list)
-                                                else [v.strip()]))
-                                for k,v in ifaceattrdict.get('config',
-                                            OrderedDict()).items()])
+                                                    else [v.strip()]))
+                                               for k, v in ifaceattrdict.get('config',
+                                                                             OrderedDict()).items()])
         return iface(attrsdict=ifaceattrdict)
+
 
 class iface():
     """ ifupdown2 iface object class
-    
+
     Attributes:
         **name**      Name of the interface 
 
@@ -335,12 +349,12 @@ class iface():
 
     # flag to indicate that the object was created from pickled state
     # XXX: Move these flags into a separate iface flags class
-    _PICKLED         = 0x00000001
-    HAS_SIBLINGS     = 0x00000010
+    _PICKLED = 0x00000001
+    HAS_SIBLINGS = 0x00000010
     IFACERANGE_ENTRY = 0x00000100
     IFACERANGE_START = 0x00001000
-    OLDEST_SIBLING   = 0x00010000
-    YOUNGEST_SIBLING   = 0x00100000
+    OLDEST_SIBLING = 0x00010000
+    YOUNGEST_SIBLING = 0x00100000
 
     version = '0.1'
 
@@ -362,7 +376,7 @@ class iface():
         """iface priv flags. can be used by the external object manager """
         self.refcnt = 0
         """iface refcnt (incremented for each dependent this interface has) """
-        self.lowerifaces = None 
+        self.lowerifaces = None
         """lower iface list (in other words: slaves of this interface """
         self.upperifaces = None
         """upper iface list (in other words: master of this interface """
@@ -456,7 +470,7 @@ class iface():
     def get_attr_value(self, attr_name):
         """ add to the list of upperifaces """
         return self.config.get(attr_name)
-    
+
     def get_attr_value_first(self, attr_name):
         """ get first value of the specified attr name """
         attr_value_list = self.config.get(attr_name)
@@ -499,7 +513,7 @@ class iface():
         config = self.config
         env['IFACE'] = self.name
         for attr, attr_value in config.items():
-            attr_env_name = 'IF_%s' %attr.upper().replace("-", "_")
+            attr_env_name = 'IF_%s' % attr.upper().replace("-", "_")
             env[attr_env_name] = attr_value[0]
         self.env = env
 
@@ -541,13 +555,13 @@ class iface():
         # also updates status only if the attribute is present
         for attr_name in attr_names:
             if not ifaceobjorig.get_attr_value_first(attr_name):
-               continue
+                continue
             self.config.setdefault(attr_name, []).append('')
             self._config_status.setdefault(attr_name, []).append(attr_status)
 
     def get_config_attr_status(self, attr_name, idx=0):
         """ get status of a attribute config on this interface.
-        
+
         Looks at the iface _config_status dict"""
         return self._config_status.get(attr_name, [])[idx]
 
@@ -556,18 +570,25 @@ class iface():
 
         Returns True if object self is same as dstiface and False otherwise """
 
-        if self.name != dstiface.name: return False
-        if self.type != dstiface.type: return False
-        if self.addr_family != dstiface.addr_family: return False
-        if self.addr_method != dstiface.addr_method: return False
-        if self.auto != dstiface.auto: return False
-        if self.classes != dstiface.classes: return False
+        if self.name != dstiface.name:
+            return False
+        if self.type != dstiface.type:
+            return False
+        if self.addr_family != dstiface.addr_family:
+            return False
+        if self.addr_method != dstiface.addr_method:
+            return False
+        if self.auto != dstiface.auto:
+            return False
+        if self.classes != dstiface.classes:
+            return False
         if len(self.config) != len(dstiface.config):
             return False
         if any(True for k in self.config if k not in dstiface.config):
             return False
-        if any(True for k,v in self.config.items()
-                    if v != dstiface.config.get(k)): return False
+        if any(True for k, v in self.config.items()
+               if v != dstiface.config.get(k)):
+            return False
         return True
 
     def squash(self, newifaceobj):
@@ -628,31 +649,31 @@ class iface():
     def dump_raw(self, logger):
         indent = '  '
         if self.auto:
-            print 'auto %s' %self.name
+            print 'auto %s' % self.name
         print (self.raw_config[0])
         for i in range(1, len(self.raw_config)):
             print(indent + self.raw_config[i])
-        
+
     def dump(self, logger):
         indent = '\t'
         logger.info(self.name + ' : {')
-        logger.info(indent + 'family: %s' %self.addr_family)
-        logger.info(indent + 'method: %s' %self.addr_method)
-        logger.info(indent + 'flags: %x' %self.flags)
+        logger.info(indent + 'family: %s' % self.addr_family)
+        logger.info(indent + 'method: %s' % self.addr_method)
+        logger.info(indent + 'flags: %x' % self.flags)
         logger.info(indent + 'state: %s'
-                %ifaceState.to_str(self.state))
+                    % ifaceState.to_str(self.state))
         logger.info(indent + 'status: %s'
-                %ifaceStatus.to_str(self.status))
-        logger.info(indent + 'refcnt: %d' %self.refcnt)
+                    % ifaceStatus.to_str(self.status))
+        logger.info(indent + 'refcnt: %d' % self.refcnt)
         d = self.lowerifaces
         if d:
-            logger.info(indent + 'lowerdevs: %s' %str(d))
+            logger.info(indent + 'lowerdevs: %s' % str(d))
         else:
             logger.info(indent + 'lowerdevs: None')
 
         d = self.upperifaces
         if d:
-            logger.info(indent + 'upperdevs: %s' %str(d))
+            logger.info(indent + 'upperdevs: %s' % str(d))
         else:
             logger.info(indent + 'upperdevs: None')
 
@@ -666,36 +687,36 @@ class iface():
         indent = '\t'
         outbuf = ''
         if use_realname and self.realname:
-            name = '%s' %self.realname
+            name = '%s' % self.realname
         else:
-            name = '%s' %self.name
+            name = '%s' % self.name
         if self.auto:
-            outbuf += 'auto %s\n' %name
+            outbuf += 'auto %s\n' % name
         ifaceline = ''
         if self.type == ifaceType.BRIDGE_VLAN:
-            ifaceline += 'vlan %s' %name
+            ifaceline += 'vlan %s' % name
         else:
-            ifaceline += 'iface %s' %name
+            ifaceline += 'iface %s' % name
         if self.addr_family:
-            ifaceline += ' %s' %self.addr_family
+            ifaceline += ' %s' % self.addr_family
         if self.addr_method:
-            ifaceline += ' %s' %self.addr_method
+            ifaceline += ' %s' % self.addr_method
         if with_status:
             status_str = None
             if (self.status == ifaceStatus.ERROR or
                     self.status == ifaceStatus.NOTFOUND):
                 if self.status_str:
-                    ifaceline += ' (%s)' %self.status_str
-                status_str = '[%s]' %ifaceStatusUserStrs.ERROR
+                    ifaceline += ' (%s)' % self.status_str
+                status_str = '[%s]' % ifaceStatusUserStrs.ERROR
             elif self.status == ifaceStatus.SUCCESS:
-                status_str = '[%s]' %ifaceStatusUserStrs.SUCCESS
+                status_str = '[%s]' % ifaceStatusUserStrs.SUCCESS
             if status_str:
-               outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
+                outbuf += '{0:65} {1:>8}'.format(ifaceline, status_str) + '\n'
             else:
                 outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
                 outbuf = (outbuf.encode('utf8')
-                    if isinstance(outbuf, unicode) else outbuf)
+                          if isinstance(outbuf, unicode) else outbuf)
                 print outbuf + '\n'
                 return
         else:
@@ -709,18 +730,18 @@ class iface():
                     if with_status:
                         s = self.get_config_attr_status(cname, idx)
                         if s == -1:
-                            status_str = '[%s]' %ifaceStatusUserStrs.UNKNOWN
+                            status_str = '[%s]' % ifaceStatusUserStrs.UNKNOWN
                         elif s == 1:
-                            status_str = '[%s]' %ifaceStatusUserStrs.ERROR
+                            status_str = '[%s]' % ifaceStatusUserStrs.ERROR
                         elif s == 0:
-                            status_str = '[%s]' %ifaceStatusUserStrs.SUCCESS
+                            status_str = '[%s]' % ifaceStatusUserStrs.SUCCESS
                     if status_str:
                         outbuf += (indent + '{0:55} {1:>10}'.format(
-                              '%s %s' %(cname, cv), status_str)) + '\n'
+                            '%s %s' % (cname, cv), status_str)) + '\n'
                     else:
-                        outbuf += indent + '%s %s\n' %(cname, cv)
+                        outbuf += indent + '%s %s\n' % (cname, cv)
                     idx += 1
         if with_status:
             outbuf = (outbuf.encode('utf8')
-                        if isinstance(outbuf, unicode) else outbuf)
+                      if isinstance(outbuf, unicode) else outbuf)
         print outbuf

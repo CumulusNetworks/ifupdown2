@@ -11,6 +11,7 @@ from ifupdown.utils import utils
 from cache import *
 import json
 
+
 class mstpctlutil(utilsBase):
     """ This class contains helper methods to interact with mstpd using
     mstputils commands """
@@ -19,25 +20,25 @@ class mstpctlutil(utilsBase):
 
     _cache_fill_done = False
 
-    _bridgeattrmap = {'bridgeid' : 'bridge-id',
-                     'maxage' : 'max-age',
-                     'fdelay' : 'forward-delay',
-                     'txholdcount' : 'tx-hold-count',
-                     'maxhops' : 'max-hops',
-                     'ageing' : 'ageing-time',
-                     'hello' : 'hello-time',
-                     'forcevers' : 'force-protocol-version'}
+    _bridgeattrmap = {'bridgeid': 'bridge-id',
+                      'maxage': 'max-age',
+                      'fdelay': 'forward-delay',
+                      'txholdcount': 'tx-hold-count',
+                      'maxhops': 'max-hops',
+                      'ageing': 'ageing-time',
+                      'hello': 'hello-time',
+                      'forcevers': 'force-protocol-version'}
 
-    _bridgeportattrmap = {'portadminedge' : 'admin-edge-port',
-                     'portp2p' : 'admin-point-to-point',
-                     'portrestrrole' : 'restricted-role',
-                     'portrestrtcn' : 'restricted-TCN',
-                     'bpduguard' : 'bpdu-guard-port',
-                     'portautoedge' : 'auto-edge-port',
-                     'portnetwork' : 'network-port',
-                     'portbpdufilter' : 'bpdufilter-port',
-                     'portpathcost' : 'external-port-cost',
-                     'treeportcost' : 'internal-port-cost'}
+    _bridgeportattrmap = {'portadminedge': 'admin-edge-port',
+                          'portp2p': 'admin-point-to-point',
+                          'portrestrrole': 'restricted-role',
+                          'portrestrtcn': 'restricted-TCN',
+                          'bpduguard': 'bpdu-guard-port',
+                          'portautoedge': 'auto-edge-port',
+                          'portnetwork': 'network-port',
+                          'portbpdufilter': 'bpdufilter-port',
+                          'portpathcost': 'external-port-cost',
+                          'treeportcost': 'internal-port-cost'}
 
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
@@ -74,13 +75,16 @@ class mstpctlutil(utilsBase):
             for portname in mstpctl_bridge_cache.keys():
                 for portid in mstpctl_bridge_cache[portname].keys():
                     mstpctl_bridgeport_attrs_dict[portname] = {}
-                    mstpctl_bridgeport_attrs_dict[portname]['treeportprio'] = self._extract_bridge_port_prio(portid)
+                    mstpctl_bridgeport_attrs_dict[portname]['treeportprio'] = self._extract_bridge_port_prio(
+                        portid)
                     for jsonAttr in mstpctl_bridge_cache[portname][portid].keys():
                         jsonVal = mstpctl_bridge_cache[portname][portid][jsonAttr]
-                        mstpctl_bridgeport_attrs_dict[portname][jsonAttr] = str(jsonVal)
+                        mstpctl_bridgeport_attrs_dict[portname][jsonAttr] = str(
+                            jsonVal)
             MSTPAttrsCache.set(bridgename, mstpctl_bridgeport_attrs_dict)
         except Exception as e:
-            self.logger.info('%s: cannot fetch mstpctl bridge port attributes: %s' % str(e))
+            self.logger.info(
+                '%s: cannot fetch mstpctl bridge port attributes: %s' % str(e))
         return mstpctl_bridgeport_attrs_dict
 
     def get_bridge_ports_attrs(self, bridgename):
@@ -103,7 +107,8 @@ class mstpctlutil(utilsBase):
         MSTPAttrsCache.set(bridgename, attrs)
 
     def set_bridge_port_attr(self, bridgename, portname, attrname, value, json_attr=None):
-        cache_value = self.get_bridge_port_attr(bridgename, portname, json_attr)
+        cache_value = self.get_bridge_port_attr(
+            bridgename, portname, json_attr)
         if cache_value and cache_value == value:
             return
         if attrname == 'treeportcost' or attrname == 'treeportprio':
@@ -119,9 +124,9 @@ class mstpctlutil(utilsBase):
         bridgeattrs = {}
         try:
             bridgeattrs = dict((k, self.get_bridge_attr(bridgename, k))
-                                 for k in self._bridgeattrmap.keys())
-            bridgeattrs['treeprio'] = '%d' %(int(bridgeattrs.get('bridgeid',
-                                     '').split('.')[0], base=16) * 4096)
+                               for k in self._bridgeattrmap.keys())
+            bridgeattrs['treeprio'] = '%d' % (int(bridgeattrs.get('bridgeid',
+                                                                  '').split('.')[0], base=16) * 4096)
             del bridgeattrs['bridgeid']
         except Exception, e:
             self.logger.debug(bridgeattrs)
@@ -160,7 +165,7 @@ class mstpctlutil(utilsBase):
             try:
                 self.set_bridge_attr(bridgename, k, v, check)
             except Exception, e:
-                self.logger.warn('%s: %s' %(bridgename, str(e)))
+                self.logger.warn('%s: %s' % (bridgename, str(e)))
 
     def get_bridge_treeprio(self, bridgename):
         try:
@@ -170,7 +175,7 @@ class mstpctlutil(utilsBase):
                     self._bridgeattrmap['bridgeid']]
 
             bridgeid = utils.exec_commandl(cmdl).strip('\n')
-            return '%d' %(int(bridgeid.split('.')[0], base=16) * 4096)
+            return '%d' % (int(bridgeid.split('.')[0], base=16) * 4096)
         except:
             pass
         return None
@@ -194,7 +199,8 @@ class mstpctlutil(utilsBase):
 
     def mstpbridge_exists(self, bridgename):
         try:
-            utils.exec_command('mstpctl showbridge %s' % bridgename, stdout=False)
+            utils.exec_command('mstpctl showbridge %s' %
+                               bridgename, stdout=False)
             return True
         except:
             return False

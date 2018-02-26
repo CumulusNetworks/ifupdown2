@@ -11,9 +11,10 @@ from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
 import logging
 
+
 class loopback(moduleBase):
-    _modinfo = {'mhelp' : 'configure extra loopback module based on ' +
-			  'dummy device' }
+    _modinfo = {'mhelp': 'configure extra loopback module based on ' +
+                'dummy device'}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -24,11 +25,11 @@ class loopback(moduleBase):
 
     def _up(self, ifaceobj):
         if self._is_loopback_by_name(ifaceobj.name):
-           self.ipcmd.link_create(ifaceobj.name, 'dummy')
+            self.ipcmd.link_create(ifaceobj.name, 'dummy')
 
     def _down(self, ifaceobj):
         if not self.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
-           return
+            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
@@ -36,11 +37,11 @@ class loopback(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           return
+            return
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check}
+    _run_ops = {'pre-up': _up,
+                'post-down': _down,
+                'query-checkcurr': _query_check}
 
     def get_ops(self):
         return self._run_ops.keys()

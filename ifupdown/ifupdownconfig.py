@@ -6,9 +6,11 @@
 #
 #
 
+
 class ifupdownConfig():
 
-	def __init__(self):
-		self.conf = {}
+    def __init__(self):
+        self.conf = {}
+
 
 config = ifupdownConfig()

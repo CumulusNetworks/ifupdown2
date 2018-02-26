@@ -13,6 +13,7 @@ import exceptions
 import os
 from iface import *
 
+
 class pickling():
     """ class with helper methods for pickling/unpickling iface objects """
 
@@ -39,9 +40,13 @@ class pickling():
         """ load picked iface object """
         with open(filename, 'r') as f:
             while True:
-                try: yield cPickle.load(f)
-                except EOFError: break
-                except: raise
+                try:
+                    yield cPickle.load(f)
+                except EOFError:
+                    break
+                except:
+                    raise
+
 
 class stateManager():
     """ state manager for managing ifupdown iface obj state
@@ -72,7 +77,7 @@ class stateManager():
         """
         self.ifaceobjdict = OrderedDict()
         self.logger = logging.getLogger('ifupdown.' +
-                    self.__class__.__name__)
+                                        self.__class__.__name__)
         if not os.path.exists(self.state_dir):
             os.mkdir(self.state_dir)
         if not os.path.exists(self.state_rundir):
@@ -81,7 +86,7 @@ class stateManager():
 
     def save_ifaceobj(self, ifaceobj):
         self.ifaceobjdict.setdefault(ifaceobj.name,
-                            []).append(ifaceobj)
+                                     []).append(ifaceobj)
 
     def read_saved_state(self, filename=None):
         """This member function reads saved iface objects
@@ -110,7 +115,7 @@ class stateManager():
         """
 
         self.logger.debug('%s: statemanager sync state %s'
-                          %(ifaceobj.name, op))
+                          % (ifaceobj.name, op))
         old_ifaceobjs = self.ifaceobjdict.get(ifaceobj.name)
         if 'up' in op:
             if not old_ifaceobjs:
@@ -155,7 +160,7 @@ class stateManager():
                 self.logger.debug('saving state ..')
                 for ifaceobjs in self.ifaceobjdict.values():
                     [pickling.save_obj(f, i) for i in ifaceobjs]
-            open('%s/%s' %(self.state_rundir, self.state_runlockfile), 'w').close()
+            open('%s/%s' % (self.state_rundir, self.state_runlockfile), 'w').close()
         except:
             raise
 
@@ -179,10 +184,11 @@ class stateManager():
                 ifaceobj = self.ifaces.get(i)
                 if ifaceobj is None:
                     raise exceptions.ifaceNotFoundError('ifname %s'
-                        %i + ' not found')
+                                                        % i + ' not found')
                 ifaceobj.dump(self.logger)
         else:
             for ifacename, ifaceobjs in self.ifaceobjdict.items():
                 [i.dump(self.logger) for i in ifaceobjs]
+
 
 statemanager_api = stateManager()

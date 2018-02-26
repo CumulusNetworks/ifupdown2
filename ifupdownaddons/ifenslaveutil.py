@@ -11,6 +11,7 @@ from utilsbase import *
 from iproute2 import *
 from cache import *
 
+
 class ifenslaveutil(utilsBase):
     """ This class contains methods to interact with linux kernel bond
     related interfaces """
@@ -31,30 +32,30 @@ class ifenslaveutil(utilsBase):
 
         try:
             linkCache.set_attr([bondname, 'linkinfo', 'slaves'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/slaves'
-                %bondname).split())
+                               self.read_file_oneline('/sys/class/net/%s/bonding/slaves'
+                                                      % bondname).split())
             linkCache.set_attr([bondname, 'linkinfo', 'mode'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/mode'
-                %bondname).split()[0])
+                               self.read_file_oneline('/sys/class/net/%s/bonding/mode'
+                                                      % bondname).split()[0])
             linkCache.set_attr([bondname, 'linkinfo', 'xmit_hash_policy'],
-                self.read_file_oneline(
-                    '/sys/class/net/%s/bonding/xmit_hash_policy'
-                    %bondname).split()[0])
+                               self.read_file_oneline(
+                '/sys/class/net/%s/bonding/xmit_hash_policy'
+                % bondname).split()[0])
             linkCache.set_attr([bondname, 'linkinfo', 'lacp_rate'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/lacp_rate'
-                                       %bondname).split()[1])
+                               self.read_file_oneline('/sys/class/net/%s/bonding/lacp_rate'
+                                                      % bondname).split()[1])
             linkCache.set_attr([bondname, 'linkinfo', 'ad_sys_priority'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_priority'
-                                       %bondname))
+                               self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_priority'
+                                                      % bondname))
             linkCache.set_attr([bondname, 'linkinfo', 'ad_sys_mac_addr'],
-                self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_mac_addr'
-                                       %bondname))
+                               self.read_file_oneline('/sys/class/net/%s/bonding/ad_sys_mac_addr'
+                                                      % bondname))
             map(lambda x: linkCache.set_attr([bondname, 'linkinfo', x],
-                   self.read_file_oneline('/sys/class/net/%s/bonding/%s'
-                        %(bondname, x))),
-                       ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
-                        'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period', 
-                        'clag_enable'])
+                                             self.read_file_oneline('/sys/class/net/%s/bonding/%s'
+                                                                    % (bondname, x))),
+                ['use_carrier', 'miimon', 'min_links', 'num_unsol_na',
+                 'num_grat_arp', 'lacp_bypass_allow', 'lacp_bypass_period',
+                 'clag_enable'])
         except Exception, e:
             pass
 
@@ -72,7 +73,7 @@ class ifenslaveutil(utilsBase):
             pass
         bondstr = self.read_file_oneline('/sys/class/net/bonding_masters')
         if (not bondstr or bondname not in bondstr.split()):
-            raise Exception('bond %s not found' %bondname)
+            raise Exception('bond %s not found' % bondname)
         self._bond_linkinfo_fill_attrs(bondname)
 
     def _cache_get(self, attrlist, refresh=False):
@@ -80,7 +81,7 @@ class ifenslaveutil(utilsBase):
             if self.DRYRUN:
                 return None
             if self.CACHE:
-                if not ifenslaveutil._cache_fill_done: 
+                if not ifenslaveutil._cache_fill_done:
                     self._bond_linkinfo_fill_all()
                     ifenslaveutil._cache_fill_done = True
                     return linkCache.get_attr(attrlist)
@@ -90,7 +91,7 @@ class ifenslaveutil(utilsBase):
             return linkCache.get_attr(attrlist)
         except Exception, e:
             self.logger.debug('_cache_get(%s) : [%s]'
-                    %(str(attrlist), str(e)))
+                              % (str(attrlist), str(e)))
             pass
         return None
 
@@ -101,12 +102,13 @@ class ifenslaveutil(utilsBase):
                 return True
         except Exception, e:
             self.logger.debug('_cache_check(%s) : [%s]'
-                    %(str(attrlist), str(e)))
+                              % (str(attrlist), str(e)))
             pass
         return False
 
     def _cache_update(self, attrlist, value):
-        if self.DRYRUN: return
+        if self.DRYRUN:
+            return
         try:
             if attrlist[-1] == 'slaves':
                 linkCache.add_to_attrlist(attrlist, value)
@@ -116,7 +118,8 @@ class ifenslaveutil(utilsBase):
             pass
 
     def _cache_delete(self, attrlist, value=None):
-        if self.DRYRUN: return
+        if self.DRYRUN:
+            return
         try:
             if attrlist[-1] == 'slaves':
                 linkCache.remove_from_attrlist(attrlist, value)
@@ -126,13 +129,14 @@ class ifenslaveutil(utilsBase):
             pass
 
     def _cache_invalidate(self):
-        if self.DRYRUN: return
+        if self.DRYRUN:
+            return
         linkCache.invalidate()
 
     def set_attrs(self, bondname, attrdict, prehook):
         for attrname, attrval in attrdict.items():
             if (self._cache_check([bondname, 'linkinfo',
-                attrname], attrval)):
+                                   attrname], attrval)):
                 continue
             if (attrname == 'mode' or attrname == 'xmit_hash_policy' or
                     attrname == 'lacp_rate' or attrname == 'min_links'):
@@ -140,7 +144,7 @@ class ifenslaveutil(utilsBase):
                     prehook(bondname)
             try:
                 self.write_file('/sys/class/net/%s/bonding/%s'
-                                %(bondname, attrname), attrval)
+                                % (bondname, attrname), attrval)
             except Exception, e:
                 if self.FORCE:
                     self.logger.warn(str(e))
@@ -152,10 +156,10 @@ class ifenslaveutil(utilsBase):
         if not use_carrier or (use_carrier != '0' and use_carrier != '1'):
             return
         if (self._cache_check([bondname, 'linkinfo', 'use_carrier'],
-                use_carrier)):
-                return
-        self.write_file('/sys/class/net/%s' %bondname +
-                         '/bonding/use_carrier', use_carrier)
+                              use_carrier)):
+            return
+        self.write_file('/sys/class/net/%s' % bondname +
+                        '/bonding/use_carrier', use_carrier)
         self._cache_update([bondname, 'linkinfo',
                             'use_carrier'], use_carrier)
 
@@ -167,26 +171,26 @@ class ifenslaveutil(utilsBase):
         if not hash_policy:
             return
         if hash_policy not in valid_values:
-            raise Exception('invalid hash policy value %s' %hash_policy)
+            raise Exception('invalid hash policy value %s' % hash_policy)
         if (self._cache_check([bondname, 'linkinfo', 'xmit_hash_policy'],
-                hash_policy)):
+                              hash_policy)):
             return
         if prehook:
             prehook(bondname)
-        self.write_file('/sys/class/net/%s' %bondname +
-                         '/bonding/xmit_hash_policy', hash_policy)
+        self.write_file('/sys/class/net/%s' % bondname +
+                        '/bonding/xmit_hash_policy', hash_policy)
         self._cache_update([bondname, 'linkinfo', 'xmit_hash_policy'],
-                hash_policy)
+                           hash_policy)
 
     def get_xmit_hash_policy(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'xmit_hash_policy'])
 
     def set_miimon(self, bondname, miimon):
         if (self._cache_check([bondname, 'linkinfo', 'miimon'],
-                miimon)):
+                              miimon)):
             return
-        self.write_file('/sys/class/net/%s' %bondname +
-                '/bonding/miimon', miimon)
+        self.write_file('/sys/class/net/%s' % bondname +
+                        '/bonding/miimon', miimon)
         self._cache_update([bondname, 'linkinfo', 'miimon'], miimon)
 
     def get_miimon(self, bondname):
@@ -194,12 +198,12 @@ class ifenslaveutil(utilsBase):
 
     def set_clag_enable(self, bondname, clag_id):
         clag_enable = '0' if clag_id == '0' else '1'
-        if self._cache_check([bondname, 'linkinfo', 'clag_enable'], 
-                        clag_enable) == False:
-            self.write_file('/sys/class/net/%s' %bondname +
-                        '/bonding/clag_enable', clag_enable)
-            self._cache_update([bondname, 'linkinfo', 'clag_enable'], 
-                        clag_enable)
+        if self._cache_check([bondname, 'linkinfo', 'clag_enable'],
+                             clag_enable) == False:
+            self.write_file('/sys/class/net/%s' % bondname +
+                            '/bonding/clag_enable', clag_enable)
+            self._cache_update([bondname, 'linkinfo', 'clag_enable'],
+                               clag_enable)
 
     def get_clag_enable(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'clag_enable'])
@@ -210,13 +214,13 @@ class ifenslaveutil(utilsBase):
         if not mode:
             return
         if mode not in valid_modes:
-            raise Exception('invalid mode %s' %mode)
+            raise Exception('invalid mode %s' % mode)
         if (self._cache_check([bondname, 'linkinfo', 'mode'],
-                mode)):
+                              mode)):
             return
         if prehook:
             prehook(bondname)
-        self.write_file('/sys/class/net/%s' %bondname + '/bonding/mode', mode)
+        self.write_file('/sys/class/net/%s' % bondname + '/bonding/mode', mode)
         self._cache_update([bondname, 'linkinfo', 'mode'], mode)
 
     def get_mode(self, bondname):
@@ -226,12 +230,12 @@ class ifenslaveutil(utilsBase):
         if not lacp_rate or (lacp_rate != '0' and lacp_rate != '1'):
             return
         if (self._cache_check([bondname, 'linkinfo', 'lacp_rate'],
-                lacp_rate)):
+                              lacp_rate)):
             return
         if prehook:
             prehook(bondname)
         try:
-            self.write_file('/sys/class/net/%s' %bondname +
+            self.write_file('/sys/class/net/%s' % bondname +
                             '/bonding/lacp_rate', lacp_rate)
         except:
             raise
@@ -246,12 +250,12 @@ class ifenslaveutil(utilsBase):
 
     def set_lacp_fallback_allow(self, bondname, allow, prehook=None, posthook=None):
         if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_allow'],
-                lacp_bypass_allow)):
+                              lacp_bypass_allow)):
             return
         if prehook:
             prehook(bondname)
         try:
-            self.write_file('/sys/class/net/%s' %bondname +
+            self.write_file('/sys/class/net/%s' % bondname +
                             '/bonding/lacp_bypass_allow', allow)
         except:
             raise
@@ -259,19 +263,19 @@ class ifenslaveutil(utilsBase):
             if posthook:
                 posthook(bondname)
             self._cache_update([bondname, 'linkinfo',
-                               'lacp_bypass_allow'], allow)
+                                'lacp_bypass_allow'], allow)
 
     def get_lacp_fallback_allow(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_allow'])
 
     def set_lacp_fallback_period(self, bondname, period, prehook=None, posthook=None):
         if (self._cache_check([bondname, 'linkinfo', 'lacp_bypass_period'],
-                lacp_bypass_period)):
+                              lacp_bypass_period)):
             return
         if prehook:
             prehook(bondname)
         try:
-            self.write_file('/sys/class/net/%s' %bondname + 
+            self.write_file('/sys/class/net/%s' % bondname +
                             '/bonding/lacp_bypass_period', period)
         except:
             raise
@@ -279,26 +283,26 @@ class ifenslaveutil(utilsBase):
             if posthook:
                 posthook(bondname)
             self._cache_update([bondname, 'linkinfo',
-                               'lacp_bypass_period'], period)
+                                'lacp_bypass_period'], period)
 
     def get_lacp_fallback_period(self, bondname):
-        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_period']) 
+        return self._cache_get([bondname, 'linkinfo', 'lacp_bypass_period'])
 
     def set_min_links(self, bondname, min_links, prehook=None):
         if (self._cache_check([bondname, 'linkinfo', 'min_links'],
-                min_links)):
+                              min_links)):
             return
         if prehook:
             prehook(bondname)
-        self.write_file('/sys/class/net/%s/bonding/min_links' %bondname,
-                         min_links)
+        self.write_file('/sys/class/net/%s/bonding/min_links' % bondname,
+                        min_links)
         self._cache_update([bondname, 'linkinfo', 'min_links'], min_links)
 
     def get_min_links(self, bondname):
         return self._cache_get([bondname, 'linkinfo', 'min_links'])
 
     def set_lacp_fallback_priority(self, bondname, port, val):
-        slavefile = '/sys/class/net/%s/bonding_slave/lacp_bypass_priority' %port
+        slavefile = '/sys/class/net/%s/bonding_slave/lacp_bypass_priority' % port
         if os.path.exists(slavefile):
             self.write_file(slavefile, val)
 
@@ -308,7 +312,7 @@ class ifenslaveutil(utilsBase):
             return slaves
         prios = []
         for slave in slaves:
-            priofile = '/sys/class/net/%s/bonding_slave/lacp_bypass_priority' %slave
+            priofile = '/sys/class/net/%s/bonding_slave/lacp_bypass_priority' % slave
             if os.path.exists(priofile):
                 val = self.read_file_oneline(priofile)
                 if val and val != '0':
@@ -326,31 +330,32 @@ class ifenslaveutil(utilsBase):
 
     def enslave_slave(self, bondname, slave, prehook=None, posthook=None):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
-        if slaves and slave in slaves: return
+        if slaves and slave in slaves:
+            return
         if prehook:
             prehook(slave)
-        self.write_file('/sys/class/net/%s' %bondname +
-                         '/bonding/slaves', '+' + slave)
+        self.write_file('/sys/class/net/%s' % bondname +
+                        '/bonding/slaves', '+' + slave)
         if posthook:
             posthook(slave)
-        self._cache_update([bondname, 'linkinfo', 'slaves'], slave) 
+        self._cache_update([bondname, 'linkinfo', 'slaves'], slave)
 
     def remove_slave(self, bondname, slave):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
         if slave not in slaves:
             return
-        sysfs_bond_path = ('/sys/class/net/%s' %bondname +
+        sysfs_bond_path = ('/sys/class/net/%s' % bondname +
                            '/bonding/slaves')
         if not os.path.exists(sysfs_bond_path):
-           return
+            return
         self.write_file(sysfs_bond_path, '-' + slave)
-        self._cache_delete([bondname, 'linkinfo', 'slaves'], slave) 
+        self._cache_delete([bondname, 'linkinfo', 'slaves'], slave)
 
     def remove_slaves_all(self, bondname):
         if not _self._cache_get([bondname, 'linkinfo', 'slaves']):
             return
         slaves = None
-        sysfs_bond_path = ('/sys/class/net/%s' %bondname +
+        sysfs_bond_path = ('/sys/class/net/%s' % bondname +
                            '/bonding/slaves')
         ipcmd = iproute2()
         try:
@@ -358,8 +363,8 @@ class ifenslaveutil(utilsBase):
             slaves = f.readline().strip().split()
             f.close()
         except IOError, e:
-            raise Exception('error reading slaves of bond %s' %bondname
-                + '(' + str(e) + ')')
+            raise Exception('error reading slaves of bond %s' % bondname
+                            + '(' + str(e) + ')')
         for slave in slaves:
             ipcmd.ip_link_down(slave)
             try:
@@ -367,8 +372,8 @@ class ifenslaveutil(utilsBase):
             except Exception, e:
                 if not self.FORCE:
                     raise Exception('error removing slave %s'
-                        %slave + ' from bond %s' %bondname +
-                        '(%s)' %str(e))
+                                    % slave + ' from bond %s' % bondname +
+                                    '(%s)' % str(e))
                 else:
                     pass
         self._cache_del([bondname, 'linkinfo', 'slaves'])
@@ -389,7 +394,7 @@ class ifenslaveutil(utilsBase):
         self._cache_update([bondname], {})
 
     def delete_bond(self, bondname):
-        if not os.path.exists('/sys/class/net/%s' %bondname):
+        if not os.path.exists('/sys/class/net/%s' % bondname):
             return
         self.write_file('/sys/class/net/bonding_masters', '-' + bondname)
         self._cache_delete([bondname])
@@ -402,7 +407,7 @@ class ifenslaveutil(utilsBase):
         slaves = self._cache_get([bondname, 'linkinfo', 'slaves'])
         if slaves:
             return list(slaves)
-        slavefile = '/sys/class/net/%s/bonding/slaves' %bondname
+        slavefile = '/sys/class/net/%s/bonding/slaves' % bondname
         if os.path.exists(slavefile):
             buf = self.read_file_oneline(slavefile)
             if buf:
@@ -414,8 +419,9 @@ class ifenslaveutil(utilsBase):
 
     def bond_slave_exists(self, bond, slave):
         slaves = self.get_slaves(bond)
-        if not slaves: return False
+        if not slaves:
+            return False
         return slave in slaves
 
     def bond_exists(self, bondname):
-        return os.path.exists('/sys/class/net/%s/bonding' %bondname)
+        return os.path.exists('/sys/class/net/%s/bonding' % bondname)

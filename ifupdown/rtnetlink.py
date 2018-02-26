@@ -38,6 +38,7 @@ RTM_GETROUTE = 26
 
 # Definitions used in routing table administration.
 
+
 class Nlmsg(Structure):
 
     def _stringify(self):
@@ -67,16 +68,16 @@ class Nlmsg(Structure):
 
     def pack_rtas_new(self, rtas, addr, policy):
         total_len = 0
-                
+
         for rta_type, value in rtas.iteritems():
             if type(value) == dict:
-            	rta = Rtattr.from_address(addr)
-            	rta.rta_type = rta_type
+                rta = Rtattr.from_address(addr)
+                rta.rta_type = rta_type
                 rta.rta_len = RTA_LENGTH(0)
                 rta_len = NLMSG_ALIGN(rta.rta_len)
                 total_len += rta_len
                 addr += rta_len
-            	pack_fn = policy.get(rta_type)
+                pack_fn = policy.get(rta_type)
                 rta_len = NLMSG_ALIGN(pack_fn(addr, value))
 
                 rta.rta_len += rta_len
@@ -92,7 +93,7 @@ class Nlmsg(Structure):
     def rta_linkinfo(self, addr, rtas):
         total_len = 0
 
-        # Check interface kind 
+        # Check interface kind
         kind = rtas.get(IFLA_INFO_KIND)
         if kind == 'vlan':
             data_policy = self.rta_linkinfo_data_vlan_policy()
@@ -124,10 +125,10 @@ class Nlmsg(Structure):
 
     def rta_bridge_vlan_info(self, rta, value):
         if value:
-           data = RTA_DATA(rta)
-           memmove(data, addressof(value), sizeof(value))
-           rta.rta_len = RTA_LENGTH(sizeof(value))
-           return rta.rta_len
+            data = RTA_DATA(rta)
+            memmove(data, addressof(value), sizeof(value))
+            rta.rta_len = RTA_LENGTH(sizeof(value))
+            return rta.rta_len
 
     def rta_af_spec(self, addr, rtas):
         total_len = 0
@@ -172,7 +173,7 @@ class Nlmsg(Structure):
             c_uint8.from_address(data).value = value
             rta.rta_len = RTA_LENGTH(sizeof(c_uint8))
             return rta.rta_len
-	else:
+        else:
             return c_uint8.from_address(data).value
 
     def rta_uint16(self, rta, value=None):
@@ -181,7 +182,7 @@ class Nlmsg(Structure):
             c_uint16.from_address(data).value = value
             rta.rta_len = RTA_LENGTH(sizeof(c_uint16))
             return rta.rta_len
-	else:
+        else:
             return c_uint16.from_address(data).value
 
     def rta_uint32(self, rta, value=None):
@@ -268,9 +269,9 @@ RTN_UNSPEC = 0
 RTN_UNICAST = 1            # Gateway or direct route
 RTN_LOCAL = 2              # Accept locally
 RTN_BROADCAST = 3          # Accept locally as broadcast,
-                           # send as broadcast
+# send as broadcast
 RTN_ANYCAST = 4            # Accept locally as broadcast,
-                           # but send as unicast
+# but send as unicast
 RTN_MULTICAST = 5          # Multicast route
 RTN_BLACKHOLE = 6          # Drop
 RTN_UNREACHABLE = 7        # Destination is unreachable
@@ -284,7 +285,7 @@ RTN_MAX = 11
 
 RTPROT_UNSPEC = 0
 RTPROT_REDIRECT = 1     # Route installed by ICMP redirects;
-                        # not used by current IPv4
+# not used by current IPv4
 RTPROT_KERNEL = 2       # Route installed by kernel
 RTPROT_BOOT = 3         # Route installed during boot
 RTPROT_STATIC = 4       # Route installed by administrator
@@ -320,13 +321,13 @@ RT_SCOPE_UNIVERSE = 0
 RT_SCOPE_SITE = 200
 RT_SCOPE_LINK = 253
 RT_SCOPE_HOST = 254
-RT_SCOPE_NOWHERE=255
+RT_SCOPE_NOWHERE = 255
 
 # rtm_flags
 
 RTM_F_NOTIFY = 0x100   # Notify user of route change
 RTM_F_CLONED = 0x200   # This route is cloned
-RTM_F_EQUALIZE = 0x400 # Multipath equalizer: NI
+RTM_F_EQUALIZE = 0x400  # Multipath equalizer: NI
 RTM_F_PREFIX = 0x800   # Prefix addresses
 
 # Reserved table identifiers
@@ -343,6 +344,7 @@ RT_TABLE_MAX = 0xFFFFFFFF
 # It is reminiscent of sockaddr, but with sa_family replaced
 # with attribute type.
 
+
 class Rtattr(Structure):
 
     _fields_ = [
@@ -351,6 +353,7 @@ class Rtattr(Structure):
     ]
 
 # Routing message attributes
+
 
 RTA_UNSPEC = 0
 RTA_DST = 1
@@ -366,31 +369,46 @@ RTA_PROTOINFO = 10        # no longer used
 RTA_FLOW = 11
 RTA_CACHEINFO = 12
 RTA_SESSION = 13          # no longer used
-RTA_MP_ALGO = 14          # no longer used 
+RTA_MP_ALGO = 14          # no longer used
 RTA_TABLE = 15
 RTA_MAX = 15
 
 # Macros to handle rtattributes
 
 RTA_ALIGNTO = 4
+
+
 def RTA_ALIGN(len):
     return (len + RTA_ALIGNTO - 1) & ~(RTA_ALIGNTO - 1)
+
+
 def RTA_OK(rta, len):
     return len >= sizeof(Rtattr) and \
         rta.rta_len >= sizeof(Rtattr) and \
         rta.rta_len <= len
+
+
 def RTA_NEXT(rta, len):
     cur = RTA_ALIGN(rta.rta_len)
     rta = Rtattr.from_address(addressof(rta) + cur)
     return len - cur, rta
+
+
 def RTA_LENGTH(len):
     return len + RTA_ALIGN(sizeof(Rtattr))
+
+
 def RTA_SPACE(len):
     return RTA_ALIGN(RTA_LENGTH(len))
+
+
 def RTA_DATA(rta):
     return addressof(rta) + RTA_LENGTH(0)
+
+
 def RTA_PAYLOAD(rta):
     return rta.rta_len - RTA_LENGTH(0)
+
 
 RTNH_F_DEAD = 1         # Nexthop is dead (used by multipath)
 RTNH_F_PERVASIVE = 2    # Do recursive gateway lookup
@@ -405,6 +423,7 @@ RT_TABLE_DEFAULT = 253
 RT_TABLE_MAIN = 254
 RT_TABLE_LOCAL = 255
 RT_TABLE_MAX = 0xFFFFFFFF
+
 
 class Rtmsg(Nlmsg):
 
@@ -500,6 +519,7 @@ class Rtmsg(Nlmsg):
 
         return fns.get(rta_type)
 
+
 class Rtgenmsg(Nlmsg):
 
     _fields_ = [
@@ -508,6 +528,7 @@ class Rtgenmsg(Nlmsg):
 
     def dump(self):
         print 'rtgen_family', self.rtgen_family
+
 
 # New extended info filters for IFLA_EXT_MASK
 RTEXT_FILTER_VF = (1 << 0)
@@ -583,12 +604,14 @@ BRIDGE_VLAN_INFO_UNTAGGED = 4
 BRIDGE_FLAGS_MASTER = 1
 BRIDGE_FLAGS_SELF = 2
 
+
 class BridgeVlanInfo(Structure):
     _fields_ = [
         ('flags', c_uint16),
         ('vid', c_uint16),
         ('vid_end', c_uint16),
     ]
+
 
 class Ifinfomsg(Nlmsg):
 
@@ -610,28 +633,28 @@ class Ifinfomsg(Nlmsg):
 
     def rta_linkinfo_data_vlan_policy(self):
         fns = {
-            IFLA_VLAN_ID : self.rta_uint16,
+            IFLA_VLAN_ID: self.rta_uint16,
         }
         return fns
 
     def rta_linkinfo_data_macvlan_policy(self):
         fns = {
-            IFLA_MACVLAN_MODE : self.rta_uint32,
+            IFLA_MACVLAN_MODE: self.rta_uint32,
         }
         return fns
 
     def rta_linkinfo_policy(self):
         fns = {
-            IFLA_INFO_KIND : self.rta_string,
-            IFLA_INFO_DATA : self.rta_linkinfo_data,
+            IFLA_INFO_KIND: self.rta_string,
+            IFLA_INFO_DATA: self.rta_linkinfo_data,
         }
         return fns
 
     def rta_bridge_af_spec_policy(self):
         # Assume bridge family for now
         fns = {
-            IFLA_BRIDGE_FLAGS : self.rta_uint16,
-            IFLA_BRIDGE_VLAN_INFO : self.rta_bridge_vlan_info,
+            IFLA_BRIDGE_FLAGS: self.rta_uint16,
+            IFLA_BRIDGE_VLAN_INFO: self.rta_bridge_vlan_info,
         }
         return fns
 
@@ -668,7 +691,7 @@ class Ifinfomsg(Nlmsg):
             IFLA_NET_NS_FD: self.rta_none,
             IFLA_EXT_MASK: self.rta_none,
         }
-        return fns;
+        return fns
 
     def rta_fn(self, rta_type):
         fns = {
@@ -713,6 +736,7 @@ class Ifinfomsg(Nlmsg):
 # but for point-to-point IFA_ADDRESS is DESTINATION address,
 # local address is supplied in IFA_LOCAL attribute.
 
+
 IFA_UNSPEC = 0
 IFA_ADDRESS = 1
 IFA_LOCAL = 2
@@ -723,11 +747,12 @@ IFA_CACHEINFO = 6
 IFA_MULTICAST = 7
 IFA_MAX = 7
 
+
 class Ifaddrmsg(Nlmsg):
 
     _fields_ = [
         ('ifa_family', c_uint8),
-        ('ifa_prefixlen', c_uint8), # The prefix length
+        ('ifa_prefixlen', c_uint8),  # The prefix length
         ('ifa_flags', c_uint8),     # Flags
         ('ifa_scope', c_uint8),     # Address scope
         ('ifa_index', c_uint32),    # Link index
@@ -757,11 +782,13 @@ class Ifaddrmsg(Nlmsg):
         }
         return fns.get(rta_type)
 
+
 class RtNetlinkError(Exception):
 
     def __init__(self, message):
         Exception.__init__(self, message)
         logger.error(message)
+
 
 class RtNetlink(Netlink):
 
@@ -817,7 +844,7 @@ class RtNetlink(Netlink):
         return nlmsg
 
     def _nl_cb(self, nlh):
-#        print "nl cb", self._rt_nlmsg_type_str[nlh.nlmsg_type]
+        #        print "nl cb", self._rt_nlmsg_type_str[nlh.nlmsg_type]
 
         if nlh.nlmsg_type in self._cbs:
 
@@ -852,7 +879,7 @@ class RtNetlink(Netlink):
         nlh.nlmsg_len += nlmsg.pack_extra(extra, nlh_p + nlh.nlmsg_len)
         nlh.nlmsg_len += nlmsg.pack_rtas_new(rtas, nlh_p + nlh.nlmsg_len,
                                              nlmsg.rta_policy())
-        #self.dump(nlh)
+        # self.dump(nlh)
         self.sendall(string_at(nlh_p, nlh.nlmsg_len))
         self.seq += 1
 

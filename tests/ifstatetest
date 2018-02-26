@@ -12,14 +12,17 @@ import os
 ifaceobjdict = {}
 state_file = '/tmp/ifstatetest'
 
+
 def save_iface(ifaceobj):
     ifaceobjdict[ifaceobj.get_name()] = ifaceobj
-    
+
+
 def read_default_iface_config():
     """ Reads default network interface config /etc/network/interfaces. """
     nifaces = networkInterfaces()
     nifaces.subscribe('iface_found', save_iface)
     nifaces.load()
+
 
 def save_state():
     try:
@@ -28,6 +31,7 @@ def save_state():
                 pickling.save_obj(f, ifaceobj)
     except:
         raise
+
 
 def load_state():
     global ifaceobjdict
@@ -45,12 +49,11 @@ def load_state():
 
 print 'Reading iface config files ..'
 cProfile.run('read_default_iface_config()')
-print 'number of objects: %d' %len(ifaceobjdict)
+print 'number of objects: %d' % len(ifaceobjdict)
 
 print 'saving iface state ..'
 cProfile.run('save_state()')
 
 print 'loading iface state ..'
 cProfile.run('load_state()')
-print 'number of objects: %d' %len(ifaceobjdict)
-
+print 'number of objects: %d' % len(ifaceobjdict)

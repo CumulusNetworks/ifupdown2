@@ -41,7 +41,8 @@ class NetlinkListener(Thread):
         # as things change in the kernel. We need a very large SO_RCVBUF here
         # else we tend to miss messages.
         self.rx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
-        self.rx_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10000000)
+        self.rx_socket.setsockopt(
+            socket.SOL_SOCKET, socket.SO_RCVBUF, 10000000)
         self.rx_socket.bind((manager.pid+1, self.groups))
         self.rx_socket_prev_seq = {}
 
@@ -70,7 +71,8 @@ class NetlinkListener(Thread):
 
             # Only block for 1 second so we can wake up to see if shutdown_event is set
             try:
-                (readable, writeable, exceptional) = select(my_sockets, [], my_sockets, 1)
+                (readable, writeable, exceptional) = select(
+                    my_sockets, [], my_sockets, 1)
             except Exception as e:
                 log.error('select() error: ' + str(e))
                 continue
@@ -94,7 +96,8 @@ class NetlinkListener(Thread):
                 while data:
 
                     # Extract the length, etc from the header
-                    (length, msgtype, flags, seq, pid) = unpack(header_PACK, data[:header_LEN])
+                    (length, msgtype, flags, seq, pid) = unpack(
+                        header_PACK, data[:header_LEN])
 
                     log.debug('%s %s: RXed %s seq %d, pid %d, %d bytes (%d total)' %
                               (self, socket_string[s], NetlinkPacket.type_to_string[msgtype],
@@ -108,12 +111,14 @@ class NetlinkListener(Thread):
                         possible_ack = True
 
                         # The error code is a signed negative number.
-                        error_code = abs(unpack('=i', data[header_LEN:header_LEN+4])[0])
+                        error_code = abs(
+                            unpack('=i', data[header_LEN:header_LEN+4])[0])
                         msg = Error(msgtype, True)
                         msg.decode_packet(length, flags, seq, pid, data)
 
                         if error_code:
-                            log.debug("%s %s: RXed NLMSG_ERROR code %s (%d)" % (self, socket_string[s], msg.error_to_string.get(error_code), error_code))
+                            log.debug("%s %s: RXed NLMSG_ERROR code %s (%d)" % (
+                                self, socket_string[s], msg.error_to_string.get(error_code), error_code))
 
                     if possible_ack and seq == manager.target_seq and pid == manager.target_pid:
                         log.debug("%s %s: Setting RXed ACK alarm for seq %d, pid %d" %
@@ -123,7 +128,8 @@ class NetlinkListener(Thread):
                     # Put the message on the manager's netlinkq
                     if msgtype in supported_messages:
                         set_alarm = True
-                        manager.netlinkq.append((msgtype, length, flags, seq, pid, data[0:length]))
+                        manager.netlinkq.append(
+                            (msgtype, length, flags, seq, pid, data[0:length]))
 
                     # There are certain message types we do not care about
                     # (RTM_GETs for example)
@@ -148,7 +154,8 @@ class NetlinkListener(Thread):
                         prev_seq = manager.tx_socket_prev_seq
 
                     if pid in prev_seq and prev_seq[pid] and prev_seq[pid] != seq and (prev_seq[pid]+1 != seq):
-                        log.debug('%s %s: went from seq %d to %d' % (self, socket_string[s], prev_seq[pid], seq))
+                        log.debug('%s %s: went from seq %d to %d' %
+                                  (self, socket_string[s], prev_seq[pid], seq))
                     prev_seq[pid] = seq
 
                     data = data[length:]
@@ -235,8 +242,8 @@ class NetlinkManagerWithListener(NetlinkManager):
             self.tx_socket_allocate()
 
         log.debug('%s TX: TXed %s seq %d, pid %d, %d bytes' %
-                   (self,  NetlinkPacket.type_to_string[nlpacket.msgtype],
-                    nlpacket.seq, nlpacket.pid, nlpacket.length))
+                  (self,  NetlinkPacket.type_to_string[nlpacket.msgtype],
+                   nlpacket.seq, nlpacket.pid, nlpacket.length))
 
         self.tx_socket.sendall(nlpacket.message)
 
@@ -411,14 +418,16 @@ class NetlinkManagerWithListener(NetlinkManager):
             return True
 
     def _filter_update(self, add, filter_type, msgtype, filter_guts):
-        assert filter_type in ('whitelist', 'blacklist'), "whitelist and blacklist are the only supported filter options"
+        assert filter_type in (
+            'whitelist', 'blacklist'), "whitelist and blacklist are the only supported filter options"
 
         if add:
             if filter_type == 'whitelist':
 
                 # Keep things simple, do not allow both whitelist and blacklist
                 if self.blacklist_filter and self.blacklist_filter.get(msgtype):
-                    raise Exception("whitelist and blacklist filters cannot be used at the same time")
+                    raise Exception(
+                        "whitelist and blacklist filters cannot be used at the same time")
 
                 if msgtype not in self.whitelist_filter:
                     self.whitelist_filter[msgtype] = []
@@ -428,7 +437,8 @@ class NetlinkManagerWithListener(NetlinkManager):
 
                 # Keep things simple, do not allow both whitelist and blacklist
                 if self.whitelist_filter and self.whitelist_filter.get(msgtype):
-                    raise Exception("whitelist and blacklist filters cannot be used at the same time")
+                    raise Exception(
+                        "whitelist and blacklist filters cannot be used at the same time")
 
                 if msgtype not in self.blacklist_filter:
                     self.blacklist_filter[msgtype] = []
@@ -456,10 +466,12 @@ class NetlinkManagerWithListener(NetlinkManager):
         self._filter_update(add, filter_type, msgtype, ('IFINDEX', ifindex))
 
     def filter_by_attribute(self, add, filter_type, msgtype, attribute, attribute_value):
-        self._filter_update(add, filter_type, msgtype, ('ATTRIBUTE', attribute, attribute_value))
+        self._filter_update(add, filter_type, msgtype,
+                            ('ATTRIBUTE', attribute, attribute_value))
 
     def filter_by_nested_attribute(self, add, filter_type, msgtype, attr_filter):
-        self._filter_update(add, filter_type, msgtype, ('NESTED_ATTRIBUTE', attr_filter))
+        self._filter_update(add, filter_type, msgtype,
+                            ('NESTED_ATTRIBUTE', attr_filter))
 
     def service_netlinkq(self):
         msg_count = {}
@@ -508,7 +520,8 @@ class NetlinkManagerWithListener(NetlinkManager):
             if msg.msgtype == RTM_NEWLINK:
 
                 # We will use ifname_by_index to display the interface name in debug output
-                self.ifname_by_index[msg.ifindex] = msg.get_attribute_value(msg.IFLA_IFNAME)
+                self.ifname_by_index[msg.ifindex] = msg.get_attribute_value(
+                    msg.IFLA_IFNAME)
                 self.rx_rtm_newlink(msg)
 
             elif msg.msgtype == RTM_DELLINK:

@@ -14,30 +14,30 @@ import ifupdown.ifupdownflags as ifupdownflags
 import logging
 import re
 
+
 class vlan(moduleBase):
     """  ifupdown2 addon module to configure vlans """
 
-    _modinfo = {'mhelp' : 'vlan module configures vlan interfaces.' +
-                        'This module understands vlan interfaces with dot ' +
-                        'notations. eg swp1.100. Vlan interfaces with any ' +
-                        'other names need to have raw device and vlan id ' +
-                        'attributes',
-                'attrs' : {
-                        'vlan-raw-device' :
-                            {'help' : 'vlan raw device',
+    _modinfo = {'mhelp': 'vlan module configures vlan interfaces.' +
+                'This module understands vlan interfaces with dot ' +
+                'notations. eg swp1.100. Vlan interfaces with any ' +
+                'other names need to have raw device and vlan id ' +
+                'attributes',
+                'attrs': {
+                    'vlan-raw-device':
+                    {'help': 'vlan raw device',
                              'validvals': ['<interface>']},
-                        'vlan-id' :
-                            {'help' : 'vlan id',
-                             'validrange' : ['0', '4096']}}}
-
+                        'vlan-id':
+                            {'help': 'vlan id',
+                             'validrange': ['0', '4096']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_vids_query_cache = {}
-        self._resv_vlan_range =  self._get_reserved_vlan_range()
+        self._resv_vlan_range = self._get_reserved_vlan_range()
         self.logger.debug('%s: using reserved vlan range %s'
-                  %(self.__class__.__name__, str(self._resv_vlan_range)))
+                          % (self.__class__.__name__, str(self._resv_vlan_range)))
 
     def _is_vlan_device(self, ifaceobj):
         vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
@@ -49,7 +49,7 @@ class vlan(moduleBase):
 
     def _get_vlan_id(self, ifaceobj):
         """ Derives vlanid from iface name
-        
+
         Example:
             Returns 1 for ifname vlan0001 returns 1
             Returns 1 for ifname vlan1
@@ -59,7 +59,8 @@ class vlan(moduleBase):
         """
         vid_str = ifaceobj.get_attr_value_first('vlan-id')
         try:
-            if vid_str: return int(vid_str)
+            if vid_str:
+                return int(vid_str)
         except:
             return -1
 
@@ -108,10 +109,10 @@ class vlan(moduleBase):
         """ If the lower device is a vlan aware bridge, add/del the vlanid
         to the bridge """
         if self.ipcmd.bridge_is_vlan_aware(bridgename):
-           if add:
-               netlink.link_add_bridge_vlan(bridgename, vlanid)
-           else:
-               netlink.link_del_bridge_vlan(bridgename, vlanid)
+            if add:
+                netlink.link_add_bridge_vlan(bridgename, vlanid)
+            else:
+                netlink.link_del_bridge_vlan(bridgename, vlanid)
 
     def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
         """ If the lower device is a vlan aware bridge, check if the vlanid
@@ -120,8 +121,8 @@ class vlan(moduleBase):
             return
         vids = self._bridge_vids_query_cache.get(bridgename)
         if vids == None:
-           vids = self.ipcmd.bridge_port_vids_get(bridgename)
-           self._bridge_vids_query_cache[bridgename] = vids
+            vids = self.ipcmd.bridge_port_vids_get(bridgename)
+            self._bridge_vids_query_cache[bridgename] = vids
         if not vids or vlanid not in vids:
             ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.status_str = 'bridge vid error'
@@ -135,11 +136,12 @@ class vlan(moduleBase):
             raise Exception('could not determine vlan raw device')
         if not ifupdownflags.flags.PERFMODE:
             if not self.ipcmd.link_exists(vlanrawdevice):
-                raise Exception('rawdevice %s not present' %vlanrawdevice)
+                raise Exception('rawdevice %s not present' % vlanrawdevice)
             if self.ipcmd.link_exists(ifaceobj.name):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 if ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0' and len(ifaceobj.lowerifaces):
-                    lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.lowerifaces[0], refresh=True)
+                    lower_iface_mtu = self.ipcmd.link_get_mtu(
+                        ifaceobj.lowerifaces[0], refresh=True)
                     if not lower_iface_mtu == self.ipcmd.link_get_mtu(ifaceobj.name):
                         self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
                 return
@@ -159,26 +161,27 @@ class vlan(moduleBase):
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
         if (not ifupdownflags.flags.PERFMODE and
-            not self.ipcmd.link_exists(ifaceobj.name)):
-           return
+                not self.ipcmd.link_exists(ifaceobj.name)):
+            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
-            self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid, add=False)
+            self._bridge_vid_add_del(
+                ifaceobj, vlanrawdevice, vlanid, add=False)
         except Exception, e:
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           return
+            return
         if not '.' in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
             (vlanrawdev, vlanid) = self.ipcmd.get_vlandev_attrs(ifaceobj.name)
             if vlanrawdev != ifaceobj.get_attr_value_first('vlan-raw-device'):
                 ifaceobjcurr.update_config_with_status('vlan-raw-device',
-                        vlanrawdev, 1)
+                                                       vlanrawdev, 1)
             else:
                 ifaceobjcurr.update_config_with_status('vlan-raw-device',
-                        vlanrawdev, 0)
+                                                       vlanrawdev, 0)
             vlanid_config = ifaceobj.get_attr_value_first('vlan-id')
             if not vlanid_config:
                 vlanid_config = str(self._get_vlan_id(ifaceobj))
@@ -198,14 +201,14 @@ class vlan(moduleBase):
         # vlan dev and vlan id
         if not '.' in ifaceobjrunning.name:
             ifaceobjrunning.update_config_dict({(k, v) for k, v in
-                                                {'vlan-raw-device' : vlanrawdev,
-                                                 'vlan-id' : vlanid}.items()
+                                                {'vlan-raw-device': vlanrawdev,
+                                                 'vlan-id': vlanid}.items()
                                                 if v})
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check,
-               'query-running' : _query_running}
+    _run_ops = {'pre-up': _up,
+                'post-down': _down,
+                'query-checkcurr': _query_check,
+                'query-running': _query_running}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

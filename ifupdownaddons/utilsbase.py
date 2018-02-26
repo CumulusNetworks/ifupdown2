@@ -15,6 +15,7 @@ from cache import *
 import time
 import logging
 
+
 def profile(func):
     def wrap(*args, **kwargs):
         started_at = time.time()
@@ -23,6 +24,7 @@ def profile(func):
         print (time.time() - started_at)
         return result
     return wrap
+
 
 class utilsBase(object):
     """ Base class for ifupdown addon utilities """
@@ -33,21 +35,21 @@ class utilsBase(object):
 
     def write_file(self, filename, strexpr):
         try:
-            self.logger.info('writing \'%s\'' %strexpr +
-                ' to file %s' %filename)
+            self.logger.info('writing \'%s\'' % strexpr +
+                             ' to file %s' % filename)
             if ifupdownflags.flags.DRYRUN:
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
         except IOError, e:
             self.logger.warn('error writing to file %s'
-                %filename + '(' + str(e) + ')')
+                             % filename + '(' + str(e) + ')')
             return -1
         return 0
 
     def read_file(self, filename):
         try:
-            self.logger.debug('reading \'%s\'' %filename)
+            self.logger.debug('reading \'%s\'' % filename)
             with open(filename, 'r') as f:
                 return f.readlines()
         except:
@@ -56,7 +58,7 @@ class utilsBase(object):
 
     def read_file_oneline(self, filename):
         try:
-            self.logger.debug('reading \'%s\'' %filename)
+            self.logger.debug('reading \'%s\'' % filename)
             with open(filename, 'r') as f:
                 return f.readline().strip('\n')
         except:

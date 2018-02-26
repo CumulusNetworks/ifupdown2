@@ -19,6 +19,7 @@ from template import templateEngine
 
 whitespaces = '\n\t\r '
 
+
 class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
 
@@ -27,8 +28,8 @@ class networkInterfaces():
     callbacks = {}
     auto_all = False
 
-    _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel'],
-                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel']}
+    _addrfams = {'inet': ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel'],
+                 'inet6': ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel']}
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
@@ -51,10 +52,10 @@ class networkInterfaces():
             AttributeError, KeyError """
 
         self.logger = logging.getLogger('ifupdown.' +
-                    self.__class__.__name__)
-        self.callbacks = {'iface_found' : None,
-                          'validateifaceattr' : None,
-                          'validateifaceobj' : None}
+                                        self.__class__.__name__)
+        self.callbacks = {'iface_found': None,
+                          'validateifaceattr': None,
+                          'validateifaceobj': None}
         self.allow_classes = {}
         self.interfacesfile = interfacesfile
         self.interfacesfileiobuf = interfacesfileiobuf
@@ -81,24 +82,24 @@ class networkInterfaces():
 
     def _parse_error(self, filename, lineno, msg):
         if lineno == -1 or self._currentfile_has_template:
-            self.logger.error('%s: %s' %(filename, msg))
+            self.logger.error('%s: %s' % (filename, msg))
         else:
-            self.logger.error('%s: line%d: %s' %(filename, lineno, msg))
+            self.logger.error('%s: line%d: %s' % (filename, lineno, msg))
         self.errors += 1
 
     def _parse_warn(self, filename, lineno, msg):
         if lineno == -1 or self._currentfile_has_template:
-            self.logger.warn('%s: %s' %(filename, msg))
+            self.logger.warn('%s: %s' % (filename, msg))
         else:
-            self.logger.warn('%s: line%d: %s' %(filename, lineno, msg))
+            self.logger.warn('%s: line%d: %s' % (filename, lineno, msg))
         self.warns += 1
 
     def _validate_addr_family(self, ifaceobj, lineno=-1):
         if ifaceobj.addr_family:
             if not self._addrfams.get(ifaceobj.addr_family):
                 self._parse_error(self._currentfile, lineno,
-                    'iface %s: unsupported address family \'%s\''
-                    %(ifaceobj.name, ifaceobj.addr_family))
+                                  'iface %s: unsupported address family \'%s\''
+                                  % (ifaceobj.name, ifaceobj.addr_family))
                 ifaceobj.addr_family = None
                 ifaceobj.addr_method = None
                 return
@@ -106,8 +107,8 @@ class networkInterfaces():
                 if (ifaceobj.addr_method not in
                         self._addrfams.get(ifaceobj.addr_family)):
                     self._parse_error(self._currentfile, lineno,
-                        'iface %s: unsupported address method \'%s\''
-                        %(ifaceobj.name, ifaceobj.addr_method))
+                                      'iface %s: unsupported address method \'%s\''
+                                      % (ifaceobj.name, ifaceobj.addr_method))
             else:
                 ifaceobj.addr_method = 'static'
 
@@ -140,7 +141,7 @@ class networkInterfaces():
         words = re.split(self._ws_split_regex, allow_line)
         if len(words) <= 1:
             raise Exception('invalid allow line \'%s\' at line %d'
-                            %(allow_line, lineno))
+                            % (allow_line, lineno))
 
         allow_class = words[0].split('-')[1]
         ifacenames = words[1:]
@@ -149,32 +150,32 @@ class networkInterfaces():
             for i in ifacenames:
                 self.allow_classes[allow_class].append(i)
         else:
-                self.allow_classes[allow_class] = ifacenames
+            self.allow_classes[allow_class] = ifacenames
         return 0
 
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
-        self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
+        self.logger.debug('processing sourced line ..\'%s\'' % lines[cur_idx])
         sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
         if sourced_file:
             filenames = glob.glob(sourced_file)
             if not filenames:
                 if '*' not in sourced_file:
                     self._parse_warn(self._currentfile, lineno,
-                            'cannot find source file %s' %sourced_file)
+                                     'cannot find source file %s' % sourced_file)
                 return 0
             for f in filenames:
                 self.read_file(f)
         else:
             self._parse_error(self._currentfile, lineno,
-                    'unable to read source line')
+                              'unable to read source line')
         return 0
 
     def process_auto(self, lines, cur_idx, lineno):
         auto_ifaces = re.split(self._ws_split_regex, lines[cur_idx])[1:]
         if not auto_ifaces:
             self._parse_error(self._currentfile, lineno,
-                    'invalid auto line \'%s\''%lines[cur_idx])
+                              'invalid auto line \'%s\'' % lines[cur_idx])
             return 0
         for a in auto_ifaces:
             if a == 'all':
@@ -183,7 +184,7 @@ class networkInterfaces():
             r = utils.parse_iface_range(a)
             if r:
                 for i in range(r[1], r[2]):
-                   self.auto_ifaces.append('%s-%d' %(r[0], i))
+                    self.auto_ifaces.append('%s-%d' % (r[0], i))
             self.auto_ifaces.append(a)
         return 0
 
@@ -192,10 +193,10 @@ class networkInterfaces():
         newattrname = attrname.replace("_", "-")
         try:
             if not self.callbacks.get('validateifaceattr')(newattrname,
-                                      attrval):
+                                                           attrval):
                 self._parse_error(self._currentfile, lineno,
-                        'iface %s: unsupported keyword (%s)'
-                        %(ifacename, attrname))
+                                  'iface %s: unsupported keyword (%s)'
+                                  % (ifacename, attrname))
                 return
         except:
             pass
@@ -204,7 +205,7 @@ class networkInterfaces():
             # For attributes that are related and that can have multiple
             # entries, store them at the same index as their parent attribute.
             # The example of such attributes is 'address' and its related
-            # attributes. since the related attributes can be optional, 
+            # attributes. since the related attributes can be optional,
             # we add null string '' in places where they are optional.
             # XXX: this introduces awareness of attribute names in
             # this class which is a violation.
@@ -213,7 +214,7 @@ class networkInterfaces():
             addrlist = iface_config.get('address')
             if addrlist:
                 # find the index of last address element
-                for i in range(0, len(addrlist) - len(attrvallist) -1):
+                for i in range(0, len(addrlist) - len(attrvallist) - 1):
                     attrvallist.append('')
                 attrvallist.append(attrval)
                 iface_config[newattrname] = attrvallist
@@ -232,7 +233,7 @@ class networkInterfaces():
 
         if utils.check_ifname_size_invalid(ifacename):
             self._parse_warn(self._currentfile, lineno,
-                             '%s: interface name too long' %ifacename)
+                             '%s: interface name too long' % ifacename)
 
         # in cases where mako is unable to render the template
         # or incorrectly renders it due to user template
@@ -242,8 +243,8 @@ class networkInterfaces():
         # we try to warn the user of such cases by looking for
         # variable patterns ('$') in interface names.
         if '$' in ifacename:
-           self._parse_warn(self._currentfile, lineno,
-                    '%s: unexpected characters in interface name' %ifacename)
+            self._parse_warn(self._currentfile, lineno,
+                             '%s: unexpected characters in interface name' % ifacename)
 
         ifaceobj.raw_config.append(iface_line)
         iface_config = collections.OrderedDict()
@@ -258,7 +259,7 @@ class networkInterfaces():
             # if not a keyword, every line must have at least a key and value
             if len(attrs) < 2:
                 self._parse_error(self._currentfile, line_idx,
-                        'iface %s: invalid syntax \'%s\'' %(ifacename, l))
+                                  'iface %s: invalid syntax \'%s\'' % (ifacename, l))
                 continue
             ifaceobj.raw_config.append(l)
             attrname = attrs[0]
@@ -291,7 +292,7 @@ class networkInterfaces():
         classes = self.get_allow_classes_for_iface(ifaceobj.name)
         if classes:
             [ifaceobj.set_class(c) for c in classes]
-        
+
         return lines_consumed       # Return next index
 
     def process_iface(self, lines, cur_idx, lineno):
@@ -300,10 +301,10 @@ class networkInterfaces():
 
         range_val = utils.parse_iface_range(ifaceobj.name)
         if range_val:
-           for v in range(range_val[1], range_val[2]):
+            for v in range(range_val[1], range_val[2]):
                 ifaceobj_new = copy.deepcopy(ifaceobj)
-                ifaceobj_new.realname = '%s' %ifaceobj.name
-                ifaceobj_new.name = '%s%d' %(range_val[0], v)
+                ifaceobj_new.realname = '%s' % ifaceobj.name
+                ifaceobj_new.name = '%s%d' % (range_val[0], v)
                 ifaceobj_new.flags = iface.IFACERANGE_ENTRY
                 if v == range_val[1]:
                     ifaceobj_new.flags |= iface.IFACERANGE_START
@@ -319,10 +320,10 @@ class networkInterfaces():
 
         range_val = utils.parse_iface_range(ifaceobj.name)
         if range_val:
-           for v in range(range_val[1], range_val[2]):
+            for v in range(range_val[1], range_val[2]):
                 ifaceobj_new = copy.deepcopy(ifaceobj)
-                ifaceobj_new.realname = '%s' %ifaceobj.name
-                ifaceobj_new.name = '%s%d' %(range_val[0], v)
+                ifaceobj_new.realname = '%s' % ifaceobj.name
+                ifaceobj_new.name = '%s%d' % (range_val[0], v)
                 ifaceobj_new.type = ifaceType.BRIDGE_VLAN
                 ifaceobj_new.flags = iface.IFACERANGE_ENTRY
                 if v == range_val[1]:
@@ -334,16 +335,16 @@ class networkInterfaces():
 
         return lines_consumed       # Return next index
 
-    network_elems = { 'source'      : process_source,
-                      'allow'      : process_allow,
-                      'auto'        : process_auto,
-                      'iface'       : process_iface,
-                      'vlan'       : process_vlan}
+    network_elems = {'source': process_source,
+                     'allow': process_allow,
+                     'auto': process_auto,
+                     'iface': process_iface,
+                     'vlan': process_vlan}
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword
         if (str in self.network_elems.keys() or
-            str.split('-')[0] == 'allow'):
+                str.split('-')[0] == 'allow'):
             return 1
         return 0
 
@@ -378,11 +379,12 @@ class networkInterfaces():
             # Check if first element is a supported keyword
             if self._is_keyword(words[0]):
                 keyword_func = self._get_keyword_func(words[0])
-                lines_consumed = keyword_func(self, lines, line_idx, line_idx+1)
+                lines_consumed = keyword_func(
+                    self, lines, line_idx, line_idx+1)
                 line_idx += lines_consumed
             else:
                 self._parse_error(self._currentfile, line_idx + 1,
-                        'error processing line \'%s\'' %lines[line_idx])
+                                  'error processing line \'%s\'' % lines[line_idx])
             line_idx += 1
         return 0
 
@@ -416,7 +418,7 @@ class networkInterfaces():
             self.read_filedata(fileiobuf)
             return
         self._filestack.append(filename)
-        self.logger.info('processing interfaces file %s' %filename)
+        self.logger.info('processing interfaces file %s' % filename)
         try:
             with open(filename) as f:
                 filedata = f.read()
@@ -430,15 +432,15 @@ class networkInterfaces():
     def read_file_json(self, filename, fileiobuf=None):
         if fileiobuf:
             ifacedicts = json.loads(fileiobuf, encoding="utf-8")
-                              #object_hook=ifaceJsonDecoder.json_object_hook)
+            # object_hook=ifaceJsonDecoder.json_object_hook)
         elif filename:
-            self.logger.info('processing interfaces file %s' %filename)
+            self.logger.info('processing interfaces file %s' % filename)
             with open(filename) as fp:
                 ifacedicts = json.load(fp)
-                            #object_hook=ifaceJsonDecoder.json_object_hook)
+                # object_hook=ifaceJsonDecoder.json_object_hook)
 
         # we need to handle both lists and non lists formats (e.g. {{}})
-        if not isinstance(ifacedicts,list):
+        if not isinstance(ifacedicts, list):
             ifacedicts = [ifacedicts]
 
         errors = 0
@@ -450,7 +452,7 @@ class networkInterfaces():
                     errors += 1
                 self.callbacks.get('iface_found')(ifaceobj)
         self.errors += errors
-        
+
     def load(self):
         """ This member function loads the networkinterfaces file.
 

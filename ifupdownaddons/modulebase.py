@@ -15,8 +15,10 @@ from ifupdown.iface import *
 import ifupdown.policymanager as policymanager
 import ifupdown.ifupdownflags as ifupdownflags
 
+
 class NotSupported(Exception):
     pass
+
 
 class moduleBase(object):
     """ Base class for ifupdown addon modules
@@ -30,15 +32,16 @@ class moduleBase(object):
         # vrfs are a global concept and a vrf context can be applicable
         # to all global vrf commands. Get the default vrf-exec-cmd-prefix
         # here so that all modules can use it
-        self.vrf_exec_cmd_prefix = policymanager.policymanager_api.get_module_globals('vrf', attr='vrf-exec-cmd-prefix')
+        self.vrf_exec_cmd_prefix = policymanager.policymanager_api.get_module_globals(
+            'vrf', attr='vrf-exec-cmd-prefix')
 
         # explanations are shown in parse_glob
         self.glob_regexs = [re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\]([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)"),
-                            re.compile(r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
+                            re.compile(
+                                r"([A-Za-z0-9\-]+[A-Za-z])(\d+)\-(\d+)(.*)"),
                             re.compile(r"([A-Za-z0-9\-]+)\[(\d+)\-(\d+)\](.*)")]
 
         self._bridge_stp_user_space = None
-
 
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
@@ -87,7 +90,7 @@ class moduleBase(object):
         try:
             proc_ifacenames = self.get_ifaces_from_proc()
         except:
-            self.logger.warn('%s: error reading ifaces from proc' %ifacename)
+            self.logger.warn('%s: error reading ifaces from proc' % ifacename)
 
         for proc_ifacename in proc_ifacenames:
             try:
@@ -95,7 +98,7 @@ class moduleBase(object):
                     yield proc_ifacename
             except Exception, e:
                 raise Exception('%s: error searching regex \'%s\' in %s (%s)'
-                                %(ifacename, expr, proc_ifacename, str(e)))
+                                % (ifacename, expr, proc_ifacename, str(e)))
         if not ifacenames:
             return
         for ifacename in ifacenames:
@@ -104,7 +107,7 @@ class moduleBase(object):
                     yield ifacename
             except Exception, e:
                 raise Exception('%s: error searching regex \'%s\' in %s (%s)'
-                                %(ifacename, expr, ifacename, str(e)))
+                                % (ifacename, expr, ifacename, str(e)))
 
     def ifname_is_glob(self, ifname):
         """
@@ -112,14 +115,14 @@ class moduleBase(object):
         """
         if (self.glob_regexs[0].match(ifname) or
             self.glob_regexs[1].match(ifname) or
-            self.glob_regexs[2].match(ifname)):
+                self.glob_regexs[2].match(ifname)):
             return True
         return False
 
     def parse_glob(self, ifacename, expr):
-        errmsg = ('error parsing glob expression \'%s\'' %expr +
-                    ' (supported glob syntax: swp1-10.300 or swp[1-10].300' +
-                    '  or swp[1-10]sub[0-4].300')
+        errmsg = ('error parsing glob expression \'%s\'' % expr +
+                  ' (supported glob syntax: swp1-10.300 or swp[1-10].300' +
+                  '  or swp[1-10]sub[0-4].300')
         regexs = self.glob_regexs
 
         if regexs[0].match(expr):
@@ -129,7 +132,8 @@ class moduleBase(object):
             mlist = m.groups()
             if len(mlist) < 7:
                 # we have problems and should not continue
-                raise Exception('%s: error: unhandled glob expression %s\n%s' % (ifacename, expr,errmsg))
+                raise Exception('%s: error: unhandled glob expression %s\n%s' % (
+                    ifacename, expr, errmsg))
 
             prefix = mlist[0]
             suffix = mlist[6]
@@ -140,7 +144,7 @@ class moduleBase(object):
             end_sub = int(mlist[5])
             for i in range(start_index, end_index + 1):
                 for j in range(start_sub, end_sub + 1):
-                    yield prefix + '%d%s%d' % (i,sub_string,j) + suffix
+                    yield prefix + '%d%s%d' % (i, sub_string, j) + suffix
 
         elif regexs[1].match(expr) or regexs[2].match(expr):
             # the second regex for 1 level with a range (e.g. swp10-14.100
@@ -153,17 +157,18 @@ class moduleBase(object):
                 m = regexs[2].match(expr)
             mlist = m.groups()
             if len(mlist) != 4:
-                raise Exception('%s: ' %ifacename + errmsg + '(unexpected len)')
+                raise Exception('%s: ' % ifacename +
+                                errmsg + '(unexpected len)')
             prefix = mlist[0]
             suffix = mlist[3]
             start_index = int(mlist[1])
             end_index = int(mlist[2])
             for i in range(start_index, end_index + 1):
-                yield prefix + '%d' %i + suffix
+                yield prefix + '%d' % i + suffix
 
         else:
             # Could not match anything.
-            self.logger.warn('%s: %s' %(ifacename, errmsg))
+            self.logger.warn('%s: %s' % (ifacename, errmsg))
             yield expr
 
     def parse_port_list(self, ifacename, port_expr, ifacenames=None):
@@ -181,7 +186,7 @@ class moduleBase(object):
             return None
         exprs = re.split(r'[\s\t]\s*', port_expr)
         self.logger.debug('%s: evaluating port expr \'%s\''
-                         %(ifacename, str(exprs)))
+                          % (ifacename, str(exprs)))
         for expr in exprs:
             if expr == 'noregex':
                 regex = 0
@@ -208,29 +213,29 @@ class moduleBase(object):
 
     def ignore_error(self, errmsg):
         if (ifupdownflags.flags.FORCE or re.search(r'exists', errmsg,
-            re.IGNORECASE | re.MULTILINE)):
+                                                   re.IGNORECASE | re.MULTILINE)):
             return True
         return False
 
     def write_file(self, filename, strexpr):
         """ writes string to a file """
         try:
-            self.logger.info('writing \'%s\'' %strexpr +
-                ' to file %s' %filename)
+            self.logger.info('writing \'%s\'' % strexpr +
+                             ' to file %s' % filename)
             if ifupdownflags.flags.DRYRUN:
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
         except IOError, e:
             self.logger.warn('error writing to file %s'
-                %filename + '(' + str(e) + ')')
+                             % filename + '(' + str(e) + ')')
             return -1
         return 0
 
     def read_file(self, filename):
         """ read file and return lines from the file """
         try:
-            self.logger.info('reading \'%s\'' %filename)
+            self.logger.info('reading \'%s\'' % filename)
             with open(filename, 'r') as f:
                 return f.readlines()
         except:
@@ -240,7 +245,7 @@ class moduleBase(object):
     def read_file_oneline(self, filename):
         """ reads and returns first line from the file """
         try:
-            self.logger.info('reading \'%s\'' %filename)
+            self.logger.info('reading \'%s\'' % filename)
             with open(filename, 'r') as f:
                 return f.readline().strip('\n')
         except:
@@ -258,7 +263,8 @@ class moduleBase(object):
     def systcl_get_net_bridge_stp_user_space(self):
         if self._bridge_stp_user_space:
             return self._bridge_stp_user_space
-        self._bridge_stp_user_space = self.sysctl_get('net.bridge.bridge-stp-user-space')
+        self._bridge_stp_user_space = self.sysctl_get(
+            'net.bridge.bridge-stp-user-space')
         return self._bridge_stp_user_space
 
     def set_iface_attr(self, ifaceobj, attr_name, attr_valsetfunc,
@@ -274,25 +280,25 @@ class moduleBase(object):
             attr_valsetfunc(ifacename, attrvalue)
 
     def query_n_update_ifaceobjcurr_attr(self, ifaceobj, ifaceobjcurr,
-                                       attr_name, attr_valgetfunc,
-                                       attr_valgetextraarg=None):
+                                         attr_name, attr_valgetfunc,
+                                         attr_valgetextraarg=None):
         attrvalue = ifaceobj.get_attr_value_first(attr_name)
         if not attrvalue:
             return
         if attr_valgetextraarg:
             runningattrvalue = attr_valgetfunc(ifaceobj.name,
-                                             attr_valgetextraarg)
+                                               attr_valgetextraarg)
         else:
             runningattrvalue = attr_valgetfunc(ifaceobj.name)
         if (not runningattrvalue or
-            (runningattrvalue != attrvalue)):
+                (runningattrvalue != attrvalue)):
             ifaceobjcurr.update_config_with_status(attr_name,
-                runningattrvalue, 1)
+                                                   runningattrvalue, 1)
         else:
             ifaceobjcurr.update_config_with_status(attr_name,
-                runningattrvalue, 0)
+                                                   runningattrvalue, 0)
 
-    def dict_key_subset(self, a, b): 
+    def dict_key_subset(self, a, b):
         """ returns a list of differing keys """
         return [x for x in a if x in b]
 
@@ -322,7 +328,7 @@ class moduleBase(object):
         """ returns module attrs defined in the module _modinfo dict"""
         try:
             return reduce(lambda d, k: d[k], ['attrs', attrname, subattrname],
-                         self._modinfo)
+                          self._modinfo)
         except:
             return None
 
@@ -350,7 +356,7 @@ class moduleBase(object):
             start = int(s)
             end = int(e)
         except Exception, e:
-            self.logger.debug('%s failed (%s)' %(get_resvvlan, str(e)))
+            self.logger.debug('%s failed (%s)' % (get_resvvlan, str(e)))
             # ignore errors
             pass
         return (start, end)
@@ -360,10 +366,10 @@ class moduleBase(object):
         reserved vlan range """
         if vlanid in range(self._resv_vlan_range[0],
                            self._resv_vlan_range[1]):
-           self.logger.error('%s: reserved vlan %d being used'
-                   %(logprefix, vlanid) + ' (reserved vlan range %d-%d)'
-                   %(self._resv_vlan_range[0], self._resv_vlan_range[1]))
-           return True
+            self.logger.error('%s: reserved vlan %d being used'
+                              % (logprefix, vlanid) + ' (reserved vlan range %d-%d)'
+                              % (self._resv_vlan_range[0], self._resv_vlan_range[1]))
+            return True
         return False
 
     def _valid_ethaddr(self, ethaddr):

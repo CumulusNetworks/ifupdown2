@@ -15,6 +15,7 @@ try:
 except ImportError, e:
     pass
 
+
 class graph():
     """ graph functions to sort and print interface graph """
 
@@ -34,7 +35,7 @@ class graph():
         Q = deque()
 
         indegrees = copy.deepcopy(indegrees_arg)
-        for ifname,indegree in indegrees.items():
+        for ifname, indegree in indegrees.items():
             if indegree == 0:
                 Q.append(ifname)
 
@@ -52,7 +53,8 @@ class graph():
                 try:
                     indegrees[y] = indegrees.get(y) - 1
                 except:
-                    cls.logger.debug('topological_sort_graphs_all: did not find %s' %y)
+                    cls.logger.debug(
+                        'topological_sort_graphs_all: did not find %s' % y)
                     indegrees[y] = 0
                     pass
                 if indegrees.get(y) == 0:
@@ -60,10 +62,10 @@ class graph():
 
             S.append(x)
 
-        for ifname,indegree in indegrees.items():
+        for ifname, indegree in indegrees.items():
             if indegree != 0:
-                raise Exception('cycle found involving iface %s' %ifname +
-                                ' (indegree %d)' %indegree)
+                raise Exception('cycle found involving iface %s' % ifname +
+                                ' (indegree %d)' % indegree)
 
         return S
 

@@ -17,7 +17,8 @@ try:
     import time
     from ifupdown.netlink import netlink
 except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+    raise ImportError(str(e) + "- required module not found")
+
 
 class dhcp(moduleBase):
     """ ifupdown2 addon module to configure dhcp on interface """
@@ -30,8 +31,8 @@ class dhcp(moduleBase):
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
         if self.dhclientcmd.is_running(ifaceobj.name) or \
-               self.dhclientcmd.is_running6(ifaceobj.name):
-            self.logger.info('dhclient already running on %s.  Not restarting.' % \
+                self.dhclientcmd.is_running6(ifaceobj.name):
+            self.logger.info('dhclient already running on %s.  Not restarting.' %
                              ifaceobj.name)
             return
         try:
@@ -41,8 +42,8 @@ class dhcp(moduleBase):
             wait = not str(dhcp_wait).lower() == "no"
             vrf = ifaceobj.get_attr_value_first('vrf')
             if (vrf and self.vrf_exec_cmd_prefix and
-                self.ipcmd.link_exists(vrf)):
-                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+                    self.ipcmd.link_exists(vrf)):
+                dhclient_cmd_prefix = '%s %s' % (self.vrf_exec_cmd_prefix, vrf)
 
             if ifaceobj.addr_family == 'inet':
                 # First release any existing dhclient processes
@@ -57,19 +58,19 @@ class dhcp(moduleBase):
                 accept_ra = ifaceobj.get_attr_value_first('accept_ra')
                 if accept_ra:
                     # XXX: Validate value
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                            '.accept_ra', accept_ra)
+                    self.sysctl_set('net.ipv6.conf.%s' % ifaceobj.name +
+                                    '.accept_ra', accept_ra)
                 autoconf = ifaceobj.get_attr_value_first('autoconf')
                 if autoconf:
                     # XXX: Validate value
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                            '.autoconf', autoconf)
+                    self.sysctl_set('net.ipv6.conf.%s' % ifaceobj.name +
+                                    '.autoconf', autoconf)
                     try:
                         self.dhclientcmd.stop6(ifaceobj.name)
                     except:
                         pass
-                #add delay before starting IPv6 dhclient to
-                #make sure the configured interface/link is up.
+                # add delay before starting IPv6 dhclient to
+                # make sure the configured interface/link is up.
                 time.sleep(2)
                 self.dhclientcmd.start6(ifaceobj.name, wait=wait,
                                         cmd_prefix=dhclient_cmd_prefix)
@@ -80,8 +81,8 @@ class dhcp(moduleBase):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
-            self.ipcmd.link_exists(vrf)):
-            dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+                self.ipcmd.link_exists(vrf)):
+            dhclient_cmd_prefix = '%s %s' % (self.vrf_exec_cmd_prefix, vrf)
         if ifaceobj.addr_family == 'inet6':
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
         else:
@@ -115,11 +116,11 @@ class dhcp(moduleBase):
             ifaceobjrunning.addr_family = 'inet6'
             ifaceobjrunning.addr_method = 'dhcp6'
 
-    _run_ops = {'up' : _up,
-               'down' : _down,
-               'pre-down' : _down,
-               'query-checkcurr' : _query_check,
-               'query-running' : _query_running }
+    _run_ops = {'up': _up,
+                'down': _down,
+                'pre-down': _down,
+                'query-checkcurr': _query_check,
+                'query-running': _query_running}
 
     def get_ops(self):
         """ returns list of ops supported by this module """
@@ -151,8 +152,8 @@ class dhcp(moduleBase):
             return
         try:
             if (operation != 'query-running' and
-                   (ifaceobj.addr_method != 'dhcp' and 
-                       ifaceobj.addr_method != 'dhcp6')):
+                (ifaceobj.addr_method != 'dhcp' and
+                 ifaceobj.addr_method != 'dhcp6')):
                 return
         except:
             return

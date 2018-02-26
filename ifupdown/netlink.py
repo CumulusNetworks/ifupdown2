@@ -20,7 +20,8 @@ class Netlink(utilsBase):
         self._nlmanager_api = NetlinkManager()
 
     def get_iface_index(self, ifacename):
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         try:
             return self._nlmanager_api.get_iface_index(ifacename)
         except Exception as e:
@@ -30,7 +31,8 @@ class Netlink(utilsBase):
     def link_add_vlan(self, vlanrawdevice, ifacename, vlanid):
         self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s'
                          % (ifacename, vlanrawdevice, ifacename, vlanid))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         ifindex = self.get_iface_index(vlanrawdevice)
         try:
             return self._nlmanager_api.link_add_vlan(ifindex, ifacename, vlanid)
@@ -41,7 +43,8 @@ class Netlink(utilsBase):
     def link_add_macvlan(self, ifacename, macvlan_ifacename):
         self.logger.info('%s: netlink: ip link add link %s name %s type macvlan mode private'
                          % (ifacename, ifacename, macvlan_ifacename))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         ifindex = self.get_iface_index(ifacename)
         try:
             return self._nlmanager_api.link_add_macvlan(ifindex, macvlan_ifacename)
@@ -52,7 +55,8 @@ class Netlink(utilsBase):
     def link_set_updown(self, ifacename, state):
         self.logger.info('%s: netlink: ip link set dev %s %s'
                          % (ifacename, ifacename, state))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         try:
             return self._nlmanager_api.link_set_updown(ifacename, state)
         except Exception as e:
@@ -62,7 +66,8 @@ class Netlink(utilsBase):
     def link_set_protodown(self, ifacename, state):
         self.logger.info('%s: netlink: set link %s protodown %s'
                          % (ifacename, ifacename, state))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         try:
             return self._nlmanager_api.link_set_protodown(ifacename, state)
         except Exception as e:
@@ -72,7 +77,8 @@ class Netlink(utilsBase):
     def link_add_bridge_vlan(self, ifacename, vlanid):
         self.logger.info('%s: netlink: bridge vlan add vid %s dev %s'
                          % (ifacename, vlanid, ifacename))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         ifindex = self.get_iface_index(ifacename)
         try:
             return self._nlmanager_api.link_add_bridge_vlan(ifindex, vlanid)
@@ -83,7 +89,8 @@ class Netlink(utilsBase):
     def link_del_bridge_vlan(self, ifacename, vlanid):
         self.logger.info('%s: netlink: bridge vlan del vid %s dev %s'
                          % (ifacename, vlanid, ifacename))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         ifindex = self.get_iface_index(ifacename)
         try:
             return self._nlmanager_api.link_del_bridge_vlan(ifindex, vlanid)
@@ -97,17 +104,17 @@ class Netlink(utilsBase):
                                                               vxlanid,
                                                               dstport)
 
-
         cmd += ' local %s' % local if local else ''
         cmd += ' ageing %s' % ageing if ageing else ''
         cmd += ' remote %s' % group if group else ' noremote'
         cmd += ' nolearning' if learning == 'off' else ''
         cmd += ' dev %s' % physdev if physdev else ''
         self.logger.info('%s: netlink: %s' % (ifacename, cmd))
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         try:
             if physdev:
-                physdev = self.get_iface_index (physdev)
+                physdev = self.get_iface_index(physdev)
             return self._nlmanager_api.link_add_vxlan(ifacename,
                                                       vxlanid,
                                                       dstport=dstport,
@@ -119,5 +126,6 @@ class Netlink(utilsBase):
         except Exception as e:
             raise Exception('netlink: %s: cannot create vxlan %s: %s'
                             % (ifacename, vxlanid, str(e)))
+
 
 netlink = Netlink()

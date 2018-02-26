@@ -12,13 +12,14 @@ from ifupdownaddons.iproute2 import iproute2
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
 
+
 class link(moduleBase):
-    _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',
-                'attrs' : {
-                   'link-type' :
-                        {'help' : 'type of link as in \'ip link\' command.',
-                         'validvals' : ['dummy', 'veth'],
-                         'example' : ['link-type <dummy|veth>']}}}
+    _modinfo = {'mhelp': 'create/configure link types. similar to ip-link',
+                'attrs': {
+                    'link-type':
+                    {'help': 'type of link as in \'ip link\' command.',
+                         'validvals': ['dummy', 'veth'],
+                         'example': ['link-type <dummy|veth>']}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -35,8 +36,8 @@ class link(moduleBase):
 
     def _down(self, ifaceobj):
         if (not ifupdownflags.flags.PERFMODE and
-            not self.ipcmd.link_exists(ifaceobj.name)):
-           return
+                not self.ipcmd.link_exists(ifaceobj.name)):
+            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
@@ -49,14 +50,14 @@ class link(moduleBase):
             link_type = ifaceobj.get_attr_value_first('link-type')
             if self.ipcmd.link_get_kind(ifaceobj.name) == link_type:
                 ifaceobjcurr.update_config_with_status('link-type',
-                                                        link_type, 0)
+                                                       link_type, 0)
             else:
                 ifaceobjcurr.update_config_with_status('link-type',
-                                                        link_type, 1)
+                                                       link_type, 1)
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check}
+    _run_ops = {'pre-up': _up,
+                'post-down': _down,
+                'query-checkcurr': _query_check}
 
     def get_ops(self):
         return self._run_ops.keys()

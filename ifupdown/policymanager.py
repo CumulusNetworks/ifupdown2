@@ -32,12 +32,13 @@ import json
 import logging
 import glob
 
+
 class policymanager():
     def __init__(self):
         # we should check for these files in order
         # so that customers can override the /var/lib file settings
         self.logger = logging.getLogger('ifupdown.' +
-                            self.__class__.__name__)
+                                        self.__class__.__name__)
 
         # we grab the json files from a known location and make sure that
         # the defaults_policy is checked first
@@ -47,46 +48,46 @@ class policymanager():
         # keep an array of defaults indexed by module name
         self.system_policy_array = {}
         for filename in default_files:
-            system_array  = {}
+            system_array = {}
             try:
                 with open(filename, 'r') as fd:
                     system_array = json.load(fd)
-                self.logger.debug('reading %s system policy defaults config' \
+                self.logger.debug('reading %s system policy defaults config'
                                   % filename)
             except Exception, e:
-                self.logger.info('could not read %s system policy defaults config' \
-                                  % filename)
+                self.logger.info('could not read %s system policy defaults config'
+                                 % filename)
                 self.logger.info('    exception is %s' % str(e))
 
             for module in system_array.keys():
                 if self.system_policy_array.has_key(module):
-                    self.logger.debug('warning: overwriting system module %s from file %s' \
-                                      % (module,filename))
+                    self.logger.debug('warning: overwriting system module %s from file %s'
+                                      % (module, filename))
                 self.system_policy_array[module] = system_array[module]
 
         # take care of user defined policy defaults
         self.user_policy_array = {}
         for filename in user_files:
-            user_array  = {}
+            user_array = {}
             try:
                 with open(filename, 'r') as fd:
                     user_array = json.load(fd)
-                self.logger.debug('reading %s policy user defaults config' \
+                self.logger.debug('reading %s policy user defaults config'
                                   % filename)
             except Exception, e:
-                self.logger.debug('could not read %s user policy defaults config' \
+                self.logger.debug('could not read %s user policy defaults config'
                                   % filename)
                 self.logger.debug('    exception is %s' % str(e))
             # customer added module attributes
             for module in user_array.keys():
                 if self.system_policy_array.has_key(module):
                     # warn user that we are overriding the system module setting
-                    self.logger.debug('warning: overwriting system with user module %s from file %s' \
-                                      % (module,filename))
+                    self.logger.debug('warning: overwriting system with user module %s from file %s'
+                                      % (module, filename))
                 self.user_policy_array[module] = user_array[module]
         return
 
-    def get_iface_default(self,module_name=None,ifname=None,attr=None):
+    def get_iface_default(self, module_name=None, ifname=None, attr=None):
         '''
         get_iface_default: Addon modules must use one of two types of access methods to
         the default configs.   In this method, we expect the default to be
@@ -131,7 +132,7 @@ class policymanager():
         # could not find any system or user default so return Non
         return val
 
-    def get_attr_default(self,module_name=None,attr=None):
+    def get_attr_default(self, module_name=None, attr=None):
         '''
         get_attr_default: Addon modules must use one of two types of access methods to
         the default configs.   In this method, we expect the default to be in
@@ -161,7 +162,7 @@ class policymanager():
 
         return val
 
-    def get_module_globals(self,module_name=None,attr=None):
+    def get_module_globals(self, module_name=None, attr=None):
         '''
         get_module_globals: Addon modules must use one of two types of access methods to
         the default configs.   In this method, we expect the default to be in
@@ -192,7 +193,7 @@ class policymanager():
 
         return val
 
-    def get_module_default(self,module_name=None):
+    def get_module_default(self, module_name=None):
         '''
         get_module_default: Addon modules can also access the entire config
         This method returns indexed by "system" and "user": these are the
@@ -202,12 +203,13 @@ class policymanager():
             return None
         if self.system_policy_array.get(module_name) and \
            self.user_policy_array.get(module_name):
-            mod_array = {"system":self.system_policy_array[module_name],
-                         "user":self.user_policy_array[module_name]}
+            mod_array = {"system": self.system_policy_array[module_name],
+                         "user": self.user_policy_array[module_name]}
         else:
             # the module must not have these defined, return None
             mod_array = None
 
         return mod_array
+
 
 policymanager_api = policymanager()

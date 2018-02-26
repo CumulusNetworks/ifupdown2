@@ -18,33 +18,35 @@ try:
     from ifupdownaddons.iproute2 import iproute2
     import ifupdown.ifupdownflags as ifupdownflags
 except ImportError, e:
-    raise ImportError (str(e) + "- required module not found")
+    raise ImportError(str(e) + "- required module not found")
 
-class ethtool(moduleBase,utilsBase):
+
+class ethtool(moduleBase, utilsBase):
     """  ifupdown2 addon module to configure ethtool attributes """
 
-    _modinfo = {'mhelp' : 'ethtool configuration module for interfaces',
+    _modinfo = {'mhelp': 'ethtool configuration module for interfaces',
                 'attrs': {
-                      'link-speed' :
-                            {'help' : 'set link speed',
-                             'validvals' : ['100', '1000', '10000', '40000', '100000'],
-                             'example' : ['link-speed 1000'],
-                             'default' : 'varies by platform and port'},
-                      'link-duplex' :
-                            {'help': 'set link duplex',
-                             'example' : ['link-duplex full'],
-                             'validvals' : ['half', 'full'],
-                             'default' : 'full'},
-                      'link-autoneg' :
-                            {'help': 'set autonegotiation',
-                             'example' : ['link-autoneg on'],
-                             'validvals' : ['yes', 'no', 'on', 'off'],
-                             'default' : 'varies by platform and port'}}}
+                    'link-speed':
+                    {'help': 'set link speed',
+                     'validvals': ['100', '1000', '10000', '40000', '100000'],
+                             'example': ['link-speed 1000'],
+                             'default': 'varies by platform and port'},
+                    'link-duplex':
+                    {'help': 'set link duplex',
+                             'example': ['link-duplex full'],
+                             'validvals': ['half', 'full'],
+                             'default': 'full'},
+                    'link-autoneg':
+                    {'help': 'set autonegotiation',
+                             'example': ['link-autoneg on'],
+                             'validvals': ['yes', 'no', 'on', 'off'],
+                             'default': 'varies by platform and port'}}}
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         if not os.path.exists('/sbin/ethtool'):
-            raise moduleNotSupported('module init failed: no /sbin/ethtool found')
+            raise moduleNotSupported(
+                'module init failed: no /sbin/ethtool found')
         self.ipcmd = None
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
@@ -59,11 +61,11 @@ class ethtool(moduleBase,utilsBase):
         cmd = ''
         for attr in ['speed', 'duplex', 'autoneg']:
             # attribute existed before but we must reset to default
-            config_val = ifaceobj.get_attr_value_first('link-%s'%attr)
+            config_val = ifaceobj.get_attr_value_first('link-%s' % attr)
             default_val = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
-                attr='link-%s'%attr)
+                attr='link-%s' % attr)
 
             if not default_val and not config_val:
                 # there is no point in checking the running config
@@ -94,7 +96,7 @@ class ethtool(moduleBase,utilsBase):
             # unless a previous sibling had link attr configured and made changes
             if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
                 (ifaceobj.flags & iface.OLDEST_SIBLING) and
-                (ifaceobj.name in self.ifaceobjs_modified_configs)):
+                    (ifaceobj.name in self.ifaceobjs_modified_configs)):
                 continue
 
             # If we have siblings AND are not the oldest AND we have no configs,
@@ -103,7 +105,7 @@ class ethtool(moduleBase,utilsBase):
             # not be squashed if addr_config_squash is not set so we still need this.
             if ((ifaceobj.flags & iface.HAS_SIBLINGS) and
                 not (ifaceobj.flags & iface.OLDEST_SIBLING) and
-                not config_val):
+                    not config_val):
                 continue
 
             # if we got this far, we need to change it
@@ -124,15 +126,15 @@ class ethtool(moduleBase,utilsBase):
                 # we also need to set this here in case we changed
                 # something.  this prevents unconfigured ifaces from resetting to default
                 self.ifaceobjs_modified_configs.append(ifaceobj.name)
-                cmd = 'ethtool -s %s %s' %(ifaceobj.name, cmd)
+                cmd = 'ethtool -s %s %s' % (ifaceobj.name, cmd)
                 utils.exec_command(cmd)
             except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+                self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
 
     def _pre_down(self, ifaceobj):
-        pass #self._post_up(ifaceobj,operation="_pre_down")
+        pass  # self._post_up(ifaceobj,operation="_pre_down")
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         """
@@ -145,7 +147,7 @@ class ethtool(moduleBase,utilsBase):
         (the default will get set).
         """
         for attr in ['speed', 'duplex', 'autoneg']:
-            configured = ifaceobj.get_attr_value_first('link-%s'%attr)
+            configured = ifaceobj.get_attr_value_first('link-%s' % attr)
             # if there is nothing configured, do not check
             if not configured:
                 if not ifupdownflags.flags.WITHDEFAULTS:
@@ -153,7 +155,7 @@ class ethtool(moduleBase,utilsBase):
             default = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
-                attr='link-%s'%attr)
+                attr='link-%s' % attr)
             # if we have no default, do not bother checking
             # this avoids ethtool calls on virtual interfaces
             if not default:
@@ -171,24 +173,24 @@ class ethtool(moduleBase,utilsBase):
 
             # we make sure we can get a running value first
             if (running_attr and configured and running_attr == configured):
-                # PASS since running is what is configured 
-                ifaceobjcurr.update_config_with_status('link-%s'%attr,
+                # PASS since running is what is configured
+                ifaceobjcurr.update_config_with_status('link-%s' % attr,
                                                        running_attr, 0)
             elif (running_attr and configured and running_attr != configured):
                 # We show a FAIL since it is not the configured or default
-                ifaceobjcurr.update_config_with_status('link-%s'%attr,
+                ifaceobjcurr.update_config_with_status('link-%s' % attr,
                                                        running_attr, 1)
             elif (running_attr and default and running_attr == default):
                 # PASS since running is default
-                ifaceobjcurr.update_config_with_status('link-%s'%attr,
+                ifaceobjcurr.update_config_with_status('link-%s' % attr,
                                                        running_attr, 0)
             elif (default or configured):
                 # We show a FAIL since it is not the configured or default
-                ifaceobjcurr.update_config_with_status('link-%s'%attr,
+                ifaceobjcurr.update_config_with_status('link-%s' % attr,
                                                        running_attr, 1)
         return
 
-    def get_autoneg(self,ethtool_output=None):
+    def get_autoneg(self, ethtool_output=None):
         """
         get_autoneg simply calls the ethtool command and parses out
         the autoneg value.
@@ -199,7 +201,7 @@ class ethtool(moduleBase,utilsBase):
         else:
             return(None)
 
-    def get_running_attr(self,attr='',ifaceobj=None):
+    def get_running_attr(self, attr='', ifaceobj=None):
         if not ifaceobj or not attr:
             return
         running_attr = None
@@ -208,7 +210,7 @@ class ethtool(moduleBase,utilsBase):
                 output = utils.exec_commandl(['ethtool', ifaceobj.name])
                 running_attr = self.get_autoneg(ethtool_output=output)
             else:
-                running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
+                running_attr = self.read_file_oneline('/sys/class/net/%s/%s' %
                                                       (ifaceobj.name, attr))
         except Exception as e:
             # for nonexistent interfaces, we get an error (rc = 256 or 19200)
@@ -216,7 +218,6 @@ class ethtool(moduleBase,utilsBase):
                               ' /sys/class on iface %s for attr %s: %s' %
                               (ifaceobj.name, attr, str(e)))
         return running_attr
-
 
     def _query_running(self, ifaceobj, ifaceobj_getfunc=None):
         """
@@ -233,7 +234,7 @@ class ethtool(moduleBase,utilsBase):
             default_val = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
-                attr='link-%s'%attr)
+                attr='link-%s' % attr)
             # do not continue if we have no defaults
             # this avoids ethtool calls on virtual interfaces
             if not default_val:
@@ -248,28 +249,28 @@ class ethtool(moduleBase,utilsBase):
             if attr == 'speed' and running_attr and running_attr == '0':
                 return
             if running_attr:
-                ifaceobj.update_config('link-%s'%attr, running_attr)
+                ifaceobj.update_config('link-%s' % attr, running_attr)
 
         return
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
         for attr in ['speed', 'duplex', 'autoneg']:
-            if ifaceobj.get_attr_value_first('link-%s'%attr):
+            if ifaceobj.get_attr_value_first('link-%s' % attr):
                 continue
             default = policymanager.policymanager_api.get_iface_default(
-                        module_name='ethtool',
-                        ifname=ifaceobj.name,
-                        attr='link-%s' %attr)
+                module_name='ethtool',
+                ifname=ifaceobj.name,
+                attr='link-%s' % attr)
             if not default:
                 continue
-            ifaceobj.update_config('link-%s' %attr, default)
+            ifaceobj.update_config('link-%s' % attr, default)
 
-    _run_ops = {'pre-down' : _pre_down,
-                'post-up' : _post_up,
-                'query-checkcurr' : _query_check,
-                'query-running' : _query_running,
-                'query' : _query}
+    _run_ops = {'pre-down': _pre_down,
+                'post-up': _post_up,
+                'query-checkcurr': _query_check,
+                'query-running': _query_running,
+                'query': _query}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

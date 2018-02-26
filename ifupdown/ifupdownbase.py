@@ -16,6 +16,7 @@ from ifupdown.netlink import netlink
 from iface import *
 import ifupdownflags as ifupdownflags
 
+
 class ifupdownBase(object):
 
     def __init__(self):
@@ -24,7 +25,7 @@ class ifupdownBase(object):
 
     def ignore_error(self, errmsg):
         if (ifupdownflags.flags.FORCE == True or re.search(r'exists', errmsg,
-            re.IGNORECASE | re.MULTILINE) is not None):
+                                                           re.IGNORECASE | re.MULTILINE) is not None):
             return True
         return False
 
@@ -43,7 +44,7 @@ class ifupdownBase(object):
             pass
 
     def link_exists(self, ifacename):
-        return os.path.exists('/sys/class/net/%s' %ifacename)
+        return os.path.exists('/sys/class/net/%s' % ifacename)
 
     def link_up(self, ifacename):
         netlink.link_set_updown(ifacename, "up")

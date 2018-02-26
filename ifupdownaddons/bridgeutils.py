@@ -13,6 +13,7 @@ from ifupdown.utils import utils
 import ifupdown.ifupdownflags as ifupdownflags
 from cache import *
 
+
 class brctl(utilsBase):
     """ This class contains helper functions to interact with the bridgeutils
     commands """
@@ -27,36 +28,35 @@ class brctl(utilsBase):
             brctl._cache_fill_done = True
         self.supported_command = {'showmcqv4src': True}
 
-
     def _bridge_get_mcattrs_from_sysfs(self, bridgename):
         mcattrs = {}
         mcattrmap = {'mclmc': 'multicast_last_member_count',
                      'mcrouter': 'multicast_router',
-                     'mcsnoop' : 'multicast_snooping',
-                     'mcsqc' : 'multicast_startup_query_count',
-                     'mcqifaddr' : 'multicast_query_use_ifaddr',
-                     'mcquerier' : 'multicast_querier',
-                     'hashel' : 'hash_elasticity',
-                     'hashmax' : 'hash_max',
-                     'mclmi' : 'multicast_last_member_interval',
-                     'mcmi' : 'multicast_membership_interval',
-                     'mcqpi' : 'multicast_querier_interval',
-                     'mcqi' : 'multicast_query_interval',
-                     'mcqri' : 'multicast_query_response_interval',
-                     'mcsqi' : 'multicast_startup_query_interval'}
+                     'mcsnoop': 'multicast_snooping',
+                     'mcsqc': 'multicast_startup_query_count',
+                     'mcqifaddr': 'multicast_query_use_ifaddr',
+                     'mcquerier': 'multicast_querier',
+                     'hashel': 'hash_elasticity',
+                     'hashmax': 'hash_max',
+                     'mclmi': 'multicast_last_member_interval',
+                     'mcmi': 'multicast_membership_interval',
+                     'mcqpi': 'multicast_querier_interval',
+                     'mcqi': 'multicast_query_interval',
+                     'mcqri': 'multicast_query_response_interval',
+                     'mcsqi': 'multicast_startup_query_interval'}
 
         mcattrsdivby100 = ['mclmi', 'mcmi', 'mcqpi', 'mcqi', 'mcqri', 'mcsqi']
 
         for m, s in mcattrmap.items():
             n = self.read_file_oneline('/sys/class/net/%s/bridge/%s'
-                                    %(bridgename, s))
+                                       % (bridgename, s))
             if m in mcattrsdivby100:
                 try:
                     v = int(n) / 100
                     mcattrs[m] = str(v)
                 except Exception, e:
                     self.logger.warn('error getting mc attr %s (%s)'
-                                     %(m, str(e)))
+                                     % (m, str(e)))
                     pass
             else:
                 mcattrs[m] = n
@@ -125,7 +125,8 @@ class brctl(utilsBase):
             ##battrs['mcsnoop'] = broutlines[12].split('mc snooping')[1].strip()
             #battrs['mclmt'] = broutlines[13].split('mc last member timer')[1].split()[0].strip()
         except Exception, e:
-            self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
+            self.logger.warn(
+                '%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             pass
 
         linkCache.update_attrdict([bridgename, 'linkinfo'], battrs)
@@ -138,21 +139,23 @@ class brctl(utilsBase):
             bportattrs = {}
             try:
                 bportattrs['pathcost'] = bplines[2].split(
-                                            'path cost')[1].strip()
+                    'path cost')[1].strip()
                 bportattrs['fdelay'] = bplines[4].split(
-                                            'forward delay timer')[1].strip()
+                    'forward delay timer')[1].strip()
                 bportattrs['portmcrouter'] = self.read_file_oneline(
-                         '/sys/class/net/%s/brport/multicast_router' %pname)
+                    '/sys/class/net/%s/brport/multicast_router' % pname)
                 bportattrs['portmcfl'] = self.read_file_oneline(
-                         '/sys/class/net/%s/brport/multicast_fast_leave' %pname)
+                    '/sys/class/net/%s/brport/multicast_fast_leave' % pname)
                 bportattrs['portprio'] = self.read_file_oneline(
-                         '/sys/class/net/%s/brport/priority' %pname)
+                    '/sys/class/net/%s/brport/priority' % pname)
                 #bportattrs['mcrouters'] = bplines[6].split('mc router')[1].split()[0].strip()
                 #bportattrs['mc fast leave'] = bplines[6].split('mc fast leave')[1].strip()
             except Exception, e:
-                self.logger.warn('%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
+                self.logger.warn(
+                    '%s: error while processing bridge attributes: %s' % (bridgename, str(e)))
             bports[pname] = bportattrs
-            linkCache.update_attrdict([bridgename, 'linkinfo', 'ports'], bports)
+            linkCache.update_attrdict(
+                [bridgename, 'linkinfo', 'ports'], bports)
 
     def _bridge_fill(self, bridgename=None, refresh=False):
         try:
@@ -174,10 +177,10 @@ class brctl(utilsBase):
                 continue
             try:
                 linkCache.update_attrdict([bitems[0], 'linkinfo'],
-                                      {'stp' : bitems[2]})
+                                          {'stp': bitems[2]})
             except KeyError:
-                linkCache.update_attrdict([bitems[0]], 
-                                {'linkinfo' : {'stp' : bitems[2]}})
+                linkCache.update_attrdict([bitems[0]],
+                                          {'linkinfo': {'stp': bitems[2]}})
             self._bridge_attrs_fill(bitems[0])
 
     def _cache_get(self, attrlist, refresh=False):
@@ -185,7 +188,7 @@ class brctl(utilsBase):
             if ifupdownflags.flags.DRYRUN:
                 return None
             if ifupdownflags.flags.CACHE:
-                if not self._cache_fill_done: 
+                if not self._cache_fill_done:
                     self._bridge_fill()
                     self._cache_fill_done = True
                     return linkCache.get_attr(attrlist)
@@ -195,7 +198,7 @@ class brctl(utilsBase):
             return linkCache.get_attr(attrlist)
         except Exception, e:
             self.logger.debug('_cache_get(%s) : [%s]'
-                    %(str(attrlist), str(e)))
+                              % (str(attrlist), str(e)))
             pass
         return None
 
@@ -206,26 +209,29 @@ class brctl(utilsBase):
                 return True
         except Exception, e:
             self.logger.debug('_cache_check(%s) : [%s]'
-                    %(str(attrlist), str(e)))
+                              % (str(attrlist), str(e)))
             pass
         return False
 
     def _cache_update(self, attrlist, value):
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         try:
             linkCache.add_attr(attrlist, value)
         except:
             pass
 
     def _cache_delete(self, attrlist):
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         try:
             linkCache.del_attr(attrlist)
         except:
             pass
 
     def _cache_invalidate(self):
-        if ifupdownflags.flags.DRYRUN: return
+        if ifupdownflags.flags.DRYRUN:
+            return
         linkCache.invalidate()
 
     def create_bridge(self, bridgename):
@@ -258,12 +264,13 @@ class brctl(utilsBase):
         utils.exec_command('/sbin/brctl delif %s %s' %
                            (bridgename, bridgeportname))
         self._cache_delete([bridgename, 'linkinfo', 'ports',
-                           'bridgeportname'])
+                            'bridgeportname'])
 
     def set_bridgeport_attrs(self, bridgename, bridgeportname, attrdict):
         portattrs = self._cache_get([bridgename, 'linkinfo',
-                                       'ports', bridgeportname])
-        if portattrs == None: portattrs = {}
+                                     'ports', bridgeportname])
+        if portattrs == None:
+            portattrs = {}
         for k, v in attrdict.iteritems():
             if ifupdownflags.flags.CACHE:
                 curval = portattrs.get(k)
@@ -275,7 +282,7 @@ class brctl(utilsBase):
     def set_bridgeport_attr(self, bridgename, bridgeportname,
                             attrname, attrval):
         if self._cache_check([bridgename, 'linkinfo', 'ports',
-                        bridgeportname, attrname], attrval):
+                              bridgeportname, attrname], attrval):
             return
         utils.exec_command('/sbin/brctl set%s %s %s %s' %
                            (attrname,
@@ -293,7 +300,7 @@ class brctl(utilsBase):
                 cmd = '/sbin/brctl set%s %s %s' % (k, bridgename, v)
                 utils.exec_command(cmd)
             except Exception, e:
-                self.logger.warn('%s: %s' %(bridgename, str(e)))
+                self.logger.warn('%s: %s' % (bridgename, str(e)))
                 pass
 
     def set_bridge_attr(self, bridgename, attrname, attrval):
@@ -307,17 +314,17 @@ class brctl(utilsBase):
 
     def get_bridgeport_attrs(self, bridgename, bridgeportname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',
-                                      bridgeportname])
+                                bridgeportname])
 
     def get_bridgeport_attr(self, bridgename, bridgeportname, attrname):
         return self._cache_get([bridgename, 'linkinfo', 'ports',
-                                      bridgeportname, attrname])
+                                bridgeportname, attrname])
 
     def set_stp(self, bridge, stp_state):
         utils.exec_command('/sbin/brctl stp %s %s' % (bridge, stp_state))
 
     def get_stp(self, bridge):
-        sysfs_stpstate = '/sys/class/net/%s/bridge/stp_state' %bridge
+        sysfs_stpstate = '/sys/class/net/%s/bridge/stp_state' % bridge
         if not os.path.exists(sysfs_stpstate):
             return 'error'
         stpstate = self.read_file_oneline(sysfs_stpstate)
@@ -337,7 +344,7 @@ class brctl(utilsBase):
         except:
             return None
         finally:
-            return '%d' %ret
+            return '%d' % ret
 
     def read_value_from_sysfs(self, filename, preprocess_func):
         value = self.read_file_oneline(filename)
@@ -350,22 +357,22 @@ class brctl(utilsBase):
 
     def get_ageing(self, bridge):
         return self.read_value_from_sysfs('/sys/class/net/%s/bridge/ageing_time'
-                                     %bridge, self.conv_value_to_user)
+                                          % bridge, self.conv_value_to_user)
 
     def set_bridgeprio(self, bridge, prio):
         utils.exec_command('/sbin/brctl setbridgeprio %s %s' % (bridge, prio))
 
     def get_bridgeprio(self, bridge):
         return self.read_file_oneline(
-                       '/sys/class/net/%s/bridge/priority' %bridge)
+            '/sys/class/net/%s/bridge/priority' % bridge)
 
     def set_fd(self, bridge, fd):
         utils.exec_command('/sbin/brctl setfd %s %s' % (bridge, fd))
 
     def get_fd(self, bridge):
         return self.read_value_from_sysfs(
-                            '/sys/class/net/%s/bridge/forward_delay'
-                            %bridge, self.conv_value_to_user)
+            '/sys/class/net/%s/bridge/forward_delay'
+            % bridge, self.conv_value_to_user)
 
     def set_gcint(self, bridge, gcint):
         #cmd = '/sbin/brctl setgcint ' + bridge + ' ' + gcint
@@ -376,14 +383,14 @@ class brctl(utilsBase):
 
     def get_hello(self, bridge):
         return self.read_value_from_sysfs('/sys/class/net/%s/bridge/hello_time'
-                                          %bridge, self.conv_value_to_user)
+                                          % bridge, self.conv_value_to_user)
 
     def set_maxage(self, bridge, maxage):
         utils.exec_command('/sbin/brctl setmaxage %s %s' % (bridge, maxage))
 
     def get_maxage(self, bridge):
         return self.read_value_from_sysfs('/sys/class/net/%s/bridge/max_age'
-                                          %bridge, self.conv_value_to_user)
+                                          % bridge, self.conv_value_to_user)
 
     def set_pathcost(self, bridge, port, pathcost):
         utils.exec_command('/sbin/brctl setpathcost %s %s %s' %
@@ -391,7 +398,7 @@ class brctl(utilsBase):
 
     def get_pathcost(self, bridge, port):
         return self.read_file_oneline('/sys/class/net/%s/brport/path_cost'
-                                        %port)
+                                      % port)
 
     def set_portprio(self, bridge, port, prio):
         utils.exec_command('/sbin/brctl setportprio %s %s %s' %
@@ -399,51 +406,52 @@ class brctl(utilsBase):
 
     def get_portprio(self, bridge, port):
         return self.read_file_oneline('/sys/class/net/%s/brport/priority'
-                                        %port)
+                                      % port)
 
     def set_hashmax(self, bridge, hashmax):
         utils.exec_command('/sbin/brctl sethashmax %s %s' % (bridge, hashmax))
 
     def get_hashmax(self, bridge):
         return self.read_file_oneline('/sys/class/net/%s/bridge/hash_max'
-                                        %bridge)
+                                      % bridge)
 
     def set_hashel(self, bridge, hashel):
         utils.exec_command('/sbin/brctl sethashel %s %s' % (bridge, hashel))
 
     def get_hashel(self, bridge):
         return self.read_file_oneline('/sys/class/net/%s/bridge/hash_elasticity'
-                                        %bridge)
+                                      % bridge)
 
     def set_mclmc(self, bridge, mclmc):
         utils.exec_command('/sbin/brctl setmclmc %s %s' % (bridge, mclmc))
 
     def get_mclmc(self, bridge):
         return self.read_file_oneline(
-                    '/sys/class/net/%s/bridge/multicast_last_member_count'
-                    %bridge)
+            '/sys/class/net/%s/bridge/multicast_last_member_count'
+            % bridge)
 
     def set_mcrouter(self, bridge, mcrouter):
-        utils.exec_command('/sbin/brctl setmcrouter %s %s' % (bridge, mcrouter))
+        utils.exec_command('/sbin/brctl setmcrouter %s %s' %
+                           (bridge, mcrouter))
 
     def get_mcrouter(self, bridge):
         return self.read_file_oneline(
-                    '/sys/class/net/%s/bridge/multicast_router' %bridge)
+            '/sys/class/net/%s/bridge/multicast_router' % bridge)
 
     def set_mcsnoop(self, bridge, mcsnoop):
         utils.exec_command('/sbin/brctl setmcsnoop %s %s' % (bridge, mcsnoop))
 
     def get_mcsnoop(self, bridge):
         return self.read_file_oneline(
-                    '/sys/class/net/%s/bridge/multicast_snooping' %bridge)
+            '/sys/class/net/%s/bridge/multicast_snooping' % bridge)
 
     def set_mcsqc(self, bridge, mcsqc):
         utils.exec_command('/sbin/brctl setmcsqc %s %s' % (bridge, mcsqc))
 
     def get_mcsqc(self, bridge):
         return self.read_file_oneline(
-                    '/sys/class/net/%s/bridge/multicast_startup_query_count'
-                    %bridge)
+            '/sys/class/net/%s/bridge/multicast_startup_query_count'
+            % bridge)
 
     def set_mcqifaddr(self, bridge, mcqifaddr):
         utils.exec_command('/sbin/brctl setmcqifaddr %s %s' %
@@ -451,8 +459,8 @@ class brctl(utilsBase):
 
     def get_mcqifaddr(self, bridge):
         return self.read_file_oneline(
-                 '/sys/class/net/%s/bridge/multicast_startup_query_use_ifaddr'
-                 %bridge)
+            '/sys/class/net/%s/bridge/multicast_startup_query_use_ifaddr'
+            % bridge)
 
     def set_mcquerier(self, bridge, mcquerier):
         utils.exec_command('/sbin/brctl setmcquerier %s %s' %
@@ -460,20 +468,22 @@ class brctl(utilsBase):
 
     def get_mcquerier(self, bridge):
         return self.read_file_oneline(
-                 '/sys/class/net/%s/bridge/multicast_querier' %bridge)
+            '/sys/class/net/%s/bridge/multicast_querier' % bridge)
 
     def set_mcqv4src(self, bridge, vlan, mcquerier):
         if vlan == 0 or vlan > 4095:
-            self.logger.warn('mcqv4src vlan \'%d\' invalid range' %vlan)
+            self.logger.warn('mcqv4src vlan \'%d\' invalid range' % vlan)
             return
 
         ip = mcquerier.split('.')
         if len(ip) != 4:
-            self.logger.warn('mcqv4src \'%s\' invalid IPv4 address' %mcquerier)
+            self.logger.warn(
+                'mcqv4src \'%s\' invalid IPv4 address' % mcquerier)
             return
         for k in ip:
             if not k.isdigit() or int(k, 10) < 0 or int(k, 10) > 255:
-                self.logger.warn('mcqv4src \'%s\' invalid IPv4 address' %mcquerier)
+                self.logger.warn(
+                    'mcqv4src \'%s\' invalid IPv4 address' % mcquerier)
                 return
 
         utils.exec_command('/sbin/brctl setmcqv4src %s %d %s' %
@@ -496,10 +506,11 @@ class brctl(utilsBase):
                 self.supported_command['showmcqv4src'] = False
                 return {}
             raise
-        if not mcqout: return {}
+        if not mcqout:
+            return {}
         mcqlines = mcqout.splitlines()
         for l in mcqlines[1:]:
-            l=l.strip()
+            l = l.strip()
             k, d, v = l.split('\t')
             if not k or not v:
                 continue
@@ -513,32 +524,32 @@ class brctl(utilsBase):
 
     def get_mclmi(self, bridge):
         return self.read_file_oneline(
-                 '/sys/class/net/%s/bridge/multicast_last_member_interval'
-                 %bridge)
+            '/sys/class/net/%s/bridge/multicast_last_member_interval'
+            % bridge)
 
     def set_mcmi(self, bridge, mcmi):
         utils.exec_command('/sbin/brctl setmcmi %s %s' % (bridge, mcmi))
 
     def get_mcmi(self, bridge):
         return self.read_file_oneline(
-                 '/sys/class/net/%s/bridge/multicast_membership_interval'
-                 %bridge)
+            '/sys/class/net/%s/bridge/multicast_membership_interval'
+            % bridge)
 
     def bridge_exists(self, bridge):
-        return os.path.exists('/sys/class/net/%s/bridge' %bridge)
+        return os.path.exists('/sys/class/net/%s/bridge' % bridge)
 
     def is_bridge_port(self, ifacename):
-        return os.path.exists('/sys/class/net/%s/brport' %ifacename)
+        return os.path.exists('/sys/class/net/%s/brport' % ifacename)
 
     def bridge_port_exists(self, bridge, bridgeportname):
         try:
             return os.path.exists('/sys/class/net/%s/brif/%s'
-                                  %(bridge, bridgeportname))
+                                  % (bridge, bridgeportname))
         except Exception:
             return False
-   
+
     def get_bridge_ports(self, bridgename):
         try:
-            return os.listdir('/sys/class/net/%s/brif/' %bridgename)
+            return os.listdir('/sys/class/net/%s/brif/' % bridgename)
         except:
             return []

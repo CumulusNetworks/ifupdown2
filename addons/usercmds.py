@@ -10,29 +10,30 @@ import ifupdownaddons
 from ifupdown.utils import utils
 import ifupdown.ifupdownflags as ifupdownflags
 
+
 class usercmds(ifupdownaddons.modulebase.moduleBase):
     """  ifupdown2 addon module to configure user specified commands """
 
-    _modinfo = {'mhelp' : 'user commands for interfaces',
-                'attrs' : {
-                   'pre-up' :
-                        {'help' : 'run command before bringing the interface up',
-                         'multiline' : True},
-                   'up' :
-                        {'help' : 'run command at interface bring up',
-                         'multiline' : True},
-                   'post-up' :
-                        {'help' : 'run command after interface bring up',
-                         'multiline' : True},
-                   'pre-down' :
-                        {'help' : 'run command before bringing the interface down',
-                         'multiline' : True},
-                   'down' :
-                        {'help' : 'run command at interface down',
-                         'multiline' : True},
-                   'post-down' :
-                        {'help' : 'run command after bringing interface down',
-                         'multiline' : True}}}
+    _modinfo = {'mhelp': 'user commands for interfaces',
+                'attrs': {
+                    'pre-up':
+                    {'help': 'run command before bringing the interface up',
+                         'multiline': True},
+                    'up':
+                    {'help': 'run command at interface bring up',
+                     'multiline': True},
+                    'post-up':
+                    {'help': 'run command after interface bring up',
+                     'multiline': True},
+                    'pre-down':
+                    {'help': 'run command before bringing the interface down',
+                     'multiline': True},
+                    'down':
+                    {'help': 'run command at interface down',
+                     'multiline': True},
+                    'post-down':
+                    {'help': 'run command after bringing interface down',
+                     'multiline': True}}}
 
     def _run_command(self, ifaceobj, op):
         cmd_list = ifaceobj.get_attr_value(op)
@@ -50,12 +51,12 @@ class usercmds(ifupdownaddons.modulebase.moduleBase):
                                                         str(e).strip('\n')))
                     pass
 
-    _run_ops = {'pre-up' : _run_command,
-               'pre-down' : _run_command,
-               'up' : _run_command,
-               'post-up' : _run_command,
-               'down' : _run_command,
-               'post-down' : _run_command}
+    _run_ops = {'pre-up': _run_command,
+                'pre-down': _run_command,
+                'up': _run_command,
+                'post-up': _run_command,
+                'down': _run_command,
+                'post-down': _run_command}
 
     def get_ops(self):
         """ returns list of ops supported by this module """

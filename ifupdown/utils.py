@@ -19,11 +19,13 @@ import ifupdownflags
 from functools import partial
 from ipaddr import IPNetwork, IPAddress
 
+
 def signal_handler_f(ps, sig, frame):
     if ps:
         ps.send_signal(sig)
     if sig == signal.SIGINT:
         raise KeyboardInterrupt
+
 
 class utils():
     logger = logging.getLogger('ifupdown')
@@ -89,7 +91,8 @@ class utils():
         else:
             for attr in attrslist:
                 if attr in attrsdict:
-                    attrsdict[attr] = utils.boolean_support_binary(attrsdict[attr])
+                    attrsdict[attr] = utils.boolean_support_binary(
+                        attrsdict[attr])
 
     @classmethod
     def importName(cls, modulename, name):
@@ -126,7 +129,7 @@ class utils():
         iface_range = cls.parse_iface_range(name)
         if iface_range:
             for i in range(iface_range[1], iface_range[2]):
-                ifacenames.append('%s-%d' %(iface_range[0], i))
+                ifacenames.append('%s-%d' % (iface_range[0], i))
         return ifacenames
 
     @classmethod
@@ -167,17 +170,19 @@ class utils():
 
     @classmethod
     def get_normalized_ip_addr(cls, ifacename, ipaddrs):
-        if not ipaddrs: return None
+        if not ipaddrs:
+            return None
         if isinstance(ipaddrs, list):
-                addrs = []
-                for ip in ipaddrs:
-                    if not ip:
-                        continue
-                    try:
-                        addrs.append(str(IPNetwork(ip)) if '/' in ip else str(IPAddress(ip)))
-                    except Exception as e:
-                        cls.logger.warning('%s: %s' % (ifacename, e))
-                return addrs
+            addrs = []
+            for ip in ipaddrs:
+                if not ip:
+                    continue
+                try:
+                    addrs.append(str(IPNetwork(ip))
+                                 if '/' in ip else str(IPAddress(ip)))
+                except Exception as e:
+                    cls.logger.warning('%s: %s' % (ifacename, e))
+            return addrs
         else:
             try:
                 return str(IPNetwork(ipaddrs)) if '/' in ipaddrs else str(IPAddress(ipaddrs))
@@ -260,5 +265,6 @@ class utils():
                                        stdout=stdout,
                                        stdin=stdin,
                                        stderr=stderr)
+
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)

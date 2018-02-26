@@ -8,6 +8,7 @@ import os
 from utilsbase import *
 from ifupdown.utils import utils
 
+
 class systemUtils():
     @classmethod
     def is_service_running(cls, procname=None, pidfile=None):
@@ -15,7 +16,7 @@ class systemUtils():
         if pidfile:
             if os.path.exists(pidfile):
                 pid = utilsobj.read_file_oneline(pidfile)
-                if not os.path.exists('/proc/%s' %pid):
+                if not os.path.exists('/proc/%s' % pid):
                     return False
             else:
                 return False
