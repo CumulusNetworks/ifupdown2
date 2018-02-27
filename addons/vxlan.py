@@ -6,7 +6,7 @@
 
 try:
     from sets import Set
-    from ipaddr import IPv4Address
+    from ipaddr import IPv4Address, IPv4Network, AddressValueError
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
@@ -183,11 +183,33 @@ class vxlan(moduleBase):
                     attr='vxlan-svcnodeip'
                 )
 
+            if group:
+                try:
+                    group = IPv4Address(group)
+                except AddressValueError:
+                    try:
+                        group_ip = IPv4Network(group).ip
+                        self.logger.warning('%s: vxlan-svcnodeip %s: netmask ignored' % (ifname, group))
+                        group = group_ip
+                    except:
+                        raise Exception('%s: invalid vxlan-svcnodeip %s: must be in ipv4 format' % (ifname, group))
+
             if not local:
                 local = policymanager.policymanager_api.get_attr_default(
                     module_name=self.__class__.__name__,
                     attr='vxlan-local-tunnelip'
                 )
+
+            if local:
+                try:
+                    local = IPv4Address(local)
+                except AddressValueError:
+                    try:
+                        local_ip = IPv4Network(local).ip
+                        self.logger.warning('%s: vxlan-local-tunnelip %s: netmask ignored' % (ifname, local))
+                        local = local_ip
+                    except:
+                        raise Exception('%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format' % (ifname, local))
 
             if not ageing:
                 ageing = policymanager.policymanager_api.get_attr_default(
