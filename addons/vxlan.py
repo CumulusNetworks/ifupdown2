@@ -238,7 +238,7 @@ class vxlan(moduleBase):
                                                      svcnodeip=group,
                                                      remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
                                                      learning='on' if learning else 'off',
-                                                     ageing=anycastip)
+                                                     ageing=ageing)
                     except Exception as e_iproute2:
                         self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
                         return
