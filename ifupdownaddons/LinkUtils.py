@@ -780,7 +780,7 @@ class LinkUtils(utilsBase):
             return utils.exec_commandl([utils.ip_cmd,
                                         '-o', '-d', 'link', 'show'])
 
-    def addr_add(self, ifacename, address, broadcast=None,
+    def addr_add(self, ifacename, address, broadcast='+',
                  peer=None, scope=None, preferred_lifetime=None):
         if not address:
             return
