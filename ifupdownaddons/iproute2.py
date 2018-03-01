@@ -326,7 +326,7 @@ class iproute2(utilsBase):
         else:
             return utils.exec_commandl(['ip', '-o', '-d', 'link', 'show'])
 
-    def addr_add(self, ifacename, address, broadcast=None,
+    def addr_add(self, ifacename, address, broadcast='+',
                     peer=None, scope=None, preferred_lifetime=None):
         if not address:
             return
