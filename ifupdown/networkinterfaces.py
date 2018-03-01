@@ -260,6 +260,7 @@ class networkInterfaces():
         for line_idx in range(cur_idx + 1, len(lines)):
             l = lines[line_idx].strip(whitespaces)
             if self.ignore_line(l) == 1:
+                ifaceobj.raw_config.append(l)
                 continue
             attrs = re.split(self._ws_split_regex, l, 1)
             if self._is_keyword(attrs[0]):
