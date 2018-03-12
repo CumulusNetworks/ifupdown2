@@ -509,9 +509,11 @@ class address(moduleBase):
         if mtu:
             if not self._check_mtu_config(ifaceobj, mtu, ifaceobj_getfunc):
                 return
-            running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            cached_running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
+            running_mtu = self.ipcmd.link_get_mtu_sysfs(ifaceobj.name)
             if not running_mtu or (running_mtu and running_mtu != mtu):
-                self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu)
+                force = cached_running_mtu != running_mtu
+                self.ipcmd.link_set(ifaceobj.name, 'mtu', mtu, force=force)
                 if (not ifupdownflags.flags.ALL and
                     not ifaceobj.link_kind and
                     ifupdownConfig.config.get('adjust_logical_dev_mtu', '1') != '0'):
