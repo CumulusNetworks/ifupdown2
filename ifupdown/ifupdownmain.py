@@ -2179,11 +2179,9 @@ class ifupdownMain(ifupdownBase):
 
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
-                if (self.is_ifaceobj_builtin(ifaceobj) or
-                    not ifaceobj.is_config_present()):
+                if self.is_ifaceobj_builtin(ifaceobj):
                     continue
                 ifaceobj.dump_raw(self.logger)
-                print '\n'
                 if (ifupdownflags.flags.WITH_DEPENDS and
                     not ifupdownflags.flags.ALL):
                     dlist = ifaceobj.lowerifaces
