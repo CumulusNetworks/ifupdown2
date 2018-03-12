@@ -628,6 +628,12 @@ class bridge(moduleBase):
         self.bridge_mac_iface_list = policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'bridge_mac_iface') or []
         self.bridge_mac_iface = None, None  # ifname, mac
 
+        self.bridge_hwaddr_inherint_from_first_phys_dev = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__, 'bridge-hwaddr-inherint-from-first-phys-dev'
+            )
+        )
+
         self.l2protocol_tunnel_callback = {
             'all': self._l2protocol_tunnel_set_all,
             'stp': self._l2protocol_tunnel_set_stp,
@@ -2024,33 +2030,54 @@ class bridge(moduleBase):
         except Exception as e:
             self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
 
-    def _get_bridge_mac(self, ifaceobj_getfunc):
+    def _get_bridge_mac(self, ifname, ifaceobj_getfunc):
         if self.bridge_mac_iface and self.bridge_mac_iface[0] and self.bridge_mac_iface[1]:
             return self.bridge_mac_iface
 
-        for bridge_mac_intf in self.bridge_mac_iface_list:
-            ifaceobj_list = ifaceobj_getfunc(bridge_mac_intf)
-            iface_mac = None
+        if self.bridge_mac_iface_list:
+            self.logger.debug('bridge mac iface list: %s' % self.bridge_mac_iface_list)
 
-            if ifaceobj_list:
-                for obj in ifaceobj_list:
-                    iface_user_configured_hwaddress = utils.strip_hwaddress(obj.get_attr_value_first('hwaddress'))
-                    # if user did configured 'hwaddress' we need to use this value instead of the cached value.
-                    if iface_user_configured_hwaddress:
-                        iface_mac = iface_user_configured_hwaddress.lower()
-                        # we need to "normalize" the user provided MAC so it can match with
-                        # what we have in the cache (data retrieved via a netlink dump by
-                        # nlmanager). nlmanager return all macs in lower-case
+            for bridge_mac_intf in self.bridge_mac_iface_list:
+                ifaceobj_list = ifaceobj_getfunc(bridge_mac_intf)
+                iface_mac = None
 
-            if not iface_mac and not self.ipcmd.link_exists(bridge_mac_intf):
-                continue
+                if ifaceobj_list:
+                    for obj in ifaceobj_list:
+                        iface_user_configured_hwaddress = utils.strip_hwaddress(obj.get_attr_value_first('hwaddress'))
+                        # if user did configured 'hwaddress' we need to use this value instead of the cached value.
+                        if iface_user_configured_hwaddress:
+                            iface_mac = iface_user_configured_hwaddress
 
-            if not iface_mac:
-                iface_mac = self.ipcmd.cache_get('link', [bridge_mac_intf, 'hwaddress'])
-                # if hwaddress attribute is not configured we use the running mac addr
+                if not iface_mac and not self.ipcmd.link_exists(bridge_mac_intf):
+                    continue
 
-            self.bridge_mac_iface = (bridge_mac_intf, iface_mac)
-            return self.bridge_mac_iface
+                if not iface_mac:
+                    iface_mac = self.ipcmd.cache_get('link', [bridge_mac_intf, 'hwaddress'])
+                    # if hwaddress attribute is not configured we use the running mac addr
+
+                self.bridge_mac_iface = (bridge_mac_intf, iface_mac)
+                return self.bridge_mac_iface
+        elif self.bridge_hwaddr_inherint_from_first_phys_dev:
+            # no policy was provided, we need to get the first physdev or bond ports
+            # and use its hwaddress to set the bridge mac
+            for port in self.brctlcmd.get_bridge_ports(ifname):
+                # iterate through the bridge-port list
+                for port_obj in ifaceobj_getfunc(port) or []:
+                    # check if the port is a physdev (link_kind is null) or a bon
+                    if not port_obj.link_kind or port_obj.link_kind == ifaceLinkKind.BOND:
+                        iface_user_configured_hwaddress = utils.strip_hwaddress(port_obj.get_attr_value_first('hwaddress'))
+                        # if user did configured 'hwaddress' we need to use this value instead of the cached value.
+                        if iface_user_configured_hwaddress:
+                            iface_mac = iface_user_configured_hwaddress.lower()
+                            # we need to "normalize" the user provided MAC so it can match with
+                            # what we have in the cache (data retrieved via a netlink dump by
+                            # nlmanager). nlmanager return all macs in lower-case
+                        else:
+                            iface_mac = self.ipcmd.link_get_hwaddress(port)
+
+                        if iface_mac:
+                            self.bridge_mac_iface = (port, iface_mac)
+                            return self.bridge_mac_iface
 
         return None, None
 
@@ -2072,8 +2099,8 @@ class bridge(moduleBase):
             # there is no need to assign one
             return
 
-        mac_intf, bridge_mac = self._get_bridge_mac(ifaceobj_getfunc)
         ifname = ifaceobj.name
+        mac_intf, bridge_mac = self._get_bridge_mac(ifname, ifaceobj_getfunc)
 
         if bridge_mac:
             # if an interface is configured with the following attribute:
