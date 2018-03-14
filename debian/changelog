@@ -2,15 +2,10 @@ ifupdown2 (1.0~git20180313-1) unstable; urgency=medium
 
   * addons: vrf: fix vrf slave link kind (fixes #39)
   * addons: batman_adv: lookup batctl dynamically from PATH (PR #41)
-
- -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 13 Mar 2018 05:06:23 +0100
-
-ifupdown2 (1.0~git20180109-1) UNRELEASED; urgency=medium
-
   * addons: vxlan: add vxlan-phys-dev attribute (PR #19)
   * addons: bridge: add bridge-ports-condone-regex (PR #17)
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 09 Jan 2018 06:11:38 +0100
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 13 Mar 2018 05:06:23 +0100
 
 ifupdown2 (1.0~git20170314-1) unstable; urgency=medium
 
