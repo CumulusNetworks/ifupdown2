@@ -2037,10 +2037,7 @@ class bridge(moduleBase):
                     iface_user_configured_hwaddress = utils.strip_hwaddress(obj.get_attr_value_first('hwaddress'))
                     # if user did configured 'hwaddress' we need to use this value instead of the cached value.
                     if iface_user_configured_hwaddress:
-                        iface_mac = iface_user_configured_hwaddress.lower()
-                        # we need to "normalize" the user provided MAC so it can match with
-                        # what we have in the cache (data retrieved via a netlink dump by
-                        # nlmanager). nlmanager return all macs in lower-case
+                        iface_mac = iface_user_configured_hwaddress
 
             if not iface_mac and not self.ipcmd.link_exists(bridge_mac_intf):
                 continue
