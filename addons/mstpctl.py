@@ -231,11 +231,38 @@ class mstpctl(moduleBase):
         self.mstpctlcmd = None
         self.mstpd_running = (True if systemUtils.is_process_running('mstpd')
                              else False)
-        self.default_vxlan_ports_set_bpduparams = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='mstpctl-vxlan-always-set-bpdu-params')
-        if self.default_vxlan_ports_set_bpduparams == 'yes':
-            self.default_vxlan_ports_set_bpduparams = True
-        else:
-            self.default_vxlan_ports_set_bpduparams = False
+
+        # Background -
+        # The ask is to make "mstpctl-portadminedge yes" part of the default ifupdown2
+        # policy for all vxlan interfaces. In the absence of this, the mstp work flow
+        # is flawed in the event of vxlan flap.
+        # Details -
+        # As of today, for vxlan interfaces "oper edge port" is set to 'yes' and also
+        # "bpdufilter port" is also set to 'yes'. So, in a case where bridge has multiple
+        # vxlan interfaces, if one vxlan interface is flapped, this would trigger mstp
+        # re-evaluation of states on other vxlan interfaces, creating momentary traffic
+        # glitch on those vxlans. Setting "admin edge port" to yes (in addition to the
+        # defaults we already have) prevents this.
+        #
+        # We use to only support 'mstpctl-vxlan-always-set-bpdu-params' but introducing a
+        # separate policy attribute doesn't make sense, we should have one single
+        # attribute to handle the whole thing (and deprecate mstpctl-vxlan-always-set-bpdu-params)
+        # mstpctl-set-default-vxlan-bridge-attrs=yes will set
+        #   mstpctl-portbpdufilter
+        #   mstpctl-bpduguard
+        #   mstpctl-portadminedge
+        #
+        self.set_default_mstp_vxlan_bridge_config = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='mstpctl-vxlan-always-set-bpdu-params'
+            )
+        ) or utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='mstpctl-set-default-vxlan-bridge-attrs'
+            )
+        )
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self._is_bridge(ifaceobj):
@@ -430,10 +457,14 @@ class mstpctl(moduleBase):
             pass
 
     def _get_default_val(self, attr, ifaceobj, bridgeifaceobj):
-        if ((attr == 'mstpctl-portbpdufilter' or
-            attr == 'mstpctl-bpduguard') and
-            self.default_vxlan_ports_set_bpduparams and
-            (ifaceobj.link_kind & ifaceLinkKind.VXLAN)):
+        if (self.set_default_mstp_vxlan_bridge_config
+            and ifaceobj.link_kind & ifaceLinkKind.VXLAN
+                and attr in (
+                        'mstpctl-portbpdufilter',
+                        'mstpctl-bpduguard',
+                        'mstpctl-portadminedge',
+                )
+        ):
             try:
                 config_val = bridgeifaceobj.get_attr_value_first(attr)
             except Exception, e:
@@ -472,10 +503,13 @@ class mstpctl(moduleBase):
             not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name) or
             not bvlan_aware):
                 if (not bvlan_aware and
-                    self.default_vxlan_ports_set_bpduparams and
+                    self.set_default_mstp_vxlan_bridge_config and
                     (ifaceobj.link_kind & ifaceLinkKind.VXLAN)):
-                    for attr in ['mstpctl-portbpdufilter',
-                                 'mstpctl-bpduguard']:
+                    for attr in (
+                            'mstpctl-portbpdufilter',
+                            'mstpctl-bpduguard',
+                            'mstpctl-portadminedge'
+                    ):
                         json_attr = self.get_mod_subattr(attr, 'jsonAttr')
                         config_val = self._get_default_val(attr, ifaceobj,
                                                            bridgeifaceobj)
@@ -717,8 +751,8 @@ class mstpctl(moduleBase):
             return
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
                                           self.get_mod_attrs())
-        if self.default_vxlan_ports_set_bpduparams:
-            for attr in ['mstpctl-portbpdufilter', 'mstpctl-bpduguard']:
+        if self.set_default_mstp_vxlan_bridge_config:
+            for attr in ('mstpctl-portbpdufilter', 'mstpctl-bpduguard', 'mstpctl-portadminedge'):
                 if attr not in ifaceattrs:
                     ifaceattrs.append(attr)
         if not ifaceattrs:
@@ -734,8 +768,7 @@ class mstpctl(moduleBase):
             # for all mstpctl options
             if k in blacklistedattrs:
                 continue
-            if ((k == 'mstpctl-portbpdufilter' or
-                 k == 'mstpctl-bpduguard')):
+            if k in ('mstpctl-portbpdufilter', 'mstpctl-bpduguard', 'mstpctl-portadminedge'):
                 #special case, 'ifquery --check --with-defaults' on a VLAN
                 #unaware bridge
                 if not running_port_list:
@@ -868,14 +901,17 @@ class mstpctl(moduleBase):
             bifaceobjlist = ifaceobj_getfunc(bridge)
             for bifaceobj in bifaceobjlist:
                 if (self._is_bridge(bifaceobj) and
-                    self.default_vxlan_ports_set_bpduparams and
+                    self.set_default_mstp_vxlan_bridge_config and
                     (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
                         config_stp = self._get_config_stp(bifaceobj)
                         running_stp = self._get_running_stp(bifaceobj)
                         if (not config_stp or not running_stp):
                             continue
-                        for attr in ['mstpctl-portbpdufilter',
-                                     'mstpctl-bpduguard']:
+                        for attr in (
+                                'mstpctl-portbpdufilter',
+                                'mstpctl-bpduguard',
+                                'mstpctl-portadminedge'
+                        ):
                             jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
                             config_val = bifaceobj.get_attr_value_first(attr)
                             if config_val:
@@ -1085,10 +1121,11 @@ class mstpctl(moduleBase):
             for bridge in masters:
                 bifaceobj = ifaceobj_getfunc(bridge)[0]
                 if (self._is_bridge(bifaceobj) and
-                    self.default_vxlan_ports_set_bpduparams and
+                    self.set_default_mstp_vxlan_bridge_config and
                     (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
-                        for attr in ['mstpctl-portbpdufilter',
-                                     'mstpctl-bpduguard']:
+                        for attr in ('mstpctl-portbpdufilter',
+                                     'mstpctl-bpduguard',
+                                     'mstpctl-portadminedge'):
                             jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
                             config_val = ifaceobj.get_attr_value_first(attr)
                             if config_val or not ifupdownflags.flags.WITHDEFAULTS:
@@ -1115,7 +1152,7 @@ class mstpctl(moduleBase):
         if not lowerinfs:
             return
         if ifaceobj.get_attr_value_first('bridge-vlan-aware') != 'yes':
-            for attr in ['mstpctl-portbpdufilter', 'mstpctl-bpduguard']:
+            for attr in ('mstpctl-portbpdufilter', 'mstpctl-bpduguard', 'mstpctl-portadminedge'):
                 state = ''
                 config = ifaceobj.get_attr_value_first(attr)
                 for port in lowerinfs:
@@ -1129,7 +1166,7 @@ class mstpctl(moduleBase):
                                 state += '%s=yes ' %port
                 ifaceobj.replace_config(attr, config if config else state)
         else:
-            for attr in ['mstpctl-portbpdufilter', 'mstpctl-bpduguard']:
+            for attr in ('mstpctl-portbpdufilter', 'mstpctl-bpduguard', 'mstpctl-portadminedge'):
                 state = ''
                 config = ifaceobj.get_attr_value_first(attr)
                 for port in lowerinfs:
