@@ -184,7 +184,10 @@ class utils():
     def strip_hwaddress(hwaddress):
         if hwaddress and hwaddress.startswith("ether"):
             hwaddress = hwaddress[5:].strip()
-        return hwaddress
+        return hwaddress.lower() if hwaddress else hwaddress
+        # we need to "normalize" the user provided MAC so it can match with
+        # what we have in the cache (data retrieved via a netlink dump by
+        # nlmanager). nlmanager return all macs in lower-case
 
     @classmethod
     def importName(cls, modulename, name):
