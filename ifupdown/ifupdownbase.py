@@ -41,8 +41,7 @@ class ifupdownBase(object):
 
     def log_error(self, str):
         if self.ignore_error(str) == False:
-            raise
-            #raise Exception(str)
+            raise Exception(str)
         else:
             pass
 

@@ -1507,7 +1507,7 @@ class ifupdownMain(ifupdownBase):
             ret = False
             for i in ifaceobjs:
                 if i.classes:
-                    common = Set([allow_classes]).intersection(
+                    common = Set(allow_classes).intersection(
                                 Set(i.classes))
                     if common:
                         ret = True
@@ -1631,16 +1631,22 @@ class ifupdownMain(ifupdownBase):
         except Exception:
             raise
 
+        filtered_ifacenames = None
         if ifacenames:
             ifacenames = self._preprocess_ifacenames(ifacenames)
+
+            if allow_classes:
+                filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
 
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
 
-        # filter interfaces based on auto and allow classes
-        filtered_ifacenames = [i for i in ifacenames
-                               if self._iface_whitelisted(auto, allow_classes,
+        if not filtered_ifacenames:
+            # filter interfaces based on auto and allow classes
+            filtered_ifacenames = [i for i in ifacenames
+                                    if self._iface_whitelisted(auto, allow_classes,
                                                 excludepats, i)]
+
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists')
 
@@ -1678,6 +1684,21 @@ class ifupdownMain(ifupdownBase):
         if not iface_read_ret or not ret:
             raise Exception()
 
+    def _get_filtered_ifacenames_with_classes(self, auto, allow_classes, excludepats, ifacenames):
+        # if user has specified ifacelist and allow_classes
+        # append the allow_classes interfaces to user
+        # ifacelist
+        filtered_ifacenames = [i for i in self.ifaceobjdict.keys()
+                               if self._iface_whitelisted(auto, allow_classes,
+                                                          excludepats, i)]
+        filtered_ifacenames += ifacenames
+
+        for intf in ifacenames:
+            for obj in self.get_ifaceobjs(intf) or []:
+                obj.blacklisted = False
+
+        return filtered_ifacenames
+
     def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
              excludepats=None, printdependency=None, usecurrentconfig=False,
              type=None):
@@ -1706,22 +1727,30 @@ class ifupdownMain(ifupdownBase):
                 self.read_iface_config()
             except Exception, e:
                 raise Exception('error reading iface config (%s)' %str(e))
+        filtered_ifacenames = None
         if ifacenames:
             # If iface list is given by the caller, always check if iface
             # is present
             try:
                ifacenames = self._preprocess_ifacenames(ifacenames)
+
+               if allow_classes:
+                   filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
+
             except Exception, e:
                raise Exception('%s' %str(e) +
                        ' (interface was probably never up ?)')
 
+
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
 
-        # filter interfaces based on auto and allow classes
-        filtered_ifacenames = [i for i in ifacenames
-                               if self._iface_whitelisted(auto, allow_classes,
-                                                excludepats, i)]
+        if not filtered_ifacenames:
+            # filter interfaces based on auto and allow classes
+            filtered_ifacenames = [i for i in ifacenames
+                                   if self._iface_whitelisted(auto, allow_classes,
+                                                    excludepats, i)]
+
         if not filtered_ifacenames:
             raise Exception('no ifaces found matching given allow lists ' +
                     '(or interfaces were probably never up ?)')
@@ -1779,8 +1808,11 @@ class ifupdownMain(ifupdownBase):
                 raise
 
         if ifacenames and ops[0] != 'query-running':
-           # If iface list is given, always check if iface is present
-           ifacenames = self._preprocess_ifacenames(ifacenames)
+            # If iface list is given, always check if iface is present
+            ifacenames = self._preprocess_ifacenames(ifacenames)
+
+        if allow_classes:
+            filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
 
         # if iface list not given by user, assume all from config file
         if not ifacenames: ifacenames = self.ifaceobjdict.keys()
@@ -1788,10 +1820,16 @@ class ifupdownMain(ifupdownBase):
         # filter interfaces based on auto and allow classes
         if ops[0] == 'query-running':
             filtered_ifacenames = ifacenames
-        else:
-            filtered_ifacenames = [i for i in ifacenames
-                if self._iface_whitelisted(auto, allow_classes,
-                        excludepats, i)]
+        elif not allow_classes:
+            filtered_ifacenames = [
+                i for i in ifacenames
+                if self._iface_whitelisted(
+                    auto,
+                    allow_classes,
+                    excludepats, i
+                )
+            ]
+
         if not filtered_ifacenames:
                 raise Exception('no ifaces found matching ' +
                         'given allow lists')

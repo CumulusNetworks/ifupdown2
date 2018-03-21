@@ -92,8 +92,8 @@ class Parse:
         if self.args.iflist and self.args.all:
             raise ArgvParseError("'-a' option and interface list are mutually exclusive")
 
-        if self.op != 'reload' and self.args.CLASS and (self.args.all or self.args.iflist):
-            raise ArgvParseError("'--allow' option is mutually exclusive with interface list and '-a'")
+        if self.op != 'reload' and self.args.CLASS and self.args.all:
+            raise ArgvParseError("'--allow' option is mutually exclusive with '-a'")
         return True
 
     def get_op(self):
@@ -117,7 +117,7 @@ class Parse:
         argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose')
         argparser.add_argument('-d', '--debug', dest='debug', action='store_true', help='output debug info')
         argparser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help=argparse.SUPPRESS)
-        argparser.add_argument('--allow', dest='CLASS', help='ignore non-"allow-CLASS" interfaces')
+        argparser.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
         argparser.add_argument('-w', '--with-depends', dest='withdepends', action='store_true',
                                help="run with all dependent interfaces. "
                                     "This option is redundant when '-a' is specified. "
@@ -198,7 +198,7 @@ class Parse:
                            help='Reload the configuration for all interfaces which are '
                                 'currently up regardless of whether an interface has '
                                 '"auto <interface>" configuration within the /etc/network/interfaces file.')
-        group.add_argument('--allow', dest='CLASS', help='ignore non-"allow-CLASS" interfaces')
+        group.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
         argparser.add_argument('iflist', metavar='IFACE', nargs='*', help=argparse.SUPPRESS)
         argparser.add_argument('-n', '--no-act', dest='noact', action='store_true',
                                help='print out what would happen, but don\'t do it')
