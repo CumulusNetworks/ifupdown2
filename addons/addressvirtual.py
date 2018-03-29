@@ -193,6 +193,11 @@ class addressvirtual(moduleBase):
                 except:
                     self.ipcmd.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
+
+            # first thing we need to handle vrf enslavement
+            if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
+                self._handle_vrf_slaves(macvlan_ifacename, ifaceobj)
+
             ips = av_attrs[1:]
             if mac != 'None':
                 mac = mac.lower()
@@ -223,10 +228,6 @@ class addressvirtual(moduleBase):
                 # to bring them up here in the case they were brought down
                 # by some other entity in the system.
                 netlink.link_set_updown(macvlan_ifacename, "up")
-
-            # handle vrf slaves
-            if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
-                self._handle_vrf_slaves(macvlan_ifacename, ifaceobj)
 
             # Disable IPv6 duplicate address detection on VRR interfaces
             for key, sysval in { 'accept_dad' : '0', 'dad_transmits' : '0' }.iteritems():
