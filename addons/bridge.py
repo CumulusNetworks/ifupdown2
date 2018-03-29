@@ -854,6 +854,13 @@ class bridge(moduleBase):
         else:
             return None
 
+    def _get_bridge_port_list_user_ordered(self, ifaceobj):
+        # When enslaving bridge-ports we need to return the exact user
+        # configured bridge ports list (bridge will inherit the mac of the
+        # first device.
+        ports = self._get_ifaceobj_bridge_ports(ifaceobj)
+        return self.parse_port_list(ifaceobj.name, ports) if ports else None
+
     def _process_bridge_waitport(self, ifaceobj, portlist):
         waitport_value = ifaceobj.get_attr_value_first('bridge-waitport')
         if not waitport_value: return
@@ -954,7 +961,13 @@ class bridge(moduleBase):
         ports = 0
         newbridgeports = Set(bridgeports).difference(Set(runningbridgeports))
         newly_enslaved_ports = []
-        for bridgeport in newbridgeports:
+
+        newbridgeports_ordered = []
+        for br_port in self._get_bridge_port_list_user_ordered(ifaceobj):
+            if br_port in newbridgeports:
+                newbridgeports_ordered.append(br_port)
+
+        for bridgeport in newbridgeports_ordered:
             try:
                 if (not ifupdownflags.flags.DRYRUN and
                     not self.ipcmd.link_exists(bridgeport)):
@@ -2030,7 +2043,7 @@ class bridge(moduleBase):
         except Exception as e:
             self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
 
-    def _get_bridge_mac(self, ifname, ifaceobj_getfunc):
+    def _get_bridge_mac(self, ifaceobj, ifname, ifaceobj_getfunc):
         if self.bridge_mac_iface and self.bridge_mac_iface[0] and self.bridge_mac_iface[1]:
             return self.bridge_mac_iface
 
@@ -2060,7 +2073,7 @@ class bridge(moduleBase):
         elif self.bridge_hwaddr_inherint_from_first_phys_dev:
             # no policy was provided, we need to get the first physdev or bond ports
             # and use its hwaddress to set the bridge mac
-            for port in self.brctlcmd.get_bridge_ports(ifname):
+            for port in self._get_bridge_port_list_user_ordered(ifaceobj) or []:
                 # iterate through the bridge-port list
                 for port_obj in ifaceobj_getfunc(port) or []:
                     # check if the port is a physdev (link_kind is null) or a bon
@@ -2100,7 +2113,7 @@ class bridge(moduleBase):
             return
 
         ifname = ifaceobj.name
-        mac_intf, bridge_mac = self._get_bridge_mac(ifname, ifaceobj_getfunc)
+        mac_intf, bridge_mac = self._get_bridge_mac(ifaceobj, ifname, ifaceobj_getfunc)
 
         if bridge_mac:
             # if an interface is configured with the following attribute:
