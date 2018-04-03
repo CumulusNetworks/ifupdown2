@@ -88,6 +88,7 @@ class ifupdownMain(ifupdownBase):
             return
         if ((ifaceobj.link_kind & ifaceLinkKind.VRF) or
             (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
+            self._keep_link_down(ifaceobj)
             return
         # if not a logical interface and addr method is manual,
         # ignore link admin state changes
@@ -104,14 +105,19 @@ class ifupdownMain(ifupdownBase):
         if ifaceobj.link_type == ifaceLinkType.LINK_SLAVE:
             return
         if not self.link_exists(ifaceobj.name):
-           return
+            return
+        if self._keep_link_down(ifaceobj):
+            return
+        self.link_up(ifaceobj.name)
+
+    def _keep_link_down(self, ifaceobj):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
             # user has asked to explicitly keep the link down,
             # so, force link down
             self.logger.info('%s: keeping link down due to user config' %ifaceobj.name)
             self.link_down(ifaceobj.name)
-            return
-        self.link_up(ifaceobj.name)
+            return True
+        return False
 
     def run_down(self, ifaceobj):
         if ((ifaceobj.link_kind & ifaceLinkKind.VRF) or
