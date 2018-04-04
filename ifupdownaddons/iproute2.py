@@ -761,7 +761,12 @@ class iproute2(utilsBase):
         """ generic link_create function """
         if self.link_exists(tunnelname):
             return
-        cmd = 'tunnel add'
+        
+        cmd = ''
+        if '6' in mode:
+            cmd = ' -6 '
+
+        cmd += 'tunnel add'
         cmd += ' %s mode %s' %(tunnelname, mode)
         if attrs:
             for k, v in attrs.iteritems():
