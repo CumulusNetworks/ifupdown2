@@ -87,12 +87,20 @@ class tunnel (moduleBase):
             if attr_val != None:
                 attrs[iproute_attr] = attr_val
 
-        if not self.ipcmd.link_exists(ifaceobj.name):
-            self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs)
-        else:
-            attrs['mode'] = mode
-            self._check_settings(ifaceobj, attrs)
+        current_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
 
+        try:
+            if not self.ipcmd.link_exists(ifaceobj.name):
+                self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs)
+            elif current_attrs and current_attrs['mode'] != mode and ( ('6' in mode and '6' not in current_attrs['mode']) or ('6' not in mode and '6' in current_attrs['mode']) ):
+                # Mode changes between ipv4 and ipv6 are not possible without recreating the interface
+                self.ipcmd.link_delete (ifaceobj.name)
+                self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs)
+            else:
+                attrs['mode'] = mode
+                self._check_settings(ifaceobj, attrs)
+        except Exception, e:
+            self.log_warn (str (e))
 
     def _down (self, ifaceobj):
         if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists (ifaceobj.name):
