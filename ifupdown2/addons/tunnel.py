@@ -7,6 +7,7 @@
 from ifupdown.iface import *
 from ifupdownaddons.modulebase import moduleBase
 from ifupdownaddons.iproute2 import iproute2
+from ifupdown.netlink import netlink
 import ifupdown.ifupdownflags as ifupdownflags
 import logging
 
@@ -18,7 +19,7 @@ class tunnel (moduleBase):
                  'attrs' : {
                    'mode' :
                         { 'help' : 'type of tunnel as in \'ip link\' command.',
-                          'validvals' : ['gre', 'gretap', 'ipip', 'sit'],
+                          'validvals' : ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6'],
                           'required' : True,
                           'example' : ['mode gre']},
                    'local' :
@@ -55,6 +56,17 @@ class tunnel (moduleBase):
             return True
         return False
 
+    def _check_settings(self, ifaceobj, attrs):
+
+        linkup = self.ipcmd.is_link_up(ifaceobj.name)
+        try:
+            if attrs:
+                self.ipcmd.tunnel_change(ifaceobj.name, attrs)
+        except:
+            raise
+        finally:
+            if attrs and linkup:
+                netlink.link_set_updown(ifaceobj.name, 'up')
 
     def _up (self, ifaceobj):
         attr_map = {
@@ -75,7 +87,11 @@ class tunnel (moduleBase):
             if attr_val != None:
                 attrs[iproute_attr] = attr_val
 
-        self.ipcmd.link_create (ifaceobj.name, mode, attrs)
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs)
+        else:
+            attrs['mode'] = mode
+            self._check_settings(ifaceobj, attrs)
 
 
     def _down (self, ifaceobj):

@@ -528,7 +528,7 @@ class LinkUtils(utilsBase):
                         linkattrs['state'] = citems[i + 1]
                     elif citems[i] == 'link/ether':
                         linkattrs['hwaddress'] = citems[i + 1]
-                    elif citems[i] in ['link/gre', 'link/sit', 'gretap']:
+                    elif citems[i] in ['link/gre', 'link/ipip', 'link/sit', 'link/gre6', 'link/tunnel6', 'gretap']:
                         linkattrs['kind'] = 'tunnel'
                         tunattrs = {'mode': citems[i].split('/')[-1],
                                     'endpoint' : None,
@@ -1253,6 +1253,40 @@ class LinkUtils(utilsBase):
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         return cur_peers
+
+    def tunnel_create(self, tunnelname, mode, attrs={}):
+        """ generic link_create function """
+        if self.link_exists(tunnelname):
+            return
+        cmd = 'tunnel add'
+        cmd += ' %s mode %s' %(tunnelname, mode)
+        if attrs:
+            for k, v in attrs.iteritems():
+                cmd += ' %s' %k
+                if v:
+                    cmd += ' %s' %v
+        if self.ipbatch and not self.ipbatch_pause:
+            self.add_to_batch(cmd)
+        else:
+            utils.exec_command('ip %s' % cmd)
+        self._cache_update([tunnelname], {})
+
+    def tunnel_change(self, tunnelname, attrs={}):
+        """ tunnel change function """
+        if not self.link_exists(tunnelname):
+            return
+        cmd = 'tunnel change'
+        cmd += ' %s' %(tunnelname)
+        if attrs:
+            for k, v in attrs.iteritems():
+                cmd += ' %s' %k
+                if v:
+                    cmd += ' %s' %v
+        if self.ipbatch and not self.ipbatch_pause:
+            self.add_to_batch(cmd)
+        else:
+            utils.exec_command('ip %s' % cmd)
+        self._cache_update([tunnelname], {})
 
     def link_create_vxlan(self, name, vxlanid,
                           localtunnelip=None,
