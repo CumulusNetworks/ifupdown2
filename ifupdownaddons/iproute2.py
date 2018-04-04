@@ -762,7 +762,7 @@ class iproute2(utilsBase):
         if self.link_exists(tunnelname):
             return
         cmd = 'tunnel add'
-        cmd += ' %s mode %s' %(ifacename, mode)
+        cmd += ' %s mode %s' %(tunnelname, mode)
         if attrs:
             for k, v in attrs.iteritems():
                 cmd += ' %s' %k
