@@ -794,7 +794,6 @@ class iproute2(utilsBase):
             self.add_to_batch(cmd)
         else:
             utils.exec_command('ip %s' % cmd)
-        self._cache_update([tunnelname], {})
 
     def bridge_port_vids_add(self, bridgeportname, vids):
         [utils.exec_command('bridge vlan add vid %s dev %s' %
