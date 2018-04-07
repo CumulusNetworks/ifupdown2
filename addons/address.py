@@ -112,6 +112,12 @@ class address(moduleBase):
         self.ipforward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip-forward')
         self.ip6forward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip6-forward')
         self.ifaces_defaults = policymanager.policymanager_api.get_iface_defaults(module_name=self.__class__.__name__)
+        self.enable_l3_iface_forwarding_checks = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__,
+                'enable_l3_iface_forwarding_checks'
+            )
+        )
 
         if not self.default_mtu:
             self.default_mtu = '1500'
@@ -127,7 +133,42 @@ class address(moduleBase):
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
                 and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc)
-                and self.syntax_check_sysctls(ifaceobj))
+                and self.syntax_check_sysctls(ifaceobj)
+                and self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc, syntax_check=True))
+
+    def syntax_check_enable_l3_iface_forwardings(self, ifaceobj, ifaceobj_getfunc, syntax_check=False):
+        if (self.enable_l3_iface_forwarding_checks
+                and (ifaceobj.link_kind & ifaceLinkKind.VLAN
+                     or ifaceobj.link_kind & ifaceLinkKind.BRIDGE)
+                and not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+
+            ifname = ifaceobj.name
+            vlan_addr = None
+            vlan_ipforward_off = None
+
+            for obj in ifaceobj_getfunc(ifname) or [ifaceobj]:
+                if not vlan_addr:
+                    vlan_addr = obj.get_attr_value('address')
+
+                if not vlan_ipforward_off:
+                    ip_forward_value = obj.get_attr_value_first('ip-forward')
+
+                    if ip_forward_value and not utils.get_boolean_from_string(ip_forward_value):
+                        vlan_ipforward_off = True
+
+                if vlan_addr and vlan_ipforward_off:
+                    if syntax_check:
+                        raise Exception(
+                            'configuring ip-forward off and ip address(es) (%s) is not compatible'
+                            % (', '.join(vlan_addr))
+                        )
+                    else:
+                        raise Exception(
+                            '%s: configuring ip-forward off and ip address(es) (%s) is not compatible'
+                            % (ifname, ', '.join(vlan_addr))
+                        )
+
+        return True
 
     def syntax_check_sysctls(self, ifaceobj):
         result = True
@@ -694,6 +735,9 @@ class address(moduleBase):
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
+            return
+
+        if not self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc):
             return
 
         alias = ifaceobj.get_attr_value_first('alias')
