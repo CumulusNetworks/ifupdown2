@@ -20,7 +20,7 @@ class ppp (moduleBase):
                           'required' : True,
                           'example' : ['dsl-provider']},
                    'ppp-physdev' :
-                        { 'help' : 'Physical underlay device to use for tunnel if any packets',
+                        { 'help' : 'Physical underlay device to use for ppp if any',
                           'validvals' : ['<interface>'],
                           'required' : False,
                           'example' : ['ppp-physdev eth1']},
