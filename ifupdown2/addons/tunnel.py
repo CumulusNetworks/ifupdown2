@@ -110,6 +110,15 @@ class tunnel (moduleBase):
         except Exception, e:
             self.log_warn (str (e))
 
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+        if not self._is_my_interface(ifaceobj):
+            return None
+
+        device = ifaceobj.get_attr_value_first ('tunnel-physdev')
+        if device:
+            return device
+
+        return None
 
     def _query_check_n_update (self, ifaceobj, ifaceobjcurr, attrname, attrval,
                                running_attrval):
