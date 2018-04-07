@@ -1,15 +1,19 @@
 #!/usr/bin/python
-import os
-import hashlib
 
-from ifupdown.iface import *
-from ifupdown.utils import utils
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-from ifupdown.netlink import netlink
-import ifupdown.statemanager as statemanager
-import ifupdown.ifupdownflags as ifupdownflags
-import logging
+try:
+    import os
+    import ifupdown.statemanager as statemanager
+    import ifupdown.ifupdownflags as ifupdownflags
+    import logging
+    import hashlib
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.iproute2 import iproute2
+    from ifupdown.netlink import netlink
+    from ifupdown.exceptions import moduleNotSupported
+except ImportError, e:
+    raise ImportError (str(e) + "- required module not found")
 
 class ppp (moduleBase):
     _modinfo = { 'mhelp' : 'create/configure ppp interfaces',
