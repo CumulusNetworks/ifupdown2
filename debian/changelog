@@ -1,10 +1,18 @@
 ifupdown2 (1.1-cl3u18) RELEASED; urgency=medium
 
+  * Closes: CM-20069: Link down does not work on SVI configured in a VRF
+  * Closes: CM-20027: ifreload causes MTU to drop on bridge SVIs
+  * Closes: CM-20002: addons: addressvirtual: check if SVI name is first in routing table
+  * Closes: CM-19587: ifreload error on deleting bond slaves from an already configured bond
+  * Closes: CM-19882: ifupdown2 error is confusing when netmask is specified for vxlan-local-tunnelip
+  * Closes: CM-19760: ifupdown2 syntax check needed for vxlan interfaces
+  * Closes: CM-19081: vxlan-ageing default timer doesn't align with bridge-ageing
+  * Closes: CM-14031: Error with "ifreload -a -n" when MGMT VRF is not Applied
   * Closes: CM-19075: using reserved VLAN range reports error but ifreload returns 0
   * Closes: CM-18882: unable to set bridge-portmcrouter to "2"
+  * Closes: CM-19760: vxlan syntax-check warn on missing vxlan-local-tunnelip
   * Closes: github #39: addons: vrf: fix vrf slave link kind
   * New. Enabled: addons: vxlan: add support for vxlan-port attribute
-  * Closes: CM-19760: vxlan syntax-check warn on missing vxlan-local-tunnelip
 
  -- dev-support <dev-support@cumulusnetworks.com>  Thu, 08 Feb 2018 10:42:42 +0100
 
