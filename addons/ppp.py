@@ -30,6 +30,8 @@ class ppp (moduleBase):
 
     def __init__ (self, *args, **kargs):
         moduleBase.__init__ (self, *args, **kargs)
+        if not os.path.exists('/usr/bin/pon'):
+            raise moduleNotSupported('module init failed: no /usr/bin/pon found')
         self.ipcmd = None
 
     def _is_my_interface (self, ifaceobj):
@@ -118,7 +120,6 @@ class ppp (moduleBase):
     def _init_command_handlers (self):
         if not self.ipcmd:
             self.ipcmd = iproute2 ()
-
 
     def run (self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
         op_handler = self._run_ops.get (operation)
