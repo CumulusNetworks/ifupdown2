@@ -14,7 +14,7 @@ ifupdown2 (1.1-cl3u18) RELEASED; urgency=medium
   * Closes: github #39: addons: vrf: fix vrf slave link kind
   * New. Enabled: addons: vxlan: add support for vxlan-port attribute
 
- -- dev-support <dev-support@cumulusnetworks.com>  Thu, 08 Feb 2018 10:42:42 +0100
+ -- dev-support <dev-support@cumulusnetworks.com>  Thu, 12 Apr 2018 11:10:04 +0200
 
 ifupdown2 (1.1-cl3u17) RELEASED; urgency=medium
 
