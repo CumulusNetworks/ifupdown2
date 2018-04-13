@@ -28,7 +28,7 @@ class ppp (moduleBase):
                           'validvals' : ['<interface>'],
                           'required' : False,
                           'example' : ['ppp-physdev eth1']},
-                 }
+                }
                }
 
 
@@ -96,7 +96,7 @@ class ppp (moduleBase):
         
         device = ifaceobj.get_attr_value_first ('ppp-physdev')
         if device:
-            return device
+            return [device]
 
         return None
 
