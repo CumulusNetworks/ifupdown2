@@ -2094,6 +2094,10 @@ class bridge(moduleBase):
 
         return None, None
 
+    def _add_bridge_mac_to_fdb(self, ifaceobj, bridge_mac):
+        if not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE and bridge_mac and ifaceobj.get_attr_value('address'):
+            self.ipcmd.bridge_fdb_add(ifaceobj.name, bridge_mac, vlan=None, bridge=True, remote=None)
+
     def _up_bridge_mac(self, ifaceobj, ifaceobj_getfunc):
         """
         We have a day one bridge mac changing problem with changing ports
@@ -2133,6 +2137,8 @@ class bridge(moduleBase):
             except Exception as e:
                 self.logger.info('%s: %s' % (ifname, str(e)))
                 # log info this error because the user didn't explicitly configured this
+        else:
+            self._add_bridge_mac_to_fdb(ifaceobj, self.ipcmd.link_get_hwaddress(ifname))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
