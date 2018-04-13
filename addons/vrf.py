@@ -933,11 +933,12 @@ class vrf(moduleBase):
 
         ifindex = self.ipcmd.link_get_ifindex(ifaceobj.name)
 
-        try:
-            self.ipcmd.link_delete(ifaceobj.name)
-        except Exception, e:
-            self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
+        if ifindex:
+            try:
+                self.ipcmd.link_delete(ifaceobj.name)
+            except Exception, e:
+                self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
+                pass
 
         self._close_sockets(ifaceobj, ifindex)
 
