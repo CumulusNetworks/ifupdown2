@@ -116,7 +116,7 @@ class tunnel (moduleBase):
 
         device = ifaceobj.get_attr_value_first ('tunnel-physdev')
         if device:
-            return device
+            return [device]
 
         return None
 
