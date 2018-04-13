@@ -11,6 +11,7 @@ ifupdown2 (1.1-cl3u18) RELEASED; urgency=medium
   * Closes: CM-19075: using reserved VLAN range reports error but ifreload returns 0
   * Closes: CM-18882: unable to set bridge-portmcrouter to "2"
   * Closes: CM-19760: vxlan syntax-check warn on missing vxlan-local-tunnelip
+  * Closes: CM-19228: traditional bridge svi breaks when extra bridge added
   * Closes: github #39: addons: vrf: fix vrf slave link kind
   * New. Enabled: addons: vxlan: add support for vxlan-port attribute
 
