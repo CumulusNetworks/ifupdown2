@@ -53,7 +53,8 @@ class Daemon:
                 signal.SIGINT: self.signal_handler,
                 signal.SIGTERM: self.signal_handler,
                 signal.SIGQUIT: self.signal_handler,
-            }
+            },
+            umask=0o22
         )
 
         try:
