@@ -628,9 +628,9 @@ class bridge(moduleBase):
         self.bridge_mac_iface_list = policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'bridge_mac_iface') or []
         self.bridge_mac_iface = None, None  # ifname, mac
 
-        self.bridge_hwaddr_inherint_from_first_phys_dev = utils.get_boolean_from_string(
+        self.bridge_set_static_mac_from_port = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
-                self.__class__.__name__, 'bridge-hwaddr-inherint-from-first-phys-dev'
+                self.__class__.__name__, 'bridge_set_static_mac_from_port'
             )
         )
 
@@ -2070,14 +2070,14 @@ class bridge(moduleBase):
 
                 self.bridge_mac_iface = (bridge_mac_intf, iface_mac)
                 return self.bridge_mac_iface
-        elif self.bridge_hwaddr_inherint_from_first_phys_dev:
+        elif self.bridge_set_static_mac_from_port:
             # no policy was provided, we need to get the first physdev or bond ports
             # and use its hwaddress to set the bridge mac
             for port in self._get_bridge_port_list_user_ordered(ifaceobj) or []:
                 # iterate through the bridge-port list
                 for port_obj in ifaceobj_getfunc(port) or []:
                     # check if the port is a physdev (link_kind is null) or a bon
-                    if not port_obj.link_kind or port_obj.link_kind == ifaceLinkKind.BOND:
+                    if port_obj.link_kind != ifaceLinkKind.VXLAN:
                         iface_user_configured_hwaddress = utils.strip_hwaddress(port_obj.get_attr_value_first('hwaddress'))
                         # if user did configured 'hwaddress' we need to use this value instead of the cached value.
                         if iface_user_configured_hwaddress:
@@ -2118,6 +2118,8 @@ class bridge(moduleBase):
 
         ifname = ifaceobj.name
         mac_intf, bridge_mac = self._get_bridge_mac(ifaceobj, ifname, ifaceobj_getfunc)
+        self.logger.debug("%s: _get_bridge_mac returned (%s, %s)"
+                          %(ifname, mac_intf, bridge_mac))
 
         if bridge_mac:
             # if an interface is configured with the following attribute:
@@ -2126,12 +2128,12 @@ class bridge(moduleBase):
             # from the kernel. The only way to counter that is to convert all mac to int
             # and compare the ints, it will increase perfs and be safer.
             cached_value = self.ipcmd.cache_get('link', [ifname, 'hwaddress'])
+            self.logger.debug('%s: cached hwaddress value: %s' % (ifname, cached_value))
             if cached_value and cached_value == bridge_mac:
                 # the bridge mac is already set to the bridge_mac_intf's mac
                 return
 
-            self.logger.info('%s: configuring %s MAC on bridge' % (ifname, mac_intf))
-            self.logger.debug('%s: hwaddress cached value: %s' % (ifname, cached_value))
+            self.logger.info('%s: setting bridge mac to port %s mac' % (ifname, mac_intf))
             try:
                 self.ipcmd.link_set(ifname, 'address', value=bridge_mac, force=True)
             except Exception as e:
