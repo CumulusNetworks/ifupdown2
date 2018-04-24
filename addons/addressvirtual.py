@@ -8,7 +8,7 @@ try:
     import os
     import glob
 
-    from ipaddr import IPNetwork
+    from ipaddr import IPNetwork, IPv6Network
 
     import ifupdown.statemanager as statemanager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -204,7 +204,7 @@ class addressvirtual(moduleBase):
                 # customer could have used UPPERCASE for MAC
                 self.ipcmd.link_set_hwaddress(macvlan_ifacename, mac)
                 hwaddress.append(mac)
-            self.ipcmd.addr_add_multiple(macvlan_ifacename, ips,
+            self.ipcmd.addr_add_multiple(ifaceobj, macvlan_ifacename, ips,
                                          purge_existing)
 
             # If link existed before, flap the link

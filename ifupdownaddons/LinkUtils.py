@@ -847,7 +847,7 @@ class LinkUtils(utilsBase):
             return addrs
         return addrs.keys()
 
-    def get_running_addrs(self, ifaceobj=None, ifname=None, details=True):
+    def get_running_addrs(self, ifaceobj=None, ifname=None, details=True, addr_virtual_ifaceobj=None):
         """
             We now support addr with link scope. Since the kernel may add it's
             own link address to some interfaces we need to filter them out and
@@ -868,17 +868,37 @@ class LinkUtils(utilsBase):
         config_addrs = set()
 
         if ifaceobj:
-            for addr in ifaceobj.get_attr_value('address') or []:
-                config_addrs.add(addr)
-
             interface_name = ifaceobj.name
         else:
             interface_name = ifname
 
-        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(interface_name)
-        for saved_ifaceobj in saved_ifaceobjs or []:
-            for addr in saved_ifaceobj.get_attr_value('address') or []:
-                config_addrs.add(addr)
+        if addr_virtual_ifaceobj:
+            for virtual in addr_virtual_ifaceobj.get_attr_value('address-virtual') or []:
+                for ip in virtual.split():
+                    try:
+                        IPNetwork(ip)
+                        config_addrs.add(ip)
+                    except:
+                        pass
+
+            saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(addr_virtual_ifaceobj.name)
+            for saved_ifaceobj in saved_ifaceobjs or []:
+                for virtual in saved_ifaceobj.get_attr_value('address-virtual') or []:
+                    for ip in virtual.split():
+                        try:
+                            IPNetwork(ip)
+                            config_addrs.add(ip)
+                        except:
+                            pass
+        else:
+            if ifaceobj:
+                for addr in ifaceobj.get_attr_value('address') or []:
+                    config_addrs.add(addr)
+
+            saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(interface_name)
+            for saved_ifaceobj in saved_ifaceobjs or []:
+                for addr in saved_ifaceobj.get_attr_value('address') or []:
+                    config_addrs.add(addr)
 
         running_addrs = OrderedDict()
         cached_addrs = self.addr_get(interface_name)
@@ -907,16 +927,39 @@ class LinkUtils(utilsBase):
             return running_addrs
         return running_addrs.keys()
 
-    def addr_add_multiple(self, ifacename, addrs, purge_existing=False):
+    @staticmethod
+    def compare_user_config_vs_running_state(running_addrs, user_addrs):
+        ip4 = []
+        ip6 = []
+
+        for ip in user_addrs or []:
+            obj = IPNetwork(ip)
+
+            if type(obj) == IPv6Network:
+                ip6.append(obj)
+            else:
+                ip4.append(obj)
+
+        running_ipobj = []
+        for ip in running_addrs or []:
+            running_ipobj.append(IPNetwork(ip))
+
+        return running_ipobj == (ip4 + ip6)
+
+    def addr_add_multiple(self, ifaceobj, ifacename, addrs, purge_existing=False):
         # purges address
         if purge_existing:
             # if perfmode is not set and also if iface has no sibling
             # objects, purge addresses that are not present in the new
             # config
-            runningaddrs = self.get_running_addrs(ifname=ifacename, details=False)
+            runningaddrs = self.get_running_addrs(
+                ifname=ifacename,
+                details=False,
+                addr_virtual_ifaceobj=ifaceobj
+            )
             addrs = utils.get_normalized_ip_addr(ifacename, addrs)
 
-            if addrs == runningaddrs:
+            if self.compare_user_config_vs_running_state(runningaddrs, addrs):
                 return
             try:
                 # if primary address is not same, there is no need to keep any.
