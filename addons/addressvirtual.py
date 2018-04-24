@@ -431,12 +431,15 @@ class addressvirtual(moduleBase):
                 continue
             # Check mac and ip address
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
-            raddrs = self.ipcmd.get_running_addrs(None, macvlan_ifacename)
+            raddrs = self.ipcmd.get_running_addrs(
+                ifname=macvlan_ifacename,
+                details=False,
+                addr_virtual_ifaceobj=ifaceobj
+            )
             if not raddrs or not rhwaddress:
                ifaceobjcurr.update_config_with_status('address-virtual', '', 1)
                av_idx += 1
                continue
-            raddrs = raddrs.keys()
             try:
                 av_attrs[0] = ':'.join([i if len(i) == 2 else '0%s' % i
                                         for i in av_attrs[0].split(':')])
@@ -446,16 +449,8 @@ class addressvirtual(moduleBase):
                                     macvlan_ifacename,
                                     ' '.join(av_attrs)))
             try:
-                cmp_av_addr = av_attrs[1:][0]
-                cmp_raddr = raddrs[0]
-
-                if '/' in cmp_raddr and '/' not in cmp_av_addr:
-                    cmp_av_addr = str(IPNetwork(cmp_av_addr))
-                elif '/' in cmp_av_addr and '/' not in cmp_raddr:
-                    cmp_raddr = str(IPNetwork(cmp_raddr))
-
                 if (rhwaddress == av_attrs[0].lower() and
-                    cmp_raddr == cmp_av_addr and
+                    self.ipcmd.compare_user_config_vs_running_state(raddrs, av_attrs[1:]) and
                     self._check_addresses_in_bridge(ifaceobj, av_attrs[0].lower())):
                     ifaceobjcurr.update_config_with_status('address-virtual',
                                                            address_virtual, 0)
