@@ -68,6 +68,7 @@ class vxlan(moduleBase):
                     }
                 }}
     _clagd_vxlan_anycast_ip = ""
+    _vxlan_local_tunnelip = None
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
@@ -80,7 +81,7 @@ class vxlan(moduleBase):
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self._is_vxlan_device(ifaceobj):
-            if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip'):
+            if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip') and not vxlan._vxlan_local_tunnelip:
                 self.logger.warning('%s: missing vxlan-local-tunnelip' % ifaceobj.name)
                 return False
         return True
@@ -88,6 +89,7 @@ class vxlan(moduleBase):
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
         if self._is_vxlan_device(ifaceobj):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
+            self._set_global_local_ip(ifaceobj)
         elif ifaceobj.name == 'lo':
             clagd_vxlan_list = ifaceobj.get_attr_value('clagd-vxlan-anycast-ip')
             if clagd_vxlan_list:
@@ -95,7 +97,14 @@ class vxlan(moduleBase):
                     self.log_warn('%s: multiple clagd-vxlan-anycast-ip lines, using first one'
                                   % (ifaceobj.name,))
                 vxlan._clagd_vxlan_anycast_ip = clagd_vxlan_list[0]
+
+            self._set_global_local_ip(ifaceobj)
         return None
+
+    def _set_global_local_ip(self, ifaceobj):
+        vxlan_local_tunnel_ip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+        if vxlan_local_tunnel_ip and not vxlan._vxlan_local_tunnelip:
+            vxlan._vxlan_local_tunnelip = vxlan_local_tunnel_ip
 
     def _is_vxlan_device(self, ifaceobj):
         if ifaceobj.get_attr_value_first('vxlan-id'):
@@ -143,7 +152,11 @@ class vxlan(moduleBase):
             ifname = ifaceobj.name
             anycastip = self._clagd_vxlan_anycast_ip
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
+
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+            if not local and vxlan._vxlan_local_tunnelip:
+                local = vxlan._vxlan_local_tunnelip
+
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             vxlan_port = ifaceobj.get_attr_value_first('vxlan-port')
             purge_remotes = self._get_purge_remotes(ifaceobj)
@@ -380,6 +393,10 @@ class vxlan(moduleBase):
 
         running_attrval = vxlanattrs.get('local')
         attrval = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+        if not attrval:
+            attrval = vxlan._vxlan_local_tunnelip
+            ifaceobj.update_config('vxlan-local-tunnelip', attrval)
+
         if running_attrval == self._clagd_vxlan_anycast_ip:
             # if local ip is anycast_ip, then let query_check to go through
             attrval = self._clagd_vxlan_anycast_ip
