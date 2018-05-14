@@ -1565,7 +1565,7 @@ class ifupdownMain(ifupdownBase):
         cenv = None
         iface_env = ifaceobj.get_env()
         if iface_env:
-            cenv = os.environ
+            cenv = dict(os.environ)
             if cenv:
                 cenv.update(iface_env)
             else:
