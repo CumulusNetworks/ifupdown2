@@ -44,7 +44,7 @@ class dhcp(moduleBase):
                 self.ipcmd.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
-            if ifaceobj.addr_family == 'inet':
+            if 'inet' in ifaceobj.addr_family:
                 # First release any existing dhclient processes
                 try:
                     if not ifupdownflags.flags.PERFMODE:
@@ -53,7 +53,7 @@ class dhcp(moduleBase):
                     pass
                 self.dhclientcmd.start(ifaceobj.name, wait=wait,
                                        cmd_prefix=dhclient_cmd_prefix)
-            elif ifaceobj.addr_family == 'inet6':
+            if 'inet6' in ifaceobj.addr_family:
                 accept_ra = ifaceobj.get_attr_value_first('accept_ra')
                 if accept_ra:
                     # XXX: Validate value
@@ -82,37 +82,43 @@ class dhcp(moduleBase):
         if (vrf and self.vrf_exec_cmd_prefix and
             self.ipcmd.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
-        if ifaceobj.addr_family == 'inet6':
+        if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
-        else:
+        if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
         self.ipcmd.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
-        if self.dhclientcmd.is_running(ifaceobjcurr.name):
-            ifaceobjcurr.addr_family = 'inet'
-            if ifaceobj.addr_family != 'inet':
-                ifaceobjcurr.status = ifaceStatus.ERROR
+        status = ifaceStatus.SUCCESS
+        dhcp_running = False
+
+        dhcp_v4 = self.dhclientcmd.is_running(ifaceobjcurr.name)
+        dhcp_v6 = self.dhclientcmd.is_running6(ifaceobjcurr.name)
+
+        if dhcp_v4:
+            dhcp_running = True
+            if 'inet' not in ifaceobj.addr_family and not dhcp_v6:
+                status = ifaceStatus.ERROR
             ifaceobjcurr.addr_method = 'dhcp'
-            ifaceobjcurr.status = ifaceStatus.SUCCESS
-        elif self.dhclientcmd.is_running6(ifaceobjcurr.name):
-            ifaceobjcurr.addr_family = 'inet6'
-            if ifaceobj.addr_family != 'inet6':
-                ifaceobjcurr.status = ifaceStatus.ERROR
+        if dhcp_v6:
+            dhcp_running = True
+            if 'inet6' not in ifaceobj.addr_family and not dhcp_v4:
+                status = ifaceStatus.ERROR
             ifaceobjcurr.addr_method = 'dhcp'
-            ifaceobjcurr.status = ifaceStatus.SUCCESS
-        else:
-            ifaceobjcurr.addr_family = None
-            ifaceobjcurr.status = ifaceStatus.ERROR
+        ifaceobjcurr.addr_family = ifaceobj.addr_family
+        if not dhcp_running:
+            ifaceobjcurr.addr_family = []
+            status = ifaceStatus.ERROR
+        ifaceobjcurr.status = status
 
     def _query_running(self, ifaceobjrunning):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             return
         if self.dhclientcmd.is_running(ifaceobjrunning.name):
-            ifaceobjrunning.addr_family = 'inet'
+            ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'dhcp'
-        elif self.dhclientcmd.is_running6(ifaceobjrunning.name):
-            ifaceobjrunning.addr_family = 'inet6'
+        if self.dhclientcmd.is_running6(ifaceobjrunning.name):
+            ifaceobjrunning.addr_family.append('inet6')
             ifaceobjrunning.addr_method = 'dhcp6'
 
     _run_ops = {'up' : _up,
