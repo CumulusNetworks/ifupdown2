@@ -6,7 +6,7 @@
 
 
 from sets import Set
-from ipaddr import IPv4Address, IPv4Network, AddressValueError
+from ipaddr import IPNetwork, IPv4Address, IPv4Network, AddressValueError
 
 try:
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -93,6 +93,21 @@ class vxlan(moduleBase):
             if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip') and not vxlan._vxlan_local_tunnelip:
                 self.logger.warning('%s: missing vxlan-local-tunnelip' % ifaceobj.name)
                 return False
+            return self.syntax_check_localip_anycastip_equal(
+                ifaceobj.name,
+                ifaceobj.get_attr_value_first('vxlan-local-tunnelip') or vxlan._vxlan_local_tunnelip,
+                vxlan._clagd_vxlan_anycast_ip
+            )
+        return True
+
+    def syntax_check_localip_anycastip_equal(self, ifname, local_ip, anycast_ip):
+        try:
+            if IPNetwork(local_ip) == IPNetwork(anycast_ip):
+                self.logger.warning('%s: vxlan-local-tunnelip and clagd-vxlan-anycast-ip are identical (%s)'
+                                    % (ifname, local_ip))
+                return False
+        except:
+            pass
         return True
 
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
@@ -165,6 +180,9 @@ class vxlan(moduleBase):
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             if not local and vxlan._vxlan_local_tunnelip:
                 local = vxlan._vxlan_local_tunnelip
+
+            self.syntax_check_localip_anycastip_equal(ifname, local, anycastip)
+            # if both local-ip and anycast-ip are identical the function prints a warning
 
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             vxlan_port = ifaceobj.get_attr_value_first('vxlan-port')
