@@ -1,14 +1,14 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ifupdown2
 Upstream-Contact: Cumulus Networks dev support <dev-support@cumulusnetworks.com>
-Source: http://www.cumulusnetworks.com
+Source: https://www.cumulusnetworks.com/
 
 Files: *
-Copyright: 2014 Cumulus Networks
+Copyright: 2014,2015,2016,2017,2018 Cumulus Networks, Inc.
 License: GPL-2
 
 Files: debian/*
-Copyright: 2014 Cumulus Networks
+Copyright: 2014,2015,2016,2017,2018 Cumulus Networks, Inc.
 License: GPL-2
 
 License: GPL-2

@@ -2,18 +2,23 @@ Source: ifupdown2
 Section: admin
 Priority: optional
 Maintainer: dev-support <dev-support@cumulusnetworks.com>
+Build-Depends: debhelper (>=9),
+               dh-systemd,
+               dh-python,
+               python-all,
+               python-setuptools,
+               python-docutils
 Standards-Version: 3.9.8
-Build-Depends: python-setuptools, dh-python, python-all (>= 2.6.6-3), debhelper (>= 9~), python-docutils, dh-systemd
-Homepage: https://github.com/CumulusNetworks/ifupdown2
-X-Python-Version: >= 2.6
+Homepage: https://www.cumulusnetworks.com/
+X-Python-Version: >= 2.7
 
 Package: ifupdown2
 Architecture: all
-Suggests: python-gvgen, python-mako 
-Replaces: ifupdown
-Conflicts: ifupdown
 Provides: ifupdown
-Depends: ${python:Depends}, ${misc:Depends}, python-argcomplete, python-ipaddr
+Conflicts: ifupdown
+Replaces: ifupdown
+Depends: ${python:Depends}, ${misc:Depends}, iproute2, python-argcomplete, python-ipaddr
+Suggests: isc-dhcp-client, bridge-utils, ethtool, python-gvgen, python-mako
 Description: Network Interface Management tool similar to ifupdown
  ifupdown2 is ifupdown re-written in Python. It replaces ifupdown and provides
  the same user interface as ifupdown for network interface configuration.

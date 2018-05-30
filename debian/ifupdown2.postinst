@@ -1,21 +1,49 @@
 #!/bin/sh
-# postinst script for ifupdown2
-#
-# see: dh_installdeb(1)
-
 set -e
 
-# summary of how this script can be called:
-#        * <postinst> `configure' <most-recently-configured-version>
-#        * <old-postinst> `abort-upgrade' <new version>
-#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
-#          <new-version>
-#        * <postinst> `abort-remove'
-#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
-#          <failed-install-package> <version> `removing'
-#          <conflicting-package> <version>
-# for details, see http://www.debian.org/doc/debian-policy/ or
-# the debian-policy package
+MYNAME="${0##*/}"
+
+report() { echo "${MYNAME}: $*" ; }
+report_warn() { report "Warning: $*" >&2 ; }
+report_err() { report "Error: $*" >&2 ; }
+
+fix_dhclient_file_with_space()
+{
+    # because of a typo an older ifupdown2 version was creating lease file
+    # with trailing space. In case we still have users with such files we
+    # need to strip that trailing whitespace.
+    for filename in `find /var/lib/dhcp/ -name "dhclient.*.leases "`
+    do
+        if [ -f "$filename " ];
+        then
+            interface_name=`echo $filename | cut -d'.' -f2,3,4,5`
+            mv "$filename " /var/lib/dhcp/dhclient6.$interface_name
+        fi
+    done
+}
+
+process_etc_network_interfaces()
+{
+    # Generic stuff done on all configurations
+    if [ -f /etc/network/interfaces ] ; then
+        if ! grep -q -E "^[[:space:]]*iface[[:space:]]+l[o0]([[:space:]]+inet([[:space:]]+loopback)?)?[[:space:]]*$" /etc/network/interfaces ; then
+            report_warn "No 'iface lo' definition found in /etc/network/interfaces"
+        fi
+
+        if ! grep -q "^[[:space:]]*\(allow-\|\)auto[[:space:]]\+\(.*[[:space:]]\+\|\)lo0\?\([[:space:]]\+\|$\)" /etc/network/interfaces ; then
+            report_warn "No 'auto lo' statement found in /etc/network/interfaces"
+        fi
+    else  # ! -f /etc/network/interfaces
+        if [ -z "$2" ]; then
+            echo "Creating /etc/network/interfaces."
+            echo "# interfaces(5) file used by ifup(8) and ifdown(8)" > /etc/network/interfaces
+            echo "auto lo" >> /etc/network/interfaces
+            echo "iface lo inet loopback" >> /etc/network/interfaces
+        else
+            report_warn "/etc/network/interfaces does not exist"
+        fi
+    fi
+}
 
 process_udev()
 {
@@ -35,51 +63,23 @@ process_udev()
     fi
 }
 
-MYNAME="${0##*/}"
-
-report() { echo "${MYNAME}: $*" ; }
-report_warn() { report "Warning: $*" >&2 ; }
-report_err() { report "Error: $*" >&2 ; }
-
 case "$1" in
     configure)
-
-        # work around to rename the existing dhclient6 lease file containing a space
-        for filename in `find /var/lib/dhcp/ -name "dhclient.*.leases "`
-        do
-            if [ -f "$filename " ];
-            then
-                interface_name=`echo $filename | cut -d'.' -f2,3,4,5`
-                mv "$filename " /var/lib/dhcp/dhclient6.$interface_name
-            fi
-        done
-
-        # Generic stuff done on all configurations
-        if [ -f /etc/network/interfaces ] ; then
-            if ! grep -q -E "^[[:space:]]*iface[[:space:]]+l[o0]([[:space:]]+inet([[:space:]]+loopback)?)?[[:space:]]*$" /etc/network/interfaces ; then
-                report_warn "No 'iface lo' definition found in /etc/network/interfaces"
-            fi
-
-            if ! grep -q "^[[:space:]]*\(allow-\|\)auto[[:space:]]\+\(.*[[:space:]]\+\|\)lo0\?\([[:space:]]\+\|$\)" /etc/network/interfaces ; then
-                report_warn "No 'auto lo' statement found in /etc/network/interfaces"
-            fi
-        else  # ! -f /etc/network/interfaces
-            if [ -z "$2" ]; then
-                echo "Creating /etc/network/interfaces."
-                echo "# interfaces(5) file used by ifup(8) and ifdown(8)" > /etc/network/interfaces
-                echo "auto lo" >> /etc/network/interfaces
-                    echo "iface lo inet loopback" >> /etc/network/interfaces
-            else
-                    report_warn "/etc/network/interfaces does not exist"
-            fi
-        fi
-
+        fix_dhclient_file_with_space
+        process_etc_network_interfaces
         process_udev
-        ;;
+        chmod +x /usr/share/ifupdown2/__main__.py
+    ;;
 
-  purge)
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
     ;;
 esac
+
 
 #DEBHELPER#
 
