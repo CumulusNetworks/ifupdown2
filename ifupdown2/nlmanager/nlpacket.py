@@ -1356,7 +1356,8 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                     Link.IFLA_BRPORT_BCAST_FLOOD,
                                                     Link.IFLA_BRPORT_PEER_LINK,
                                                     Link.IFLA_BRPORT_DUAL_LINK,
-                                                    Link.IFLA_BRPORT_ARP_SUPPRESS):
+                                                    Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                                    Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                             sub_attr_pack_layout.append('HH')
                             sub_attr_payload.append(5)  # length
                             sub_attr_payload.append(info_slave_data_type)
@@ -1510,7 +1511,8 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                       Link.IFLA_BRPORT_VLAN_TUNNEL,
                                                       Link.IFLA_BRPORT_PEER_LINK,
                                                       Link.IFLA_BRPORT_DUAL_LINK,
-                                                      Link.IFLA_BRPORT_ARP_SUPPRESS):
+                                                      Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                                      Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                                     ifla_info_slave_data[info_data_type] = unpack('=B', sub_attr_data[4])[0]
 
                                 # 2 bytes
@@ -1525,6 +1527,31 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                                 # 4 bytes
                                 elif info_data_type == Link.IFLA_BRPORT_COST:
+                                    ifla_info_slave_data[info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                            elif ifla_info_slave_kind == 'bond':
+
+                                # 1 byte
+                                if info_data_type in (
+                                        Link.IFLA_BOND_SLAVE_STATE,
+                                        Link.IFLA_BOND_SLAVE_MII_STATUS,
+                                        Link.IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE,
+                                        Link.IFLA_BOND_SLAVE_AD_RX_BYPASS,
+                                ):
+                                    ifla_info_slave_data[info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                                # 2 bytes
+                                elif info_data_type in (
+                                        Link.IFLA_BOND_SLAVE_QUEUE_ID,
+                                        Link.IFLA_BOND_SLAVE_AD_AGGREGATOR_ID
+                                ):
+                                    ifla_info_slave_data[info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                                # 4 bytes
+                                elif info_data_type == (
+                                        Link.IFLA_BOND_SLAVE_PERM_HWADDR,
+                                        Link.IFLA_BOND_SLAVE_LINK_FAILURE_COUNT
+                                ):
                                     ifla_info_slave_data[info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
 
                         except Exception as e:
@@ -1811,6 +1838,7 @@ class AttributeIFLA_LINKINFO(Attribute):
 
         kind_dict[Link.IFLA_INFO_SLAVE_DATA] = {
             'bridge': Link.ifla_brport_to_string,
+            'bond': Link.ifla_bond_slave_to_string
         }.get(ifla_info_slave_kind, {})
 
         if ifla_info_kind or ifla_info_slave_kind:
@@ -1879,7 +1907,8 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                     Link.IFLA_BRPORT_ARP_SUPPRESS):
+                                     Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                     Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                     sub_attr_pack_layout.append('B')
                     sub_attr_payload.append(sub_attr_value)
                     sub_attr_pack_layout.extend('xxx')
@@ -1977,7 +2006,8 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                     Link.IFLA_BRPORT_ARP_SUPPRESS):
+                                     Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                     Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                     self.value[sub_attr_type] = unpack('=B', data[4])[0]
 
                 # 2 Byte attributes
@@ -3213,6 +3243,35 @@ class Link(NetlinkPacket):
     }
 
     # =========================================
+    # IFLA_INFO_SLAVE_DATA attributes for bonds
+    # =========================================
+    IFLA_BOND_SLAVE_UNSPEC                      = 0
+    IFLA_BOND_SLAVE_STATE                       = 1
+    IFLA_BOND_SLAVE_MII_STATUS                  = 2
+    IFLA_BOND_SLAVE_LINK_FAILURE_COUNT          = 3
+    IFLA_BOND_SLAVE_PERM_HWADDR                 = 4
+    IFLA_BOND_SLAVE_QUEUE_ID                    = 5
+    IFLA_BOND_SLAVE_AD_AGGREGATOR_ID            = 6
+    IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE    = 7
+    IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE  = 8
+    IFLA_BOND_SLAVE_CL_START                    = 50
+    IFLA_BOND_SLAVE_AD_RX_BYPASS                = IFLA_BOND_SLAVE_CL_START
+
+    ifla_bond_slave_to_string = {
+        IFLA_BOND_SLAVE_UNSPEC                      : 'IFLA_BOND_SLAVE_UNSPEC',
+        IFLA_BOND_SLAVE_STATE                       : 'IFLA_BOND_SLAVE_STATE',
+        IFLA_BOND_SLAVE_MII_STATUS                  : 'IFLA_BOND_SLAVE_MII_STATUS',
+        IFLA_BOND_SLAVE_LINK_FAILURE_COUNT          : 'IFLA_BOND_SLAVE_LINK_FAILURE_COUNT',
+        IFLA_BOND_SLAVE_PERM_HWADDR                 : 'IFLA_BOND_SLAVE_PERM_HWADDR',
+        IFLA_BOND_SLAVE_QUEUE_ID                    : 'IFLA_BOND_SLAVE_QUEUE_ID',
+        IFLA_BOND_SLAVE_AD_AGGREGATOR_ID            : 'IFLA_BOND_SLAVE_AD_AGGREGATOR_ID',
+        IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE    : 'IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE',
+        IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE  : 'IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE',
+        IFLA_BOND_SLAVE_CL_START                    : 'IFLA_BOND_SLAVE_CL_START',
+        IFLA_BOND_SLAVE_AD_RX_BYPASS                : 'IFLA_BOND_SLAVE_AD_RX_BYPASS'
+    }
+
+    # =========================================
     # IFLA_PROTINFO attributes for bridge ports
     # =========================================
     IFLA_BRPORT_UNSPEC              = 0
@@ -3251,6 +3310,7 @@ class Link(NetlinkPacket):
     IFLA_BRPORT_DUAL_LINK           = 151
     IFLA_BRPORT_ARP_SUPPRESS        = 152
     IFLA_BRPORT_GROUP_FWD_MASKHI    = 153
+    IFLA_BRPORT_DOWN_PEERLINK_REDIRECT = 154
 
     ifla_brport_to_string = {
         IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
@@ -3288,7 +3348,8 @@ class Link(NetlinkPacket):
         IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
         IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
         IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS',
-        IFLA_BRPORT_GROUP_FWD_MASKHI    : 'IFLA_BRPORT_GROUP_FWD_MASKHI'
+        IFLA_BRPORT_GROUP_FWD_MASKHI    : 'IFLA_BRPORT_GROUP_FWD_MASKHI',
+        IFLA_BRPORT_DOWN_PEERLINK_REDIRECT : 'IFLA_BRPORT_DOWN_PEERLINK_REDIRECT'
     }
 
     # BRIDGE IFLA_AF_SPEC attributes
