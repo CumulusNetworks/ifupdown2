@@ -532,10 +532,32 @@ class mstpctl(moduleBase):
                         except Exception, e:
                             self.log_warn('%s: error setting %s (%s)'
                                           % (ifaceobj.name, attr, str(e)))
+
+                if not bvlan_aware:
+                    # for "traditional" bridges we also want to let the user configure
+                    # some attributes (possibly all of them in the future)
+                    applied = self._apply_bridge_port_settings_attributes_list(
+                        (
+                            ('mstpctl-portrestrrole', 'portrestrrole'),
+                            ('mstpctl-portautoedge', 'portautoedge')
+                        ),
+                        ifaceobj,
+                        bridgeifaceobj,
+                        bridgename,
+                        applied
+                    )
                 return applied
         # set bridge port attributes
-        for attrname, dstattrname in self._port_attrs_map.items():
-            attrval = ifaceobj.get_attr_value_first(attrname)
+        return self._apply_bridge_port_settings_attributes_list(
+            self._port_attrs_map.items(),
+            ifaceobj,
+            bridgeifaceobj,
+            bridgename,
+            applied
+        )
+
+    def _apply_bridge_port_settings_attributes_list(self, attributes_list, ifaceobj, bridgeifaceobj, bridgename, applied):
+        for attrname, dstattrname in attributes_list:
             config_val = ifaceobj.get_attr_value_first(attrname)
             default_val = self._get_default_val(attrname, ifaceobj, bridgeifaceobj)
             jsonAttr =  self.get_mod_subattr(attrname, 'jsonAttr')
