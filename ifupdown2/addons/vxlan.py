@@ -162,9 +162,9 @@ class vxlan(moduleBase):
         for attr_list, value in (
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_ID), vxlan_id),
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_AGEING), ageing),
-            ((ifname, 'linkinfo', 'local'), local),
+            ((ifname, 'linkinfo', Link.IFLA_VXLAN_LOCAL), local),
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_LEARNING), learning),
-            ((ifname, 'linkinfo', 'svcnode'), group)
+            ((ifname, 'linkinfo', Link.IFLA_VXLAN_GROUP), group),
         ):
             if value and not self.ipcmd.cache_check(attr_list, value):
                 return True
