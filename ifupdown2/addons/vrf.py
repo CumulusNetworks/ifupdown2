@@ -401,7 +401,7 @@ class vrf(moduleBase):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
-
+        vrf_master = None
         if len(ifaceobj.upperifaces) > 1 and ifaceobj_getfunc:
             for upper_iface in ifaceobj.upperifaces:
                 upper_ifaceobjs = ifaceobj_getfunc(upper_iface)
@@ -411,7 +411,7 @@ class vrf(moduleBase):
                         if upper_obj.link_kind & ifaceLinkKind.VRF:
                             vrf_master = upper_obj.name
                             break
-        else:
+        elif ifaceobj.upperifaces:
             vrf_master = ifaceobj.upperifaces[0]
         if not vrf_master:
             self.logger.warn('%s: vrf master not found' %ifacename)
