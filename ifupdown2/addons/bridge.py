@@ -812,16 +812,14 @@ class bridge(moduleBase):
                 ifaceobj.get_attr_value_first('bridge-ports') or
                 ifaceobj.get_attr_value_first('bridge-vlan-aware'))
 
-    def _get_ifaceobj_bridge_ports(self, ifaceobj, warn=True):
-        ports = ifaceobj.get_attr_value('bridge-ports')
-        if warn and ports and len(ports) > 1:
-            self.log_warn('%s: ignoring duplicate bridge-ports lines: %s'
-                          %(ifaceobj.name, ports[1:]))
-        if ports:
-            if 'none' in ports[0]:
-                return []
-            return ports[0]
-        return None
+    def _get_ifaceobj_bridge_ports(self, ifaceobj):
+        bridge_ports = []
+
+        for brport in ifaceobj.get_attr_value('bridge-ports') or []:
+            if brport != 'none':
+                bridge_ports.extend(brport.split())
+
+        return ' '.join(bridge_ports)
 
     def _is_bridge_port(self, ifaceobj):
         if self.brctlcmd.is_bridge_port(ifaceobj.name):
@@ -2531,6 +2529,10 @@ class bridge(moduleBase):
             diff.remove('bridge-l2protocol-tunnel')
             # bridge-l2protocol-tunnel requires separate handling
 
+        if 'bridge-ports' in diff:
+            self.query_check_bridge_ports(ifaceobj, ifaceobjcurr, runningattrs.get('ports').keys(), ifaceobj_getfunc)
+            diff.remove('bridge-ports')
+
         for k in diff:
             # get the corresponding ifaceobj attr
             v = ifaceobj.get_attr_value_first(k)
@@ -2565,38 +2567,6 @@ class bridge(moduleBase):
                else:
                     ifaceobjcurr.update_config_with_status('bridge-stp',
                                rv, 1)
-            elif k == 'bridge-ports':
-               # special case ports because it can contain regex or glob
-               running_port_list = rv.keys() if rv else []
-               bridge_port_list = self._get_bridge_port_list(ifaceobj)
-               if not running_port_list and not bridge_port_list:
-                  continue
-               portliststatus = 1
-               if running_port_list and bridge_port_list:
-                  difference = set(running_port_list
-                                 ).symmetric_difference(bridge_port_list)
-                  if not difference:
-                     portliststatus = 0
-                  try:
-                    port_list = self._get_ifaceobj_bridge_ports(ifaceobj,
-                                                                warn=False).split()
-                    # we want to display the same bridge-ports list as provided
-                    # in the interfaces file but if this list contains regexes or
-                    # globs, for now, we won't try to change it.
-                    if 'regex' in port_list or 'glob' in port_list:
-                        port_list = running_port_list
-                    else:
-                        ordered = []
-                        for i in range(0, len(port_list)):
-                            if port_list[i] in running_port_list:
-                                ordered.append(port_list[i])
-                        port_list = ordered
-                  except:
-                    port_list = running_port_list
-                  ifaceobjcurr.update_config_with_status('bridge-ports',
-                                                         (' '.join(port_list)
-                                                          if port_list else ''),
-                                                         portliststatus)
             elif k in ['bridge-pathcosts',
                        'bridge-portprios',
                        'bridge-portmcrouter',
@@ -2677,6 +2647,33 @@ class bridge(moduleBase):
 
         self._query_check_mcqv4src(ifaceobj, ifaceobjcurr)
         self._query_check_l2protocol_tunnel_on_bridge(ifaceobj, ifaceobjcurr, runningattrs)
+
+    def query_check_bridge_ports(self, ifaceobj, ifaceobjcurr, running_port_list, ifaceobj_getfunc):
+        bridge_all_ports = []
+        for obj in ifaceobj_getfunc(ifaceobj.name) or []:
+            bridge_all_ports.extend(self._get_bridge_port_list(obj))
+
+        if not running_port_list and not bridge_all_ports:
+            return
+
+        ports_list_status = 0 if not set(running_port_list).symmetric_difference(bridge_all_ports) else 1
+
+        try:
+            port_list = self._get_ifaceobj_bridge_ports(ifaceobj).split()
+            # we want to display the same bridge-ports list as provided
+            # in the interfaces file but if this list contains regexes or
+            # globs, for now, we won't try to change it.
+            if 'regex' in port_list or 'glob' in port_list:
+                port_list = running_port_list
+            else:
+                ordered = []
+                for i in range(0, len(port_list)):
+                    if port_list[i] in running_port_list:
+                        ordered.append(port_list[i])
+                port_list = ordered
+        except:
+            port_list = running_port_list
+        ifaceobjcurr.update_config_with_status('bridge-ports', (' '.join(port_list) if port_list else ''), ports_list_status)
 
     def get_ifaceobj_bridge_vids(self, ifaceobj):
         vids = ('bridge-vids', ifaceobj.get_attr_value_first('bridge-vids'))
@@ -2921,7 +2918,7 @@ class bridge(moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if self._is_bridge(ifaceobj):
-            self._query_check_bridge(ifaceobj, ifaceobjcurr)
+            self._query_check_bridge(ifaceobj, ifaceobjcurr, ifaceobj_getfunc)
         else:
             self._query_check_bridge_port(ifaceobj, ifaceobjcurr,
                                           ifaceobj_getfunc)
