@@ -1,0 +1,48 @@
+
+#
+# This example lists all attributes for bridge configuration.
+# The attributes with mstpctl- prefix indicate mstp settings on a bridge.
+# The attributes with bridge- prefix indicate bridge stp and igmp attributes.
+# Except bridge-ports, none of the other attributes are required. Default
+# values are documented in the ifupdown-addons-interfaces(5) man page.
+#
+# The bridge in the example below is a vlan unaware bridge (classic linux
+# bridge)
+#
+auto br-300
+iface br-300 inet static
+           address 12.0.0.3/24
+           bridge-ports swp13.300 swp14.300
+           bridge-stp on
+           mstpctl-maxage 20
+           mstpctl-fdelay 15
+           mstpctl-maxhops 20
+           mstpctl-txholdcount 6
+           mstpctl-forcevers rstp
+           mstpctl-portpathcost swp13.300=0 swp14.300=0
+           mstpctl-portadminedge swp13.300=no swp14.300=no
+           mstpctl-portautoedge swp13.300=yes swp14.300=yes
+           mstpctl-portp2p swp13.300=no swp13.300=no
+           mstpctl-portrestrrole swp13.300=no swp14.300=no
+           mstpctl-bpduguard swp13.300=no swp14.300=no
+           mstpctl-portrestrtcn swp13.300=no swp14.300=no
+           mstpctl-treeprio 32768
+           mstpctl-treeportprio swp13.300=128
+           mstpctl-hello 2
+           mstpctl-portnetwork swp13.300=no
+           bridge-mclmc 3
+           bridge-mcrouter no
+           bridge-mcsnoop  yes
+           bridge-mcsqc    3
+           bridge-mcqifaddr yes
+           bridge-mcquerier yes
+           bridge-hashel 3
+           bridge-hashmax 4
+           bridge-mclmi 3
+           bridge-mcmi 200
+           bridge-mcqpi 200
+           bridge-mcqi  100
+           bridge-mcqri 20
+           bridge-mcsqi 50
+           bridge-portmcrouter swp13.300=0
+           bridge-portmcfl     swp13.300=1

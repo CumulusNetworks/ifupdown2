@@ -1,0 +1,46 @@
+#!/bin/sh
+set -e
+
+MYNAME="${0##*/}"
+
+report() { echo "${MYNAME}: $*" ; }
+report_warn() { report "Warning: $*" >&2 ; }
+report_err() { report "Error: $*" >&2 ; }
+
+process_state_file()
+{
+    rm -f /run/network/ifstatenew
+}
+
+process_udev()
+{
+    if [ -e /etc/udev/rules.d/80-networking.rules ]; then
+	udevlink=$(readlink /etc/udev/rules.d/80-networking.rules 2>/dev/null || true)
+	[ -n "$udevlink" -a "$udevlink" = "/dev/null" ] && rm -f /etc/udev/rules.d/80-networking.rules
+    fi
+
+    if  [ -e /etc/udev/rules.d/60-bridge-network-interface.rules ]; then
+	udevlink=$(readlink /etc/udev/rules.d/60-bridge-network-interface.rules 2>/dev/null || true)
+	[ -n "$udevlink" -a "$udevlink" = "/dev/null" ] && rm -f /etc/udev/rules.d/60-bridge-network-interface.rules
+    fi
+}
+
+case "$1" in
+    purge|remove|abort-install|disappear)
+        process_state_file
+        process_udev
+    ;;
+
+    upgrade|failed-upgrade|abort-upgrade|disappear)
+    ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+
+#DEBHELPER#
+
+exit 0

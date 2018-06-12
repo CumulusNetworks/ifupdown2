@@ -1,0 +1,28 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: ifupdown2
+Upstream-Contact: Julien Fortin <julien@cumulusnetworks.com>
+Source: https://github.com/cumulusnetworks/ifupdown2
+
+Files: *
+Copyright: 2014,2015,2016,2017,2018 Cumulus Networks, Inc.
+License: GPL-2
+
+Files: debian/*
+Copyright: 2014,2015,2016,2017,2018 Cumulus Networks, Inc.
+License: GPL-2
+
+License: GPL-2
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 of the License
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".

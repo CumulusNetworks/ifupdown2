@@ -1,0 +1,5 @@
+usr/share/ifupdown2/__main__.py usr/share/ifupdown2/ifupdown2
+usr/share/ifupdown2/ifupdown2 sbin/ifup
+usr/share/ifupdown2/ifupdown2 sbin/ifdown
+usr/share/ifupdown2/ifupdown2 sbin/ifquery
+usr/share/ifupdown2/ifupdown2 sbin/ifreload

@@ -1,0 +1,70 @@
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+
+#source /etc/network/interfaces.d/template.bridges
+
+# swp interface
+auto swp30
+iface swp30
+    address 12.0.0.4/24
+    address 12.0.0.6/24
+    address 2000:1000:1000:1000:3::5/128
+    mtu 1600
+    alias "test network"
+    link-duplex full
+    link-speed 1000
+    link-autoneg no
+
+# bond interface
+auto bond3
+iface bond3 inet static
+    bond-slaves swp1 swp2
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier yes
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit_hash_policy layer3+4
+
+# bond interface
+auto bond4
+iface bond4 inet static
+    bond-slaves swp3 swp4
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier yes
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit_hash_policy layer3+4
+
+# bridge interface
+auto br0
+iface br0
+    address 12.0.0.4/24
+    address 12.0.0.6/24
+    address 2000:1000:1000:1000:3::5/128
+    bridge-ports bond3 bond4 swp5 swp8
+    bridge-stp on
+
+# vlan interface on bond
+auto bond3.2000
+iface bond3.2000 inet static
+
+auto bond4.2000
+iface bond4.2000 inet static
+
+auto br2000
+iface br2000 inet6 static
+    address 2001:dad:beef::4/64
+    bridge-ports bond3.2000 bond4.2000 swp5.2000
+    bridge-stp on
+    mstpctl-treeprio 61440
+    mstpctl-portp2p bond3.2000=yes bond4.2000=yes

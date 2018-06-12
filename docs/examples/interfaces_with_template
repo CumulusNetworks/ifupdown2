@@ -1,0 +1,24 @@
+#
+# Example interfaces file using mako templates
+#
+# The below section can be copied into
+# /etc/network/interfaces file 
+# or
+# to a file under /etc/network/interfaces.d/
+# and include in the interfaces file using the
+# 'source' command.
+#
+# see manpage interfaces(5) for details
+# 
+#
+
+%for v in range(1000,1100):
+auto vlan-${v}
+iface vlan-${v} inet static
+    bridge-ports glob swp1-6.${v}
+    bridge-stp on
+    bridge-ageing 200
+    bridge-maxage 10
+    bridge-fd 10
+%endfor
+

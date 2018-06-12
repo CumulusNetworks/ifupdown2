@@ -1,0 +1,92 @@
+#
+# vlan-aware bridge with bonds example
+#
+# uplink1, peerlink and downlink are bond interfaces.
+# 'bridge' is a vlan aware bridge with ports uplink1, peerlink
+# and downlink (swp2-20).
+# 
+# native vlan is by default 1
+#
+# 'bridge-vids' attribute is used to declare vlans.
+# 'bridge-pvid' attribute is used to specify native vlans if other than 1
+# 'bridge-access' attribute is used to declare access port
+# 
+auto lo
+iface lo
+
+auto eth0
+iface eth0 inet dhcp
+
+# bond interface
+auto uplink1
+iface uplink1
+    bond-slaves swp32
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier yes
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer2
+    bridge-vids 2000-2079
+
+# bond interface
+auto peerlink
+iface peerlink
+    bond-slaves swp30 swp31
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier yes
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+    bridge-vids 2000-2079 4094
+
+# bond interface
+auto downlink
+iface downlink
+    bond-slaves swp1
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-use-carrier yes
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+    bridge-vids 2000-2079
+
+#
+# Declare vlans for all swp ports
+# swp2-20 get vlans from 2004 to 2022.
+# The below uses mako templates to generate iface sections
+# with vlans for swp ports
+#
+%for port, vlanid in zip(range(2, 20), range(2004, 2022)) :
+    auto swp${port}
+    iface swp${port}
+        bridge-vids ${vlanid}
+
+%endfor
+
+# svi vlan 4094
+auto bridge.4094
+iface bridge.4094
+    address 11.100.1.252/24
+
+# l2 attributes for vlan 4094
+auto bridge.4094
+vlan bridge.4094
+    bridge-igmp-querier-src 172.16.101.1
+
+#
+# vlan aware bridge
+#
+auto bridge
+iface bridge
+    bridge-vlan-aware yes
+    bridge-ports uplink1 peerlink downlink glob swp2-20
+    bridge-stp on
+
+# svi peerlink vlan
+auto peerlink.4094
+iface peerlink.4094
+    address 192.168.10.1/30
+    broadcast 192.168.10.3
