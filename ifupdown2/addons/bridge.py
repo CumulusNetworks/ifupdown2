@@ -2530,7 +2530,7 @@ class bridge(moduleBase):
             # bridge-l2protocol-tunnel requires separate handling
 
         if 'bridge-ports' in diff:
-            self.query_check_bridge_ports(ifaceobj, ifaceobjcurr, runningattrs.get('ports').keys(), ifaceobj_getfunc)
+            self.query_check_bridge_ports(ifaceobj, ifaceobjcurr, runningattrs.get('ports', {}).keys(), ifaceobj_getfunc)
             diff.remove('bridge-ports')
 
         for k in diff:
@@ -2651,7 +2651,7 @@ class bridge(moduleBase):
     def query_check_bridge_ports(self, ifaceobj, ifaceobjcurr, running_port_list, ifaceobj_getfunc):
         bridge_all_ports = []
         for obj in ifaceobj_getfunc(ifaceobj.name) or []:
-            bridge_all_ports.extend(self._get_bridge_port_list(obj))
+            bridge_all_ports.extend(self._get_bridge_port_list(obj) or [])
 
         if not running_port_list and not bridge_all_ports:
             return
