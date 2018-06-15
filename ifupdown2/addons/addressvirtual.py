@@ -134,7 +134,13 @@ class addressvirtual(moduleBase):
 
             route_prefix = '%s/%d' %(ip.network, ip.prefixlen)
 
-            dev = self.ipcmd.ip_route_get_dev(route_prefix)
+            if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
+                vrf_master = self.ipcmd.link_get_master(ifaceobj.name)
+            else:
+                vrf_master = None
+
+            dev = self.ipcmd.ip_route_get_dev(route_prefix, vrf_master=vrf_master)
+
             if dev and dev != ifaceobj.name:
                 self.logger.info('%s: preferred routing entry ' %ifaceobj.name +
                                  'seems to be of the macvlan dev %s'

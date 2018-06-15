@@ -1687,10 +1687,14 @@ class LinkUtils(utilsBase):
             ret = False
         return ret
 
-    def ip_route_get_dev(self, prefix):
+    def ip_route_get_dev(self, prefix, vrf_master=None):
         try:
-            output = utils.exec_command('%s route get %s' %
-                                        (utils.ip_cmd, prefix))
+            if vrf_master:
+                cmd = '%s route get %s vrf %s' % (utils.ip_cmd, prefix, vrf_master)
+            else:
+                cmd = '%s route get %s' % (utils.ip_cmd, prefix)
+
+            output = utils.exec_command(cmd)
             if output:
                 rline = output.splitlines()[0]
                 if rline:
