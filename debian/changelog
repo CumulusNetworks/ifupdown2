@@ -1,12 +1,11 @@
-ifupdown2 (2.0.0) UNRELEASED; urgency=medium
-
+ifupdown2 (1.2.0) UNRELEASED; urgency=medium
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
   * New. Enabled: traditional bridge support for mstpctl attributes
     (portautoedge, portrestrrole)
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 24 May 2018 15:42:42 +0200
+ -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 15 Jun 2018 13:05:40 +0200
 
 ifupdown2 (1.1.18) RELEASED; urgency=medium
 
