@@ -223,8 +223,13 @@ class addressvirtual(moduleBase):
                 # customer could have used UPPERCASE for MAC
                 self.ipcmd.link_set_hwaddress(macvlan_ifacename, mac)
                 hwaddress.append(mac)
-            self.ipcmd.addr_add_multiple(ifaceobj, macvlan_ifacename, ips,
-                                         purge_existing)
+            self.ipcmd.addr_add_multiple(
+                ifaceobj,
+                macvlan_ifacename,
+                ips,
+                purge_existing,
+                metric=self.ipcmd.get_default_ip_metric() if self.ipcmd.addr_metric_support() else None
+            )
 
             # If link existed before, flap the link
             if not link_created:
@@ -249,7 +254,10 @@ class addressvirtual(moduleBase):
                 netlink.link_set_updown(macvlan_ifacename, "up")
             else:
                 try:
-                    self.ipcmd.fix_ipv6_route_metric(ifaceobj, macvlan_ifacename, ips)
+                    if not self.ipcmd.addr_metric_support():
+                        # if the system doesn't support ip addr set METRIC
+                        # we need to do manually check the ordering of the ip6 routes
+                        self.ipcmd.fix_ipv6_route_metric(ifaceobj, macvlan_ifacename, ips)
                 except Exception as e:
                     self.logger.debug('fix_vrf_slave_ipv6_route_metric: failed: %s' % e)
 
