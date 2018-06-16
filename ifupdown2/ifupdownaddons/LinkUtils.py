@@ -55,6 +55,9 @@ class LinkUtils(utilsBase):
     bridge_utils_is_installed = os.path.exists(utils.brctl_cmd)
     bridge_utils_missing_warning = True
 
+    DEFAULT_IP_METRIC = 1024
+    ADDR_METRIC_SUPPORT = None
+
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
 
@@ -67,6 +70,27 @@ class LinkUtils(utilsBase):
 
         if not ifupdownflags.flags.PERFMODE and not LinkUtils._CACHE_FILL_DONE:
             self._fill_cache()
+
+        if LinkUtils.ADDR_METRIC_SUPPORT is None:
+            try:
+                cmd = [utils.ip_cmd, 'addr', 'help']
+                self.logger.info('executing %s addr help' % utils.ip_cmd)
+
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, stderr = process.communicate()
+                LinkUtils.ADDR_METRIC_SUPPORT = '[ metric METRIC ]' in stderr or ''
+                self.logger.info('address metric support: %s' % ('OK' if LinkUtils.ADDR_METRIC_SUPPORT else 'KO'))
+            except Exception:
+                LinkUtils.ADDR_METRIC_SUPPORT = False
+                self.logger.info('address metric support: KO')
+
+    @classmethod
+    def addr_metric_support(cls):
+        return cls.ADDR_METRIC_SUPPORT
+
+    @classmethod
+    def get_default_ip_metric(cls):
+        return cls.DEFAULT_IP_METRIC
 
     @classmethod
     def reset(cls):
@@ -789,7 +813,7 @@ class LinkUtils(utilsBase):
                                         '-o', '-d', 'link', 'show'])
 
     def addr_add(self, ifacename, address, broadcast=None,
-                 peer=None, scope=None, preferred_lifetime=None):
+                 peer=None, scope=None, preferred_lifetime=None, metric=None):
         if not address:
             return
         cmd = 'addr add %s' % address
@@ -802,6 +826,10 @@ class LinkUtils(utilsBase):
         if preferred_lifetime:
             cmd += ' preferred_lft %s' % preferred_lifetime
         cmd += ' dev %s' % ifacename
+
+        if metric:
+            cmd += ' metric %s' % metric
+
         if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
@@ -954,7 +982,7 @@ class LinkUtils(utilsBase):
 
         return running_ipobj == (ip4 + ip6)
 
-    def addr_add_multiple(self, ifaceobj, ifacename, addrs, purge_existing=False):
+    def addr_add_multiple(self, ifaceobj, ifacename, addrs, purge_existing=False, metric=None):
         # purges address
         if purge_existing:
             # if perfmode is not set and also if iface has no sibling
@@ -981,7 +1009,7 @@ class LinkUtils(utilsBase):
                 self.logger.warning('%s: %s' % (ifacename, str(e)))
         for a in addrs:
             try:
-                self.addr_add(ifacename, a)
+                self.addr_add(ifacename, a, metric=metric)
             except Exception, e:
                 self.logger.error(str(e))
 
