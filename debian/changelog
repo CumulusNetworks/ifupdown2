@@ -2,6 +2,7 @@ ifupdown2 (1.2.0) UNRELEASED; urgency=medium
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
+  * Closes #58: ifupdown2.conf: vlan_aware_bridge_address_support on/off
   * New. Enabled: traditional bridge support for mstpctl attributes
                   (portautoedge, portrestrrole)
   * Closes: CM-16493: Configuration for IPv6 link-local auto-generate mode
