@@ -109,6 +109,15 @@ class address(moduleBase):
                               'validvals': ['yes', 'no'],
                               'default' : 'no',
                               'example' : ['mpls-enable yes']},
+                    'ipv6-addrgen': {
+                        'help': 'enable disable ipv6 link addrgenmode',
+                        'validvals': ['on', 'off'],
+                        'default': 'on',
+                        'example': [
+                            'ipv6-addrgen on',
+                            'ipv6-addrgen off'
+                        ]
+                    }
                 }}
 
     def __init__(self, *args, **kargs):
@@ -741,6 +750,11 @@ class address(moduleBase):
 
         self._process_mtu_config(ifaceobj, ifaceobj_getfunc, mtu)
 
+    def up_ipv6_addrgen(self, ifaceobj):
+        ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
+        if ipv6_addrgen:
+            self.ipcmd.ipv6_addrgen(ifaceobj.name, utils.get_boolean_from_string(ipv6_addrgen))
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -778,6 +792,8 @@ class address(moduleBase):
             pass
 
         self.ipcmd.batch_start()
+        self.up_ipv6_addrgen(ifaceobj)
+
         if addr_method != "dhcp":
             self._inet_address_config(ifaceobj, ifaceobj_getfunc,
                                       force_reapply)
