@@ -5,7 +5,7 @@ ifupdown2 (1.2.0) UNRELEASED; urgency=medium
   * VRF slaves: add support for link-down yes
   * addressvirtual: macvlan: add default metric to ip4 and ip6
   * Closes #48: Run up/down on "manual" interfaces, but ignore any errors.
-  * Closes #58: ifupdown2.conf: vlan_aware_bridge_address_support on/off
+  * Closes #58: address addon "vlan_aware_bridge_address_support" policy
   * Traditional bridge support for mstpctl attr: (portautoedge, portrestrrole)
   * Configuration for IPv6 link-local auto-generate mode, new attributes:
         ipv6-addrgen (address addon)
