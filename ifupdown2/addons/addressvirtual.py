@@ -258,8 +258,12 @@ class addressvirtual(moduleBase):
 
             # If link existed before, flap the link
             if not link_created:
-                self._fix_connected_route(ifaceobj, macvlan_ifacename,
-                                          ips[0])
+
+                if not self.ipcmd.addr_metric_support():
+                    # if the system doesn't support ip addr set METRIC
+                    # we need to do manually check the ordering of the ip4 routes
+                    self._fix_connected_route(ifaceobj, macvlan_ifacename, ips[0])
+
                 if update_mtu:
                     lower_iface_mtu = self.ipcmd.link_get_mtu(ifaceobj.name, refresh=True)
                     update_mtu = False
