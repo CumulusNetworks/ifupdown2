@@ -21,10 +21,12 @@ from ipaddr import IPNetwork, IPAddress
 try:
     from ifupdown2.ifupdown.iface import *
 
+    import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
     from ifupdown.iface import *
 
+    import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
 
@@ -37,6 +39,7 @@ def signal_handler_f(ps, sig, frame):
 class utils():
     logger = logging.getLogger('ifupdown')
     DEVNULL = open(os.devnull, 'w')
+    vlan_aware_bridge_address_support = None
 
     _string_values = {
         "on": True,
@@ -146,8 +149,8 @@ class utils():
         return value
 
     @staticmethod
-    def get_boolean_from_string(value):
-        return utils._string_values.get(value, False)
+    def get_boolean_from_string(value, default=False):
+        return utils._string_values.get(value, default)
 
     @staticmethod
     def get_yesno_boolean(bool):
@@ -331,6 +334,14 @@ class utils():
 
     @classmethod
     def is_addr_ip_allowed_on(cls, ifaceobj, syntax_check=False):
+        if cls.vlan_aware_bridge_address_support is None:
+            cls.vlan_aware_bridge_address_support = utils.get_boolean_from_string(
+                policymanager.policymanager_api.get_module_globals(
+                    module_name='address',
+                    attr='vlan_aware_bridge_address_support'
+                ),
+                True
+            )
         msg = ('%s: ignoring ip address. Assigning an IP '
                'address is not allowed on' % ifaceobj.name)
         if (ifaceobj.role & ifaceRole.SLAVE
@@ -347,8 +358,10 @@ class utils():
                 cls.logger.info(msg)
             return False
         elif (ifaceobj.link_kind & ifaceLinkKind.BRIDGE
-                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE):
-            msg = '%s bridge vlan aware interfaces'
+              and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
+              and not cls.vlan_aware_bridge_address_support
+        ):
+            msg = '%s bridge vlan aware interfaces' % msg
             if syntax_check:
                 cls.logger.warning(msg)
             else:
