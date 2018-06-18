@@ -2574,3 +2574,19 @@ class LinkUtils(utilsBase):
             return os.listdir('/sys/class/net/%s/brif/' % bridgename)
         except:
             return []
+
+    def ipv6_addrgen(self, ifname, addrgen):
+        cmd = 'link set dev %s addrgenmode %s' % (ifname, 'eui64' if addrgen else 'none')
+
+        is_link_up = self.is_link_up(ifname)
+
+        if is_link_up:
+            self.link_down(ifname)
+
+        if LinkUtils.ipbatch:
+            self.add_to_batch(cmd)
+        else:
+            utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
+
+        if is_link_up:
+            self.link_up(ifname)
