@@ -3,7 +3,8 @@ ifupdown2 (1.2.0-cl3u19) UNRELEASED; urgency=medium
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
-  * New. Enabled: run up/down on "manual" interfaces, but ignore any errors.
+  * New. Enabled: address addon "vlan_aware_bridge_address_support" policy
+  * New. Enabled: run up/down on "manual" interfaces, but ignore any errors
   * New. Enabled: traditional bridge support for mstpctl attributes
                   (portautoedge, portrestrrole)
   * Closes: CM-15829: macvlan: add default metric to ip4 and ip6
