@@ -51,8 +51,8 @@ class addressvirtual(moduleBase):
                         'validvals': ['on', 'off'],
                         'default': 'on',
                         'example': [
-                            'address-virtual-ipv6-addrge on',
-                            'address-virtual-ipv6-addrge off'
+                            'address-virtual-ipv6-addrgen on',
+                            'address-virtual-ipv6-addrgen off'
                         ]
                     }
                 }}
