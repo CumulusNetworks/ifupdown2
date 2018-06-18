@@ -551,6 +551,8 @@ class LinkUtils(utilsBase):
                                 vattrs['ageing'] = citems[j + 1]
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
+                            elif citems[j] == 'dev':
+                                vattrs['physdev'] = citems[j + 1]
                         linkattrs['linkinfo'] = vattrs
                         break
                     elif citems[i] == 'vrf' and citems[i + 1] == 'table':

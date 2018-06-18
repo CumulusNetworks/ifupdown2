@@ -74,7 +74,11 @@ class vxlan(moduleBase):
                         'example': 'vxlan-port 4789',
                         'validrange': ['1', '65536'],
                         'default': '4789',
-                    }
+                    },
+                    'vxlan-physdev':
+                        {'help': 'vxlan physical device',
+                         'example': ['vxlan-physdev eth1']},
+
                 }}
     _clagd_vxlan_anycast_ip = ""
     _vxlan_local_tunnelip = None
@@ -123,6 +127,14 @@ class vxlan(moduleBase):
                 vxlan._clagd_vxlan_anycast_ip = clagd_vxlan_list[0]
 
             self._set_global_local_ip(ifaceobj)
+
+        # If we should use a specific underlay device for the VXLAN
+        # tunnel make sure this device is set up before the VXLAN iface.
+        physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
+
+        if physdev:
+            return [physdev]
+
         return None
 
     def _set_global_local_ip(self, ifaceobj):
@@ -186,6 +198,7 @@ class vxlan(moduleBase):
 
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             vxlan_port = ifaceobj.get_attr_value_first('vxlan-port')
+            physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
             purge_remotes = self._get_purge_remotes(ifaceobj)
 
             link_exists = self.ipcmd.link_exists(ifname)
@@ -291,7 +304,8 @@ class vxlan(moduleBase):
                                            learning=learning,
                                            ageing=ageing,
                                            group=group,
-                                           dstport=vxlan_port)
+                                           dstport=vxlan_port,
+                                           physdev=physdev)
                 except Exception as e_netlink:
                     self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:
@@ -463,6 +477,23 @@ class vxlan(moduleBase):
         self._query_check_n_update(ifaceobj, ifaceobjcurr, 'vxlan-ageing',
                        ageing, vxlanattrs.get('ageing'))
 
+        physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
+
+        if physdev:
+            ifla_vxlan_link = vxlanattrs.get(Link.IFLA_VXLAN_LINK)
+
+            if ifla_vxlan_link:
+                self._query_check_n_update(
+                    ifaceobj,
+                    ifaceobjcurr,
+                    'vxlan-physdev',
+                    physdev,
+                    netlink.get_iface_name(ifla_vxlan_link)
+                )
+            else:
+                ifaceobjcurr.update_config_with_status('vxlan-physdev', physdev, 1)
+
+
     def _query_running(self, ifaceobjrunning):
         vxlanattrs = self.ipcmd.get_vxlandev_attrs(ifaceobjrunning.name)
         if not vxlanattrs:
@@ -496,6 +527,13 @@ class vxlan(moduleBase):
         attrval = vxlanattrs.get('ageing')
         if attrval:
             ifaceobjrunning.update_config('vxlan-ageing', vxlanattrs.get('ageing'))
+
+        ifla_vxlan_link = vxlanattrs.get(Link.IFLA_VXLAN_LINK)
+        if ifla_vxlan_link:
+            ifaceobjrunning.update_config(
+                'vxlan-physdev',
+                netlink.get_iface_name(ifla_vxlan_link)
+            )
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,
