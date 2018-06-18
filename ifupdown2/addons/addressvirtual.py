@@ -11,6 +11,7 @@ from ipaddr import IPNetwork, IPv6Network
 
 try:
     from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
@@ -21,6 +22,7 @@ try:
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
     from ifupdown.iface import *
+    from ifupdown.utils import utils
     from ifupdown.netlink import netlink
 
     from ifupdownaddons.LinkUtils import LinkUtils
@@ -42,8 +44,18 @@ class addressvirtual(moduleBase):
                         { 'help' : 'bridge router virtual mac and ips',
                           'multivalue' : True,
                           'validvals' : ['<mac-ip/prefixlen-list>',],
-                          'example' : ['address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24']}
-                 }}
+                          'example': ['address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24']
+                          },
+                    'address-virtual-ipv6-addrgen': {
+                        'help': 'enable disable ipv6 link addrgenmode',
+                        'validvals': ['on', 'off'],
+                        'default': 'on',
+                        'example': [
+                            'address-virtual-ipv6-addrge on',
+                            'address-virtual-ipv6-addrge off'
+                        ]
+                    }
+                }}
 
 
     def __init__(self, *args, **kargs):
@@ -178,6 +190,14 @@ class addressvirtual(moduleBase):
                 maclist.append(macip[0])
         return maclist
 
+    def get_addressvirtual_ipv6_addrgen_user_conf(self, ifaceobj):
+        ipv6_addrgen = ifaceobj.get_attr_value_first('address-virtual-ipv6-addrgen')
+
+        if ipv6_addrgen:
+            return True, utils.get_boolean_from_string(ipv6_addrgen)
+
+        return False, None
+
     def _apply_address_config(self, ifaceobj, address_virtual_list):
         purge_existing = False if ifupdownflags.flags.PERFMODE else True
 
@@ -185,6 +205,8 @@ class addressvirtual(moduleBase):
         if ifupdownconfig.config.get('adjust_logical_dev_mtu', '1') != '0':
             if ifaceobj.lowerifaces and address_virtual_list:
                 update_mtu = True
+
+        should_configure_ipv6_addrgen, ipv6_addrgen_user_value = self.get_addressvirtual_ipv6_addrgen_user_conf(ifaceobj)
 
         hwaddress = []
         self.ipcmd.batch_start()
@@ -216,6 +238,9 @@ class addressvirtual(moduleBase):
             # first thing we need to handle vrf enslavement
             if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
                 self._handle_vrf_slaves(macvlan_ifacename, ifaceobj)
+
+            if should_configure_ipv6_addrgen:
+                self.ipcmd.ipv6_addrgen(macvlan_ifacename, ipv6_addrgen_user_value)
 
             ips = av_attrs[1:]
             if mac != 'None':
