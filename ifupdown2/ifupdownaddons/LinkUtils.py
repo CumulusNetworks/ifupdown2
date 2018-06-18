@@ -515,18 +515,21 @@ class LinkUtils(utilsBase):
                         linkattrs['kind'] = 'vxlan'
                         vattrs = {'vxlanid': citems[i + 2],
                                   'svcnode': None,
+                                 'physdev': None,
                                   'remote': [],
                                   'ageing': citems[i + 2],
                                   'learning': 'on'}
                         for j in range(i + 2, len(citems)):
                             if citems[j] == 'local':
                                 vattrs['local'] = citems[j + 1]
-                            elif citems[j] == 'remote':
+                            elif citems[j] == 'group':
                                 vattrs['svcnode'] = citems[j + 1]
                             elif citems[j] == 'ageing':
                                 vattrs['ageing'] = citems[j + 1]
                             elif citems[j] == 'nolearning':
                                 vattrs['learning'] = 'off'
+                            elif citems[j] == 'dev':
+                                vattrs['physdev'] = citems[j + 1]
                         linkattrs['linkinfo'] = vattrs
                         break
                     elif citems[i] == 'vrf' and citems[i + 1] == 'table':
