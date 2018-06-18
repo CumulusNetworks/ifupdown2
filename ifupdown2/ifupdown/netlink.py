@@ -263,7 +263,7 @@ class Netlink(utilsBase):
                             % (ifacename, vlanid, str(e)))
 
     def link_add_vxlan(self, ifacename, vxlanid, local=None, dstport=VXLAN_UDP_PORT,
-                       group=None, learning=True, ageing=None):
+                       group=None, learning=True, ageing=None, physdev=None):
         cmd = 'ip link add %s type vxlan id %s dstport %s' % (ifacename,
                                                               vxlanid,
                                                               dstport)
@@ -271,16 +271,20 @@ class Netlink(utilsBase):
         cmd += ' ageing %s' % ageing if ageing else ''
         cmd += ' remote %s' % group if group else ' noremote'
         cmd += ' nolearning' if not learning else ''
+        cmd += ' dev %s' % physdev if physdev else ''
         self.logger.info('%s: netlink: %s' % (ifacename, cmd))
         if ifupdownflags.flags.DRYRUN: return
         try:
+            if physdev:
+                physdev = self.get_iface_index(physdev)
             return self._nlmanager_api.link_add_vxlan(ifacename,
                                                       vxlanid,
                                                       dstport=dstport,
                                                       local=local,
                                                       group=group,
                                                       learning=learning,
-                                                      ageing=ageing)
+                                                      ageing=ageing,
+                                                      physdev=physdev)
         except Exception as e:
             raise Exception('netlink: %s: cannot create vxlan %s: %s'
                             % (ifacename, vxlanid, str(e)))
