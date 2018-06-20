@@ -2,12 +2,12 @@ ifupdown2 (1.2.0) UNRELEASED; urgency=medium
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
+  * Closes #48: Run up/down on "manual" interfaces, but ignore any errors.
   * Closes #58: ifupdown2.conf: vlan_aware_bridge_address_support on/off
   * Traditional bridge support for mstpctl attr: (portautoedge, portrestrrole)
   * Configuration for IPv6 link-local auto-generate mode, new attributes:
         ipv6-addrgen (address addon)
         address-virtual-ipv6-addrgen (addressvirtual addon)
-
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 15 Jun 2018 13:05:40 +0200
 
