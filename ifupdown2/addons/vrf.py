@@ -495,7 +495,7 @@ class vrf(moduleBase):
                     master_exists = False
             else:
                 master_exists = False
-            if master_exists:
+            if master_exists and not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
                 netlink.link_set_updown(ifacename, "up")
             else:
                 self.log_error('vrf %s not around, skipping vrf config'
@@ -673,6 +673,9 @@ class vrf(moduleBase):
         if ifaceobj.link_type == ifaceLinkType.LINK_MASTER:
             for s in config_slaves:
                 try:
+                    for slave_ifaceobj in ifaceobj_getfunc(s) or []:
+                        if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                            raise Exception('%s: slave configured with link-down yes')
                     netlink.link_set_updown(s, "up")
                 except Exception, e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
@@ -774,7 +777,9 @@ class vrf(moduleBase):
             if add_slaves:
                 self._add_vrf_slaves(ifaceobj, ifaceobj_getfunc)
             self._set_vrf_dev_processed_flag(ifaceobj)
-            netlink.link_set_updown(ifaceobj.name, "up")
+
+            if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                netlink.link_set_updown(ifaceobj.name, "up")
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 

@@ -6,6 +6,7 @@ ifupdown2 (1.2.0-cl3u19) UNRELEASED; urgency=medium
   * New. Enabled: run up/down on "manual" interfaces, but ignore any errors.
   * New. Enabled: traditional bridge support for mstpctl attributes
                   (portautoedge, portrestrrole)
+  * Closes: CM-21375: Add 'link-down yes' support for VRF slaves
   * Closes: CM-16493: Configuration for IPv6 link-local auto-generate mode
                       Two new attributes:
                         ipv6-addrgen (address addon)
