@@ -2,6 +2,7 @@ ifupdown2 (1.2.0) UNRELEASED; urgency=medium
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
+  * VRF slaves: add support for link-down yes
   * Closes #48: Run up/down on "manual" interfaces, but ignore any errors.
   * Closes #58: ifupdown2.conf: vlan_aware_bridge_address_support on/off
   * Traditional bridge support for mstpctl attr: (portautoedge, portrestrrole)
