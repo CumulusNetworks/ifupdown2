@@ -1435,7 +1435,7 @@ class LinkUtils(utilsBase):
         if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
             self.add_to_batch(cmd)
         else:
-            utils.exec_command('%s %s' % (utils.ip_cmd, cmd)))
+            utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
         
         self._cache_update([tunnelname], {})
 

@@ -3,18 +3,28 @@
 # Maximilian Wilhelm <max@rfc2324.org>
 #  --  Mon 10 Oct 2016 10:53:13 PM CEST
 #
-import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-import logging
+try:
+    from ifupdown2.ifupdown.iface import *
 
-from ifupdown2.iface import *
-from ifupdown2.ifupdownaddons.modulebase import moduleBase
-from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
-from ifupdown2.ifupdown.netlink import netlink
+    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdown2.ifupdownaddons.modulebase import moduleBase
+    from ifupdown2.ifupdown.netlink import netlink
+
+    import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+except ImportError:
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdown.netlink import netlink
+
+    import ifupdown.ifupdownflags as ifupdownflags
 
 #
 # TODO: Add checks for ipip tunnels.
 #
-class tunnel (moduleBase):
+class tunnel(moduleBase):
     """
     ifupdown2 addon module to configure tunnels
     """
@@ -56,7 +66,6 @@ class tunnel (moduleBase):
 
 
     def __init__ (self, *args, **kargs):
-
         moduleBase.__init__ (self, *args, **kargs)
         self.ipcmd = None
 
@@ -111,7 +120,7 @@ class tunnel (moduleBase):
                 attrs['mode'] = mode
                 self._check_settings(ifaceobj, attrs)
         except Exception, e:
-            self.log_warn (str (e))
+            self.log_warn(str(e))
 
     def _down (self, ifaceobj):
 
@@ -120,7 +129,7 @@ class tunnel (moduleBase):
         try:
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
-            self.log_warn(str (e))
+            self.log_warn(str(e))
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
 
@@ -142,7 +151,6 @@ class tunnel (moduleBase):
            ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
         else:
            ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
-
 
     def _query_check (self, ifaceobj, ifaceobjcurr):
 
@@ -172,7 +180,6 @@ class tunnel (moduleBase):
         'post-down' : _down,
         'query-checkcurr' : _query_check
     }
-
 
     def get_ops (self):
         return self._run_ops.keys()
