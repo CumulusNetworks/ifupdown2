@@ -4,6 +4,7 @@ ifupdown2 (1.2.0-cl3u19) UNRELEASED; urgency=medium
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
   * New. Enabled: address addon "vlan_aware_bridge_address_support" policy
+  * New. Enabled: addressvirtual "addressvirtual_with_route_metric" policy
   * New. Enabled: run up/down on "manual" interfaces, but ignore any errors
   * New. Enabled: traditional bridge support for mstpctl attributes
                   (portautoedge, portrestrrole)
