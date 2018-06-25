@@ -546,6 +546,8 @@ class LinkUtils(utilsBase):
                                 tunattrs['physdev'] = citems[j + 1]
                         linkattrs['linkinfo'] = tunattrs
                         break
+                    elif citems[i] == 'link/ppp':
+                        linkattrs['kind'] = 'ppp'
                     elif citems[i] == 'vlan':
                         vlanid = self._get_vland_id(citems, i, warn)
                         if vlanid:
