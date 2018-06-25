@@ -775,7 +775,7 @@ class address(moduleBase):
         force_reapply = False
         try:
             # release any stale dhcp addresses if present
-            if (addr_method != "dhcp" and not ifupdownflags.flags.PERFMODE and
+            if (addr_method not in ["dhcp", "ppp"] and not ifupdownflags.flags.PERFMODE and
                     not (ifaceobj.flags & iface.HAS_SIBLINGS)):
                 # if not running in perf mode and ifaceobj does not have
                 # any sibling iface objects, kill any stale dhclient
@@ -794,7 +794,7 @@ class address(moduleBase):
         self.ipcmd.batch_start()
         self.up_ipv6_addrgen(ifaceobj)
 
-        if addr_method != "dhcp":
+        if addr_method not in ["dhcp", "ppp"]:
             self._inet_address_config(ifaceobj, ifaceobj_getfunc,
                                       force_reapply)
 
@@ -844,7 +844,7 @@ class address(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 return
             addr_method = ifaceobj.addr_method
-            if addr_method != "dhcp":
+            if addr_method not in ["dhcp", "ppp"]:
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist:
@@ -984,7 +984,7 @@ class address(moduleBase):
                     'alias', self.ipcmd.link_get_alias)
         self._query_sysctl(ifaceobj, ifaceobjcurr)
         # compare addresses
-        if addr_method == 'dhcp':
+        if addr_method in ["dhcp", "ppp"]:
            return
         addrs = utils.get_normalized_ip_addr(ifaceobj.name,
                                              self._get_iface_addresses(ifaceobj))
