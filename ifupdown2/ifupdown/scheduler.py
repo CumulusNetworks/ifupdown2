@@ -144,8 +144,10 @@ class ifaceScheduler():
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
         ifupdownobj.logger.info('%s: running ops ...' %ifacename)
+
         if ('down' in ops[0] and
                 ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
+                ifaceobjs[0].addr_method != 'ppp' and
                 not ifupdownobj.link_exists(ifacename)):
             ifupdownobj.logger.debug('%s: does not exist' %ifacename)
             # run posthook before you get out of here, so that
