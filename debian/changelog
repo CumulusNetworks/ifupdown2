@@ -1,4 +1,4 @@
-ifupdown2 (1.2.0-cl3u19) UNRELEASED; urgency=medium
+ifupdown2 (1.2.0-cl3u19) RELEASED; urgency=medium
 
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
@@ -15,7 +15,7 @@ ifupdown2 (1.2.0-cl3u19) UNRELEASED; urgency=medium
                         ipv6-addrgen (address addon)
                         address-virtual-ipv6-addrgen (addressvirtual addon)
 
- -- dev-support <dev-support@cumulusnetworks.com>  Fri, 15 Jun 2018 13:05:40 +0200
+ -- dev-support <dev-support@cumulusnetworks.com>  Mon, 25 Jun 2018 23:42:42 +0200
 
 ifupdown2 (1.1-cl3u18) RELEASED; urgency=medium
 
