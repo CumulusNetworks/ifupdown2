@@ -22,12 +22,10 @@ try:
     from ifupdown2.ifupdown.iface import *
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-    import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
     from ifupdown.iface import *
 
     import ifupdown.ifupdownflags as ifupdownflags
-    import ifupdown.ifupdownconfig as ifupdownconfig
 
 
 def signal_handler_f(ps, sig, frame):
@@ -39,7 +37,6 @@ def signal_handler_f(ps, sig, frame):
 class utils():
     logger = logging.getLogger('ifupdown')
     DEVNULL = open(os.devnull, 'w')
-    vlan_aware_bridge_address_support = None
 
     _string_values = {
         "on": True,
@@ -334,10 +331,6 @@ class utils():
 
     @classmethod
     def is_addr_ip_allowed_on(cls, ifaceobj, syntax_check=False):
-        if cls.vlan_aware_bridge_address_support is None:
-            cls.vlan_aware_bridge_address_support = utils.get_boolean_from_string(
-                ifupdownconfig.config.get('vlan_aware_bridge_address_support', 'yes')
-            )
         msg = ('%s: ignoring ip address. Assigning an IP '
                'address is not allowed on' % ifaceobj.name)
         if (ifaceobj.role & ifaceRole.SLAVE
@@ -354,10 +347,8 @@ class utils():
                 cls.logger.info(msg)
             return False
         elif (ifaceobj.link_kind & ifaceLinkKind.BRIDGE
-              and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
-              and not cls.vlan_aware_bridge_address_support
-        ):
-            msg = '%s bridge vlan aware interfaces' % msg
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE):
+            msg = '%s bridge vlan aware interfaces'
             if syntax_check:
                 cls.logger.warning(msg)
             else:
