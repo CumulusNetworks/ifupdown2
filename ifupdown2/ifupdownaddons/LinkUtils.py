@@ -528,6 +528,24 @@ class LinkUtils(utilsBase):
                         linkattrs['state'] = citems[i + 1]
                     elif citems[i] == 'link/ether':
                         linkattrs['hwaddress'] = citems[i + 1]
+                    elif citems[i] in [ 'link/gre', 'link/ipip', 'link/sit', 'link/gre6', 'link/tunnel6', 'gretap' ]:
+                        linkattrs['kind'] = 'tunnel'
+                        tunattrs = {'mode' : citems[i].split ('/')[-1],
+                                    'endpoint' : None,
+                                    'local' : None,
+                                    'ttl' : None,
+                                    'physdev' : None}
+                        for j in range(i, len(citems)):
+                            if citems[j] == 'local':
+                                tunattrs['local'] = citems[j + 1]
+                            elif citems[j] == 'remote':
+                                tunattrs['endpoint'] = citems[j + 1]
+                            elif citems[j] == 'ttl':
+                                tunattrs['ttl'] = citems[j + 1]
+                            elif citems[j] == 'dev':
+                                tunattrs['physdev'] = citems[j + 1]
+                        linkattrs['linkinfo'] = tunattrs
+                        break
                     elif citems[i] == 'vlan':
                         vlanid = self._get_vland_id(citems, i, warn)
                         if vlanid:
@@ -1396,6 +1414,48 @@ class LinkUtils(utilsBase):
                 return None
         else:
             return self._cache_get('link', [ifacename, 'master'])
+
+    def tunnel_create(self, tunnelname, mode, attrs={}):
+        """ generic link_create function """
+        if self.link_exists(tunnelname):
+            return
+        
+        cmd = ''
+        if '6' in mode:
+            cmd = ' -6 '
+
+        cmd += 'tunnel add'
+        cmd += ' %s mode %s' %(tunnelname, mode)
+        if attrs:
+            for k, v in attrs.iteritems():
+                cmd += ' %s' %k
+                if v:
+                    cmd += ' %s' %v
+        
+        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
+            self.add_to_batch(cmd)
+        else:
+            utils.exec_command('%s %s' % (utils.ip_cmd, cmd)))
+        
+        self._cache_update([tunnelname], {})
+
+    def tunnel_change(self, tunnelname, attrs={}):
+        """ tunnel change function """
+        if not self.link_exists(tunnelname):
+            return
+        
+        cmd = 'tunnel change'
+        cmd += ' %s' %(tunnelname)
+        if attrs:
+            for k, v in attrs.iteritems():
+                cmd += ' %s' %k
+                if v:
+                    cmd += ' %s' %v
+        
+        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
+            self.add_to_batch(cmd)
+        else:
+            utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
 
     def get_brport_peer_link(self, bridgename):
         try:
