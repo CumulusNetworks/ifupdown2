@@ -18,6 +18,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.statemanager as statemanager
+    import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
@@ -29,6 +30,7 @@ except ImportError:
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.statemanager as statemanager
+    import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.ifupdownconfig as ifupdownconfig
 
@@ -62,6 +64,13 @@ class addressvirtual(moduleBase):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
+        self.addressvirtual_with_route_metric = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='addressvirtual_with_route_metric'
+            ),
+            default=True
+        )
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if ifaceobj.get_attr_value('address-virtual'):
@@ -248,18 +257,24 @@ class addressvirtual(moduleBase):
                 # customer could have used UPPERCASE for MAC
                 self.ipcmd.link_set_hwaddress(macvlan_ifacename, mac)
                 hwaddress.append(mac)
+
+            if self.addressvirtual_with_route_metric and self.ipcmd.addr_metric_support():
+                metric = self.ipcmd.get_default_ip_metric()
+            else:
+                metric = None
+
             self.ipcmd.addr_add_multiple(
                 ifaceobj,
                 macvlan_ifacename,
                 ips,
                 purge_existing,
-                metric=self.ipcmd.get_default_ip_metric() if self.ipcmd.addr_metric_support() else None
+                metric=metric
             )
 
             # If link existed before, flap the link
             if not link_created:
 
-                if not self.ipcmd.addr_metric_support():
+                if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
                     # if the system doesn't support ip addr set METRIC
                     # we need to do manually check the ordering of the ip4 routes
                     self._fix_connected_route(ifaceobj, macvlan_ifacename, ips[0])
@@ -283,7 +298,7 @@ class addressvirtual(moduleBase):
                 netlink.link_set_updown(macvlan_ifacename, "up")
             else:
                 try:
-                    if not self.ipcmd.addr_metric_support():
+                    if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
                         # if the system doesn't support ip addr set METRIC
                         # we need to do manually check the ordering of the ip6 routes
                         self.ipcmd.fix_ipv6_route_metric(ifaceobj, macvlan_ifacename, ips)
