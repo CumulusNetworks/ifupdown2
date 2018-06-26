@@ -1,4 +1,11 @@
+ifupdown2 (1.2.1) UNRELEASED; urgency=medium
+
+  * Tunnel support (gretap, ipip, sit, vti, ip6gre, ipip6, ip6ip6, vti6)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 26 Jun 2018 23:42:42 +0200
+
 ifupdown2 (1.2.0) UNRELEASED; urgency=medium
+
   * Package architecture refactoring and cleanups
   * Package can be build/install as debian, pip or rpm package
   * Makefile to easily perform tasks (i.e.: install, build, test, upload..)
@@ -11,7 +18,7 @@ ifupdown2 (1.2.0) UNRELEASED; urgency=medium
         ipv6-addrgen (address addon)
         address-virtual-ipv6-addrgen (addressvirtual addon)
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 15 Jun 2018 13:05:40 +0200
+ -- Julien Fortin <julien@cumulusnetworks.com>  Mon, 25 Jun 2018 23:42:42 +0200
 
 ifupdown2 (1.1.18) RELEASED; urgency=medium
 
