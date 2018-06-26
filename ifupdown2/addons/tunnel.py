@@ -66,18 +66,21 @@ class tunnel(moduleBase):
 
 
     def __init__ (self, *args, **kargs):
+
         moduleBase.__init__ (self, *args, **kargs)
         self.ipcmd = None
 
     def _is_my_interface (self, ifaceobj):
 
-        if ifaceobj.addr_method == "tunnel" and ifaceobj.get_attr_value_first ('mode'):
+        if ifaceobj.addr_method == "tunnel" and ifaceobj.get_attr_value_first('mode'):
             return True
+
         return False
 
     def _check_settings(self, ifaceobj, attrs):
 
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
+
         try:
             if attrs:
                 self.ipcmd.tunnel_change(ifaceobj.name, attrs)
@@ -107,12 +110,12 @@ class tunnel(moduleBase):
             if attr_val != None:
                 attrs[iproute_attr] = attr_val
 
-        current_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
+        current_mode = self.ipcmd.link_cache_get([ifaceobj.name, 'kind'])
 
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ipcmd.tunnel_create(ifaceobj.name, mode, attrs)
-            elif current_attrs and current_attrs['mode'] != mode and ( ('6' in mode and '6' not in current_attrs['mode']) or ('6' not in mode and '6' in current_attrs['mode']) ):
+            elif current_mode and current_mode != mode and ( ('6' in mode and '6' not in current_mode) or ('6' not in mode and '6' in current_mode) ):
                 # Mode changes between ipv4 and ipv6 are not possible without recreating the interface
                 self.ipcmd.link_delete(ifaceobj.name)
                 self.ipcmd.tunnel_create(ifaceobj.name, mode, attrs)
@@ -124,7 +127,7 @@ class tunnel(moduleBase):
 
     def _down (self, ifaceobj):
 
-        if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists (ifaceobj.name):
+        if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
@@ -142,9 +145,9 @@ class tunnel(moduleBase):
 
         return None
 
-    def _query_check_n_update (self, ifaceobj, ifaceobjcurr, attrname, attrval,
+    def _query_check_n_update(self, ifaceobj, ifaceobjcurr, attrname, attrval,
                                running_attrval):
-        if not ifaceobj.get_attr_value_first (attrname):
+        if not ifaceobj.get_attr_value_first(attrname):
             return
 
         if running_attrval and attrval == running_attrval:
@@ -152,7 +155,7 @@ class tunnel(moduleBase):
         else:
            ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
 
-    def _query_check (self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr):
 
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
@@ -181,22 +184,23 @@ class tunnel(moduleBase):
         'query-checkcurr' : _query_check
     }
 
-    def get_ops (self):
+    def get_ops(self):
         return self._run_ops.keys()
 
-    def _init_command_handlers (self):
+    def _init_command_handlers(self):
         if not self.ipcmd:
             self.ipcmd = LinkUtils()
 
-    def run (self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
-        op_handler = self._run_ops.get (operation)
+    def run(self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
+
+        op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
 
         if operation != 'query-running' and not self._is_my_interface(ifaceobj):
             return
 
-        self._init_command_handlers ()
+        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
