@@ -90,7 +90,7 @@ class ppp(moduleBase):
             if not self.ipcmd.link_exists(ifaceobj.name):
                 try:
                     # This fails if not running
-                    utils.exec_user_command('ps ax | grep pppd | grep -v grep | grep ' + provider)
+                    utils.exec_user_command('/bin/ps ax | /bin/grep pppd | /bin/grep -v grep | /bin/grep ' + provider)
                 except Exception, e:
                     utils.exec_commandl(['/usr/bin/pon', provider], stdout=None, stderr=None)
 
@@ -113,7 +113,7 @@ class ppp(moduleBase):
         try:
             provider = ifaceobj.get_attr_value_first('provider')
             # This fails if not running
-            utils.exec_user_command('ps ax | grep pppd | grep -v grep | grep ' + provider)
+            utils.exec_user_command('/bin/ps ax | /bin/grep pppd | /bin/grep -v grep | /bin/grep ' + provider)
             utils.exec_commandl(['/usr/bin/poff', provider], stdout=None, stderr=None)
         except Exception, e:
             self.log_warn(str(e))
@@ -143,7 +143,7 @@ class ppp(moduleBase):
     # Operations supported by this addon (yet).
     _run_ops = {
         'pre-up' : _up,
-        'pre-down' : _down,
+        'down' : _down,
         'query-checkcurr' : _query_check,
         'query-running' : _query_running,
     }
