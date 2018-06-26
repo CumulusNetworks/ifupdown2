@@ -528,6 +528,8 @@ class LinkUtils(utilsBase):
                         linkattrs['state'] = citems[i + 1]
                     elif citems[i] == 'link/ether':
                         linkattrs['hwaddress'] = citems[i + 1]
+                    elif citems[i] == 'link/ppp':
+                        linkattrs['kind'] = 'ppp'
                     elif citems[i] == 'vlan':
                         vlanid = self._get_vland_id(citems, i, warn)
                         if vlanid:
