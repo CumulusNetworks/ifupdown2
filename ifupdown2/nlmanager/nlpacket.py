@@ -542,6 +542,10 @@ class AttributeMACAddress(Attribute):
                 self.value = IPv4Address(unpack('>L', self.data[4:])[0])
                 self.value_int = int(self.value)
                 self.value_int_str = str(self.value_int)
+            elif self.length == 20:
+                self.value = IPv6Address(unpack('>L', self.data[16:])[0])
+                self.value_int = int(self.value)
+                self.value_int_str = str(self.value_int)
             else:
                 raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
 
