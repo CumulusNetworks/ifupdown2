@@ -5,21 +5,21 @@
 #
 try:
     from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-    from ifupdown2.ifupdown.netlink import netlink
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
     from ifupdown.iface import *
-    from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
 
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
-    from ifupdown.netlink import netlink
 
     import ifupdown.ifupdownflags as ifupdownflags
+
 
 #
 # TODO: Add checks for ipip tunnels.
@@ -31,56 +31,49 @@ class tunnel(moduleBase):
     _modinfo = {
         'mhelp': 'create/configure GRE/IPIP/SIT and GRETAP tunnel interfaces',
         'attrs': {
-            'mode': { 
-                'help' : 'type of tunnel as in \'ip link\' command.',
-                'validvals' : ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6'],
-                'required' : True,
-                'example' : ['mode gre']
+            'mode': {
+                'help': 'type of tunnel as in \'ip link\' command.',
+                'validvals': ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6'],
+                'required': True,
+                'example': ['mode gre']
             },
-            'local':{
-                'help' : 'IP of local tunnel endpoint',
-                'validvals' : ['<ipv4>', '<ipv6>'],
-                'required' : True,
-                'example' : ['local 192.2.0.42']
+            'local': {
+                'help': 'IP of local tunnel endpoint',
+                'validvals': ['<ipv4>', '<ipv6>'],
+                'required': True,
+                'example': ['local 192.2.0.42']
             },
             'endpoint': {
-                'help' : 'IP of remote tunnel endpoint',
-                'validvals' : ['<ipv4>', '<ipv6>'],
-                'required' : True,
-                'example' : ['endpoint 192.2.0.23']
+                'help': 'IP of remote tunnel endpoint',
+                'validvals': ['<ipv4>', '<ipv6>'],
+                'required': True,
+                'example': ['endpoint 192.2.0.23']
             },
             'ttl': {
-                'help' : 'TTL for tunnel packets',
-                'validvals' : ['<number>'],
-                'required' : False,
-                'example' : ['ttl 64']
+                'help': 'TTL for tunnel packets',
+                'validvals': ['<number>'],
+                'required': False,
+                'example': ['ttl 64']
             },
             'tunnel-physdev': {
-                'help' : 'Physical underlay device to use for tunnel packets',
-                'validvals' : ['<interface>'],
-                'required' : False,
-                'example' : ['tunnel-physdev eth1']
+                'help': 'Physical underlay device to use for tunnel packets',
+                'validvals': ['<interface>'],
+                'required': False,
+                'example': ['tunnel-physdev eth1']
             },
         }
     }
 
-
-    def __init__ (self, *args, **kargs):
-
-        moduleBase.__init__ (self, *args, **kargs)
+    def __init__(self, *args, **kargs):
+        moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
-    def _is_my_interface (self, ifaceobj):
-
-        if ifaceobj.addr_method == "tunnel" and ifaceobj.get_attr_value_first('mode'):
-            return True
-
-        return False
+    @staticmethod
+    def _is_my_interface(ifaceobj):
+        return ifaceobj.addr_method == "tunnel" and ifaceobj.get_attr_value_first('mode')
 
     def _check_settings(self, ifaceobj, attrs):
-
         linkup = self.ipcmd.is_link_up(ifaceobj.name)
-
         try:
             if attrs:
                 self.ipcmd.tunnel_change(ifaceobj.name, attrs)
@@ -90,14 +83,13 @@ class tunnel(moduleBase):
             if attrs and linkup:
                 netlink.link_set_updown(ifaceobj.name, 'up')
 
-    def _up (self, ifaceobj):
-
+    def _up(self, ifaceobj):
         attr_map = {
             # attr_name -> ip route param name
-            'local' : 'local',
-            'endpoint' : 'remote',
-            'ttl' : 'ttl',
-            'tunnel-physdev' : 'dev',
+            'local': 'local',
+            'endpoint': 'remote',
+            'ttl': 'ttl',
+            'tunnel-physdev': 'dev',
         }
 
         mode = ifaceobj.get_attr_value_first('mode')
@@ -115,7 +107,7 @@ class tunnel(moduleBase):
         try:
             if not self.ipcmd.link_exists(ifaceobj.name):
                 self.ipcmd.tunnel_create(ifaceobj.name, mode, attrs)
-            elif current_mode and current_mode != mode and ( ('6' in mode and '6' not in current_mode) or ('6' not in mode and '6' in current_mode) ):
+            elif current_mode and current_mode != mode and (('6' in mode and '6' not in current_mode) or ('6' not in mode and '6' in current_mode)):
                 # Mode changes between ipv4 and ipv6 are not possible without recreating the interface
                 self.ipcmd.link_delete(ifaceobj.name)
                 self.ipcmd.tunnel_create(ifaceobj.name, mode, attrs)
@@ -125,44 +117,40 @@ class tunnel(moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
-    def _down (self, ifaceobj):
-
+    def _down(self, ifaceobj):
         if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists(ifaceobj.name):
-           return
+            return
         try:
             self.ipcmd.link_delete(ifaceobj.name)
         except Exception, e:
             self.log_warn(str(e))
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
-
         if not self._is_my_interface(ifaceobj):
             return None
-        
+
         device = ifaceobj.get_attr_value_first('tunnel-physdev')
         if device:
             return [device]
 
         return None
 
-    def _query_check_n_update(self, ifaceobj, ifaceobjcurr, attrname, attrval,
-                               running_attrval):
+    @staticmethod
+    def _query_check_n_update(ifaceobj, ifaceobjcurr, attrname, attrval, running_attrval):
         if not ifaceobj.get_attr_value_first(attrname):
             return
-
         if running_attrval and attrval == running_attrval:
-           ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
+            ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
         else:
-           ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
+            ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
-
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
 
         tunattrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
         if not tunattrs:
-            ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj, self.get_mod_attrs (), -1)
+            ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj, self.get_mod_attrs(), -1)
             return
 
         for attr in self.get_mod_attrs():
@@ -173,15 +161,14 @@ class tunnel(moduleBase):
             # Remote any leading 'tunnel-' prefix in front of the attr name
             # when accessing tunattrs parsed from 'ip -d link'.
             self._query_check_n_update(ifaceobj, ifaceobjcurr, attr,
-                                        ifaceobj.get_attr_value_first (attr),
-                                        tunattrs.get (attr.replace ("tunnel-", "")))
-
+                                       ifaceobj.get_attr_value_first(attr),
+                                       tunattrs.get(attr.replace("tunnel-", "")))
 
     # Operations supported by this addon (yet).
     _run_ops = {
-        'pre-up' : _up,
-        'post-down' : _down,
-        'query-checkcurr' : _query_check
+        'pre-up': _up,
+        'post-down': _down,
+        'query-checkcurr': _query_check
     }
 
     def get_ops(self):
@@ -191,8 +178,7 @@ class tunnel(moduleBase):
         if not self.ipcmd:
             self.ipcmd = LinkUtils()
 
-    def run(self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
-
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
@@ -205,4 +191,3 @@ class tunnel(moduleBase):
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
             op_handler(self, ifaceobj)
-    
