@@ -533,13 +533,23 @@ class AttributeMACAddress(Attribute):
 
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
-
+        
+        # IFLA_ADDRESS and IFLA_BROADCAST attributes for all interfaces has been a
+        # 6-byte MAC address. But the GRE interface uses a 4-byte IP address and 
+        # GREv6 uses a 16-byte IPv6 address for this attribute.
         try:
-            if self.length == 10:
+            # GRE interface uses a 4-byte IP address for this attribute
+            if self.length == 8:
+                self.value = IPv4Address(unpack('>L', self.data[4:])[0])
+                self.value_int = int(self.value)
+                self.value_int_str = str(self.value_int)
+            # MAC Address 
+            elif self.length == 10:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
                 self.value = mac_int_to_str(data1 << 16 | data2)
-            elif self.length == 8:
-                self.value = IPv4Address(unpack('>L', self.data[4:])[0])
+            # GREv6 interface uses a 16-byte IP address for this attribute 
+            elif self.length == 20:
+                self.value = IPv6Address(unpack('>L', self.data[16:])[0])
                 self.value_int = int(self.value)
                 self.value_int_str = str(self.value_int)
             else:
