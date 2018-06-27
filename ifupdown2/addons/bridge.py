@@ -2163,6 +2163,14 @@ class bridge(moduleBase):
         elif ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
             self.up_bridge(ifaceobj, ifaceobj_getfunc)
 
+        else:
+            bridge_attributes = self._modinfo.get('attrs', {}).keys()
+
+            for ifaceobj_config_attr in ifaceobj.config.keys():
+                if ifaceobj_config_attr in bridge_attributes:
+                    self.logger.warning('%s: invalid use of bridge attribute (%s) on non-bridge stanza'
+                                        % (ifaceobj.name, ifaceobj_config_attr))
+
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
             return
