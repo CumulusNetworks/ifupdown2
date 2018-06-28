@@ -528,6 +528,8 @@ class LinkUtils(utilsBase):
                         linkattrs['state'] = citems[i + 1]
                     elif citems[i] == 'link/ether':
                         linkattrs['hwaddress'] = citems[i + 1]
+                    elif citems[i] == 'link/ppp':
+                        linkattrs['kind'] = 'ppp'
                     elif citems[i] in ['link/gre', 'link/ipip', 'link/sit', 'link/gre6', 'link/tunnel6', 'gretap']:
                         linkattrs['kind'] = 'tunnel'
                         tunattrs = {'mode': citems[i].split('/')[-1],

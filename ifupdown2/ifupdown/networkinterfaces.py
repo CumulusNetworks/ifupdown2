@@ -28,8 +28,8 @@ whitespaces = '\n\t\r '
 class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
 
-    _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel'],
-                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel']}
+    _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel', 'ppp'],
+                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'tunnel', 'ppp']}
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
