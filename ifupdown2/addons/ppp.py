@@ -11,7 +11,7 @@ try:
 
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-    
+
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 except ImportError:
     import ifupdown.statemanager as statemanager
@@ -24,49 +24,43 @@ except ImportError:
 
     from ifupdown.exceptions import moduleNotSupported
 
+
 class ppp(moduleBase):
     """
     ifupdown2 addon module to configure ppp
     """
     _modinfo = {
-        'mhelp' : 'create/configure ppp interfaces',
-        'attrs' : {
-            'provider' : {
-                'help' : 'Provider file in ppp',
-                'validvals' : ['<text>'],
-                'required' : True,
-                'example' : ['dsl-provider']
+        'mhelp': 'create/configure ppp interfaces',
+        'attrs': {
+            'provider': {
+                'help': 'Provider file in ppp',
+                'validvals': ['<text>'],
+                'required': True,
+                'example': ['dsl-provider']
             },
-            'ppp-physdev' : {
-                'help' : 'Physical underlay device to use for ppp if any',
-                'validvals' : ['<interface>'],
-                'required' : False,
-                'example' : ['ppp-physdev eth1']
+            'ppp-physdev': {
+                'help': 'Physical underlay device to use for ppp if any',
+                'validvals': ['<interface>'],
+                'required': False,
+                'example': ['ppp-physdev eth1']
             },
         }
     }
 
-
     def __init__(self, *args, **kargs):
-
         moduleBase.__init__(self, *args, **kargs)
-
         if not os.path.exists('/usr/bin/pon'):
             raise moduleNotSupported('module init failed: no /usr/bin/pon found')
-        
         self.ipcmd = None
 
-    def _is_my_interface(self, ifaceobj):
-
-        if ifaceobj.addr_method == "ppp" and ifaceobj.get_attr_value_first('provider'):
-            return True
-
-        return False
+    @staticmethod
+    def _is_my_interface(ifaceobj):
+        return ifaceobj.addr_method == "ppp" and ifaceobj.get_attr_value_first('provider')
 
     def _up(self, ifaceobj):
-        '''
+        """
         Up the PPP connection
-        '''
+        """
         provider = ifaceobj.get_attr_value_first('provider')
         old_config = None
         old_provider = None
@@ -80,8 +74,8 @@ class ppp(moduleBase):
             # Load state data
             saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
             if saved_ifaceobjs:
-                old_provider = saved_ifaceobjs[0].get_attr_value_first ('provider')
-                old_config = saved_ifaceobjs[0].get_attr_value_first ('provider_file')
+                old_provider = saved_ifaceobjs[0].get_attr_value_first('provider')
+                old_config = saved_ifaceobjs[0].get_attr_value_first('provider_file')
 
             config = hashlib.sha256(open(ppp_file, 'rb').read()).hexdigest()
             # Always save the current config files hash
@@ -91,7 +85,7 @@ class ppp(moduleBase):
                 try:
                     # This fails if not running
                     utils.exec_user_command('/bin/ps ax | /bin/grep pppd | /bin/grep -v grep | /bin/grep ' + provider)
-                except Exception, e:
+                except Exception:
                     utils.exec_commandl(['/usr/bin/pon', provider], stdout=None, stderr=None)
 
             if old_config and old_config != config:
@@ -104,12 +98,12 @@ class ppp(moduleBase):
                 utils.exec_commandl(['/usr/bin/pon', provider], stdout=None, stderr=None)
 
         except Exception, e:
-            self.log_warn(str (e))
+            self.log_warn(str(e))
 
     def _down(self, ifaceobj):
-        '''
+        """
         Down the PPP connection
-        '''
+        """
         try:
             provider = ifaceobj.get_attr_value_first('provider')
             # This fails if not running
@@ -119,21 +113,19 @@ class ppp(moduleBase):
             self.log_warn(str(e))
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
-
         if not self._is_my_interface(ifaceobj):
             return None
-        
-        device = ifaceobj.get_attr_value_first ('ppp-physdev')
+
+        device = ifaceobj.get_attr_value_first('ppp-physdev')
 
         if device:
             return [device]
 
         return None
 
-    def _query_check (self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.ipcmd.link_exists(ifaceobj.name):
-           return
-
+            return
         ifaceobjcurr.status = ifaceStatus.SUCCESS
 
     def _query_running(self, ifaceobjrunning):
@@ -142,10 +134,10 @@ class ppp(moduleBase):
 
     # Operations supported by this addon (yet).
     _run_ops = {
-        'pre-up' : _up,
-        'down' : _down,
-        'query-checkcurr' : _query_check,
-        'query-running' : _query_running,
+        'pre-up': _up,
+        'down': _down,
+        'query-checkcurr': _query_check,
+        'query-running': _query_running,
     }
 
     def get_ops(self):
@@ -155,8 +147,7 @@ class ppp(moduleBase):
         if not self.ipcmd:
             self.ipcmd = LinkUtils()
 
-    def run(self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
-
+    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
 
         if not op_handler:
