@@ -6,8 +6,6 @@ import sys
 from setuptools import setup
 from setuptools import find_packages
 
-VERSION = '1.2.1'
-
 INSTALL_REQUIRES = [
     'argcomplete',
     'ipaddr',
@@ -68,7 +66,7 @@ setup(
     name='ifupdown2',
     packages=find_packages(),
     url='https://github.com/CumulusNetworks/ifupdown2',
-    version=VERSION,
+    version='1.2.1',
     data_files=DATA_FILES,
     setup_requires=['setuptools'],
     scripts=SCRIPTS,
