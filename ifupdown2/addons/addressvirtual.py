@@ -378,10 +378,11 @@ class addressvirtual(moduleBase):
         mac = mac.lower()
         try:
             if int(mac.split(":")[0], 16) & 1 :
-                self.logger.error("%s: Multicast bit is set in the virtual mac address '%s'" %(ifaceobj.name, mac))
+                self.log_error("%s: Multicast bit is set in the virtual mac address '%s'"
+                               % (ifaceobj.name, mac), ifaceobj=ifaceobj)
                 return False
             return True
-        except Exception:
+        except ValueError:
             return False
 
     def _fixup_vrf_enslavements(self, ifaceobj, ifaceobj_getfunc=None):
