@@ -826,8 +826,14 @@ class bridge(moduleBase):
             return True
         return False
 
+    def check_valid_bridge(self, ifaceobj, ifname):
+        if LinkUtils.link_exists(ifname) and not LinkUtils.is_bridge(ifname):
+            self.log_error('misconfiguration of bridge attribute(s) on existing non-bridge interface (%s)' % ifname, ifaceobj=ifaceobj)
+            return False
+        return True
+
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
-        if not self._is_bridge(ifaceobj):
+        if not self._is_bridge(ifaceobj) or not self.check_valid_bridge(ifaceobj, ifaceobj.name):
             return None
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
