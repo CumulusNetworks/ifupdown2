@@ -423,9 +423,14 @@ class mstpctl(moduleBase):
                                 if not self.brctlcmd.is_bridge_port(port):
                                     continue
 
-                                bport_ifaceobj = ifaceobj_getfunc(port)
-                                if bport_ifaceobj:
-                                    default_val = self._get_default_val(attrname, bport_ifaceobj[0], ifaceobj)
+                                bport_ifaceobjs = ifaceobj_getfunc(port)
+                                if bport_ifaceobjs:
+                                    default_val = self._get_default_val(attrname, bport_ifaceobjs[0], ifaceobj)
+                                    for brport_ifaceobj in bport_ifaceobjs or []:
+                                        attr_value = brport_ifaceobj.get_attr_value_first(attrname)
+                                        if attr_value:
+                                            default_val = attr_value
+                                            break
 
                                 self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                                      port,
