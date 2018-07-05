@@ -1345,6 +1345,10 @@ class LinkUtils(utilsBase):
             return True
         return os.path.exists('/sys/class/net/%s' % ifacename)
 
+    @staticmethod
+    def link_exists_nodryrun(ifname):
+        return os.path.exists('/sys/class/net/%s' % ifname)
+
     def link_get_ifindex(self, ifacename):
         if ifupdownflags.flags.DRYRUN:
             return True
