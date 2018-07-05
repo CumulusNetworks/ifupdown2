@@ -827,7 +827,7 @@ class bridge(moduleBase):
         return False
 
     def check_valid_bridge(self, ifaceobj, ifname):
-        if LinkUtils.link_exists(ifname) and not LinkUtils.is_bridge(ifname):
+        if LinkUtils.link_exists_nodryrun(ifname) and not LinkUtils.is_bridge(ifname):
             self.log_error('misconfiguration of bridge attribute(s) on existing non-bridge interface (%s)' % ifname, ifaceobj=ifaceobj)
             return False
         return True
