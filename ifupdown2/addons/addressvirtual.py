@@ -243,6 +243,13 @@ class addressvirtual(moduleBase):
                 except:
                     self.ipcmd.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
+            else:
+                if should_configure_ipv6_addrgen:
+                    # When setting addrgenmode it is necessary to flap the macvlan
+                    # device. After flapping the device we also need to re-add all
+                    # the user configuration. The best way to add the user config
+                    # is to flush our internal address cache
+                    self.ipcmd.reset_addr_cache(macvlan_ifacename)
 
             # first thing we need to handle vrf enslavement
             if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
