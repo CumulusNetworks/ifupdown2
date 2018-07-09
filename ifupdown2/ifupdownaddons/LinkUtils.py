@@ -2579,6 +2579,13 @@ class LinkUtils(utilsBase):
         except:
             return []
 
+    def reset_addr_cache(self, ifname):
+        try:
+            linkCache.links[ifname]['addrs'] = {}
+            self.logger.debug('%s: reset address cache' % ifname)
+        except:
+            pass
+
     def ipv6_addrgen(self, ifname, addrgen):
         cmd = 'link set dev %s addrgenmode %s' % (ifname, 'eui64' if addrgen else 'none')
 
