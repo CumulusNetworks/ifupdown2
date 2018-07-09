@@ -555,7 +555,8 @@ class NetlinkManager(object):
         return None
 
     def link_dump(self, ifname=None):
-        msg = Link(RTM_GETLINK, False, use_color=self.use_color)
+        debug = RTM_GETLINK in self.debug
+        msg = Link(RTM_GETLINK, debug, use_color=self.use_color)
         msg.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         msg.flags = NLM_F_REQUEST | NLM_F_ACK
 
