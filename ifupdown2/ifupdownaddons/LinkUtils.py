@@ -10,6 +10,7 @@ import re
 import glob
 import shlex
 import signal
+import socket
 import subprocess
 
 from ipaddr import IPNetwork, IPv6Network
@@ -2586,8 +2587,32 @@ class LinkUtils(utilsBase):
         except:
             pass
 
-    def ipv6_addrgen(self, ifname, addrgen):
-        cmd = 'link set dev %s addrgenmode %s' % (ifname, 'eui64' if addrgen else 'none')
+    def get_ipv6_addrgen_mode(self, ifname):
+        try:
+            return self._cache_get('link', [ifname, 'af_spec', socket.AF_INET6])[Link.IFLA_INET6_ADDR_GEN_MODE]
+        except:
+            # default to 0 (eui64)
+            return 0
+
+    def ipv6_addrgen(self, ifname, addrgen, link_created):
+        try:
+            # IFLA_INET6_ADDR_GEN_MODE values:
+            # 0 = eui64
+            # 1 = none
+            if self._link_cache_get([ifname, 'af_spec', socket.AF_INET6])[Link.IFLA_INET6_ADDR_GEN_MODE] == addrgen:
+                self.logger.debug('%s: ipv6 addrgen already %s' % (ifname, 'off' if addrgen else 'on'))
+                return
+        except:
+            pass
+
+        if not link_created:
+            # When setting addrgenmode it is necessary to flap the macvlan
+            # device. After flapping the device we also need to re-add all
+            # the user configuration. The best way to add the user config
+            # is to flush our internal address cache
+            self.reset_addr_cache(ifname)
+
+        cmd = 'link set dev %s addrgenmode %s' % (ifname, 'none' if addrgen else 'eui64')
 
         is_link_up = self.is_link_up(ifname)
 

@@ -6,6 +6,7 @@
 
 import os
 import glob
+import socket
 
 from ipaddr import IPNetwork, IPv6Network
 
@@ -203,7 +204,17 @@ class addressvirtual(moduleBase):
         ipv6_addrgen = ifaceobj.get_attr_value_first('address-virtual-ipv6-addrgen')
 
         if ipv6_addrgen:
-            return True, utils.get_boolean_from_string(ipv6_addrgen)
+            # IFLA_INET6_ADDR_GEN_MODE values:
+            # 0 = eui64
+            # 1 = none
+            ipv6_addrgen_nl = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}.get(ipv6_addrgen.lower(), None)
+
+            if ipv6_addrgen_nl is None:
+                self.logger.warning('%s: value "%s" not allowed for attribute "ipv6-addrgen"' % (ifaceobj.name, user_configured_ipv6_addrgen))
+
+                self.logger.warning('%s: invalid value "%s" for attribute address-virtual-ipv6-addrgen' % (ifaceobj.name, ipv6_addrgen))
+            else:
+                return True, ipv6_addrgen_nl
 
         return False, None
 
@@ -215,7 +226,7 @@ class addressvirtual(moduleBase):
             if ifaceobj.lowerifaces and address_virtual_list:
                 update_mtu = True
 
-        should_configure_ipv6_addrgen, ipv6_addrgen_user_value = self.get_addressvirtual_ipv6_addrgen_user_conf(ifaceobj)
+        user_configured_ipv6_addrgenmode, ipv6_addrgen_user_value = self.get_addressvirtual_ipv6_addrgen_user_conf(ifaceobj)
 
         hwaddress = []
         self.ipcmd.batch_start()
@@ -243,20 +254,13 @@ class addressvirtual(moduleBase):
                 except:
                     self.ipcmd.link_add_macvlan(ifaceobj.name, macvlan_ifacename)
                 link_created = True
-            else:
-                if should_configure_ipv6_addrgen:
-                    # When setting addrgenmode it is necessary to flap the macvlan
-                    # device. After flapping the device we also need to re-add all
-                    # the user configuration. The best way to add the user config
-                    # is to flush our internal address cache
-                    self.ipcmd.reset_addr_cache(macvlan_ifacename)
 
             # first thing we need to handle vrf enslavement
             if (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE):
                 self._handle_vrf_slaves(macvlan_ifacename, ifaceobj)
 
-            if should_configure_ipv6_addrgen:
-                self.ipcmd.ipv6_addrgen(macvlan_ifacename, ipv6_addrgen_user_value)
+            if user_configured_ipv6_addrgenmode:
+                self.ipcmd.ipv6_addrgen(macvlan_ifacename, ipv6_addrgen_user_value, link_created)
 
             ips = av_attrs[1:]
             if mac != 'None':
@@ -486,6 +490,13 @@ class addressvirtual(moduleBase):
             return
         if not self.ipcmd.link_exists(ifaceobj.name):
             return
+
+        user_config_address_virtual_ipv6_addr = ifaceobj.get_attr_value_first('address-virtual-ipv6-addrgen')
+        if user_config_address_virtual_ipv6_addr and user_config_address_virtual_ipv6_addr not in utils._string_values:
+            ifaceobjcurr.update_config_with_status('address-virtual-ipv6-addrgen', user_config_address_virtual_ipv6_addr, 1)
+            user_config_address_virtual_ipv6_addr = None
+        macvlans_running_ipv6_addr = []
+
         av_idx = 0
         macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
         for address_virtual in address_virtual_list:
@@ -503,6 +514,10 @@ class addressvirtual(moduleBase):
                             '', 1)
                 av_idx += 1
                 continue
+
+            if user_config_address_virtual_ipv6_addr:
+                macvlans_running_ipv6_addr.append(self.ipcmd.get_ipv6_addrgen_mode(macvlan_ifacename))
+
             # Check mac and ip address
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
             raddrs = self.ipcmd.get_running_addrs(
@@ -537,11 +552,19 @@ class addressvirtual(moduleBase):
                 ifaceobjcurr.update_config_with_status('address-virtual',
                                                        raddress_virtual, 1)
             av_idx += 1
-        return
+
+        if user_config_address_virtual_ipv6_addr:
+            bool_user_ipv6_addrgen = utils.get_boolean_from_string(user_config_address_virtual_ipv6_addr)
+            for running_ipv6_addrgen in macvlans_running_ipv6_addr:
+                if (not bool_user_ipv6_addrgen) != running_ipv6_addrgen:
+                    ifaceobjcurr.update_config_with_status('address-virtual-ipv6-addrgen', user_config_address_virtual_ipv6_addr, 1)
+                    return
+            ifaceobjcurr.update_config_with_status('address-virtual-ipv6-addrgen', user_config_address_virtual_ipv6_addr, 0)
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         macvlan_prefix = self._get_macvlan_prefix(ifaceobjrunning)
         address_virtuals = glob.glob("/sys/class/net/%s*" %macvlan_prefix)
+        macvlans_ipv6_addrgen_list = []
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)
             rhwaddress = self.ipcmd.link_get_hwaddress(macvlan_ifacename)
@@ -552,7 +575,22 @@ class addressvirtual(moduleBase):
                 raddress = []
             ifaceobjrunning.update_config('address-virtual',
                             '%s %s' %(rhwaddress, ''.join(raddress)))
-        return
+
+            macvlans_ipv6_addrgen_list.append((macvlan_ifacename, self.ipcmd.get_ipv6_addrgen_mode(macvlan_ifacename)))
+
+        macvlan_count = len(address_virtuals)
+        if not macvlan_count:
+            return
+        ipv6_addrgen = macvlans_ipv6_addrgen_list[0][1]
+
+        for macvlan_ifname, macvlan_ipv6_addrgen in macvlans_ipv6_addrgen_list:
+            if macvlan_ipv6_addrgen != ipv6_addrgen:
+                # one macvlan has a different ipv6-addrgen configuration
+                # we simply return, ifquery-running will print the macvlan
+                # stanzas with the ipv6-addrgen on/off attribute
+                return
+        ifaceobjrunning.update_config('address-virtual-ipv6-addrgen', 'off' if ipv6_addrgen else 'on')
+
 
     _run_ops = {'up' : _up,
                'down' : _down,
