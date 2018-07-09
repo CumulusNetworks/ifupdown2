@@ -4,6 +4,8 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import socket
+
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, _BaseV6
 
 try:
@@ -751,9 +753,34 @@ class address(moduleBase):
         self._process_mtu_config(ifaceobj, ifaceobj_getfunc, mtu)
 
     def up_ipv6_addrgen(self, ifaceobj):
-        ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
-        if ipv6_addrgen:
-            self.ipcmd.ipv6_addrgen(ifaceobj.name, utils.get_boolean_from_string(ipv6_addrgen))
+        user_configured_ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
+
+        if not user_configured_ipv6_addrgen:
+            for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
+                old_config_ipv6_addrgen = old_ifaceobj.get_attr_value_first('ipv6-addrgen')
+
+                if old_config_ipv6_addrgen:
+                    user_configured_ipv6_addrgen = self.get_attr_default_value('ipv6-addrgen')
+                    break
+
+            if not user_configured_ipv6_addrgen:
+                # no previous config detected we dont have to configure ipv6-addrgen
+                return
+
+        ipv6_addrgen_nl = {
+            'on': 0,
+            'yes': 0,
+            '0': 0,
+            'off': 1,
+            'no': 1,
+            '1': 1
+        }.get(user_configured_ipv6_addrgen.lower(), None)
+
+        if ipv6_addrgen_nl is not None:
+            self.ipcmd.ipv6_addrgen(ifaceobj.name, ipv6_addrgen_nl, link_created=True)
+            # link_create=False will flush the addr cache of that intf
+        else:
+            self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobj.name):
@@ -958,11 +985,29 @@ class address(moduleBase):
                                             mpls_enable != running_mpls_enable)
         return
 
+    def query_check_ipv6_addrgen(self, ifaceobj, ifaceobjcurr):
+        ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
+
+        if not ipv6_addrgen:
+            return
+
+        if ipv6_addrgen in utils._string_values:
+            ifaceobjcurr.update_config_with_status(
+                'ipv6-addrgen',
+                ipv6_addrgen,
+                utils.get_boolean_from_string(ipv6_addrgen) == self.ipcmd.get_ipv6_addrgen_mode(ifaceobj.name)
+            )
+        else:
+            ifaceobjcurr.update_config_with_status('ipv6-addrgen', ipv6_addrgen, 1)
+
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         runningaddrsdict = None
         if not self.ipcmd.link_exists(ifaceobj.name):
             self.logger.debug('iface %s not found' %ifaceobj.name)
             return
+
+        self.query_check_ipv6_addrgen(ifaceobj, ifaceobjcurr)
+
         addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.ipcmd.link_get_mtu)
@@ -1036,10 +1081,19 @@ class address(moduleBase):
         #XXXX Check broadcast address, scope, etc
         return
 
+    def query_running_ipv6_addrgen(self, ifaceobjrunning):
+        ipv6_addrgen = self.ipcmd.get_ipv6_addrgen_mode(ifaceobjrunning.name)
+
+        if ipv6_addrgen:
+            ifaceobjrunning.update_config('ipv6-addrgen', 'off')
+
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         if not self.ipcmd.link_exists(ifaceobjrunning.name):
             self.logger.debug('iface %s not found' %ifaceobjrunning.name)
             return
+
+        self.query_running_ipv6_addrgen(ifaceobjrunning)
+
         dhclientcmd = dhclient()
         if (dhclientcmd.is_running(ifaceobjrunning.name) or
                 dhclientcmd.is_running6(ifaceobjrunning.name)):
