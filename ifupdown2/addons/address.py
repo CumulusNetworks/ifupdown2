@@ -96,12 +96,12 @@ class address(moduleBase):
                               'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']},
                       'ip-forward' :
                             { 'help': 'ip forwarding flag',
-                              'validvals': ['on', 'off'],
+                              'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
                               'default' : 'off',
                               'example' : ['ip-forward off']},
                       'ip6-forward' :
                             { 'help': 'ipv6 forwarding flag',
-                              'validvals': ['on', 'off'],
+                              'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
                               'default' : 'off',
                               'example' : ['ip6-forward off']},
                       'mpls-enable' :
