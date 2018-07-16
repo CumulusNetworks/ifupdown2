@@ -348,8 +348,16 @@ class address(moduleBase):
         return (True, newaddrs, newaddr_attrs)
 
     def _inet_address_list_config(self, ifaceobj, newaddrs, newaddr_attrs):
+        ipv6_enabled = (self.sysctl_get('net.ipv6.conf.%s.disable_ipv6' %ifaceobj.name) == '0')
+        ipv6_requested = False
+
         for addr_index in range(0, len(newaddrs)):
             try:
+                if isinstance(newaddrs[addr_index], _BaseV6):
+                    if not ipv6_requested and not ipv6_enabled:
+                        self.sysctl_set('net.ipv6.conf.%s.disable_ipv6' %ifaceobj.name, 0)
+                    ipv6_requested = True
+
                 if newaddr_attrs:
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
                         newaddr_attrs.get(newaddrs[addr_index],
@@ -364,6 +372,10 @@ class address(moduleBase):
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
             except Exception, e:
                 self.log_error(str(e), ifaceobj)
+
+        if ipv6_enabled and not ipv6_requested:
+            ipv6_default = self.sysctl_get('net.ipv6.conf.default.disable_ipv6')
+            self.sysctl_set('net.ipv6.conf.%s.disable_ipv6' %ifaceobj.name, ipv6_default)
 
     def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None,
                              force_reapply=False):
