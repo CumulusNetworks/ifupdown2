@@ -951,11 +951,13 @@ class address(moduleBase):
                 running_ipforward = self.read_file_oneline(
                                         '/proc/sys/net/ipv4/conf/%s/forwarding'
                                         %ifaceobj.name)
-                running_ipforward = utils.get_onff_from_onezero(
-                                            running_ipforward)
-                ifaceobjcurr.update_config_with_status('ip-forward',
-                                                       running_ipforward,
-                                                 ipforward != running_ipforward)
+                running_ipforward = utils.get_boolean_from_string(running_ipforward)
+                config_ipforward = utils.get_boolean_from_string(ipforward)
+                ifaceobjcurr.update_config_with_status(
+                    'ip-forward',
+                    'on' if running_ipforward else 'off',
+                    running_ipforward != config_ipforward
+                )
 
         ip6forward = ifaceobj.get_attr_value_first('ip6-forward')
         if ip6forward:
@@ -968,11 +970,13 @@ class address(moduleBase):
                 running_ip6forward = self.read_file_oneline(
                                         '/proc/sys/net/ipv6/conf/%s/forwarding'
                                         %ifaceobj.name)
-                running_ip6forward = utils.get_onff_from_onezero(
-                                            running_ip6forward)
-                ifaceobjcurr.update_config_with_status('ip6-forward',
-                                                       running_ip6forward,
-                                                 ip6forward != running_ip6forward)
+                running_ip6forward = utils.get_boolean_from_string(running_ip6forward)
+                config_ip6forward = utils.get_boolean_from_string(ip6forward)
+                ifaceobjcurr.update_config_with_status(
+                    'ip6-forward',
+                    'on' if running_ip6forward else 'off',
+                    running_ip6forward != config_ip6forward
+                )
         mpls_enable = ifaceobj.get_attr_value_first('mpls-enable');
         if mpls_enable:
             running_mpls_enable = self.read_file_oneline(
