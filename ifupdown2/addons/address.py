@@ -410,21 +410,22 @@ class address(moduleBase):
             anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, self._get_anycast_addr(ifaceobjlist))
 
             if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
-                newaddrs.append(anycast_addr)
+                anycast_obj = utils.get_ip_objs(module_name, ifname, [anycast_addr])
+                newaddrs.append(anycast_obj[0])
 
-            user_ip4, user_ip6, newaddrs = self.order_user_configured_addrs(newaddrs)
+            user_ip4, user_ip6, addrstrs = self.order_user_configured_addrs(newaddrs)
 
-            if newaddrs == runningaddrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, runningaddrs):
+            if addrstrs == runningaddrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, runningaddrs):
                 if force_reapply:
                     self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
                 return
             try:
                 # if primary address is not same, there is no need to keep any.
                 # reset all addresses
-                if newaddrs and runningaddrs and newaddrs[0] != runningaddrs[0]:
+                if addrstrs and runningaddrs and addrstrs[0] != runningaddrs[0]:
                     skip_addrs = []
                 else:
-                    skip_addrs = newaddrs or []
+                    skip_addrs = addrstrs or []
                 for addr in runningaddrs or []:
                     if addr in skip_addrs:
                         continue
