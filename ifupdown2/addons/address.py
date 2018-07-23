@@ -756,16 +756,8 @@ class address(moduleBase):
         user_configured_ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
 
         if not user_configured_ipv6_addrgen:
-            for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
-                old_config_ipv6_addrgen = old_ifaceobj.get_attr_value_first('ipv6-addrgen')
-
-                if old_config_ipv6_addrgen:
-                    user_configured_ipv6_addrgen = self.get_attr_default_value('ipv6-addrgen')
-                    break
-
-            if not user_configured_ipv6_addrgen:
-                # no previous config detected we dont have to configure ipv6-addrgen
-                return
+            # if user didn't configure ipv6-addrgen, should we reset to default?
+            user_configured_ipv6_addrgen = self.get_attr_default_value('ipv6-addrgen')
 
         ipv6_addrgen_nl = {
             'on': 0,
