@@ -73,6 +73,8 @@ class addressvirtual(moduleBase):
             default=True
         )
 
+        self.address_virtual_ipv6_addrgen_value_dict = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}
+
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if ifaceobj.get_attr_value('address-virtual'):
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE
@@ -207,13 +209,20 @@ class addressvirtual(moduleBase):
             # IFLA_INET6_ADDR_GEN_MODE values:
             # 0 = eui64
             # 1 = none
-            ipv6_addrgen_nl = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}.get(ipv6_addrgen.lower(), None)
+            ipv6_addrgen_nl = self.address_virtual_ipv6_addrgen_value_dict.get(ipv6_addrgen.lower(), None)
 
             if ipv6_addrgen_nl is None:
-                self.logger.warning('%s: value "%s" not allowed for attribute "ipv6-addrgen"' % (ifaceobj.name, user_configured_ipv6_addrgen))
-
                 self.logger.warning('%s: invalid value "%s" for attribute address-virtual-ipv6-addrgen' % (ifaceobj.name, ipv6_addrgen))
             else:
+                return True, ipv6_addrgen_nl
+
+        else:
+            # if user didn't configure ipv6-addrgen, should we reset to default?
+            ipv6_addrgen_nl = self.address_virtual_ipv6_addrgen_value_dict.get(
+                self.get_attr_default_value('address-virtual-ipv6-addrgen'),
+                None
+            )
+            if ipv6_addrgen_nl is not None:
                 return True, ipv6_addrgen_nl
 
         return False, None
