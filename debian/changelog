@@ -1,6 +1,7 @@
 ifupdown2 (1.2.1-cl3u20) UNRELEASED; urgency=medium
 
   * New. Enabled: fix netlink backend to prevent exceptions on GREv6 tunnels
+  * Closes: CM-21564: add 0/1/on/off/yes/no support to ip[6]-forward attribute
 
  -- dev-support <dev-support@cumulusnetworks.com>  Thu, 28 Jun 2018 17:42:42 +0200
 
