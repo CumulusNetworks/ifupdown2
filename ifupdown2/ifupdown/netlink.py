@@ -335,6 +335,11 @@ class Netlink(utilsBase):
             'attr': Link.IFLA_OPERSTATE,
             'name': 'state',
             'func': lambda x: '0%x' % int(x) if x > len(Link.oper_to_string) else Link.oper_to_string[x][8:]
+        },
+        {
+            'attr': Link.IFLA_AF_SPEC,
+            'name': 'af_spec',
+            'func': dict
         }
     ]
 

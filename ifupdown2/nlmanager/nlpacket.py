@@ -796,10 +796,6 @@ class AttributeIFLA_AF_SPEC(Attribute):
         self.decode_length_type(data)
         self.value = {}
 
-        # opti for now, since we only support AF_BRIDGE
-        if self.family != AF_BRIDGE:
-            return
-
         data = self.data[4:]
 
         while data:
@@ -828,10 +824,63 @@ class AttributeIFLA_AF_SPEC(Attribute):
                                   sub_attr_type, sub_attr_length, sub_attr_end))
 
             elif self.family == AF_UNSPEC:
-                self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_AF_SPEC sub-attribute '
-                                                 'type AF_UNSPEC (0), length %d, padded to %d'
-                             % (sub_attr_length, sub_attr_end))
 
+                if sub_attr_type == AF_INET6:
+                    inet6_attr = {}
+
+                    while sub_attr_data:
+                        (inet6_attr_length, inet6_attr_type) = unpack('=HH', sub_attr_data[:4])
+                        inet6_attr_end = padded_length(inet6_attr_length)
+
+                        # 1 byte attr
+                        if inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
+                            inet6_attr[inet6_attr_type] = unpack('=B', sub_attr_data[4])[0]
+                            # nlmanager doesn't support multiple kernel version
+                            # all the other attributes like IFLA_INET6_CONF are
+                            # based on DEVCONF_MAX from _UAPI_IPV6_H.
+                            # we can opti the code and break this loop once we
+                            # found the attribute that we are interested in.
+                            # It's not really worth going through all the other
+                            # attributes to log that we don't support them yet
+                            break
+                        else:
+                            self.log.log(
+                                SYSLOG_EXTRA_DEBUG,
+                                'Add support for decoding AF_INET6 IFLA_AF_SPEC '
+                                'sub-attribute type %s (%d), length %d, padded to %d'
+                                % (
+                                    parent_msg.get_ifla_inet6_af_spec_to_string(inet6_attr_type),
+                                    inet6_attr_type, inet6_attr_length, inet6_attr_end
+                                )
+                            )
+
+                        sub_attr_data = sub_attr_data[inet6_attr_end:]
+                    self.value[AF_INET6] = inet6_attr
+                else:
+                    self.value[sub_attr_type] = {}
+
+                # Uncomment the following block to implement the AF_INET attributes
+                # see Link.get_ifla_inet_af_spec_to_string (dict)
+                #elif sub_attr_type == AF_INET:
+                #    inet_attr = {}
+                #
+                #    while sub_attr_data:
+                #        (inet_attr_length, inet_attr_type) = unpack('=HH', sub_attr_data[:4])
+                #        inet_attr_end = padded_length(inet_attr_length)
+                #
+                #        self.log.error(
+                #            # SYSLOG_EXTRA_DEBUG,
+                #            'Add support for decoding AF_INET IFLA_AF_SPEC '
+                #            'sub-attribute type %s (%d), length %d, padded to %d'
+                #            % (
+                #                parent_msg.get_ifla_inet_af_spec_to_string(inet_attr_type),
+                #                inet_attr_type, inet_attr_length, inet_attr_end
+                #            )
+                #        )
+                #
+                #        sub_attr_data = sub_attr_data[inet_attr_end:]
+                #
+                #    self.value[AF_INET] = inet_attr
             else:
                 self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_AF_SPEC sub-attribute '
                                                  'family %d, length %d, padded to %d'
@@ -862,9 +911,9 @@ class AttributeIFLA_AF_SPEC(Attribute):
                 next_sub_attr_line = line_number + (sub_attr_end/4)
 
                 if sub_attr_end == sub_attr_length:
-                    padded_to = ', '
+                    padded_to = ','
                 else:
-                    padded_to = ' padded to %d, ' % sub_attr_end
+                    padded_to = ' padded to %d,' % sub_attr_end
 
                 if self.family == AF_BRIDGE:
                     extra = 'Nested Attribute - Length %s (%d)%s Type %s (%d) %s' % \
@@ -872,6 +921,18 @@ class AttributeIFLA_AF_SPEC(Attribute):
                              padded_to,
                              zfilled_hex(sub_attr_type, 4), sub_attr_type,
                              Link.ifla_bridge_af_spec_to_string.get(sub_attr_type))
+                elif self.family == AF_UNSPEC:
+                    if sub_attr_type == AF_INET6:
+                        family = 'AF_INET6'
+                    elif sub_attr_type == AF_INET:
+                        family = 'AF_INET'
+                    else:
+                        family = 'Unsupported family %d' % sub_attr_type
+
+                    extra = 'Nested Attribute Structure for %s - Length %s (%d)%s Type %s (%d)' % (
+                        family, zfilled_hex(sub_attr_length, 4), sub_attr_length, padded_to,
+                        zfilled_hex(sub_attr_type, 4), sub_attr_type,
+                    )
             else:
                 extra = ''
 
@@ -889,9 +950,25 @@ class AttributeIFLA_AF_SPEC(Attribute):
         # with the names of the nested keys instead of their numbers
         value_pretty = {}
 
-        for (sub_key, sub_value) in self.value.iteritems():
-            sub_key_pretty = "(%2d) %s" % (sub_key, Link.ifla_bridge_af_spec_to_string.get(sub_key))
-            value_pretty[sub_key_pretty] = sub_value
+        if self.family == AF_BRIDGE:
+            for (sub_key, sub_value) in self.value.iteritems():
+                sub_key_pretty = "(%2d) %s" % (sub_key, Link.ifla_bridge_af_spec_to_string.get(sub_key))
+                value_pretty[sub_key_pretty] = sub_value
+        elif self.family == AF_UNSPEC:
+            for (family, family_attr) in self.value.iteritems():
+                family_value_pretty = {}
+
+                if family == AF_INET6:
+                    family_af_spec_to_string = Link.ifla_inet6_af_spec_to_string
+                elif family == AF_INET:
+                    family_af_spec_to_string = Link.ifla_inet_af_spec_to_string
+                else:
+                    continue # log error?
+
+                for (sub_key, sub_value) in family_attr.iteritems():
+                    sub_key_pretty = "(%2d) %s" % (sub_key, family_af_spec_to_string.get(sub_key))
+                    family_value_pretty[sub_key_pretty] = sub_value
+                value_pretty = family_value_pretty
 
         return value_pretty
 
@@ -3362,6 +3439,40 @@ class Link(NetlinkPacket):
         IFLA_BRPORT_DOWN_PEERLINK_REDIRECT : 'IFLA_BRPORT_DOWN_PEERLINK_REDIRECT'
     }
 
+    # Subtype attributes for IFLA_AF_SPEC
+    IFLA_INET6_UNSPEC           = 0
+    IFLA_INET6_FLAGS            = 1  # link flags
+    IFLA_INET6_CONF             = 2  # sysctl parameters
+    IFLA_INET6_STATS            = 3  # statistics
+    IFLA_INET6_MCAST            = 4  # MC things. What of them?
+    IFLA_INET6_CACHEINFO        = 5  # time values and max reasm size
+    IFLA_INET6_ICMP6STATS       = 6  # statistics (icmpv6)
+    IFLA_INET6_TOKEN            = 7  # device token
+    IFLA_INET6_ADDR_GEN_MODE    = 8  # implicit address generator mode
+    __IFLA_INET6_MAX            = 9
+
+    ifla_inet6_af_spec_to_string = {
+        IFLA_INET6_UNSPEC           : 'IFLA_INET6_UNSPEC',
+        IFLA_INET6_FLAGS            : 'IFLA_INET6_FLAGS',
+        IFLA_INET6_CONF             : 'IFLA_INET6_CONF',
+        IFLA_INET6_STATS            : 'IFLA_INET6_STATS',
+        IFLA_INET6_MCAST            : 'IFLA_INET6_MCAST',
+        IFLA_INET6_CACHEINFO        : 'IFLA_INET6_CACHEINFO',
+        IFLA_INET6_ICMP6STATS       : 'IFLA_INET6_ICMP6STATS',
+        IFLA_INET6_TOKEN            : 'IFLA_INET6_TOKEN',
+        IFLA_INET6_ADDR_GEN_MODE    : 'IFLA_INET6_ADDR_GEN_MODE',
+    }
+
+    # Subtype attrbutes AF_INET
+    IFLA_INET_UNSPEC    = 0
+    IFLA_INET_CONF      = 1
+    __IFLA_INET_MAX     = 2
+
+    ifla_inet_af_spec_to_string = {
+        IFLA_INET_UNSPEC    : 'IFLA_INET_UNSPEC',
+        IFLA_INET_CONF      : 'IFLA_INET_CONF',
+    }
+
     # BRIDGE IFLA_AF_SPEC attributes
     IFLA_BRIDGE_FLAGS     = 0
     IFLA_BRIDGE_MODE      = 1
@@ -3524,6 +3635,12 @@ class Link(NetlinkPacket):
 
     def get_link_type_string(self, index):
         return self.get_string(self.link_type_to_string, index)
+
+    def get_ifla_inet6_af_spec_to_string(self, index):
+        return self.get_string(self.ifla_inet6_af_spec_to_string, index)
+
+    def get_ifla_inet_af_spec_to_string(self, index):
+        return self.get_string(self.ifla_inet_af_spec_to_string, index)
 
     def get_ifla_bridge_af_spec_to_string(self, index):
         return self.get_string(self.ifla_bridge_af_spec_to_string, index)
