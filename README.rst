@@ -35,7 +35,7 @@ Once you have a copy of the source, you should build a deb-package and install i
 
 .. code-block:: console
 
-    $ cd ifupdown2 && make deb
+    $ cd ifupdown2 && git checkout master-next && make deb
 
 The generated deb should be in the root directory (``../ifupdown2_2.0.0_all.deb``)
 
