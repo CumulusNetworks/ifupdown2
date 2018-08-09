@@ -2602,7 +2602,21 @@ class LinkUtils(utilsBase):
             if self._link_cache_get([ifname, 'af_spec', socket.AF_INET6])[Link.IFLA_INET6_ADDR_GEN_MODE] == addrgen:
                 self.logger.debug('%s: ipv6 addrgen already %s' % (ifname, 'off' if addrgen else 'on'))
                 return
-        except:
+
+            if int(self._link_cache_get([ifname, 'mtu'])) < 1280:
+                self.logger.info('%s: ipv6 addrgen is disabled on device with MTU '
+                                 'lower than 1280: cannot set addrgen %s' % (ifname, 'off' if addrgen else 'on'))
+                return
+
+            disabled_ipv6 = self.read_file_oneline('/proc/sys/net/ipv6/conf/%s/disable_ipv6' % ifname)
+            if not disabled_ipv6 or int(disabled_ipv6) == 1:
+                self.logger.info('%s: cannot set addrgen: ipv6 is disabled on this device' % ifname)
+                return
+
+        except (KeyError, TypeError):
+            self.logger.debug('%s: ipv6 addrgen probably not supported or disabled on this device' % ifname)
+            return
+        except Exception:
             pass
 
         if not link_created:
