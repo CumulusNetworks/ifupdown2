@@ -35,7 +35,7 @@ Once you have a copy of the source, you should build a deb-package and install i
 
 .. code-block:: console
 
-    $ cd ifupdown2 && make deb
+    $ cd ifupdown2 && git checkout master-next && make deb
 
 The generated deb should be in the root directory (``../ifupdown2_2.0.0_all.deb``)
 
@@ -50,7 +50,7 @@ You might need to manually download dependencies. Mandatory dependencies:
 
 .. code-block:: console
 
-    $ apt-get install dh-systemd python-all python-docutils rst2man iproute2 python-ipaddr python-argcomplete
+    $ apt-get install dh-systemd python-all python-docutils iproute2 python-ipaddr python-argcomplete
 
 Suggested dependencies:
 
