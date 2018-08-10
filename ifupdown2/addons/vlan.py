@@ -136,7 +136,7 @@ class vlan(moduleBase):
                 user_vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
                 cached_vlan_raw_device = self.ipcmd.cache_get('link', [ifaceobj.name, 'link'])
 
-                if cached_vlan_raw_device != user_vlan_raw_device:
+                if cached_vlan_raw_device and cached_vlan_raw_device != user_vlan_raw_device:
                     raise Exception('%s: cannot change vlan-raw-device from %s to %s: operation not supported. '
                                     'Please delete the device with \'ifdown %s\' and recreate it to apply the change.'
                                     % (ifaceobj.name, cached_vlan_raw_device, user_vlan_raw_device, ifaceobj.name))
