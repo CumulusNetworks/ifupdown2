@@ -79,8 +79,8 @@ class mstpctlutil(utilsBase):
             return mstpctlutil._DEFAULT_PORT_PRIO
 
     def _get_bridge_and_port_attrs_from_cache(self, bridgename):
-        attrs = MSTPAttrsCache.get(bridgename)
-        if attrs:
+        attrs = MSTPAttrsCache.get(bridgename, None)
+        if attrs is not None:
             return attrs
         mstpctl_bridgeport_attrs_dict = {}
         try:
@@ -88,6 +88,7 @@ class mstpctlutil(utilsBase):
                    'showportdetail', bridgename, 'json']
             output = utils.exec_commandl(cmd)
             if not output:
+                MSTPAttrsCache.set(bridgename, mstpctl_bridgeport_attrs_dict)
                 return mstpctl_bridgeport_attrs_dict
         except Exception as e:
             self.logger.info(str(e))
