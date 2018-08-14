@@ -161,7 +161,7 @@ class vlan(moduleBase):
             not self.ipcmd.link_exists(ifaceobj.name)):
            return
         try:
-            self.ipcmd.link_delete(ifaceobj.name)
+            netlink.link_del(ifaceobj.name)
             self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid, add=False)
         except Exception, e:
             self.log_warn(str(e))
