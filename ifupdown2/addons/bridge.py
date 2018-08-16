@@ -664,27 +664,42 @@ class bridge(moduleBase):
 
     @staticmethod
     def _l2protocol_tunnel_set_pvst(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        ifla_brport_group_maskhi |= 0x1
+        if not ifla_brport_group_maskhi:
+            ifla_brport_group_maskhi = 0x1
+        else:
+            ifla_brport_group_maskhi |= 0x1
         return ifla_brport_group_mask, ifla_brport_group_maskhi
 
     @staticmethod
     def _l2protocol_tunnel_set_cdp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        ifla_brport_group_maskhi |= 0x2
+        if not ifla_brport_group_maskhi:
+            ifla_brport_group_maskhi = 0x2
+        else:
+            ifla_brport_group_maskhi |= 0x2
         return ifla_brport_group_mask, ifla_brport_group_maskhi
 
     @staticmethod
     def _l2protocol_tunnel_set_stp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        ifla_brport_group_mask |= 0x1
+        if not ifla_brport_group_mask:
+            ifla_brport_group_mask = 0x1
+        else:
+            ifla_brport_group_mask |= 0x1
         return ifla_brport_group_mask, ifla_brport_group_maskhi
 
     @staticmethod
     def _l2protocol_tunnel_set_lacp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        ifla_brport_group_mask |= 0x4
+        if not ifla_brport_group_mask:
+            ifla_brport_group_mask = 0x4
+        else:
+            ifla_brport_group_mask |= 0x4
         return ifla_brport_group_mask, ifla_brport_group_maskhi
 
     @staticmethod
     def _l2protocol_tunnel_set_lldp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        ifla_brport_group_mask |= 0x4000
+        if not ifla_brport_group_mask:
+            ifla_brport_group_mask = 0x4000
+        else:
+            ifla_brport_group_mask |= 0x4000
         return ifla_brport_group_mask, ifla_brport_group_maskhi
 
     @staticmethod
@@ -694,23 +709,23 @@ class bridge(moduleBase):
 
     @staticmethod
     def _query_check_l2protocol_tunnel_stp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        return ifla_brport_group_mask & 0x1
+        return ifla_brport_group_mask and ifla_brport_group_mask & 0x1
 
     @staticmethod
     def _query_check_l2protocol_tunnel_cdp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        return ifla_brport_group_maskhi & 0x2
+        return ifla_brport_group_maskhi and ifla_brport_group_maskhi & 0x2
 
     @staticmethod
     def _query_check_l2protocol_tunnel_pvst(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        return ifla_brport_group_maskhi & 0x1
+        return ifla_brport_group_maskhi and ifla_brport_group_maskhi & 0x1
 
     @staticmethod
     def _query_check_l2protocol_tunnel_lldp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        return ifla_brport_group_mask & 0x4000
+        return ifla_brport_group_mask and ifla_brport_group_mask & 0x4000
 
     @staticmethod
     def _query_check_l2protocol_tunnel_lacp(ifla_brport_group_mask, ifla_brport_group_maskhi):
-        return ifla_brport_group_mask & 0x4
+        return ifla_brport_group_mask and ifla_brport_group_mask & 0x4
 
     @staticmethod
     def _query_check_l2protocol_tunnel_all(ifla_brport_group_mask, ifla_brport_group_maskhi):
