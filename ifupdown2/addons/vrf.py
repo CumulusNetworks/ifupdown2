@@ -495,8 +495,9 @@ class vrf(moduleBase):
                     master_exists = False
             else:
                 master_exists = False
-            if master_exists and not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-                netlink.link_set_updown(ifacename, "up")
+            if master_exists:
+                if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                    netlink.link_set_updown(ifacename, "up")
             else:
                 self.log_error('vrf %s not around, skipping vrf config'
                                %(vrfname), ifaceobj)
