@@ -129,6 +129,9 @@ class NetlinkManager(object):
     def debug_route(self, enabled):
         self._debug_set_clear((RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE), enabled)
 
+    def debug_netconf(self, enabled):
+        self._debug_set_clear((RTM_GETNETCONF, RTM_NEWNETCONF), enabled)
+
     def debug_this_packet(self, mtype):
         if mtype in self.debug:
             return True
@@ -327,6 +330,9 @@ class NetlinkManager(object):
 
                         elif msgtype == RTM_NEWROUTE or msgtype == RTM_DELROUTE:
                             msg = Route(msgtype, nlpacket.debug, use_color=self.use_color)
+
+                        elif msgtype in (RTM_GETNETCONF, RTM_NEWNETCONF):
+                            msg = Netconf(msgtype, nlpacket.debug, use_color=self.use_color)
 
                         else:
                             raise Exception("RXed unknown netlink message type %s" % msgtype)
@@ -1017,5 +1023,22 @@ class NetlinkManager(object):
         msg.body = pack('=Bxxxi', socket.AF_UNSPEC, 0)
         msg.flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP
 
+        msg.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(msg)
+
+    # =======
+    # Netconf
+    # =======
+    def netconf_dump(self):
+        """
+            The attribute Netconf.NETCONFA_IFINDEX is available but don't let it fool you
+            it seems like the kernel doesn't really care about this attribute and will dump
+            everything according of the requested family (AF_UNSPEC for everything).
+            Device filtering needs to be done afterwards by the user.
+        """
+        debug = RTM_GETNETCONF in self.debug
+        msg = Netconf(RTM_GETNETCONF, debug, use_color=self.use_color)
+        msg.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        msg.flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK
         msg.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(msg)
