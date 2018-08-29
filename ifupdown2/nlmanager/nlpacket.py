@@ -71,6 +71,9 @@ RTM_NEWQDISC  = 0x24
 RTM_DELQDISC  = 0x25
 RTM_GETQDISC  = 0x26
 
+RTM_NEWNETCONF = 80
+RTM_GETNETCONF = 82
+
 # Netlink message flags
 NLM_F_REQUEST = 0x01  # It is query message.
 NLM_F_MULTI   = 0x02  # Multipart message, terminated by NLMSG_DONE
@@ -2219,7 +2222,9 @@ class NetlinkPacket(object):
         RTM_GETROUTE  : 'RTM_GETROUTE',
         RTM_NEWQDISC  : 'RTM_NEWQDISC',
         RTM_DELQDISC  : 'RTM_DELQDISC',
-        RTM_GETQDISC  : 'RTM_GETQDISC'
+        RTM_GETQDISC  : 'RTM_GETQDISC',
+        RTM_NEWNETCONF: 'RTM_NEWNETCONF',
+        RTM_GETNETCONF: 'RTM_GETNETCONF'
     }
 
     af_family_to_string = {
@@ -2299,7 +2304,7 @@ class NetlinkPacket(object):
             foo.append('NLM_F_ECHO')
 
         # Modifiers to GET query
-        if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC):
+        if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC, RTM_GETNETCONF):
             if flags & NLM_F_DUMP:
                 foo.append('NLM_F_DUMP')
             else:
@@ -2433,7 +2438,7 @@ class NetlinkPacket(object):
             take the family into account. For now we'll handle this as a special case for
             MPLS but long term we may need to make key a tuple of the attr_type and family.
             '''
-            if attr_type == Route.RTA_DST and self.family == AF_MPLS:
+            if self.msgtype not in (RTM_NEWNETCONF, RTM_GETNETCONF) and attr_type == Route.RTA_DST and self.family == AF_MPLS:
                 attr_string = 'RTA_DST'
                 attr_class = AttributeMplsLabel
 
@@ -3719,6 +3724,95 @@ class Link(NetlinkPacket):
         if self.flags & Link.IFF_UP:
             return True
         return False
+
+
+class Netconf(Link):
+    """
+    RTM_NEWNETCONF - Service Header
+
+    0               1
+    0 1 2 3 4 5 6 7 8
+    +-+-+-+-+-+-+-+-+
+    |   Family      |
+    +-+-+-+-+-+-+-+-+
+
+    RTM_GETNETCONF - Service Header
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   Family    |   Reserved  |          Device Type              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Interface Index                           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Device Flags                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Change Mask                              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    """
+    # Netconf attributes
+    # /usr/include/linux/netconf.h
+    NETCONFA_UNSPEC                         = 0
+    NETCONFA_IFINDEX                        = 1
+    NETCONFA_FORWARDING                     = 2
+    NETCONFA_RP_FILTER                      = 3
+    NETCONFA_MC_FORWARDING                  = 4
+    NETCONFA_PROXY_NEIGH                    = 5
+    NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN    = 6
+    NETCONFA_INPUT                          = 7
+    __NETCONFA_MAX                          = 8
+
+    NETCONFA_MAX                            = (__NETCONFA_MAX - 1)
+
+    NETCONFA_ALL                            = -1
+    NETCONFA_IFINDEX_ALL                    = -1
+    NETCONFA_IFINDEX_DEFAULT                = -2
+
+    NETCONF_ATTR_FAMILY = 0x0001
+    NETCONF_ATTR_IFINDEX = 0x0002
+    NETCONF_ATTR_RP_FILTER = 0x0004
+    NETCONF_ATTR_FWDING	= 0x0008
+    NETCONF_ATTR_MC_FWDING = 0x0010
+    NETCONF_ATTR_PROXY_NEIGH = 0x0020
+    NETCONF_ATTR_IGNORE_RT_LINKDWN = 0x0040
+
+    attribute_to_class = {
+        NETCONFA_UNSPEC                         : ('NETCONFA_UNSPEC', AttributeGeneric),
+        NETCONFA_IFINDEX                        : ('NETCONFA_IFINDEX', AttributeFourByteValue),
+        NETCONFA_FORWARDING                     : ('NETCONFA_FORWARDING', AttributeFourByteValue),
+        NETCONFA_RP_FILTER                      : ('NETCONFA_RP_FILTER', AttributeFourByteValue),
+        NETCONFA_MC_FORWARDING                  : ('NETCONFA_MC_FORWARDING', AttributeFourByteValue),
+        NETCONFA_PROXY_NEIGH                    : ('NETCONFA_PROXY_NEIGH', AttributeFourByteValue),
+        NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN    : ('NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN', AttributeFourByteValue),
+        NETCONFA_INPUT                          : ('NETCONFA_INPUT', AttributeFourByteValue),
+    }
+
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
+        if msgtype == RTM_GETNETCONF:  # same as RTM_GETLINK
+            self.PACK = 'BxHiII'
+            self.LEN  = calcsize(self.PACK)
+        elif msgtype == RTM_NEWNETCONF:
+            self.PACK = 'Bxxx'
+            self.LEN  = calcsize(self.PACK)
+
+    def decode_service_header(self):
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        if self.msgtype == RTM_GETNETCONF:
+            super(Netconf, self).decode_service_header()
+
+        elif self.msgtype == RTM_NEWNETCONF:
+            (self.family,) = unpack(self.PACK, self.msg_data[:self.LEN])
+
+            if self.debug:
+                color = yellow if self.use_color else None
+                color_start = "\033[%dm" % color if color else ""
+                color_end = "\033[0m" if color else ""
+                self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
+                self.dump_buffer.append(data_to_color_text(1, color, bytearray(struct.pack('!I', self.family)), "Family %s (%d)" % (zfilled_hex(self.family, 2), self.family)))
 
 
 class Neighbor(NetlinkPacket):
