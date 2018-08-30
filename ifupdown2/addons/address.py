@@ -866,7 +866,7 @@ class address(moduleBase):
             if addr_method != "dhcp":
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
-                    for addr in addrlist:
+                    for addr in addrlist or []:
                         self.ipcmd.addr_del(ifaceobj.name, addr)
                     #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
                 elif not ifaceobj.link_kind:
