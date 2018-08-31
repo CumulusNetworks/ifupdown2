@@ -1,9 +1,13 @@
-ifupdown2 (1.2.1-cl3u20) UNRELEASED; urgency=medium
+ifupdown2 (1.2.1-cl3u20) RELEASED; urgency=medium
 
+  * New. Enabled: warn when bridge attribute are used on non br[port] intf
   * New. Enabled: fix netlink backend to prevent exceptions on GREv6 tunnels
   * Closes: CM-21564: add 0/1/on/off/yes/no support to ip[6]-forward attribute
+  * Closes: CM-22120: Link down does not work on any intf configured in a VRF
+  * Closes: CM-21841: Return error when vlan-raw-device config change on
+                      existing vlan
 
- -- dev-support <dev-support@cumulusnetworks.com>  Thu, 28 Jun 2018 17:42:42 +0200
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 31 Aug 2018 23:42:42 +0200
 
 ifupdown2 (1.2.0-cl3u19) RELEASED; urgency=medium
 
