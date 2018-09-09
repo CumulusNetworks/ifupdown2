@@ -252,7 +252,7 @@ class ethtool(moduleBase,utilsBase):
             for attr in ethtool_output.splitlines():
                 if attr.startswith('FEC encodings'):
                     fec_attrs = attr.split()
-                return(fec_attrs[fec_attrs.index(':')+1])
+                    return(fec_attrs[fec_attrs.index(':')+1])
         except Exception as e:
             self.logger.debug('ethtool: problems in ethtool set-fec output'
                                ' %s: %s' %(ethtool_output.splitlines(), str(e)))
