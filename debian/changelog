@@ -6,6 +6,8 @@ ifupdown2 (1.2.1-cl3u20) RELEASED; urgency=medium
   * Closes: CM-22120: Link down does not work on any intf configured in a VRF
   * Closes: CM-21841: Return error when vlan-raw-device config change on
                       existing vlan
+  * Closes: CM-22375: ethtool: link-fec: local variable 'fec_attrs' referenced
+                      before assignment
 
  -- dev-support <dev-support@cumulusnetworks.com>  Fri, 31 Aug 2018 23:42:42 +0200
 
