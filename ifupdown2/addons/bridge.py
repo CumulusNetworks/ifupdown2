@@ -68,7 +68,7 @@ class bridge(moduleBase):
                         {'help' : 'bridge ports',
                          'multivalue' : True,
                          'required' : True,
-                         'validvals': ['<interface-list>'],
+                         'validvals': ['<interface-list>', 'none'],
                          'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
                                       'bridge-ports glob swp1-3.100',
                                       'bridge-ports regex (swp[1|2|3].100)']},
