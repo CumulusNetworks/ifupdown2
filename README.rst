@@ -50,7 +50,7 @@ You might need to manually download dependencies. Mandatory dependencies:
 
 .. code-block:: console
 
-    $ apt-get install devscripts dh-systemd python-all python-docutils iproute2 python-ipaddr python-argcomplete
+    $ apt-get install build-essential devscripts dh-systemd fakeroot python-all python-docutils iproute2 python-ipaddr python-argcomplete
 
 Suggested dependencies:
 
