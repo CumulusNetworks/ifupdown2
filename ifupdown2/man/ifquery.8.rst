@@ -34,7 +34,7 @@ DESCRIPTION
     **ifquery** always works on the current **interfaces(5)** file
     **/etc/network/interfaces** unless an alternate interfaces file is
     defined in ifupdown2.conf or provided with the **-i** option.
-    Note: the -i option is disabled by default in ifupdown2.conf.
+    Note: the -i option is enabled by default in ifupdown2.conf.
 
 OPTIONS
 =======
