@@ -37,7 +37,8 @@ class ethtool(moduleBase,utilsBase):
                 'attrs': {
                       'link-speed' :
                             {'help' : 'set link speed',
-                             'validvals' : ['100',
+                             'validvals' : ['10',
+                                            '100',
                                             '1000',
                                             '10000',
                                             '25000',
