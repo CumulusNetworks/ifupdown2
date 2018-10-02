@@ -79,7 +79,7 @@ class bridgevlan(moduleBase):
 
         running_mcqv4src = {}
         if not ifupdownflags.flags.PERFMODE:
-            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(bridgename)
+            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(bridgename)
         if running_mcqv4src:
             r_mcqv4src = running_mcqv4src.get(vlan)
         else:
@@ -115,7 +115,7 @@ class bridgevlan(moduleBase):
 
     def _query_running_bridge_igmp_querier_src(self, ifaceobj):
         (bridgename, vlanid) = ifaceobj.name.split('.')
-        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src(bridgename)
+        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(bridgename)
         if running_mcqv4src:
            return running_mcqv4src.get(vlanid)
         return None
