@@ -2624,16 +2624,28 @@ class LinkUtils(utilsBase):
             # IFLA_INET6_ADDR_GEN_MODE values:
             # 0 = eui64
             # 1 = none
-            if self._link_cache_get([ifname, 'af_spec', socket.AF_INET6])[Link.IFLA_INET6_ADDR_GEN_MODE] == addrgen:
-                self.logger.debug('%s: ipv6 addrgen already %s' % (ifname, 'off' if addrgen else 'on'))
-                return
+            if not ifupdownflags.flags.PERFMODE:
+                iface_is_cached = ifname in linkCache.links
+
+                try:
+                    if iface_is_cached and linkCache.links[ifname]['af_spec'][socket.AF_INET6][Link.IFLA_INET6_ADDR_GEN_MODE] == addrgen:
+                        self.logger.debug('%s: ipv6 addrgen already %s' % (ifname, 'off' if addrgen else 'on'))
+                        return
+                except KeyError:
+                    pass
+            else:
+                iface_is_cached = False
 
             disabled_ipv6 = self.read_file_oneline('/proc/sys/net/ipv6/conf/%s/disable_ipv6' % ifname)
             if not disabled_ipv6 or int(disabled_ipv6) == 1:
                 self.logger.info('%s: cannot set addrgen: ipv6 is disabled on this device' % ifname)
                 return
 
-            if int(self._link_cache_get([ifname, 'mtu'])) < 1280:
+            if iface_is_cached:
+                mtu = int(self._link_cache_get([ifname, 'mtu']) or 0)
+            else:
+                mtu = int(self.link_get_mtu_sysfs(ifname) or 0)
+            if mtu < 1280:
                 self.logger.info('%s: ipv6 addrgen is disabled on device with MTU '
                                  'lower than 1280: cannot set addrgen %s' % (ifname, 'off' if addrgen else 'on'))
                 return
