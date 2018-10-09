@@ -121,6 +121,20 @@ RTMGRP_ALL = (RTMGRP_LINK | RTMGRP_NOTIFY | RTMGRP_NEIGH | RTMGRP_TC |
 
 AF_MPLS = 28
 
+
+AF_FAMILY = dict()
+
+import socket
+
+for family in [attr for attr in dir(socket) if attr.startswith('AF_')]:
+    AF_FAMILY[getattr(socket, family)] = family
+
+AF_FAMILY[AF_MPLS] = 'AF_MPLS'
+
+
+def get_family_str(family):
+    return AF_FAMILY.get(family, 'UNKNOWN')
+
 # Colors for logging
 red    = 91
 green  = 92
@@ -2610,8 +2624,8 @@ class Address(NetlinkPacket):
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
-                    extra = "Family %s (%d), Length %s (%d), Flags %s, Scope %s (%d)" % \
-                            (zfilled_hex(self.family, 2), self.family,
+                    extra = "Family %s (%s:%d), Length %s (%d), Flags %s, Scope %s (%d)" % \
+                            (zfilled_hex(self.family, 2), get_family_str(self.family), self.family,
                              zfilled_hex(self.prefixlen, 2), self.prefixlen,
                              zfilled_hex(self.flags, 2),
                              zfilled_hex(self.scope, 2), self.scope)
@@ -3703,8 +3717,8 @@ class Link(NetlinkPacket):
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
-                    extra = "Family %s (%d), Device Type %s (%d - %s)" % \
-                            (zfilled_hex(self.family, 2), self.family,
+                    extra = "Family %s (%s:%d), Device Type %s (%d - %s)" % \
+                            (zfilled_hex(self.family, 2), get_family_str(self.family), self.family,
                              zfilled_hex(self.device_type, 4), self.device_type, self.get_link_type_string(self.device_type))
                 elif self.line_number == 6:
                     extra = "Interface Index %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)
@@ -3812,7 +3826,7 @@ class Netconf(Link):
                 color_start = "\033[%dm" % color if color else ""
                 color_end = "\033[0m" if color else ""
                 self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
-                self.dump_buffer.append(data_to_color_text(1, color, bytearray(struct.pack('!I', self.family)), "Family %s (%d)" % (zfilled_hex(self.family, 2), self.family)))
+                self.dump_buffer.append(data_to_color_text(1, color, bytearray(struct.pack('!I', self.family)), "Family %s (%s:%d)" % (zfilled_hex(self.family, 2), get_family_str(self.family), self.family)))
 
 
 class Neighbor(NetlinkPacket):
@@ -3976,7 +3990,7 @@ class Neighbor(NetlinkPacket):
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
-                    extra = "Family %s (%d)" % (zfilled_hex(self.family, 2), self.family)
+                    extra = "Family %s (%s:%d)" % (zfilled_hex(self.family, 2), get_family_str(self.family), self.family)
                 elif self.line_number == 6:
                     extra = "Interface Index %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)
                 elif self.line_number == 7:
@@ -4277,8 +4291,8 @@ class Route(NetlinkPacket):
 
             for x in range(0, self.LEN/4):
                 if self.line_number == 5:
-                    extra = "Family %s (%d), Source Length %s (%d), Destination Length %s (%d), TOS %s (%d)" % \
-                            (zfilled_hex(self.family, 2), self.family,
+                    extra = "Family %s (%s:%d), Source Length %s (%d), Destination Length %s (%d), TOS %s (%d)" % \
+                            (zfilled_hex(self.family, 2), get_family_str(self.family), self.family,
                              zfilled_hex(self.src_len, 2), self.src_len,
                              zfilled_hex(self.dst_len, 2), self.dst_len,
                              zfilled_hex(self.tos, 2), self.tos)
