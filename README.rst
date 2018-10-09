@@ -37,11 +37,11 @@ Once you have a copy of the source, you should build a deb-package and install i
 
     $ cd ifupdown2 && git checkout master-next && make deb
 
-The generated deb should be in the root directory (``../ifupdown2_2.0.0_all.deb``)
+The generated deb should be in the root directory (``../ifupdown2_1.2.1_all.deb``)
 
 .. code-block:: console
 
-    $ dpkg -i ../ifupdown2_2.0.0_all.deb
+    $ dpkg -i ../ifupdown2_1.2.1_all.deb
 
 We don't recommend using ``setup.py install`` directly, as it's still missing systemd/init.d scripts.
 This capability should be added in the near future.
