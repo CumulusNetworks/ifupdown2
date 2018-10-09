@@ -6,6 +6,8 @@ ifupdown2 (1.2.1) UNRELEASED; urgency=medium
   * Add: tunnel support (gretap, ipip, sit, vti, ip6gre, ipip6, ip6ip6, vti6)
   * Add:  0/1/on/off/yes/no support to ip[6]-forward attribute
   * addressvirtual module_globals "addressvirtual_with_route_metric" policy
+  * Closes: ethtool: link-fec: local variable 'fec_attrs'
+            referencede before assignment
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 31 Aug 2018 23:42:42 +0200
 
