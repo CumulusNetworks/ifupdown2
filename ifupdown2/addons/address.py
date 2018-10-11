@@ -755,6 +755,10 @@ class address(moduleBase):
     def up_ipv6_addrgen(self, ifaceobj):
         user_configured_ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
 
+        if not user_configured_ipv6_addrgen and ifupdownflags.flags.PERFMODE:
+            # no need to go further during perfmode (boot)
+            return
+
         if not user_configured_ipv6_addrgen:
             # if user didn't configure ipv6-addrgen, should we reset to default?
             user_configured_ipv6_addrgen = self.get_attr_default_value('ipv6-addrgen')
