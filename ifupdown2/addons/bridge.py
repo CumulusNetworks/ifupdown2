@@ -130,7 +130,7 @@ class bridge(moduleBase):
                           'example' : ['bridge-mclmc 2'],
                           'default' : '2'},
                     'bridge-mcrouter' :
-                        { 'help' : 'set multicast router',
+                        { 'help': 'Set bridge multicast routers: 0 - disabled - no, 1 - automatic (queried), 2 - permanently enabled - yes',
                           'validvals' : ['yes', 'no', '0', '1', '2'],
                           'example' : ['bridge-mcrouter 1'],
                           'default': 'yes'
@@ -203,7 +203,7 @@ class bridge(moduleBase):
                           'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
                      'bridge-portmcrouter':
                          {
-                             'help': 'set port multicast routers',
+                             'help': 'Set port multicast routers: 0 - disabled, 1 - automatic (queried), 2 - permanently enabled',
                              'validvals': ['<interface-disabled-automatic-enabled>'],
                              'example': [
                                  'under the port (for vlan aware bridge): bridge-portmcrouter 0',
