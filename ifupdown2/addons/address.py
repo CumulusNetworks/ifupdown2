@@ -4,8 +4,6 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import socket
-
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, _BaseV6
 
 try:
@@ -44,87 +42,120 @@ class address(moduleBase):
     """  ifupdown2 addon module to configure address, mtu, hwaddress, alias
     (description) on an interface """
 
-    _modinfo = {'mhelp' : 'address configuration module for interfaces',
-                'attrs': {
-                      'address' :
-                            {'help' : 'ipv4 or ipv6 addresses',
-                             'validvals' : ['<ipv4/prefixlen>', '<ipv6/prefixlen>'],
-                             'multiline' : True,
-                             'example' : ['address 10.0.12.3/24',
-                             'address 2000:1000:1000:1000:3::5/128']},
-                      'netmask' :
-                            {'help': 'netmask',
-                             'example' : ['netmask 255.255.255.0'],
-                             'compat' : True},
-                      'broadcast' :
-                            {'help': 'broadcast address',
-                             'validvals' : ['<ipv4>', ],
-                             'example' : ['broadcast 10.0.1.255']},
-                      'scope' :
-                            {'help': 'scope',
-                             'validvals' : ['universe', 'site', 'link', 'host', 'nowhere'],
-                             'example' : ['scope host']},
-                      'preferred-lifetime' :
-                            {'help': 'preferred lifetime',
-                              'validrange' : ['0', '65535'],
-                             'example' : ['preferred-lifetime forever',
-                                          'preferred-lifetime 10']},
-                      'gateway' :
-                            {'help': 'default gateway',
-                             'validvals' : ['<ipv4>', '<ipv6>'],
-                             'multiline' : True,
-                             'example' : ['gateway 255.255.255.0']},
-                      'mtu' :
-                            { 'help': 'interface mtu',
-                              'validrange' : ['552', '9216'],
-                              'example' : ['mtu 1600'],
-                              'default' : '1500'},
-                      'hwaddress' :
-                            {'help' : 'hw address',
-                             'validvals' : ['<mac>',],
-                             'example': ['hwaddress 44:38:39:00:27:b8']},
-                      'alias' :
-                            { 'help': 'description/alias',
-                              'example' : ['alias testnetwork']},
-                      'address-purge' :
-                            { 'help': 'purge existing addresses. By default ' +
-                              'any existing ip addresses on an interface are ' +
-                              'purged to match persistant addresses in the ' +
-                              'interfaces file. Set this attribute to \'no\'' +
-                              'if you want to preserve existing addresses',
-                              'validvals' : ['yes', 'no'],
-                              'default' : 'yes',
-                              'example' : ['address-purge yes/no']},
-                      'clagd-vxlan-anycast-ip' :
-                            { 'help'     : 'Anycast local IP address for ' +
-                              'dual connected VxLANs',
-                              'validvals' : ['<ipv4>', ],
-                              'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']},
-                      'ip-forward' :
-                            { 'help': 'ip forwarding flag',
-                              'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
-                              'default' : 'off',
-                              'example' : ['ip-forward off']},
-                      'ip6-forward' :
-                            { 'help': 'ipv6 forwarding flag',
-                              'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
-                              'default' : 'off',
-                              'example' : ['ip6-forward off']},
-                      'mpls-enable' :
-                            { 'help': 'mpls enable flag',
-                              'validvals': ['yes', 'no'],
-                              'default' : 'no',
-                              'example' : ['mpls-enable yes']},
-                    'ipv6-addrgen': {
-                        'help': 'enable disable ipv6 link addrgenmode',
-                        'validvals': ['on', 'off'],
-                        'default': 'on',
-                        'example': [
-                            'ipv6-addrgen on',
-                            'ipv6-addrgen off'
-                        ]
-                    }
-                }}
+    _modinfo = {
+        'mhelp': 'address configuration module for interfaces',
+        'attrs': {
+            'address': {
+                'help': 'The address of the interface. The format of the '
+                        'address depends on the protocol. It is a dotted '
+                        'quad for IP and a sequence of hexadecimal halfwords '
+                        'separated by colons for IPv6. The ADDRESS may be '
+                        'followed by a slash and a decimal number which '
+                        'encodes the network prefix length.',
+                'validvals': ['<ipv4/prefixlen>', '<ipv6/prefixlen>'],
+                'multiline': True,
+                'example': [
+                    'address 10.0.12.3/24',
+                    'address 2000:1000:1000:1000:3::5/128'
+                ]
+            },
+            'netmask': {
+                'help': 'Address netmask',
+                'example': ['netmask 255.255.255.0'],
+                'compat': True
+            },
+            'broadcast': {
+                'help': 'The broadcast address on the interface.',
+                'validvals': ['<ipv4>'],
+                'example': ['broadcast 10.0.1.255']
+            },
+            'scope': {
+                'help': 'The scope of the area where this address is valid. '
+                        'The available scopes are listed in file /etc/iproute2/rt_scopes. '
+                        'Predefined scope values are: '
+                        'global - the address is globally valid. '
+                        'site - (IPv6 only, deprecated) the address is site local, i.e. it is valid inside this site. '
+                        'link - the address is link local, i.e. it is valid only on this device. '
+                        'host - the address is valid only inside this host.',
+                'validvals': ['universe', 'site', 'link', 'host', 'nowhere'],
+                'example': ['scope host']
+            },
+            'preferred-lifetime': {
+                'help': 'The preferred lifetime of this address; see section '
+                        '5.5.4 of RFC 4862. When it expires, the address is '
+                        'no longer used for new outgoing connections. '
+                        'Defaults to forever.',
+                'validrange': ['0', '65535'],
+                'example': [
+                    'preferred-lifetime forever',
+                    'preferred-lifetime 10'
+                ]
+            },
+            'gateway': {
+                'help': 'Default gateway',
+                'validvals': ['<ipv4>', '<ipv6>'],
+                'multiline': True,
+                'example': ['gateway 255.255.255.0']
+            },
+            'mtu': {
+                'help': 'Interface MTU (maximum transmission unit)',
+                'validrange': ['552', '9216'],
+                'example': ['mtu 1600'],
+                'default': '1500'
+            },
+            'hwaddress': {
+                'help': 'Hardware address (mac)',
+                'validvals': ['<mac>'],
+                'example': ['hwaddress 44:38:39:00:27:b8']
+            },
+            'alias': {
+                'help': 'description/alias: give the device a symbolic name for easy reference.',
+                'example': ['alias testnetwork']
+            },
+            'address-purge': {
+                'help': 'Purge existing addresses. By default any existing '
+                        'ip addresses on an interface are purged to match '
+                        'persistant addresses in the interfaces file. Set '
+                        'this attribute to \'no\' if you want to preserve '
+                        'existing addresses',
+                'validvals': ['yes', 'no'],
+                'default': 'yes',
+                'example': ['address-purge yes/no']
+            },
+            'clagd-vxlan-anycast-ip': {
+                'help': 'Anycast local IP address for dual connected VxLANs',
+                'validvals': ['<ipv4>'],
+                'example': ['clagd-vxlan-anycast-ip 36.0.0.11']
+            },
+            'ip-forward': {
+                'help': 'ip forwarding flag',
+                'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
+                'default': 'off',
+                'example': ['ip-forward off']
+            },
+            'ip6-forward': {
+                'help': 'ipv6 forwarding flag',
+                'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
+                'default': 'off',
+                'example': ['ip6-forward off']
+            },
+            'mpls-enable': {
+                'help': 'mpls enable flag',
+                'validvals': ['yes', 'no'],
+                'default': 'no',
+                'example': ['mpls-enable yes']
+            },
+            'ipv6-addrgen': {
+                'help': 'enable disable ipv6 link addrgenmode',
+                'validvals': ['on', 'off'],
+                'default': 'on',
+                'example': [
+                    'ipv6-addrgen on',
+                    'ipv6-addrgen off'
+                ]
+            }
+        }
+    }
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
