@@ -358,7 +358,7 @@ class mstpctl(moduleBase):
         for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
             try:
                 if (not ifupdownflags.flags.DRYRUN and
-                    not self.ipcmd.link_exists(bridgeport)):
+                    not netlink.cache.link_exists(bridgeport)):
                     self.log_warn('%s: bridge port %s does not exist'
                             %(ifaceobj.name, bridgeport))
                     err += 1
@@ -406,7 +406,7 @@ class mstpctl(moduleBase):
                     self.logger.warn('%s' %str(e))
                     pass
 
-            if self.ipcmd.bridge_is_vlan_aware(ifaceobj.name):
+            if netlink.cache.bridge_is_vlan_aware(ifaceobj.name):
                 return
             # set bridge port attributes
             for attrname, dstattrname in self._port_attrs_map.items():
@@ -513,7 +513,7 @@ class mstpctl(moduleBase):
                              %(ifaceobj.name) +
                              ' (stp on bridge %s is not on yet)' %bridgename)
             return applied
-        bvlan_aware = self.ipcmd.bridge_is_vlan_aware(bridgename)
+        bvlan_aware = netlink.cache.bridge_is_vlan_aware(bridgename)
         if (not mstpd_running or
             not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name) or
             not bvlan_aware):
@@ -605,7 +605,7 @@ class mstpctl(moduleBase):
         for bport in bridgeports:
             self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))
-            if not self.ipcmd.link_exists(bport):
+            if not netlink.cache.link_exists(bport):
                continue
             if not os.path.exists('/sys/class/net/%s/brport' %bport):
                 continue
@@ -635,7 +635,7 @@ class mstpctl(moduleBase):
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
-        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        bridgename = netlink.cache.get_bridge_name_from_port(ifaceobj.name)
         if bridgename:
             mstpd_running = self.mstpd_running
             stp_running_on = self._is_running_userspace_stp_state_on(bridgename)
@@ -659,7 +659,7 @@ class mstpctl(moduleBase):
                 # bridge and also add its ports
                 self.ipcmd.batch_start()
                 if not ifupdownflags.flags.PERFMODE:
-                    if not self.ipcmd.link_exists(ifaceobj.name):
+                    if not netlink.cache.link_exists(ifaceobj.name):
                         self.ipcmd.link_create(ifaceobj.name, 'bridge')
                 else:
                     self.ipcmd.link_create(ifaceobj.name, 'bridge')
@@ -977,7 +977,7 @@ class mstpctl(moduleBase):
 
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not netlink.cache.link_exists(ifaceobj.name):
             #self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
@@ -987,7 +987,7 @@ class mstpctl(moduleBase):
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                             self._port_attrs_map.keys(), 0)
             return
-        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        bridgename = netlink.cache.get_master(ifaceobj.name)
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-portpathcost',
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
@@ -1034,8 +1034,7 @@ class mstpctl(moduleBase):
             ifaceobjrunning.update_config(attr, v)
 
     def _query_running_bridge_port(self, ifaceobjrunning):
-        bridgename = self.ipcmd.bridge_port_get_bridge_name(
-                                ifaceobjrunning.name)
+        bridgename = netlink.cache.get_master(ifaceobjrunning.name)
         if not bridgename:
             self.logger.warn('%s: unable to determine bridgename'
                              %ifaceobjrunning.name)

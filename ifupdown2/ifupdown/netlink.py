@@ -6,7 +6,9 @@
 
 import sys
 import socket
-import logging
+
+# this should force the use of the local nlmanager
+sys.path.insert(0, '/usr/share/ifupdown2/')
 
 from collections import OrderedDict
 
@@ -17,6 +19,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.utilsbase import utilsBase
 
+    from ifupdown2.nlmanager.nlcache import start_netlink_listener_with_cache
     from ifupdown2.nlmanager.nlmanager import Link, Address, Route, NetlinkPacket
 except ImportError:
     import nlmanager.nlpacket
@@ -25,6 +28,7 @@ except ImportError:
     from ifupdownaddons.cache import *
     from ifupdownaddons.utilsbase import utilsBase
 
+    from nlmanager.nlcache import start_netlink_listener_with_cache
     from nlmanager.nlmanager import Link, Address, Route, NetlinkPacket
 
 
@@ -34,21 +38,8 @@ class Netlink(utilsBase):
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
         try:
-            sys.path.insert(0, '/usr/share/ifupdown2/')
-            try:
-                from ifupdown2.nlmanager.nlmanager import NetlinkManager
-                # Override the nlmanager's mac_int_to_str function to print the MACs
-                # like xx:xx:xx:xx:xx:xx instead of xxxx.xxxx.xxxx
-                ifupdown2.nlmanager.nlpacket.mac_int_to_str = self.mac_int_to_str
-            except ImportError:
-                from nlmanager.nlmanager import NetlinkManager
-                # Override the nlmanager's mac_int_to_str function to print the MACs
-                # like xx:xx:xx:xx:xx:xx instead of xxxx.xxxx.xxxx
-                nlmanager.nlpacket.mac_int_to_str = self.mac_int_to_str
-
-            # this should force the use of the local nlmanager
-            self._nlmanager_api = NetlinkManager(log_level=logging.WARNING)
-
+            self.netlink = None
+            self.cache = None
             self.link_kind_handlers = {
                 'vlan': self._link_dump_info_data_vlan,
                 'vrf': self._link_dump_info_data_vrf,
@@ -56,11 +47,30 @@ class Netlink(utilsBase):
                 'bond': self._link_dump_info_data_bond,
                 'bridge': self._link_dump_info_data_bridge
             }
-
         except Exception as e:
             self.logger.error('cannot initialize ifupdown2\'s '
                               'netlink manager: %s' % str(e))
             raise
+
+    def init(self):
+        self.netlink = start_netlink_listener_with_cache()
+        self.cache = self.netlink.cache
+
+        try:
+            from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
+        except:
+            from ifupdownaddons.LinkUtils import LinkUtils
+
+        #
+        # Our old linkCache got some extra information from sysfs
+        # we need to fill it in the same way so nothing breaks.
+        #
+        try:
+            ipcmd = LinkUtils()
+            ipcmd._fill_bond_info(None)
+            ipcmd._fill_bridge_info(None)
+        except:
+            pass
 
     @staticmethod
     def IN_MULTICAST(a):
@@ -82,7 +92,7 @@ class Netlink(utilsBase):
     def get_iface_index(self, ifacename):
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.get_iface_index(ifacename)
+            return self.netlink.cache.get_ifindex(ifacename)
         except Exception as e:
             raise Exception('%s: netlink: %s: cannot get ifindex: %s'
                             % (ifacename, ifacename, str(e)))
@@ -90,25 +100,28 @@ class Netlink(utilsBase):
     def get_iface_name(self, ifindex):
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.get_iface_name(ifindex)
+            return self.netlink.cache.get_ifname(ifindex)
         except Exception as e:
             raise Exception('netlink: cannot get ifname for index %s: %s' % (ifindex, str(e)))
 
+    # unused for now (grep -R "get_bridge_vlan")
     def get_bridge_vlan(self, ifname):
         self.logger.info('%s: netlink: /sbin/bridge -d -c -json vlan show' % ifname)
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.vlan_get()
+            pass
+            #return self._nlmanager_api.vlan_get()
         except Exception as e:
             raise Exception('netlink: get bridge vlan: %s' % str(e))
 
+    # unused for now (grep -R "bridge_set_vlan_filtering")
     def bridge_set_vlan_filtering(self, ifname, vlan_filtering):
         self.logger.info('%s: netlink: ip link set dev %s type bridge vlan_filtering %s'
                          % (ifname, ifname, vlan_filtering))
         if ifupdownflags.flags.DRYRUN: return
         try:
             ifla_info_data = {Link.IFLA_BR_VLAN_FILTERING: int(vlan_filtering)}
-            return self._nlmanager_api.link_set_attrs(ifname, 'bridge', ifla_info_data=ifla_info_data)
+            #return self._nlmanager_api.link_set_attrs(ifname, 'bridge', ifla_info_data=ifla_info_data)
         except Exception as e:
             raise Exception('%s: cannot set %s vlan_filtering %s' % (ifname, ifname, vlan_filtering))
 
@@ -119,6 +132,21 @@ class Netlink(utilsBase):
                      ifla_info_data={},
                      ifla_info_slave_data={},
                      link_exists=False):
+        """
+        if the link doesn't exists we need to wait for the cache add
+        otherwise we might face problem. For example if you create a
+        bridge but dont wait for the object to be cached, when checking
+        for vlan_filtering you'll be in trouble. On the other hand if the
+        device already exists when calling netlink.link_add_set() it
+        probably means that we checked the cache and all to see what
+        needed to be changed etc. so its kinda safe to say that we dont
+        have to wait for the cache. We do so because if you try to reset
+        some values that are already running (current ifupdown2 is a bit
+        broken and tries to reset some configured value I think) in that
+        case, since nothing changes the kernel dont send notifications
+        and ifupdown2 is in a dead-lock state (sleeping in
+        threading.event.wait() to be notify and wake up...)
+        """
         action = 'set' if ifindex or link_exists else 'add'
 
         if slave_kind:
@@ -134,13 +162,23 @@ class Netlink(utilsBase):
 
         if ifupdownflags.flags.DRYRUN: return
         try:
-            self._nlmanager_api.link_add_set(ifname=ifname,
-                                             ifindex=ifindex,
-                                             kind=kind,
-                                             slave_kind=slave_kind,
-                                             ifla=ifla,
-                                             ifla_info_data=ifla_info_data,
-                                             ifla_info_slave_data=ifla_info_slave_data)
+            if link_exists:
+                self.netlink._link_add_set(
+                    ifname=ifname,
+                    ifindex=ifindex,
+                    kind=kind,
+                    ifla=ifla,
+                    slave_kind=slave_kind,
+                    ifla_info_data=ifla_info_data,
+                    ifla_info_slave_data=ifla_info_slave_data
+                )
+            else:
+                self.netlink._link_add(
+                    ifindex=ifindex,
+                    ifname=ifname,
+                    kind=kind,
+                    ifla_info_data=ifla_info_data
+                )
         except Exception as e:
             if kind and not slave_kind:
                 kind_str = kind
@@ -155,7 +193,7 @@ class Netlink(utilsBase):
         self.logger.info('%s: netlink: ip link del %s' % (ifname, ifname))
         if ifupdownflags.flags.DRYRUN: return
         try:
-            self._nlmanager_api.link_del(ifname=ifname)
+            self.netlink._link_del(ifname=ifname)
         except Exception as e:
             raise Exception('netlink: cannot delete link %s: %s' % (ifname, str(e)))
 
@@ -166,7 +204,7 @@ class Netlink(utilsBase):
         if ifupdownflags.flags.DRYRUN: return
         try:
             master = 0 if not master_dev else self.get_iface_index(master_dev)
-            return self._nlmanager_api.link_set_master(ifacename,
+            return self.netlink._link_set_master(ifacename,
                                                        master_ifindex=master,
                                                        state=state)
         except Exception as e:
@@ -178,7 +216,7 @@ class Netlink(utilsBase):
                          % (ifacename, ifacename, state if state else ''))
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.link_set_master(ifacename,
+            return self.netlink._link_set_master(ifacename,
                                                        master_ifindex=0,
                                                        state=state)
         except Exception as e:
@@ -196,7 +234,7 @@ class Netlink(utilsBase):
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(vlanrawdevice)
         try:
-            return self._nlmanager_api.link_add_vlan(ifindex, ifacename, vlanid, vlan_protocol)
+            return self.netlink._link_add_vlan(ifindex, ifacename, vlanid, vlan_protocol)
         except Exception as e:
             raise Exception('netlink: %s: cannot create vlan %s: %s'
                             % (vlanrawdevice, vlanid, str(e)))
@@ -207,17 +245,41 @@ class Netlink(utilsBase):
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(ifacename)
         try:
-            return self._nlmanager_api.link_add_macvlan(ifindex, macvlan_ifacename)
+            return self.netlink._link_add_macvlan(ifindex, macvlan_ifacename)
         except Exception as e:
             raise Exception('netlink: %s: cannot create macvlan %s: %s'
                             % (ifacename, macvlan_ifacename, str(e)))
+
+    def link_set_updown_and_update_cache(self, ifname, state):
+        self.link_set_updown(ifname, state)
+        # if we reach this code it means the operation went through
+        # without exception we can update the cache value
+        # this is needed for the following case (and probably others):
+        #
+        # ifdown bond0 (slaves are also downed)
+        # ifup bond0
+        #       at the beginning the slaves are admin down
+        #       ifupdownmain:run_up link up the slave
+        #       the bond addon check if the slave is up or down
+        #           and admin down the slave before enslavement
+        #           but the cache didn't process the UP notification yet
+        #           so the cache has a stale value and we try to enslave
+        #           a port, that is admin up, to a bond resulting
+        #           in an unexpected failure
+        # TODO: dont override all the flags just turn on/off IFF_UP
+        if_flags = Link.IFF_UP if state == 'up' else 0
+        try:
+            with self.netlink.cache._cache_lock:
+                self.netlink.cache._link_cache[ifname].flags = if_flags
+        except:
+            pass
 
     def link_set_updown(self, ifacename, state):
         self.logger.info('%s: netlink: ip link set dev %s %s'
                          % (ifacename, ifacename, state))
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.link_set_updown(ifacename, state)
+            return self.netlink._link_set_updown(ifacename, state)
         except Exception as e:
             raise Exception('netlink: cannot set link %s %s: %s'
                             % (ifacename, state, str(e)))
@@ -227,7 +289,7 @@ class Netlink(utilsBase):
                          % (ifacename, ifacename, state))
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.link_set_protodown(ifacename, state)
+            return self.netlink._link_set_protodown(ifacename, state)
         except Exception as e:
             raise Exception('netlink: cannot set link %s protodown %s: %s'
                             % (ifacename, state, str(e)))
@@ -236,7 +298,7 @@ class Netlink(utilsBase):
         self.logger.info('%s: netlink: ip link add %s type bridge' % (ifname, ifname))
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.link_add_bridge(ifname)
+            return self.netlink._link_add_bridge(ifname)
         except Exception as e:
             raise Exception('netlink: cannot create bridge %s: %s' % (ifname, str(e)))
 
@@ -246,7 +308,7 @@ class Netlink(utilsBase):
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(ifacename)
         try:
-            return self._nlmanager_api.link_add_bridge_vlan(ifindex, vlanid)
+            return self.netlink._link_add_bridge_vlan(ifindex, vlanid)
         except Exception as e:
             raise Exception('netlink: %s: cannot create bridge vlan %s: %s'
                             % (ifacename, vlanid, str(e)))
@@ -257,7 +319,7 @@ class Netlink(utilsBase):
         if ifupdownflags.flags.DRYRUN: return
         ifindex = self.get_iface_index(ifacename)
         try:
-            return self._nlmanager_api.link_del_bridge_vlan(ifindex, vlanid)
+            return self.netlink._link_del_bridge_vlan(ifindex, vlanid)
         except Exception as e:
             raise Exception('netlink: %s: cannot remove bridge vlan %s: %s'
                             % (ifacename, vlanid, str(e)))
@@ -277,7 +339,7 @@ class Netlink(utilsBase):
         try:
             if physdev:
                 physdev = self.get_iface_index(physdev)
-            return self._nlmanager_api.link_add_vxlan(ifacename,
+            return self.netlink._link_add_vxlan(ifacename,
                                                       vxlanid,
                                                       dstport=dstport,
                                                       local=local,
@@ -532,11 +594,14 @@ class Netlink(utilsBase):
         links = dict()
 
         try:
-            links_dump = self._nlmanager_api.link_dump(ifname)
+            if ifname:
+                links_dump_list = [self.netlink.cache.get_link_obj(ifname, True)]
+            else:
+                links_dump_list = self.netlink.cache._link_cache.values()
         except Exception as e:
             raise Exception('netlink: link dump failed: %s' % str(e))
 
-        for link in links_dump:
+        for link in links_dump_list:
             try:
                 dump = dict()
 
@@ -561,76 +626,6 @@ class Netlink(utilsBase):
             except Exception as e:
                 self.logger.warning('netlink: ip link show: %s' % str(e))
         return links
-
-    def _addr_dump_extract_ifname(self, addr_packet):
-        addr_ifname_attr = addr_packet.attributes.get(Address.IFA_LABEL)
-
-        if addr_ifname_attr:
-            return addr_ifname_attr.get_pretty_value(str)
-        else:
-            return self.get_iface_name(addr_packet.ifindex)
-
-    @staticmethod
-    def _addr_filter(addr_ifname, addr):
-        return addr_ifname == 'lo' and addr in ['127.0.0.1/8', '::1/128', '0.0.0.0']
-
-    def _addr_dump_entry(self, ifaces, addr_packet, addr_ifname, ifa_attr):
-        attribute = addr_packet.attributes.get(ifa_attr)
-
-        if attribute:
-            address = attribute.get_pretty_value(str)
-
-            if hasattr(addr_packet, 'prefixlen'):
-                address = '%s/%d' % (address, addr_packet.prefixlen)
-
-            if self._addr_filter(addr_ifname, address):
-                return
-
-            addr_family = NetlinkPacket.af_family_to_string.get(addr_packet.family)
-            if not addr_family:
-                return
-
-            ifaces[addr_ifname]['addrs'][address] = {
-                'type': addr_family,
-                'scope': addr_packet.scope
-            }
-
-    ifa_address_attributes = [
-        Address.IFA_ADDRESS,
-        Address.IFA_LOCAL,
-        Address.IFA_BROADCAST,
-        Address.IFA_ANYCAST,
-        Address.IFA_MULTICAST
-    ]
-
-    def addr_dump(self, ifname=None):
-        if ifname:
-            self.logger.info('netlink: ip addr show dev %s' % ifname)
-        else:
-            self.logger.info('netlink: ip addr show')
-
-        ifaces = dict()
-        addr_dump = self._nlmanager_api.addr_dump()
-
-        for addr_packet in addr_dump:
-            addr_ifname = self._addr_dump_extract_ifname(addr_packet)
-
-            if addr_packet.family not in [socket.AF_INET, socket.AF_INET6]:
-                continue
-
-            if ifname and ifname != addr_ifname:
-                continue
-
-            if addr_ifname not in ifaces:
-                ifaces[addr_ifname] = {'addrs': OrderedDict({})}
-
-            for ifa_attr in self.ifa_address_attributes:
-                self._addr_dump_entry(ifaces, addr_packet, addr_ifname, ifa_attr)
-
-        if ifname:
-            return {ifname: ifaces.get(ifname, {})}
-
-        return ifaces
 
 
 netlink = Netlink()

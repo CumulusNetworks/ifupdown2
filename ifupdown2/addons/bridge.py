@@ -916,7 +916,7 @@ class bridge(moduleBase):
             starttime = time.time()
             while ((time.time() - starttime) < waitporttime):
                 if all([False for p in waitportlist
-                        if not self.ipcmd.link_exists(p)]):
+                        if not netlink.cache.link_exists(p)]):
                     break;
                 time.sleep(1)
         except Exception, e:
@@ -999,12 +999,12 @@ class bridge(moduleBase):
         for bridgeport in newbridgeports_ordered:
             try:
                 if (not ifupdownflags.flags.DRYRUN and
-                    not self.ipcmd.link_exists(bridgeport)):
+                    not netlink.cache.link_exists(bridgeport)):
                     self.log_error('%s: bridge port %s does not exist'
                                    %(ifaceobj.name, bridgeport), ifaceobj)
                     err += 1
                     continue
-                hwaddress = self.ipcmd.link_get_hwaddress(bridgeport)
+                hwaddress = netlink.cache.get_link_address(bridgeport)
                 if not self._valid_ethaddr(hwaddress):
                     self.log_warn('%s: skipping port %s, ' %(ifaceobj.name,
                                   bridgeport) + 'invalid ether addr %s'
@@ -1590,6 +1590,10 @@ class bridge(moduleBase):
         for bport in bridgeports:
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
+
+            # netlink.cache.bridge_port_exists(ifaceobj.name, bport)
+            # on link_set_master we need to wait until we cache the correct
+            # notification and register the brport as slave
             if not self.ipcmd.bridge_port_exists(ifaceobj.name, bport):
                 self.logger.info('%s: skipping bridge config' %ifaceobj.name +
                         ' for port %s (missing port)' %bport)
@@ -1632,12 +1636,12 @@ class bridge(moduleBase):
                 self.warn_on_untagged_bridge_absence = False
 
     def bridge_port_get_bridge_name(self, ifaceobj):
-        bridgename = self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
+        bridgename = netlink.cache.get_bridge_name_from_port(ifaceobj.name)
         if not bridgename:
             # bridge port is not enslaved to a bridge we need to find
             # the bridge in it's upper ifaces then enslave it
             for u in ifaceobj.upperifaces:
-                if self.ipcmd.is_bridge(u):
+                if netlink.cache.link_is_bridge(u):
                     return True, u
             return False, None
         # return should_enslave port, bridgename
@@ -1663,7 +1667,7 @@ class bridge(moduleBase):
             # bridge doesn't exist
             return
 
-        vlan_aware_bridge = self.ipcmd.bridge_is_vlan_aware(bridge_name)
+        vlan_aware_bridge = netlink.cache.bridge_is_vlan_aware(bridge_name)
         if vlan_aware_bridge:
             self.up_bridge_port_vlan_aware_bridge(ifaceobj,
                                                   ifaceobj_getfunc,
@@ -1715,7 +1719,7 @@ class bridge(moduleBase):
         # if the user explicitly defined vxlan-learning we need to honor his config
         # and not sync vxlan-learning with bridge-learning
 
-        brport_vxlan_learning = self.ipcmd.get_vxlandev_learning(brport_name)
+        brport_vxlan_learning = netlink.cache.get_link_info_data_attribute(brport_name, Link.IFLA_VXLAN_LEARNING)
 
         # if BRIDGE_LEARNING is in the desired configuration
         # and differs from the running vxlan configuration
@@ -1728,7 +1732,7 @@ class bridge(moduleBase):
         elif brport_learning is None and bridge_vlan_aware:
             # is bridge-learning is not configured but the bridge is vlan-aware
 
-            running_value = self.ipcmd.get_brport_learning_bool(brport_name)
+            running_value = netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_LEARNING)
             default_value = utils.get_boolean_from_string(self.get_mod_subattr('bridge-learning', 'default'))
 
             if default_value != running_value:
@@ -1835,7 +1839,7 @@ class bridge(moduleBase):
 
                     if not ifupdownflags.flags.PERFMODE and brport_name not in newly_enslaved_ports:
                         # if the port has just been enslaved, info_slave_data is not cached yet
-                        cached_value = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', nl_attr])
+                        cached_value = netlink.cache.get_link_info_slave_data_attribute(brport_name, nl_attr)
                     else:
                         cached_value = None
 
@@ -1915,7 +1919,7 @@ class bridge(moduleBase):
                                 and not ifupdownflags.flags.PERFMODE
                                     and brport_name not in newly_enslaved_ports):
                                 try:
-                                    if self.ipcmd.get_brport_peer_link(brport_name):
+                                    if netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_PEER_LINK):
                                         if default_netlink != cached_value:
                                             self.logger.debug('%s: %s: bridge port peerlink: ignoring bridge-learning'
                                                               % (ifname, brport_name))
@@ -1955,7 +1959,8 @@ class bridge(moduleBase):
                                              kind=kind,
                                              ifla_info_data=ifla_info_data,
                                              slave_kind='bridge',
-                                             ifla_info_slave_data=brport_ifla_info_slave_data)
+                                             ifla_info_slave_data=brport_ifla_info_slave_data,
+                                             link_exists=True)
                     except Exception as e:
                         self.logger.warning('%s: %s: %s' % (ifname, brport_name, str(e)))
 
@@ -1987,7 +1992,7 @@ class bridge(moduleBase):
                     ifla_brport_group_fwd_mask, ifla_brport_group_fwd_maskhi = callback(ifla_brport_group_fwd_mask, ifla_brport_group_fwd_maskhi)
 
         # cached_ifla_brport_group_fwd_mask is given as parameter because it was already pulled out from the cache in the functio above
-        cached_ifla_brport_group_fwd_maskhi = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', Link.IFLA_BRPORT_GROUP_FWD_MASKHI])
+        cached_ifla_brport_group_fwd_maskhi = netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASKHI)
 
         log_mask_change = True
         # if user specify bridge-l2protocol-tunnel stp cdp
@@ -2021,7 +2026,7 @@ class bridge(moduleBase):
             link_just_created = True
             link_exists = False
         else:
-            link_exists = self.ipcmd.link_exists(ifaceobj.name)
+            link_exists = netlink.cache.link_exists(ifaceobj.name)
             link_just_created = not link_exists
 
         if not link_exists:
@@ -2090,11 +2095,11 @@ class bridge(moduleBase):
                         if iface_user_configured_hwaddress:
                             iface_mac = iface_user_configured_hwaddress
 
-                if not iface_mac and not self.ipcmd.link_exists(bridge_mac_intf):
+                if not iface_mac and not netlink.cache.link_exists(bridge_mac_intf):
                     continue
 
                 if not iface_mac:
-                    iface_mac = self.ipcmd.cache_get('link', [bridge_mac_intf, 'hwaddress'])
+                    iface_mac = netlink.cache.get_link_address(bridge_mac_intf)
                     # if hwaddress attribute is not configured we use the running mac addr
 
                 self.bridge_mac_iface = (bridge_mac_intf, iface_mac)
@@ -2115,7 +2120,7 @@ class bridge(moduleBase):
                             # what we have in the cache (data retrieved via a netlink dump by
                             # nlmanager). nlmanager return all macs in lower-case
                         else:
-                            iface_mac = self.ipcmd.link_get_hwaddress(port)
+                            iface_mac = netlink.cache.get_link_address(port)
 
                         if iface_mac:
                             self.bridge_mac_iface = (port, iface_mac)
@@ -2156,7 +2161,7 @@ class bridge(moduleBase):
             # the cache_check won't match because nlmanager return "08:00:27:42:42:04"
             # from the kernel. The only way to counter that is to convert all mac to int
             # and compare the ints, it will increase perfs and be safer.
-            cached_value = self.ipcmd.cache_get('link', [ifname, 'hwaddress'])
+            cached_value = netlink.cache.get_link_address(ifname)
             self.logger.debug('%s: cached hwaddress value: %s' % (ifname, cached_value))
             if cached_value and cached_value == bridge_mac:
                 # the bridge mac is already set to the bridge_mac_intf's mac
@@ -2169,7 +2174,7 @@ class bridge(moduleBase):
                 self.logger.info('%s: %s' % (ifname, str(e)))
                 # log info this error because the user didn't explicitly configured this
         else:
-            self._add_bridge_mac_to_fdb(ifaceobj, self.ipcmd.link_get_hwaddress(ifname))
+            self._add_bridge_mac_to_fdb(ifaceobj, netlink.cache.get_link_address(ifname))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
@@ -2190,7 +2195,7 @@ class bridge(moduleBase):
         if not self._is_bridge(ifaceobj):
             return
         ifname = ifaceobj.name
-        if not self.ipcmd.link_exists(ifname):
+        if not netlink.cache.link_exists(ifname):
             return
         try:
             running_ports = self.brctlcmd.get_bridge_ports(ifname)
@@ -2559,7 +2564,7 @@ class bridge(moduleBase):
             # bridge-l2protocol-tunnel requires separate handling
 
         if 'bridge-ports' in diff:
-            self.query_check_bridge_ports(ifaceobj, ifaceobjcurr, runningattrs.get('ports', {}).keys(), ifaceobj_getfunc)
+            self.query_check_bridge_ports(ifaceobj, ifaceobjcurr, netlink.cache.get_slaves(ifaceobj.name), ifaceobj_getfunc)
             diff.remove('bridge-ports')
 
         for k in diff:
@@ -2577,7 +2582,7 @@ class bridge(moduleBase):
                 ifaceobjcurr.update_config_with_status(k, v, 0)
                 continue
             if k == 'bridge-vlan-aware':
-                rv = self.ipcmd.bridge_is_vlan_aware(ifaceobj.name)
+                rv = netlink.cache.bridge_is_vlan_aware(ifaceobj.name)
                 if (rv and v == 'yes') or (not rv and v == 'no'):
                     ifaceobjcurr.update_config_with_status('bridge-vlan-aware',
                                v, 0)
@@ -2729,9 +2734,6 @@ class bridge(moduleBase):
                 break
         return pvid
 
-    def _get_bridge_name(self, ifaceobj):
-        return self.ipcmd.bridge_port_get_bridge_name(ifaceobj.name)
-
     def _query_check_bridge_port_vidinfo(self, ifaceobj, ifaceobjcurr,
                                          ifaceobj_getfunc, bridgename):
         attr_name = 'bridge-access'
@@ -2811,13 +2813,13 @@ class bridge(moduleBase):
                      'bridge-arp-nd-suppress', 'bridge-l2protocol-tunnel'
                     ], 1)
             return
-        bridgename = self._get_bridge_name(ifaceobj)
+        bridgename = netlink.cache.get_bridge_name_from_port(ifaceobj.name)
         if not bridgename:
             self.logger.warn('%s: unable to determine bridge name'
                              %ifaceobj.name)
             return
 
-        if self.ipcmd.bridge_is_vlan_aware(bridgename):
+        if netlink.cache.bridge_is_vlan_aware(bridgename):
             self._query_check_bridge_port_vidinfo(ifaceobj, ifaceobjcurr,
                                                   ifaceobj_getfunc,
                                                   bridgename)
@@ -2912,8 +2914,8 @@ class bridge(moduleBase):
             ifaceobjcurr.update_config_with_status('bridge-l2protocol-tunnel', user_config_l2protocol_tunnel, result)
 
     def _query_check_l2protocol_tunnel(self, brport_name, user_config_l2protocol_tunnel):
-        cached_ifla_brport_group_maskhi = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', Link.IFLA_BRPORT_GROUP_FWD_MASKHI])
-        cached_ifla_brport_group_mask = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', Link.IFLA_BRPORT_GROUP_FWD_MASK])
+        cached_ifla_brport_group_maskhi = netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASKHI)
+        cached_ifla_brport_group_mask = netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASK)
 
         for protocol in re.split(',|\s*', user_config_l2protocol_tunnel):
             callback = self.query_check_l2protocol_tunnel_callback.get(protocol)
@@ -2924,8 +2926,8 @@ class bridge(moduleBase):
                                     % (brport_name, protocol, cached_ifla_brport_group_mask, cached_ifla_brport_group_maskhi))
 
     def _query_running_bridge_l2protocol_tunnel(self, brport_name, brport_ifaceobj=None, bridge_ifaceobj=None):
-        cached_ifla_brport_group_maskhi = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', Link.IFLA_BRPORT_GROUP_FWD_MASKHI])
-        cached_ifla_brport_group_mask = self.ipcmd.cache_get_info_slave([brport_name, 'info_slave_data', Link.IFLA_BRPORT_GROUP_FWD_MASK])
+        cached_ifla_brport_group_maskhi = netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASKHI)
+        cached_ifla_brport_group_mask = netlink.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASK)
         running_protocols = []
         for protocol_name, callback in self.query_check_l2protocol_tunnel_callback.items():
             if protocol_name == 'all' and callback(cached_ifla_brport_group_mask, cached_ifla_brport_group_maskhi):
@@ -2953,7 +2955,7 @@ class bridge(moduleBase):
                                           ifaceobj_getfunc)
 
     def _query_running_bridge(self, ifaceobjrunning, ifaceobj_getfunc):
-        if self.ipcmd.bridge_is_vlan_aware(ifaceobjrunning.name):
+        if netlink.cache.bridge_is_vlan_aware(ifaceobjrunning.name):
             ifaceobjrunning.update_config('bridge-vlan-aware', 'yes')
             ifaceobjrunning.update_config_dict(self._query_running_attrs(
                                                ifaceobjrunning,
@@ -2978,7 +2980,7 @@ class bridge(moduleBase):
     def _query_running_bridge_port(self, ifaceobjrunning,
                                    ifaceobj_getfunc=None):
 
-        bridgename = self.ipcmd.bridge_port_get_bridge_name(
+        bridgename = netlink.cache.get_bridge_name_from_port(
                                                 ifaceobjrunning.name)
         bridge_vids = None
         bridge_pvid = None
@@ -2987,7 +2989,7 @@ class bridge(moduleBase):
                              %ifaceobjrunning.name)
             return
 
-        if not self.ipcmd.bridge_is_vlan_aware(bridgename):
+        if not netlink.cache.bridge_is_vlan_aware(bridgename):
             try:
                 self._query_running_bridge_l2protocol_tunnel(ifaceobjrunning.name, bridge_ifaceobj=ifaceobj_getfunc(bridgename)[0])
             except Exception as e:

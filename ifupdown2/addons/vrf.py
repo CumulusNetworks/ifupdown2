@@ -20,6 +20,8 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
 
+    from ifupdown2.nlmanager.nlmanager import Link
+
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.utilsbase import *
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
@@ -31,6 +33,8 @@ except ImportError:
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
+
+    from nlmanager.nlmanager import Link
 
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.utilsbase import *
@@ -70,7 +74,6 @@ class vrf(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
-        self.bondcmd = None
         self.dhclientcmd = None
         self.name = self.__class__.__name__
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
@@ -185,6 +188,16 @@ class vrf(moduleBase):
             return False
         return True
 
+    def get_vrf_running_map(self):
+        running_vrf_map = {}
+        vrfs = netlink.cache.get_vrfs()
+        for vrf in vrfs:
+            try:
+                running_vrf_map[vrf.attributes[Link.IFLA_LINKINFO].value[Link.IFLA_INFO_DATA][Link.IFLA_VRF_TABLE]] = vrf.attributes[Link.IFLA_IFNAME].value
+            except (KeyError, AttributeError):
+                pass
+        return running_vrf_map
+
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
             return
@@ -213,13 +226,7 @@ class vrf(moduleBase):
                         self.logger.info('vrf: iproute2_vrf_map: unable to parse %s (%s)' %(l, str(e)))
                         pass
 
-        vrfs = self.ipcmd.link_get_vrfs()
-        running_vrf_map = {}
-        if vrfs:
-            for v, lattrs in vrfs.iteritems():
-                table = lattrs.get('table', None)
-                if table:
-                   running_vrf_map[int(table)] = v
+        running_vrf_map = self.get_vrf_running_map()
 
         if (not running_vrf_map or (running_vrf_map != self.iproute2_vrf_map)):
             self.iproute2_vrf_map = running_vrf_map
@@ -438,14 +445,14 @@ class vrf(moduleBase):
                     raise
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
-        self.ipcmd.link_set(ifacename, 'master', vrfname)
+        netlink.link_set_master(ifacename, vrfname)
         return
 
     def _down_dhcp_slave(self, ifaceobj, vrfname):
         try:
             dhclient_cmd_prefix = None
             if (vrfname and self.vrf_exec_cmd_prefix and
-                self.ipcmd.link_exists(vrfname)):
+                netlink.cache.link_exists(vrfname)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix,
                                                 vrfname)
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
@@ -466,11 +473,11 @@ class vrf(moduleBase):
                       ifaceobj_getfunc=None, vrf_exists=False):
         try:
             master_exists = True
-            if vrf_exists or self.ipcmd.link_exists(vrfname):
+            if vrf_exists or netlink.cache.link_exists(vrfname):
                 uppers = self.ipcmd.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
-                    self.ipcmd.link_set(ifacename, 'master', vrfname)
+                    netlink.link_set_master(ifacename, vrfname)
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
@@ -646,7 +653,7 @@ class vrf(moduleBase):
         if add_slaves:
             for s in add_slaves:
                 try:
-                    if not self.ipcmd.link_exists(s):
+                    if not netlink.cache.link_exists(s):
                         continue
                     sobj = None
                     if ifaceobj_getfunc:
@@ -693,7 +700,7 @@ class vrf(moduleBase):
         return False
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not netlink.cache.link_exists(ifaceobj.name):
             self._check_vrf_system_reserved_names(ifaceobj)
 
             if self.vrf_count == self.vrf_max_count:
@@ -738,13 +745,12 @@ class vrf(moduleBase):
                     self.log_error('unable to get vrf table id', ifaceobj)
 
             # if the device exists, check if table id is same
-            vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
-            if vrfdev_attrs:
-                running_table = vrfdev_attrs.get('table', None)
-                if vrf_table != running_table:
-                    self.log_error('cannot change vrf table id,running table id'
-                                   ' %s is different from config id %s'
-                                   % (running_table, vrf_table), ifaceobj)
+            running_table = netlink.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_VRF_TABLE)
+
+            if running_table is not None and vrf_table != str(running_table):
+                self.log_error('cannot change vrf table id,running table id'
+                               ' %s is different from config id %s'
+                               % (running_table, vrf_table), ifaceobj)
         return vrf_table
 
     def _up_vrf_helper(self, ifaceobj, vrf_table):
@@ -876,7 +882,7 @@ class vrf(moduleBase):
                                        ifaceobj_getfunc)
                 elif not ifupdownflags.flags.PERFMODE:
                     # check if we were a slave before
-                    master = self.ipcmd.link_get_master(ifaceobj.name)
+                    master = netlink.cache.get_master(ifaceobj.name)
                     if master:
                         self._iproute2_vrf_map_initialize()
                         if self._is_vrf_dev(master):
@@ -910,7 +916,7 @@ class vrf(moduleBase):
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not netlink.cache.link_exists(ifaceobj.name):
             return
 
         if vrf_table == 'auto':
@@ -947,11 +953,14 @@ class vrf(moduleBase):
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
-        ifindex = self.ipcmd.link_get_ifindex(ifaceobj.name)
+        try:
+            ifindex = netlink.cache.get_ifindex(ifaceobj.name)
+        except:
+            ifindex = 0
 
         if ifindex:
             try:
-                self.ipcmd.link_delete(ifaceobj.name)
+                netlink.link_del(ifaceobj.name)
             except Exception, e:
                 self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
                 pass
@@ -968,7 +977,7 @@ class vrf(moduleBase):
     def _down_vrf_slave(self, ifacename, ifaceobj=None, vrfname=None):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
-            self.ipcmd.link_set(ifacename, 'nomaster')
+            netlink.link_set_nomaster(ifacename)
             # Down this slave only if it is a slave ifupdown2 manages.
             # we dont want to down slaves that maybe up'ed by
             # somebody else. One such example is a macvlan device
@@ -994,7 +1003,7 @@ class vrf(moduleBase):
 
     def _query_check_vrf_slave(self, ifaceobj, ifaceobjcurr, vrf):
         try:
-            master = self.ipcmd.link_get_master(ifaceobj.name)
+            master = netlink.cache.get_master(ifaceobj.name)
             if not master or master != vrf:
                 ifaceobjcurr.update_config_with_status('vrf', str(master), 1)
             else:
@@ -1004,27 +1013,18 @@ class vrf(moduleBase):
 
     def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table):
         try:
-            if not self.ipcmd.link_exists(ifaceobj.name):
+            if not netlink.cache.link_exists(ifaceobj.name):
                 self.logger.info('%s: vrf: does not exist' %(ifaceobj.name))
                 return
             if vrf_table == 'auto':
-                config_table = self._get_iproute2_vrf_table(ifaceobj.name)
+                config_table = str(self._get_iproute2_vrf_table(ifaceobj.name) or 0)
             else:
                 config_table = vrf_table
-            vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
-            if not vrfdev_attrs:
-                ifaceobjcurr.update_config_with_status('vrf-table', 'None', 1)
-                return
-            running_table = vrfdev_attrs.get('table')
-            if not running_table:
-                ifaceobjcurr.update_config_with_status('vrf-table', 'None', 1)
-                return
-            if config_table != running_table:
-                ifaceobjcurr.update_config_with_status('vrf-table',
-                                                       running_table, 1)
-            else:
-                ifaceobjcurr.update_config_with_status('vrf-table',
-                                                       running_table, 0)
+
+            running_vrf_table = str(netlink.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_VRF_TABLE))
+
+            ifaceobjcurr.update_config_with_status('vrf-table', running_vrf_table, config_table != running_vrf_table)
+
             if not ifupdownflags.flags.WITHDEFAULTS:
                 return
             if self.vrf_helper:
@@ -1063,18 +1063,17 @@ class vrf(moduleBase):
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         try:
-            kind = self.ipcmd.link_get_kind(ifaceobjrunning.name)
+            kind = netlink.cache.get_link_kind(ifaceobjrunning.name)
             if kind == 'vrf':
-                vrfdev_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobjrunning.name)
-                if vrfdev_attrs:
-                    running_table = vrfdev_attrs.get('table')
-                    if running_table:
-                        ifaceobjrunning.update_config('vrf-table',
-                                                      running_table)
-                        return
-            slave_kind = self.ipcmd.link_get_slave_kind(ifaceobjrunning.name)
+                running_table = netlink.cache.get_link_info_data_attribute(ifaceobjrunning.name, Link.IFLA_VRF_TABLE)
+
+                if running_table is not None:
+                    ifaceobjrunning.update_config('vrf-table', str(running_table))
+                    return
+
+            slave_kind = netlink.cache.get_link_slave_kind(ifaceobjrunning.name)
             if slave_kind == 'vrf_slave':
-                vrf = self.ipcmd.link_get_master(ifaceobjrunning.name)
+                vrf = netlink.cache.get_master(ifaceobjrunning.name)
                 if vrf:
                     ifaceobjrunning.update_config('vrf', vrf)
         except Exception, e:
@@ -1099,7 +1098,7 @@ class vrf(moduleBase):
 
     def _init_command_handlers(self):
         if not self.ipcmd:
-            self.ipcmd = self.bondcmd = LinkUtils()
+            self.ipcmd = LinkUtils()
         if not self.dhclientcmd:
             self.dhclientcmd = dhclient()
 

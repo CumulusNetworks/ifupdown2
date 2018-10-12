@@ -30,7 +30,7 @@
 
 import logging
 import struct
-from ipaddr import IPv4Address, IPv6Address, IPAddress
+from ipaddr import IPNetwork, IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
 from socket import AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE, htons
@@ -440,7 +440,7 @@ class AttributeString(Attribute):
         self.LEN = calcsize(self.PACK)
 
         try:
-            self.value = remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0])
+            self.value = str(remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0]))
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:self.length])))
             raise
@@ -489,15 +489,14 @@ class AttributeIPAddress(Attribute):
         self.decode_length_type(data)
 
         try:
-            if self.family == AF_INET:
+            if self.family in (AF_INET, AF_BRIDGE):
                 self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
 
             elif self.family == AF_INET6:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
                 self.value = IPv6Address(data1 << 64 | data2)
 
-            elif self.family == AF_BRIDGE:
-                self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
+            self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
 
             self.value_int = int(self.value)
             self.value_int_str = str(self.value_int)
@@ -1105,8 +1104,8 @@ class AttributeIFLA_LINKINFO(Attribute):
         kind        = self.value.get(Link.IFLA_INFO_KIND)
         slave_kind  = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
 
-        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge'):
-            raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
+        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge', 'dummy'):
+            self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
         elif not kind and slave_kind != 'bridge':
             # only support brport for now.
             raise Exception('Unsupported IFLA_INFO_SLAVE_KIND %s' % slave_kind)
@@ -2678,6 +2677,7 @@ class Error(NetlinkPacket):
     NLE_NODEV             = 0x1F
     NLE_IMMUTABLE         = 0x20
     NLE_DUMP_INTR         = 0x21
+    NLE_ATTRSIZE          = 0x22
 
     error_to_string = {
         NLE_SUCCESS           : 'NLE_SUCCESS',
@@ -2713,7 +2713,46 @@ class Error(NetlinkPacket):
         NLE_PARSE_ERR         : 'NLE_PARSE_ERR',
         NLE_NODEV             : 'NLE_NODEV',
         NLE_IMMUTABLE         : 'NLE_IMMUTABLE',
-        NLE_DUMP_INTR         : 'NLE_DUMP_INTR'
+        NLE_DUMP_INTR         : 'NLE_DUMP_INTR',
+        NLE_ATTRSIZE          : 'NLE_ATTRSIZE'
+    }
+
+    error_to_human_readable_string = {
+        NLE_SUCCESS:           "Success",
+        NLE_FAILURE:           "Unspecific failure",
+        NLE_INTR:              "Interrupted system call",
+        NLE_BAD_SOCK:          "Bad socket",
+        NLE_AGAIN:             "Try again",
+        NLE_NOMEM:             "Out of memory",
+        NLE_EXIST:             "Object exists",
+        NLE_INVAL:             "Invalid input data or parameter",
+        NLE_RANGE:             "Input data out of range",
+        NLE_MSGSIZE:           "Message size not sufficient",
+        NLE_OPNOTSUPP:         "Operation not supported",
+        NLE_AF_NOSUPPORT:      "Address family not supported",
+        NLE_OBJ_NOTFOUND:      "Object not found",
+        NLE_NOATTR:            "Attribute not available",
+        NLE_MISSING_ATTR:      "Missing attribute",
+        NLE_AF_MISMATCH:       "Address family mismatch",
+        NLE_SEQ_MISMATCH:      "Message sequence number mismatch",
+        NLE_MSG_OVERFLOW:      "Kernel reported message overflow",
+        NLE_MSG_TRUNC:         "Kernel reported truncated message",
+        NLE_NOADDR:            "Invalid address for specified address family",
+        NLE_SRCRT_NOSUPPORT:   "Source based routing not supported",
+        NLE_MSG_TOOSHORT:      "Netlink message is too short",
+        NLE_MSGTYPE_NOSUPPORT: "Netlink message type is not supported",
+        NLE_OBJ_MISMATCH:      "Object type does not match cache",
+        NLE_NOCACHE:           "Unknown or invalid cache type",
+        NLE_BUSY:              "Object busy",
+        NLE_PROTO_MISMATCH:    "Protocol mismatch",
+        NLE_NOACCESS:          "No Access",
+        NLE_PERM:              "Operation not permitted",
+        NLE_PKTLOC_FILE:       "Unable to open packet location file",
+        NLE_PARSE_ERR:         "Unable to parse object",
+        NLE_NODEV:             "No such device",
+        NLE_IMMUTABLE:         "Immutable attribute",
+        NLE_DUMP_INTR:         "Dump inconsistency detected, interrupted",
+        NLE_ATTRSIZE:          "Attribute max length exceeded",
     }
 
     def __init__(self, msgtype, debug=False, logger=None, use_color=True):
@@ -2740,7 +2779,8 @@ class Error(NetlinkPacket):
             for x in range(0, self.LEN/4):
 
                 if self.line_number == 5:
-                    extra = "Error Number %s is %s" % (self.negative_errno, self.error_to_string.get(abs(self.negative_errno)))
+                    error_number = abs(self.negative_errno)
+                    extra = "Error Number %s is %s (%s)" % (self.negative_errno, self.error_to_string.get(error_number), self.error_to_human_readable_string.get(error_number))
                     # zfilled_hex(self.negative_errno, 2)
 
                 elif self.line_number == 6:
@@ -2849,7 +2889,7 @@ class Link(NetlinkPacket):
         IFLA_LINKMODE        : ('IFLA_LINKMODE', AttributeOneByteValue),
         IFLA_LINKINFO        : ('IFLA_LINKINFO', AttributeIFLA_LINKINFO),
         IFLA_NET_NS_PID      : ('IFLA_NET_NS_PID', AttributeGeneric),
-        IFLA_IFALIAS         : ('IFLA_IFALIAS', AttributeGeneric),
+        IFLA_IFALIAS         : ('IFLA_IFALIAS', AttributeString),
         IFLA_NUM_VF          : ('IFLA_NUM_VF', AttributeGeneric),
         IFLA_VFINFO_LIST     : ('IFLA_VFINFO_LIST', AttributeGeneric),
         IFLA_STATS64         : ('IFLA_STATS64', AttributeGeneric),

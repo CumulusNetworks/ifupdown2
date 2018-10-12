@@ -19,11 +19,13 @@ try:
     import ifupdown2.ifupdown.config as core_config
     from ifupdown2.ifupdown.log import log
     from ifupdown2 import __version__
+    from ifupdown2.ifupdown.exceptions import ArgvParseHelp
 
     core_config.__version__ = __version__
 except:
     import ifupdown.config as core_config
     from ifupdown.log import log
+    from ifupdown.exceptions import ArgvParseHelp
 
     core_config.__version__ = __import__('__init__').__version__
 
@@ -71,14 +73,13 @@ class Ifupdown2Client:
             self.socket.close()
             self.socket = None
             sys.stderr.write("""
-    ERROR: %s could not connect to ifupdown2d
+    ERROR: %s could not connect to ifupdown2 daemon
 
     Try starting ifupdown2d with:
-    sudo systemctl start ifupdown2d
+    sudo systemctl start ifupdown2
 
     To configure ifupdown2d to start when the box boots:
-    sudo systemctl enable ifupdown2d
-    """ % argv[0])
+    sudo systemctl enable ifupdown2\n\n""" % argv[0])
 
     def __del__(self):
         if self.socket:
@@ -180,7 +181,12 @@ def ifupdown2_standalone():
     except:
         import ifupdown.main as main_ifupdown2
     ifupdown2 = main_ifupdown2.Ifupdown2(daemon=False, uid=os.geteuid())
-    ifupdown2.parse_argv(sys.argv)
+    try:
+        ifupdown2.parse_argv(sys.argv)
+    except ArgvParseHelp:
+        # on --help parse_args raises SystemExit, we catch it and raise a
+        # custom exception ArgvParseHelp to return 0
+        return 0
     ifupdown2.update_logger()
     return ifupdown2.main()
 
@@ -190,7 +196,11 @@ def main():
         if 'use_daemon=yes' in open(core_config.IFUPDOWN2_CONF_PATH).read():
             return Ifupdown2Client(sys.argv).run()
         else:
-            return ifupdown2_standalone()
+            import nlmanager.nlcache
+            res = ifupdown2_standalone()
+            netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+            netlink.cleanup()
+            return res
     except KeyboardInterrupt:
         return 1
     except Exception as e:

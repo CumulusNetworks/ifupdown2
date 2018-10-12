@@ -1,3 +1,9 @@
+ifupdown2 (2.0.0-cl4u0) UNRELEASED; urgency=medium
+
+  * New. Enabled: ifupdown2 as a daemon
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 31 Aug 2018 23:42:42 +0200
+
 ifupdown2 (1.2.1-cl3u20) RELEASED; urgency=medium
 
   * New. Enabled: warn when bridge attribute are used on non br[port] intf

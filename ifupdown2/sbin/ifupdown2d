@@ -20,17 +20,22 @@ import daemon
 import select
 import datetime
 import threading
+import traceback
+
+import cumulus.sdnotify
 
 try:
     import ifupdown2.ifupdown.argv
 
     from ifupdown2.ifupdown.log import log
     from ifupdown2.ifupdown.main import Ifupdown2
+    from ifupdown2.ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 except ImportError:
     import ifupdown.argv
 
     from ifupdown.log import log
     from ifupdown.main import Ifupdown2
+    from ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 
 
 class Daemon:
@@ -41,6 +46,12 @@ class Daemon:
         self.context = None
         self.working_directory = '/var/run/ifupdown2d/'
         self.server_address = '/var/run/ifupdown2d/uds'
+
+        self.signal_str_map = dict(
+            (attr_value, attr_name)
+            for attr_name, attr_value in signal.__dict__.items()
+            if attr_name.startswith('SIG') and not attr_name.startswith('SIG_')
+        )
 
         if not os.path.exists(self.working_directory):
             log.info('creating %s' % self.working_directory)
@@ -99,6 +110,11 @@ class Daemon:
             raise Exception('listen: %s' % str(e))
         os.chmod(self.server_address, 0777)
 
+        log.info('filling netlink cache')
+        import nlmanager.nlcache
+        netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+
+
     def __del__(self):
         if self.context:
             self.context.close()
@@ -137,36 +153,64 @@ class Daemon:
             import ConfigParser
             import pkg_resources
 
-            import ifupdown2.ifupdown.exceptions
-            import ifupdown2.ifupdown.graph
-            import ifupdown2.ifupdown.iface
-            import ifupdown2.ifupdown.iff
-            import ifupdown2.ifupdown.ifupdownbase
-            import ifupdown2.ifupdown.ifupdownbase
-            import ifupdown2.ifupdown.ifupdownconfig
-            import ifupdown2.ifupdown.ifupdownflags
-            import ifupdown2.ifupdown.ifupdownmain
-            import ifupdown2.ifupdown.netlink
-            import ifupdown2.ifupdown.networkinterfaces
-            import ifupdown2.ifupdown.policymanager
-            import ifupdown2.ifupdown.scheduler
-            import ifupdown2.ifupdown.statemanager
-            import ifupdown2.ifupdown.template
-            import ifupdown2.ifupdown.utils
+            try:
+                import ifupdown2.ifupdown.exceptions
+                import ifupdown2.ifupdown.graph
+                import ifupdown2.ifupdown.iface
+                import ifupdown2.ifupdown.iff
+                import ifupdown2.ifupdown.ifupdownbase
+                import ifupdown2.ifupdown.ifupdownbase
+                import ifupdown2.ifupdown.ifupdownconfig
+                import ifupdown2.ifupdown.ifupdownflags
+                import ifupdown2.ifupdown.ifupdownmain
+                import ifupdown2.ifupdown.netlink
+                import ifupdown2.ifupdown.networkinterfaces
+                import ifupdown2.ifupdown.policymanager
+                import ifupdown2.ifupdown.scheduler
+                import ifupdown2.ifupdown.statemanager
+                import ifupdown2.ifupdown.template
+                import ifupdown2.ifupdown.utils
 
-            import ifupdown2.ifupdownaddons.cache
-            import ifupdown2.ifupdownaddons.dhclient
-            import ifupdown2.ifupdownaddons.mstpctlutil
-            import ifupdown2.ifupdownaddons.LinkUtils
-            import ifupdown2.ifupdownaddons.modulebase
-            import ifupdown2.ifupdownaddons.systemutils
-            import ifupdown2.ifupdownaddons.utilsbase
+                import ifupdown2.ifupdownaddons.cache
+                import ifupdown2.ifupdownaddons.dhclient
+                import ifupdown2.ifupdownaddons.mstpctlutil
+                import ifupdown2.ifupdownaddons.LinkUtils
+                import ifupdown2.ifupdownaddons.modulebase
+                import ifupdown2.ifupdownaddons.systemutils
+                import ifupdown2.ifupdownaddons.utilsbase
+            except ImportError:
+                import ifupdown.exceptions
+                import ifupdown.graph
+                import ifupdown.iface
+                import ifupdown.iff
+                import ifupdown.ifupdownbase
+                import ifupdown.ifupdownbase
+                import ifupdown.ifupdownconfig
+                import ifupdown.ifupdownflags
+                import ifupdown.ifupdownmain
+                import ifupdown.netlink
+                import ifupdown.networkinterfaces
+                import ifupdown.policymanager
+                import ifupdown.scheduler
+                import ifupdown.statemanager
+                import ifupdown.template
+                import ifupdown.utils
+
+                import ifupdownaddons.cache
+                import ifupdownaddons.dhclient
+                import ifupdownaddons.mstpctlutil
+                import ifupdownaddons.LinkUtils
+                import ifupdownaddons.modulebase
+                import ifupdownaddons.systemutils
+                import ifupdownaddons.utilsbase
+
         except ImportError, e:
             raise ImportError('%s - required module not found' % str(e))
 
-    @staticmethod
-    def signal_handler(sig, frame):
-        log.info('received %s' % 'SIGINT' if sig == signal.SIGINT else 'SIGTERM')
+    def signal_handler(self, sig, frame):
+        log.set_socket(None)
+        log.update_current_logger(syslog=True, verbose=True, debug=True)
+        log.info("received %s signal" % self.signal_str_map.get(sig, "UNKNOWN"))
         Daemon.shutdown_event.set()
 
     @staticmethod
@@ -174,6 +218,9 @@ class Daemon:
         return not log.is_syslog()
 
     def run(self):
+        # Tell systemd that we are initialized and ready
+        cumulus.sdnotify.sd_notify(0, "READY=1")
+
         try:
             while True:
                 if Daemon.shutdown_event.is_set():
@@ -183,24 +230,44 @@ class Daemon:
                 try:
                     (client_socket, client_address) = self.uds.accept()
                 except socket.error as e:
-                    log.error(str(e))
+                    if not Daemon.shutdown_event.is_set():
+                        log.error("daemon: socket: accept: %s" % str(e))
+                    else:
+                        log.info("shutdown signal RXed, breaking out loop")
                     break
 
-                pid = os.fork()
-                if pid == 0:
-                    exit(self.ifupdown2(client_socket))
-                else:
-                    log.tx_data(json.dumps({'pid': pid}), socket=client_socket)
+                #if False:
+                #    pid = os.fork()
+                #    if pid == 0:
+                #        exit(self.ifupdown2(client_socket, daemon=True))
+                #    else:
+                #        log.tx_data(json.dumps({'pid': pid}), socket=client_socket)
+                #
+                #        start = datetime.datetime.now()
+                #        status = os.WEXITSTATUS(os.waitpid(pid, 0)[1])
+                #        end = datetime.datetime.now()
+                #
+                #        log.tx_data(json.dumps({'status': status}), socket=client_socket)
+                #        client_socket.close()
+                #
+                #        log.info('exit status %d - in %ssecs'
+                #                 % (status, (end - start).total_seconds()))
 
-                    start = datetime.datetime.now()
-                    status = os.WEXITSTATUS(os.waitpid(pid, 0)[1])
-                    end = datetime.datetime.now()
+                log.tx_data(json.dumps({'pid': os.getpid()}), socket=client_socket)
+                start = datetime.datetime.now()
+                try:
+                    return_value = self.ifupdown2(client_socket, daemon=False)
+                except Exception as e:
+                    log.error('run exception: ' + str(e))
+                    log.error('%s' % traceback.format_exc())
 
-                    log.tx_data(json.dumps({'status': status}), socket=client_socket)
-                    client_socket.close()
-
-                    log.info('exit status %d - in %ssecs'
-                             % (status, (end - start).total_seconds()))
+                    return_value = 1
+                end = datetime.datetime.now()
+                log.update_current_logger(syslog=True, verbose=True, debug=True)
+                log.tx_data(json.dumps({'status': return_value}), socket=client_socket)
+                client_socket.close()
+                log.info('exit status %d - in %ssecs'
+                         % (return_value, (end - start).total_seconds()))
 
         except Exception as e:
             log.error(e)
@@ -242,47 +309,132 @@ class Daemon:
                         except ValueError:
                             pass
 
-    def ifupdown2(self, client_socket):
+    def ifupdown2(self, client_socket, daemon):
+
         try:
             fcntl.fcntl(client_socket.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
 
             ifupdown2 = Ifupdown2(daemon=True, uid=self.get_client_uid(client_socket))
-            ifupdown2.set_signal_handlers()
 
             request = self.get_client_request(client_socket)
             log.info('request: %s' % request['argv'])
 
+            # set socket now in case we have an error in parse_argv
+            log.set_socket(client_socket)
+
+            if "dump" in request['argv']:
+                log.update_current_logger(syslog=False, verbose=True, debug=True)
+
+                import nlmanager.nlcache
+                netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+
+                try:
+                    from ifupdownaddons.cache import linkCache
+
+                except:
+                    from ifupdown2.ifupdownaddons.cache import linkCache
+
+                log.error('OLDCACHE=%s' % linkCache.links)
+
+                try:
+                    log.error('nlcache_ifname_by_ifindex=%s' % netlink.cache._ifname_by_ifindex)
+                except Exception as e:
+                    log.error('A=%s' % e)
+                try:
+                    log.error('_ifindex_by_ifname=%s' % netlink.cache._ifindex_by_ifname)
+                except Exception as e:
+                    log.error('B=%s' % e)
+                try:
+                    log.error('_masters_and_slaves=%s' % netlink.cache._masters_and_slaves)
+                except Exception as e:
+                    log.error('C=%s' % e)
+                log.error('')
+                try:
+                    log.error('CACHE=%s' % netlink.cache._link_cache)
+                except Exception as e:
+                    log.error('D=%s' % e)
+
+                try:
+                    log.error('ADDR=%s' % netlink.cache._addr_cache)
+                except Exception as e:
+                    log.error('E=%s' % e)
+                log.error('')
+                log.error('')
+
+
+                try:
+                    index = request['argv'].index('dump')
+                    if index + 1 <= len(request['argv']):
+                        index += 1
+
+                    target = request['argv'][index]
+
+                    netlink.cache.DEBUG_IFNAME(target, with_addresses=True)
+
+                    log.error('')
+                    log.error('')
+                    log.error('')
+                    log.error('CACHE[%s]=%s' % (target, linkCache.links[target]))
+                except:
+                    pass
+
+                log.error('')
+                log.error('')
+                log.error('')
+                log.error('')
+
+                return 42
+
             ifupdown2.parse_argv(request['argv'])
+
             # adjust the logger with argv
             ifupdown2.update_logger(socket=client_socket)
 
             try:
                 status = ifupdown2.main(request['stdin'])
-            except Exception as e:
-                log.error(str(e))
+            except BaseException as e:
+                log.error('ifupdown2.main: %s' % str(e))
                 status = 1
+                log.flush()
+                if daemon:
+                    log.set_socket(None)
+                    client_socket.close()
+                return status
 
-        except ifupdown2.ifupdown.argv.ArgvParseError as e:
+        except ArgvParseHelp:
+            # on --help parse_args raise SystemExit we catch it and raise
+            # a custom exception ArgvParseHelp so we can properly return 0
+            status = 0
+        except ArgvParseError as e:
             log.update_current_logger(syslog=False, verbose=True, debug=False)
-            log.set_socket(client_socket)
             e.log_error()
             status = 1
         except Exception as e:
+            log.error('Exception=%s' % traceback.format_exc())
             log.error(e)
-            status = 1
+            status = 2
+        except BaseException as e:
+            log.error('BaseException=%s' % traceback.format_exc())
+            log.error(e)
+            status = 3
 
         log.flush()
-        log.set_socket(None)
-        client_socket.close()
+        if daemon:
+            log.set_socket(None)
+            client_socket.close()
         return status
 
 
 if __name__ == '__main__':
+
     try:
         Daemon().run()
-    except Exception as e:
+    except BaseException as e:
         print e
         log.error(str(e))
-        import traceback
         log.error(traceback.format_exc())
         exit(1)
+    finally:
+        import nlmanager.nlcache
+        netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+        netlink.cleanup()

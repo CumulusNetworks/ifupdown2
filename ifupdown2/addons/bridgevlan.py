@@ -6,6 +6,7 @@
 
 try:
     from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
@@ -13,6 +14,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
     from ifupdown.iface import *
+    from ifupdown.netlink import netlink
 
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
@@ -72,7 +74,7 @@ class bridgevlan(moduleBase):
                     'does not correspond to format (eg. br0.100)', ifaceobj)
             raise
 
-        if not self.ipcmd.link_exists(bridgename):
+        if not netlink.cache.link_exists(bridgename):
             #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return
@@ -105,7 +107,7 @@ class bridgevlan(moduleBase):
                     'does not correspond to format (eg. br0.100)')
             raise
 
-        if not self.ipcmd.link_exists(bridgename):
+        if not netlink.cache.link_exists(bridgename):
             #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return

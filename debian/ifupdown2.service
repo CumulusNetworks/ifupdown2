@@ -1,0 +1,20 @@
+[Unit]
+Description=ifupdown2 daemon
+Documentation=man:interfaces(5)
+DefaultDependencies=no
+Before=shutdown.target networking.service
+Conflicts=shutdown.target
+
+[Service]
+Type=notify
+Restart=always
+RestartSec=2
+StartLimitInterval=10m
+StartLimitBurst=5
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+ExecStart=/usr/share/ifupdown2/ifupdown2d
+ExecReload=/sbin/ifreload -a
+
+[Install]
+WantedBy=basic.target network.target

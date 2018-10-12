@@ -31,7 +31,7 @@ def build_deb_package():
 
 
 if build_deb_package():
-    DATA_FILES.append(('/usr/share/ifupdown2/sbin/', ['ifupdown2/sbin/start-networking']))
+    DATA_FILES.append(('/usr/share/ifupdown2/', ['ifupdown2/sbin/ifupdown2d']))
 else:
     ENTRY_POINTS = {
         'console_scripts': [
@@ -66,7 +66,7 @@ setup(
     name='ifupdown2',
     packages=find_packages(),
     url='https://github.com/CumulusNetworks/ifupdown2',
-    version='1.2.1',
+    version='2.0.0',
     data_files=DATA_FILES,
     setup_requires=['setuptools'],
     scripts=SCRIPTS,

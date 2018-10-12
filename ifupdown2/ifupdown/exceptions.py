@@ -38,6 +38,14 @@ class ArgvParseError(Error):
     pass
 
 
+class ArgvParseHelp(Error):
+    """
+    When ifupdown2 is called with --help argparse raise SystemExit
+    we need to catch this to properly print the help and exit 0 not 1
+    """
+    pass
+
+
 class ifaceNotFoundError(Error):
     pass
 

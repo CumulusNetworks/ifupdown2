@@ -61,12 +61,16 @@ class Log:
         facility = logging.handlers.SysLogHandler.LOG_DAEMON
         address = '/dev/log'
         format = '%(name)s: %(levelname)s: %(message)s'
+        #format = '%(asctime)s: %(threadName)s: %(name)s: %(filename)s:%(lineno)d:%(funcName)s(): %(levelname)s: %(message)s'
+
 
         self.syslog_handler = logging.handlers.SysLogHandler(address=address, facility=facility)
         self.syslog_handler.setFormatter(logging.Formatter(format))
 
         # console
         format = '%(levelname)s: %(message)s'
+        #format = '%(asctime)s: %(threadName)s: %(name)s: %(filename)s:%(lineno)d:%(funcName)s(): %(levelname)s: %(message)s'
+
         self.console_handler = logging.StreamHandler(sys.stderr)
         self.console_handler.setFormatter(logging.Formatter(format))
 

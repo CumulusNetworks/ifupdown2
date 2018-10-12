@@ -12,10 +12,10 @@ import argcomplete
 
 try:
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.exceptions import ArgvParseError
+    from ifupdown2.ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 except:
     from ifupdown.utils import utils
-    from ifupdown.exceptions import ArgvParseError
+    from ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 
 
 class VersionAction(argparse.Action):
@@ -78,7 +78,18 @@ class Parse:
                 self.update_ifquery_argparser(argparser)
         self.update_common_argparser(argparser)
         argcomplete.autocomplete(argparser)
-        self.args = argparser.parse_args(self.argv)
+
+        try:
+            self.args = argparser.parse_args(self.argv)
+        except SystemExit as e:
+            # on "--help" parse_args will raise SystemExit.
+            # We need to catch this behavior and raise a custom
+            # exception to return 0 properly
+            #raise ArgvParseHelp()
+            for help_str in ('-h', '--help'):
+                if help_str in argv:
+                    raise ArgvParseHelp()
+            raise
 
     def validate(self):
         if self.op == 'query' and (self.args.syntaxhelp or self.args.list):

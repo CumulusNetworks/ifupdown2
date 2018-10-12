@@ -13,6 +13,7 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
@@ -23,6 +24,7 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
 
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.LinkUtils import LinkUtils
@@ -35,7 +37,6 @@ class dhcp(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.dhclientcmd = dhclient(**kargs)
-        self.ipcmd = None
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
@@ -63,7 +64,7 @@ class dhcp(moduleBase):
             wait = not str(dhcp_wait).lower() == "no"
             vrf = ifaceobj.get_attr_value_first('vrf')
             if (vrf and self.vrf_exec_cmd_prefix and
-                self.ipcmd.link_exists(vrf)):
+                netlink.cache.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
             if 'inet' in ifaceobj.addr_family:
@@ -132,7 +133,7 @@ class dhcp(moduleBase):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
-            self.ipcmd.link_exists(vrf)):
+            netlink.cache.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
         if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
@@ -141,7 +142,7 @@ class dhcp(moduleBase):
 
     def _down(self, ifaceobj):
         self._dhcp_down(ifaceobj)
-        self.ipcmd.link_down(ifaceobj.name)
+        netlink.link_set_updown(ifaceobj.name, 'down')
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         status = ifaceStatus.SUCCESS
@@ -167,7 +168,7 @@ class dhcp(moduleBase):
         ifaceobjcurr.status = status
 
     def _query_running(self, ifaceobjrunning):
-        if not self.ipcmd.link_exists(ifaceobjrunning.name):
+        if not netlink.cache.link_exists(ifaceobjrunning.name):
             return
         if self.dhclientcmd.is_running(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet')
@@ -185,10 +186,6 @@ class dhcp(moduleBase):
     def get_ops(self):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
-
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run dhcp configuration on the interface object passed as argument
@@ -219,7 +216,6 @@ class dhcp(moduleBase):
             return
         if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

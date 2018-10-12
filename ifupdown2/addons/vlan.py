@@ -10,6 +10,8 @@ try:
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.netlink import netlink
 
+    from ifupdown2.nlmanager.nlmanager import Link
+
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
@@ -17,6 +19,8 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.netlink import netlink
+
+    from nlmanager.nlmanager import Link
 
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
@@ -92,7 +96,7 @@ class vlan(moduleBase):
                             add=True):
         """ If the lower device is a vlan aware bridge, add/del the vlanid
         to the bridge """
-        if self.ipcmd.bridge_is_vlan_aware(bridgename):
+        if netlink.cache.bridge_is_vlan_aware(bridgename):
            if add:
                netlink.link_add_bridge_vlan(bridgename, vlanid)
            else:
@@ -101,7 +105,7 @@ class vlan(moduleBase):
     def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
         """ If the lower device is a vlan aware bridge, check if the vlanid
         is configured on the bridge """
-        if not self.ipcmd.bridge_is_vlan_aware(bridgename):
+        if not netlink.cache.bridge_is_vlan_aware(bridgename):
             return
         vids = self.ipcmd.bridge_vlan_get_vids(bridgename)
         if not vids or vlanid not in vids:
@@ -116,8 +120,15 @@ class vlan(moduleBase):
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
 
+        ifname = ifaceobj.name
+
+        if ifupdownflags.flags.PERFMODE:
+            cached_vlan_ifla_info_data = {}
+        else:
+            cached_vlan_ifla_info_data = netlink.cache.get_link_info_data(ifname)
+
         vlan_protocol           = ifaceobj.get_attr_value_first('vlan-protocol')
-        cached_vlan_protocol    = self.ipcmd.get_vlan_protocol(ifaceobj.name)
+        cached_vlan_protocol    = cached_vlan_ifla_info_data.get(Link.IFLA_VLAN_PROTOCOL)
 
         if not vlan_protocol:
             vlan_protocol = self.get_attr_default_value('vlan-protocol')
@@ -130,19 +141,22 @@ class vlan(moduleBase):
 
         if not ifupdownflags.flags.PERFMODE:
 
-            vlan_exists = self.ipcmd.link_exists(ifaceobj.name)
+            vlan_exists = netlink.cache.link_exists(ifaceobj.name)
 
             if vlan_exists:
                 user_vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
-                cached_vlan_raw_device = self.ipcmd.cache_get('link', [ifaceobj.name, 'link'])
+                cached_vlan_raw_device = netlink.cache.get_lower_device_ifname(ifname)
 
                 if cached_vlan_raw_device and user_vlan_raw_device and cached_vlan_raw_device != user_vlan_raw_device:
                     raise Exception('%s: cannot change vlan-raw-device from %s to %s: operation not supported. '
                                     'Please delete the device with \'ifdown %s\' and recreate it to apply the change.'
                                     % (ifaceobj.name, cached_vlan_raw_device, user_vlan_raw_device, ifaceobj.name))
 
-            if not self.ipcmd.link_exists(vlanrawdevice):
-                raise Exception('rawdevice %s not present' %vlanrawdevice)
+            if not netlink.cache.link_exists(vlanrawdevice):
+                if ifupdownflags.flags.DRYRUN:
+                    return
+                else:
+                    raise Exception('rawdevice %s not present' %vlanrawdevice)
             if vlan_exists:
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 return
@@ -158,7 +172,7 @@ class vlan(moduleBase):
         if not vlanrawdevice:
             raise Exception('could not determine vlan raw device')
         if (not ifupdownflags.flags.PERFMODE and
-            not self.ipcmd.link_exists(ifaceobj.name)):
+            not netlink.cache.link_exists(ifaceobj.name)):
            return
         try:
             netlink.link_del(ifaceobj.name)
@@ -167,48 +181,82 @@ class vlan(moduleBase):
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not netlink.cache.link_exists(ifaceobj.name):
            return
         if not '.' in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
-            (vlanrawdev, vlanid, protocol) = self.ipcmd.get_vlandev_attrs(ifaceobj.name)
-            if vlanrawdev != ifaceobj.get_attr_value_first('vlan-raw-device'):
-                ifaceobjcurr.update_config_with_status('vlan-raw-device',
-                        vlanrawdev, 1)
-            else:
-                ifaceobjcurr.update_config_with_status('vlan-raw-device',
-                        vlanrawdev, 0)
+
+            ifname = ifaceobj.name
+            cached_vlan_raw_device = netlink.cache.get_lower_device_ifname(ifname)
+
+            #
+            # vlan-raw-device
+            #
+            ifaceobjcurr.update_config_with_status(
+                'vlan-raw-device',
+                cached_vlan_raw_device,
+                cached_vlan_raw_device != ifaceobj.get_attr_value_first('vlan-raw-device')
+            )
+
+            cached_vlan_info_data = netlink.cache.get_link_info_data(ifname)
+
+            #
+            # vlan-id
+            #
             vlanid_config = ifaceobj.get_attr_value_first('vlan-id')
             if not vlanid_config:
                 vlanid_config = str(self._get_vlan_id(ifaceobj))
-            if vlanid != vlanid_config:
-                ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 1)
-            else:
-                ifaceobjcurr.update_config_with_status('vlan-id', vlanid, 0)
+
+            cached_vlan_id = cached_vlan_info_data.get(Link.IFLA_VLAN_ID)
+            cached_vlan_id_str = str(cached_vlan_id)
+            ifaceobjcurr.update_config_with_status('vlan-id', cached_vlan_id_str, vlanid_config != cached_vlan_id_str)
+
+            #
+            # vlan-protocol
+            #
             protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
             if protocol_config:
-                if protocol_config.upper() != protocol.upper():
-                    ifaceobjcurr.update_config_with_status('vlan-protocol',
-                                                           protocol, 1)
+
+                cached_vlan_protocol = cached_vlan_info_data.get(Link.IFLA_VLAN_PROTOCOL)
+
+                if protocol_config.upper() != cached_vlan_protocol.upper():
+                    ifaceobjcurr.update_config_with_status(
+                        'vlan-protocol',
+                        cached_vlan_protocol,
+                        1
+                    )
                 else:
-                    ifaceobjcurr.update_config_with_status('vlan-protocol',
-                                                           protocol, 0)
-            self._bridge_vid_check(ifaceobj, ifaceobjcurr, vlanrawdev, int(vlanid))
+                    ifaceobjcurr.update_config_with_status(
+                        'vlan-protocol',
+                        protocol_config,
+                        0
+                    )
+
+            self._bridge_vid_check(ifaceobj, ifaceobjcurr, cached_vlan_raw_device, cached_vlan_id)
 
     def _query_running(self, ifaceobjrunning):
-        if not self.ipcmd.link_exists(ifaceobjrunning.name):
+        ifname = ifaceobjrunning.name
+
+        if not netlink.cache.link_exists(ifname):
             return
-        (vlanrawdev, vlanid, protocol) = self.ipcmd.get_vlandev_attrs(ifaceobjrunning.name)
-        if not vlanid:
+
+        if not netlink.cache.get_link_kind(ifname) == 'vlan':
             return
+
         # If vlan name is not in the dot format, get the
         # vlan dev and vlan id
-        if not '.' in ifaceobjrunning.name:
-            ifaceobjrunning.update_config_dict({k: [v] for k, v in
-                                                {'vlan-raw-device' : vlanrawdev,
-                                                 'vlan-id' : vlanid,
-                                                 'vlan-protocol' : protocol}.items()
-                                                if v})
+        if '.' in ifname:
+            return
+
+        cached_vlan_info_data = netlink.cache.get_link_info_data(ifname)
+
+        for attr_name, nl_attr in (
+                ('vlan-id', Link.IFLA_VLAN_ID),
+                ('vlan-protocol', Link.IFLA_VLAN_PROTOCOL)
+        ):
+            ifaceobjrunning.update_config(attr_name, str(cached_vlan_info_data.get(nl_attr)))
+
+        ifaceobjrunning.update_config('vlan-raw-device', netlink.cache.get_lower_device_ifname(ifname))
 
     _run_ops = {'pre-up' : _up,
                'post-down' : _down,

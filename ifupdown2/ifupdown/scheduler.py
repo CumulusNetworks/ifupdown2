@@ -101,8 +101,10 @@ class ifaceScheduler():
                               ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
             except Exception, e:
                 if not ifupdownobj.ignore_error(str(e)):
-                   err = 1
-                   ifupdownobj.logger.error(str(e))
+                    err = 1
+                    #import traceback
+                    #traceback.print_exc()
+                    ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
                 pass
             finally:

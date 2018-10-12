@@ -12,10 +12,10 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 
     from ifupdown2.ifupdownaddons.utilsbase import *
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
@@ -23,10 +23,10 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
+    from ifupdown.netlink import netlink
     from ifupdown.exceptions import moduleNotSupported
 
     from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -67,7 +67,6 @@ class ethtool(moduleBase,utilsBase):
         moduleBase.__init__(self, *args, **kargs)
         if not os.path.exists(utils.ethtool_cmd):
             raise moduleNotSupported('module init failed: %s: not found' % utils.ethtool_cmd)
-        self.ipcmd = None
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
 
@@ -210,7 +209,7 @@ class ethtool(moduleBase,utilsBase):
         _pre_up and _pre_down will reset the layer 2 attributes to default policy
         settings.
         """
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not netlink.cache.link_exists(ifaceobj.name):
             return
 
         self.do_speed_settings(ifaceobj)
@@ -336,7 +335,7 @@ class ethtool(moduleBase,utilsBase):
         """
         # do not bother showing swp ifaces that are not up for the speed
         # duplex and autoneg are not reliable.
-        if not self.ipcmd.is_link_up(ifaceobj.name):
+        if not netlink.cache.link_is_up(ifaceobj.name):
             return
         for attr in ['speed', 'duplex', 'autoneg']:
             default_val = policymanager.policymanager_api.get_iface_default(
@@ -385,10 +384,6 @@ class ethtool(moduleBase,utilsBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run ethtool configuration on the interface object passed as
             argument
@@ -412,7 +407,6 @@ class ethtool(moduleBase,utilsBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

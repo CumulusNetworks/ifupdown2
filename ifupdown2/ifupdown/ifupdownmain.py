@@ -111,7 +111,7 @@ class ifupdownMain(ifupdownBase):
         if self._keep_link_down(ifaceobj):
             return
         try:
-            self.link_up(ifaceobj.name)
+            netlink.link_set_updown_and_update_cache(ifaceobj.name, 'up')
         except:
             if ifaceobj.addr_method == 'manual':
                 pass
@@ -169,17 +169,34 @@ class ifupdownMain(ifupdownBase):
     sched_hooks = {'posthook' : run_sched_ifaceobj_posthook}
 
     def reset_ifupdown2(self):
+
+        self.modules = OrderedDict({})
+        self.module_attrs = {}
+
         ifaceScheduler.reset()
+        try:
+            ifupdown2.ifupdown.statemanager.reset()
+            ifupdown2.ifupdown.policymanager.reset()
+            ifupdown2.ifupdown.ifupdownflags.reset()
+            ifupdownConfig.reset()
+            ifupdown2.ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+            ifupdown2.ifupdownaddons.LinkUtils.LinkUtils.reset()
 
-        ifupdown2.ifupdown.statemanager.reset()
-        ifupdown2.ifupdown.policymanager.reset()
-        ifupdown2.ifupdown.ifupdownflags.reset()
-        ifupdownConfig.reset()
-        ifupdown2.ifupdownaddons.mstpctlutil.mstpctlutil.reset()
-        ifupdown2.ifupdownaddons.LinkUtils.LinkUtils.reset()
+            #ifupdown2.ifupdownaddons.cache.linkCache.reset()
+            #ifupdown2.ifupdownaddons.cache.MSTPAttrsCache.invalidate()
+        except:
+            try:
+                ifupdown.statemanager.reset()
+                ifupdown.policymanager.reset()
+                ifupdown.ifupdownflags.reset()
+                ifupdownConfig.reset()
+                ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+                ifupdownaddons.LinkUtils.LinkUtils.reset()
 
-        ifupdown2.ifupdownaddons.cache.linkCache.reset()
-        ifupdown2.ifupdownaddons.cache.MSTPAttrsCache.invalidate()
+                #ifupdownaddons.cache.linkCache.reset()
+                #ifupdownaddons.cache.MSTPAttrsCache.invalidate()
+            except:
+                pass
 
     def __init__(self, config={},
                  daemon=False, force=False, dryrun=False, nowait=False,

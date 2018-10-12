@@ -17,18 +17,16 @@ import ConfigParser
 try:
     from ifupdown2.ifupdown.log import log
     from ifupdown2.ifupdown.argv import Parse
+    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
 except ImportError:
     from ifupdown.log import log
     from ifupdown.argv import Parse
+    from ifupdown.netlink import netlink
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
 
-
-_SIGINT = signal.getsignal(signal.SIGINT)
-_SIGTERM = signal.getsignal(signal.SIGTERM)
-_SIGQUIT = signal.getsignal(signal.SIGQUIT)
 
 configmap_g = None
 
@@ -59,15 +57,26 @@ class Ifupdown2:
 
     def update_logger(self, socket=None):
         syslog = self.args.syslog if hasattr(self.args, 'syslog') else False
-        log.update_current_logger(syslog=syslog,
-                                  verbose=self.args.verbose,
-                                  debug=self.args.debug)
+
+        if not hasattr(self.args, 'verbose'):
+            verbose = False
+        else:
+            verbose = self.args.verbose
+
+        if not hasattr(self.args, 'debug'):
+            debug = False
+        else:
+            debug = self.args.debug
+
+        log.update_current_logger(syslog=syslog, verbose=verbose, debug=debug)
         if socket:
             log.set_socket(socket)
 
     def main(self, stdin_buffer=None):
         if self.op != 'query' and self.uid != 0:
             raise Exception('must be root to run this command')
+
+        netlink.init()
 
         try:
             self.read_config()
@@ -80,7 +89,7 @@ class Ifupdown2:
                 raise
             # else:
             if log:
-                log.error(str(e))
+                log.error('main exception: ' + str(e))
             else:
                 print str(e)
                 # if args and not args.debug:
@@ -269,9 +278,3 @@ class Ifupdown2:
                                    currentlyup=args.currentlyup)
         except:
             raise
-
-    @staticmethod
-    def set_signal_handlers():
-        signal.signal(signal.SIGQUIT, _SIGQUIT)
-        signal.signal(signal.SIGTERM, _SIGTERM)
-        signal.signal(signal.SIGINT, _SIGINT)

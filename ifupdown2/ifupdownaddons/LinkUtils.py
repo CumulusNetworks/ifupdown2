@@ -85,6 +85,16 @@ class LinkUtils(utilsBase):
                 LinkUtils.ADDR_METRIC_SUPPORT = False
                 self.logger.info('address metric support: KO')
 
+    def fill_old_cache(self):
+        #
+        # Our old linkCache got some extra information from sysfs
+        # we need to fill it in the same way so nothing breaks.
+        #
+        if netlink.netlink.FILL_OLD_CACHE:
+            self._fill_bond_info(None)
+            self._fill_bridge_info(None)
+            netlink.netlink.FILL_OLD_CACHE = False
+
     @classmethod
     def addr_metric_support(cls):
         return cls.ADDR_METRIC_SUPPORT
@@ -139,8 +149,9 @@ class LinkUtils(utilsBase):
 
         if True:
             try:
-                [linkCache.update_attrdict([ifname], linkattrs)
-                 for ifname, linkattrs in netlink.link_dump(ifacename).items()]
+                pass
+                #[linkCache.update_attrdict([ifname], linkattrs)
+                # for ifname, linkattrs in netlink.link_dump(ifacename).items()]
             except Exception as e:
                 self.logger.info('%s' % str(e))
                 # this netlink call replaces the call to _link_fill_iproute2_cmd()
@@ -610,8 +621,9 @@ class LinkUtils(utilsBase):
 
         if True:
             try:
-                [linkCache.update_attrdict([ifname], linkattrs)
-                 for ifname, linkattrs in netlink.addr_dump(ifname=ifacename).items()]
+                pass
+                #[linkCache.update_attrdict([ifname], linkattrs)
+                # for ifname, linkattrs in netlink.addr_dump(ifname=ifacename).items()]
             except Exception as e:
                 self.logger.info(str(e))
 
@@ -837,7 +849,17 @@ class LinkUtils(utilsBase):
             self.add_to_batch(cmd)
         else:
             utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
-        self._cache_update([ifacename, 'addrs', address], {})
+            attrs = {}
+            try:
+                addr_obj = IPNetwork(address)
+                if isinstance(addr_obj, IPv6Network):
+                    attrs['family'] = 'inet6'
+                else:
+                    attrs['family'] = 'inet'
+            except:
+                attrs['family'] = 'inet'
+
+            self._cache_update([ifacename, 'addrs', address], attrs)
 
     def addr_del(self, ifacename, address, broadcast=None,
                  peer=None, scope=None):
@@ -955,7 +977,7 @@ class LinkUtils(utilsBase):
                             d['family'] = 'inet'
                         running_addrs[addr] = d
                     except:
-                        running_addrs[addr] = {}
+                        running_addrs[addr] = {'family': 'inet'}
                     continue
                 if (scope & Route.RT_SCOPE_LINK and addr in config_addrs) or not scope & Route.RT_SCOPE_LINK:
                     running_addrs[addr] = addr_details
@@ -2676,3 +2698,132 @@ class LinkUtils(utilsBase):
 
         if is_link_up:
             self.link_up(ifname)
+
+    def get_running_addrs_from_cache(self, ifaceobj_list, ifname, with_address_virtual=False):
+        """
+            With the new live cache, we store every intf's addresses even if they
+            werent configured by ifupdown2. We need to filter those out to avoid
+            problems
+
+            To do so we look at the previous configuration made by ifupdown2
+            (with the help of the statemanager) together with the addresses
+            specified by the user in /etc/network/interfaces, these addresses
+            are then compared to the running state of the intf (ip addr show)
+            made via a netlink addr dump.
+        """
+        if not ifaceobj_list:
+            ifaceobj_list = []
+
+        config_addrs = set(
+            self.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
+                ifaceobj_list,
+                with_address_virtual=with_address_virtual,
+                details=False
+            )
+        )
+
+        for previous_state_addr in self.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
+                statemanager.statemanager_api.get_ifaceobjs(ifname),
+                with_address_virtual=with_address_virtual,
+                details=False
+        ):
+            config_addrs.add(previous_state_addr)
+
+        return [addr for addr in netlink.cache.get_addresses_list(ifname) if addr in config_addrs]
+
+    def get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(self, ifaceobj_list, with_address_virtual=False, details=True):
+        """
+            if details=True:
+                This function will return a OrderedDict of user addresses (from /e/n/i)
+                An OrderedDict is necessary because the addresses order is important (primary etc)
+
+            if details=False:
+                Function will return an ordered list of ip4 followed by ip6 as configured in /e/n/i.
+
+            all of the IP object were created by IPNetwork.
+        """
+        if not ifaceobj_list:
+            return {} if details else []
+
+        ip4 = []
+        ip6 = []
+
+        for ifaceobj in ifaceobj_list:
+            addresses = ifaceobj.get_attr_value('address')
+
+            if addresses:
+                for addr_index, addr in enumerate(addresses):
+                    if '/' in addr:
+                        ip_network_obj = IPNetwork(addr)
+                    else:
+                        # if netmask is specified under the stanza we need to use to
+                        # create the IPNetwork objects, otherwise let IPNetwork figure
+                        # out the correct netmask for ip4 & ip6
+                        netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
+
+                        if netmask:
+                            ip_network_obj = IPNetwork('%s/%s' % (addr, netmask))
+                        else:
+                            ip_network_obj = IPNetwork(addr)
+
+                    if not details:
+                        # if no details=False we don't need to go further and our lists
+                        # will only store the IPNetwork object and nothing else
+                        if isinstance(ip_network_obj, IPv6Network):
+                            ip6.append(ip_network_obj)
+                        else:
+                            ip4.append(ip_network_obj)
+                        continue
+
+                    addr_attributes = {}
+
+                    for attr in ['broadcast', 'pointopoint', 'scope', 'preferred-lifetime']:
+                        attr_value = ifaceobj.get_attr_value_n(attr, addr_index)
+
+                        if attr_value:
+                            addr_attributes[attr] = attr_value
+
+                    if isinstance(ip_network_obj, IPv6Network):
+                        ip6.append((ip_network_obj, addr_attributes))
+                    else:
+                        ip4.append((ip_network_obj, addr_attributes))
+
+            if not with_address_virtual:
+                continue
+            #
+            # address-virtual also needs to be accounted for
+            #
+            addresses_virtual = ifaceobj.get_attr_value('address-virtual')
+
+            if addresses_virtual:
+                for addr_virtual_entry in addresses_virtual:
+                    for addr in addr_virtual_entry.split():
+                        try:
+                            ip_network_obj = IPNetwork(addr)
+
+                            if isinstance(ip_network_obj, IPv6Network):
+                                if not details:
+                                    ip6.append(ip_network_obj)
+                                else:
+                                    ip6.append((ip_network_obj, {}))
+                            else:
+                                if not details:
+                                    ip4.append(ip_network_obj)
+                                else:
+                                    ip4.append((ip_network_obj, {}))
+                        except:
+                            continue
+
+        # always return ip4 first, followed by ip6
+        if not details:
+            return ip4 + ip6
+        else:
+            user_config_addresses = OrderedDict()
+
+            for addr, addr_details in ip4:
+                user_config_addresses[addr] = addr_details
+
+            for addr, addr_details in ip6:
+                user_config_addresses[addr] = addr_details
+
+            return user_config_addresses
