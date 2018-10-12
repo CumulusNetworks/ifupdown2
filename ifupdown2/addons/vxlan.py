@@ -71,7 +71,7 @@ class vxlan(moduleBase):
                     'vxlan-port': {
                         'help': 'vxlan UDP port (transmitted to vxlan driver)',
                         'validvals': ['<number>'],
-                        'example': 'vxlan-port 4789',
+                        'example': ['vxlan-port 4789'],
                         'validrange': ['1', '65536'],
                         'default': '4789',
                     },
