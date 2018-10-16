@@ -34,10 +34,6 @@ import traceback
 
 from collections import OrderedDict
 
-import nlpacket
-import nllistener
-import nlmanager
-
 from logging import DEBUG, WARNING
 
 try:
@@ -45,11 +41,19 @@ try:
     from ifupdown2.ifupdown.log import log
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+
+    import ifupdown2.nlmanager.nlpacket as nlpacket
+    import ifupdown2.nlmanager.nllistener as nllistener
+    import ifupdown2.nlmanager.nlmanager as nlmanager
 except:
     from ifupdownaddons.cache import *
     from ifupdown.log import log
 
     import ifupdown.ifupdownflags as ifupdownflags
+
+    import nlmanager.nlpacket as nlpacket
+    import nlmanager.nllistener as nllistener
+    import nlmanager.nlmanager as nlmanager
 
 
 class NetlinkCacheError(Exception):
@@ -1964,7 +1968,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener):
 _netlink_listener_with_cache = None
 
 
-def start_netlink_listener_with_cache():
+def get_netlink_listener_with_cache():
     global _netlink_listener_with_cache
     try:
         if _netlink_listener_with_cache:

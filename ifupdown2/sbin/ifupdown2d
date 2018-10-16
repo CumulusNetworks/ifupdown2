@@ -111,8 +111,11 @@ class Daemon:
         os.chmod(self.server_address, 0777)
 
         log.info('filling netlink cache')
-        import nlmanager.nlcache
-        netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+        try:
+            import ifupdown2.lib.nlcache as nlcache
+        except:
+            import lib.nlcache as nlcache
+        netlink = nlcache.get_netlink_listener_with_cache()
 
 
     def __del__(self):
@@ -325,8 +328,11 @@ class Daemon:
             if "dump" in request['argv']:
                 log.update_current_logger(syslog=False, verbose=True, debug=True)
 
-                import nlmanager.nlcache
-                netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+                try:
+                    import ifupdown2.lib.nlcache as nlcache
+                except:
+                    import lib.nlcache as nlcache
+                netlink = nlcache.get_netlink_listener_with_cache()
 
                 try:
                     from ifupdownaddons.cache import linkCache
@@ -435,6 +441,9 @@ if __name__ == '__main__':
         log.error(traceback.format_exc())
         exit(1)
     finally:
-        import nlmanager.nlcache
-        netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+        try:
+            import ifupdown2.lib.nlcache as nlcache
+        except:
+            import lib.nlcache as nlcache
+        netlink = nlcache.get_netlink_listener_with_cache()
         netlink.cleanup()

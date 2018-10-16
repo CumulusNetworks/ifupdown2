@@ -196,9 +196,12 @@ def main():
         if 'use_daemon=yes' in open(core_config.IFUPDOWN2_CONF_PATH).read():
             return Ifupdown2Client(sys.argv).run()
         else:
-            import nlmanager.nlcache
+            try:
+                import ifupdown2.lib.nlcache as nlcache
+            except:
+                import lib.nlcache as nlcache
             res = ifupdown2_standalone()
-            netlink = nlmanager.nlcache.start_netlink_listener_with_cache()
+            netlink = nlcache.get_netlink_listener_with_cache()
             netlink.cleanup()
             return res
     except KeyboardInterrupt:
