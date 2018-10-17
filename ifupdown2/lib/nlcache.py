@@ -38,6 +38,7 @@ from logging import DEBUG, WARNING
 
 try:
     from ifupdown2.ifupdownaddons.cache import *
+    from ifupdown2.lib.dry_run import DryRun
     from ifupdown2.ifupdown.log import log
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -47,6 +48,7 @@ try:
     import ifupdown2.nlmanager.nlmanager as nlmanager
 except:
     from ifupdownaddons.cache import *
+    from lib.dry_run import DryRun
     from ifupdown.log import log
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -1017,7 +1019,7 @@ if ifupdownflags.flags.DRYRUN:
     pass
 
 
-class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener):
+class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
     def __init__(self, log_level):
         """
 
@@ -1030,6 +1032,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener):
                 #| nlpacket.RTMGRP_IPV4_IFADDR
                 #| nlpacket.RTMGRP_IPV6_IFADDR
         ), error_notification=True)
+
+        DryRun.__init__(self)
 
         signal.signal(signal.SIGTERM, self.signal_term_handler)
         signal.signal(signal.SIGINT, self.signal_int_handler)
@@ -1123,6 +1127,9 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener):
         self.worker = threading.Thread(target=self.main, name='NetlinkListenerWithCache')
         self.worker.start()
         self.is_ready.wait()
+
+    def __str__(self):
+        return "NetlinkListenerWithCache"
 
     def cleanup(self):
         # passing 0, 0 to the handler so it doesn't log.info
