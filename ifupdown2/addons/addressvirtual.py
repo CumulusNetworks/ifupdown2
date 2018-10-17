@@ -576,13 +576,19 @@ class addressvirtual(moduleBase):
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)
             rhwaddress = netlink.cache.get_link_address(macvlan_ifacename)
-            raddress = self.ipcmd.get_running_addrs(None, macvlan_ifacename)
+
+            raddress = []
+            for obj in ifaceobj_getfunc(ifaceobjrunning.name) or []:
+                raddress.extend(self.ipcmd.get_running_addrs(None, macvlan_ifacename, addr_virtual_ifaceobj=obj) or [])
+
+            raddress = list(set(raddress))
+
             if not raddress:
                 self.logger.warn('%s: no running addresses'
                                  %ifaceobjrunning.name)
                 raddress = []
             ifaceobjrunning.update_config('address-virtual',
-                            '%s %s' %(rhwaddress, ''.join(raddress)))
+                            '%s %s' %(rhwaddress, ' '.join(raddress)))
 
             macvlans_ipv6_addrgen_list.append((macvlan_ifacename, netlink.cache.get_link_ipv6_addrgen_mode(macvlan_ifacename)))
 
