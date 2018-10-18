@@ -11,6 +11,7 @@ import os
 from sets import Set
 
 try:
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import *
@@ -24,6 +25,7 @@ try:
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import *
@@ -37,7 +39,7 @@ except ImportError:
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-class bond(moduleBase):
+class bond(Addon, moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
 
     overrides_ifupdown_scripts = ['ifenslave', ]
@@ -198,6 +200,7 @@ class bond(moduleBase):
     )
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.bondcmd = None
@@ -305,7 +308,7 @@ class bond(moduleBase):
                         ifaceLinkPrivFlags.KEEP_LINK_DOWN):
                         netlink.link_set_updown(slave, "down")
                     else:
-                        netlink.link_set_updown(slave, "up")
+                        self.netlink.link_up(slave)
                except Exception, e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
@@ -328,7 +331,7 @@ class bond(moduleBase):
                         if (config_link_down and link_up):
                             netlink.link_set_updown(s, "down")
                         elif (not config_link_down and not link_up):
-                            netlink.link_set_updown(s, "up")
+                            self.netlink.link_up(s)
                     except Exception, e:
                         self.logger.warn('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -598,7 +601,7 @@ class bond(moduleBase):
                 self.bondcmd.cache_update([ifname, 'linkinfo', key], value)
 
         if link_exists and ifla_info_data and not is_link_up:
-            netlink.link_set_updown(ifname, 'up')
+            self.netlink.link_up(ifname)
 
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
         if not netlink.cache.link_exists(ifaceobj.name):
