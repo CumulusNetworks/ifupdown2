@@ -201,8 +201,7 @@ def main():
             except:
                 import lib.nlcache as nlcache
             res = ifupdown2_standalone()
-            netlink = nlcache.get_netlink_listener_with_cache()
-            netlink.cleanup()
+            nlcache.NetlinkListenerWithCache.get_instance().cleanup()
             return res
     except KeyboardInterrupt:
         return 1

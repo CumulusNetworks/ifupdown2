@@ -115,7 +115,9 @@ class Daemon:
             import ifupdown2.lib.nlcache as nlcache
         except:
             import lib.nlcache as nlcache
-        netlink = nlcache.get_netlink_listener_with_cache()
+
+        # After the daemon is ready we can start our netlink listener
+        nlcache.NetlinkListenerWithCache.get_instance()
 
 
     def __del__(self):
@@ -332,7 +334,7 @@ class Daemon:
                     import ifupdown2.lib.nlcache as nlcache
                 except:
                     import lib.nlcache as nlcache
-                netlink = nlcache.get_netlink_listener_with_cache()
+                netlink = nlcache.NetlinkListenerWithCache.get_instance()
 
                 try:
                     from ifupdownaddons.cache import linkCache
@@ -445,5 +447,5 @@ if __name__ == '__main__':
             import ifupdown2.lib.nlcache as nlcache
         except:
             import lib.nlcache as nlcache
-        netlink = nlcache.get_netlink_listener_with_cache()
-        netlink.cleanup()
+
+        nlcache.NetlinkListenerWithCache.get_instance().cleanup()

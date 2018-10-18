@@ -21,7 +21,7 @@ class Addon(DryRun):
 
         self.logger = logging.getLogger('ifupdown2.%s' % self.__class__.__name__)
 
-        netlink = nlcache.get_netlink_listener_with_cache()
+        netlink = nlcache.NetlinkListenerWithCache.get_instance()
 
         self.netlink = netlink
         self.cache = netlink.cache

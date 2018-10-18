@@ -1020,11 +1020,29 @@ if ifupdownflags.flags.DRYRUN:
 
 
 class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
+
+    __instance = None
+
+    @staticmethod
+    def get_instance(log_level=None):
+        if not NetlinkListenerWithCache.__instance:
+            try:
+                NetlinkListenerWithCache.__instance = NetlinkListenerWithCache(log_level=WARNING)
+            except Exception as e:
+                log.error('NetlinkListenerWithCache: getInstance: %s' % e)
+                traceback.print_exc()
+        return NetlinkListenerWithCache.__instance
+
     def __init__(self, log_level):
         """
 
         :param log_level:
         """
+        if NetlinkListenerWithCache.__instance:
+            raise RuntimeError("NetlinkListenerWithCache: invalid access. Please use NetlinkListenerWithCache.getInstance()")
+        else:
+            NetlinkListenerWithCache.__instance = self
+
         nllistener.NetlinkManagerWithListener.__init__(self, (
             nlpacket.RTMGRP_ALL
                 #nlpacket.RTMGRP_LINK
@@ -1970,19 +1988,3 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
 
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
-
-
-_netlink_listener_with_cache = None
-
-
-def get_netlink_listener_with_cache():
-    global _netlink_listener_with_cache
-    try:
-        if _netlink_listener_with_cache:
-            return _netlink_listener_with_cache
-        else:
-            _netlink_listener_with_cache = NetlinkListenerWithCache(log_level=WARNING)
-        return _netlink_listener_with_cache
-    except Exception as e:
-        log.error('startNetlinkListener EXCEPTION: %s' % e)
-        traceback.print_exc()

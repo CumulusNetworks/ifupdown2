@@ -19,7 +19,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.utilsbase import utilsBase
 
-    from ifupdown2.lib.nlcache import get_netlink_listener_with_cache
+    from ifupdown2.lib.nlcache import NetlinkListenerWithCache
     from ifupdown2.nlmanager.nlmanager import Link, Address, Route, NetlinkPacket
 except ImportError:
     import nlmanager.nlpacket
@@ -28,7 +28,7 @@ except ImportError:
     from ifupdownaddons.cache import *
     from ifupdownaddons.utilsbase import utilsBase
 
-    from lib.nlcache import get_netlink_listener_with_cache
+    from lib.nlcache import NetlinkListenerWithCache
     from nlmanager.nlmanager import Link, Address, Route, NetlinkPacket
 
 
@@ -53,7 +53,7 @@ class Netlink(utilsBase):
             raise
 
     def init(self):
-        self.netlink = get_netlink_listener_with_cache()
+        self.netlink = NetlinkListenerWithCache.get_instance()
         self.cache = self.netlink.cache
 
         try:
