@@ -11,6 +11,7 @@ import socket
 from ipaddr import IPNetwork, IPv6Network
 
 try:
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
@@ -23,6 +24,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
+    from lib.addon import Addon
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
@@ -36,7 +38,7 @@ except ImportError:
     import ifupdown.ifupdownconfig as ifupdownconfig
 
 
-class addressvirtual(moduleBase):
+class addressvirtual(Addon, moduleBase):
     """  ifupdown2 addon module to configure virtual addresses """
 
     _modinfo = {'mhelp' : 'address module configures virtual addresses for ' +
@@ -62,6 +64,7 @@ class addressvirtual(moduleBase):
 
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
@@ -315,7 +318,7 @@ class addressvirtual(moduleBase):
                 # since we auto create them here..we are responsible
                 # to bring them up here in the case they were brought down
                 # by some other entity in the system.
-                netlink.link_set_updown(macvlan_ifacename, "up")
+                self.netlink.link_up(macvlan_ifacename)
             else:
                 try:
                     if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
