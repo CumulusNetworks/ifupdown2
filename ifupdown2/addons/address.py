@@ -7,6 +7,7 @@
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, _BaseV6
 
 try:
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import *
@@ -22,6 +23,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
+    from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import *
@@ -38,7 +40,7 @@ except ImportError:
     import ifupdown.ifupdownconfig as ifupdownconfig
 
 
-class address(moduleBase):
+class address(Addon, moduleBase):
     """  ifupdown2 addon module to configure address, mtu, hwaddress, alias
     (description) on an interface """
 
@@ -158,6 +160,7 @@ class address(moduleBase):
     }
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self._bridge_fdb_query_cache = {}
@@ -883,10 +886,10 @@ class address(moduleBase):
                     try:
                         self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
                     finally:
-                        netlink.link_set_updown(ifaceobj.name, "up")
+                        self.netlink.link_up(ifaceobj.name)
                         if slave_down:
                             for l in ifaceobj.lowerifaces:
-                                netlink.link_set_updown(l, "up")
+                                self.netlink.link_up(l)
 
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)

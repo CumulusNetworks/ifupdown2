@@ -58,6 +58,20 @@ except:
     import nlmanager.nlmanager as nlmanager
 
 
+class NetlinkError(Exception):
+    def __init__(self, exception, prefix=None, ifname=None):
+        netlink_exception_message = []
+
+        if ifname:
+            netlink_exception_message.append(ifname)
+
+        if prefix:
+            netlink_exception_message.append(prefix)
+
+        netlink_exception_message.append(str(exception))
+        super(NetlinkError, self).__init__(": ".join(netlink_exception_message))
+
+
 class NetlinkCacheError(Exception):
     pass
 
@@ -1988,3 +2002,23 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
 
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
+
+    def link_up_dry_run(self, ifname):
+        log.info('%s: dryrun: netlink: ip link set dev %s up' % (ifname, ifname))
+
+    def link_up(self, ifname):
+        """
+        Bring interface 'ifname' up (raises on error)
+        :param ifname:
+        :return:
+        """
+        log.info('%s: netlink: ip link set dev %s up' % (ifname, ifname))
+        link = nlpacket.Link(nlpacket.RTM_NEWLINK, nlpacket.RTM_NEWLINK in self.debug, use_color=self.use_color)
+        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+        link.body = struct.pack('=BxxxiLL', socket.AF_UNSPEC, 0, nlpacket.Link.IFF_UP, nlpacket.Link.IFF_UP)
+        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+        link.build_message(self.sequence.next(), self.pid)
+        try:
+            return self.tx_nlpacket_get_response_with_error(link)
+        except Exception as e:
+            raise NetlinkError(e, "ip link set dev %s up" % ifname, ifname=ifname)

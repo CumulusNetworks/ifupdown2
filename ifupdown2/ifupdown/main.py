@@ -20,12 +20,17 @@ try:
     from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
+
+    from ifupdown2.lib.dry_run import DryRunManager
+
 except ImportError:
     from ifupdown.log import log
     from ifupdown.argv import Parse
     from ifupdown.netlink import netlink
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
+
+    from lib.dry_run import DryRunManager
 
 
 configmap_g = None
@@ -98,6 +103,23 @@ class Ifupdown2:
         return 0
 
     def init(self, stdin_buffer):
+        ##############
+        # dry run mode
+        ##############
+        dry_run_mode_on = DryRunManager.get_instance().is_dry_mode_on()
+
+        if hasattr(self.args, 'noact'):
+            if self.args.noact and not dry_run_mode_on:
+                DryRunManager.get_instance().dry_run_mode_on()
+            elif not self.args.noact and dry_run_mode_on:
+                DryRunManager.get_instance().dry_run_mode_off()
+        elif dry_run_mode_on:
+            # if noact is not in self.args we are probably in
+            # ifquery mode so we need to turn off dry run mode.
+            DryRunManager.get_instance().dry_run_mode_off()
+
+        ###
+
         if hasattr(self.args, 'interfacesfile') and self.args.interfacesfile != None:
             # Check to see if -i option is allowed by config file
             # But for ifquery, we will not check this

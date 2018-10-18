@@ -79,6 +79,7 @@ class DryRunManager(object):
             DryRunManager.__instance = self
 
         self.__entries = list()
+        self.__is_on = False
 
     def register_dry_run_handler(self, module, handler_name, handler_code, dry_run_code):
         self.__entries.append(
@@ -93,10 +94,12 @@ class DryRunManager(object):
     def dry_run_mode_on(self):
         for entry in self.__entries:
             entry.set()
+        self.__is_on = True
 
     def dry_run_mode_off(self):
         for entry in self.__entries:
             entry.unset()
+        self.__is_on = False
 
     def dump_entries_stdout(self):
         print "== DryRunManager dump =="
@@ -104,3 +107,6 @@ class DryRunManager(object):
         for entry in self.__entries:
             print "  %s: %s %s" % (repr(entry.target_module), entry.handler_name, "ON" if entry.get_status() else "OFF")
         print "========================"
+
+    def is_dry_mode_on(self):
+        return self.__is_on
