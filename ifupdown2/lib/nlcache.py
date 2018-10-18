@@ -70,7 +70,7 @@ class NetlinkCacheIfindexNotFoundError(NetlinkCacheError):
     pass
 
 
-class NetlinkCache:
+class _NetlinkCache:
     """ Netlink Cache Class """
 
     _ifa_attributes = nlpacket.Address.attribute_to_class.keys()
@@ -1064,7 +1064,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         self.OLD_CACHE_LOCK = threading.Lock()
         self.FILL_OLD_CACHE = True
 
-        self.cache = NetlinkCache()
+        self.cache = _NetlinkCache()
 
         # set specific log level to lower-level API
         #nllistener.log.setLevel(log_level)
