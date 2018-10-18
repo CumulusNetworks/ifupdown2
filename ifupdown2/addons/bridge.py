@@ -12,6 +12,8 @@ from sets import Set
 from collections import Counter
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -26,6 +28,8 @@ try:
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -46,7 +50,7 @@ class bridgeFlags:
     PORT_PROCESSED_OVERRIDE = 0x2
 
 
-class bridge(moduleBase):
+class bridge(Addon, moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
 
     _modinfo = { 'mhelp' : 'Bridge configuration module. Supports both ' +
@@ -580,6 +584,7 @@ class bridge(moduleBase):
     )
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.name = self.__class__.__name__
@@ -2066,7 +2071,7 @@ class bridge(moduleBase):
                         netlink.link_set_updown(p, "down")
                         continue
                     try:
-                        netlink.link_set_updown(p, "up")
+                        self.netlink.link_up(p)
                     except Exception, e:
                         self.logger.debug('%s: %s: link set up (%s)'
                                           % (ifaceobj.name, p, str(e)))
