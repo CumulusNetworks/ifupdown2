@@ -231,6 +231,14 @@ class _NetlinkCache:
             self._wait_event = None
             self._wait_event_alarm.clear()
 
+    def force_admin_status_update(self, ifname, status):
+        # TODO: dont override all the flags just turn on/off IFF_UP
+        try:
+            with self._cache_lock:
+                self._link_cache[ifname].flags = status
+        except:
+            pass
+
     def DEBUG_IFNAME(self, ifname, with_addresses=False):
         """
         A very useful function to use while debugging, it dumps the netlink
@@ -2004,7 +2012,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
 
     def link_up_dry_run(self, ifname):
-        log.info('%s: dryrun: netlink: ip link set dev %s up' % (ifname, ifname))
+        log.info("%s: dryrun: netlink: ip link set dev %s up" % (ifname, ifname))
 
     def link_up(self, ifname):
         """
@@ -2012,13 +2020,29 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         :param ifname:
         :return:
         """
-        log.info('%s: netlink: ip link set dev %s up' % (ifname, ifname))
+        log.info("%s: netlink: ip link set dev %s up" % (ifname, ifname))
         link = nlpacket.Link(nlpacket.RTM_NEWLINK, nlpacket.RTM_NEWLINK in self.debug, use_color=self.use_color)
         link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-        link.body = struct.pack('=BxxxiLL', socket.AF_UNSPEC, 0, nlpacket.Link.IFF_UP, nlpacket.Link.IFF_UP)
+        link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, nlpacket.Link.IFF_UP, nlpacket.Link.IFF_UP)
         link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
         link.build_message(self.sequence.next(), self.pid)
         try:
-            return self.tx_nlpacket_get_response_with_error(link)
+            result = self.tx_nlpacket_get_response_with_error(link)
+            # if we reach this code it means the operation went through
+            # without exception we can update the cache value this is
+            # needed for the following case (and probably others):
+            #
+            # ifdown bond0 ; ip link set dev bond_slave down
+            # ifup bond0
+            #       at the beginning the slaves are admin down
+            #       ifupdownmain:run_up link up the slave
+            #       the bond addon check if the slave is up or down
+            #           and admin down the slave before enslavement
+            #           but the cache didn't process the UP notification yet
+            #           so the cache has a stale value and we try to enslave
+            #           a port, that is admin up, to a bond resulting
+            #           in an unexpected failure
+            self.cache.force_admin_status_update(ifname, nlpacket.Link.IFF_UP)
+            return result
         except Exception as e:
             raise NetlinkError(e, "ip link set dev %s up" % ifname, ifname=ifname)
