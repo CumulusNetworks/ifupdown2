@@ -187,6 +187,14 @@ class address(Addon, moduleBase):
         self.lower_iface_mtu_checked_list = list()
         self.default_loopback_addresses = (IPNetwork('127.0.0.1/8'), IPNetwork('::1/128'))
 
+        self.l3_intf_arp_accept = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='l3_intf_arp_accept'
+            ),
+            default=False
+        )
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
@@ -304,13 +312,16 @@ class address(Addon, moduleBase):
                 is_vlan_dev_on_vlan_aware_bridge = netlink.cache.bridge_is_vlan_aware(bridgename)
         if ((is_bridge and not netlink.cache.bridge_is_vlan_aware(ifaceobj.name))
                         or is_vlan_dev_on_vlan_aware_bridge):
-           if self._address_valid(addrs):
-              if up:
-                self.write_file('/proc/sys/net/ipv4/conf/%s' %ifaceobj.name +
-                                '/arp_accept', '1')
-              else:
-                self.write_file('/proc/sys/net/ipv4/conf/%s' %ifaceobj.name +
-                                '/arp_accept', '0')
+            if self._address_valid(addrs):
+                if self.l3_intf_arp_accept:
+                    if up:
+                        self.write_file('/proc/sys/net/ipv4/conf/%s' % ifaceobj.name +
+                                        '/arp_accept', '1')
+                    else:
+                        self.write_file('/proc/sys/net/ipv4/conf/%s' % ifaceobj.name +
+                                        '/arp_accept', '0')
+                else:
+                    self.write_file('/proc/sys/net/ipv4/conf/%s/arp_accept' % ifaceobj.name, '0')
         if hwaddress and is_vlan_dev_on_vlan_aware_bridge:
            if up:
               self.ipcmd.bridge_fdb_add(bridgename, hwaddress, vlan)
