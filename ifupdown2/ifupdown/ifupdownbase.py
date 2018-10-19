@@ -51,8 +51,5 @@ class ifupdownBase(object):
     def link_exists(self, ifacename):
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
-    def link_up(self, ifacename):
-        netlink.link_set_updown(ifacename, "up")
-
     def link_down(self, ifacename):
         netlink.link_set_updown(ifacename, "down")

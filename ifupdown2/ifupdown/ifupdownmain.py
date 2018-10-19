@@ -14,6 +14,8 @@ from collections import OrderedDict
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
 
 try:
+    import ifupdown2.lib.nlcache as nlcache
+
     import ifupdown2.ifupdownaddons.cache
     import ifupdown2.ifupdownaddons.LinkUtils
     import ifupdown2.ifupdownaddons.mstpctlutil
@@ -31,6 +33,8 @@ try:
     from ifupdown2.ifupdown.networkinterfaces import *
     from ifupdown2.ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
 except ImportError:
+    import lib.nlcache as nlcache
+
     import ifupdownaddons.cache
     import ifupdownaddons.LinkUtils
     import ifupdownaddons.mstpctlutil
@@ -1614,7 +1618,7 @@ class ifupdownMain(ifupdownBase):
         if not self._delay_admin_state_iface_queue:
            return
         if op == 'up':
-           func = self.link_up
+           func = nlcache.NetlinkListenerWithCache.get_instance().link_up
         elif op == 'down':
            func = self.link_down
         else:
