@@ -13,6 +13,8 @@ import signal
 from sets import Set
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
@@ -27,6 +29,8 @@ try:
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -45,7 +49,7 @@ except ImportError:
 class vrfPrivFlags:
     PROCESSED = 0x1
 
-class vrf(moduleBase):
+class vrf(Addon, moduleBase):
     """  ifupdown2 addon module to configure vrfs """
     _modinfo = { 'mhelp' : 'vrf configuration module',
                     'attrs' : {
@@ -72,6 +76,7 @@ class vrf(moduleBase):
                                  '253' : 'default', '0' : 'unspec'}
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         self.dhclientcmd = None
@@ -485,7 +490,7 @@ class vrf(moduleBase):
                     # but user has not provided a vrf interface.
                     # people expect you to warn them but go ahead with the
                     # rest of the config on that interface
-                    netlink.link_set_updown(ifacename, "up")
+                    self.netlink.link_up(ifacename)
                     self.log_error('vrf master ifaceobj %s not found'
                                    %vrfname)
                     return
@@ -504,7 +509,7 @@ class vrf(moduleBase):
                 master_exists = False
             if master_exists:
                 if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-                    netlink.link_set_updown(ifacename, "up")
+                    self.netlink.link_up(ifacename)
             else:
                 self.log_error('vrf %s not around, skipping vrf config'
                                %(vrfname), ifaceobj)
@@ -684,7 +689,7 @@ class vrf(moduleBase):
                     for slave_ifaceobj in ifaceobj_getfunc(s) or []:
                         if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
                             raise Exception('%s: slave configured with link-down yes')
-                    netlink.link_set_updown(s, "up")
+                    self.netlink.link_up(s)
                 except Exception, e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
@@ -786,7 +791,7 @@ class vrf(moduleBase):
             self._set_vrf_dev_processed_flag(ifaceobj)
 
             if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-                netlink.link_set_updown(ifaceobj.name, "up")
+                self.netlink.link_up(ifaceobj.name)
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
