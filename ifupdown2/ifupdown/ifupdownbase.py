@@ -13,12 +13,10 @@ import logging
 import traceback
 
 try:
-    from ifupdown2.ifupdown.netlink import netlink
-
+    import ifupdown2.lib.nlcache as nlcache
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
-    from ifupdown.netlink import netlink
-
+    import lib.nlcache as nlcache
     import ifupdown.ifupdownflags as ifupdownflags
 
 
@@ -27,6 +25,7 @@ class ifupdownBase(object):
     def __init__(self):
         modulename = self.__class__.__name__
         self.logger = logging.getLogger('ifupdown.' + modulename)
+        self.netlink = nlcache.NetlinkListenerWithCache.get_instance()
 
     def ignore_error(self, errmsg):
         if (ifupdownflags.flags.FORCE == True or re.search(r'exists', errmsg,
@@ -50,6 +49,3 @@ class ifupdownBase(object):
 
     def link_exists(self, ifacename):
         return os.path.exists('/sys/class/net/%s' %ifacename)
-
-    def link_down(self, ifacename):
-        netlink.link_set_updown(ifacename, "down")

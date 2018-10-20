@@ -288,7 +288,7 @@ class bond(Addon, moduleBase):
                     continue
             link_up = False
             if netlink.cache.link_is_up(slave):
-                netlink.link_set_updown(slave, "down")
+                self.netlink.link_down(slave)
                 link_up = True
             # If clag bond place the slave in a protodown state; clagd
             # will protoup it when it is ready
@@ -306,7 +306,7 @@ class bond(Addon, moduleBase):
                try:
                     if (ifaceobj_getfunc(slave)[0].link_privflags &
                         ifaceLinkPrivFlags.KEEP_LINK_DOWN):
-                        netlink.link_set_updown(slave, "down")
+                        self.netlink.link_down(slave)
                     else:
                         self.netlink.link_up(slave)
                except Exception, e:
@@ -329,7 +329,7 @@ class bond(Addon, moduleBase):
                         config_link_down = (ifaceobj_getfunc(s)[0].link_privflags &
                                             ifaceLinkPrivFlags.KEEP_LINK_DOWN)
                         if (config_link_down and link_up):
-                            netlink.link_set_updown(s, "down")
+                            self.netlink.link_down(s)
                         elif (not config_link_down and not link_up):
                             self.netlink.link_up(s)
                     except Exception, e:
@@ -544,7 +544,7 @@ class bond(Addon, moduleBase):
                 self.logger.info('%s: bond mode changed to %s: running ops on bond and slaves'
                                  % (ifname, ifla_bond_mode))
                 if is_link_up:
-                    netlink.link_set_updown(ifname, 'down')
+                    self.netlink.link_down(ifname)
                     is_link_up = False
 
                 for lower_dev in ifaceobj.lowerifaces:
@@ -573,7 +573,7 @@ class bond(Addon, moduleBase):
             # if specific attributes need to be set we need to down the bond first
             if ifla_info_data and is_link_up:
                 if self._should_down_bond(ifla_info_data):
-                    netlink.link_set_updown(ifname, 'down')
+                    self.netlink.link_down(ifname)
                     is_link_up = False
 
         if link_exists and not ifla_info_data:

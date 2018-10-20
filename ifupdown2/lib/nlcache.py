@@ -231,11 +231,11 @@ class _NetlinkCache:
             self._wait_event = None
             self._wait_event_alarm.clear()
 
-    def force_admin_status_update(self, ifname, status):
+    def override_link_flag(self, ifname, flags):
         # TODO: dont override all the flags just turn on/off IFF_UP
         try:
             with self._cache_lock:
-                self._link_cache[ifname].flags = status
+                self._link_cache[ifname].flags = flags
         except:
             pass
 
@@ -1872,28 +1872,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         """
         return self._link_add(ifindex, ifname, 'macvlan', {nlpacket.Link.IFLA_MACVLAN_MODE: nlpacket.Link.MACVLAN_MODE_PRIVATE})
 
-    def _link_set_updown(self, ifname, state):
-        """
-        Either bring ifname up or take it down
-        """
-
-        if state == 'up':
-            if_flags = nlpacket.Link.IFF_UP
-        elif state == 'down':
-            if_flags = 0
-        else:
-            raise Exception('Unsupported state %s, valid options are "up" and "down"' % state)
-
-        debug = nlpacket.RTM_NEWLINK in self.debug
-        if_change = nlpacket.Link.IFF_UP
-
-        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
-        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-        link.body = struct.pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
-        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-        link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket_get_response_with_error(link)
-
     def _link_set_protodown(self, ifname, state):
         """
         Either bring ifname up or take it down by setting IFLA_PROTO_DOWN on or off
@@ -2011,22 +1989,22 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
 
-    def link_up_dry_run(self, ifname):
-        log.info("%s: dryrun: netlink: ip link set dev %s up" % (ifname, ifname))
+    #############################################################################################################
+    # Netlink API ###############################################################################################
+    #############################################################################################################
 
-    def link_up(self, ifname):
+    def __link_set_flag(self, ifname, flags):
         """
         Bring interface 'ifname' up (raises on error)
         :param ifname:
         :return:
         """
-        log.info("%s: netlink: ip link set dev %s up" % (ifname, ifname))
-        link = nlpacket.Link(nlpacket.RTM_NEWLINK, nlpacket.RTM_NEWLINK in self.debug, use_color=self.use_color)
-        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-        link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, nlpacket.Link.IFF_UP, nlpacket.Link.IFF_UP)
-        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-        link.build_message(self.sequence.next(), self.pid)
         try:
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, nlpacket.RTM_NEWLINK in self.debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, flags, nlpacket.Link.IFF_UP)
+            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+            link.build_message(self.sequence.next(), self.pid)
             result = self.tx_nlpacket_get_response_with_error(link)
             # if we reach this code it means the operation went through
             # without exception we can update the cache value this is
@@ -2042,7 +2020,23 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
             #           so the cache has a stale value and we try to enslave
             #           a port, that is admin up, to a bond resulting
             #           in an unexpected failure
-            self.cache.force_admin_status_update(ifname, nlpacket.Link.IFF_UP)
+            self.cache.override_link_flag(ifname, flags)
             return result
         except Exception as e:
-            raise NetlinkError(e, "ip link set dev %s up" % ifname, ifname=ifname)
+            raise NetlinkError(e, "ip link set dev %s %s" % (ifname, "up" if flags == nlpacket.Link.IFF_UP else "down"), ifname=ifname)
+
+    def link_up(self, ifname):
+        log.info("%s: netlink: ip link set dev %s up" % (ifname, ifname))
+        self.__link_set_flag(ifname, flags=nlpacket.Link.IFF_UP)
+
+    def link_down(self, ifname):
+        log.info("%s: netlink: ip link set dev %s down" % (ifname, ifname))
+        self.__link_set_flag(ifname, flags=0)
+
+    @staticmethod
+    def link_up_dry_run(ifname):
+        log.info("%s: dryrun: netlink: ip link set dev %s up" % (ifname, ifname))
+
+    @staticmethod
+    def link_down_dry_run(ifname):
+        log.info("%s: dryrun: netlink: ip link set dev %s down" % (ifname, ifname))

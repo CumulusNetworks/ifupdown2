@@ -983,7 +983,7 @@ class bridge(Addon, moduleBase):
                         # set admin DOWN on all removed ports
                         # that don't have config outside bridge
                         if not ifaceobj_getfunc(bport):
-                            netlink.link_set_updown(bport, "down")
+                            self.netlink.link_down(bport)
                         # enable ipv6 for ports that were removed
                         self.handle_ipv6([bport], '0')
             else:
@@ -2068,7 +2068,7 @@ class bridge(Addon, moduleBase):
                 for p in running_ports:
                     if (ifaceobj_getfunc(p)[0].link_privflags &
                             ifaceLinkPrivFlags.KEEP_LINK_DOWN):
-                        netlink.link_set_updown(p, "down")
+                        self.netlink.link_down(p)
                         continue
                     try:
                         self.netlink.link_up(p)
@@ -2207,7 +2207,7 @@ class bridge(Addon, moduleBase):
             if running_ports:
                 self.handle_ipv6(running_ports, '0')
                 if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                    map(lambda p: netlink.link_set_updown(p, 'down'), running_ports)
+                    map(lambda p: self.netlink.link_down(p), running_ports)
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         try:

@@ -941,7 +941,7 @@ class vrf(Addon, moduleBase):
                         pass
                 try:
                     self.ipcmd.addr_flush(s)
-                    netlink.link_set_updown(s, "down")
+                    self.netlink.link_down(s)
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
                     pass
@@ -988,7 +988,7 @@ class vrf(Addon, moduleBase):
             # somebody else. One such example is a macvlan device
             # which ifupdown2 addressvirtual addon module auto creates
             if ifaceobj:
-                netlink.link_set_updown(ifacename, "down")
+                self.netlink.link_down(ifacename)
         except Exception, e:
             self.logger.warn('%s: %s' %(ifacename, str(e)))
 

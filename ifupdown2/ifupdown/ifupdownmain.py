@@ -115,7 +115,7 @@ class ifupdownMain(ifupdownBase):
         if self._keep_link_down(ifaceobj):
             return
         try:
-            netlink.link_set_updown_and_update_cache(ifaceobj.name, 'up')
+            self.netlink.link_up(ifaceobj.name)
         except:
             if ifaceobj.addr_method == 'manual':
                 pass
@@ -127,7 +127,7 @@ class ifupdownMain(ifupdownBase):
             # user has asked to explicitly keep the link down,
             # so, force link down
             self.logger.info('%s: keeping link down due to user config' %ifaceobj.name)
-            self.link_down(ifaceobj.name)
+            self.netlink.link_down(ifaceobj.name)
             return True
         return False
 
@@ -151,7 +151,7 @@ class ifupdownMain(ifupdownBase):
         if not self.link_exists(ifaceobj.name):
            return
         try:
-            self.link_down(ifaceobj.name)
+            self.netlink.link_down(ifaceobj.name)
         except:
             if ifaceobj.addr_method == 'manual':
                 pass
@@ -1618,9 +1618,9 @@ class ifupdownMain(ifupdownBase):
         if not self._delay_admin_state_iface_queue:
            return
         if op == 'up':
-           func = nlcache.NetlinkListenerWithCache.get_instance().link_up
+           func = self.netlink.link_up
         elif op == 'down':
-           func = self.link_down
+           func = self.netlink.link_down
         else:
            return
         for i in self._delay_admin_state_iface_queue:

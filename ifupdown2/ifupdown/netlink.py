@@ -250,40 +250,6 @@ class Netlink(utilsBase):
             raise Exception('netlink: %s: cannot create macvlan %s: %s'
                             % (ifacename, macvlan_ifacename, str(e)))
 
-    def link_set_updown_and_update_cache(self, ifname, state):
-        self.link_set_updown(ifname, state)
-        # if we reach this code it means the operation went through
-        # without exception we can update the cache value
-        # this is needed for the following case (and probably others):
-        #
-        # ifdown bond0 (slaves are also downed)
-        # ifup bond0
-        #       at the beginning the slaves are admin down
-        #       ifupdownmain:run_up link up the slave
-        #       the bond addon check if the slave is up or down
-        #           and admin down the slave before enslavement
-        #           but the cache didn't process the UP notification yet
-        #           so the cache has a stale value and we try to enslave
-        #           a port, that is admin up, to a bond resulting
-        #           in an unexpected failure
-        # TODO: dont override all the flags just turn on/off IFF_UP
-        if_flags = Link.IFF_UP if state == 'up' else 0
-        try:
-            with self.netlink.cache._cache_lock:
-                self.netlink.cache._link_cache[ifname].flags = if_flags
-        except:
-            pass
-
-    def link_set_updown(self, ifacename, state):
-        self.logger.info('%s: netlink: ip link set dev %s %s'
-                         % (ifacename, ifacename, state))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            return self.netlink._link_set_updown(ifacename, state)
-        except Exception as e:
-            raise Exception('netlink: cannot set link %s %s: %s'
-                            % (ifacename, state, str(e)))
-
     def link_set_protodown(self, ifacename, state):
         self.logger.info('%s: netlink: set link %s protodown %s'
                          % (ifacename, ifacename, state))

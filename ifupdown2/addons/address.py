@@ -887,12 +887,12 @@ class address(Addon, moduleBase):
                     running_hwaddress = netlink.cache.get_link_address(ifaceobj.name)
                 if hwaddress != running_hwaddress:
                     slave_down = False
-                    netlink.link_set_updown(ifaceobj.name, "down")
+                    self.netlink.link_down(ifaceobj.name)
                     if ifaceobj.link_kind & ifaceLinkKind.BOND:
                         # if bond, down all the slaves
                         if ifaceobj.lowerifaces:
                             for l in ifaceobj.lowerifaces:
-                                netlink.link_set_updown(l, "down")
+                                self.netlink.link_down(l)
                             slave_down = True
                     try:
                         self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)

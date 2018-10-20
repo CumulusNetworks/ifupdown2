@@ -8,6 +8,8 @@ import re
 import time
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
@@ -19,6 +21,8 @@ try:
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -31,10 +35,11 @@ except ImportError:
     from ifupdownaddons.modulebase import moduleBase
 
 
-class dhcp(moduleBase):
+class dhcp(Addon, moduleBase):
     """ ifupdown2 addon module to configure dhcp on interface """
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.dhclientcmd = dhclient(**kargs)
 
@@ -142,7 +147,7 @@ class dhcp(moduleBase):
 
     def _down(self, ifaceobj):
         self._dhcp_down(ifaceobj)
-        netlink.link_set_updown(ifaceobj.name, 'down')
+        self.netlink.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         status = ifaceStatus.SUCCESS
