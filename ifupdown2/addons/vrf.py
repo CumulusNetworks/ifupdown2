@@ -965,7 +965,7 @@ class vrf(Addon, moduleBase):
 
         if ifindex:
             try:
-                netlink.link_del(ifaceobj.name)
+                self.netlink.link_del(ifaceobj.name)
             except Exception, e:
                 self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
                 pass

@@ -11,6 +11,7 @@ from ipaddr import IPNetwork, IPv4Address, IPv4Network, AddressValueError
 try:
     import ifupdown2.ifupdown.policymanager as policymanager
 
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import *
@@ -22,6 +23,7 @@ try:
 except ImportError:
     import ifupdown.policymanager as policymanager
 
+    from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import *
@@ -33,7 +35,7 @@ except ImportError:
     from ifupdownaddons.modulebase import moduleBase
 
 
-class vxlan(moduleBase):
+class vxlan(Addon, moduleBase):
     _modinfo = {'mhelp' : 'vxlan module configures vxlan interfaces.',
                 'attrs' : {
                         'vxlan-id' :
@@ -82,6 +84,7 @@ class vxlan(moduleBase):
                 }}
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
         purge_remotes = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vxlan-purge-remotes')
@@ -389,7 +392,7 @@ class vxlan(moduleBase):
 
     def _down(self, ifaceobj):
         try:
-            netlink.link_del(ifaceobj.name)
+            self.netlink.link_del(ifaceobj.name)
         except Exception, e:
             self.log_warn(str(e))
 

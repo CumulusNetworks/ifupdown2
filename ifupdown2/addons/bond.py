@@ -617,7 +617,7 @@ class bond(Addon, moduleBase):
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            netlink.link_del(ifaceobj.name)
+            self.netlink.link_del(ifaceobj.name)
             self.bondcmd.cache_delete([ifaceobj.name])
         except Exception as e:
             self.log_warn('%s: %s' % (ifaceobj.name, str(e)))

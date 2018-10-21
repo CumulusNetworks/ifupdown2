@@ -2211,7 +2211,7 @@ class bridge(Addon, moduleBase):
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         try:
-            netlink.link_del(ifname)
+            self.netlink.link_del(ifname)
         except Exception as e:
             ifaceobj.set_status(ifaceStatus.ERROR)
             self.logger.error(str(e))

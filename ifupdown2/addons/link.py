@@ -10,6 +10,7 @@
 # loopback or dummy.
 
 try:
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
@@ -20,6 +21,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
 except ImportError:
+    from lib.addon import Addon
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
@@ -31,7 +33,7 @@ except ImportError:
     import ifupdown.policymanager as policymanager
 
 
-class link(moduleBase):
+class link(Addon, moduleBase):
     _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',
                 'attrs' : {
                    'link-type' :
@@ -45,6 +47,7 @@ class link(moduleBase):
                          'validvals' : ['yes', 'no']}}}
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
@@ -84,7 +87,7 @@ class link(moduleBase):
             not netlink.cache.link_exists(ifaceobj.name)):
            return
         try:
-            netlink.link_del(ifaceobj.name)
+            self.netlink.link_del(ifaceobj.name)
         except Exception, e:
             self.log_warn(str(e))
 

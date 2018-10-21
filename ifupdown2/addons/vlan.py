@@ -5,6 +5,8 @@
 #
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.ifupdown.iface import *
@@ -15,6 +17,8 @@ try:
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown.iface import *
@@ -27,7 +31,7 @@ except ImportError:
 
 
 
-class vlan(moduleBase):
+class vlan(Addon, moduleBase):
     """  ifupdown2 addon module to configure vlans """
 
     _modinfo = {'mhelp' : 'vlan module configures vlan interfaces.' +
@@ -51,6 +55,7 @@ class vlan(moduleBase):
 
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.ipcmd = None
 
@@ -175,7 +180,7 @@ class vlan(moduleBase):
             not netlink.cache.link_exists(ifaceobj.name)):
            return
         try:
-            netlink.link_del(ifaceobj.name)
+            self.netlink.link_del(ifaceobj.name)
             self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid, add=False)
         except Exception, e:
             self.log_warn(str(e))

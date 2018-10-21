@@ -189,14 +189,6 @@ class Netlink(utilsBase):
 
             raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind_str, ifname, str(e)))
 
-    def link_del(self, ifname):
-        self.logger.info('%s: netlink: ip link del %s' % (ifname, ifname))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            self.netlink._link_del(ifname=ifname)
-        except Exception as e:
-            raise Exception('netlink: cannot delete link %s: %s' % (ifname, str(e)))
-
     def link_set_master(self, ifacename, master_dev, state=None):
         self.logger.info('%s: netlink: ip link set dev %s master %s %s'
                          % (ifacename, ifacename, master_dev,

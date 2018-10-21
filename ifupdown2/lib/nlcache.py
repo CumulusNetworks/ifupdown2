@@ -60,7 +60,7 @@ except:
 
 class NetlinkError(Exception):
     def __init__(self, exception, prefix=None, ifname=None):
-        netlink_exception_message = []
+        netlink_exception_message = ['netlink']
 
         if ifname:
             netlink_exception_message.append(ifname)
@@ -2040,3 +2040,47 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
     @staticmethod
     def link_down_dry_run(ifname):
         log.info("%s: dryrun: netlink: ip link set dev %s down" % (ifname, ifname))
+
+    ###
+
+    def link_del(self, ifname):
+        """
+        Send RTM_DELLINK request
+        :param ifname:
+        :return:
+        """
+        log.info('%s: netlink: ip link del %s' % (ifname, ifname))
+        try:
+            ifindex = self.cache.get_ifindex(ifname)
+            debug = nlpacket.RTM_DELLINK in self.debug
+
+            link = nlpacket.Link(nlpacket.RTM_DELLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
+            link.build_message(self.sequence.next(), self.pid)
+
+            try:
+                # We need to register this ifname so the cache can ignore and discard
+                # any further RTM_NEWLINK packet until we receive the associated
+                # RTM_DELLINK notification
+                self.cache.append_to_ignore_rtm_newlinkq(ifname)
+
+                result = self.tx_nlpacket_get_response_with_error(link)
+
+                # Manually purge the cache entry for ifname to make sure we don't have
+                # any stale value in our cache
+                self.cache.force_remove_link(ifname)
+                return result
+            except:
+                # Something went wrong while sending the RTM_DELLINK request
+                # we need to clear ifname from the ignore_rtm_newlinkq list
+                self.cache.remove_from_ignore_rtm_newlinkq(ifname)
+                raise
+        except Exception as e:
+            raise NetlinkError(e, "cannot delete link %s" % ifname, ifname=ifname)
+
+    @staticmethod
+    def link_del_dry_run(ifname):
+        log.info('%s: dryrun: netlink: ip link del %s' % (ifname, ifname))
+
+    ###

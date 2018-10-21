@@ -358,7 +358,7 @@ class addressvirtual(Addon, moduleBase):
             if not netlink.cache.link_exists(macvlan_ifacename):
                 continue
             hwaddress.append(netlink.cache.get_link_address(macvlan_ifacename))
-            netlink.link_del(os.path.basename(macvlan_ifacename))
+            self.netlink.link_del(os.path.basename(macvlan_ifacename))
             # XXX: Also delete any fdb addresses. This requires, checking mac address
             # on individual macvlan interfaces and deleting the vlan from that.
         if any(hwaddress):
@@ -372,7 +372,6 @@ class addressvirtual(Addon, moduleBase):
         if not netlink.cache.link_exists(ifaceobj.name):
             return
         hwaddress = []
-        self.ipcmd.batch_start()
         av_idx = 0
         macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
         for av in address_virtual_list:
@@ -386,11 +385,10 @@ class addressvirtual(Addon, moduleBase):
 
             # Delete the macvlan device on this device
             macvlan_ifacename = '%s%d' %(macvlan_prefix, av_idx)
-            self.ipcmd.link_delete(os.path.basename(macvlan_ifacename))
+            self.netlink.link_del(os.path.basename(macvlan_ifacename))
             if av_attrs[0] != 'None':
                 hwaddress.append(av_attrs[0])
             av_idx += 1
-        self.ipcmd.batch_commit()
         self._remove_addresses_from_bridge(ifaceobj, hwaddress)
 
     def check_mac_address(self, ifaceobj, mac):
