@@ -4,7 +4,8 @@ ifupdown2 (1.2.1) UNRELEASED; urgency=medium
   * Add: warning when bridge attribute are used on non br[port] intf
   * Add: point-to-point protocol (ppp) addon to create/configure ppp interfaces
   * Add: tunnel support (gretap, ipip, sit, vti, ip6gre, ipip6, ip6ip6, vti6)
-  * Add:  0/1/on/off/yes/no support to ip[6]-forward attribute
+  * Add: 0/1/on/off/yes/no support to ip[6]-forward attribute
+  * Add: address module_globals policy l3_intf_arp_accept to control ARP_ACCEPT
   * addressvirtual module_globals "addressvirtual_with_route_metric" policy
   * Closes: ethtool: link-fec: local variable 'fec_attrs'
             referencede before assignment
