@@ -8,6 +8,7 @@ ifupdown2 (1.2.1-cl3u20) RELEASED; urgency=medium
 
   * New. Enabled: warn when bridge attribute are used on non br[port] intf
   * New. Enabled: fix netlink backend to prevent exceptions on GREv6 tunnels
+  * New. Enabled: address policy l3_intf_arp_accept to control ARP_ACCEPT
   * Closes: CM-21564: add 0/1/on/off/yes/no support to ip[6]-forward attribute
   * Closes: CM-22120: Link down does not work on any intf configured in a VRF
   * Closes: CM-21841: Return error when vlan-raw-device config change on
