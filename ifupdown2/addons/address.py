@@ -809,6 +809,9 @@ class address(Addon, moduleBase):
             # no need to go further during perfmode (boot)
             return
 
+        if not user_configured_ipv6_addrgen and ifaceobj.addr_method == 'dhcp':
+            return
+
         if not user_configured_ipv6_addrgen:
             # if user didn't configure ipv6-addrgen, should we reset to default?
             user_configured_ipv6_addrgen = self.get_attr_default_value('ipv6-addrgen')
