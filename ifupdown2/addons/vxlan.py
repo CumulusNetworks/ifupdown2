@@ -36,52 +36,61 @@ except ImportError:
 
 
 class vxlan(Addon, moduleBase):
-    _modinfo = {'mhelp' : 'vxlan module configures vxlan interfaces.',
-                'attrs' : {
-                        'vxlan-id' :
-                            {'help' : 'vxlan id',
-                             'validrange' : ['1', '16777214'],
-                             'required' : True,
-                             'example': ['vxlan-id 100']},
-                        'vxlan-local-tunnelip' :
-                            {'help' : 'vxlan local tunnel ip',
-                             'validvals' : ['<ipv4>'],
-                             'example': ['vxlan-local-tunnelip 172.16.20.103']},
-                        'vxlan-svcnodeip' :
-                            {'help' : 'vxlan id',
-                             'validvals' : ['<ipv4>'],
-                             'example': ['vxlan-svcnodeip 172.16.22.125']},
-                        'vxlan-remoteip' :
-                            {'help' : 'vxlan remote ip',
-                             'validvals' : ['<ipv4>'],
-                             'example': ['vxlan-remoteip 172.16.22.127'],
-                             'multiline': True},
-                        'vxlan-learning' :
-                            {'help' : 'vxlan learning yes/no',
-                             'validvals' : ['yes', 'no', 'on', 'off'],
-                             'example': ['vxlan-learning no'],
-                             'default': 'yes'},
-                        'vxlan-ageing' :
-                            {'help' : 'vxlan aging timer',
-                             'validrange' : ['0', '4096'],
-                             'example': ['vxlan-ageing 300'],
-                             'default': '300'},
-                        'vxlan-purge-remotes' :
-                            {'help' : 'vxlan purge existing remote entries',
-                             'validvals' : ['yes', 'no'],
-                             'example': ['vxlan-purge-remotes yes'],},
-                    'vxlan-port': {
-                        'help': 'vxlan UDP port (transmitted to vxlan driver)',
-                        'validvals': ['<number>'],
-                        'example': ['vxlan-port 4789'],
-                        'validrange': ['1', '65536'],
-                        'default': '4789',
-                    },
-                    'vxlan-physdev':
-                        {'help': 'vxlan physical device',
-                         'example': ['vxlan-physdev eth1']},
-
-                }}
+    _modinfo = {
+        "mhelp": "vxlan module configures vxlan interfaces.",
+        "attrs": {
+            "vxlan-id": {
+                "help": "vxlan id",
+                "validrange": ["1", "16777214"],
+                "required": True,
+                "example": ["vxlan-id 100"]
+            },
+            "vxlan-local-tunnelip": {
+                "help": "vxlan local tunnel ip",
+                "validvals": ["<ipv4>"],
+                "example": ["vxlan-local-tunnelip 172.16.20.103"]
+            },
+            "vxlan-svcnodeip": {
+                "help": "vxlan id",
+                "validvals": ["<ipv4>"],
+                "example": ["vxlan-svcnodeip 172.16.22.125"]
+            },
+            "vxlan-remoteip": {
+                "help": "vxlan remote ip",
+                "validvals": ["<ipv4>"],
+                "example": ["vxlan-remoteip 172.16.22.127"],
+                "multiline": True
+            },
+            "vxlan-learning": {
+                "help": "vxlan learning yes/no",
+                "validvals": ["yes", "no", "on", "off"],
+                "example": ["vxlan-learning no"],
+                "default": "yes"
+            },
+            "vxlan-ageing": {
+                "help": "vxlan aging timer",
+                "validrange": ["0", "4096"],
+                "example": ["vxlan-ageing 300"],
+                "default": "300"
+            },
+            "vxlan-purge-remotes": {
+                "help": "vxlan purge existing remote entries",
+                "validvals": ["yes", "no"],
+                "example": ["vxlan-purge-remotes yes"],
+            },
+            "vxlan-port": {
+                "help": "vxlan UDP port (transmitted to vxlan driver)",
+                "validvals": ["<number>"],
+                "example": ["vxlan-port 4789"],
+                "validrange": ["1", "65536"],
+                "default": "4789",
+            },
+            "vxlan-physdev": {
+                "help": "vxlan physical device",
+                "example": ["vxlan-physdev eth1"]
+            },
+        }
+    }
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
