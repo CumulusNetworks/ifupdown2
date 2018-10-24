@@ -583,10 +583,12 @@ class vxlan(Addon, moduleBase):
         except KeyError:
             return None
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check,
-               'query-running' : _query_running}
+    _run_ops = {
+        "pre-up" : _up,
+        "post-down": _down,
+        "query-running": _query_running,
+        "query-checkcurr": _query_check
+    }
 
     def get_ops(self):
         return self._run_ops.keys()
