@@ -1654,7 +1654,7 @@ class bridge(Addon, moduleBase):
 
     def up_bridge_port_vlan_aware_bridge(self, ifaceobj, ifaceobj_getfunc, bridge_name, should_enslave_port):
         if should_enslave_port:
-            netlink.link_set_master(ifaceobj.name, bridge_name)
+            self.netlink.link_set_master(ifaceobj.name, bridge_name)
             self.handle_ipv6([ifaceobj.name], '1')
 
         bridge_vids = self._get_bridge_vids(bridge_name, ifaceobj_getfunc)

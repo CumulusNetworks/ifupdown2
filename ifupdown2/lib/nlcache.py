@@ -1079,7 +1079,12 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         signal.signal(signal.SIGINT, self.signal_int_handler)
 
         ### DEBUG
-        #self.debug_link(True)
+        if False:
+            self.debug_link(True)
+            nllistener.log.setLevel(DEBUG)
+            nlpacket.log.setLevel(DEBUG)
+            nlmanager.log.setLevel(DEBUG)
+
         ###
 
         # we need to proctect the access to the old cache with a lock
@@ -1089,9 +1094,9 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         self.cache = _NetlinkCache()
 
         # set specific log level to lower-level API
-        #nllistener.log.setLevel(log_level)
-        #nlpacket.log.setLevel(log_level)
-        #nlmanager.log.setLevel(log_level)
+        nllistener.log.setLevel(log_level)
+        nlpacket.log.setLevel(log_level)
+        nlmanager.log.setLevel(log_level)
 
         nlpacket.mac_int_to_str = lambda mac_int: ':'.join(('%012x' % mac_int)[i:i + 2] for i in range(0, 12, 2))
         # Override the nlmanager's mac_int_to_str function
@@ -1814,31 +1819,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
             self.cache.remove_from_ignore_rtm_newlinkq(ifname)
             raise
 
-    def _link_set_master(self, ifname, master_ifindex=0, state=None):
-        """
-            ip link set %ifname master %master_ifindex %state
-            use master_ifindex=0 for nomaster
-        """
-        if state == 'up':
-            if_change = nlpacket.Link.IFF_UP
-            if_flags = nlpacket.Link.IFF_UP
-        elif state == 'down':
-            if_change = nlpacket.Link.IFF_UP
-            if_flags = 0
-        else:
-            if_change = 0
-            if_flags = 0
-
-        debug = nlpacket.RTM_NEWLINK in self.debug
-
-        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
-        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-        link.body = struct.pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
-        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-        link.add_attribute(nlpacket.Link.IFLA_MASTER, master_ifindex)
-        link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket_get_response_with_error(link)
-
     def _link_add_vlan(self, ifindex, ifname, vlanid, vlan_protocol=None):
         """
         ifindex is the index of the parent interface that this sub-interface
@@ -2049,14 +2029,14 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         :param ifname:
         :return:
         """
-        log.info('%s: netlink: ip link del %s' % (ifname, ifname))
+        log.info("%s: netlink: ip link del %s" % (ifname, ifname))
         try:
             ifindex = self.cache.get_ifindex(ifname)
             debug = nlpacket.RTM_DELLINK in self.debug
 
             link = nlpacket.Link(nlpacket.RTM_DELLINK, debug, use_color=self.use_color)
             link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
+            link.body = struct.pack("Bxxxiii", socket.AF_UNSPEC, ifindex, 0, 0)
             link.build_message(self.sequence.next(), self.pid)
 
             try:
@@ -2084,3 +2064,21 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         log.info('%s: dryrun: netlink: ip link del %s' % (ifname, ifname))
 
     ###
+
+    def link_set_master(self, ifname, master_dev):
+        log.info("%s: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
+        try:
+            debug = nlpacket.RTM_NEWLINK in self.debug
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, 0, 0)
+            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+            link.add_attribute(nlpacket.Link.IFLA_MASTER, self.cache.get_ifindex(master_dev))
+            link.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error(link)
+        except Exception as e:
+            raise NetlinkError(e, "cannot enslave link %s to %s" % (ifname, master_dev), ifname=ifname)
+
+    @staticmethod
+    def link_set_master_dry_run(ifname, master_dev):
+        log.info("%s: dryrun: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))

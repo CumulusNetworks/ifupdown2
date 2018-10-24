@@ -298,7 +298,7 @@ class bond(Addon, moduleBase):
                 except Exception, e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
-            netlink.link_set_master(slave, ifaceobj.name)
+            self.netlink.link_set_master(slave, ifaceobj.name)
             # TODO: if this fail we should switch to iproute2
             # start a batch: down - set master - up
 

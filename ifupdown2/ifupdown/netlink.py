@@ -189,20 +189,6 @@ class Netlink(utilsBase):
 
             raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind_str, ifname, str(e)))
 
-    def link_set_master(self, ifacename, master_dev, state=None):
-        self.logger.info('%s: netlink: ip link set dev %s master %s %s'
-                         % (ifacename, ifacename, master_dev,
-                            state if state else ''))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            master = 0 if not master_dev else self.get_iface_index(master_dev)
-            return self.netlink._link_set_master(ifacename,
-                                                       master_ifindex=master,
-                                                       state=state)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot set %s master %s: %s'
-                            % (ifacename, ifacename, master_dev, str(e)))
-
     def link_set_nomaster(self, ifacename, state=None):
         self.logger.info('%s: netlink: ip link set dev %s nomaster %s'
                          % (ifacename, ifacename, state if state else ''))

@@ -450,7 +450,7 @@ class vrf(Addon, moduleBase):
                     raise
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
-        netlink.link_set_master(ifacename, vrfname)
+        self.netlink.link_set_master(ifacename, vrfname)
         return
 
     def _down_dhcp_slave(self, ifaceobj, vrfname):
@@ -482,7 +482,7 @@ class vrf(Addon, moduleBase):
                 uppers = self.ipcmd.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
-                    netlink.link_set_master(ifacename, vrfname)
+                    self.netlink.link_set_master(ifacename, vrfname)
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
