@@ -223,6 +223,8 @@ class ifupdownMain(ifupdownBase):
         Raises:
             AttributeError, KeyError """
 
+        ifupdownBase.__init__(self)
+
         if daemon:
             self.reset_ifupdown2()
 
