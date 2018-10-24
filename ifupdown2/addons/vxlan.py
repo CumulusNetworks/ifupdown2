@@ -154,10 +154,9 @@ class vxlan(Addon, moduleBase):
         if vxlan_local_tunnel_ip and not self._vxlan_local_tunnelip:
             self._vxlan_local_tunnelip = vxlan_local_tunnel_ip
 
-    def _is_vxlan_device(self, ifaceobj):
-        if ifaceobj.get_attr_value_first('vxlan-id'):
-            return True
-        return False
+    @staticmethod
+    def _is_vxlan_device(ifaceobj):
+        return ifaceobj.link_kind & ifaceLinkKind.VXLAN or ifaceobj.get_attr_value_first('vxlan-id')
 
     def _get_purge_remotes(self, ifaceobj):
         if not ifaceobj:
@@ -169,7 +168,8 @@ class vxlan(Addon, moduleBase):
             purge_remotes = self._purge_remotes
         return purge_remotes
 
-    def should_create_set_vxlan(self, link_exists, ifname, vxlan_id, local, learning, ageing, group, cached_vxlan_ifla_info_data):
+    @staticmethod
+    def should_create_set_vxlan(link_exists, vxlan_id, local, learning, ageing, group, cached_vxlan_ifla_info_data):
         """
             should we issue a netlink: ip link add dev %ifname type vxlan ...?
             checking each attribute against the cache
@@ -237,8 +237,7 @@ class vxlan(Addon, moduleBase):
             else:
                 cached_vxlan_ifla_info_data = {}
 
-            if (not link_exists or
-                not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+            if not link_exists or not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
                 vxlan_learning = ifaceobj.get_attr_value_first('vxlan-learning')
                 if not vxlan_learning:
                     vxlan_learning = self.get_attr_default_value('vxlan-learning')
@@ -313,7 +312,7 @@ class vxlan(Addon, moduleBase):
                                         % (ifname, cache_port, ifname, ifname))
                     vxlan_port = cache_port
 
-            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group, cached_vxlan_ifla_info_data):
+            if self.should_create_set_vxlan(link_exists, vxlanid, local, learning, ageing, group, cached_vxlan_ifla_info_data):
                 try:
                     netlink.link_add_vxlan(ifname, vxlanid,
                                            local=local,
@@ -337,7 +336,7 @@ class vxlan(Addon, moduleBase):
 
                 try:
                     # manually adding an entry to the caching after creating/updating the vxlan
-                    if not ifname in linkCache.links:
+                    if ifname not in linkCache.links:
                         linkCache.links[ifname] = {'linkinfo': {}}
                     linkCache.links[ifname]['linkinfo'].update({
                         'learning': learning,
@@ -362,7 +361,7 @@ class vxlan(Addon, moduleBase):
                     for remoteip in remoteips:
                         IPv4Address(remoteip)
                 except Exception as e:
-                    self.log_error('%s: vxlan-remoteip: %s' %(ifaceobj.name, str(e)))
+                    self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
 
             if purge_remotes or remoteips:
                 # figure out the diff for remotes and do the bridge fdb updates
@@ -405,17 +404,17 @@ class vxlan(Addon, moduleBase):
         except Exception, e:
             self.log_warn(str(e))
 
-    def _query_check_n_update(self, ifaceobj, ifaceobjcurr, attrname, attrval,
-                              running_attrval):
+    @staticmethod
+    def _query_check_n_update(ifaceobj, ifaceobjcurr, attrname, attrval, running_attrval):
         if not ifaceobj.get_attr_value_first(attrname):
             return
         if running_attrval and attrval == running_attrval:
-           ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
+            ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
         else:
-           ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
+            ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
 
-    def _query_check_n_update_addresses(self, ifaceobjcurr, attrname,
-                                        addresses, running_addresses):
+    @staticmethod
+    def _query_check_n_update_addresses(ifaceobjcurr, attrname, addresses, running_addresses):
         if addresses:
             for a in addresses:
                 if a in running_addresses:
@@ -424,8 +423,7 @@ class vxlan(Addon, moduleBase):
                     ifaceobjcurr.update_config_with_status(attrname, a, 1)
             running_addresses = Set(running_addresses).difference(
                                                     Set(addresses))
-        [ifaceobjcurr.update_config_with_status(attrname, a, 1)
-                    for a in running_addresses]
+        [ifaceobjcurr.update_config_with_status(attrname, a, 1) for a in running_addresses]
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         ifname = ifaceobj.name
@@ -444,7 +442,7 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-port', Link.IFLA_VXLAN_PORT, int),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, int),
                 ('vxlan-svcnodeip', Link.IFLA_VXLAN_GROUP, IPv4Address),
-                ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda ifname: netlink.cache.get_ifindex(ifname)),
+                ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: netlink.cache.get_ifindex(x)),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
         ):
             vxlan_attr_value = ifaceobj.get_attr_value_first(vxlan_attr_str)
@@ -557,8 +555,7 @@ class vxlan(Addon, moduleBase):
             # remote ips. Query them and add it to the running config
             attrval = self.ipcmd.get_vxlan_peers(ifname, vxlan_svcnode_value)
             if attrval:
-                [ifaceobjrunning.update_config('vxlan-remoteip', a)
-                            for a in attrval]
+                [ifaceobjrunning.update_config('vxlan-remoteip', a) for a in attrval]
 
         #
         # vxlan-link
@@ -593,7 +590,7 @@ class vxlan(Addon, moduleBase):
             return None
 
     _run_ops = {
-        "pre-up" : _up,
+        "pre-up": _up,
         "post-down": _down,
         "query-running": _query_running,
         "query-checkcurr": _query_check
