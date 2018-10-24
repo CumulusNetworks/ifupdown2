@@ -548,7 +548,7 @@ class bond(Addon, moduleBase):
                     is_link_up = False
 
                 for lower_dev in ifaceobj.lowerifaces:
-                    netlink.link_set_nomaster(lower_dev)
+                    self.netlink.link_set_nomaster(lower_dev)
 
                 self.bondcmd.cache_delete([ifname, 'linkinfo', 'slaves'])
             else:

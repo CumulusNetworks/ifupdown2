@@ -2065,20 +2065,34 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
 
     ###
 
+    def __link_set_master(self, ifname, master_ifindex):
+        debug = nlpacket.RTM_NEWLINK in self.debug
+        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+        link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, 0, 0)
+        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+        link.add_attribute(nlpacket.Link.IFLA_MASTER, master_ifindex)
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response_with_error(link)
+
     def link_set_master(self, ifname, master_dev):
         log.info("%s: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
         try:
-            debug = nlpacket.RTM_NEWLINK in self.debug
-            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
-            link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-            link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, 0, 0)
-            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-            link.add_attribute(nlpacket.Link.IFLA_MASTER, self.cache.get_ifindex(master_dev))
-            link.build_message(self.sequence.next(), self.pid)
-            return self.tx_nlpacket_get_response_with_error(link)
+            self.__link_set_master(ifname, self.cache.get_ifindex(master_dev))
         except Exception as e:
             raise NetlinkError(e, "cannot enslave link %s to %s" % (ifname, master_dev), ifname=ifname)
+
+    def link_set_nomaster(self, ifname):
+        log.info("%s: netlink: ip link set dev %s nomaster" % (ifname, ifname))
+        try:
+            self.__link_set_master(ifname, 0)
+        except Exception as e:
+            raise NetlinkError(e, "cannot un-enslave link %s" % ifname, ifname=ifname)
 
     @staticmethod
     def link_set_master_dry_run(ifname, master_dev):
         log.info("%s: dryrun: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
+
+    @staticmethod
+    def link_set_nomaster_dry_run(ifname):
+        log.info("%s: dryrun: netlink: ip link set dev %s nomaster" % (ifname, ifname))

@@ -189,18 +189,6 @@ class Netlink(utilsBase):
 
             raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind_str, ifname, str(e)))
 
-    def link_set_nomaster(self, ifacename, state=None):
-        self.logger.info('%s: netlink: ip link set dev %s nomaster %s'
-                         % (ifacename, ifacename, state if state else ''))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            return self.netlink._link_set_master(ifacename,
-                                                       master_ifindex=0,
-                                                       state=state)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot set %s nomaster: %s'
-                            % (ifacename, ifacename, str(e)))
-
     def link_add_vlan(self, vlanrawdevice, ifacename, vlanid, vlan_protocol):
         if vlan_protocol:
             self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s protocol %s'

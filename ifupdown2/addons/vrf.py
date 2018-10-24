@@ -982,7 +982,7 @@ class vrf(Addon, moduleBase):
     def _down_vrf_slave(self, ifacename, ifaceobj=None, vrfname=None):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
-            netlink.link_set_nomaster(ifacename)
+            self.netlink.link_set_nomaster(ifacename)
             # Down this slave only if it is a slave ifupdown2 manages.
             # we dont want to down slaves that maybe up'ed by
             # somebody else. One such example is a macvlan device
