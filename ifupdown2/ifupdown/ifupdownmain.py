@@ -1296,7 +1296,46 @@ class ifupdownMain(ifupdownBase):
         nifaces.load()
         if nifaces.errors or nifaces.warns:
             ret = False
+
+        try:
+            self._process_module_attributes_aliases()
+        except Exception as e:
+            self.logger.debug("_process_module_attributes_aliases: %s" % str(e))
         return ret
+
+    def _process_module_attributes_aliases(self):
+        """
+        Process module attributes aliases
+        Each attribute can declare a list of aliases under the modinfo
+        attribute "aliases". We need to processes those aliases before
+        any further operation. The aliases are renamed in the proper
+        attribute name so all operation can go through smoothly with
+        minimal code change.
+        """
+
+        aliases = dict()
+
+        # first we extract all the module attribute aliases
+        for module_name, modinfo in self.module_attrs.iteritems():
+            for attr_name, attr_dict in modinfo.get("attrs", {}).iteritems():
+                for attr_alias in attr_dict.get("aliases", []):
+                    aliases[attr_alias] = attr_name
+
+        # then we go through all the ifaceobj and replace the aliases with the appropriate attribute name
+        for ifaceobj_list in self.ifaceobjdict.itervalues():
+            for ifaceobj in ifaceobj_list or []:
+                for alias_attr, real_attr in aliases.iteritems():
+                    if alias_attr in ifaceobj.config:
+                        if real_attr in ifaceobj.config:
+                            self.logger.warning("%s: invalid use of attribute \"%s\" and alias \"%s\"" % (ifaceobj.name, real_attr, alias_attr))
+                        else:
+                            # recreating ifaceobj.config while modifying the alias into the real attribute and the same ordering
+                            ifaceobj.config = OrderedDict(
+                                [
+                                    (real_attr, value) if key == alias_attr else (key, value)
+                                    for key, value in ifaceobj.config.items()
+                                ]
+                            )
 
     def read_old_iface_config(self):
         """ Reads the saved iface config instead of default iface config.
