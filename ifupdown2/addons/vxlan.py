@@ -10,6 +10,7 @@ from ipaddr import IPNetwork, IPv4Address, IPv4Network, AddressValueError
 
 try:
     import ifupdown2.ifupdown.policymanager as policymanager
+    import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
@@ -22,6 +23,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownflags as ifupdownflags
 
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
@@ -306,8 +308,9 @@ class vxlan(Addon, moduleBase):
                 self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, netlink.VXLAN_UDP_PORT, str(e)))
                 vxlan_port = netlink.VXLAN_UDP_PORT
 
-            if link_exists:
+            if link_exists and not ifupdownflags.flags.DRYRUN:
                 cache_port = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_PORT)
+
                 if vxlan_port != cache_port:
                     self.logger.warning('%s: vxlan-port (%s) cannot be changed - to apply the desired change please run: ifdown %s && ifup %s'
                                         % (ifname, cache_port, ifname, ifname))
