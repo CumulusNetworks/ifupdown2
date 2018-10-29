@@ -56,17 +56,18 @@ class tunnel (moduleBase):
             return True
         return False
 
-    def _check_settings(self, ifaceobj, attrs):
 
-        linkup = self.ipcmd.is_link_up(ifaceobj.name)
-        try:
-            if attrs:
-                self.ipcmd.tunnel_change(ifaceobj.name, attrs)
-        except:
-            raise
-        finally:
-            if attrs and linkup:
-                netlink.link_set_updown(ifaceobj.name, 'up')
+    def _has_config_changed (self, attrs_present, attrs_configured):
+        for attr in set (attrs_present.keys () + attrs_configured.keys ()):
+            # 'mode' is not present in attrs_configured and checked explicitly
+            if attr == "mode":
+                continue
+
+            if attrs_present.get (attr, None) != attrs_configured.get (attr, None):
+                return True
+
+        return False
+
 
     def _up (self, ifaceobj):
         attr_map = {
@@ -79,28 +80,33 @@ class tunnel (moduleBase):
 
         mode = ifaceobj.get_attr_value_first ('mode')
         attrs = {}
+        attrs_mapped = {}
 
         # Only include attributes which have been set and map ifupdown2 names
         # to attribute names expected by iproute
         for attr, iproute_attr in attr_map.items ():
             attr_val = ifaceobj.get_attr_value_first (attr)
             if attr_val != None:
-                attrs[iproute_attr] = attr_val
+                attrs_mapped[iproute_attr] = attr_val
+		attrs[attr] = attr_val
 
-        current_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
+        # Create the tunnel if it doesn't exist yet...
+        if not self.ipcmd.link_exists(ifaceobj.name):
+            self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs_mapped)
+            return
+
+        # If it's present, check if there were changes
+        current_attrs = self.ipcmd.link_get_linkinfo_attrs (ifaceobj.name)
 
         try:
-            if not self.ipcmd.link_exists(ifaceobj.name):
-                self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs)
-            elif current_attrs and current_attrs['mode'] != mode and ( ('6' in mode and '6' not in current_attrs['mode']) or ('6' not in mode and '6' in current_attrs['mode']) ):
-                # Mode changes between ipv4 and ipv6 are not possible without recreating the interface
+            if current_attrs and current_attrs['mode'] != mode or self._has_config_changed (current_attrs, attrs):
+                # Mode and some other changes are not possible without recreating the interface,
+                # so just recreate it IFF there have been changes.
                 self.ipcmd.link_delete (ifaceobj.name)
-                self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs)
-            else:
-                attrs['mode'] = mode
-                self._check_settings(ifaceobj, attrs)
+                self.ipcmd.tunnel_create (ifaceobj.name, mode, attrs_mapped)
         except Exception, e:
             self.log_warn (str (e))
+
 
     def _down (self, ifaceobj):
         if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists (ifaceobj.name):
@@ -110,15 +116,17 @@ class tunnel (moduleBase):
         except Exception, e:
             self.log_warn (str (e))
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
-        if not self._is_my_interface(ifaceobj):
+
+    def get_dependent_ifacenames (self, ifaceobj, ifacenames_all=None):
+        if not self._is_my_interface (ifaceobj):
             return None
-        
+
         device = ifaceobj.get_attr_value_first ('tunnel-physdev')
         if device:
             return [device]
 
         return None
+
 
     def _query_check_n_update (self, ifaceobj, ifaceobjcurr, attrname, attrval,
                                running_attrval):
