@@ -119,6 +119,8 @@ class iproute2(utilsBase):
                                 tunattrs['ttl'] = citems[j + 1]
                             elif citems[j] == 'dev':
                                 tunattrs['physdev'] = citems[j + 1]
+                            elif citems[j] in ['vti', 'vti6', 'ip6gre', 'ipip6', 'ip6ip6']:
+                                tunattrs['mode'] = citems[j]
                         linkattrs['linkinfo'] = tunattrs
                         break
                     elif citems[i] == 'link/ppp':
