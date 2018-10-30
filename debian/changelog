@@ -1,5 +1,6 @@
 ifupdown2 (1.2.1) unstable; urgency=medium
 
+  * Fix #54: address module new l3_intf_default_gateway_set_onlink policy
   * Fix: Link down does not work on any intf configured in a VRF
   * Add: ethtool: add link-speed 10 to valid values array
   * Add: address: add l3_intf_arp_accept policy to control ARP_ACCEPT
