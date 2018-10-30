@@ -1,4 +1,4 @@
-ifupdown2 (1.2.1) UNRELEASED; urgency=medium
+ifupdown2 (1.2.1) RELEASED; urgency=medium
 
   * Fix: Link down does not work on any intf configured in a VRF
   * Add: ethtool: add link-speed 10 to valid values array
