@@ -1113,7 +1113,7 @@ class LinkUtils(utilsBase):
         return self._cache_get('link', [ifacename, 'ifflag'], refresh=True)
 
     @staticmethod
-    def route_add_gateway(ifacename, gateway, vrf=None, metric=None):
+    def route_add_gateway(ifacename, gateway, vrf=None, metric=None, onlink=True):
         if not gateway:
             return
         if not vrf:
@@ -1126,6 +1126,10 @@ class LinkUtils(utilsBase):
         if metric:
             cmd += 'metric %s' % metric
         cmd += ' dev %s' % ifacename
+
+        if onlink:
+            cmd += " onlink"
+
         utils.exec_command(cmd)
 
     @staticmethod
