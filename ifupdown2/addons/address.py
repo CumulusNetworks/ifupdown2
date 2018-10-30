@@ -675,17 +675,23 @@ class address(Addon, moduleBase):
     def _set_bridge_forwarding(self, ifaceobj):
         """ set ip forwarding to 0 if bridge interface does not have a
         ip nor svi """
+        ifname = ifaceobj.name
         if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address'):
-            # set forwarding = 0
-            if self.sysctl_get('net.ipv4.conf.%s.forwarding' %ifaceobj.name) == '1':
-                self.sysctl_set('net.ipv4.conf.%s.forwarding' %ifaceobj.name, 0)
-            if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '1':
-                self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 0)
+            if self.sysctl_get_forwarding_value_from_proc(ifname, "ipv4") == '1':
+                self.sysctl_write_forwarding_value_to_proc(ifname, "ipv4", 0)
+            if self.sysctl_get_forwarding_value_from_proc(ifname, "ipv6") == '1':
+                self.sysctl_write_forwarding_value_to_proc(ifname, "ipv6", 0)
         else:
-            if self.sysctl_get('net.ipv4.conf.%s.forwarding' %ifaceobj.name) == '0':
-                self.sysctl_set('net.ipv4.conf.%s.forwarding' %ifaceobj.name, 1)
-            if self.sysctl_get('net.ipv6.conf.%s.forwarding' %ifaceobj.name) == '0':
-                self.sysctl_set('net.ipv6.conf.%s.forwarding' %ifaceobj.name, 1)
+            if self.sysctl_get_forwarding_value_from_proc(ifname, "ipv4") == '0':
+                self.sysctl_write_forwarding_value_to_proc(ifname, "ipv4", 1)
+            if self.sysctl_get_forwarding_value_from_proc(ifname, "ipv6") == '0':
+                self.sysctl_write_forwarding_value_to_proc(ifname, "ipv6", 1)
+
+    def sysctl_get_forwarding_value_from_proc(self, ifname, family):
+        return self.read_file_oneline("/proc/sys/net/%s/conf/%s/forwarding" % (family, ifname))
+
+    def sysctl_write_forwarding_value_to_proc(self, ifname, family, value):
+        self.write_file("/proc/sys/net/%s/conf/%s/forwarding" % (family, ifname), "%s\n" % value)
 
     def _sysctl_config(self, ifaceobj):
         setting_default_value = False
