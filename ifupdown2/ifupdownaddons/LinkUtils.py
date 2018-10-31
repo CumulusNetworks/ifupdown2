@@ -1270,8 +1270,13 @@ class LinkUtils(utilsBase):
         if '6' in mode:
             cmd = ' -6 '
 
-        cmd += 'tunnel add'
-        cmd += ' %s mode %s' %(tunnelname, mode)
+        if mode == 'gretap':
+            cmd += 'link add'
+            cmd += ' %s type %s' %(tunnelname, mode)
+        else:
+            cmd += 'tunnel add'
+            cmd += ' %s mode %s' %(tunnelname, mode)
+
         if attrs:
             for k, v in attrs.iteritems():
                 cmd += ' %s' %k
