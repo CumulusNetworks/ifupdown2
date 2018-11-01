@@ -202,6 +202,23 @@ class address(moduleBase):
             except Exception, e:
                 self.log_error(str(e), ifaceobj)
 
+    def _enforce_cidr_notation(self, addr_list):
+        addr_list_cidr = []
+
+        if not addr_list:
+            return None
+
+        for addr in addr_list:
+            addr_cidr = addr
+
+            if not '/' in addr:
+               plen = '/128' if ':' in addr else '/32'
+               addr_cidr += plen
+
+            addr_list_cidr.append(addr_cidr)
+
+        return addr_list_cidr
+
     def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None,
                              force_reapply=False):
         squash_addr_config = (True if \
@@ -236,7 +253,12 @@ class address(moduleBase):
         if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
             # if perfmode is not set and purge addresses is not set to 'no'
             # lets purge addresses not in the config
-            runningaddrs = utils.get_normalized_ip_addr(ifaceobj.name, self.ipcmd.addr_get(ifaceobj.name, details=False))
+
+            # When using pointopoint configurations the address might not have a netmask set
+            # which breaks the comparison between newaddrs and runningaddrs below. So we add
+            # add /32 or /128 netmask if we find an IP without a prefix length. \o/
+            addrs_read = self.ipcmd.addr_get(ifaceobj.name, details=False)
+            runningaddrs = utils.get_normalized_ip_addr(ifaceobj.name, self._enforce_cidr_notation(addrs_read))
 
             # if anycast address is configured on 'lo' and is in running config
             # add it to newaddrs so that ifreload doesn't wipe it out
