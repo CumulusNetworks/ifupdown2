@@ -44,105 +44,129 @@ class bond(Addon, moduleBase):
 
     overrides_ifupdown_scripts = ['ifenslave', ]
 
-    _modinfo = { 'mhelp' : 'bond configuration module',
-                    'attrs' : {
-                    'bond-use-carrier':
-                         {'help' : 'bond use carrier',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'yes',
-                          'example': ['bond-use-carrier yes']},
-                     'bond-num-grat-arp':
-                         {'help' : 'bond use carrier',
-                          'validrange' : ['0', '255'],
-                          'default' : '1',
-                          'example' : ['bond-num-grat-arp 1']},
-                     'bond-num-unsol-na' :
-                         {'help' : 'bond slave devices',
-                          'validrange' : ['0', '255'],
-                          'default' : '1',
-                          'example' : ['bond-num-unsol-na 1']},
-                     'bond-xmit-hash-policy' :
-                         {'help' : 'bond slave devices',
-                          'validvals' : ['0', 'layer2',
-                                         '1', 'layer3+4',
-                                         '2', 'layer2+3',
-                                         '3', 'encap2+3',
-                                         '4', 'encap3+4'],
-                          'default' : 'layer2',
-                          'example' : ['bond-xmit-hash-policy layer2']},
-                     'bond-miimon' :
-                         {'help' : 'bond miimon',
-                          'validrange' : ['0', '255'],
-                          'default' : '0',
-                          'example' : ['bond-miimon 0']},
-                     'bond-mode' :
-                         {'help': 'bond mode',
-                          'validvals': ['0', 'balance-rr',
-                                        '1', 'active-backup',
-                                        '2', 'balance-xor',
-                                        '3', 'broadcast',
-                                        '4', '802.3ad',
-                                        '5', 'balance-tlb',
-                                        '6', 'balance-alb'],
-                          'default': 'balance-rr',
-                          'example': ['bond-mode 802.3ad']},
-                     'bond-lacp-rate':
-                         {'help' : 'bond lacp rate',
-                          'validvals' : ['0', 'slow', '1', 'fast'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-rate 0']},
-                     'bond-min-links':
-                         {'help' : 'bond min links',
-                          'default' : '0',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bond-min-links 0']},
-                     'bond-ad-sys-priority':
-                         {'help' : '802.3ad system priority',
-                          'default' : '65535',
-                          'validrange' : ['0', '65535'],
-                          'example' : ['bond-ad-sys-priority 65535'],
-                          'deprecated' : True,
-                          'new-attribute' : 'bond-ad-actor-sys-prio'},
-                     'bond-ad-actor-sys-prio':
-                         {'help' : '802.3ad system priority',
-                          'default' : '65535',
-                          'validrange' : ['0', '65535'],
-                          'example' : ['bond-ad-actor-sys-prio 65535']},
-                     'bond-ad-sys-mac-addr':
-                         {'help' : '802.3ad system mac address',
-                          'validvals': ['<mac>', ],
-                         'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
-                         'deprecated' : True,
-                         'new-attribute' : 'bond-ad-actor-system'},
-                     'bond-ad-actor-system':
-                         {'help' : '802.3ad system mac address',
-                          'validvals': ['<mac>', ],
-                         'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
-                     'bond-lacp-bypass-allow':
-                         {'help' : 'allow lacp bypass',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'no',
-                          'example' : ['bond-lacp-bypass-allow no']},
-                     'bond-slaves' :
-                        {'help' : 'bond slaves',
-                         'required' : True,
-                         'multivalue' : True,
-                         'validvals': ['<interface-list>'],
-                         'example' : ['bond-slaves swp1 swp2',
-                                      'bond-slaves glob swp1-2',
-                                      'bond-slaves regex (swp[1|2)'],
-                         'aliases': ['bond-ports']},
-                     'bond-updelay' :
-                        {'help' : 'bond updelay',
-                         'default' : '0',
-                         'validrange' : ['0', '65535'],
-                         'example' : ['bond-updelay 100']},
-                     'bond-downdelay':
-                        {'help' : 'bond downdelay',
-                         'default' : '0',
-                         'validrange' : ['0', '65535'],
-                         'example' : ['bond-downdelay 100']}
-                    }}
+    _modinfo = {
+        "mhelp": "bond configuration module",
+        "attrs": {
+            "bond-use-carrier": {
+                "help": "bond use carrier",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "yes",
+                "example": ["bond-use-carrier yes"]},
+            "bond-num-grat-arp": {
+                "help": "bond use carrier",
+                "validrange": ["0", "255"],
+                "default": "1",
+                "example": ["bond-num-grat-arp 1"]
+            },
+            "bond-num-unsol-na": {
+                "help": "bond slave devices",
+                "validrange": ["0", "255"],
+                "default": "1",
+                "example": ["bond-num-unsol-na 1"]
+            },
+            "bond-xmit-hash-policy": {
+                "help": "bond slave devices",
+                "validvals": [
+                    "0", "layer2",
+                    "1", "layer3+4",
+                    "2", "layer2+3",
+                    "3", "encap2+3",
+                    "4", "encap3+4"
+                ],
+                "default": "layer2",
+                "example": ["bond-xmit-hash-policy layer2"]
+            },
+            "bond-miimon": {
+                "help": "bond miimon",
+                "validrange": ["0", "255"],
+                "default": "0",
+                "example": ["bond-miimon 0"]
+            },
+            "bond-mode": {
+                "help": "bond mode",
+                "validvals": [
+                    "0", "balance-rr",
+                    "1", "active-backup",
+                    "2", "balance-xor",
+                    "3", "broadcast",
+                    "4", "802.3ad",
+                    "5", "balance-tlb",
+                    "6", "balance-alb"
+                ],
+                "default": "balance-rr",
+                "example": ["bond-mode 802.3ad"]
+            },
+            "bond-lacp-rate": {
+                "help": "bond lacp rate",
+                "validvals": ["0", "slow", "1", "fast"],
+                "default": "0",
+                "example": ["bond-lacp-rate 0"]
+            },
+            "bond-min-links": {
+                "help": "bond min links",
+                "default": "0",
+                "validrange": ["0", "255"],
+                "example": ["bond-min-links 0"]
+            },
+            "bond-ad-sys-priority": {
+                "help": "802.3ad system priority",
+                "default": "65535",
+                "validrange": ["0", "65535"],
+                "example": ["bond-ad-sys-priority 65535"],
+                "deprecated": True,
+                "new-attribute": "bond-ad-actor-sys-prio"
+            },
+            "bond-ad-actor-sys-prio": {
+                "help": "802.3ad system priority",
+                "default": "65535",
+                "validrange": ["0", "65535"],
+                "example": ["bond-ad-actor-sys-prio 65535"]
+            },
+            "bond-ad-sys-mac-addr": {
+                "help": "802.3ad system mac address",
+                "validvals": ["<mac>", ],
+                "example": ["bond-ad-sys-mac-addr 00:00:00:00:00:00"],
+                "deprecated": True,
+                "new-attribute": "bond-ad-actor-system"
+            },
+            "bond-ad-actor-system": {
+                "help": "802.3ad system mac address",
+                "validvals": ["<mac>", ],
+                "example": ["bond-ad-actor-system 00:00:00:00:00:00"],
+            },
+            "bond-lacp-bypass-allow": {
+                "help": "allow lacp bypass",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "no",
+                "example": ["bond-lacp-bypass-allow no"]
+            },
+            "bond-slaves": {
+                "help": "bond slaves",
+                "required": True,
+                "multivalue": True,
+                "validvals": ["<interface-list>"],
+                "example": [
+                    "bond-slaves swp1 swp2",
+                    "bond-slaves glob swp1-2",
+                    "bond-slaves regex (swp[1|2)"
+                ],
+                "aliases": ["bond-ports"]
+            },
+            "bond-updelay": {
+                "help": "bond updelay",
+                "default": "0",
+                "validrange": ["0", "65535"],
+                "example": ["bond-updelay 100"]
+            },
+            "bond-downdelay": {
+                "help": "bond downdelay",
+                "default": "0",
+                "validrange": ["0", "65535"],
+                "example": ["bond-downdelay 100"]
+            }
+        }
+    }
+
 
     _bond_attr_netlink_map = {
         'bond-mode': Link.IFLA_BOND_MODE,
