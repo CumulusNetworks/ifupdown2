@@ -390,15 +390,14 @@ class address(Addon, moduleBase):
         for addr_index in range(0, len(newaddrs)):
             try:
                 if newaddr_attrs:
-                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('broadcast'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('pointopoint'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('scope'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('preferred-lifetime'))
+                    self.ipcmd.addr_add(
+                        ifaceobj.name,
+                        newaddrs[addr_index],
+                        newaddr_attrs.get(newaddrs[addr_index], {}).get('broadcast'),
+                        newaddr_attrs.get(newaddrs[addr_index], {}).get('pointopoint'),
+                        newaddr_attrs.get(newaddrs[addr_index], {}).get('scope'),
+                        newaddr_attrs.get(newaddrs[addr_index], {}).get('preferred-lifetime')
+                    )
                 else:
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
             except Exception, e:
