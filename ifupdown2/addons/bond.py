@@ -217,9 +217,7 @@ class bond(Addon, moduleBase):
     def _is_bond(self, ifaceobj):
         # at first link_kind is not set but once ifupdownmain
         # calls get_dependent_ifacenames link_kind is set to BOND
-        if ifaceobj.link_kind & ifaceLinkKind.BOND or self.get_bond_slaves(ifaceobj):
-            return True
-        return False
+        return ifaceobj.link_kind & ifaceLinkKind.BOND or self.get_bond_slaves(ifaceobj)
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         """ Returns list of interfaces dependent on ifaceobj """
