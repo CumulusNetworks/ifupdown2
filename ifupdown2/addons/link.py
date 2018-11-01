@@ -49,7 +49,6 @@ class link(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
 
         self.check_physical_port_existance = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(
             self.__class__.__name__,
@@ -128,10 +127,6 @@ class link(Addon, moduleBase):
     def get_ops(self):
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
@@ -139,7 +134,6 @@ class link(Addon, moduleBase):
         if (operation != 'query-running' and
                 not self._is_my_interface(ifaceobj)):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
