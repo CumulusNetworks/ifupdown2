@@ -2096,3 +2096,33 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
     @staticmethod
     def link_set_nomaster_dry_run(ifname):
         log.info("%s: dryrun: netlink: ip link set dev %s nomaster" % (ifname, ifname))
+
+    ###
+
+    def link_set_address_dry_run(self, ifname, hw_address):
+        log.info("%s: dryrun: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
+
+    def link_set_address(self, ifname, hw_address):
+        is_link_up = self.cache.link_is_up(ifname)
+        # check if the link is already up or not if the link is
+        # up we need to down it then make sure we up it again
+        try:
+            if is_link_up:
+                self.link_down(ifname)
+
+            log.info("%s: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
+            debug = nlpacket.RTM_NEWLINK in self.debug
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+
+            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+            link.add_attribute(nlpacket.Link.IFLA_ADDRESS, hw_address)
+
+            link.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error(link)
+        except Exception as e:
+            raise NetlinkError(e, "cannot set dev %s address %s" % (ifname, hw_address), ifname=ifname)
+        finally:
+            if is_link_up:
+                self.link_up(ifname)

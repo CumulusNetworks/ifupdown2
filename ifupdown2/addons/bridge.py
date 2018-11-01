@@ -2174,7 +2174,7 @@ class bridge(Addon, moduleBase):
 
             self.logger.info('%s: setting bridge mac to port %s mac' % (ifname, mac_intf))
             try:
-                self.ipcmd.link_set(ifname, 'address', value=bridge_mac, force=True)
+                self.netlink.link_set_address(ifname, bridge_mac)  # force=True
             except Exception as e:
                 self.logger.info('%s: %s' % (ifname, str(e)))
                 # log info this error because the user didn't explicitly configured this
