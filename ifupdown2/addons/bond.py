@@ -202,7 +202,6 @@ class bond(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
         self.bondcmd = None
 
         if not os.path.exists('/sys/class/net/bonding_masters'):
@@ -747,8 +746,8 @@ class bond(Addon, moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = self.bondcmd = LinkUtils()
+        if not self.bondcmd:
+            self.bondcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None):
