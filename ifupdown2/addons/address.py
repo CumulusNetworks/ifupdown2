@@ -195,6 +195,14 @@ class address(Addon, moduleBase):
             default=False
         )
 
+        self.l3_intf_default_gateway_set_onlink = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr='l3_intf_default_gateway_set_onlink'
+            ),
+            default=False
+        )
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
@@ -537,7 +545,7 @@ class address(Addon, moduleBase):
                              vrf, metric)
         for add_gw in gateways:
             try:
-                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf, metric)
+                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf, metric, onlink=self.l3_intf_default_gateway_set_onlink)
             except Exception as e:
                 self.log_error('%s: %s' % (ifaceobj.name, str(e)))
 
