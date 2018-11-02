@@ -2207,3 +2207,29 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
                 # we should display it before we raise the exception
                 log.info(" ".join(log_msg))
             raise NetlinkError(e, "cannot add address %s dev %s" % (addr, ifname), ifname=ifname)
+
+    ###
+
+    def addr_del_dry_run(self, ifname, addr):
+        log.info("%s: dryrun: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
+
+    def addr_del(self, ifname, addr):
+        log.info("%s: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
+        try:
+            debug = nlpacket.RTM_DELADDR in self.debug
+
+            packet = nlpacket.Address(nlpacket.RTM_DELADDR, debug, use_color=self.use_color)
+            packet.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            packet.family = self.IPNetwork_version_to_family.get(addr.version)
+            packet.body = struct.pack("=4Bi", packet.family, addr.prefixlen, 0, 0, self.cache.get_ifindex(ifname))
+
+            packet.add_attribute(nlpacket.Address.IFA_LOCAL, addr)
+
+            packet.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error(packet)
+        except Exception as e:
+            raise NetlinkError(e, "cannot delete address %s dev %s" % (addr, ifname), ifname=ifname)
+
+    def addr_flush(self, ifname):
+        for addr in self.cache.get_addresses_list(ifname):
+            self.addr_del(ifname, addr)

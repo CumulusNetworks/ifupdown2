@@ -479,7 +479,7 @@ class address(Addon, moduleBase):
                 for addr in runningaddrs or []:
                     if addr in skip_addrs:
                         continue
-                    self.ipcmd.addr_del(ifaceobj.name, addr)
+                    self.netlink.addr_del(ifaceobj.name, addr)
             except Exception, e:
                 self.log_warn(str(e))
         if not newaddrs:
@@ -949,12 +949,12 @@ class address(Addon, moduleBase):
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist or []:
-                        self.ipcmd.addr_del(ifaceobj.name, addr)
+                        self.netlink.addr_del(ifaceobj.name, addr)
                     #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
                 elif not ifaceobj.link_kind:
                     # for logical interfaces we don't need to remove the ip addresses
                     # kernel will do it for us on 'ip link del'
-                    self.ipcmd.del_addr_all(ifaceobj.name)
+                    self.netlink.addr_flush(ifaceobj.name)
 
             gateways = ifaceobj.get_attr_value('gateway')
             if gateways:
