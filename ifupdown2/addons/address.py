@@ -857,13 +857,7 @@ class address(Addon, moduleBase):
         else:
             self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))
 
-    def _up(self, ifaceobj, ifaceobj_getfunc=None):
-        if not netlink.cache.link_exists(ifaceobj.name):
-            return
-
-        if not self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc):
-            return
-
+    def up_alias(self, ifaceobj):
         alias = ifaceobj.get_attr_value_first('alias')
         current_alias = netlink.cache.get_link_alias(ifaceobj.name)
 
@@ -872,6 +866,14 @@ class address(Addon, moduleBase):
         elif not alias and current_alias:
             self.ipcmd.link_set_alias(ifaceobj.name, '')
 
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
+        if not netlink.cache.link_exists(ifaceobj.name):
+            return
+
+        if not self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc):
+            return
+
+        self.up_alias(ifaceobj)
         self._sysctl_config(ifaceobj)
 
         addr_method = ifaceobj.addr_method
@@ -1209,10 +1211,12 @@ class address(Addon, moduleBase):
         if alias:
             ifaceobjrunning.update_config('alias', alias)
 
-    _run_ops = {'up' : _up,
-               'down' : _down,
-               'query-checkcurr' : _query_check,
-               'query-running' : _query_running }
+    _run_ops = {
+        'up': _up,
+        'down': _down,
+        'query-checkcurr': _query_check,
+        'query-running': _query_running
+    }
 
     def get_ops(self):
         """ returns list of ops supported by this module """
