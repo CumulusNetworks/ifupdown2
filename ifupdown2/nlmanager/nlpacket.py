@@ -40,6 +40,7 @@ from struct import pack, unpack, calcsize
 log = logging.getLogger(__name__)
 SYSLOG_EXTRA_DEBUG = 5
 
+INFINITY_LIFE_TIME = 0xFFFFFFFF
 
 # Interface name buffer size #define IFNAMSIZ 16 (kernel source)
 IF_NAME_SIZE = 15 # 15 because python doesn't have \0
@@ -118,6 +119,16 @@ RTMGRP_ALL = (RTMGRP_LINK | RTMGRP_NOTIFY | RTMGRP_NEIGH | RTMGRP_TC |
               RTMGRP_IPV6_IFADDR | RTMGRP_IPV6_MROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFINFO |
               RTMGRP_DECnet_IFADDR | RTMGRP_DECnet_ROUTE |
               RTMGRP_IPV6_PREFIX)
+
+# /etc/iproute2/rt_scopes
+RT_SCOPES = {
+    "global": 0,
+    "universe": 0,
+    "nowhere": 255,
+    "host": 254,
+    "link": 253,
+    "site": 200
+}
 
 AF_MPLS = 28
 
@@ -335,6 +346,32 @@ class Attribute(object):
         return self.value
 
 
+class AttributeCACHEINFO(Attribute):
+    """
+        struct ifa_cacheinfo {
+            __u32	ifa_prefered;
+            __u32	ifa_valid;
+            __u32	cstamp; /* created timestamp, hundredths of seconds */
+            __u32	tstamp; /* updated timestamp, hundredths of seconds */
+        };
+    """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = "=IIII"
+        self.LEN = calcsize(self.PACK)
+
+    def encode(self):
+        ifa_prefered, ifa_valid, cstamp, tstamp = self.value
+        return pack(self.HEADER_PACK, self.HEADER_LEN + self.LEN , self.atype) + pack(self.PACK, ifa_prefered, ifa_valid, cstamp, tstamp)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        try:
+            self.value = unpack(self.PACK, self.data[4:])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
+
+
 class AttributeFourByteList(Attribute):
 
     def __init__(self, atype, string, family, logger):
@@ -483,7 +520,7 @@ class AttributeIPAddress(Attribute):
         if value is None:
             self.value = None
         else:
-            self.value = IPAddress(value)
+            self.value = IPNetwork(value)
 
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
@@ -2565,6 +2602,7 @@ class Address(NetlinkPacket):
     IFA_CACHEINFO = 0x06
     IFA_MULTICAST = 0x07
     IFA_FLAGS     = 0x08
+    IFA_RT_PRIORITY = 0x09  # 32, priority / metricfor prefix route
 
     attribute_to_class = {
         IFA_UNSPEC    : ('IFA_UNSPEC', AttributeGeneric),
@@ -2573,9 +2611,10 @@ class Address(NetlinkPacket):
         IFA_LABEL     : ('IFA_LABEL', AttributeString),
         IFA_BROADCAST : ('IFA_BROADCAST', AttributeIPAddress),
         IFA_ANYCAST   : ('IFA_ANYCAST', AttributeIPAddress),
-        IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeGeneric),
+        IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeCACHEINFO),
         IFA_MULTICAST : ('IFA_MULTICAST', AttributeIPAddress),
-        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric)
+        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric),
+        IFA_RT_PRIORITY : ('IFA_RT_PRIORITY', AttributeFourByteValue)
     }
 
     # Address flags
