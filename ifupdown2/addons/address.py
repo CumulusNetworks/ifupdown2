@@ -93,6 +93,13 @@ class address(Addon, moduleBase):
                     'preferred-lifetime 10'
                 ]
             },
+            'pointopoint': {
+                'help': 'Set the remote IP address for a point-to-point link',
+                'validvals': ['<ipv4/prefixlen>', '<ipv6/prefixlen>'],
+                'example': [
+                    'pointopoint 10.10.10.42/32'
+                ]
+            },
             'gateway': {
                 'help': 'Default gateway',
                 'validvals': ['<ipv4>', '<ipv6>'],
@@ -376,11 +383,17 @@ class address(Addon, moduleBase):
                     newaddrs.append(newaddr)
 
                 attrs = {}
-                for a in ['broadcast', 'pointopoint', 'scope',
-                        'preferred-lifetime']:
+                for a in ["broadcast", "scope", "preferred-lifetime"]:
                     aval = ifaceobj.get_attr_value_n(a, addr_index)
                     if aval:
                         attrs[a] = aval
+
+                pointopoint = ifaceobj.get_attr_value_n("pointopoint", addr_index)
+                try:
+                    if pointopoint:
+                        attrs["pointopoint"] = IPNetwork(pointopoint)
+                except Exception as e:
+                    self.logger.warning("%s: pointopoint %s: %s" % (ifaceobj.name, pointopoint, str(e)))
 
                 if attrs:
                     newaddr_attrs[newaddr]= attrs
@@ -390,16 +403,16 @@ class address(Addon, moduleBase):
         for addr_index in range(0, len(newaddrs)):
             try:
                 if newaddr_attrs:
-                    self.ipcmd.addr_add(
+                    self.netlink.addr_add(
                         ifaceobj.name,
-                        newaddrs[addr_index],
-                        newaddr_attrs.get(newaddrs[addr_index], {}).get('broadcast'),
-                        newaddr_attrs.get(newaddrs[addr_index], {}).get('pointopoint'),
-                        newaddr_attrs.get(newaddrs[addr_index], {}).get('scope'),
-                        newaddr_attrs.get(newaddrs[addr_index], {}).get('preferred-lifetime')
+                        IPNetwork(newaddrs[addr_index]),
+                        broadcast=newaddr_attrs.get(newaddrs[addr_index], {}).get('broadcast'),
+                        peer=newaddr_attrs.get(newaddrs[addr_index], {}).get('pointopoint'),
+                        scope=newaddr_attrs.get(newaddrs[addr_index], {}).get('scope'),
+                        preferred_lifetime=newaddr_attrs.get(newaddrs[addr_index], {}).get('preferred-lifetime')
                     )
                 else:
-                    self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
+                    self.netlink.addr_add(ifaceobj.name, IPNetwork(newaddrs[addr_index]))
             except Exception, e:
                 self.log_error(str(e), ifaceobj)
 

@@ -32,9 +32,9 @@ import inspect
 import threading
 import traceback
 
-from collections import OrderedDict
-
+from ipaddr import IPNetwork
 from logging import DEBUG, WARNING
+from collections import OrderedDict
 
 try:
     from ifupdown2.ifupdownaddons.cache import *
@@ -1080,6 +1080,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
 
         ### DEBUG
         if False:
+            self.debug_address(True)
             self.debug_link(True)
             nllistener.log.setLevel(DEBUG)
             nlpacket.log.setLevel(DEBUG)
@@ -1097,6 +1098,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         nllistener.log.setLevel(log_level)
         nlpacket.log.setLevel(log_level)
         nlmanager.log.setLevel(log_level)
+
+        self.IPNetwork_version_to_family = {4: socket.AF_INET, 6: socket.AF_INET6}
 
         nlpacket.mac_int_to_str = lambda mac_int: ':'.join(('%012x' % mac_int)[i:i + 2] for i in range(0, 12, 2))
         # Override the nlmanager's mac_int_to_str function
@@ -2126,3 +2129,81 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
         finally:
             if is_link_up:
                 self.link_up(ifname)
+
+    ###
+
+    def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
+        log_msg = ["%s: dryrun: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
+
+        if scope:
+            log_msg.append("scope %s" % scope)
+
+        if broadcast:
+            log_msg.append("broadcast %s" % broadcast)
+
+        if preferred_lifetime:
+            log_msg.append("preferred_lft %s" % preferred_lifetime)
+
+        if peer:
+            log_msg.append("peer %s" % peer)
+
+        if metric:
+            log_msg.append("metric %s" % metric)
+
+        log.info(" ".join(log_msg))
+
+    def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
+        log_msg = ["%s: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
+        log_msg_displayed = False
+        try:
+            if scope:
+                log_msg.append("scope %s" % scope)
+                scope_value = nlpacket.RT_SCOPES.get(scope, 0)
+            else:
+                scope_value = 0
+
+            debug = nlpacket.RTM_NEWADDR in self.debug
+
+            packet = nlpacket.Address(nlpacket.RTM_NEWADDR, debug, use_color=self.use_color)
+            packet.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            packet.family = self.IPNetwork_version_to_family.get(addr.version)
+
+            packet.add_attribute(nlpacket.Address.IFA_LOCAL, addr)
+
+            if broadcast:
+                log_msg.append("broadcast %s" % broadcast)
+                packet.add_attribute(nlpacket.Address.IFA_BROADCAST, broadcast)
+
+            if preferred_lifetime:
+                # struct ifa_cacheinfo {
+                #    __u32	ifa_prefered;
+                #    __u32	ifa_valid;
+                #    __u32	cstamp; /* created timestamp, hundredths of seconds */
+                #    __u32	tstamp; /* updated timestamp, hundredths of seconds */
+                # };
+                log_msg.append("preferred_lft %s" % preferred_lifetime)
+                packet.add_attribute(nlpacket.Address.IFA_CACHEINFO, (int(preferred_lifetime), nlpacket.INFINITY_LIFE_TIME, 0, 0))
+
+            if metric:
+                log_msg.append("metric %s" % metric)
+                packet.add_attribute(nlpacket.Address.IFA_RT_PRIORITY, int(metric))
+
+            if peer:
+                log_msg.append("peer %s" % peer)
+                packet.add_attribute(nlpacket.Address.IFA_ADDRESS, peer)
+                packet_prefixlen = peer.prefixlen
+            else:
+                packet_prefixlen = addr.prefixlen
+
+            log.info(" ".join(log_msg))
+            log_msg_displayed = True
+
+            packet.body = struct.pack("=4Bi", packet.family, packet_prefixlen, 0, scope_value, self.cache.get_ifindex(ifname))
+            packet.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error(packet)
+        except Exception as e:
+            if not log_msg_displayed:
+                # just in case we get an exception before we reach the log.info
+                # we should display it before we raise the exception
+                log.info(" ".join(log_msg))
+            raise NetlinkError(e, "cannot add address %s dev %s" % (addr, ifname), ifname=ifname)
