@@ -956,7 +956,13 @@ class address(Addon, moduleBase):
                 elif not ifaceobj.link_kind:
                     # for logical interfaces we don't need to remove the ip addresses
                     # kernel will do it for us on 'ip link del'
-                    self.netlink.addr_flush(ifaceobj.name)
+                    if ifaceobj_getfunc:
+                        ifaceobj_list = ifaceobj_getfunc(ifaceobj.name) or [ifaceobj]
+                    else:
+                        ifaceobj_list = [ifaceobj]
+
+                    for addr in self.ipcmd.get_running_addrs_from_cache(ifaceobj_list, ifaceobj.name):
+                        self.netlink.addr_del(ifaceobj.name, addr)
 
             gateways = ifaceobj.get_attr_value('gateway')
             if gateways:
