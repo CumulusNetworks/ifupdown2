@@ -675,7 +675,7 @@ class address(Addon, moduleBase):
                         lower_iface_mtu = netlink.cache.get_link_mtu_str(lower_iface)
 
                     if lower_iface_mtu != self.ipcmd.link_get_mtu_sysfs(ifaceobj.name):
-                        self.ipcmd.link_set_mtu(ifaceobj.name, lower_iface_mtu)
+                        self.sysfs.link_set_mtu(ifaceobj.name, lower_iface_mtu)
 
         elif (not (ifaceobj.name == 'lo') and not ifaceobj.link_kind and
               not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) and

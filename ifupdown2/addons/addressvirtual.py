@@ -306,13 +306,11 @@ class addressvirtual(Addon, moduleBase):
                     lower_iface_mtu = netlink.cache.get_link_mtu(ifaceobj.name)
                     update_mtu = False
 
-                if lower_iface_mtu and lower_iface_mtu != netlink.cache.get_link_mtu(macvlan_ifacename):
-                    try:
-                        self.ipcmd.link_set_mtu(macvlan_ifacename,
-                                                lower_iface_mtu)
-                    except Exception as e:
-                        self.logger.info('%s: failed to set mtu %s: %s' %
-                                         (macvlan_ifacename, lower_iface_mtu, e))
+                try:
+                    # the MTU cache check is performed in the sysfs module
+                    self.sysfs.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
+                except Exception as e:
+                    self.logger.info("%s: failed to set mtu %s: %s" % (macvlan_ifacename, lower_iface_mtu, e))
 
                 # set macvlan device to up in anycase.
                 # since we auto create them here..we are responsible

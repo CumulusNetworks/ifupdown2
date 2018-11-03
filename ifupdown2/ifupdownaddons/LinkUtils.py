@@ -1088,13 +1088,6 @@ class LinkUtils(utilsBase):
         self.link_up(ifacename)
         self._cache_update([ifacename, 'hwaddress'], hwaddress)
 
-    def link_set_mtu(self, ifacename, mtu):
-        if ifupdownflags.flags.DRYRUN:
-            return True
-        if not mtu or not ifacename: return
-        self.write_file('/sys/class/net/%s/mtu' % ifacename, mtu)
-        self._cache_update([ifacename, 'mtu'], mtu)
-
     def link_set_alias(self, ifacename, alias):
         self.write_file('/sys/class/net/%s/ifalias' % ifacename,
                         '\n' if not alias else alias)
