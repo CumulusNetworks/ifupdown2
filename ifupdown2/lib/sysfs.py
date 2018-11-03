@@ -19,32 +19,18 @@
 # Author:
 #       Julien Fortin, julien@cumulusnetworks.com
 #
-# addon -- Addon base class
+# sysfs -- contains all sysfs related operation
 #
-
-import logging
 
 try:
     from ifupdown2.lib.io import IO
-    from ifupdown2.lib.sysfs import Sysfs
-    from ifupdown2.lib.base_objects import Netlink, Cache
+    from ifupdown2.lib.base_objects import Cache
 except ImportError:
     from lib.io import IO
-    from lib.sysfs import Sysfs
-    from lib.base_objects import Netlink, Cache
+    from lib.base_objects import Cache
 
 
-class Addon(Netlink, Cache):
-    """
-    Base class for ifupdown2 addon modules
-    Provides common infrastructure methods for all addon modules
-    """
-
+class Sysfs(IO, Cache):
     def __init__(self):
-        Netlink.__init__(self)
+        IO.__init__(self)
         Cache.__init__(self)
-
-        self.logger = logging.getLogger("ifupdown2.addons.%s" % self.__class__.__name__)
-
-        self.io = IO()
-        self.sysfs = Sysfs()

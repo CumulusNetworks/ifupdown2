@@ -19,32 +19,29 @@
 # Author:
 #       Julien Fortin, julien@cumulusnetworks.com
 #
-# addon -- Addon base class
+# io -- all io (file) handlers
 #
 
-import logging
-
 try:
-    from ifupdown2.lib.io import IO
-    from ifupdown2.lib.sysfs import Sysfs
-    from ifupdown2.lib.base_objects import Netlink, Cache
+    from ifupdown2.lib.base_objects import BaseObject
 except ImportError:
-    from lib.io import IO
-    from lib.sysfs import Sysfs
-    from lib.base_objects import Netlink, Cache
+    from lib.base_objects import BaseObject
 
 
-class Addon(Netlink, Cache):
-    """
-    Base class for ifupdown2 addon modules
-    Provides common infrastructure methods for all addon modules
-    """
-
+class IO(BaseObject):
     def __init__(self):
-        Netlink.__init__(self)
-        Cache.__init__(self)
+        BaseObject.__init__(self)
 
-        self.logger = logging.getLogger("ifupdown2.addons.%s" % self.__class__.__name__)
+    def write_to_file(self, path, string):
+        try:
+            self.logger.info("writing '%s' to file %s" % (string, path))
+            with open(path, "w") as f:
+                f.write(string)
+        except IOError, e:
+            self.logger.warn("error writing to file %s: %s" % (path, str(e)))
+            return -1
+        return 0
 
-        self.io = IO()
-        self.sysfs = Sysfs()
+    def write_to_file_dry_run(self, path, string):
+        self.logger.info("writing '%s' to file %s" % (string, path))
+        return 0

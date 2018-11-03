@@ -37,8 +37,9 @@ from logging import DEBUG, WARNING
 from collections import OrderedDict
 
 try:
+    from ifupdown2.lib.base_objects import BaseObject
+
     from ifupdown2.ifupdownaddons.cache import *
-    from ifupdown2.lib.dry_run import DryRun
     from ifupdown2.ifupdown.log import log
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -47,8 +48,9 @@ try:
     import ifupdown2.nlmanager.nllistener as nllistener
     import ifupdown2.nlmanager.nlmanager as nlmanager
 except:
+    from lib.base_objects import BaseObject
+
     from ifupdownaddons.cache import *
-    from lib.dry_run import DryRun
     from ifupdown.log import log
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -1041,7 +1043,7 @@ if ifupdownflags.flags.DRYRUN:
     pass
 
 
-class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
+class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject):
 
     __instance = None
 
@@ -1073,7 +1075,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, DryRun):
                 #| nlpacket.RTMGRP_IPV6_IFADDR
         ), error_notification=True)
 
-        DryRun.__init__(self)
+        BaseObject.__init__(self)
 
         signal.signal(signal.SIGTERM, self.signal_term_handler)
         signal.signal(signal.SIGINT, self.signal_int_handler)
