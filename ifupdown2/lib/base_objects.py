@@ -53,7 +53,7 @@ def _import_NetlinkListenerWithCache():
 class Cache(BaseObject):
     def __init__(self):
         BaseObject.__init__(self)
-        self.cache = _import_NetlinkListenerWithCache()
+        self.cache = _import_NetlinkListenerWithCache().get_instance().cache
 
 
 class Netlink(BaseObject):
