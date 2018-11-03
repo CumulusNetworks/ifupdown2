@@ -1328,9 +1328,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         self.cache.remove_link(link)
 
     def rx_rtm_deladdr(self, addr):
-        #exit(1)
-        import os
-        os.system('echo "a" >> /tmp/a') #log.error('b')
         super(NetlinkListenerWithCache, self).rx_rtm_deladdr(addr)
         self.cache.remove_address(addr)
 
