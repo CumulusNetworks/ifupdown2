@@ -1217,7 +1217,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     if event == self.WORKQ_SERVICE_NETLINK_QUEUE:
                         self.service_netlinkq(self.netlinkq_notify_event)
                     elif event == self.WORKQ_SERVICE_ERROR:
-                        log.error('NetlinkListenerWithCache: WORKQ_SERVICE_ERROR')
+                        self.logger.error('NetlinkListenerWithCache: WORKQ_SERVICE_ERROR')
                     else:
                         raise Exception("Unsupported workq event %s" % event)
         except:
@@ -1318,7 +1318,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         except Exception as e:
             import traceback
             traceback.print_exc()
-            log.error('netlink: ip addr show: %s' % str(e))
+            self.logger.error('netlink: ip addr show: %s' % str(e))
 
     def rx_rtm_dellink(self, link):
         # cache only supports AF_UNSPEC for now
@@ -1495,7 +1495,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     try:
                         linkinfo[nl_attr] = linkdata.get(nl_attr)
                     except Exception as e:
-                        log.debug('%s: parsing bond IFLA_INFO_DATA (%s): %s'
+                        self.logger.debug('%s: parsing bond IFLA_INFO_DATA (%s): %s'
                                           % (ifname, nl_attr, str(e)))
                 return linkinfo
 
@@ -1619,9 +1619,9 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             links[dump['ifname']] = dump
         except (NetlinkCacheIfindexNotFoundError, NetlinkCacheIfnameNotFoundError) as e:
-            log.debug('netlink: ip link show: %s' % str(e))
+            self.logger.debug('netlink: ip link show: %s' % str(e))
         except Exception as e:
-            log.error('netlink: ip link show: %s' % str(e))
+            self.logger.error('netlink: ip link show: %s' % str(e))
 
         with self.OLD_CACHE_LOCK:
             try:
@@ -2011,20 +2011,18 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkError(e, "ip link set dev %s %s" % (ifname, "up" if flags == nlpacket.Link.IFF_UP else "down"), ifname=ifname)
 
     def link_up(self, ifname):
-        log.info("%s: netlink: ip link set dev %s up" % (ifname, ifname))
+        self.logger.info("%s: netlink: ip link set dev %s up" % (ifname, ifname))
         self.__link_set_flag(ifname, flags=nlpacket.Link.IFF_UP)
 
     def link_down(self, ifname):
-        log.info("%s: netlink: ip link set dev %s down" % (ifname, ifname))
+        self.logger.info("%s: netlink: ip link set dev %s down" % (ifname, ifname))
         self.__link_set_flag(ifname, flags=0)
 
-    @staticmethod
-    def link_up_dry_run(ifname):
-        log.info("%s: dryrun: netlink: ip link set dev %s up" % (ifname, ifname))
+    def link_up_dry_run(self, ifname):
+        self.logger.info("%s: dryrun: netlink: ip link set dev %s up" % (ifname, ifname))
 
-    @staticmethod
-    def link_down_dry_run(ifname):
-        log.info("%s: dryrun: netlink: ip link set dev %s down" % (ifname, ifname))
+    def link_down_dry_run(self, ifname):
+        self.logger.info("%s: dryrun: netlink: ip link set dev %s down" % (ifname, ifname))
 
     ###
 
@@ -2034,7 +2032,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         :param ifname:
         :return:
         """
-        log.info("%s: netlink: ip link del %s" % (ifname, ifname))
+        self.logger.info("%s: netlink: ip link del %s" % (ifname, ifname))
         try:
             ifindex = self.cache.get_ifindex(ifname)
             debug = nlpacket.RTM_DELLINK in self.debug
@@ -2064,9 +2062,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         except Exception as e:
             raise NetlinkError(e, "cannot delete link %s" % ifname, ifname=ifname)
 
-    @staticmethod
-    def link_del_dry_run(ifname):
-        log.info('%s: dryrun: netlink: ip link del %s' % (ifname, ifname))
+    def link_del_dry_run(self, ifname):
+        self.logger.info('%s: dryrun: netlink: ip link del %s' % (ifname, ifname))
 
     ###
 
@@ -2081,31 +2078,29 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         return self.tx_nlpacket_get_response_with_error(link)
 
     def link_set_master(self, ifname, master_dev):
-        log.info("%s: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
+        self.logger.info("%s: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
         try:
             self.__link_set_master(ifname, self.cache.get_ifindex(master_dev))
         except Exception as e:
             raise NetlinkError(e, "cannot enslave link %s to %s" % (ifname, master_dev), ifname=ifname)
 
     def link_set_nomaster(self, ifname):
-        log.info("%s: netlink: ip link set dev %s nomaster" % (ifname, ifname))
+        self.logger.info("%s: netlink: ip link set dev %s nomaster" % (ifname, ifname))
         try:
             self.__link_set_master(ifname, 0)
         except Exception as e:
             raise NetlinkError(e, "cannot un-enslave link %s" % ifname, ifname=ifname)
 
-    @staticmethod
-    def link_set_master_dry_run(ifname, master_dev):
-        log.info("%s: dryrun: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
+    def link_set_master_dry_run(self, ifname, master_dev):
+        self.logger.info("%s: dryrun: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
 
-    @staticmethod
-    def link_set_nomaster_dry_run(ifname):
-        log.info("%s: dryrun: netlink: ip link set dev %s nomaster" % (ifname, ifname))
+    def link_set_nomaster_dry_run(self, ifname):
+        self.logger.info("%s: dryrun: netlink: ip link set dev %s nomaster" % (ifname, ifname))
 
     ###
 
     def link_set_address_dry_run(self, ifname, hw_address):
-        log.info("%s: dryrun: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
+        self.logger.info("%s: dryrun: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
 
     def link_set_address(self, ifname, hw_address):
         is_link_up = self.cache.link_is_up(ifname)
@@ -2115,7 +2110,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             if is_link_up:
                 self.link_down(ifname)
 
-            log.info("%s: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
+            self.logger.info("%s: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
             debug = nlpacket.RTM_NEWLINK in self.debug
             link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
             link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
@@ -2152,7 +2147,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         if metric:
             log_msg.append("metric %s" % metric)
 
-        log.info(" ".join(log_msg))
+        self.logger.info(" ".join(log_msg))
 
     def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
         log_msg = ["%s: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
@@ -2197,7 +2192,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             else:
                 packet_prefixlen = addr.prefixlen
 
-            log.info(" ".join(log_msg))
+            self.logger.info(" ".join(log_msg))
             log_msg_displayed = True
 
             packet.body = struct.pack("=4Bi", packet.family, packet_prefixlen, 0, scope_value, self.cache.get_ifindex(ifname))
@@ -2213,10 +2208,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     ###
 
     def addr_del_dry_run(self, ifname, addr):
-        log.info("%s: dryrun: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
+        self.logger.info("%s: dryrun: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
 
     def addr_del(self, ifname, addr):
-        log.info("%s: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
+        self.logger.info("%s: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
         try:
             debug = nlpacket.RTM_DELADDR in self.debug
 
