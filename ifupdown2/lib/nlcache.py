@@ -1268,8 +1268,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         super(NetlinkListenerWithCache, self).rx_rtm_newaddr(rxed_addr_packet)
         self.cache.add_address(rxed_addr_packet)
 
-        #self.cache.DEBUG_IFNAME('bond0', with_addresses=True)
-
         # we are only caching the first dump in the old cache
         # after the first dump this check should always fail.
         #if not self.netlinkq_notify_event:
