@@ -203,7 +203,10 @@ class bond(moduleBase):
         self.bondcmd = None
 
         if not os.path.exists('/sys/class/net/bonding_masters'):
-            utils.exec_command('modprobe -q bonding')
+            try:
+                utils.exec_command('modprobe -q bonding')
+            except Exception as e:
+                self.logger.info("bond: error while loading bonding module: %s" % str(e))
 
     @staticmethod
     def get_bond_slaves(ifaceobj):
