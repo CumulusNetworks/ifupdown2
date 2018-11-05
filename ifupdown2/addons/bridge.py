@@ -220,7 +220,6 @@ class bridge(moduleBase):
                     'bridge-portmcfl' :
                         { 'help' : 'port multicast fast leave.',
                           'validvals': ['<interface-yes-no-0-1-list>'],
-                          'validrange' : ['yes', 'no', '0', '1'],
                           'default' : 'no',
                           'example' : ['under the port (for vlan aware bridge): bridge-portmcfl no',
                                        'under the bridge (for vlan unaware bridge): bridge-portmcfl swp1=no swp2=no']},
