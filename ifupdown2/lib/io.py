@@ -37,11 +37,11 @@ class IO(BaseObject):
             self.logger.info("writing '%s' to file %s" % (string, path))
             with open(path, "w") as f:
                 f.write(string)
+            return True
         except IOError, e:
             self.logger.warn("error writing to file %s: %s" % (path, str(e)))
-            return -1
-        return 0
+            return False
 
     def write_to_file_dry_run(self, path, string):
         self.logger.info("writing '%s' to file %s" % (string, path))
-        return 0
+        return True

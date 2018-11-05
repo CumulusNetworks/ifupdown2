@@ -35,10 +35,10 @@ class Sysfs(IO, Cache):
         IO.__init__(self)
         Cache.__init__(self)
 
-    def link_set_mtu(self, ifname, mtu):
-        mtu_int = int(mtu)
+    def link_set_mtu(self, ifname, mtu_str, mtu_int):
         if self.cache.get_link_mtu(ifname) != mtu_int:
-            self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu)
+            if self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str):
+                self.cache.override_link_mtu(ifname, mtu_int)
 
     def link_set_mtu_dry_run(self, ifname, mtu):
         # we can remove the cache check in DRYRUN mode

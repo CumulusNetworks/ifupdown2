@@ -241,6 +241,19 @@ class _NetlinkCache:
         except:
             pass
 
+    def override_link_mtu(self, ifname, mtu):
+        """
+        Manually override link mtu and ignore any failures
+        :param ifname:
+        :param mtu:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                self._link_cache[ifname].attributes[nlpacket.Link.IFLA_MTU].value = mtu
+        except:
+            pass
+
     def DEBUG_IFNAME(self, ifname, with_addresses=False):
         """
         A very useful function to use while debugging, it dumps the netlink
