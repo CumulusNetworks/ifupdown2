@@ -3318,7 +3318,7 @@ class Link(NetlinkPacket):
     IFLA_BOND_AD_ACTOR_SYS_PRIO         = 24
     IFLA_BOND_AD_USER_PORT_KEY          = 25
     IFLA_BOND_AD_ACTOR_SYSTEM           = 26
-    IFLA_BOND_AD_LACP_BYPASS            = 100
+    IFLA_BOND_AD_LACP_BYPASS            = 60
 
     ifla_bond_to_string = {
         IFLA_BOND_UNSPEC                    : 'IFLA_BOND_UNSPEC',
