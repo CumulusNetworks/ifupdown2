@@ -86,8 +86,17 @@ class ethtool(moduleBase,utilsBase):
             # if we have no default and the user did not have settings
             return
 
-        # check running values
+        # use only lowercase values
         running_val = self.get_running_attr('fec', ifaceobj)
+
+        if running_val:
+            running_val = running_val.lower()
+        if config_val:
+            config_val = config_val.lower()
+        if default_val:
+            default_val = default_val.lower()
+
+        # check running values
         if config_val and config_val == running_val:
             return
 
