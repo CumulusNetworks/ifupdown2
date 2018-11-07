@@ -990,8 +990,15 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 for cache_addr in self._addr_cache[ifname]:
-                    if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value.ip == addr.ip:
-                        return True
+                    try:
+                        if cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value.ip == addr.ip:
+                            return True
+                    except:
+                        try:
+                            if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value.ip == addr.ip:
+                                return True
+                        except:
+                            pass
         except (KeyError, AttributeError):
             pass
         return False
@@ -2184,6 +2191,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             packet.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
             packet.family = self.IPNetwork_version_to_family.get(addr.version)
 
+            packet.add_attribute(nlpacket.Address.IFA_ADDRESS, addr)
             packet.add_attribute(nlpacket.Address.IFA_LOCAL, addr)
 
             if broadcast:
