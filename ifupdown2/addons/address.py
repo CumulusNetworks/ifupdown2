@@ -479,7 +479,7 @@ class address(Addon, moduleBase):
                 for addr in runningaddrs or []:
                     if addr in skip_addrs:
                         continue
-                    self.netlink.addr_del(ifaceobj.name, addr)
+                    self.netlink.addr_del(ifaceobj.name, IPNetwork(addr))
             except Exception, e:
                 self.log_warn(str(e))
         if not newaddrs:
