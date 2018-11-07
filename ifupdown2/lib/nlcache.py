@@ -977,6 +977,24 @@ class _NetlinkCache:
         except (KeyError, AttributeError):
             return addresses
 
+    def addr_is_cached(self, ifname, addr):
+        """
+        return True if addr is in cache
+
+        We might need to check if metric/peer and other attribute are also correctly cached.
+        We might also need to add a "force" attribute to skip the cache check
+        :param ifname:
+        :param ifindex:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                for cache_addr in self._addr_cache[ifname]:
+                    if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value.ip == addr.ip:
+                        return True
+        except (KeyError, AttributeError):
+            pass
+        return False
 
     # old
 
@@ -2148,6 +2166,12 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         log_msg = ["%s: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
         log_msg_displayed = False
         try:
+            # We might need to check if metric/peer and other attribute are also
+            # correctly cached.
+            # We might also need to add a "force" attribute to skip the cache check
+            if self.cache.addr_is_cached(ifname, addr):
+                return
+
             if scope:
                 log_msg.append("scope %s" % scope)
                 scope_value = nlpacket.RT_SCOPES.get(scope, 0)
