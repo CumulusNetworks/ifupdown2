@@ -1687,26 +1687,20 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             # code NLE_SUCCESS...this is an ACK
             return True
 
-        error_code_str = error_packet.error_to_string.get(error_code)
-
         if self.debug:
             error_packet.dump()
 
-        if error_code_str:
-            error_code_human_str = error_packet.error_to_human_readable_string.get(error_code)
-            error_str = '%s (%s:%s)' % (error_code_human_str, error_code_str, error_code)
-        else:
-            try:
-                # os.strerror might raise ValueError
-                strerror = os.strerror(error_code)
+        try:
+            # os.strerror might raise ValueError
+            strerror = os.strerror(error_code)
 
-                if strerror:
-                    error_str = 'operation failed with \'%s\' (%s)' % (strerror, error_code)
-                else:
-                    error_str = 'operation failed with code %s' % error_code
-
-            except ValueError:
+            if strerror:
+                error_str = 'operation failed with \'%s\' (%s)' % (strerror, error_code)
+            else:
                 error_str = 'operation failed with code %s' % error_code
+
+        except ValueError:
+            error_str = 'operation failed with code %s' % error_code
 
         raise Exception(error_str)
 
