@@ -308,7 +308,7 @@ class addressvirtual(Addon, moduleBase):
 
                 try:
                     # the MTU cache check is performed in the sysfs module
-                    self.sysfs.link_set_mtu(macvlan_ifacename, lower_iface_mtu)
+                    self.sysfs.link_set_mtu(macvlan_ifacename, mtu_str=str(lower_iface_mtu), mtu_int=lower_iface_mtu)
                 except Exception as e:
                     self.logger.info("%s: failed to set mtu %s: %s" % (macvlan_ifacename, lower_iface_mtu, e))
 
