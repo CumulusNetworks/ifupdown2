@@ -35,6 +35,10 @@ class Sysfs(IO, Cache):
         IO.__init__(self)
         Cache.__init__(self)
 
+    #
+    # MTU
+    #
+
     def link_set_mtu(self, ifname, mtu_str, mtu_int):
         if self.cache.get_link_mtu(ifname) != mtu_int:
             if self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str):
@@ -43,3 +47,23 @@ class Sysfs(IO, Cache):
     def link_set_mtu_dry_run(self, ifname, mtu):
         # we can remove the cache check in DRYRUN mode
         self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu)
+
+    #
+    # ALIAS
+    #
+
+    def link_set_alias(self, ifname, alias):
+        cached_alias = self.cache.get_link_alias(ifname)
+
+        if cached_alias == alias:
+            return
+
+        if not alias:
+            alias = "\n"
+
+        if self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias):
+            pass # self.cache.override_link_mtu(ifname, mtu_int)
+
+    def link_set_alias_dry_run(self, ifname, alias):
+        # we can remove the cache check in DRYRUN mode
+        self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias)

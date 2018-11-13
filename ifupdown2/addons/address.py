@@ -890,15 +890,6 @@ class address(Addon, moduleBase):
         else:
             self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))
 
-    def up_alias(self, ifaceobj):
-        alias = ifaceobj.get_attr_value_first('alias')
-        current_alias = netlink.cache.get_link_alias(ifaceobj.name)
-
-        if alias and alias != current_alias:
-            self.ipcmd.link_set_alias(ifaceobj.name, alias)
-        elif not alias and current_alias:
-            self.ipcmd.link_set_alias(ifaceobj.name, '')
-
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         if not netlink.cache.link_exists(ifaceobj.name):
             return
@@ -906,7 +897,11 @@ class address(Addon, moduleBase):
         if not self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc):
             return
 
-        self.up_alias(ifaceobj)
+        #
+        # alias
+        #
+        self.sysfs.link_set_alias(ifaceobj.name, ifaceobj.get_attr_value_first("alias"))
+
         self._sysctl_config(ifaceobj)
 
         addr_method = ifaceobj.addr_method
@@ -1013,10 +1008,12 @@ class address(Addon, moduleBase):
 
             #
             # alias
-            #
-            alias = ifaceobj.get_attr_value_first('alias')
-            if alias:
-                self.write_file('/sys/class/net/%s/ifalias' % ifaceobj.name, '\n')
+            # only reset alias on non-logical device
+            if not ifaceobj.link_kind:
+                alias = ifaceobj.get_attr_value_first("alias")
+                if alias:
+                    self.sysfs.link_set_alias(ifaceobj.name, None)  # None to reset alias.
+
             # XXX hwaddress reset cannot happen because we dont know last
             # address.
 

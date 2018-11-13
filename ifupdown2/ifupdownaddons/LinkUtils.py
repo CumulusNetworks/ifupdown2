@@ -1088,14 +1088,6 @@ class LinkUtils(utilsBase):
         self.link_up(ifacename)
         self._cache_update([ifacename, 'hwaddress'], hwaddress)
 
-    def link_set_alias(self, ifacename, alias):
-        self.write_file('/sys/class/net/%s/ifalias' % ifacename,
-                        '\n' if not alias else alias)
-
-    def link_get_alias(self, ifacename):
-        return self.read_file_oneline('/sys/class/net/%s/ifalias'
-                                      % ifacename)
-
     def link_isloopback(self, ifacename):
         flags = self._cache_get('link', [ifacename, 'flags'])
         if not flags:
