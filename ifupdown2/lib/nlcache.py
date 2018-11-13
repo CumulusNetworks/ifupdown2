@@ -1367,6 +1367,24 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         super(NetlinkListenerWithCache, self).rx_rtm_deladdr(addr)
         self.cache.remove_address(addr)
 
+        # temporary code to update old cache
+        try:
+            ifname = addr.get_attribute_value(nlpacket.Address.IFA_LABEL)
+
+            if not ifname:
+                try:
+                    ifname = self.cache.get_ifname(addr.ifindex)
+                except NetlinkCacheIfindexNotFoundError:
+                    pass
+
+            with self.OLD_CACHE_LOCK:
+                try:
+                    del linkCache.links[ifname]["addrs"][str(addr.attributes[nlpacket.Address.IFA_LOCAL].value)]
+                except:
+                    del linkCache.links[ifname]["addrs"][str(addr.attributes[nlpacket.Address.IFA_ADDRESS].value)]
+        except:
+            pass
+
     def rx_rtm_newlink(self, rxed_link_packet):
         # cache only supports AF_UNSPEC for now
         # we can modify the cache to support more family:
