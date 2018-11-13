@@ -859,11 +859,6 @@ class _NetlinkCache:
             ifname = link_ifname
             ifindex = link_ifindex
 
-        try:
-            del linkCache.links[ifname]
-        except:
-            pass
-
         link_ifla_master = None
         # when an enslaved device is removed we receive the RTM_DELLINK
         # notification without the IFLA_MASTER attribute, we need to
@@ -1362,6 +1357,21 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             return
         super(NetlinkListenerWithCache, self).rx_rtm_dellink(link)
         self.cache.remove_link(link)
+
+        try:
+            ifname = link.get_attribute_value(nlpacket.Link.IFLA_IFNAME)
+
+            with self.OLD_CACHE_LOCK:
+                del linkCache.links[ifname]
+
+                for link, attr in linkCache.links.iteritems():
+                    try:
+                        if attr.get("master") == ifname:
+                            del attr["master"]
+                    except:
+                        pass
+        except:
+            pass
 
     def rx_rtm_deladdr(self, addr):
         super(NetlinkListenerWithCache, self).rx_rtm_deladdr(addr)
