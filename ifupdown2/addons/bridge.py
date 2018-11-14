@@ -1249,7 +1249,7 @@ class bridge(moduleBase):
             old_cache_key = self._ifla_br_attributes_old_cache_key_map.get(nl_attr)
             if old_cache_key and not link_just_created:
                 cached_value = self.brctlcmd.link_cache_get([ifname, 'linkinfo', old_cache_key])
-                if not cached_value:
+                if not cached_value or cached_value == "None":
                     # the link already exists but we don't have any value
                     # cached for this attr, it probably means that the
                     # capability is not available on this system (i.e old kernel)
