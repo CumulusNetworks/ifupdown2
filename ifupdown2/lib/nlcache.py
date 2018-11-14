@@ -976,8 +976,39 @@ class _NetlinkCache:
             else:
                 self._addr_cache[ifname] = [addr]
 
+    def force_remove_addr(self, ifname, addr):
+        """
+        When calling addr_del (RTM_DELADDR) we need to manually remove the
+        associated cache entry - the RTM_DELADDR notification isn't received
+        instantaneously - we don't want to keep stale value in our cache
+        :param ifname:
+        :param addr:
+        """
+        try:
+            with self._cache_lock:
+                # iterate through the interface addresses
+                # to find which one to remove from the cache
+                obj_to_remove = None
+
+                for cache_addr in self._addr_cache[ifname]:
+                    try:
+                        ifa_address = cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value
+                        if ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
+                            obj_to_remove = cache_addr
+                    except:
+                        try:
+                            ifa_local = cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value
+                            if ifa_local.ip == addr.ip and ifa_local.prefixlen == addr.prefixlen:
+                                obj_to_remove = cache_addr
+                        except:
+                            return
+                if obj_to_remove:
+                    self._addr_cache[ifname].remove(obj_to_remove)
+        except:
+            pass
+
     def remove_address(self, addr_to_remove):
-        ifname, ifindex = self._address_get_ifname_and_ifindex(addr_to_remove)
+        ifname, _ = self._address_get_ifname_and_ifindex(addr_to_remove)
 
         with self._cache_lock:
             # iterate through the interface addresses
@@ -1033,12 +1064,13 @@ class _NetlinkCache:
             with self._cache_lock:
                 for cache_addr in self._addr_cache[ifname]:
                     try:
-                        if cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value.ip == addr.ip:
+                        ifa_address = cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value
+                        if ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
                             return True
                     except:
                         try:
-                            if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value.ip == addr.ip:
-                                return True
+                            ifa_local = cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value
+                            return ifa_local.ip == addr.ip and ifa_local.prefixlen == addr.prefixlen
                         except:
                             pass
         except (KeyError, AttributeError):
@@ -2307,6 +2339,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         self.logger.info("%s: dryrun: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
 
     def addr_del(self, ifname, addr):
+        if not self.cache.addr_is_cached(ifname, addr):
+            return
         self.logger.info("%s: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
         try:
             debug = nlpacket.RTM_DELADDR in self.debug
@@ -2319,7 +2353,13 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             packet.add_attribute(nlpacket.Address.IFA_LOCAL, addr)
 
             packet.build_message(self.sequence.next(), self.pid)
-            return self.tx_nlpacket_get_response_with_error(packet)
+            result = self.tx_nlpacket_get_response_with_error(packet)
+
+            # RTM_DELADDR successful, we need to update our cache
+            # to make sure we don't have any stale ip addr cached
+            self.cache.force_remove_addr(ifname, addr)
+
+            return result
         except Exception as e:
             raise NetlinkError(e, "cannot delete address %s dev %s" % (addr, ifname), ifname=ifname)
 
