@@ -340,7 +340,7 @@ class bond(Addon, moduleBase):
         if runningslaves:
             for s in runningslaves:
                 if s not in slaves:
-                    self.bondcmd.bond_remove_slave(ifaceobj.name, s)
+                    self.sysfs.bond_remove_slave(ifaceobj.name, s)
                     if clag_bond:
                         try:
                             netlink.link_set_protodown(s, "off")

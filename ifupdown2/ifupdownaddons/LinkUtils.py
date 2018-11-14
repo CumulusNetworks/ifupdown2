@@ -2065,39 +2065,6 @@ class LinkUtils(utilsBase):
             posthook(slave)
         self._cache_update([bondname, 'linkinfo', 'slaves'], slave)
 
-    def bond_remove_slave(self, bondname, slave):
-        slaves = self._link_cache_get([bondname, 'linkinfo', 'slaves'])
-        if not slaves or slave not in slaves:
-            return
-        sysfs_bond_path = ('/sys/class/net/%s' % bondname +
-                           '/bonding/slaves')
-        if not os.path.exists(sysfs_bond_path):
-            return
-        self.write_file(sysfs_bond_path, '-' + slave)
-        self._cache_delete([bondname, 'linkinfo', 'slaves'], slave)
-
-    def bond_remove_slaves_all(self, bondname):
-        if not self._link_cache_get([bondname, 'linkinfo', 'slaves']):
-            return
-        slaves = None
-        sysfs_bond_path = ('/sys/class/net/%s' % bondname +
-                           '/bonding/slaves')
-        try:
-            with open(sysfs_bond_path, 'r') as f:
-                slaves = f.readline().strip().split()
-        except IOError, e:
-            raise Exception('error reading slaves of bond %s (%s)' % (bondname, str(e)))
-        for slave in slaves:
-            self.link_down(slave)
-            try:
-                self.bond_remove_slave(bondname, slave)
-            except Exception, e:
-                if not ifupdownflags.flags.FORCE:
-                    raise Exception('error removing slave %s from bond %s (%s)' % (slave, bondname, str(e)))
-                else:
-                    pass
-        self._cache_delete([bondname, 'linkinfo', 'slaves'])
-
     @staticmethod
     def bond_load_bonding_module():
         return utils.exec_command('%s -q bonding' % utils.modprobe_cmd)
