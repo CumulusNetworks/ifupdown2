@@ -34,7 +34,7 @@ class IO(BaseObject):
 
     def write_to_file(self, path, string):
         try:
-            self.logger.info("writing '%s' to file %s" % (string, path))
+            self.logger.info("writing \"%s\" to file %s" % (string, path))
             with open(path, "w") as f:
                 f.write(string)
             return True
@@ -43,5 +43,5 @@ class IO(BaseObject):
             return False
 
     def write_to_file_dry_run(self, path, string):
-        self.logger.info("writing '%s' to file %s" % (string, path))
+        self.logger.info("dryrun: writing \"%s\" to file %s" % (string, path))
         return True
