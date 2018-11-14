@@ -4,7 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ipaddr import IPNetwork, IPv4Network, IPv6Network, _BaseV6
+from ipaddr import IPNetwork, IPv4Network, IPv6Network
 
 try:
     from ifupdown2.lib.addon import Addon
@@ -374,148 +374,146 @@ class address(Addon, moduleBase):
            else:
               self.ipcmd.bridge_fdb_del(bridgename, hwaddress, vlan)
 
-    def _get_anycast_addr(self, ifaceobjlist):
-        for ifaceobj in ifaceobjlist:
-            anycast_addr = ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip')
-            if anycast_addr:
-                anycast_addr = anycast_addr+'/32'
-                return anycast_addr
-        return None
+    def __get_ip_addr_with_attributes(self, ifaceobj_list, ifname):
+        user_config_ip_addrs = OrderedDict()
 
-    def _inet_address_convert_to_cidr(self, ifaceobjlist):
-        newaddrs = []
-        newaddr_attrs = {}
+        try:
+            for ifaceobj in ifaceobj_list:
 
-        for ifaceobj in ifaceobjlist:
-            addrs = ifaceobj.get_attr_value('address')
-            if not addrs:
-                continue
+                user_addrs = ifaceobj.get_attr_value("address")
 
-            if not self.syntax_check_addr_allowed_on(ifaceobj,
-                                                     syntax_check=False):
-                return (False, newaddrs, newaddr_attrs)
-            # If user address is not in CIDR notation, convert them to CIDR
-            for addr_index in range(0, len(addrs)):
-                addr = addrs[addr_index]
-                newaddr = addr
-                if '/' in addr:
-                    newaddrs.append(addr)
-                else:
-                    netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
-                    if netmask:
-                        prefixlen = IPNetwork('%s' %addr +
-                                    '/%s' %netmask).prefixlen
-                        newaddr = addr + '/%s' %prefixlen
+                if not user_addrs:
+                    continue
+
+                if not self.syntax_check_addr_allowed_on(ifaceobj, syntax_check=False):
+                    return False, None
+
+                for index, addr in enumerate(user_addrs):
+                    addr_attributes = {}
+                    addr_obj = None
+
+                    # convert the ip from string to IPNetwork object
+                    if "/" in addr:
+                        addr_obj = IPNetwork(addr)
                     else:
-                        # we are here because there is no slash (/xx) and no netmask
-                        # just let IPNetwork handle the ipv4 or ipv6 address mask
-                        prefixlen = IPNetwork(addr).prefixlen
-                        newaddr = addr + '/%s' %prefixlen
-                    newaddrs.append(newaddr)
+                        netmask = ifaceobj.get_attr_value_n("netmask", index)
 
-                attrs = {}
-                for a in ["broadcast", "scope", "preferred-lifetime"]:
-                    aval = ifaceobj.get_attr_value_n(a, addr_index)
-                    if aval:
-                        attrs[a] = aval
+                        if netmask:
+                            addr_obj = IPNetwork("%s/%s" % (addr, netmask))
+                        else:
+                            addr_obj = IPNetwork(addr)
 
-                pointopoint = ifaceobj.get_attr_value_n("pointopoint", addr_index)
-                try:
-                    if pointopoint:
-                        attrs["pointopoint"] = IPNetwork(pointopoint)
-                except Exception as e:
-                    self.logger.warning("%s: pointopoint %s: %s" % (ifaceobj.name, pointopoint, str(e)))
+                    for attr_name in ("broadcast", "scope", "preferred-lifetime"):
+                        attr_value = ifaceobj.get_attr_value_n(attr_name, index)
+                        if attr_value:
+                            addr_attributes[attr_name] = attr_value
 
-                if attrs:
-                    newaddr_attrs[newaddr]= attrs
-        return (True, newaddrs, newaddr_attrs)
+                    pointopoint = ifaceobj.get_attr_value_n("pointopoint", index)
+                    try:
+                        if pointopoint:
+                            addr_attributes["pointopoint"] = IPNetwork(pointopoint)
+                    except Exception as e:
+                        self.logger.warning("%s: pointopoint %s: %s" % (ifaceobj.name, pointopoint, str(e)))
 
-    def _inet_address_list_config(self, ifaceobj, newaddrs, newaddr_attrs):
-        for addr_index in range(0, len(newaddrs)):
-            try:
-                if newaddr_attrs:
+                    user_config_ip_addrs[addr_obj] = addr_attributes
+        except Exception as e:
+            self.logger.warning("%s: convert string ip address into IPNetwork object: %s" % (ifname, str(e)))
+            return False, None
+
+        return True, user_config_ip_addrs
+
+    def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs):
+        try:
+            for ip, attributes in user_config_ip_addrs.items():
+                if attributes:
                     self.netlink.addr_add(
-                        ifaceobj.name,
-                        IPNetwork(newaddrs[addr_index]),
-                        broadcast=newaddr_attrs.get(newaddrs[addr_index], {}).get('broadcast'),
-                        peer=newaddr_attrs.get(newaddrs[addr_index], {}).get('pointopoint'),
-                        scope=newaddr_attrs.get(newaddrs[addr_index], {}).get('scope'),
-                        preferred_lifetime=newaddr_attrs.get(newaddrs[addr_index], {}).get('preferred-lifetime')
+                        ifname, ip,
+                        scope=attributes.get("scope"),
+                        peer=attributes.get("pointopoint"),
+                        broadcast=attributes.get("broadcast"),
+                        preferred_lifetime=attributes.get("preferred-lifetime")
                     )
                 else:
-                    self.netlink.addr_add(ifaceobj.name, IPNetwork(newaddrs[addr_index]))
-            except Exception, e:
-                self.log_error(str(e), ifaceobj)
+                    self.netlink.addr_add(ifname, ip)
+        except Exception as e:
+            self.log_error(str(e), ifaceobj)
 
-    def _inet_address_config(self, ifaceobj, ifaceobj_getfunc=None,
-                             force_reapply=False):
-        squash_addr_config = (True if \
-                                  ifupdownconfig.config.get('addr_config_squash', \
-                              '0') == '1' else False)
+    @staticmethod
+    def __add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobjlist, running_ip_addrs):
+        """
+        if anycast address is configured on 'lo' and is in running
+        config add it to newaddrs so that ifreload doesn't wipe it out
+        :param ifaceobjlist:
+        :param running_ip_addrs:
+        """
+        anycast_ip_addr = None
 
-        if (squash_addr_config and
-            not (ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING)):
+        for ifaceobj in ifaceobjlist:
+            anycast_addr = ifaceobj.get_attr_value_first("clagd-vxlan-anycast-ip")
+            if anycast_addr:
+                anycast_ip_addr = IPNetwork(anycast_addr)
+
+        if anycast_ip_addr and anycast_ip_addr in running_ip_addrs:
+            running_ip_addrs.append(running_ip_addrs)
+
+    def process_addresses(self, ifaceobj, ifaceobj_getfunc=None, force_reapply=False):
+        squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
+
+        if squash_addr_config and not ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING:
             return
 
-        purge_addresses = ifaceobj.get_attr_value_first('address-purge')
-        if not purge_addresses:
-           purge_addresses = 'yes'
+        ifname = ifaceobj.name
+        purge_addresses = utils.get_boolean_from_string(ifaceobj.get_attr_value_first("address-purge"), default=True)
+
+        if not squash_addr_config and ifaceobj.flags & iface.HAS_SIBLINGS:
+            # if youngest sibling and squash addr is not set
+            # print a warning that addresses will not be purged
+            if ifaceobj.flags & iface.YOUNGEST_SIBLING:
+                self.logger.warning("%s: interface has multiple iface stanzas, skip purging existing addresses" % ifname)
+            purge_addresses = False
 
         if squash_addr_config and ifaceobj.flags & iface.HAS_SIBLINGS:
-            ifaceobjlist = ifaceobj_getfunc(ifaceobj.name)
+            ifaceobj_list = ifaceobj_getfunc(ifname)
         else:
-            ifaceobjlist = [ifaceobj]
+            ifaceobj_list = [ifaceobj]
 
-        module_name = self.__class__.__name__
-        ifname = ifaceobj.name
-
-        (addr_supported, newaddrs, newaddr_attrs) = self._inet_address_convert_to_cidr(ifaceobjlist)
-        newaddrs = utils.get_ip_objs(module_name, ifname, newaddrs)
+        addr_supported, user_config_ip_addrs = self.__get_ip_addr_with_attributes(ifaceobj_list, ifname)
 
         if not addr_supported:
             return
-        if (not squash_addr_config and (ifaceobj.flags & iface.HAS_SIBLINGS)):
-            # if youngest sibling and squash addr is not set
-            # print a warning that addresses will not be purged
-            if (ifaceobj.flags & iface.YOUNGEST_SIBLING):
-                self.logger.warn('%s: interface has multiple ' %ifaceobj.name +
-                               'iface stanzas, skip purging existing addresses')
-            purge_addresses = 'no'
 
-        if not ifupdownflags.flags.PERFMODE and purge_addresses == 'yes':
-            # if perfmode is not set and purge addresses is not set to 'no'
+        if not ifupdownflags.flags.PERFMODE and purge_addresses:
+            # if perfmode is not set and purge addresses is set to True
             # lets purge addresses not in the config
-            runningaddrs = self.ipcmd.get_running_addrs(ifaceobj, details=False)
 
-            # if anycast address is configured on 'lo' and is in running config
-            # add it to newaddrs so that ifreload doesn't wipe it out
-            anycast_addr = utils.get_normalized_ip_addr(ifaceobj.name, self._get_anycast_addr(ifaceobjlist))
+            running_ip_addrs = self.ipcmd.get_running_addrs_from_cache(ifaceobj_list, ifname)
 
-            if runningaddrs and anycast_addr and anycast_addr in runningaddrs:
-                newaddrs.append(anycast_addr)
+            if ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
+                self.__add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobj_list, running_ip_addrs)
 
-            user_ip4, user_ip6, newaddrs = self.order_user_configured_addrs(newaddrs)
+            user_ip4, user_ip6, ordered_user_configured_ips = self.order_user_configured_addrs(user_config_ip_addrs.keys())
 
-            if newaddrs == runningaddrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, runningaddrs):
+            if ordered_user_configured_ips == running_ip_addrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, running_ip_addrs):
                 if force_reapply:
-                    self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
+                    self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs)
                 return
             try:
-                # if primary address is not same, there is no need to keep any.
-                # reset all addresses
-                if newaddrs and runningaddrs and newaddrs[0] != runningaddrs[0]:
+                # if primary address is not same, there is no need to keep any, reset all addresses.
+                if ordered_user_configured_ips and running_ip_addrs and ordered_user_configured_ips[0] != running_ip_addrs[0]:
+                    self.logger.info("%s: primary ip changed (from %s to %s) we need to purge all ip addresses and re-add them"
+                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs[0]))
                     skip_addrs = []
                 else:
-                    skip_addrs = newaddrs or []
-                for addr in runningaddrs or []:
+                    skip_addrs = ordered_user_configured_ips
+                for addr in running_ip_addrs:
                     if addr in skip_addrs:
                         continue
-                    self.netlink.addr_del(ifaceobj.name, IPNetwork(addr))
+                    self.netlink.addr_del(ifname, addr)
             except Exception, e:
                 self.log_warn(str(e))
-        if not newaddrs:
+        if not user_config_ip_addrs:
             return
-        self._inet_address_list_config(ifaceobj, newaddrs, newaddr_attrs)
+        self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs)
 
     def compare_running_ips_and_user_config(self, user_ip4, user_ip6, running_addrs):
         """
@@ -562,15 +560,16 @@ class address(Addon, moduleBase):
 
         return i == len_ip6
 
-    def order_user_configured_addrs(self, user_config_addrs):
+    @staticmethod
+    def order_user_configured_addrs(user_config_addrs):
         ip4 = []
         ip6 = []
 
         for a in user_config_addrs:
-            if isinstance(a, _BaseV6):
-                ip6.append(str(a))
+            if isinstance(a, IPv6Network):
+                ip6.append(a)
             else:
-                ip4.append(str(a))
+                ip4.append(a)
 
         return ip4, ip6, ip4 + ip6
 
@@ -924,40 +923,15 @@ class address(Addon, moduleBase):
         except:
             pass
 
-        self.ipcmd.batch_start()
         self.up_ipv6_addrgen(ifaceobj)
 
         if addr_method != "dhcp":
-            self._inet_address_config(ifaceobj, ifaceobj_getfunc,
-                                      force_reapply)
+            self.process_addresses(ifaceobj, ifaceobj_getfunc, force_reapply)
 
         self.process_mtu(ifaceobj, ifaceobj_getfunc)
 
         try:
-            self.ipcmd.batch_commit()
-        except Exception as e:
-            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj, raise_error=False)
-
-        try:
-            hwaddress = self._get_hwaddress(ifaceobj)
-            if hwaddress:
-                running_hwaddress = None
-                if not ifupdownflags.flags.PERFMODE: # system is clean
-                    running_hwaddress = netlink.cache.get_link_address(ifaceobj.name)
-                if hwaddress != running_hwaddress:
-                    slave_down = False
-                    if ifaceobj.link_kind & ifaceLinkKind.BOND:
-                        # if bond, down all the slaves
-                        if ifaceobj.lowerifaces:
-                            for l in ifaceobj.lowerifaces:
-                                self.netlink.link_down(l)
-                            slave_down = True
-                    try:
-                        self.netlink.link_set_address(ifaceobj.name, hwaddress)
-                    finally:
-                        if slave_down:
-                            for l in ifaceobj.lowerifaces:
-                                self.netlink.link_up(l)
+            self.process_hwaddress(ifaceobj)
 
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
@@ -969,6 +943,27 @@ class address(Addon, moduleBase):
             gateways = []
         prev_gw = self._get_prev_gateway(ifaceobj, gateways)
         self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+
+    def process_hwaddress(self, ifaceobj):
+        hwaddress = self._get_hwaddress(ifaceobj)
+        if hwaddress:
+            running_hwaddress = None
+            if not ifupdownflags.flags.PERFMODE:  # system is clean
+                running_hwaddress = netlink.cache.get_link_address(ifaceobj.name)
+            if hwaddress != running_hwaddress:
+                slave_down = False
+                if ifaceobj.link_kind & ifaceLinkKind.BOND:
+                    # if bond, down all the slaves
+                    if ifaceobj.lowerifaces:
+                        for l in ifaceobj.lowerifaces:
+                            self.netlink.link_down(l)
+                        slave_down = True
+                try:
+                    self.netlink.link_set_address(ifaceobj.name, hwaddress)
+                finally:
+                    if slave_down:
+                        for l in ifaceobj.lowerifaces:
+                            self.netlink.link_up(l)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
