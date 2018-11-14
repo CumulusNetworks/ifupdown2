@@ -630,7 +630,7 @@ class bond(Addon, moduleBase):
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
         if not netlink.cache.link_exists(ifaceobj.name):
             self.sysfs.bond_create(ifaceobj.name)
-        self.bondcmd.bond_set_attrs_nl(ifaceobj.name, ifla_info_data)
+        self.sysfs.bond_set_attrs_nl(ifaceobj.name, ifla_info_data)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:

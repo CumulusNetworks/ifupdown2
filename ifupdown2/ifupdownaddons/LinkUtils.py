@@ -1826,36 +1826,6 @@ class LinkUtils(utilsBase):
             pass
         return False
 
-    bondcmd_attrmap = {
-        Link.IFLA_BOND_MODE: 'mode',
-        Link.IFLA_BOND_MIIMON: 'miimon',
-        Link.IFLA_BOND_USE_CARRIER: 'use_carrier',
-        Link.IFLA_BOND_AD_LACP_RATE: 'lacp_rate',
-        Link.IFLA_BOND_XMIT_HASH_POLICY: 'xmit_hash_policy',
-        Link.IFLA_BOND_MIN_LINKS: 'min_links',
-        Link.IFLA_BOND_NUM_PEER_NOTIF: 'num_grat_arp',
-        Link.IFLA_BOND_AD_ACTOR_SYSTEM: 'ad_actor_system',
-        Link.IFLA_BOND_AD_ACTOR_SYS_PRIO: 'ad_actor_sys_prio',
-        Link.IFLA_BOND_AD_LACP_BYPASS: 'lacp_bypass',
-        Link.IFLA_BOND_UPDELAY: 'updelay',
-        Link.IFLA_BOND_DOWNDELAY: 'downdelay',
-    }
-
-    def bond_set_attrs_nl(self, bondname, ifla_info_data):
-        bond_attr_name = 'None'  # for log purpose (in case an exception raised)
-        for nl_attr, value in ifla_info_data.items():
-            try:
-                bond_attr_name = self.bondcmd_attrmap[nl_attr]
-                file_path = '/sys/class/net/%s/bonding/%s' % (bondname, bond_attr_name)
-                if os.path.exists(file_path):
-                    self.write_file(file_path, str(value))
-            except Exception as e:
-                exception_str = '%s: %s %s: %s' % (bondname, bond_attr_name, value, str(e))
-                if ifupdownflags.flags.FORCE:
-                    self.logger.warning(exception_str)
-                else:
-                    self.logger.debug(exception_str)
-
     def bond_set_attrs(self, bondname, attrdict, prehook):
         for attrname, attrval in attrdict.items():
             if (self._link_cache_check([bondname, 'linkinfo',

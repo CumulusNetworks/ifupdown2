@@ -22,15 +22,35 @@
 # sysfs -- contains all sysfs related operation
 #
 
+import os
+
 try:
     from ifupdown2.lib.io import IO
     from ifupdown2.lib.base_objects import Cache
+    from ifupdown2.nlmanager.nlpacket import Link
 except ImportError:
     from lib.io import IO
     from lib.base_objects import Cache
+    from nlmanager.nlpacket import Link
 
 
 class Sysfs(IO, Cache):
+
+    __bond_netlink_to_sysfs_attr_map = {
+        Link.IFLA_BOND_MODE: "mode",
+        Link.IFLA_BOND_MIIMON: "miimon",
+        Link.IFLA_BOND_USE_CARRIER: "use_carrier",
+        Link.IFLA_BOND_AD_LACP_RATE: "lacp_rate",
+        Link.IFLA_BOND_XMIT_HASH_POLICY: "xmit_hash_policy",
+        Link.IFLA_BOND_MIN_LINKS: "min_links",
+        Link.IFLA_BOND_NUM_PEER_NOTIF: "num_grat_arp",
+        Link.IFLA_BOND_AD_ACTOR_SYSTEM: "ad_actor_system",
+        Link.IFLA_BOND_AD_ACTOR_SYS_PRIO: "ad_actor_sys_prio",
+        Link.IFLA_BOND_AD_LACP_BYPASS: "lacp_bypass",
+        Link.IFLA_BOND_UPDELAY: "updelay",
+        Link.IFLA_BOND_DOWNDELAY: "downdelay",
+    }
+
     def __init__(self):
         IO.__init__(self)
         Cache.__init__(self)
@@ -92,3 +112,25 @@ class Sysfs(IO, Cache):
 
     def bond_create_dry_run(self, bond_name):
         self.write_to_file("/sys/class/net/bonding_masters", "+%s" % bond_name)
+
+    ###
+
+    def bond_set_attrs_nl(self, bond_name, ifla_info_data):
+        """
+        bond_set_attrs_nl doesn't need a _dry_run handler because each
+        entry in ifla_info_data was checked against the cache already.
+        Here write_to_file already has a dry_run handler.
+        :param bond_name:
+        :param ifla_info_data:
+        :return:
+        """
+        bond_attr_name = 'None'  # for log purpose (in case an exception raised)
+
+        for nl_attr, value in ifla_info_data.items():
+            try:
+                bond_attr_name = self.__bond_netlink_to_sysfs_attr_map[nl_attr]
+                file_path = "/sys/class/net/%s/bonding/%s" % (bond_name, bond_attr_name)
+                if os.path.exists(file_path):
+                    self.write_to_file(file_path, str(value))
+            except Exception as e:
+                self.logger.warning("%s: %s %s: %s" % (bond_name, bond_attr_name, value, str(e)))
