@@ -82,21 +82,30 @@ class DryRunManager(object):
         self.__is_on = False
 
     def register_dry_run_handler(self, module, handler_name, handler_code, dry_run_code):
-        self.__entries.append(
-            _DryRunEntry(
-                target_module=module,
-                handler_name=handler_name,
-                handler_code=handler_code,
-                dry_run_code=dry_run_code
-            )
+        dry_run_entry = _DryRunEntry(
+            target_module=module,
+            handler_name=handler_name,
+            handler_code=handler_code,
+            dry_run_code=dry_run_code
         )
+        if self.__is_on:
+            dry_run_entry.set()
+        self.__entries.append(dry_run_entry)
 
     def dry_run_mode_on(self):
+        """
+        Enable the dry run mode
+        WARNING: not thread-safe
+        """
         for entry in self.__entries:
             entry.set()
         self.__is_on = True
 
     def dry_run_mode_off(self):
+        """
+        Disable the dry run mode
+        WARNING: not thread-safe
+        """
         for entry in self.__entries:
             entry.unset()
         self.__is_on = False
