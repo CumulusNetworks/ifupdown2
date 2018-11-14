@@ -44,9 +44,9 @@ class Sysfs(IO, Cache):
             if self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str):
                 self.cache.override_link_mtu(ifname, mtu_int)
 
-    def link_set_mtu_dry_run(self, ifname, mtu):
+    def link_set_mtu_dry_run(self, ifname, mtu_str, mtu_int):
         # we can remove the cache check in DRYRUN mode
-        self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu)
+        self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str)
 
     #
     # ALIAS
