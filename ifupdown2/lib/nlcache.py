@@ -254,6 +254,24 @@ class _NetlinkCache:
         except:
             pass
 
+    def override_unslave_link(self, master, slave):
+        """
+        Manually update the cache unslave SLAVE from MASTER
+        :param master:
+        :param slave:
+        :return:
+        """
+        with self._cache_lock:
+            try:
+                del self._link_cache[slave].attributes[nlpacket.Link.IFLA_MASTER]
+            except:
+                pass
+            try:
+                self._masters_and_slaves[master].remove(slave)
+            except:
+                pass
+
+
     def DEBUG_IFNAME(self, ifname, with_addresses=False):
         """
         A very useful function to use while debugging, it dumps the netlink
@@ -567,8 +585,24 @@ class _NetlinkCache:
         :param master:
         :return: list of string
         """
-        with self._cache_lock:
-            return list(self._masters_and_slaves.get(master, []))
+        try:
+            with self._cache_lock:
+                return list(self._masters_and_slaves[master])
+        except KeyError:
+            return []
+
+    def is_link_enslaved_to(self, slave, master):
+        """
+        Return bool if SLAVE is enslaved to MASTER
+        :param slave:
+        :param master:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                return slave in self._masters_and_slaves[master]
+        except KeyError:
+            return False
 
     def get_lower_device_ifname(self, ifname):
         """
