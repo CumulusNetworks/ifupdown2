@@ -2069,13 +2069,6 @@ class LinkUtils(utilsBase):
     def bond_load_bonding_module():
         return utils.exec_command('%s -q bonding' % utils.modprobe_cmd)
 
-    def create_bond(self, bondname):
-        if self.bond_exists(bondname):
-            return
-        # load_bonding_module() has already been run
-        self.write_file('/sys/class/net/bonding_masters', '+' + bondname)
-        self._cache_update([bondname], {})
-
     def delete_bond(self, bondname):
         if not os.path.exists('/sys/class/net/%s' % bondname):
             return
