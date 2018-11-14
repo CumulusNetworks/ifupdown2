@@ -66,4 +66,6 @@ class Sysfs(IO, Cache):
 
     def link_set_alias_dry_run(self, ifname, alias):
         # we can remove the cache check in DRYRUN mode
+        if not alias:
+            alias = ""
         self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias)
