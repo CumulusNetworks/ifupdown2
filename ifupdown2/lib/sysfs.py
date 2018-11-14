@@ -83,6 +83,8 @@ class Sysfs(IO, Cache):
     def bond_remove_slave_dry_run(self, bond_name, slave_name):
         self.write_to_file("/sys/class/net/%s/bonding/slaves" % bond_name, "-%s" % slave_name)
 
+    ###
+
     def bond_create(self, bond_name):
         if self.cache.bond_exists(bond_name):
             return
