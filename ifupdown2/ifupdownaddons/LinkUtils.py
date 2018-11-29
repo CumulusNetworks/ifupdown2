@@ -1552,11 +1552,40 @@ class LinkUtils(utilsBase):
 
         if not bridgeout: return brvlaninfo
         try:
-            vlan_json_dict = json.loads(bridgeout, encoding="utf-8")
+            vlan_json = json.loads(bridgeout, encoding="utf-8")
         except Exception, e:
             self.logger.info('json loads failed with (%s)' % str(e))
             return {}
-        return vlan_json_dict
+
+        try:
+            if isinstance(vlan_json, list):
+                # newer iproute2 version changed the bridge vlan show output
+                # ifupdown2 relies on the previous format, we have the convert
+                # data into old format
+                bridge_port_vids = dict()
+
+                for intf in vlan_json:
+                    bridge_port_vids[intf["ifname"]] = intf["vlans"]
+
+                return bridge_port_vids
+            else:
+                # older iproute2 version have different ways to dump vlans
+                # ifupdown2 prefers the following syntax:
+                # {
+                #    "vx-1002": [{
+                #        "vlan": 1002,
+                #        "flags": ["PVID", "Egress Untagged"]
+                #    }
+                #    ],
+                #    "vx-1004": [{
+                #        "vlan": 1004,
+                #        "flags": ["PVID", "Egress Untagged"]
+                #    }]
+                # }
+                return vlan_json
+        except Exception as e:
+            self.logger.debug("bridge vlan show: Unknown json output: %s" % str(e))
+            return vlan_json
 
     @staticmethod
     def get_bridge_vlan_nojson():
