@@ -208,7 +208,7 @@ class LinkUtils(utilsBase):
                     'unicast-flood': str(info_slave_data.get(Link.IFLA_BRPORT_UNICAST_FLOOD, 0)),
                     'multicast-flood': str(info_slave_data.get(Link.IFLA_BRPORT_MCAST_FLOOD, 0)),
                     'learning': str(info_slave_data.get(Link.IFLA_BRPORT_LEARNING, 0)),
-                    'arp-nd-suppress': str(info_slave_data.get(Link.IFLA_BRPORT_ARP_SUPPRESS, 0))
+                    'arp-nd-suppress': str(info_slave_data.get(Link.IFLA_BRPORT_NEIGH_SUPPRESS, 0))
                 }
 
                 if ifla_master in brports:

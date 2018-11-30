@@ -553,7 +553,7 @@ class bridge(Addon, moduleBase):
         ('bridge-l2protocol-tunnel', Link.IFLA_BRPORT_GROUP_FWD_MASK),
         # Link.IFLA_BRPORT_PEER_LINK,
         # Link.IFLA_BRPORT_DUAL_LINK,
-        ('bridge-arp-nd-suppress', Link.IFLA_BRPORT_ARP_SUPPRESS),
+        ('bridge-arp-nd-suppress', Link.IFLA_BRPORT_NEIGH_SUPPRESS),
     )
 
     _ifla_brport_multicast_router_dict_to_int = {
@@ -578,7 +578,7 @@ class bridge(Addon, moduleBase):
             (Link.IFLA_BRPORT_UNICAST_FLOOD, utils.get_boolean_from_string),
             (Link.IFLA_BRPORT_MCAST_FLOOD, utils.get_boolean_from_string),
             (Link.IFLA_BRPORT_GROUP_FWD_MASK, lambda x: x),
-            (Link.IFLA_BRPORT_ARP_SUPPRESS, utils.get_boolean_from_string)
+            (Link.IFLA_BRPORT_NEIGH_SUPPRESS, utils.get_boolean_from_string)
         )
     )
 
@@ -1871,7 +1871,7 @@ class bridge(Addon, moduleBase):
                     # attribute specific work
                     # This shouldn't be here but we don't really have a choice otherwise this
                     # will require too much code duplication and will make the code very complex
-                    if nl_attr == Link.IFLA_BRPORT_ARP_SUPPRESS:
+                    if nl_attr == Link.IFLA_BRPORT_NEIGH_SUPPRESS:
                         try:
                             arp_suppress = self.check_vxlan_brport_arp_suppress(ifaceobj,
                                                                                 bridge_vlan_aware,

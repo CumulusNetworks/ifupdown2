@@ -1496,7 +1496,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                     Link.IFLA_BRPORT_BCAST_FLOOD,
                                                     Link.IFLA_BRPORT_PEER_LINK,
                                                     Link.IFLA_BRPORT_DUAL_LINK,
-                                                    Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                                    Link.IFLA_BRPORT_NEIGH_SUPPRESS,
                                                     Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                             sub_attr_pack_layout.append('HH')
                             sub_attr_payload.append(5)  # length
@@ -1651,7 +1651,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                       Link.IFLA_BRPORT_VLAN_TUNNEL,
                                                       Link.IFLA_BRPORT_PEER_LINK,
                                                       Link.IFLA_BRPORT_DUAL_LINK,
-                                                      Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                                      Link.IFLA_BRPORT_NEIGH_SUPPRESS,
                                                       Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                                     ifla_info_slave_data[info_data_type] = unpack('=B', sub_attr_data[4])[0]
 
@@ -2047,7 +2047,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                     Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                     Link.IFLA_BRPORT_NEIGH_SUPPRESS,
                                      Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                     sub_attr_pack_layout.append('B')
                     sub_attr_payload.append(sub_attr_value)
@@ -2146,7 +2146,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                     Link.IFLA_BRPORT_ARP_SUPPRESS,
+                                     Link.IFLA_BRPORT_NEIGH_SUPPRESS,
                                      Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
                     self.value[sub_attr_type] = unpack('=B', data[4])[0]
 
@@ -3491,9 +3491,12 @@ class Link(NetlinkPacket):
     IFLA_BRPORT_VLAN_TUNNEL         = 29
     IFLA_BRPORT_BCAST_FLOOD         = 30
     IFLA_BRPORT_GROUP_FWD_MASK      = 31
+    IFLA_BRPORT_NEIGH_SUPPRESS      = 32
+    IFLA_BRPORT_ISOLATED            = 33
+    IFLA_BRPORT_BACKUP_PORT         = 34
+
     IFLA_BRPORT_PEER_LINK           = 60
     IFLA_BRPORT_DUAL_LINK           = 61
-    IFLA_BRPORT_ARP_SUPPRESS        = 62
     IFLA_BRPORT_GROUP_FWD_MASKHI    = 63
     IFLA_BRPORT_DOWN_PEERLINK_REDIRECT = 64
 
@@ -3530,9 +3533,11 @@ class Link(NetlinkPacket):
         IFLA_BRPORT_VLAN_TUNNEL         : 'IFLA_BRPORT_VLAN_TUNNEL',
         IFLA_BRPORT_BCAST_FLOOD         : 'IFLA_BRPORT_BCAST_FLOOD',
         IFLA_BRPORT_GROUP_FWD_MASK      : 'IFLA_BRPORT_GROUP_FWD_MASK',
+        IFLA_BRPORT_NEIGH_SUPPRESS      : 'IFLA_BRPORT_NEIGH_SUPPRESS',
+        IFLA_BRPORT_ISOLATED            : 'IFLA_BRPORT_ISOLATED',
+        IFLA_BRPORT_BACKUP_PORT         : 'IFLA_BRPORT_BACKUP_PORT',
         IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
         IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
-        IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS',
         IFLA_BRPORT_GROUP_FWD_MASKHI    : 'IFLA_BRPORT_GROUP_FWD_MASKHI',
         IFLA_BRPORT_DOWN_PEERLINK_REDIRECT : 'IFLA_BRPORT_DOWN_PEERLINK_REDIRECT'
     }
