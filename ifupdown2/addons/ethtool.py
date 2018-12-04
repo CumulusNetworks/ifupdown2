@@ -86,14 +86,16 @@ class ethtool(moduleBase,utilsBase):
             return
 
         # use only lowercase values
-        running_val = self.get_running_attr('fec', ifaceobj)
+        running_val = str(self.get_running_attr('fec', ifaceobj)).lower()
 
-        if running_val:
-            running_val = running_val.lower()
         if config_val:
             config_val = config_val.lower()
         if default_val:
             default_val = default_val.lower()
+
+        if running_val in ["none", "notsupported"]:
+            # None and NotSupported ethtool FEC values mean "off"
+            running_val = "off"
 
         # check running values
         if config_val and config_val == running_val:
