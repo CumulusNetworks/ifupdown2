@@ -226,6 +226,17 @@ class vxlan(moduleBase):
                     if vxlanattrs.get('vxlanid') != vxlanid:
                         self.log_error('%s: Cannot change running vxlan id: '
                                        'Operation not supported' % ifname, ifaceobj)
+                else:
+                    device_link_kind = self.ipcmd.link_get_kind(ifname)
+                    if not device_link_kind:
+                        self.logger.error("%s: device already exists and is not a vxlan" % ifname)
+                        ifaceobj.set_status(ifaceStatus.ERROR)
+                        return
+                    elif device_link_kind != "vxlan":
+                        self.logger.error("%s: device already exists and is not a vxlan (type %s)" % (ifname, device_link_kind))
+                        ifaceobj.set_status(ifaceStatus.ERROR)
+                        return
+
             try:
                 vxlanid = int(vxlanid)
             except:
@@ -291,7 +302,7 @@ class vxlan(moduleBase):
                 self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, netlink.VXLAN_UDP_PORT, str(e)))
                 vxlan_port = netlink.VXLAN_UDP_PORT
 
-            if link_exists and not ifupdownflags.flags.DRYRUN:
+            if link_exists and vxlanattrs and not ifupdownflags.flags.DRYRUN:
                 cache_port = vxlanattrs.get(Link.IFLA_VXLAN_PORT)
                 if vxlan_port != cache_port:
                     self.logger.warning('%s: vxlan-port (%s) cannot be changed - to apply the desired change please run: ifdown %s && ifup %s'
