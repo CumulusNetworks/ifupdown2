@@ -223,6 +223,17 @@ class vxlan(Addon, moduleBase):
                 self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
 
             if link_exists:
+
+                device_link_kind = netlink.cache.get_link_kind(ifname)
+                if device_link_kind != "vxlan":
+                    self.logger.error("%s: device already exists and is not a vxlan" % ifname)
+                    ifaceobj.set_status(ifaceStatus.ERROR)
+                    return
+                elif device_link_kind != "vxlan":
+                    self.logger.error("%s: device already exists and is not a vxlan (type %s)" % (ifname, device_link_kind))
+                    ifaceobj.set_status(ifaceStatus.ERROR)
+                    return
+
                 cached_vxlan_ifla_info_data = netlink.cache.get_link_info_data(ifname)
 
                 # on ifreload do not overwrite anycast_ip to individual ip
