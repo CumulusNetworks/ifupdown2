@@ -687,11 +687,11 @@ class vrf(Addon, moduleBase):
             for s in config_slaves:
                 try:
                     for slave_ifaceobj in ifaceobj_getfunc(s) or []:
-                        if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-                            raise Exception('%s: slave configured with link-down yes')
+                        if slave_ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                            raise Exception("link-down yes: keeping VRF slave down")
                     self.netlink.link_up(s)
                 except Exception, e:
-                    self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
+                    self.logger.debug("%s: %s" % (s, str(e)))
                     pass
 
     def _set_vrf_dev_processed_flag(self, ifaceobj):
