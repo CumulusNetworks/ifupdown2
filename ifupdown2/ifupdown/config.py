@@ -14,10 +14,20 @@ import resource
 IFUPDOWN2_ADDON_DROPIN_FOLDER = '/usr/share/ifupdown2/addons'
 
 # ifupdown2/core/config.py -> we need to use dirname twice.
-ADDON_MODULES_DIR = list({
-    '%s/addons' % (os.path.dirname(os.path.dirname(os.path.realpath(__file__)))),
-    IFUPDOWN2_ADDON_DROPIN_FOLDER
-})
+_ = {
+    IFUPDOWN2_ADDON_DROPIN_FOLDER,
+    '%s/addons' % (os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+}
+
+try:
+    addon_module_dir_list = list(_)
+    if addon_module_dir_list[0] is not IFUPDOWN2_ADDON_DROPIN_FOLDER:
+        addon_module_dir_list.remove(IFUPDOWN2_ADDON_DROPIN_FOLDER)
+        ADDON_MODULES_DIR = [IFUPDOWN2_ADDON_DROPIN_FOLDER] + addon_module_dir_list
+    else:
+        ADDON_MODULES_DIR = addon_module_dir_list
+except:
+    ADDON_MODULES_DIR = [IFUPDOWN2_ADDON_DROPIN_FOLDER]
 
 __version__ = ''
 
