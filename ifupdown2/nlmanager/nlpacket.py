@@ -3497,8 +3497,8 @@ class Link(NetlinkPacket):
 
     IFLA_BRPORT_PEER_LINK           = 60
     IFLA_BRPORT_DUAL_LINK           = 61
-    IFLA_BRPORT_GROUP_FWD_MASKHI    = 63
-    IFLA_BRPORT_DOWN_PEERLINK_REDIRECT = 64
+    IFLA_BRPORT_GROUP_FWD_MASKHI    = 62
+    IFLA_BRPORT_DOWN_PEERLINK_REDIRECT = 63
 
     ifla_brport_to_string = {
         IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
