@@ -1529,7 +1529,8 @@ class AttributeIFLA_LINKINFO(Attribute):
                             sub_attr_pack_layout.extend('xx')
 
                         # 4 bytes
-                        elif info_slave_data_type == Link.IFLA_BRPORT_COST:
+                        elif info_slave_data_type in (Link.IFLA_BRPORT_COST,
+                                                      Link.IFLA_BRPORT_BACKUP_PORT):
                             sub_attr_pack_layout.append('HH')
                             sub_attr_payload.append(8)  # length
                             sub_attr_payload.append(info_slave_data_type)
@@ -1666,7 +1667,8 @@ class AttributeIFLA_LINKINFO(Attribute):
                                     ifla_info_slave_data[info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
 
                                 # 4 bytes
-                                elif info_data_type == Link.IFLA_BRPORT_COST:
+                                elif info_data_type in (Link.IFLA_BRPORT_COST,
+                                                        Link.IFLA_BRPORT_BACKUP_PORT):
                                     ifla_info_slave_data[info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
 
                             elif ifla_info_slave_kind == 'bond':
@@ -2064,7 +2066,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                     sub_attr_pack_layout.extend('xx')
 
                 # 4 Byte attributes
-                elif sub_attr_type in (Link.IFLA_BRPORT_COST,):
+                elif sub_attr_type in (Link.IFLA_BRPORT_COST, Link.IFLA_BRPORT_BACKUP_PORT):
                     sub_attr_pack_layout.append('L')
                     sub_attr_payload.append(sub_attr_value)
 
@@ -2159,7 +2161,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                     self.value[sub_attr_type] = unpack('=H', data[4:6])[0]
 
                 # 4 Byte attributes
-                elif sub_attr_type in (Link.IFLA_BRPORT_COST,):
+                elif sub_attr_type in (Link.IFLA_BRPORT_COST, Link.IFLA_BRPORT_BACKUP_PORT):
                     self.value[sub_attr_type] = unpack('=L', data[4:8])[0]
 
                 # 8 Byte attributes
