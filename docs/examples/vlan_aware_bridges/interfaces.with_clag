@@ -7,13 +7,13 @@
 #
 # All ports inherit 'vlans 10 20-23' from the 'bridge-vids' attribute
 # under the bridge
-#
+# 
 # native vlan is by default 1
 #
 # 'bridge-vids' attribute is used to declare vlans.
 # 'bridge-pvid' attribute is used to specify native vlans if other than 1
 # 'bridge-access' attribute is used to declare access port
-#
+# 
 # 'spine-bond host-bond-0[1-2]' are clag bonds and will be considered by
 # clagd for dual connection. clag-id has to be a non-zero and has to match
 # across the peer switches for the bonds to become dual connected.
