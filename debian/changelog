@@ -1,3 +1,14 @@
+ifupdown2 (1.2.2) unstable; urgency=medium
+
+  * Support for new iproute2 format (bridge vlan show)
+  * Pypi install: local addons modules should be loaded first
+  * Fix: link-down yes on vrf slaves
+  * Fix: nlmanager: use strerror to format kernel error
+  * Add: new checks for existing device with vxlan attributes
+  * Ethtool: FEC: translate None and NotSupported values to link-fec off
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 13 Dec 2018 23:42:42 -0800
+
 ifupdown2 (1.2.1) unstable; urgency=medium
 
   * Fix #54: address module new l3_intf_default_gateway_set_onlink policy
