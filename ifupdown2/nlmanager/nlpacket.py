@@ -1856,6 +1856,89 @@ class AttributeIFLA_LINKINFO(Attribute):
                                 if info_data_type in (Link.IFLA_VRF_TABLE,):
                                     self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
 
+                            elif ifla_info_kind in ("gre", "gretap", "erspan", "ip6gre", "ip6gretap", "ip6erspan"):
+
+                                # 1-byte
+                                if info_data_type in (Link.IFLA_GRE_TTL, Link.IFLA_GRE_TOS, Link.IFLA_GRE_PMTUDISC):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                                # 2-bytes
+                                elif info_data_type in (
+                                        Link.IFLA_GRE_IFLAGS,
+                                        Link.IFLA_GRE_OFLAGS,
+                                        Link.IFLA_GRE_ENCAP_TYPE,
+                                        Link.IFLA_GRE_ENCAP_SPORT,
+                                        Link.IFLA_GRE_ENCAP_DPORT,
+                                        Link.IFLA_GRE_ENCAP_FLAGS
+                                ):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
+
+                                # 4 bytes
+                                elif info_data_type in (Link.IFLA_GRE_LINK, Link.IFLA_GRE_IKEY, Link.IFLA_GRE_OKEY):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                                # ip addr
+                                elif info_data_type in (Link.IFLA_GRE_LOCAL, Link.IFLA_GRE_REMOTE):
+                                    if ifla_info_kind in ("ip6gre", "ip6gretap", "ip6erspan"):
+                                        (data1, data2) = unpack(">QQ", sub_attr_data[4:20])
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv6Address(data1 << 64 | data2)
+                                    else:
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack(">L", sub_attr_data[4:8])[0])
+
+                                else:
+                                    self.log.log(SYSLOG_EXTRA_DEBUG,
+                                                 'Add support for decoding IFLA_INFO_KIND %s type %s (%d), length %d, padded to %d' %
+                                                 (ifla_info_kind, parent_msg.get_ifla_gre_string(info_data_type), info_data_type,
+                                                  info_data_length, info_data_end))
+
+                            elif ifla_info_kind in ("ipip", "sit", "ip6tnl"):
+
+                                # 1-byte
+                                if info_data_type in (Link.IFLA_IPTUN_TTL, Link.IFLA_IPTUN_TOS, Link.IFLA_IPTUN_PMTUDISC):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
+
+                                # 2-bytes
+                                elif info_data_type in (Link.IFLA_IPTUN_ENCAP_TYPE, Link.IFLA_IPTUN_ENCAP_SPORT, Link.IFLA_IPTUN_ENCAP_DPORT, Link.IFLA_IPTUN_ENCAP_FLAGS):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[
+                                        0]
+
+                                # 4 bytes
+                                elif info_data_type == Link.IFLA_IPTUN_LINK:
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[
+                                        0]
+
+                                # ip addr
+                                elif info_data_type in (Link.IFLA_IPTUN_LOCAL, Link.IFLA_IPTUN_REMOTE):
+                                    if ifla_info_kind == "ip6tnl":
+                                        (data1, data2) = unpack(">QQ", sub_attr_data[4:20])
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv6Address(data1 << 64 | data2)
+                                    else:
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack(">L", sub_attr_data[4:8])[0])
+
+                                else:
+                                    self.log.log(SYSLOG_EXTRA_DEBUG,
+                                             'Add support for decoding IFLA_INFO_KIND %s type %s (%d), length %d, padded to %d' %
+                                             (ifla_info_kind, parent_msg.get_ifla_iptun_string(info_data_type), info_data_type,
+                                              info_data_length, info_data_end))
+
+                            elif ifla_info_kind in ("vti", "vti6"):
+                                # 4 bytes
+                                if info_data_type in (Link.IFLA_VTI_LINK, Link.IFLA_VTI_IKEY, Link.IFLA_VTI_OKEY):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
+                                # ip addr
+                                elif info_data_type in (Link.IFLA_VTI_LOCAL, Link.IFLA_VTI_REMOTE):
+                                    if ifla_info_kind == "vti6":
+                                        (data1, data2) = unpack(">QQ", sub_attr_data[4:20])
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv6Address(data1 << 64 | data2)
+                                    else:
+                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack(">L", sub_attr_data[4:8])[0])
+
+                                else:
+                                    self.log.log(SYSLOG_EXTRA_DEBUG,
+                                             'Add support for decoding IFLA_INFO_KIND %s type %s (%d), length %d, padded to %d' %
+                                             (ifla_info_kind, parent_msg.get_ifla_vti_string(info_data_type), info_data_type,
+                                              info_data_length, info_data_end))
 
                             else:
                                 self.log.log(SYSLOG_EXTRA_DEBUG, "Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
@@ -1933,11 +2016,22 @@ class AttributeIFLA_LINKINFO(Attribute):
         # Most of these are placeholders...we need to add support
         # for more human readable dictionaries for bond, bridge, etc
         kind_dict[Link.IFLA_INFO_DATA] = {
-            'bond':     Link.ifla_bond_to_string,
-            'vlan':     Link.ifla_vlan_to_string,
-            'vxlan':    Link.ifla_vxlan_to_string,
-            'bridge':   Link.ifla_br_to_string,
-            'macvlan':  Link.ifla_macvlan_to_string
+            'bond':         Link.ifla_bond_to_string,
+            'vlan':         Link.ifla_vlan_to_string,
+            'vxlan':        Link.ifla_vxlan_to_string,
+            'bridge':       Link.ifla_br_to_string,
+            'macvlan':      Link.ifla_macvlan_to_string,
+            'gre':          Link.ifla_gre_to_string,
+            'gretap':       Link.ifla_gre_to_string,
+            'erspan':       Link.ifla_gre_to_string,
+            'ip6gre':       Link.ifla_gre_to_string,
+            'ip6gretap':    Link.ifla_gre_to_string,
+            'ip6erspan':    Link.ifla_gre_to_string,
+            'vti':          Link.ifla_vti_to_string,
+            'vti6':         Link.ifla_vti_to_string,
+            'ipip':         Link.ifla_iptun_to_string,
+            'sit':          Link.ifla_iptun_to_string,
+            'ip6tnl':       Link.ifla_iptun_to_string
         }.get(ifla_info_kind, {})
 
         kind_dict[Link.IFLA_INFO_SLAVE_DATA] = {
@@ -3647,6 +3741,133 @@ class Link(NetlinkPacket):
         IFLA_VRF_TABLE                      : 'IFLA_VRF_TABLE'
     }
 
+    # ================================================================
+    # IFLA_INFO_DATA attributes for (ip6)gre, (ip6)gretap, (ip6)erspan
+    # ================================================================
+    IFLA_GRE_UNSPEC             = 0
+    IFLA_GRE_LINK               = 1
+    IFLA_GRE_IFLAGS             = 2
+    IFLA_GRE_OFLAGS             = 3
+    IFLA_GRE_IKEY               = 4
+    IFLA_GRE_OKEY               = 5
+    IFLA_GRE_LOCAL              = 6
+    IFLA_GRE_REMOTE             = 7
+    IFLA_GRE_TTL                = 8
+    IFLA_GRE_TOS                = 9
+    IFLA_GRE_PMTUDISC           = 10
+    IFLA_GRE_ENCAP_LIMIT        = 11
+    IFLA_GRE_FLOWINFO           = 12
+    IFLA_GRE_FLAGS              = 13
+    IFLA_GRE_ENCAP_TYPE         = 14
+    IFLA_GRE_ENCAP_FLAGS        = 15
+    IFLA_GRE_ENCAP_SPORT        = 16
+    IFLA_GRE_ENCAP_DPORT        = 17
+    IFLA_GRE_COLLECT_METADATA   = 18
+    IFLA_GRE_IGNORE_DF          = 19
+    IFLA_GRE_FWMARK             = 20
+    IFLA_GRE_ERSPAN_INDEX       = 21
+    IFLA_GRE_ERSPAN_VER         = 22
+    IFLA_GRE_ERSPAN_DIR         = 23
+    IFLA_GRE_ERSPAN_HWID        = 24
+
+    ifla_gre_to_string = {
+        IFLA_GRE_UNSPEC             : "IFLA_GRE_UNSPEC",
+        IFLA_GRE_LINK               : "IFLA_GRE_LINK",
+        IFLA_GRE_IFLAGS             : "IFLA_GRE_IFLAGS",
+        IFLA_GRE_OFLAGS             : "IFLA_GRE_OFLAGS",
+        IFLA_GRE_IKEY               : "IFLA_GRE_IKEY",
+        IFLA_GRE_OKEY               : "IFLA_GRE_OKEY",
+        IFLA_GRE_LOCAL              : "IFLA_GRE_LOCAL",
+        IFLA_GRE_REMOTE             : "IFLA_GRE_REMOTE",
+        IFLA_GRE_TTL                : "IFLA_GRE_TTL",
+        IFLA_GRE_TOS                : "IFLA_GRE_TOS",
+        IFLA_GRE_PMTUDISC           : "IFLA_GRE_PMTUDISC",
+        IFLA_GRE_ENCAP_LIMIT        : "IFLA_GRE_ENCAP_LIMIT",
+        IFLA_GRE_FLOWINFO           : "IFLA_GRE_FLOWINFO",
+        IFLA_GRE_FLAGS              : "IFLA_GRE_FLAGS",
+        IFLA_GRE_ENCAP_TYPE         : "IFLA_GRE_ENCAP_TYPE",
+        IFLA_GRE_ENCAP_FLAGS        : "IFLA_GRE_ENCAP_FLAGS",
+        IFLA_GRE_ENCAP_SPORT        : "IFLA_GRE_ENCAP_SPORT",
+        IFLA_GRE_ENCAP_DPORT        : "IFLA_GRE_ENCAP_DPORT",
+        IFLA_GRE_COLLECT_METADATA   : "IFLA_GRE_COLLECT_METADATA",
+        IFLA_GRE_IGNORE_DF          : "IFLA_GRE_IGNORE_DF",
+        IFLA_GRE_FWMARK             : "IFLA_GRE_FWMARK",
+        IFLA_GRE_ERSPAN_INDEX       : "IFLA_GRE_ERSPAN_INDEX",
+        IFLA_GRE_ERSPAN_VER         : "IFLA_GRE_ERSPAN_VER",
+        IFLA_GRE_ERSPAN_DIR         : "IFLA_GRE_ERSPAN_DIR",
+        IFLA_GRE_ERSPAN_HWID        : "IFLA_GRE_ERSPAN_HWID",
+    }
+
+    # ===============================================
+    # IFLA_INFO_DATA attributes for ipip, sit, ip6tnl
+    # ===============================================
+    IFLA_IPTUN_UNSPEC                       = 0
+    IFLA_IPTUN_LINK                         = 1
+    IFLA_IPTUN_LOCAL                        = 2
+    IFLA_IPTUN_REMOTE                       = 3
+    IFLA_IPTUN_TTL                          = 4
+    IFLA_IPTUN_TOS                          = 5
+    IFLA_IPTUN_ENCAP_LIMIT                  = 6
+    IFLA_IPTUN_FLOWINFO                     = 7
+    IFLA_IPTUN_FLAGS                        = 8
+    IFLA_IPTUN_PROTO                        = 9
+    IFLA_IPTUN_PMTUDISC                     = 10
+    IFLA_IPTUN_6RD_PREFIX                   = 11
+    IFLA_IPTUN_6RD_RELAY_PREFIX             = 12
+    IFLA_IPTUN_6RD_PREFIXLEN                = 13
+    IFLA_IPTUN_6RD_RELAY_PREFIXLEN          = 14
+    IFLA_IPTUN_ENCAP_TYPE                   = 15
+    IFLA_IPTUN_ENCAP_FLAGS                  = 16
+    IFLA_IPTUN_ENCAP_SPORT                  = 17
+    IFLA_IPTUN_ENCAP_DPORT                  = 18
+    IFLA_IPTUN_COLLECT_METADATA             = 19
+    IFLA_IPTUN_FWMARK                       = 20
+
+    ifla_iptun_to_string = {
+        IFLA_IPTUN_UNSPEC                   : "IFLA_IPTUN_UNSPEC",
+        IFLA_IPTUN_LINK                     : "IFLA_IPTUN_LINK",
+        IFLA_IPTUN_LOCAL                    : "IFLA_IPTUN_LOCAL",
+        IFLA_IPTUN_REMOTE                   : "IFLA_IPTUN_REMOTE",
+        IFLA_IPTUN_TTL                      : "IFLA_IPTUN_TTL",
+        IFLA_IPTUN_TOS                      : "IFLA_IPTUN_TOS",
+        IFLA_IPTUN_ENCAP_LIMIT              : "IFLA_IPTUN_ENCAP_LIMIT",
+        IFLA_IPTUN_FLOWINFO                 : "IFLA_IPTUN_FLOWINFO",
+        IFLA_IPTUN_FLAGS                    : "IFLA_IPTUN_FLAGS",
+        IFLA_IPTUN_PROTO                    : "IFLA_IPTUN_PROTO",
+        IFLA_IPTUN_PMTUDISC                 : "IFLA_IPTUN_PMTUDISC",
+        IFLA_IPTUN_6RD_PREFIX               : "IFLA_IPTUN_6RD_PREFIX",
+        IFLA_IPTUN_6RD_RELAY_PREFIX         : "IFLA_IPTUN_6RD_RELAY_PREFIX",
+        IFLA_IPTUN_6RD_PREFIXLEN            : "IFLA_IPTUN_6RD_PREFIXLEN",
+        IFLA_IPTUN_6RD_RELAY_PREFIXLEN      : "IFLA_IPTUN_6RD_RELAY_PREFIXLEN",
+        IFLA_IPTUN_ENCAP_TYPE               : "IFLA_IPTUN_ENCAP_TYPE",
+        IFLA_IPTUN_ENCAP_FLAGS              : "IFLA_IPTUN_ENCAP_FLAGS",
+        IFLA_IPTUN_ENCAP_SPORT              : "IFLA_IPTUN_ENCAP_SPORT",
+        IFLA_IPTUN_ENCAP_DPORT              : "IFLA_IPTUN_ENCAP_DPORT",
+        IFLA_IPTUN_COLLECT_METADATA         : "IFLA_IPTUN_COLLECT_METADATA",
+        IFLA_IPTUN_FWMARK                   : "IFLA_IPTUN_FWMARK",
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vti, vti6
+    # =========================================
+    IFLA_VTI_UNSPEC     = 0
+    IFLA_VTI_LINK       = 1
+    IFLA_VTI_IKEY       = 2
+    IFLA_VTI_OKEY       = 3
+    IFLA_VTI_LOCAL      = 4
+    IFLA_VTI_REMOTE     = 5
+    IFLA_VTI_FWMARK     = 6
+
+    ifla_vti_to_string = {
+        IFLA_VTI_UNSPEC     : "IFLA_VTI_UNSPEC",
+        IFLA_VTI_LINK       : "IFLA_VTI_LINK",
+        IFLA_VTI_IKEY       : "IFLA_VTI_IKEY",
+        IFLA_VTI_OKEY       : "IFLA_VTI_OKEY",
+        IFLA_VTI_LOCAL      : "IFLA_VTI_LOCAL",
+        IFLA_VTI_REMOTE     : "IFLA_VTI_REMOTE",
+        IFLA_VTI_FWMARK     : "IFLA_VTI_FWMARK",
+    }
+
     def __init__(self, msgtype, debug=False, logger=None, use_color=True):
         NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxHiII'
@@ -3678,6 +3899,15 @@ class Link(NetlinkPacket):
 
     def get_macvlan_mode_string(self, index):
         return self.get_string(self.macvlan_mode_to_string, index)
+
+    def get_ifla_gre_string(self, index):
+        return self.get_string(self.ifla_gre_to_string, index)
+
+    def get_ifla_vti_string(self, index):
+        return self.get_string(self.ifla_vti_to_string, index)
+
+    def get_ifla_iptun_string(self, index):
+        return self.get_string(self.ifla_iptun_to_string, index)
 
     def get_ifla_bond_string(self, index):
         return self.get_string(self.ifla_bond_to_string, index)
