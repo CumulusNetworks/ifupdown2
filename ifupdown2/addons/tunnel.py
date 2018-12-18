@@ -145,13 +145,21 @@ class tunnel(moduleBase):
             ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        ifname = ifaceobj.name
+
+        if not self.ipcmd.link_exists(ifname):
             return
 
         tunattrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
         if not tunattrs:
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj, self.get_mod_attrs(), -1)
             return
+
+        tunattrs["mode"] = self.ipcmd.link_get_kind(ifname)
+
+        user_config_mode = ifaceobj.get_attr_value_first("mode")
+        if user_config_mode in ('ipip6', 'ip6ip6'):
+            ifaceobj.replace_config("mode", "ip6tnl")
 
         for attr in self.get_mod_attrs():
             if not ifaceobj.get_attr_value_first(attr):

@@ -54,7 +54,17 @@ class Netlink(utilsBase):
                 'vrf': self._link_dump_info_data_vrf,
                 'vxlan': self._link_dump_info_data_vxlan,
                 'bond': self._link_dump_info_data_bond,
-                'bridge': self._link_dump_info_data_bridge
+                'bridge': self._link_dump_info_data_bridge,
+                'gre': self._link_dump_info_data_gre_tunnel,
+                'gretap': self._link_dump_info_data_gre_tunnel,
+                "ip6gre": self._link_dump_info_data_gre_tunnel,
+                "ip6gretap": self._link_dump_info_data_gre_tunnel,
+                "ip6erspan": self._link_dump_info_data_gre_tunnel,
+                'ipip': self._link_dump_info_data_iptun_tunnel,
+                'sit': self._link_dump_info_data_iptun_tunnel,
+                'ip6tnl': self._link_dump_info_data_iptun_tunnel,
+                'vti': self._link_dump_info_data_vti_tunnel,
+                'vti6': self._link_dump_info_data_vti_tunnel
             }
 
         except Exception as e:
@@ -499,6 +509,36 @@ class Netlink(utilsBase):
 
     def _link_dump_info_slave_data_bridge(self, ifname, info_slave_data):
         return info_slave_data
+
+    def _link_dump_info_data_gre_tunnel(self, ifname, info_slave_data):
+        tunnel_link_ifindex = info_slave_data.get(Link.IFLA_GRE_LINK)
+
+        return {
+            "endpoint": str(info_slave_data.get(Link.IFLA_GRE_REMOTE)),
+            "local": str(info_slave_data.get(Link.IFLA_GRE_LOCAL)),
+            "ttl": str(info_slave_data.get(Link.IFLA_GRE_TTL)),
+            "physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
+        }
+
+    def _link_dump_info_data_iptun_tunnel(self, ifname, info_slave_data):
+        tunnel_link_ifindex = info_slave_data.get(Link.IFLA_IPTUN_LINK)
+
+        return {
+            "endpoint": str(info_slave_data.get(Link.IFLA_IPTUN_REMOTE)),
+            "local": str(info_slave_data.get(Link.IFLA_IPTUN_LOCAL)),
+            "ttl": str(info_slave_data.get(Link.IFLA_IPTUN_TTL)),
+            "physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
+        }
+
+    def _link_dump_info_data_vti_tunnel(self, ifname, info_slave_data):
+        tunnel_link_ifindex = info_slave_data.get(Link.IFLA_VTI_LINK)
+
+        return {
+            "endpoint": str(info_slave_data.get(Link.IFLA_VTI_REMOTE)),
+            "local": str(info_slave_data.get(Link.IFLA_VTI_LOCAL)),
+            "ttl": "None",
+            "physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
+        }
 
     def _link_dump_linkinfo(self, link, dump):
         linkinfo = link.attributes[Link.IFLA_LINKINFO].get_pretty_value(dict)
