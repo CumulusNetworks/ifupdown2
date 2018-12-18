@@ -545,6 +545,8 @@ class LinkUtils(utilsBase):
                                 tunattrs['ttl'] = citems[j + 1]
                             elif citems[j] == 'dev':
                                 tunattrs['physdev'] = citems[j + 1]
+                            elif citems[j] in ['vti', 'vti6', 'ip6gre', 'ipip6', 'ip6ip6']:
+                                tunattrs['mode'] = citems[j]
                         linkattrs['linkinfo'] = tunattrs
                         break
                     elif citems[i] == 'link/ppp':
@@ -1270,18 +1272,16 @@ class LinkUtils(utilsBase):
         if '6' in mode:
             cmd = ' -6 '
 
-        if mode == 'gretap':
-            cmd += 'link add'
-            cmd += ' %s type %s' %(tunnelname, mode)
+        if mode in ['gretap']:
+            cmd += 'link add %s type %s' % (tunnelname, mode)
         else:
-            cmd += 'tunnel add'
-            cmd += ' %s mode %s' %(tunnelname, mode)
+            cmd += 'tunnel add %s mode %s' % (tunnelname, mode)
 
         if attrs:
             for k, v in attrs.iteritems():
-                cmd += ' %s' %k
+                cmd += ' %s' % k
                 if v:
-                    cmd += ' %s' %v
+                    cmd += ' %s' % v
         if self.ipbatch and not self.ipbatch_pause:
             self.add_to_batch(cmd)
         else:

@@ -517,7 +517,7 @@ class Netlink(utilsBase):
             "endpoint": str(info_slave_data.get(Link.IFLA_GRE_REMOTE)),
             "local": str(info_slave_data.get(Link.IFLA_GRE_LOCAL)),
             "ttl": str(info_slave_data.get(Link.IFLA_GRE_TTL)),
-            "physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
+            "tunnel-physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
 
     def _link_dump_info_data_iptun_tunnel(self, ifname, info_slave_data):
@@ -527,7 +527,7 @@ class Netlink(utilsBase):
             "endpoint": str(info_slave_data.get(Link.IFLA_IPTUN_REMOTE)),
             "local": str(info_slave_data.get(Link.IFLA_IPTUN_LOCAL)),
             "ttl": str(info_slave_data.get(Link.IFLA_IPTUN_TTL)),
-            "physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
+            "tunnel-physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
 
     def _link_dump_info_data_vti_tunnel(self, ifname, info_slave_data):
@@ -536,8 +536,7 @@ class Netlink(utilsBase):
         return {
             "endpoint": str(info_slave_data.get(Link.IFLA_VTI_REMOTE)),
             "local": str(info_slave_data.get(Link.IFLA_VTI_LOCAL)),
-            "ttl": "None",
-            "physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
+            "tunnel-physdev": self.get_iface_name(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
 
     def _link_dump_linkinfo(self, link, dump):
