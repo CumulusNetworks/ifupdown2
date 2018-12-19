@@ -2,15 +2,13 @@ Source: ifupdown2
 Section: admin
 Priority: optional
 Maintainer: Julien Fortin <julien@cumulusnetworks.com>
-Build-Depends: debhelper (>=9),
-               dh-systemd,
+Build-Depends: debhelper (>= 9.20160709),
                dh-python,
                python-all,
                python-setuptools,
                python-docutils
-Standards-Version: 3.9.8
+Standards-Version: 4.2.1
 Homepage: https://github.com/cumulusnetworks/ifupdown2
-X-Python-Version: >= 2.7
 
 Package: ifupdown2
 Architecture: all
