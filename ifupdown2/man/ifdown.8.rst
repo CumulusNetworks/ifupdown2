@@ -104,7 +104,7 @@ OPTIONS
     -p, --print-dependency {list,dot}
                           print iface dependency in list or dot format
 
-    -m, --admin-state, --no-scripts
+    --admin-state, --no-scripts
                           don't run any addon modules/scripts. Only bring
                           the interface administratively up/down
 

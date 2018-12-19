@@ -6,6 +6,7 @@ ifupdown2 (1.2.2) unstable; urgency=medium
   * Fix: nlmanager: use strerror to format kernel error
   * Add: new checks for existing device with vxlan attributes
   * Ethtool: FEC: translate None and NotSupported values to link-fec off
+  * Man: remove non-implemented -m option (closes: #905572)
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 13 Dec 2018 23:42:42 -0800
 
