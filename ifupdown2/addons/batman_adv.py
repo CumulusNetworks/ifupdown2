@@ -4,11 +4,21 @@
 # Author: Maximilian Wilhelm, max@sdn.clinic
 #
 
-from ifupdown.iface import *
-from ifupdownaddons.modulebase import moduleBase
-from ifupdownaddons.iproute2 import iproute2
-from ifupdown.netlink import netlink
-import ifupdown.ifupdownflags as ifupdownflags
+try:
+    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdownaddons.modulebase import moduleBase
+    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdown2.ifupdown.netlink import netlink
+    import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+except:
+    from ifupdown.iface import *
+    from ifupdown.utils import utils
+    from ifupdownaddons.modulebase import moduleBase
+    from ifupdownaddons.LinkUtils import LinkUtils
+    from ifupdown.netlink import netlink
+    import ifupdown.ifupdownflags as ifupdownflags
+
 import logging
 import re
 import subprocess
@@ -123,8 +133,7 @@ class batman_adv (moduleBase):
         attr_file_name = self._batman_attrs[attr]['filename']
         attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr_file_name)
         try:
-            with open (attr_file_path, "r") as fh:
-                 return fh.readline ().strip ()
+            return self.read_file_oneline(attr_file_path)
         except IOError as i:
             raise Exception ("_read_current_batman_attr (%s) %s" % (attr, i))
         except ValueError:
@@ -138,8 +147,7 @@ class batman_adv (moduleBase):
         attr_file_name = self._batman_attrs[attr]['filename']
         attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr_file_name)
         try:
-            with open (attr_file_path, "w") as fh:
-                 fh.write ("%s\n" % value)
+            self.write_file(attr_file_path, "%s\n" % value)
         except IOError as i:
             raise Exception ("_set_batman_attr (%s): %s" % (attr, i))
 
@@ -150,7 +158,7 @@ class batman_adv (moduleBase):
 
         try:
             self.logger.debug ("Running batctl -m %s if %s %s" % (bat_iface, op, mesh_iface))
-            batctl_output = subprocess.check_output (["batctl", "-m", bat_iface, "if", op, mesh_iface], stderr = subprocess.STDOUT)
+            utils.exec_commandl(["batctl", "-m", bat_iface, "if", op, mesh_iface])
         except subprocess.CalledProcessError as c:
             raise Exception ("Command \"batctl -m %s if %s %s\" failed: %s" % (bat_iface, op, mesh_iface, c.output))
         except Exception as e:
@@ -160,6 +168,7 @@ class batman_adv (moduleBase):
     def _find_member_ifaces (self, ifaceobj, ignore = True):
         members = []
         iface_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
+        self.logger.info("batman: executing: %s" % " ".join(["batctl", "-m", ifaceobj.name, "if"]))
         batctl_fh = subprocess.Popen (["batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE).stdout
         for line in batctl_fh.readlines ():
             iface = line.split (':')[0]
@@ -310,7 +319,7 @@ class batman_adv (moduleBase):
 
     def _init_command_handlers (self):
         if not self.ipcmd:
-            self.ipcmd = iproute2()
+            self.ipcmd = LinkUtils()
 
 
     def run (self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
