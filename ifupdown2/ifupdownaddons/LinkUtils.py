@@ -1303,7 +1303,6 @@ class LinkUtils(utilsBase):
             self.add_to_batch(cmd)
         else:
             utils.exec_command('ip %s' % cmd)
-        self._cache_update([tunnelname], {})
 
     def link_create_vxlan(self, name, vxlanid,
                           localtunnelip=None,
