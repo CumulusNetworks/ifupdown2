@@ -47,15 +47,16 @@ class ifaceLinkKind():
         bond have an ifaceobj.role attribute of SLAVE and the bridge or
         bond itself has ifaceobj.role of MASTER.
     """
-    UNKNOWN = 0x000000
-    BRIDGE =  0x000001
-    BOND =    0x000010
-    VLAN =    0x000100
-    VXLAN =   0x001000
-    VRF =     0x010000
+    UNKNOWN         = 0x0000000
+    BRIDGE          = 0x0000001
+    BOND            = 0x0000010
+    VLAN            = 0x0000100
+    VXLAN           = 0x0001000
+    VRF             = 0x0010000
+    BATMAN_ADV      = 0x0100000
     # to indicate logical interface created by an external entity.
     # the 'kind' of which ifupdown2 does not really understand
-    OTHER =     0x100000
+    OTHER           = 0x1000000
 
     @classmethod
     def to_str(cls, kind):
