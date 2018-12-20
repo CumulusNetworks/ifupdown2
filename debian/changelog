@@ -1,5 +1,6 @@
 ifupdown2 (1.2.2) unstable; urgency=medium
 
+  * New: Add support for B.A.T.M.A.N. adv. attributes
   * Support for new iproute2 format (bridge vlan show)
   * Pypi install: local addons modules should be loaded first
   * Fix: link-down yes on vrf slaves
