@@ -1,3 +1,9 @@
+ifupdown2 (1.2.3-1) unstable; urgency=medium
+
+  * Fix: log: use stderr if syslog initialization fails (closes: #917534)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Sun, 30 Dec 2018 23:42:42 +0700
+
 ifupdown2 (1.2.2-1) unstable; urgency=medium
 
   * New: add support for B.A.T.M.A.N. adv. attributes

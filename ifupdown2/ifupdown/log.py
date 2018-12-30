@@ -62,15 +62,19 @@ class Log:
         address = '/dev/log'
         format = '%(name)s: %(levelname)s: %(message)s'
 
-        self.syslog_handler = logging.handlers.SysLogHandler(address=address, facility=facility)
-        self.syslog_handler.setFormatter(logging.Formatter(format))
+        try:
+            self.syslog_handler = logging.handlers.SysLogHandler(address=address, facility=facility)
+            self.syslog_handler.setFormatter(logging.Formatter(format))
+        except Exception as e:
+            sys.stderr.write("warning: syslogs: %s\n" % str(e))
+            self.syslog_handler = None
 
         # console
         format = '%(levelname)s: %(message)s'
         self.console_handler = logging.StreamHandler(sys.stderr)
         self.console_handler.setFormatter(logging.Formatter(format))
 
-        if self.LOGGER_NAME[-1] == 'd':
+        if self.syslog_handler and self.LOGGER_NAME[-1] == 'd':
             self.update_current_logger(syslog=True, verbose=True, debug=False)
         else:
             self.update_current_logger(syslog=False, verbose=False, debug=False)
@@ -78,7 +82,7 @@ class Log:
     def update_current_logger(self, syslog, verbose, debug):
         self.syslog = syslog
         self.root.setLevel(self.get_log_level(verbose=verbose, debug=debug))
-        self.root.handlers = [self.syslog_handler if self.syslog else self.console_handler]
+        self.root.handlers = [self.syslog_handler if self.syslog and self.syslog_handler else self.console_handler]
         self.flush()
 
     def flush(self):
@@ -97,7 +101,9 @@ class Log:
                     self.critical(str(e))
                     exit(84)
         self.console_handler.flush()
-        self.syslog_handler.flush()
+
+        if self.syslog_handler:
+            self.syslog_handler.flush()
 
     def tx_data(self, data, socket=None):
         socket_obj = socket if socket else self.socket
