@@ -1,3 +1,10 @@
+ifupdown2 (1.2.3-cl3u22) RELEASED; urgency=medium
+
+  * Closes: CM-23088. ethtool: improve "link-fec off" handling
+  * Closes: CM-23135. fix "link-down yes" on vrf slaves
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Sat, 05 Jan 2019 23:42:42 +0000
+
 ifupdown2 (1.2.2-cl3u21) RELEASED; urgency=medium
 
   * New. Enabled: ethtool: add link-speed 10 to valid values array
