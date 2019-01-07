@@ -2,7 +2,14 @@ ifupdown2 (2.0.0-cl4u0) UNRELEASED; urgency=medium
 
   * New. Enabled: ifupdown2 as a daemon
 
- -- dev-support <dev-support@cumulusnetworks.com>  Wed, 24 Oct 2018 23:59:59 +0200
+ -- dev-support <dev-support@cumulusnetworks.com>  Sat, 05 Jan 2019 23:42:43 +0000
+
+ifupdown2 (1.2.3-cl3u22) RELEASED; urgency=medium
+
+  * Closes: CM-23088. ethtool: improve "link-fec off" handling
+  * Closes: CM-23135. fix "link-down yes" on vrf slaves
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Sat, 05 Jan 2019 23:42:42 +0000
 
 ifupdown2 (1.2.2-cl3u21) RELEASED; urgency=medium
 
