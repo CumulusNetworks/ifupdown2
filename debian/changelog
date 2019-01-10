@@ -1,3 +1,9 @@
+ifupdown2 (1.2.4-cl3u23) UNRELEASED; urgency=medium
+
+  * New. Enabled: statemanager directory path customization via ifupdown2.conf
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:42 +0000
+
 ifupdown2 (1.2.3-cl3u22) RELEASED; urgency=medium
 
   * Closes: CM-23088. ethtool: improve "link-fec off" handling
