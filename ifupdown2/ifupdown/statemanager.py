@@ -15,10 +15,12 @@ try:
     from ifupdown2.ifupdown.iface import *
 
     import ifupdown2.ifupdown.exceptions as exceptions
+    import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
 except ImportError:
     from ifupdown.iface import *
 
     import ifupdown.exceptions as exceptions
+    import ifupdown.ifupdownconfig as ifupdownConfig
 
 
 class pickling():
@@ -61,8 +63,7 @@ class stateManager():
 
     """
 
-    state_dir = '/var/tmp/network/'
-    """directory where the state file is stored """
+    __DEFAULT_STATE_DIR = "/run/network/"
 
     state_filename = 'ifstatenew'
     """name of the satefile """
@@ -78,14 +79,43 @@ class stateManager():
 
         which includes a dictionary of last pickled iface objects
         """
+        self.state_dir = None
+        self.state_file = None
         self.ifaceobjdict = OrderedDict()
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
-        if not os.path.exists(self.state_dir):
-            os.mkdir(self.state_dir)
+
+    def init(self):
+        self.state_dir = ifupdownConfig.config.get("state_dir")
+        used_default = False
+
+        if not self.state_dir:
+            self.logger.debug("statemanager: state_dir not defined in config file, using default: %s" % self.__DEFAULT_STATE_DIR)
+            self.state_dir = self.__DEFAULT_STATE_DIR
+            used_default = True
+
+        try:
+            self._init_makedirs_state_dir()
+        except Exception as e:
+            if used_default:
+                # if the default path was used but still throws an exception...
+                raise
+            self.logger.info("statemanager: %s: using default directory: %s" % (e, self.__DEFAULT_STATE_DIR))
+            self.state_dir = self.__DEFAULT_STATE_DIR
+            try:
+                self._init_makedirs_state_dir()
+            except Exception as e:
+                raise Exception("statemanager: unable to create required directory: %s" % str(e))
+
         if not os.path.exists(self.state_rundir):
-            os.mkdir(self.state_rundir)
-        self.state_file = self.state_dir + self.state_filename
+            os.makedirs(self.state_rundir)
+
+        self.state_file = "%s/%s" % (self.state_dir, self.state_filename)
+
+    def _init_makedirs_state_dir(self):
+        if not os.path.exists(self.state_dir):
+            os.makedirs(self.state_dir)
+
 
     def save_ifaceobj(self, ifaceobj):
         self.ifaceobjdict.setdefault(ifaceobj.name,

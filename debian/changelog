@@ -1,3 +1,10 @@
+ifupdown2 (1.2.4-1) unstable; urgency=medium
+
+  * Fix: statemanager directory path customization via ifupdown2.conf
+         (closes: #918832)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:42 +0000
+
 ifupdown2 (1.2.3-1) unstable; urgency=medium
 
   * Fix: log: use stderr if syslog initialization fails (closes: #917534)
