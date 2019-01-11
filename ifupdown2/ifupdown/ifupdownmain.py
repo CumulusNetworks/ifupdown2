@@ -310,6 +310,11 @@ class ifupdownMain(ifupdownBase):
 
         self._cache_no_repeats = {}
 
+        # initialize global config object with config passed by the user
+        # This makes config available to addon modules
+        ifupdownConfig.config = self.config
+        statemanager.statemanager_api.init()
+
         if self.flags.STATEMANAGER_ENABLE:
             self.statemanager = statemanager.statemanager_api
             try:
@@ -345,10 +350,6 @@ class ifupdownMain(ifupdownBase):
         # that way by the user. It is on by default.
         self._ifaceobj_squash_internal = True if self.config.get(
                             'ifaceobj_squash_internal', '1') == '1' else False
-
-        # initialize global config object with config passed by the user
-        # This makes config available to addon modules
-        ifupdownConfig.config = self.config
 
         self.validate_keywords = {
             '<mac>': self._keyword_mac,

@@ -2,7 +2,13 @@ ifupdown2 (2.0.0-cl4u0) UNRELEASED; urgency=medium
 
   * New. Enabled: ifupdown2 as a daemon
 
- -- dev-support <dev-support@cumulusnetworks.com>  Sat, 05 Jan 2019 23:42:43 +0000
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:43 +0000
+
+ifupdown2 (1.2.4-cl3u23) UNRELEASED; urgency=medium
+
+  * New. Enabled: statemanager directory path customization via ifupdown2.conf
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:42 +0000
 
 ifupdown2 (1.2.3-cl3u22) RELEASED; urgency=medium
 
