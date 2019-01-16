@@ -63,12 +63,35 @@ process_udev()
     fi
 }
 
+# restore file if we diverted it on install/upgrade
+_postinst_remove_diverts()
+{
+    diversions=$(LC_ALL=C.UTF-8 dpkg-divert --list | grep "^diversion of $1 .* by ifupdown2$"  | wc -l 2> /dev/null)
+    if [ $diversions -gt 0 ];
+    then
+        dpkg-divert --remove --package ifupdown2 --rename $1
+    fi
+}
+
+postinst_remove_diverts()
+{
+    for filename in ifup ifdown ifquery ifreload
+    do
+        _postinst_remove_diverts "/sbin/$filename"
+        _postinst_remove_diverts "/usr/share/bash-completion/completions/$filename"
+        _postinst_remove_diverts "/etc/bash_completion.d/$filename"
+        _postinst_remove_diverts "/usr/share/man/man8/$filename.8.gz"
+    done
+    _postinst_remove_diverts "/usr/share/man/man5/interfaces.5.gz"
+}
+
 case "$1" in
     configure)
         fix_dhclient_file_with_space
         process_etc_network_interfaces
         process_udev
         chmod +x /usr/share/ifupdown2/__main__.py
+        postinst_remove_diverts
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

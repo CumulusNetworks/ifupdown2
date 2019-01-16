@@ -1,3 +1,10 @@
+ifupdown2 (1.2.5-1) unstable; urgency=medium
+
+  * Fix: debian: postinst: remove diversion after upgrade from stretch
+         (closes: #919443)
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 16 Jan 2019 23:42:42 +0800
+
 ifupdown2 (1.2.4-1) unstable; urgency=medium
 
   * Fix: statemanager directory path customization via ifupdown2.conf
