@@ -607,6 +607,32 @@ class ifupdownMain(ifupdownBase):
             if ulist: ret_ulist.extend(ulist)
         return list(set(ret_ulist))
 
+    def _remove_circular_veth_dependencies (self, ifaceobj, dlist):
+        # if ifaceobj isn't a veth link, ignore it.
+        if ifaceobj.get_attr_value_first('link-type') != "veth":
+            return
+
+        for diface in dlist:
+            difaceobj = self.get_ifaceobj_first(diface)
+            # If the dependent iface isn't a veth link - which shouldn't
+            # happen - ignore it to be save.
+            if difaceobj and difaceobj.get_attr_value_first('link-type') != "veth":
+                continue
+
+            # If the peer has a desired peer name set and this is us,
+            # see if the peer has a dependency to us too and remove our
+            # redundant dependency to the peer.
+            diface_peer_name = difaceobj.get_attr_value_first('veth-peer-name')
+            if diface_peer_name and diface_peer_name == ifaceobj.name:
+                peer_dlist = difaceobj.lowerifaces
+                if not peer_dlist:
+                    # Not list of dependent interface on the peer.
+                    continue
+
+                # We aleady are in the peers dlist, don't add dependcy from us to peer
+                if ifaceobj.name in peer_dlist:
+                    dlist.remove (difaceobj.name)
+
     def populate_dependency_info(self, ops, ifacenames=None):
         """ recursive function to generate iface dependency info """
 
@@ -640,6 +666,8 @@ class ifupdownMain(ifupdownBase):
             if dependents_processed:
                 continue
             if dlist:
+                self._remove_circular_veth_dependencies (ifaceobj, dlist)
+
                 self.preprocess_dependency_list(ifaceobj,
                                                 dlist, ops)
                 ifaceobj.lowerifaces = dlist
