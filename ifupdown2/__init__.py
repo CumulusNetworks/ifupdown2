@@ -3,7 +3,7 @@
 
 __version__ = '1.2.5'
 
-# Copyright (C) 2014,2015,2016,2017,2018 Cumulus Networks, Inc. All rights reserved
+# Copyright (C) 2014,2015,2016,2017,2018,219 Cumulus Networks, Inc. All rights reserved
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -27,7 +27,7 @@ __version__ = '1.2.5'
 
 __license__ = 'GPL-2'
 __status__ = 'Production'
-__copyright__ = 'Copyright (C) 2014,2015,2016,2017,2018 Cumulus Networks, Inc.'
+__copyright__ = 'Copyright (C) 2014,2015,2016,2017,2018,2019 Cumulus Networks, Inc.'
 
 
 __authors__ = [
