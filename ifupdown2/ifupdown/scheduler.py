@@ -7,6 +7,7 @@
 #    interface scheduler
 #
 
+import os
 import sys
 
 from sets import Set
@@ -132,7 +133,10 @@ class ifaceScheduler():
                 try:
                     utils.exec_command(mname, env=cenv)
                 except Exception, e:
-                    ifupdownobj.log_error('%s: %s %s' % (ifacename, op, str(e)))
+                    if "permission denied" in str(e).lower():
+                        ifupdownobj.logger.warning('%s: %s %s' % (ifacename, op, str(e)))
+                    else:
+                        ifupdownobj.log_error('%s: %s %s' % (ifacename, op, str(e)))
 
     @classmethod
     def run_iface_list_ops(cls, ifupdownobj, ifaceobjs, ops):

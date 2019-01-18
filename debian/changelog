@@ -1,6 +1,7 @@
 ifupdown2 (1.2.4-cl3u23) UNRELEASED; urgency=medium
 
   * New. Enabled: statemanager directory path customization via ifupdown2.conf
+  * Fix: ifupdown2 scripts: log warning on EACCES exception (Fixes #89)
 
  -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:42 +0000
 
