@@ -1311,7 +1311,8 @@ class LinkUtils(utilsBase):
                           remoteips=None,
                           learning='on',
                           ageing=None,
-                          anycastip=None):
+                          anycastip=None,
+                          ttl=None):
         if svcnodeip and remoteips:
             raise Exception("svcnodeip and remoteip is mutually exclusive")
         args = ''
@@ -1321,6 +1322,8 @@ class LinkUtils(utilsBase):
             args += ' ageing %s' % ageing
         if learning == 'off':
             args += ' nolearning'
+        if ttl is not None:
+            args += ' ttl %s' % ttl
 
         if self.link_exists(name):
             cmd = 'link set dev %s type vxlan dstport %d' % (name, LinkUtils.VXLAN_UDP_PORT)

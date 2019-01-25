@@ -79,7 +79,11 @@ class vxlan(moduleBase):
                     'vxlan-physdev':
                         {'help': 'vxlan physical device',
                          'example': ['vxlan-physdev eth1']},
-
+                    "vxlan-ttl": {
+                        "help": "specifies the TTL value to use in outgoing packets (range 1..255)",
+                        "validvals": ['<number>', 'auto'],
+                        "example": ['vxlan-ttl 42'],
+                    }
                 }}
     _clagd_vxlan_anycast_ip = ""
     _vxlan_local_tunnelip = None
@@ -158,7 +162,7 @@ class vxlan(moduleBase):
             purge_remotes = self._purge_remotes
         return purge_remotes
 
-    def should_create_set_vxlan(self, link_exists, ifname, vxlan_id, local, learning, ageing, group):
+    def should_create_set_vxlan(self, link_exists, ifname, vxlan_id, local, learning, ageing, group, ttl):
         """
             should we issue a netlink: ip link add dev %ifname type vxlan ...?
             checking each attribute against the cache
@@ -172,6 +176,9 @@ class vxlan(moduleBase):
         except:
             pass
 
+        if ttl is not None and not self.ipcmd.cache_check((ifname, 'linkinfo', Link.IFLA_VXLAN_TTL), ttl):
+                return True
+
         for attr_list, value in (
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_ID), vxlan_id),
             ((ifname, 'linkinfo', Link.IFLA_VXLAN_AGEING), ageing),
@@ -183,6 +190,15 @@ class vxlan(moduleBase):
                 return True
         return False
 
+    def get_vxlan_ttl_from_string(self, ttl_config):
+        ttl = 0
+        if ttl_config:
+            if ttl_config.lower() == "auto":
+                ttl = 0
+            else:
+                ttl = int(ttl_config)
+        return ttl
+
     def _vxlan_create(self, ifaceobj):
         vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
         if vxlanid:
@@ -193,6 +209,21 @@ class vxlan(moduleBase):
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             if not local and vxlan._vxlan_local_tunnelip:
                 local = vxlan._vxlan_local_tunnelip
+
+            ttl_config = ifaceobj.get_attr_value_first('vxlan-ttl')
+            try:
+                if ttl_config:
+                    ttl = self.get_vxlan_ttl_from_string(ttl_config)
+                else:
+                    ttl = self.get_vxlan_ttl_from_string(
+                        policymanager.policymanager_api.get_attr_default(
+                            module_name=self.__class__.__name__,
+                            attr='vxlan-ttl'
+                        )
+                    )
+            except:
+                self.log_error('%s: invalid vxlan-ttl \'%s\'' % (ifname, ttl_config), ifaceobj)
+                return
 
             self.syntax_check_localip_anycastip_equal(ifname, local, anycastip)
             # if both local-ip and anycast-ip are identical the function prints a warning
@@ -309,7 +340,7 @@ class vxlan(moduleBase):
                                         % (ifname, cache_port, ifname, ifname))
                     vxlan_port = cache_port
 
-            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group):
+            if self.should_create_set_vxlan(link_exists, ifname, vxlanid, local, learning, ageing, group, ttl):
                 try:
                     netlink.link_add_vxlan(ifname, vxlanid,
                                            local=local,
@@ -317,7 +348,8 @@ class vxlan(moduleBase):
                                            ageing=ageing,
                                            group=group,
                                            dstport=vxlan_port,
-                                           physdev=physdev)
+                                           physdev=physdev,
+                                           ttl=ttl)
                 except Exception as e_netlink:
                     self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:
@@ -326,7 +358,8 @@ class vxlan(moduleBase):
                                                      svcnodeip=group,
                                                      remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
                                                      learning='on' if learning else 'off',
-                                                     ageing=ageing)
+                                                     ageing=ageing,
+                                                     ttl=ttl)
                     except Exception as e_iproute2:
                         self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
                         return
