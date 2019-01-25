@@ -1,3 +1,9 @@
+ifupdown2 (1.2.5-cl3u24) UNRELEASED; urgency=medium
+
+  * New. Enabled: add support for vxlan-ttl attribute
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:43 +0000
+
 ifupdown2 (1.2.4-cl3u23) UNRELEASED; urgency=medium
 
   * New. Enabled: statemanager directory path customization via ifupdown2.conf
