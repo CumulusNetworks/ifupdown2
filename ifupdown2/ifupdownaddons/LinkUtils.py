@@ -912,23 +912,24 @@ class LinkUtils(utilsBase):
             interface_name = ifname
 
         if addr_virtual_ifaceobj:
-            for virtual in addr_virtual_ifaceobj.get_attr_value('address-virtual') or []:
-                for ip in virtual.split():
-                    try:
-                        IPNetwork(ip)
-                        config_addrs.add(ip)
-                    except:
-                        pass
-
-            saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(addr_virtual_ifaceobj.name)
-            for saved_ifaceobj in saved_ifaceobjs or []:
-                for virtual in saved_ifaceobj.get_attr_value('address-virtual') or []:
+            for attr_name in ["address-virtual", "vrrp"]:
+                for virtual in addr_virtual_ifaceobj.get_attr_value(attr_name) or []:
                     for ip in virtual.split():
                         try:
                             IPNetwork(ip)
                             config_addrs.add(ip)
                         except:
                             pass
+
+                saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(addr_virtual_ifaceobj.name)
+                for saved_ifaceobj in saved_ifaceobjs or []:
+                    for virtual in saved_ifaceobj.get_attr_value(attr_name) or []:
+                        for ip in virtual.split():
+                            try:
+                                IPNetwork(ip)
+                                config_addrs.add(ip)
+                            except:
+                                pass
         else:
             if ifaceobj:
                 for addr in ifaceobj.get_attr_value('address') or []:
