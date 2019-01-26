@@ -90,6 +90,13 @@ class vxlan(Addon, moduleBase):
                 "help": "vxlan physical device",
                 "example": ["vxlan-physdev eth1"]
             },
+            "vxlan-ttl": {
+                "help": "specifies the TTL value to use in outgoing packets "
+                        "(range 0..255), 0=auto",
+                "default": "0",
+                "validvals": ["0", "255"],
+                "example": ['vxlan-ttl 42'],
+            }
         }
     }
 
@@ -170,7 +177,7 @@ class vxlan(Addon, moduleBase):
         return purge_remotes
 
     @staticmethod
-    def should_create_set_vxlan(link_exists, vxlan_id, local, learning, ageing, group, cached_vxlan_ifla_info_data):
+    def should_create_set_vxlan(link_exists, vxlan_id, local, learning, ageing, group, ttl, cached_vxlan_ifla_info_data):
         """
             should we issue a netlink: ip link add dev %ifname type vxlan ...?
             checking each attribute against the cache
@@ -190,6 +197,7 @@ class vxlan(Addon, moduleBase):
                 (Link.IFLA_VXLAN_LOCAL, local),
                 (Link.IFLA_VXLAN_LEARNING, learning),
                 (Link.IFLA_VXLAN_GROUP, group),
+                (Link.IFLA_VXLAN_TTL, ttl),
         ):
             if nl_value != cached_vxlan_ifla_info_data.get(nl_attr):
                 return True
@@ -206,6 +214,19 @@ class vxlan(Addon, moduleBase):
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             if not local and self._vxlan_local_tunnelip:
                 local = self._vxlan_local_tunnelip
+
+            ttl_config = ifaceobj.get_attr_value_first('vxlan-ttl')
+            try:
+                if not ttl_config:
+                    ttl_config = policymanager.policymanager_api.get_attr_default(
+                        module_name=self.__class__.__name__,
+                        attr='vxlan-ttl'
+                    )
+
+                ttl = int(ttl_config or 0)
+            except:
+                self.log_error('%s: invalid vxlan-ttl \'%s\'' % (ifname, ttl_config), ifaceobj)
+                return
 
             self.syntax_check_localip_anycastip_equal(ifname, local, anycastip)
             # if both local-ip and anycast-ip are identical the function prints a warning
@@ -325,7 +346,7 @@ class vxlan(Addon, moduleBase):
                                         % (ifname, cache_port, ifname, ifname))
                     vxlan_port = cache_port
 
-            if self.should_create_set_vxlan(link_exists, vxlanid, local, learning, ageing, group, cached_vxlan_ifla_info_data):
+            if self.should_create_set_vxlan(link_exists, vxlanid, local, learning, ageing, group, ttl, cached_vxlan_ifla_info_data):
                 try:
                     netlink.link_add_vxlan(ifname, vxlanid,
                                            local=local,
@@ -333,7 +354,8 @@ class vxlan(Addon, moduleBase):
                                            ageing=ageing,
                                            group=group,
                                            dstport=vxlan_port,
-                                           physdev=physdev)
+                                           physdev=physdev,
+                                           ttl=ttl)
                 except Exception as e_netlink:
                     self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:
@@ -342,7 +364,8 @@ class vxlan(Addon, moduleBase):
                                                      svcnodeip=group,
                                                      remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
                                                      learning='on' if learning else 'off',
-                                                     ageing=ageing)
+                                                     ageing=ageing,
+                                                     ttl=ttl)
                     except Exception as e_iproute2:
                         self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
                         return

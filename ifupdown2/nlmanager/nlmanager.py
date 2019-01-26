@@ -964,7 +964,7 @@ class NetlinkManager(object):
         return self.tx_nlpacket_get_response(nbr)
 
     def link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None,
-                       group=None, learning=True, ageing=None, physdev=None):
+                       group=None, learning=True, ageing=None, physdev=None, ttl=None):
 
         debug = RTM_NEWLINK in self.debug
 
@@ -977,6 +977,7 @@ class NetlinkManager(object):
             info_data[Link.IFLA_VXLAN_GROUP] = group
 
         info_data[Link.IFLA_VXLAN_LEARNING] = int(learning)
+        info_data[Link.IFLA_VXLAN_TTL] = ttl
 
         if ageing:
             info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
