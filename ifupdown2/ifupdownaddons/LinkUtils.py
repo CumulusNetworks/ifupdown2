@@ -2456,12 +2456,13 @@ class LinkUtils(utilsBase):
             if not with_address_virtual:
                 continue
             #
-            # address-virtual also needs to be accounted for
+            # address-virtual and vrrp ips also needs to be accounted for
             #
             addresses_virtual = ifaceobj.get_attr_value('address-virtual')
+            vrrp              = ifaceobj.get_attr_value('vrrp')
 
-            if addresses_virtual:
-                for addr_virtual_entry in addresses_virtual:
+            for attr_config in (addresses_virtual, vrrp):
+                for addr_virtual_entry in attr_config or []:
                     for addr in addr_virtual_entry.split():
                         try:
                             ip_network_obj = IPNetwork(addr)
