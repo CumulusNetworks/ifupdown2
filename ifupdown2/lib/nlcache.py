@@ -2064,7 +2064,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         bridge_self = False if master else True
         self.vlan_modify(nlpacket.RTM_DELLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
 
-    def _link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None, group=None, learning=True, ageing=None, physdev=None):
+    def _link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None, group=None, learning=True, ageing=None, physdev=None, ttl=None):
         debug = nlpacket.RTM_NEWLINK in self.debug
         info_data = {nlpacket.Link.IFLA_VXLAN_ID: int(vxlanid)}
 
@@ -2076,6 +2076,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             info_data[nlpacket.Link.IFLA_VXLAN_GROUP] = group
 
         info_data[nlpacket.Link.IFLA_VXLAN_LEARNING] = int(learning)
+        info_data[nlpacket.Link.IFLA_VXLAN_TTL] = ttl
 
         if ageing:
             info_data[nlpacket.Link.IFLA_VXLAN_AGEING] = int(ageing)
