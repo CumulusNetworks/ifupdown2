@@ -6,6 +6,35 @@ class DryRun(object):
     Detect dry_run functions and save the associated handler
     """
     def __init__(self):
+        # disabling DryRun as it's creating a huge memory leak in daemon mode
+        # this needs to be fixed before re-enabling dryruns
+        # context: in daemon mode, each time we create an object with DryRun
+        # inheritance, a reference to this object and its code is added to the
+        # DryRunManager via DryRunEntry and stored in a list
+        # DryRunManager:__entries, this list keeps growing and keeps refs to
+        # objects that should be collected by the garbage collector.
+        # A potential fix would be to have a dictionary to store those entries
+        # instead of a list, something like:
+        # {
+        #   "module": {
+        #       "base_attr_name": {
+        #           base_attr_value: attr_value
+        #       }
+        # }
+        # This needs to be studied a bit longer...
+        #
+        # Also the destructor of each objects should make sure to remove it's
+        # DryRunEntries from the dict when the object is removed?
+        # -> Not sure this would work... Since many objects of the same type
+        # can exists at the same time
+        #
+        # It's probably fine to keep a dictionary (without duplicates)
+        # of all the module and dry_run entries.
+        # Once a new object is created (with DryRun inheritance) we can look
+        # in this "cache" to see if we already have an existing dryrun entry
+        # and re-use this one.
+        return
+
         for attr_name in dir(self):
             try:
                 # We need to iterate through the object attribute
