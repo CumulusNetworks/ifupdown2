@@ -101,10 +101,10 @@ class addressvirtual(Addon, moduleBase):
             bridgename = ifaceobj.lowerifaces[0]
             vlan = self._get_vlan_id(ifaceobj)
             if netlink.cache.bridge_is_vlan_aware(bridgename):
-                [self.ipcmd.bridge_fdb_add(bridgename, addr,
+                [self.iproute2.bridge_fdb_add(bridgename, addr,
                     vlan) for addr in hwaddress]
         elif netlink.cache.link_is_bridge(ifaceobj.name):
-            [self.ipcmd.bridge_fdb_add(ifaceobj.name, addr)
+            [self.iproute2.bridge_fdb_add(ifaceobj.name, addr)
                     for addr in hwaddress]
 
     def _remove_addresses_from_bridge(self, ifaceobj, hwaddress):
@@ -115,14 +115,14 @@ class addressvirtual(Addon, moduleBase):
             if netlink.cache.bridge_is_vlan_aware(bridgename):
                 for addr in hwaddress:
                     try:
-                        self.ipcmd.bridge_fdb_del(bridgename, addr, vlan)
+                        self.iproute2.bridge_fdb_del(bridgename, addr, vlan)
                     except Exception, e:
                         self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
                         pass
         elif netlink.cache.link_is_bridge(ifaceobj.name):
             for addr in hwaddress:
                 try:
-                    self.ipcmd.bridge_fdb_del(ifaceobj.name, addr)
+                    self.iproute2.bridge_fdb_del(ifaceobj.name, addr)
                 except Exception, e:
                     self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
                     pass

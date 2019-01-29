@@ -417,17 +417,21 @@ class vxlan(Addon, moduleBase):
 
                 for addr in del_list:
                     try:
-                        self.ipcmd.bridge_fdb_del(ifaceobj.name,
-                                                  '00:00:00:00:00:00',
-                                                  None, True, addr)
+                        self.iproute2.bridge_fdb_del(
+                            ifaceobj.name,
+                            "00:00:00:00:00:00",
+                            None, True, addr
+                        )
                     except:
                         pass
 
                 for addr in add_list:
                     try:
-                        self.ipcmd.bridge_fdb_append(ifaceobj.name,
-                                                     '00:00:00:00:00:00',
-                                                     None, True, addr)
+                        self.iproute2.bridge_fdb_append(
+                            ifaceobj.name,
+                            "00:00:00:00:00:00",
+                            None, True, addr
+                        )
                     except:
                         pass
 

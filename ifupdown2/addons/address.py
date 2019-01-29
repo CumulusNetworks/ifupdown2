@@ -369,10 +369,10 @@ class address(Addon, moduleBase):
                 else:
                     self.write_file('/proc/sys/net/ipv4/conf/%s/arp_accept' % ifaceobj.name, '0')
         if hwaddress and is_vlan_dev_on_vlan_aware_bridge:
-           if up:
-              self.ipcmd.bridge_fdb_add(bridgename, hwaddress, vlan)
-           else:
-              self.ipcmd.bridge_fdb_del(bridgename, hwaddress, vlan)
+            if up:
+                self.iproute2.bridge_fdb_add(bridgename, hwaddress, vlan)
+            else:
+                self.iproute2.bridge_fdb_del(bridgename, hwaddress, vlan)
 
     def __get_ip_addr_with_attributes(self, ifaceobj_list, ifname):
         user_config_ip_addrs = OrderedDict()

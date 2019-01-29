@@ -1668,50 +1668,6 @@ class LinkUtils(utilsBase):
                                 (utils.bridge_cmd,
                                  v, bridgeportname, target)) for v in vids]
 
-    @staticmethod
-    def bridge_fdb_add(dev, address, vlan=None, bridge=True, remote=None):
-        target = 'self' if bridge else ''
-        vlan_str = ''
-        if vlan:
-            vlan_str = 'vlan %s ' % vlan
-
-        dst_str = ''
-        if remote:
-            dst_str = 'dst %s ' % remote
-
-        utils.exec_command('%s fdb replace %s dev %s %s %s %s' %
-                           (utils.bridge_cmd,
-                            address, dev, vlan_str, target, dst_str))
-
-    @staticmethod
-    def bridge_fdb_append(dev, address, vlan=None, bridge=True, remote=None):
-        target = 'self' if bridge else ''
-        vlan_str = ''
-        if vlan:
-            vlan_str = 'vlan %s ' % vlan
-
-        dst_str = ''
-        if remote:
-            dst_str = 'dst %s ' % remote
-
-        utils.exec_command('%s fdb append %s dev %s %s %s %s' %
-                           (utils.bridge_cmd,
-                            address, dev, vlan_str, target, dst_str))
-
-    @staticmethod
-    def bridge_fdb_del(dev, address, vlan=None, bridge=True, remote=None):
-        target = 'self' if bridge else ''
-        vlan_str = ''
-        if vlan:
-            vlan_str = 'vlan %s ' % vlan
-
-        dst_str = ''
-        if remote:
-            dst_str = 'dst %s ' % remote
-        utils.exec_command('%s fdb del %s dev %s %s %s %s' %
-                           (utils.bridge_cmd,
-                            address, dev, vlan_str, target, dst_str))
-
     def bridge_is_vlan_aware(self, bridgename):
         filename = '/sys/class/net/%s/bridge/vlan_filtering' % bridgename
         if os.path.exists(filename) and self.read_file_oneline(filename) == '1':

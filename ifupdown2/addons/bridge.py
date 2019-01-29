@@ -2134,7 +2134,7 @@ class bridge(Addon, moduleBase):
 
     def _add_bridge_mac_to_fdb(self, ifaceobj, bridge_mac):
         if not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE and bridge_mac and ifaceobj.get_attr_value('address'):
-            self.ipcmd.bridge_fdb_add(ifaceobj.name, bridge_mac, vlan=None, bridge=True, remote=None)
+            self.iproute2.bridge_fdb_add(ifaceobj.name, bridge_mac, vlan=None, bridge=True, remote=None)
 
     def _up_bridge_mac(self, ifaceobj, ifaceobj_getfunc):
         """

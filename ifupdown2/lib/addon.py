@@ -27,10 +27,12 @@ import logging
 try:
     from ifupdown2.lib.io import IO
     from ifupdown2.lib.sysfs import Sysfs
+    from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.lib.base_objects import Netlink, Cache
 except ImportError:
     from lib.io import IO
     from lib.sysfs import Sysfs
+    from lib.iproute2 import IPRoute2
     from lib.base_objects import Netlink, Cache
 
 
@@ -48,3 +50,4 @@ class Addon(Netlink, Cache):
 
         self.io = IO()
         self.sysfs = Sysfs()
+        self.iproute2 = IPRoute2()
