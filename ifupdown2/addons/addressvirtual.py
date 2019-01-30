@@ -42,35 +42,35 @@ except ImportError:
 class addressvirtual(Addon, moduleBase):
     """  ifupdown2 addon module to configure virtual addresses """
 
-    _modinfo = {'mhelp' : 'address module configures virtual addresses for ' +
-                          'interfaces. It creates a macvlan interface for ' +
-                          'every mac ip address-virtual line',
-                'attrs' : {
-                    'address-virtual' :
-                        { 'help' : 'bridge router virtual mac and ips',
-                          'multivalue' : True,
-                          'validvals' : ['<mac-ip/prefixlen-list>',],
-                          'example': ['address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24']
-                          },
-                    'address-virtual-ipv6-addrgen': {
-                        'help': 'enable disable ipv6 link addrgenmode',
-                        'validvals': ['on', 'off'],
-                        'default': 'on',
-                        'example': [
-                            'address-virtual-ipv6-addrgen on',
-                            'address-virtual-ipv6-addrgen off'
-                        ]
-                    },
-                    "vrrp": {
-                        "help": "VRRP support",
-                        "multivalue": True,
-                        "example": [
-                            "vrrp 1 10.0.0.15/24 2001:0db8::0370:7334/64",
-                            "vrrp 42 10.0.0.42/24"
-                        ]
-                    }
-                }}
-
+    _modinfo = {
+        "mhelp": "address module configures virtual addresses for interfaces. "
+                 "It creates a macvlan interface for every mac ip address-virtual line",
+        "attrs": {
+            "address-virtual": {
+                "help": "bridge router virtual mac and ips",
+                "multivalue": True,
+                "validvals": ["<mac-ip/prefixlen-list>", ],
+                "example": ["address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24"]
+            },
+            "address-virtual-ipv6-addrgen": {
+                "help": "enable disable ipv6 link addrgenmode",
+                "validvals": ["on", "off"],
+                "default": "on",
+                "example": [
+                    "address-virtual-ipv6-addrgen on",
+                    "address-virtual-ipv6-addrgen off"
+                ]
+            },
+            "vrrp": {
+                "help": "VRRP support",
+                "multivalue": True,
+                "example": [
+                    "vrrp 1 10.0.0.15/24 2001:0db8::0370:7334/64",
+                    "vrrp 42 10.0.0.42/24"
+                ]
+            }
+        }
+    }
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
@@ -887,11 +887,12 @@ class addressvirtual(Addon, moduleBase):
                 return
         ifaceobjrunning.update_config('address-virtual-ipv6-addrgen', 'off' if ipv6_addrgen else 'on')
 
-
-    _run_ops = {'up' : _up,
-               'down' : _down,
-               'query-checkcurr' : _query_check,
-               'query-running' : _query_running}
+    _run_ops = {
+        'up': _up,
+        'down': _down,
+        'query-checkcurr': _query_check,
+        'query-running': _query_running
+    }
 
     def get_ops(self):
         """ returns list of ops supported by this module """
