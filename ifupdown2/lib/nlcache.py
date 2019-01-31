@@ -2262,6 +2262,23 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     ###
 
+    def link_add_macvlan(self, ifname, macvlan_ifname):
+        self.logger.info("%s: netlink: ip link add link %s name %s type macvlan mode private"
+                         % (ifname, ifname, macvlan_ifname))
+        ifindex = self.cache.get_ifindex(ifname)
+        try:
+            return self._link_add_macvlan(ifindex, macvlan_ifname)
+        except Exception as e:
+            raise Exception("netlink: %s: cannot create macvlan %s: %s"
+                            % (ifname, macvlan_ifname, str(e)))
+
+    def link_add_macvlan_dry_run(self, ifname, macvlan_ifame):
+        self.logger.info("%s: dry_run: netlink: ip link add link %s name %s type macvlan mode private"
+                         % (ifname, ifname, macvlan_ifame))
+        return True
+
+    ############################################################################
+
     def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
         log_msg = ["%s: dryrun: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
 
