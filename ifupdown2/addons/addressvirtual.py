@@ -146,9 +146,9 @@ class addressvirtual(Addon, moduleBase):
                 fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
                 if not fdb_addrs:
                    return False
-                hwaddress_int = self.mac_str_to_int(hwaddress)
+                hwaddress_int = utils.mac_str_to_int(hwaddress)
                 for mac in fdb_addrs:
-                    if self.mac_str_to_int(mac) == hwaddress_int:
+                    if utils.mac_str_to_int(mac) == hwaddress_int:
                         return True
                 return False
         return True
@@ -360,12 +360,6 @@ class addressvirtual(Addon, moduleBase):
                 if u.startswith(macvlan_prefix):
                     self.ipcmd.link_set(u, 'master', vrfname,
                                         state='up')
-
-    def mac_str_to_int(self, mac):
-        mac_int = 0
-        for n in mac.translate(self.mac_translate_tab).split():
-            mac_int += int(n, 16)
-        return mac_int
 
     def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list):
         """
@@ -585,7 +579,7 @@ class addressvirtual(Addon, moduleBase):
                 user_config_list.append({
                     "ifname": macvlan_ip4_ifname,
                     "hwaddress": macvlan_ip4_mac,
-                    "hwaddress_int": self.mac_str_to_int(macvlan_ip4_mac),
+                    "hwaddress_int": utils.mac_str_to_int(macvlan_ip4_mac),
                     "ips": ip4,
                     "id": vrrp_id
                 })
@@ -596,7 +590,7 @@ class addressvirtual(Addon, moduleBase):
                 user_config_list.append({
                     "ifname": macvlan_ip6_ifname,
                     "hwaddress": macvlan_ip6_mac,
-                    "hwaddress_int": self.mac_str_to_int(macvlan_ip6_mac),
+                    "hwaddress_int": utils.mac_str_to_int(macvlan_ip6_mac),
                     "ips": ip6,
                     "id": vrrp_id
                 })
@@ -643,7 +637,7 @@ class addressvirtual(Addon, moduleBase):
 
             if mac != "none":
                 config["hwaddress"] = mac
-                config["hwaddress_int"] = self.mac_str_to_int(mac)
+                config["hwaddress_int"] = utils.mac_str_to_int(mac)
 
             ip_network_obj_list = []
             for ip in av_attrs[1:]:
@@ -787,7 +781,7 @@ class addressvirtual(Addon, moduleBase):
                     continue
 
                 try:
-                    if self.mac_str_to_int(rhwaddress) == macvlan_hwaddress_int \
+                    if utils.mac_str_to_int(rhwaddress) == macvlan_hwaddress_int \
                             and self.ipcmd.compare_user_config_vs_running_state(raddrs, ips) \
                             and self._check_addresses_in_bridge(ifaceobj, macvlan_hwaddress):
                         ifaceobjcurr.update_config_with_status(

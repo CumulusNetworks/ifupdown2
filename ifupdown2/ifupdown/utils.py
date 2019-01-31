@@ -131,6 +131,14 @@ class utils():
                 logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
 
     @staticmethod
+    def mac_str_to_int(address):
+        mac = 0
+        for i in address.split(":"):
+            mac = mac << 8
+            mac += int(i, 16)
+        return mac
+
+    @staticmethod
     def get_onff_from_onezero(value):
         if value in utils._onoff_onezero:
             return utils._onoff_onezero[value]
