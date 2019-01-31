@@ -39,9 +39,21 @@ class IO(BaseObject):
                 f.write(string)
             return True
         except IOError, e:
-            self.logger.warn("error writing to file %s: %s" % (path, str(e)))
+            self.logger.warn("error while writing to file %s: %s" % (path, str(e)))
             return False
 
     def write_to_file_dry_run(self, path, string):
         self.logger.info("dryrun: writing \"%s\" to file %s" % (string, path))
         return True
+
+    def read_file_oneline(self, path):
+        try:
+            self.logger.info("reading '%s'" % path)
+            with open(path, "r") as f:
+                return f.readline().strip("\n")
+        except:
+            return None
+
+    def read_file_oneline_dry_run(self, path):
+        self.logger.info("dryrun: reading \"%s\"" % path)
+        return None
