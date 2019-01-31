@@ -413,7 +413,7 @@ class addressvirtual(Addon, moduleBase):
                 )
 
             if macvlan_hwaddr:
-                self.ipcmd.link_set_hwaddress(macvlan_ifname, macvlan_hwaddr)
+                self.iproute2.link_set_address(macvlan_ifname, macvlan_hwaddr)
                 hw_address_list.append(macvlan_hwaddr)
 
             if self.addressvirtual_with_route_metric and self.ipcmd.addr_metric_support():
