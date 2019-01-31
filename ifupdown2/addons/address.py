@@ -884,7 +884,7 @@ class address(Addon, moduleBase):
         }.get(user_configured_ipv6_addrgen.lower(), None)
 
         if ipv6_addrgen_nl is not None:
-            self.ipcmd.ipv6_addrgen(ifaceobj.name, ipv6_addrgen_nl, link_created=True)
+            self.iproute2.link_set_ipv6_addrgen(ifaceobj.name, ipv6_addrgen_nl, link_created=True)
             # link_create=False will flush the addr cache of that intf
         else:
             self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))

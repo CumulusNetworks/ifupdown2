@@ -996,6 +996,18 @@ class _NetlinkCache:
             else:
                 self._addr_cache[ifname] = [addr]
 
+    def address_flush_link(self, ifname):
+        """
+        Flush address cache for link 'ifname'
+        :param ifname:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                self._addr_cache[ifname] = []
+        except:
+            pass
+
     def force_remove_addr(self, ifname, addr):
         """
         When calling addr_del (RTM_DELADDR) we need to manually remove the

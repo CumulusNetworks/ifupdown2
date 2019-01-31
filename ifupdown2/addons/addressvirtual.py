@@ -406,7 +406,11 @@ class addressvirtual(Addon, moduleBase):
                 self._handle_vrf_slaves(macvlan_ifname, ifaceobj)
 
             if user_configured_ipv6_addrgenmode:
-                self.ipcmd.ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
+                self.iproute2.link_set_ipv6_addrgen(
+                    macvlan_ifname,
+                    ipv6_addrgen_user_value,
+                    link_created
+                )
 
             if macvlan_hwaddr:
                 self.ipcmd.link_set_hwaddress(macvlan_ifname, macvlan_hwaddr)

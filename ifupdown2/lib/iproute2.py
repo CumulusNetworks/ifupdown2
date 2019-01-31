@@ -23,9 +23,11 @@
 #
 
 try:
+    from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.lib.base_objects import Cache
 except ImportError:
+    from lib.sysfs import Sysfs
     from ifupdown.utils import utils
     from lib.base_objects import Cache
 
@@ -34,6 +36,9 @@ class IPRoute2(Cache):
 
     def __init__(self):
         Cache.__init__(self)
+
+        self.sysfs = Sysfs()
+
         self.__batch = None
         self.__batch_mode = False
 
@@ -153,6 +158,70 @@ class IPRoute2(Cache):
             "%s: dryrun: executing %s link add link %s name %s type macvlan mode private"
             % (ifname, utils.ip_cmd, ifname, macvlan_ifname)
         )
+
+    ############################################################################
+    # ADDRESS
+    ############################################################################
+
+    def link_set_ipv6_addrgen_dry_run(self, ifname, addrgen, link_created):
+        addrgen_str = "none" if addrgen else "eui64"
+        self.link_down(ifname)
+        self.__execute_or_batch(utils.ip_cmd, "link set dev %s addrgenmode %s" % (ifname, addrgen_str))
+        self.link_up(ifname)
+
+    def link_set_ipv6_addrgen(self, ifname, addrgen, link_created):
+        """
+        IFLA_INET6_ADDR_GEN_MODE values:
+        0 = eui64
+        1 = none
+
+        :param ifname:
+        :param addrgen:
+        :param link_created:
+        :return:
+        """
+        cached_ipv6_addr_gen_mode = self.cache.get_link_ipv6_addrgen_mode(ifname)
+
+        if cached_ipv6_addr_gen_mode == addrgen:
+            return True
+
+        disabled_ipv6 = self.sysfs.get_ipv6_conf_disable_ipv6(ifname)
+
+        if disabled_ipv6:
+            self.logger.info("%s: cannot set addrgen: ipv6 is disabled on this device" % ifname)
+            return False
+
+        if link_created:
+            link_mtu = self.sysfs.link_get_mtu(ifname)
+        else:
+            link_mtu = self.cache.get_link_mtu(ifname)
+
+        if link_mtu < 1280:
+            self.logger.info("%s: ipv6 addrgen is disabled on device with MTU "
+                             "lower than 1280 (current mtu %s): cannot set addrgen %s"
+                             % (ifname, link_mtu, "off" if addrgen else "on"))
+            return False
+
+        if not link_created:
+            # When setting addrgenmode it is necessary to flap the macvlan
+            # device. After flapping the device we also need to re-add all
+            # the user configuration. The best way to add the user config
+            # is to flush our internal address cache
+            self.cache.address_flush_link(ifname)
+
+        is_link_up = self.cache.link_is_up(ifname)
+
+        if is_link_up:
+            self.link_down_force(ifname)
+
+        self.__execute_or_batch(
+            utils.ip_cmd,
+            "link set dev %s addrgenmode %s" % (ifname, "none" if addrgen else "eui64"))
+
+        if is_link_up:
+            self.link_up_force(ifname)
+
+        return True
 
     ############################################################################
     ### BRIDGE
