@@ -59,6 +59,9 @@ class Sysfs(IO, Cache):
     # MTU
     #
 
+    def link_get_mtu(self, ifname):
+        return int(self.read_file_oneline("/sys/class/net/%s/mtu" % ifname) or 0)
+
     def link_set_mtu(self, ifname, mtu_str, mtu_int):
         if self.cache.get_link_mtu(ifname) != mtu_int:
             if self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str):
