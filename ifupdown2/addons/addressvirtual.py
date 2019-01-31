@@ -397,8 +397,11 @@ class addressvirtual(Addon, moduleBase):
             macvlan_hwaddr = intf_config_dict.get("hwaddress")
             ips = intf_config_dict.get("ips")
 
-            if not self.ipcmd.link_exists(macvlan_ifname):
-                self.ipcmd.link_add_macvlan(ifname, macvlan_ifname)
+            if not self.cache.link_exists(macvlan_ifname):
+                try:
+                    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
+                except:
+                    self.iproute2.link_add_macvlan(ifname, macvlan_ifname)
                 link_created = True
 
             # first thing we need to handle vrf enslavement
