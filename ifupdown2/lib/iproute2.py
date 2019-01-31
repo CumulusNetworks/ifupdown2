@@ -81,6 +81,30 @@ class IPRoute2(Cache):
             self.__batch = None
 
     ############################################################################
+    # LINK
+    ############################################################################
+
+    def link_up(self, ifname):
+        if not self.cache.link_is_up(ifname):
+            self.link_up_force(ifname)
+
+    def link_down(self, ifname):
+        if self.cache.link_is_up(ifname):
+            self.link_down_force(ifname)
+
+    def link_up_dry_run(self, ifname):
+        self.link_up_force(ifname)
+
+    def link_down_dry_run(self, ifname):
+        self.link_down_force(ifname)
+
+    def link_up_force(self, ifname):
+        self.__execute_or_batch(utils.ip_cmd, "link set dev %s up" % ifname)
+
+    def link_down_force(self, ifname):
+        self.__execute_or_batch(utils.ip_cmd, "link set dev %s down" % ifname)
+
+    ############################################################################
     ### BRIDGE
     ############################################################################
 
