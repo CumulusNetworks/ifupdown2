@@ -236,6 +236,7 @@ class Attribute(object):
         self.HEADER_LEN = calcsize(self.HEADER_PACK)
         self.PACK = None
         self.LEN = None
+        self.raw = None  # raw value (i.e. int for mac address)
         self.value = None
         self.nested = False
         self.net_byteorder = False
@@ -599,7 +600,8 @@ class AttributeMACAddress(Attribute):
             # MAC Address 
             elif self.length == 10:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
-                self.value = mac_int_to_str(data1 << 16 | data2)
+                self.raw = data1 << 16 | data2
+                self.value = mac_int_to_str(self.raw)
             # GREv6 interface uses a 16-byte IP address for this attribute 
             elif self.length == 20:
                 self.value = IPv6Address(unpack('>L', self.data[16:])[0])
