@@ -195,11 +195,6 @@ class addressvirtual(Addon, moduleBase):
                               % (ifaceobj.name, str(e)))
             pass
 
-    def _handle_vrf_slaves(self, macvlan_ifacename, ifaceobj):
-        vrfname = netlink.cache.get_master(ifaceobj.name)
-        if vrfname:
-            self.ipcmd.link_set(macvlan_ifacename, 'master', vrfname)
-
     def _get_macs_from_old_config(self, ifaceobj=None):
         """ This method returns a list of the mac addresses
         in the address-virtual attribute for the bridge. """
@@ -406,7 +401,9 @@ class addressvirtual(Addon, moduleBase):
 
             # first thing we need to handle vrf enslavement
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
-                self._handle_vrf_slaves(macvlan_ifname, ifaceobj)
+                vrf_ifname = netlink.cache.get_master(ifaceobj.name)
+                if vrf_ifname:
+                    self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
             if user_configured_ipv6_addrgenmode:
                 self.iproute2.link_set_ipv6_addrgen(
