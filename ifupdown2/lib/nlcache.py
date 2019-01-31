@@ -472,6 +472,14 @@ class _NetlinkCache:
         """
         return self.get_link_attribute(ifname, nlpacket.Link.IFLA_ADDRESS, default='').lower()
 
+    def get_link_address_raw(self, ifname):
+        """
+        Return link IFLA_ADDRESS as integer
+        :param ifname:
+        :return: int
+        """
+        return self.get_link_attribute_raw(ifname, nlpacket.Link.IFLA_ADDRESS, default=0)
+
     def get_link_alias(self, ifname):
         """
         Return link IFLA_IFALIAS
@@ -482,7 +490,7 @@ class _NetlinkCache:
 
     def get_link_attribute(self, ifname, attr, default=None):
         """
-        Return link attribute 'attr'
+        Return link attribute 'attr'.value
         :param ifname:
         :param attr:
         :param default:
@@ -491,6 +499,22 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 return self._link_cache[ifname].attributes[attr].value
+        except (KeyError, AttributeError):
+            return default
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=default)
+
+    def get_link_attribute_raw(self, ifname, attr, default=None):
+        """
+        Return link attribute 'attr'.raw
+        :param ifname:
+        :param attr:
+        :param default:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[attr].raw
         except (KeyError, AttributeError):
             return default
         except TypeError as e:
