@@ -371,6 +371,11 @@ class addressvirtual(Addon, moduleBase):
             },
         ]
         """
+        hw_address_list = []
+
+        if not intf_config_list:
+            return hw_address_list
+
         user_configured_ipv6_addrgenmode, ipv6_addrgen_user_value = self.get_addressvirtual_ipv6_addrgen_user_conf(ifaceobj)
         purge_existing = False if ifupdownflags.flags.PERFMODE else True
         hw_address_list = []
