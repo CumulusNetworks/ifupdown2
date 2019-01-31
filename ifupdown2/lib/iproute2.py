@@ -34,6 +34,51 @@ class IPRoute2(Cache):
 
     def __init__(self):
         Cache.__init__(self)
+        self.__batch = None
+        self.__batch_mode = False
+
+    ############################################################################
+    # BATCH
+    ############################################################################
+
+    def __add_to_batch(self, cmd):
+        self.__batch.append(cmd)
+
+    def __execute_or_batch(self, prefix, cmd):
+        if self.__batch_mode:
+            self.__add_to_batch(cmd)
+        else:
+            utils.exec_command("%s %s" % (prefix, cmd))
+
+    def __execute_or_batch_dry_run(self, prefix, cmd):
+        """
+        The batch function has it's own dryrun handler so we only handle
+        dryrun for non-batch mode. Which will be removed once the "utils"
+        module has it's own dryrun handlers
+        """
+        if self.__batch_mode:
+            self.__add_to_batch(cmd)
+        else:
+            self.logger.info("dryrun: executing: %s %s" % (prefix, cmd))
+
+    def batch_start(self):
+        self.__batch_mode = True
+        self.__batch = list()
+
+    def batch_commit(self):
+        if not self.__batch_mode or not self.__batch:
+            return
+        try:
+            utils.exec_command(
+                "%s -force -batch -" % utils.ip_cmd,
+                stdin="\n".join(self.__batch)
+            )
+        except:
+            raise
+        finally:
+            self.__batch_mode = False
+            del self.__batch
+            self.__batch = None
 
     ############################################################################
     ### BRIDGE
