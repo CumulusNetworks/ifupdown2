@@ -137,3 +137,10 @@ class Sysfs(IO, Cache):
                     self.write_to_file(file_path, str(value))
             except Exception as e:
                 self.logger.warning("%s: %s %s: %s" % (bond_name, bond_attr_name, value, str(e)))
+
+    #
+    # /proc/sys/ipv6/conf
+    #
+
+    def get_ipv6_conf_disable_ipv6(self, ifname):
+        return int(self.read_file_oneline("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname) or 0)
