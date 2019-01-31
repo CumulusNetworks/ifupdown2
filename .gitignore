@@ -110,4 +110,8 @@ venv.bak/
 
 # pycharm IDE
 .idea/
->>>>>>> ifupdown2 2.0.0 release
+
+ifupdown2/ifdown
+ifupdown2/ifquery
+ifupdown2/ifreload
+ifupdown2/ifup
