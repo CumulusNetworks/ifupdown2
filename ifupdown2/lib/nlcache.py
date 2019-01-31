@@ -42,8 +42,6 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdown.log import log
 
-    import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-
     import ifupdown2.nlmanager.nlpacket as nlpacket
     import ifupdown2.nlmanager.nllistener as nllistener
     import ifupdown2.nlmanager.nlmanager as nlmanager
@@ -52,8 +50,6 @@ except:
 
     from ifupdownaddons.cache import *
     from ifupdown.log import log
-
-    import ifupdown.ifupdownflags as ifupdownflags
 
     import nlmanager.nlpacket as nlpacket
     import nlmanager.nllistener as nllistener
@@ -1131,15 +1127,6 @@ class _NetlinkCache:
                 return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_DATA][nlpacket.Link.IFLA_BRPORT_LEARNING]
         except (KeyError, AttributeError):
             return 0
-
-
-if ifupdownflags.flags.DRYRUN:
-    # When possible we shouldn't have dryrun checks in the code
-    # but have DryRunNetlinkCache to inherit NetlinkCache and overrides
-    # all the methods - not sure it's optimal for maintenance and we might
-    # forgot to add new methods there but at least we won't waste time checking for dryrun everywhere
-    #raise NotImplementedError('nlcache.py: see comment in the code')
-    pass
 
 
 class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject):
