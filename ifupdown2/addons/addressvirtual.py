@@ -378,7 +378,6 @@ class addressvirtual(Addon, moduleBase):
 
         user_configured_ipv6_addrgenmode, ipv6_addrgen_user_value = self.get_addressvirtual_ipv6_addrgen_user_conf(ifaceobj)
         purge_existing = False if ifupdownflags.flags.PERFMODE else True
-        hw_address_list = []
         ifname = ifaceobj.name
 
         lower_iface_mtu = update_mtu = None
@@ -652,9 +651,6 @@ class addressvirtual(Addon, moduleBase):
             user_config_list.append(config)
 
         return user_config_list
-
-    def process_macvlans_config(self, ifaceobj, attr_name, virtual_addr_list_raw, macvlan_config_list):
-        return self.create_macvlan_and_apply_config(ifaceobj, macvlan_config_list)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
