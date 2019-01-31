@@ -104,6 +104,21 @@ class IPRoute2(Cache):
     def link_down_force(self, ifname):
         self.__execute_or_batch(utils.ip_cmd, "link set dev %s down" % ifname)
 
+    ###
+
+    def link_set_master(self, ifname, master):
+        if master != self.cache.get_master(ifname):
+            self.__execute_or_batch(
+                utils.ip_cmd,
+                "link set dev %s master %s" % (ifname, master)
+            )
+
+    def link_set_master_dry_run(self, ifname, master):
+        self.__execute_or_batch(
+            utils.ip_cmd,
+            "link set dev %s master %s" % (ifname, master)
+        )
+
     ############################################################################
     ### BRIDGE
     ############################################################################
