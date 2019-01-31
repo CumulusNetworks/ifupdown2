@@ -385,6 +385,7 @@ class addressvirtual(Addon, moduleBase):
             lower_iface_mtu_str = str(lower_iface_mtu)
 
         self.ipcmd.batch_start()
+        self.iproute2.batch_start()  # TODO: make sure we only do 1 ip link set down and set up (only one flap in the batch)
 
         for intf_config_dict in intf_config_list:
             link_created = False
@@ -469,6 +470,7 @@ class addressvirtual(Addon, moduleBase):
                     self.sysctl_set(syskey, sysval)
 
         self.ipcmd.batch_commit()
+        self.iproute2.batch_commit()
         return hw_address_list
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
