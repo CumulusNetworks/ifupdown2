@@ -138,6 +138,22 @@ class IPRoute2(Cache):
         )
         self.link_up(ifname)
 
+    ###
+
+    def link_add_macvlan(self, ifname, macvlan_ifname):
+        utils.exec_command(
+            "%s link add link %s name %s type macvlan mode private"
+            % (utils.ip_cmd, ifname, macvlan_ifname)
+        )
+
+    def link_add_macvlan_dry_run(self, ifname, macvlan_ifname):
+        # this dryrun method can be removed once dryrun handlers
+        # are added to the utils module
+        self.logger.info(
+            "%s: dryrun: executing %s link add link %s name %s type macvlan mode private"
+            % (ifname, utils.ip_cmd, ifname, macvlan_ifname)
+        )
+
     ############################################################################
     ### BRIDGE
     ############################################################################
