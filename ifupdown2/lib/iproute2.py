@@ -119,6 +119,25 @@ class IPRoute2(Cache):
             "link set dev %s master %s" % (ifname, master)
         )
 
+    ###
+
+    def link_set_address(self, ifname, address):
+        if utils.mac_str_to_int(address) != self.cache.get_link_address_raw(ifname):
+            self.link_down(ifname)
+            self.__execute_or_batch(
+                utils.ip_cmd,
+                "link set dev %s address %s" % (ifname, address)
+            )
+            self.link_up(ifname)
+
+    def link_set_address_dry_run(self, ifname, address):
+        self.link_down(ifname)
+        self.__execute_or_batch(
+            utils.ip_cmd,
+            "link set dev %s address %s" % (ifname, address)
+        )
+        self.link_up(ifname)
+
     ############################################################################
     ### BRIDGE
     ############################################################################
