@@ -380,10 +380,14 @@ class addressvirtual(Addon, moduleBase):
         purge_existing = False if ifupdownflags.flags.PERFMODE else True
         ifname = ifaceobj.name
 
-        lower_iface_mtu = update_mtu = None
+        update_mtu = lower_iface_mtu = lower_iface_mtu_str = None
         if ifupdownconfig.config.get("adjust_logical_dev_mtu", "1") != "0":
             if ifaceobj.lowerifaces and intf_config_list:
                 update_mtu = True
+
+        if update_mtu:
+            lower_iface_mtu = self.cache.get_link_mtu(ifaceobj.name)
+            lower_iface_mtu_str = str(lower_iface_mtu)
 
         self.ipcmd.batch_start()
 
@@ -430,13 +434,12 @@ class addressvirtual(Addon, moduleBase):
                     self._fix_connected_route(ifaceobj, macvlan_ifname, ips[0])
 
                 if update_mtu:
-                    lower_iface_mtu = netlink.cache.get_link_mtu(ifaceobj.name)
                     update_mtu = False
 
-                try:
-                    self.sysfs.link_set_mtu(macvlan_ifname, mtu_str=str(lower_iface_mtu), mtu_int=lower_iface_mtu)
-                except Exception as e:
-                    self.logger.info('%s: failed to set mtu %s: %s' % (macvlan_ifname, lower_iface_mtu, e))
+                    try:
+                        self.sysfs.link_set_mtu(macvlan_ifname, mtu_str=lower_iface_mtu_str, mtu_int=lower_iface_mtu)
+                    except Exception as e:
+                        self.logger.info('%s: failed to set mtu %s: %s' % (macvlan_ifname, lower_iface_mtu, e))
 
                 # set macvlan device to up in anycase.
                 # since we auto create them here..we are responsible
