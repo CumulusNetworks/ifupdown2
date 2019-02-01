@@ -280,3 +280,26 @@ class IPRoute2(Cache):
                 dst_str
             )
         )
+
+    ############################################################################
+    # ROUTE
+    ############################################################################
+
+    @staticmethod
+    def route_del_gateway(ifname, gateway, vrf=None, metric=None):
+        """
+        delete default gw
+        """
+        if not gateway:
+            return
+
+        if not vrf:
+            cmd = "%s route del default via %s proto kernel" % (utils.ip_cmd, gateway)
+        else:
+            cmd = "%s route del table %s default via %s proto kernel" % (utils.ip_cmd, vrf, gateway)
+
+        if metric:
+            cmd += " metric %s" % metric
+
+        cmd += " dev %s" % ifname
+        utils.exec_command(cmd)

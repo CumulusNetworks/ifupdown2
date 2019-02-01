@@ -1121,22 +1121,6 @@ class LinkUtils(utilsBase):
         utils.exec_command(cmd)
 
     @staticmethod
-    def route_del_gateway(ifacename, gateway, vrf=None, metric=None):
-        # delete default gw
-        if not gateway:
-            return
-        if not vrf:
-            cmd = ('%s route del default via %s proto kernel' %
-                   (utils.ip_cmd, gateway))
-        else:
-            cmd = ('%s route del table %s default via %s proto kernel' %
-                   (utils.ip_cmd, vrf, gateway))
-        if metric:
-            cmd += ' metric %s' % metric
-        cmd += ' dev %s' % ifacename
-        utils.exec_command(cmd)
-
-    @staticmethod
     def _get_vrf_id(ifacename):
         try:
             return linkCache.vrfs[ifacename]['table']

@@ -576,7 +576,7 @@ class address(Addon, moduleBase):
     def _delete_gateway(self, ifaceobj, gateways, vrf, metric):
         for del_gw in gateways:
             try:
-                self.ipcmd.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
+                self.iproute2.route_del_gateway(ifaceobj.name, del_gw, vrf, metric)
             except Exception as e:
                 self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
 
