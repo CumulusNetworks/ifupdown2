@@ -1650,23 +1650,6 @@ class LinkUtils(utilsBase):
         except Exception:
             return False
 
-    def bridge_fdb_show_dev(self, dev):
-        try:
-            fdbs = {}
-            output = utils.exec_command('%s fdb show dev %s'
-                                        % (utils.bridge_cmd, dev))
-            if output:
-                for fdb_entry in output.splitlines():
-                    try:
-                        entries = fdb_entry.split()
-                        fdbs.setdefault(entries[2], []).append(entries[0])
-                    except:
-                        self.logger.debug('%s: invalid fdb line \'%s\''
-                                          % (dev, fdb_entry))
-            return fdbs
-        except Exception:
-            return None
-
     @staticmethod
     def is_bridge(bridge):
         return os.path.exists('/sys/class/net/%s/bridge' % bridge)

@@ -130,7 +130,7 @@ class addressvirtual(Addon, moduleBase):
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
         if not fdbs:
-           fdbs = self.ipcmd.bridge_fdb_show_dev(bridgename)
+           fdbs = self.iproute2.bridge_fdb_show_dev(bridgename)
            if not fdbs:
               return
            self._bridge_fdb_query_cache[bridgename] = fdbs
