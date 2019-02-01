@@ -819,7 +819,7 @@ class addressvirtual(Addon, moduleBase):
                     ip6_macvlan_hwaddress = ip6_config.get("hwaddress")
 
                     # check macvlan ip6 hwaddress (only if ip6 were provided by the user)
-                    if not ip6_config.get("ips") or self.ipcmd.link_get_hwaddress(ip6_macvlan_ifname) == ip6_macvlan_hwaddress:
+                    if not ip6_config.get("ips") or self.cache.get_link_address_raw(ip6_macvlan_ifname) == ip6_config.get("hwaddress_int"):
 
                         # check all ip4
                         if self.ipcmd.compare_user_config_vs_running_state(
@@ -836,7 +836,7 @@ class addressvirtual(Addon, moduleBase):
                             if self.ipcmd.compare_user_config_vs_running_state(
                                     ip6_running_addrs,
                                     ip6_config.get("ips")
-                            ) and self._check_addresses_in_bridge(ifaceobj, ip4_macvlan_hwaddress):
+                            ) and self._check_addresses_in_bridge(ifaceobj, ip6_macvlan_hwaddress):
                                 ifaceobjcurr.update_config_with_status(
                                     attr_name,
                                     "%s %s" % (ip4_config.get("id"), " ".join(ip4_config.get("ips") + ip6_config.get("ips"))),
