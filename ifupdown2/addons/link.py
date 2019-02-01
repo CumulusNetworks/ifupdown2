@@ -15,7 +15,6 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -26,7 +25,6 @@ except ImportError:
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -57,7 +55,7 @@ class link(Addon, moduleBase):
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self.check_physical_port_existance:
-            if not ifaceobj.link_kind and not LinkUtils.link_exists(ifaceobj.name):
+            if not ifaceobj.link_kind and not self.cache.link_exists(ifaceobj.name):
                 self.logger.warning('%s: interface does not exist' % ifaceobj.name)
                 return False
         return True
