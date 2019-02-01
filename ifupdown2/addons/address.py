@@ -587,7 +587,7 @@ class address(Addon, moduleBase):
                              vrf, metric)
         for add_gw in gateways:
             try:
-                self.ipcmd.route_add_gateway(ifaceobj.name, add_gw, vrf, metric, onlink=self.l3_intf_default_gateway_set_onlink)
+                self.iproute2.route_add_gateway(ifaceobj.name, add_gw, vrf, metric, onlink=self.l3_intf_default_gateway_set_onlink)
             except Exception as e:
                 self.log_error('%s: %s' % (ifaceobj.name, str(e)))
 

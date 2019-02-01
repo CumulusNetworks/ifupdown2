@@ -286,9 +286,30 @@ class IPRoute2(Cache):
     ############################################################################
 
     @staticmethod
+    def route_add_gateway(ifname, gateway, vrf=None, metric=None, onlink=True):
+        if not gateway:
+            return
+
+        if not vrf:
+            cmd = "%s route add default via %s proto kernel" % (utils.ip_cmd, gateway)
+        else:
+            cmd = "%s route add table %s default via %s proto kernel" % (utils.ip_cmd, vrf, gateway)
+
+        if metric:
+            cmd += " metric %s" % metric
+
+        cmd += " dev %s" % ifname
+
+        if onlink:
+            cmd += " onlink"
+
+        utils.exec_command(cmd)
+
+    @staticmethod
     def route_del_gateway(ifname, gateway, vrf=None, metric=None):
         """
         delete default gw
+        we don't need a DRYRUN handler here as utils.exec_command should have one
         """
         if not gateway:
             return

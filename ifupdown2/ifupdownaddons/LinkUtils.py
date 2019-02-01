@@ -1101,26 +1101,6 @@ class LinkUtils(utilsBase):
         return self._cache_get('link', [ifacename, 'ifflag'], refresh=True)
 
     @staticmethod
-    def route_add_gateway(ifacename, gateway, vrf=None, metric=None, onlink=True):
-        if not gateway:
-            return
-        if not vrf:
-            cmd = '%s route add default via %s proto kernel' % (utils.ip_cmd,
-                                                   gateway)
-        else:
-            cmd = ('%s route add table %s default via %s proto kernel' %
-                   (utils.ip_cmd, vrf, gateway))
-        # Add metric
-        if metric:
-            cmd += 'metric %s' % metric
-        cmd += ' dev %s' % ifacename
-
-        if onlink:
-            cmd += " onlink"
-
-        utils.exec_command(cmd)
-
-    @staticmethod
     def _get_vrf_id(ifacename):
         try:
             return linkCache.vrfs[ifacename]['table']
