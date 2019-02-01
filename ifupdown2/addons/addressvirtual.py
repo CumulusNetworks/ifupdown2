@@ -668,17 +668,15 @@ class addressvirtual(Addon, moduleBase):
 
             #### VRR
             hwaddress = []
-            self.ipcmd.batch_start()
             for vrr_prefix in [self.get_vrr_prefix(ifaceobj.name, "4"), self.get_vrr_prefix(ifaceobj.name, "6")]:
                 for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % vrr_prefix):
                     macvlan_ifacename = os.path.basename(macvlan_ifacename)
-                    if not self.ipcmd.link_exists(macvlan_ifacename):
+                    if not self.cache.link_exists(macvlan_ifacename):
                         continue
-                    hwaddress.append(self.ipcmd.link_get_hwaddress(macvlan_ifacename))
-                    self.ipcmd.link_delete(os.path.basename(macvlan_ifacename))
+                    hwaddress.append(self.cache.get_link_address(macvlan_ifacename))
+                    self.netlink.link_del(macvlan_ifacename)
                     # XXX: Also delete any fdb addresses. This requires, checking mac address
                     # on individual macvlan interfaces and deleting the vlan from that.
-            self.ipcmd.batch_commit()
             if any(hwaddress):
                 self._remove_addresses_from_bridge(ifaceobj, hwaddress)
         except Exception, e:
