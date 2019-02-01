@@ -22,7 +22,6 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     from lib.addon import Addon
@@ -33,7 +32,6 @@ except ImportError:
     from ifupdown.netlink import netlink
     from ifupdown.statemanager import statemanager_api as statemanager
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.policymanager as policymanager
@@ -226,7 +224,6 @@ class bond(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.bondcmd = None
 
         if not os.path.exists('/sys/class/net/bonding_masters'):
             try:
@@ -573,8 +570,6 @@ class bond(Addon, moduleBase):
 
                 for lower_dev in ifaceobj.lowerifaces:
                     self.netlink.link_set_nomaster(lower_dev)
-
-                self.bondcmd.cache_delete([ifname, 'linkinfo', 'slaves'])
             else:
                 # bond-mode user config value is the current running(cached) value
                 # no need to reset it again we can ignore this attribute
@@ -619,11 +614,6 @@ class bond(Addon, moduleBase):
                 ifla_info_data[Link.IFLA_BOND_UPDELAY] = 0
                 ifla_info_data[Link.IFLA_BOND_DOWNDELAY] = 0
 
-            # if link_add doesn't raise we can update the cache, the future
-            # netlink listener will update the cache based on the kernel response
-            for key, value in ifla_info_data.items():
-                self.bondcmd.cache_update([ifname, 'linkinfo', key], value)
-
         if link_exists and ifla_info_data and not is_link_up:
             self.netlink.link_up(ifname)
 
@@ -642,7 +632,6 @@ class bond(Addon, moduleBase):
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
             self.netlink.link_del(ifaceobj.name)
-            self.bondcmd.cache_delete([ifaceobj.name])
         except Exception as e:
             self.log_warn('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -770,10 +759,6 @@ class bond(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.bondcmd:
-            self.bondcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None):
         """ run bond configuration on the interface object passed as argument
@@ -797,7 +782,6 @@ class bond(Addon, moduleBase):
             return
         if operation != 'query-running' and not self._is_bond(ifaceobj):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)
