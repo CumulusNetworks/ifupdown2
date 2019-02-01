@@ -18,7 +18,6 @@ try:
     from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     from lib.addon import Addon
@@ -31,7 +30,6 @@ except ImportError:
     from ifupdown.netlink import netlink
 
     from ifupdownaddons.dhclient import dhclient
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
