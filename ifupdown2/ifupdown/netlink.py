@@ -263,7 +263,12 @@ class Netlink(utilsBase):
                                                               dstport)
         cmd += ' local %s' % local if local else ''
         cmd += ' ageing %s' % ageing if ageing else ''
-        cmd += ' remote %s' % group if group else ' noremote'
+
+        if group and group.is_multicast:
+            cmd += ' group %s' % group
+        else:
+            cmd += ' remote %s' % group if group else ' noremote'
+
         cmd += ' nolearning' if not learning else ''
         cmd += ' dev %s' % physdev if physdev else ''
 

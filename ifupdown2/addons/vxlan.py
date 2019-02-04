@@ -96,9 +96,16 @@ class vxlan(Addon, moduleBase):
                 "default": "0",
                 "validvals": ["0", "255"],
                 "example": ['vxlan-ttl 42'],
+            },
+            "vxlan-mcastgrp": {
+                "help": "vxlan multicast group",
+                "validvals": ["<ip>"],
+                "example": ["vxlan-mcastgrp 172.16.22.127"],
             }
         }
     }
+
+    VXLAN_PHYSDEV_MCASTGRP_DEFAULT = "ipmr-lo"
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
@@ -111,6 +118,21 @@ class vxlan(Addon, moduleBase):
             self._purge_remotes = False
         self._vxlan_local_tunnelip = None
         self._clagd_vxlan_anycast_ip = ""
+
+        # If mcastgrp is specified we need to rely on a user-configred device (via physdev)
+        # or via a policy variable "vxlan-physdev_mcastgrp". If the device doesn't exist we
+        # create it as a dummy device. We need to keep track of the user configuration to
+        # know when to delete this dummy device (when user remove mcastgrp from it's config)
+        self.vxlan_mcastgrp_ref = False
+        self.vxlan_physdev_mcast = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr="vxlan-physdev-mcastgrp"
+        ) or self.VXLAN_PHYSDEV_MCASTGRP_DEFAULT
+
+    def reset(self):
+        # in daemon mode we need to reset mcastgrp_ref for every new command
+        # this variable has to be set in get_dependent_ifacenames
+        self.vxlan_mcastgrp_ref = False
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self._is_vxlan_device(ifaceobj):
@@ -138,6 +160,12 @@ class vxlan(Addon, moduleBase):
         if self._is_vxlan_device(ifaceobj):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
             self._set_global_local_ip(ifaceobj)
+
+            # if we detect a vxlan we check if mcastgrp is set (if so we set vxlan_mcastgrp_ref)
+            # to know when to delete this device.
+            if not self.vxlan_mcastgrp_ref and ifaceobj.get_attr_value("vxlan-mcastgrp"):
+                self.vxlan_mcastgrp_ref = True
+
         elif ifaceobj.name == 'lo':
             clagd_vxlan_list = ifaceobj.get_attr_value('clagd-vxlan-anycast-ip')
             if clagd_vxlan_list:
@@ -156,6 +184,35 @@ class vxlan(Addon, moduleBase):
             return [physdev]
 
         return None
+
+    def vxlan_getphysdev(self, ifaceobj, mcastgrp):
+        """
+        vxlan-physdev wrapper, special handling is required for mcastgrp is provided
+        the vxlan needs to use a dummy or real device for tunnel endpoint communication
+        This wrapper will get the physdev from user config or policy. IF the device
+        doesnt exists we create a dummy device.
+
+        :param ifaceobj:
+        :param mcastgrp:
+        :return physdev:
+        """
+        physdev = ifaceobj.get_attr_value_first("vxlan-physdev")
+
+        # if the user provided a physdev we need to honor his config
+        # or if mcastgrp wasn't specified we don't need to go further
+        if physdev or not mcastgrp:
+            return physdev
+
+        physdev = self.vxlan_physdev_mcast
+
+        if not self.cache.link_exists(physdev):
+            self.logger.info("%s: needs a dummy device (%s) to use for "
+                             "multicast termination (vxlan-mcastgrp %s)"
+                             % (ifaceobj.name, physdev, mcastgrp))
+            self.netlink._link_add_set(ifname=physdev, kind="dummy")
+            self.netlink.link_up(physdev)
+
+        return physdev
 
     def _set_global_local_ip(self, ifaceobj):
         vxlan_local_tunnel_ip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
@@ -210,6 +267,7 @@ class vxlan(Addon, moduleBase):
             anycastip = self._clagd_vxlan_anycast_ip
             # TODO: vxlan._clagd_vxlan_anycast_ip should be a IPNetwork obj
             group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
+            mcast_grp = ifaceobj.get_attr_value_first("vxlan-mcastgrp")
 
             local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
             if not local and self._vxlan_local_tunnelip:
@@ -233,8 +291,8 @@ class vxlan(Addon, moduleBase):
 
             ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
             vxlan_port = ifaceobj.get_attr_value_first('vxlan-port')
-            physdev = ifaceobj.get_attr_value_first('vxlan-physdev')
             purge_remotes = self._get_purge_remotes(ifaceobj)
+            physdev = self.vxlan_getphysdev(ifaceobj, mcast_grp)
 
             link_exists = netlink.cache.link_exists(ifname)
 
@@ -278,11 +336,27 @@ class vxlan(Addon, moduleBase):
             else:
                 learning = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LEARNING)
 
+            #
+            # vxlan-svcnodeip
+            # vxlan-mcastgrp
+            #
+
             if not group:
                 group = policymanager.policymanager_api.get_attr_default(
                     module_name=self.__class__.__name__,
                     attr='vxlan-svcnodeip'
                 )
+
+            if not mcast_grp:
+                mcast_grp = policymanager.policymanager_api.get_attr_default(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-mcastgrp'
+                )
+
+            if mcast_grp and group:
+                self.log_error("%s: both group (vxlan-mcastgrp %s) and "
+                               "remote (vxlan-svcnodeip %s) cannot be specified"
+                               % (ifname, mcast_grp, group), ifaceobj)
 
             if group:
                 try:
@@ -294,6 +368,47 @@ class vxlan(Addon, moduleBase):
                         group = group_ip
                     except:
                         raise Exception('%s: invalid vxlan-svcnodeip %s: must be in ipv4 format' % (ifname, group))
+
+                if group.is_multicast:
+                    self.logger.warning('%s: vxlan-svcnodeip %s: invalid group address, '
+                                        'for multicast IP please use attribute "vxlan-mcastgrp"' % (ifname, group))
+                    # if svcnodeip is used instead of mcastgrp we warn the user
+                    # if mcast_grp is not provided by the user we can instead
+                    # use the svcnodeip value
+                    if not physdev:
+                        self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
+
+            if mcast_grp:
+                try:
+                    mcast_grp = IPv4Address(mcast_grp)
+                except AddressValueError:
+                    try:
+                        group_ip = IPv4Network(mcast_grp).ip
+                        self.logger.warning('%s: vxlan-mcastgrp %s: netmask ignored' % (ifname, mcast_grp))
+                        mcast_grp = group_ip
+                    except:
+                        raise Exception('%s: invalid vxlan-mcastgrp %s: must be in ipv4 format' % (ifname, mcast_grp))
+
+                if not mcast_grp.is_multicast:
+                    self.logger.warning('%s: vxlan-mcastgrp %s: invalid group address, '
+                                        'for non-multicast IP please use attribute "vxlan-svcnodeip"'
+                                        % (ifname, mcast_grp))
+                    # if mcastgrp is specified with a non-multicast address
+                    # we warn the user. If the svcnodeip wasn't specified by
+                    # the user we can use the mcastgrp value as svcnodeip
+                    if not group:
+                        group = mcast_grp
+                        mcast_grp = None
+
+                if mcast_grp:
+                    group = mcast_grp
+
+                    if not physdev:
+                        self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
+
+            #
+            # vxlan-local-tunnelip
+            #
 
             if not local:
                 local = policymanager.policymanager_api.get_attr_default(
@@ -365,7 +480,8 @@ class vxlan(Addon, moduleBase):
                                                      remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
                                                      learning='on' if learning else 'off',
                                                      ageing=ageing,
-                                                     ttl=ttl)
+                                                     ttl=ttl,
+                                                     physdev=physdev)
                     except Exception as e_iproute2:
                         self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
                         return
@@ -647,9 +763,16 @@ class vxlan(Addon, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        if (operation != 'query-running' and
-                not self._is_vxlan_device(ifaceobj)):
-            return
+
+        if operation != 'query-running':
+            if not self._is_vxlan_device(ifaceobj):
+                return
+
+            if not self.vxlan_mcastgrp_ref \
+                    and self.vxlan_physdev_mcast \
+                    and self.cache.link_exists(self.vxlan_physdev_mcast):
+                self.netlink.link_del(self.vxlan_physdev_mcast)
+
         self._init_command_handlers()
 
         if operation == 'query-checkcurr':

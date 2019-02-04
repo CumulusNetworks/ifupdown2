@@ -2,6 +2,7 @@ ifupdown2 (2.0.0-cl4u0) UNRELEASED; urgency=medium
 
   * New. Enabled: ifupdown2 as a daemon
   * New. Enabled: add support for vxlan-ttl attribute
+  * New. Enabled: add support for vxlan multicast group (vxlan-mcastgrp)
 
  -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Jan 2019 23:42:43 +0000
 
