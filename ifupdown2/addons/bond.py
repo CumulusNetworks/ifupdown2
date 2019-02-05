@@ -265,7 +265,6 @@ class bond(Addon, moduleBase):
         return self.syntax_check_updown_delay(ifaceobj)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
-        self._init_command_handlers()
         return netlink.cache.get_slaves(ifaceobj.name)
 
     def _get_slave_list(self, ifaceobj):
