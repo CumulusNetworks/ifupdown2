@@ -1391,20 +1391,6 @@ class LinkUtils(utilsBase):
             return None
 
     @staticmethod
-    def bridge_port_vids_add(bridgeportname, vids):
-        [utils.exec_command('%s vlan add vid %s dev %s' %
-                            (utils.bridge_cmd,
-                             v, bridgeportname)) for v in vids]
-
-    @staticmethod
-    def bridge_port_vids_del(bridgeportname, vids):
-        if not vids:
-            return
-        [utils.exec_command('%s vlan del vid %s dev %s' %
-                            (utils.bridge_cmd,
-                             v, bridgeportname)) for v in vids]
-
-    @staticmethod
     def bridge_port_vids_flush(bridgeportname, vid):
         utils.exec_command('%s vlan del vid %s dev %s' %
                            (utils.bridge_cmd,
@@ -1593,47 +1579,9 @@ class LinkUtils(utilsBase):
                 vids.append(v)
         return vids, pvid
 
-    def bridge_port_pvid_add(self, bridgeportname, pvid):
-        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-            self.add_to_batch('vlan add vid %s untagged pvid dev %s' %
-                              (pvid, bridgeportname))
-        else:
-            utils.exec_command('%s vlan add vid %s untagged pvid dev %s' %
-                               (utils.bridge_cmd,
-                                pvid, bridgeportname))
-
-    def bridge_port_pvid_del(self, bridgeportname, pvid):
-        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-            self.add_to_batch('vlan del vid %s untagged pvid dev %s' %
-                              (pvid, bridgeportname))
-        else:
-            utils.exec_command('%s vlan del vid %s untagged pvid dev %s' %
-                               (utils.bridge_cmd,
-                                pvid, bridgeportname))
-
     def bridge_port_pvids_get(self, bridgeportname):
         return self.read_file_oneline('/sys/class/net/%s/brport/pvid'
                                       % bridgeportname)
-
-    def bridge_vids_add(self, bridgeportname, vids, bridge=True):
-        target = 'self' if bridge else ''
-        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-            [self.add_to_batch('vlan add vid %s dev %s %s' %
-                               (v, bridgeportname, target)) for v in vids]
-        else:
-            [utils.exec_command('%s vlan add vid %s dev %s %s' %
-                                (utils.bridge_cmd,
-                                 v, bridgeportname, target)) for v in vids]
-
-    def bridge_vids_del(self, bridgeportname, vids, bridge=True):
-        target = 'self' if bridge else ''
-        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-            [self.add_to_batch('vlan del vid %s dev %s %s' %
-                               (v, bridgeportname, target)) for v in vids]
-        else:
-            [utils.exec_command('%s vlan del vid %s dev %s %s' %
-                                (utils.bridge_cmd,
-                                 v, bridgeportname, target)) for v in vids]
 
     def bridge_is_vlan_aware(self, bridgename):
         filename = '/sys/class/net/%s/bridge/vlan_filtering' % bridgename

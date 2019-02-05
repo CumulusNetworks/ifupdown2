@@ -85,6 +85,21 @@ class IPRoute2(Cache):
             del self.__batch
             self.__batch = None
 
+    def bridge_batch_commit(self):
+        if not self.__batch_mode or not self.__batch:
+            return
+        try:
+            utils.exec_command(
+                "%s -force -batch -" % utils.bridge_cmd,
+                stdin="\n".join(self.__batch)
+            )
+        except:
+            raise
+        finally:
+            self.__batch_mode = False
+            del self.__batch
+            self.__batch = None
+
     ############################################################################
     # LINK
     ############################################################################
@@ -295,6 +310,50 @@ class IPRoute2(Cache):
                 target,
                 dst_str
             )
+        )
+
+    @staticmethod
+    def bridge_vlan_del_vid_list(ifname, vids):
+        if not vids:
+            return
+        for v in vids:
+            utils.exec_command(
+                "%s vlan del vid %s dev %s" % (utils.bridge_cmd, v, ifname)
+            )
+
+    def bridge_vlan_del_vid_list_self(self, ifname, vids, is_bridge=True):
+        target = "self" if is_bridge else ""
+        for v in vids:
+            self.__execute_or_batch(
+                utils.bridge_cmd,
+                "vlan del vid %s dev %s %s" % (v, ifname, target)
+            )
+
+    @staticmethod
+    def bridge_vlan_add_vid_list(ifname, vids):
+        for v in vids:
+            utils.exec_command(
+                "%s vlan add vid %s dev %s" % (utils.bridge_cmd, v, ifname)
+            )
+
+    def bridge_vlan_add_vid_list_self(self, ifname, vids, is_bridge=True):
+        target = "self" if is_bridge else ""
+        for v in vids:
+            self.__execute_or_batch(
+                utils.bridge_cmd,
+                "vlan add vid %s dev %s %s" % (v, ifname, target)
+            )
+
+    def bridge_vlan_del_pvid(self, ifname, pvid):
+        self.__execute_or_batch(
+            utils.bridge_cmd,
+            "vlan del vid %s untagged pvid dev %s" % (pvid, ifname)
+        )
+
+    def bridge_vlan_add_pvid(self, ifname, pvid):
+        self.__execute_or_batch(
+            utils.bridge_cmd,
+            "vlan add vid %s untagged pvid dev %s" % (pvid, ifname)
         )
 
     ############################################################################

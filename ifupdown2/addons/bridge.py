@@ -1173,8 +1173,8 @@ class bridge(Addon, moduleBase):
                         if running_pvid == pvid:
                             continue
                         else:
-                            self.ipcmd.bridge_port_pvid_del(port, running_pvid)
-                    self.ipcmd.bridge_port_pvid_add(port, pvid)
+                            self.iproute2.bridge_vlan_del_pvid(port, running_pvid)
+                    self.iproute2.bridge_vlan_add_pvid(port, pvid)
                 except Exception, e:
                     self.log_warn('%s: failed to set pvid `%s` (%s)'
                             %(ifaceobj.name, p, str(e)))
@@ -1196,13 +1196,13 @@ class bridge(Addon, moduleBase):
                         (vids_to_del, vids_to_add) = \
                                 self._diff_vids(vids_int, running_vids)
                         if vids_to_del:
-                            self.ipcmd.bridge_port_vids_del(port,
+                            self.iproute2.bridge_vlan_del_vid_list(port,
                                     self._compress_into_ranges(vids_to_del))
                         if vids_to_add:
-                            self.ipcmd.bridge_port_vids_add(port,
+                            self.iproute2.bridge_vlan_add_vid_list(port,
                                     self._compress_into_ranges(vids_to_add))
                     else:
-                        self.ipcmd.bridge_port_vids_add(port, vids_int)
+                        self.iproute2.bridge_vlan_add_vid_list(port, vids_int)
                 except Exception, e:
                     self.log_warn('%s: failed to set vid `%s` (%s)'
                         %(ifaceobj.name, p, str(e)))
@@ -1481,7 +1481,7 @@ class bridge(Addon, moduleBase):
             if vids_to_del:
                if pvid_to_add in vids_to_del:
                    vids_to_del.remove(pvid_to_add)
-               self.ipcmd.bridge_vids_del(bportifaceobj.name,
+               self.iproute2.bridge_vlan_del_vid_list_self(bportifaceobj.name,
                                           self._compress_into_ranges(
                                           vids_to_del), isbridge)
         except Exception, e:
@@ -1490,7 +1490,7 @@ class bridge(Addon, moduleBase):
 
         try:
             if pvid_to_del:
-               self.ipcmd.bridge_port_pvid_del(bportifaceobj.name,
+               self.iproute2.bridge_vlan_del_pvid(bportifaceobj.name,
                                                pvid_to_del)
         except Exception, e:
                 self.log_warn('%s: failed to del pvid `%s` (%s)'
@@ -1498,7 +1498,7 @@ class bridge(Addon, moduleBase):
 
         try:
             if vids_to_add:
-               self.ipcmd.bridge_vids_add(bportifaceobj.name,
+               self.iproute2.bridge_vlan_add_vid_list_self(bportifaceobj.name,
                                           self._compress_into_ranges(
                                           vids_to_add), isbridge)
         except Exception, e:
@@ -1508,7 +1508,7 @@ class bridge(Addon, moduleBase):
 
         try:
             if pvid_to_add and pvid_to_add != running_pvid:
-                self.ipcmd.bridge_port_pvid_add(bportifaceobj.name,
+                self.iproute2.bridge_vlan_add_pvid(bportifaceobj.name,
                                                 pvid_to_add)
         except Exception, e:
                 self.log_error('%s: failed to set pvid `%s` (%s)'
