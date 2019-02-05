@@ -227,7 +227,8 @@ class IPRoute2(Cache):
     # BRIDGE
     ############################################################################
 
-    def bridge_fdb_show_dev(self, dev):
+    @staticmethod
+    def bridge_fdb_show_dev(dev):
         try:
             fdbs = {}
             output = utils.exec_command("%s fdb show dev %s" % (utils.bridge_cmd, dev))
@@ -237,7 +238,7 @@ class IPRoute2(Cache):
                         entries = fdb_entry.split()
                         fdbs.setdefault(entries[2], []).append(entries[0])
                     except:
-                        self.logger.debug("%s: invalid fdb line '%s'" % (dev, fdb_entry))
+                        pass
             return fdbs
         except Exception:
             return None
