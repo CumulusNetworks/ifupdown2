@@ -840,11 +840,6 @@ class bridge(Addon, moduleBase):
 
         return ' '.join(bridge_ports)
 
-    def _is_bridge_port(self, ifaceobj):
-        if self.brctlcmd.is_bridge_port(ifaceobj.name):
-            return True
-        return False
-
     def check_valid_bridge(self, ifaceobj, ifname):
         if LinkUtils.link_exists_nodryrun(ifname) and not LinkUtils.is_bridge(ifname):
             self.log_error('misconfiguration of bridge attribute(s) on existing non-bridge interface (%s)' % ifname, ifaceobj=ifaceobj)
@@ -869,9 +864,9 @@ class bridge(Addon, moduleBase):
 
     def get_dependent_ifacenames_running(self, ifaceobj):
         self._init_command_handlers()
-        if not self.brctlcmd.bridge_exists(ifaceobj.name):
+        if not self.cache.bridge_exists(ifaceobj.name):
             return None
-        return self.brctlcmd.get_bridge_ports(ifaceobj.name)
+        return self.cache.get_slaves(ifaceobj.name)
 
     def _get_bridge_port_list(self, ifaceobj):
 
@@ -969,16 +964,14 @@ class bridge(Addon, moduleBase):
         bridgeports = self._get_bridge_port_list(ifaceobj)
         runningbridgeports = []
 
-        self.ipcmd.batch_start()
         self._process_bridge_waitport(ifaceobj, bridgeports)
-        self.ipcmd.batch_start()
         # Delete active ports not in the new port list
         if not ifupdownflags.flags.PERFMODE:
-            runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            runningbridgeports = self.cache.get_slaves(ifaceobj.name)
             if runningbridgeports:
                 for bport in runningbridgeports:
                     if not bridgeports or bport not in bridgeports:
-                        self.ipcmd.link_set(bport, 'nomaster')
+                        self.netlink.link_set_nomaster(bport)
                         # set admin DOWN on all removed ports
                         # that don't have config outside bridge
                         if not ifaceobj_getfunc(bport):
@@ -988,7 +981,6 @@ class bridge(Addon, moduleBase):
             else:
                 runningbridgeports = []
         if not bridgeports:
-            self.ipcmd.batch_commit()
             return []
         err = 0
         ports = 0
@@ -1014,24 +1006,16 @@ class bridge(Addon, moduleBase):
                                   bridgeport) + 'invalid ether addr %s'
                                   %hwaddress)
                     continue
-                self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
+                self.netlink.link_set_master(bridgeport, ifaceobj.name)
                 newly_enslaved_ports.append(bridgeport)
                 self.handle_ipv6([bridgeport], '1')
-                self.ipcmd.addr_flush(bridgeport)
+                self.netlink.addr_flush(bridgeport)
                 ports += 1
                 if ports == 250:
                     ports = 0
-                    self.ipcmd.batch_commit()
-                    self.ipcmd.batch_start()
             except Exception, e:
                 self.logger.error(str(e))
                 pass
-        try:
-            self.ipcmd.batch_commit()
-        except Exception, e:
-            self._pretty_print_add_ports_error(str(e), ifaceobj,
-                                               bridgeports)
-            pass
 
         if err:
             self.log_error('bridge configuration failed (missing ports)')
@@ -1598,7 +1582,7 @@ class bridge(Addon, moduleBase):
             # netlink.cache.bridge_port_exists(ifaceobj.name, bport)
             # on link_set_master we need to wait until we cache the correct
             # notification and register the brport as slave
-            if not self.ipcmd.bridge_port_exists(ifaceobj.name, bport):
+            if not self.cache.bridge_port_exists(ifaceobj.name, bport):
                 self.logger.info('%s: skipping bridge config' %ifaceobj.name +
                         ' for port %s (missing port)' %bport)
                 continue
@@ -1606,7 +1590,7 @@ class bridge(Addon, moduleBase):
                              %(ifaceobj.name, bport))
             bportifaceobjlist = ifaceobj_getfunc(bport)
             if not bportifaceobjlist:
-               continue
+                continue
             for bportifaceobj in bportifaceobjlist:
                 # Dont process bridge port if it already has been processed
                 # and there is no override on port_processed
@@ -1773,7 +1757,7 @@ class bridge(Addon, moduleBase):
             brports_ifla_info_slave_data    = dict()
             brport_ifaceobj_dict            = dict()
 
-            running_brports = self.brctlcmd.get_bridge_ports(ifname)
+            running_brports = self.cache.get_slaves(ifname)
 
             if target_ports:
                 new_targets = []
@@ -2051,7 +2035,7 @@ class bridge(Addon, moduleBase):
 
         running_ports = ''
         try:
-            running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            running_ports = self.cache.get_slaves(ifaceobj.name)
             if not running_ports:
                 return
             self.handle_ipv6([], '1', ifaceobj=ifaceobj)
@@ -2202,7 +2186,7 @@ class bridge(Addon, moduleBase):
         if not netlink.cache.link_exists(ifname):
             return
         try:
-            running_ports = self.brctlcmd.get_bridge_ports(ifname)
+            running_ports = self.cache.get_slaves(ifname)
             if running_ports:
                 self.handle_ipv6(running_ports, '0')
                 if ifaceobj.link_type != ifaceLinkType.LINK_NA:
@@ -2533,7 +2517,7 @@ class bridge(Addon, moduleBase):
                             ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
             return
-        if not self.brctlcmd.bridge_exists(ifaceobj.name):
+        if not self.cache.bridge_exists(ifaceobj.name):
             self.logger.info('%s: bridge: does not exist' %(ifaceobj.name))
             return
 
@@ -2805,7 +2789,7 @@ class bridge(Addon, moduleBase):
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr,
                                  ifaceobj_getfunc):
-        if not self._is_bridge_port(ifaceobj):
+        if not self.cache.link_is_bridge_port(ifaceobj.name):
             # Mark all bridge attributes as failed
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                     ['bridge-vids', 'bridge-trunk', 'bridge-pvid', 'bridge-access',
@@ -3068,9 +3052,9 @@ class bridge(Addon, moduleBase):
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         try:
-            if self.brctlcmd.bridge_exists(ifaceobjrunning.name):
+            if self.cache.bridge_exists(ifaceobjrunning.name):
                 self._query_running_bridge(ifaceobjrunning, ifaceobj_getfunc)
-            elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
+            elif self.cache.link_is_bridge_port(ifaceobjrunning.name):
                 self._query_running_bridge_port(ifaceobjrunning, ifaceobj_getfunc)
         except Exception as e:
             raise Exception('%s: %s' % (ifaceobjrunning.name, str(e)))

@@ -660,6 +660,18 @@ class _NetlinkCache:
     # BRIDGE #################################################################
     ##########################################################################
 
+    def bridge_exists(self, ifname):
+        """
+        Check if cached device is a bridge
+        """
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_KIND] == "bridge"
+        except (KeyError, AttributeError):
+            return False
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
+
     def bridge_is_vlan_aware(self, ifname):
         """
         Return IFLA_BR_VLAN_FILTERING value
@@ -669,6 +681,15 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_BR_VLAN_FILTERING]
+        except (KeyError, AttributeError):
+            return False
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
+
+    def link_is_bridge_port(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_KIND] == "bridge"
         except (KeyError, AttributeError):
             return False
         except TypeError as e:
@@ -689,15 +710,6 @@ class _NetlinkCache:
         # now that we have the master's name we just need to double check
         # if the master is really a bridge
         return bridge_name if self.link_is_bridge(bridge_name) else None
-
-    def link_is_bridge_port(self, ifname):
-        try:
-            with self._cache_lock:
-                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_KIND] == 'bridge'
-        except (KeyError, AttributeError):
-            return False
-        except TypeError as e:
-            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
 
     #def is_link_slave_kind(self, ifname, _type):
     #    try:
@@ -881,6 +893,46 @@ class _NetlinkCache:
                 self._masters_and_slaves[master_ifname].add(ifname)
             else:
                 self._masters_and_slaves[master_ifname] = set([ifname])
+
+    def force_add_slave(self, master, slave):
+        """
+        When calling link_set_master, we don't want to wait for the RTM_GETLINK
+        notification - if the operation return with NL_SUCCESS we can manually
+        update our cache and move on
+        :param master:
+        :param slave:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                master_slaves = self._masters_and_slaves.get(master)
+
+                if not master_slaves:
+                    self._masters_and_slaves[master] = {slave}
+                else:
+                    master_slaves.add(slave)
+        except:
+            # since this is an optimization function we can ignore all error
+            pass
+
+    def force_remove_slave(self, slave_ifname):
+        """
+        When calling link_set_nomaster, we don't want to wait for the RTM_GETLINK
+        notification - if the operation return with NL_SUCCESS we can manually
+        update our cache and move on
+        :param master:
+        :param slave:
+        :return:
+        """
+        try:
+            with self._cache_lock:
+                for master, slaves_set in self._masters_and_slaves.iteritems():
+                    if slave_ifname in slaves_set:
+                        slaves_set.remove(slave_ifname)
+                        break
+        except:
+            # since this is an optimization function we can ignore all error
+            pass
 
     def force_remove_link(self, ifname):
         """
@@ -2212,7 +2264,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     ###
 
-    def __link_set_master(self, ifname, master_ifindex):
+    def __link_set_master(self, ifname, master_ifindex, master_ifname=None):
         debug = nlpacket.RTM_NEWLINK in self.debug
         link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
         link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
@@ -2220,14 +2272,23 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
         link.add_attribute(nlpacket.Link.IFLA_MASTER, master_ifindex)
         link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket_get_response_with_error(link)
+        result = self.tx_nlpacket_get_response_with_error(link)
+        # opti:
+        # if we reach this code it means the slave/unslave opreation went through
+        # we can manually update our cache to reflect the change without having
+        # to wait for the netlink notification
+        if master_ifindex:
+            self.cache.force_add_slave(master_ifname, ifname)
+        else:
+            self.cache.force_remove_slave(ifname)
+        return result
 
-    def link_set_master(self, ifname, master_dev):
-        self.logger.info("%s: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
+    def link_set_master(self, ifname, master_ifname):
+        self.logger.info("%s: netlink: ip link set dev %s master %s" % (ifname, ifname, master_ifname))
         try:
-            self.__link_set_master(ifname, self.cache.get_ifindex(master_dev))
+            self.__link_set_master(ifname, self.cache.get_ifindex(master_ifname), master_ifname=master_ifname)
         except Exception as e:
-            raise NetlinkError(e, "cannot enslave link %s to %s" % (ifname, master_dev), ifname=ifname)
+            raise NetlinkError(e, "cannot enslave link %s to %s" % (ifname, master_ifname), ifname=ifname)
 
     def link_set_nomaster(self, ifname):
         self.logger.info("%s: netlink: ip link set dev %s nomaster" % (ifname, ifname))
@@ -2405,5 +2466,19 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkError(e, "cannot delete address %s dev %s" % (addr, ifname), ifname=ifname)
 
     def addr_flush(self, ifname):
+        """
+        From iproute2/ip/ipaddress.c
+            /*
+             * Note that the kernel may delete multiple addresses for one
+             * delete request (e.g. if ipv4 address promotion is disabled).
+             * Since a flush operation is really a series of delete requests
+             * its possible that we may request an address delete that has
+             * already been done by the kernel. Therefore, ignore EADDRNOTAVAIL
+             * errors returned from a flush request
+             */
+        """
         for addr in self.cache.get_addresses_list(ifname):
-            self.addr_del(ifname, addr)
+            try:
+                self.addr_del(ifname, addr)
+            except:
+                pass
