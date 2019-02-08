@@ -47,7 +47,6 @@ class LinkUtils(utilsBase):
     non-netlink APIs (sysfs, iproute2, brctl...)
     """
     _CACHE_FILL_DONE = False
-    VXLAN_UDP_PORT = 4789
 
     ipbatchbuf = ''
     ipbatch = False
@@ -1212,60 +1211,6 @@ class LinkUtils(utilsBase):
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         return cur_peers
-
-    def link_create_vxlan(self, name, vxlanid,
-                          localtunnelip=None,
-                          svcnodeip=None,
-                          remoteips=None,
-                          learning='on',
-                          ageing=None,
-                          anycastip=None,
-                          ttl=None,
-                          physdev=None):
-        if svcnodeip and remoteips:
-            raise Exception("svcnodeip and remoteip is mutually exclusive")
-        args = ''
-        if svcnodeip:
-            if svcnodeip.is_multicast:
-                args += ' group %s' % svcnodeip
-            else:
-                args += ' remote %s' % svcnodeip
-        if ageing:
-            args += ' ageing %s' % ageing
-        if learning == 'off':
-            args += ' nolearning'
-        if ttl is not None:
-            args += ' ttl %s' % ttl
-
-        if physdev:
-            args += ' dev %s' % physdev
-
-        if self.link_exists(name):
-            cmd = 'link set dev %s type vxlan dstport %d' % (name, LinkUtils.VXLAN_UDP_PORT)
-            vxlanattrs = self.get_vxlandev_attrs(name)
-            # on ifreload do not overwrite anycast_ip to individual ip if clagd
-            # has modified
-            if vxlanattrs:
-                running_localtunnelip = vxlanattrs.get('local')
-                if anycastip and running_localtunnelip and anycastip == running_localtunnelip:
-                    localtunnelip = running_localtunnelip
-                running_svcnode = vxlanattrs.get('svcnode')
-                if running_svcnode and not svcnodeip:
-                    args += ' noremote'
-        else:
-            cmd = 'link add dev %s type vxlan id %s dstport %d' % (name, vxlanid, LinkUtils.VXLAN_UDP_PORT)
-
-        if localtunnelip:
-            args += ' local %s' % localtunnelip
-        cmd += args
-
-        if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-            self.add_to_batch(cmd)
-        else:
-            utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
-
-        # XXX: update linkinfo correctly
-        #self._cache_update([name], {})
 
     @staticmethod
     def link_exists(ifacename):

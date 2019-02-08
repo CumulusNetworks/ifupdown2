@@ -474,7 +474,7 @@ class vxlan(Addon, moduleBase):
                 except Exception as e_netlink:
                     self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:
-                        self.ipcmd.link_create_vxlan(ifname, vxlanid,
+                        self.iproute2.link_create_vxlan(ifname, vxlanid,
                                                      localtunnelip=local,
                                                      svcnodeip=group,
                                                      remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),

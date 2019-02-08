@@ -24,15 +24,21 @@
 
 try:
     from ifupdown2.lib.sysfs import Sysfs
-    from ifupdown2.ifupdown.utils import utils
     from ifupdown2.lib.base_objects import Cache
+
+    from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.nlmanager.nlpacket import Link
 except ImportError:
     from lib.sysfs import Sysfs
-    from ifupdown.utils import utils
     from lib.base_objects import Cache
+
+    from ifupdown.utils import utils
+    from nlmanager.nlpacket import Link
 
 
 class IPRoute2(Cache):
+
+    VXLAN_UDP_PORT = 4789
 
     def __init__(self):
         Cache.__init__(self)
@@ -173,6 +179,49 @@ class IPRoute2(Cache):
             "%s: dryrun: executing %s link add link %s name %s type macvlan mode private"
             % (ifname, utils.ip_cmd, ifname, macvlan_ifname)
         )
+
+    ###
+
+    def link_create_vxlan(self, name, vxlanid, localtunnelip=None, svcnodeip=None,
+                          remoteips=None, learning='on', ageing=None, ttl=None, physdev=None):
+        if svcnodeip and remoteips:
+            raise Exception("svcnodeip and remoteip are mutually exclusive")
+
+        if self.cache.link_exists(name):
+            cmd = [
+                "link set dev %s type vxlan dstport %d"
+                % (name, self.VXLAN_UDP_PORT)
+            ]
+        else:
+            cmd = [
+                "link add dev %s type vxlan id %s dstport %d"
+                % (name, vxlanid, self.VXLAN_UDP_PORT)
+            ]
+
+        if svcnodeip:
+            if svcnodeip.is_multicast:
+                cmd.append("group %s" % svcnodeip)
+            else:
+                cmd.append("remote %s" % svcnodeip)
+        else:
+            cmd.append("noremote")
+
+        if ageing:
+            cmd.append("ageing %s" % ageing)
+
+        if learning == 'off':
+            cmd.append("nolearning")
+
+        if ttl is not None:
+            cmd.append("ttl %s" % ttl)
+
+        if physdev:
+            cmd.append("dev %s" % physdev)
+
+        if localtunnelip:
+            cmd.append("local %s" % localtunnelip)
+
+        self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
 
     ############################################################################
     # ADDRESS
