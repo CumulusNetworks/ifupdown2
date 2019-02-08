@@ -940,7 +940,7 @@ class vrf(Addon, moduleBase):
                         self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
                         pass
                 try:
-                    self.ipcmd.addr_flush(s)
+                    self.netlink.addr_flush(s)
                     self.netlink.link_down(s)
                 except Exception, e:
                     self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
