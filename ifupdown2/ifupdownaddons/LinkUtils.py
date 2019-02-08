@@ -1186,32 +1186,6 @@ class LinkUtils(utilsBase):
             utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
         self._cache_update([name], {})
 
-    def get_vxlan_peers(self, dev, svcnodeip):
-        cmd = '%s fdb show brport %s' % (utils.bridge_cmd,
-                                         dev)
-        cur_peers = []
-        try:
-            ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=False)
-            utils.enable_subprocess_signal_forwarding(ps, signal.SIGINT)
-            output = subprocess.check_output(('grep', '00:00:00:00:00:00'), stdin=ps.stdout)
-            ps.wait()
-            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
-            try:
-                ppat = re.compile('\s+dst\s+(\d+.\d+.\d+.\d+)\s+')
-                for l in output.split('\n'):
-                    m = ppat.search(l)
-                    if m and m.group(1) != svcnodeip:
-                        cur_peers.append(m.group(1))
-            except:
-                self.logger.warn('error parsing ip link output')
-        except subprocess.CalledProcessError as e:
-            if e.returncode != 1:
-                self.logger.error(str(e))
-        finally:
-            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
-
-        return cur_peers
-
     @staticmethod
     def link_exists(ifacename):
         if ifupdownflags.flags.DRYRUN:

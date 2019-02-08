@@ -22,6 +22,11 @@
 # iproute2 -- contains all iproute2 related operation
 #
 
+import re
+import shlex
+import signal
+import subprocess
+
 try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.base_objects import Cache
@@ -39,6 +44,7 @@ except ImportError:
 class IPRoute2(Cache):
 
     VXLAN_UDP_PORT = 4789
+    VXLAN_PEER_REGEX_PATTERN = re.compile("\s+dst\s+(\d+.\d+.\d+.\d+)\s+")
 
     def __init__(self):
         Cache.__init__(self)
@@ -222,6 +228,30 @@ class IPRoute2(Cache):
             cmd.append("local %s" % localtunnelip)
 
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
+
+    def get_vxlan_peers(self, dev, svcnodeip):
+        cmd = "%s fdb show brport %s" % (utils.bridge_cmd, dev)
+        cur_peers = []
+        try:
+            ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=False)
+            utils.enable_subprocess_signal_forwarding(ps, signal.SIGINT)
+            output = subprocess.check_output(("grep", "00:00:00:00:00:00"), stdin=ps.stdout)
+            ps.wait()
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
+            try:
+                for l in output.split('\n'):
+                    m = self.VXLAN_PEER_REGEX_PATTERN.search(l)
+                    if m and m.group(1) != svcnodeip:
+                        cur_peers.append(m.group(1))
+            except:
+                self.logger.warn('error parsing ip link output')
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 1:
+                self.logger.error(str(e))
+        finally:
+            utils.disable_subprocess_signal_forwarding(signal.SIGINT)
+
+        return cur_peers
 
     ############################################################################
     # ADDRESS

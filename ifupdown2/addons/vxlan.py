@@ -19,7 +19,6 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdownaddons.cache import *
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     import ifupdown.policymanager as policymanager
@@ -33,7 +32,6 @@ except ImportError:
     from ifupdown.netlink import netlink
 
     from ifupdownaddons.cache import *
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -110,7 +108,6 @@ class vxlan(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
         purge_remotes = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vxlan-purge-remotes')
         if purge_remotes:
             self._purge_remotes = utils.get_boolean_from_string(purge_remotes)
@@ -519,7 +516,7 @@ class vxlan(Addon, moduleBase):
                 # figure out the diff for remotes and do the bridge fdb updates
                 # only if provisioned by user and not by an vxlan external
                 # controller.
-                peers = self.ipcmd.get_vxlan_peers(ifaceobj.name, group)
+                peers = self.iproute2.get_vxlan_peers(ifaceobj.name, group)
                 if local and remoteips and local in remoteips:
                     remoteips.remove(local)
                 cur_peers = set(peers)
@@ -657,7 +654,7 @@ class vxlan(Addon, moduleBase):
                 ifaceobjcurr,
                 'vxlan-remoteip',
                 ifaceobj.get_attr_value('vxlan-remoteip'),
-                self.ipcmd.get_vxlan_peers(ifaceobj.name, str(cached_svcnode))
+                self.iproute2.get_vxlan_peers(ifaceobj.name, str(cached_svcnode))
             )
 
     def _query_running(self, ifaceobjrunning):
@@ -709,7 +706,7 @@ class vxlan(Addon, moduleBase):
         if purge_remotes:
             # if purge_remotes is on, it means we own the
             # remote ips. Query them and add it to the running config
-            attrval = self.ipcmd.get_vxlan_peers(ifname, vxlan_svcnode_value)
+            attrval = self.iproute2.get_vxlan_peers(ifname, vxlan_svcnode_value)
             if attrval:
                 [ifaceobjrunning.update_config('vxlan-remoteip', a) for a in attrval]
 
@@ -755,10 +752,6 @@ class vxlan(Addon, moduleBase):
     def get_ops(self):
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
@@ -772,8 +765,6 @@ class vxlan(Addon, moduleBase):
                     and self.vxlan_physdev_mcast \
                     and self.cache.link_exists(self.vxlan_physdev_mcast):
                 self.netlink.link_del(self.vxlan_physdev_mcast)
-
-        self._init_command_handlers()
 
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
