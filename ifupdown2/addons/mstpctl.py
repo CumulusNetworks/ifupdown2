@@ -283,6 +283,7 @@ class mstpctl(Addon, moduleBase):
                  'mstpctl-portbpdufilter' : 'portbpdufilter'}
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.name = self.__class__.__name__
         self.brctlcmd = None
@@ -339,11 +340,6 @@ class mstpctl(Addon, moduleBase):
             return True
         return False
 
-    def _is_bridge_port(self, ifaceobj):
-        if self.brctlcmd.is_bridge_port(ifaceobj.name):
-            return True
-        return False
-
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if not self._is_bridge(ifaceobj):
             return None
@@ -353,10 +349,10 @@ class mstpctl(Addon, moduleBase):
 
     def get_dependent_ifacenames_running(self, ifaceobj):
         self._init_command_handlers()
-        if (self.brctlcmd.bridge_exists(ifaceobj.name) and
+        if (self.cache.bridge_exists(ifaceobj.name) and
                 not self.mstpctlcmd.mstpbridge_exists(ifaceobj.name)):
             return None
-        return self.brctlcmd.get_bridge_ports(ifaceobj.name)
+        return self.cache.get_slaves(ifaceobj.name)
 
     def _get_bridge_port_attr_value(self, bridgename, portname, attr):
         json_attr = self.get_mod_subattr(attr, 'jsonAttr')
@@ -393,7 +389,7 @@ class mstpctl(Addon, moduleBase):
         runningbridgeports = []
         # Delete active ports not in the new port list
         if not ifupdownflags.flags.PERFMODE:
-            runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+            runningbridgeports = self.cache.get_slaves(ifaceobj.name)
             if runningbridgeports:
                 for bport in runningbridgeports:
                     if not bridgeports or bport not in bridgeports:
@@ -468,7 +464,7 @@ class mstpctl(Addon, moduleBase):
                         if default_val and jsonAttr:
                             bridgeports = self._get_bridge_port_list(ifaceobj)
                             for port in bridgeports:
-                                if not self.brctlcmd.is_bridge_port(port):
+                                if not self.cache.link_is_bridge_port(port):
                                     continue
 
                                 bport_ifaceobjs = ifaceobj_getfunc(port)
@@ -646,7 +642,7 @@ class mstpctl(Addon, moduleBase):
         self.logger.info('%s: applying mstp configuration '
                           %ifaceobj.name + 'specific to ports')
         # Query running bridge ports. and only apply attributes on them
-        bridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+        bridgeports = self.cache.get_slaves(ifaceobj.name)
         if not bridgeports:
            self.logger.debug('%s: cannot find bridgeports' %ifaceobj.name)
            return
@@ -715,7 +711,7 @@ class mstpctl(Addon, moduleBase):
                     porterrstr = str(e)
                     pass
 
-                running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+                running_ports = self.cache.get_slaves(ifaceobj.name)
                 if running_ports:
                     # disable ipv6 for ports that were added to bridge
                     self._ports_enable_disable_ipv6(running_ports, '1')
@@ -743,10 +739,10 @@ class mstpctl(Addon, moduleBase):
             if ifaceobj.get_attr_value_first('mstpctl-ports'):
                 # If bridge ports specified with mstpctl attr, delete the
                 # bridge
-                ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+                ports = self.cache.get_slaves(ifaceobj.name)
                 if ports:
                     self._ports_enable_disable_ipv6(ports, '0')
-                self.brctlcmd.delete_bridge(ifaceobj.name)
+                self.netlink.link_del(ifaceobj.name)
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
@@ -769,7 +765,7 @@ class mstpctl(Addon, moduleBase):
                 and attrname != 'mstpctl-maxhops'):
                 bridgeattrdict[attrname] = [v]
 
-        ports = self.brctlcmd.get_bridge_ports(ifaceobjrunning.name)
+        ports = self.cache.get_slaves(ifaceobjrunning.name)
         # Do this only for vlan-UNAWARE-bridge
         if ports and not bridge_vlan_aware:
             portconfig = {'mstpctl-portautoedge' : '',
@@ -827,7 +823,7 @@ class mstpctl(Addon, moduleBase):
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-portpathcost',
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
-        if not self.brctlcmd.bridge_exists(ifaceobj.name):
+        if not self.cache.bridge_exists(ifaceobj.name):
             self.logger.debug('bridge %s does not exist' %ifaceobj.name)
             return
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
@@ -844,7 +840,7 @@ class mstpctl(Addon, moduleBase):
             runningattrs = {}
         config_stp = self._get_config_stp(ifaceobj)
         running_stp = self._get_running_stp(ifaceobj)
-        running_port_list = self.brctlcmd.get_bridge_ports(ifaceobj.name)
+        running_port_list = self.cache.get_slaves(ifaceobj.name)
         for k in ifaceattrs:
             # for all mstpctl options
             if k in blacklistedattrs:
@@ -1026,7 +1022,7 @@ class mstpctl(Addon, moduleBase):
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
         # Check if this is a bridge port
-        if not self._is_bridge_port(ifaceobj):
+        if not self.cache.link_is_bridge_port(ifaceobj.name):
             # mark all the bridge attributes as error
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                             self._port_attrs_map.keys(), 0)
@@ -1159,9 +1155,9 @@ class mstpctl(Addon, moduleBase):
                                            bridge_vlan_aware))
 
     def _query_running(self, ifaceobjrunning, **extra_args):
-        if self.brctlcmd.bridge_exists(ifaceobjrunning.name):
+        if self.cache.bridge_exists(ifaceobjrunning.name):
             self._query_running_bridge(ifaceobjrunning)
-        elif self.brctlcmd.is_bridge_port(ifaceobjrunning.name):
+        elif self.cache.link_is_bridge_port(ifaceobjrunning.name):
             self._query_running_bridge_port(ifaceobjrunning)
 
     def _query_bridge_port(self, ifaceobj, ifaceobj_getfunc=None):
