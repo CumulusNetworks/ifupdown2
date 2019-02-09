@@ -1143,7 +1143,7 @@ class AttributeIFLA_LINKINFO(Attribute):
         kind        = self.value.get(Link.IFLA_INFO_KIND)
         slave_kind  = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
 
-        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge', 'dummy'):
+        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge', 'dummy', 'vrf'):
             self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
         elif not kind and slave_kind != 'bridge':
             # only support brport for now.
@@ -1469,6 +1469,15 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                         else:
                             self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA bridge sub-attribute type %d' % info_data_type)
+
+                    elif kind == 'vrf':
+                        if info_data_type == Link.IFLA_VRF_TABLE:
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(info_data_value)
 
             elif sub_attr_type == Link.IFLA_INFO_SLAVE_DATA:
 
