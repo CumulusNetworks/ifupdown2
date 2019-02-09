@@ -41,7 +41,6 @@ class bridgevlan(moduleBase):
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
         self.brctlcmd = None
-        self.ipcmd = None
 
     def _is_bridge_vlan_device(self, ifaceobj):
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
@@ -158,8 +157,8 @@ class bridgevlan(moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = self.brctlcmd = LinkUtils()
+        if not self.brctlcmd:
+            self.brctlcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
