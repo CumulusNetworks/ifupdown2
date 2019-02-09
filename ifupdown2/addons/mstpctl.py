@@ -9,6 +9,8 @@ import os
 from sets import Set
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
@@ -21,6 +23,8 @@ try:
     from ifupdown2.ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdown2.ifupdownaddons.systemutils import systemUtils
 except ImportError:
+    from lib.addon import Addon
+
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
@@ -37,7 +41,7 @@ except ImportError:
 class mstpctlFlags:
     PORT_PROCESSED = 0x1
 
-class mstpctl(moduleBase):
+class mstpctl(Addon, moduleBase):
     """  ifupdown2 addon module to configure mstp attributes """
 
     _modinfo = {
@@ -280,7 +284,6 @@ class mstpctl(moduleBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
         self.name = self.__class__.__name__
         self.brctlcmd = None
         self.mstpctlcmd = None
@@ -392,9 +395,9 @@ class mstpctl(moduleBase):
         if not ifupdownflags.flags.PERFMODE:
             runningbridgeports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
             if runningbridgeports:
-                [self.ipcmd.link_set(bport, 'nomaster')
-                    for bport in runningbridgeports
-                        if not bridgeports or bport not in bridgeports]
+                for bport in runningbridgeports:
+                    if not bridgeports or bport not in bridgeports:
+                        self.netlink.link_set_nomaster(bport)
             else:
                 runningbridgeports = []
         if not bridgeports:
@@ -408,8 +411,8 @@ class mstpctl(moduleBase):
                             %(ifaceobj.name, bridgeport))
                     err += 1
                     continue
-                self.ipcmd.link_set(bridgeport, 'master', ifaceobj.name)
-                self.ipcmd.addr_flush(bridgeport)
+                self.netlink.link_set_master(bridgeport, ifaceobj.name)
+                self.netlink.addr_flush(bridgeport)
             except Exception, e:
                 self.log_error(str(e), ifaceobj)
 
@@ -702,20 +705,16 @@ class mstpctl(moduleBase):
             if ifaceobj.get_attr_value_first('mstpctl-ports'):
                 # If bridge ports specified with mstpctl attr, create the
                 # bridge and also add its ports
-                self.ipcmd.batch_start()
-                if not ifupdownflags.flags.PERFMODE:
-                    if not netlink.cache.link_exists(ifaceobj.name):
-                        self.ipcmd.link_create(ifaceobj.name, 'bridge')
-                else:
-                    self.ipcmd.link_create(ifaceobj.name, 'bridge')
+                if not self.cache.link_exists(ifaceobj.name):
+                    self.netlink.link_add_bridge(ifaceobj.name)
+
                 try:
                     self._add_ports(ifaceobj)
                 except Exception, e:
                     porterr = True
                     porterrstr = str(e)
                     pass
-                finally:
-                    self.ipcmd.batch_commit()
+
                 running_ports = self.brctlcmd.get_bridge_ports(ifaceobj.name)
                 if running_ports:
                     # disable ipv6 for ports that were added to bridge
@@ -1288,8 +1287,8 @@ class mstpctl(moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = self.brctlcmd = LinkUtils()
+        if not self.brctlcmd:
+            self.brctlcmd = LinkUtils()
         if not self.mstpctlcmd:
             self.mstpctlcmd = mstpctlutil()
 
