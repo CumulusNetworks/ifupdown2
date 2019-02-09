@@ -94,6 +94,27 @@ class Sysfs(IO, Cache):
         self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias)
 
     ############################################################################
+    # BRIDGE
+    ############################################################################
+
+    def bridge_get_stp(self, bridge):
+        stp_state_path = "/sys/class/net/%s/bridge/stp_state" % bridge
+
+        if not os.path.exists(stp_state_path):
+            return "error"
+
+        stp_state = self.read_file_oneline(stp_state_path)
+
+        if not stp_state:
+            return "error"
+
+        try:
+            stp_state_int = int(stp_state)
+            return "yes" if stp_state_int > 0 else "no"
+        except:
+            return "unknown"
+
+    ############################################################################
     # BOND
     ############################################################################
 

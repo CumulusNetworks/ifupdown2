@@ -721,7 +721,7 @@ class mstpctl(Addon, moduleBase):
                self.set_iface_attr(ifaceobj, 'mstpctl-stp',
                                    self.brctlcmd.bridge_set_stp)
             else:
-               stp = self.brctlcmd.bridge_get_stp(ifaceobj.name)
+               stp = self.sysfs.bridge_get_stp(ifaceobj.name)
             if (self.mstpd_running and
                     (stp == 'yes' or stp == 'on')):
                 self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)
@@ -815,8 +815,7 @@ class mstpctl(Addon, moduleBase):
         return utils.get_boolean_from_string(stp)
 
     def _get_running_stp(self, ifaceobj):
-        stp = self.brctlcmd.bridge_get_stp(ifaceobj.name)
-        return utils.get_boolean_from_string(stp)
+        return utils.get_boolean_from_string(self.sysfs.bridge_get_stp(ifaceobj.name))
 
     def _query_check_bridge(self, ifaceobj, ifaceobjcurr,
                             ifaceobj_getfunc=None):
@@ -911,7 +910,7 @@ class mstpctl(Addon, moduleBase):
                 # contain more than one valid values
                 stp_on_vals = ['on', 'yes']
                 stp_off_vals = ['off']
-                rv = self.brctlcmd.bridge_get_stp(ifaceobj.name)
+                rv = self.sysfs.bridge_get_stp(ifaceobj.name)
                 if ((v in stp_on_vals and rv in stp_on_vals) or
                     (v in stp_off_vals and rv in stp_off_vals)):
                     ifaceobjcurr.update_config_with_status('mstpctl-stp', v, 0)
@@ -1079,7 +1078,7 @@ class mstpctl(Addon, moduleBase):
             self.logger.warn('%s: unable to determine bridgename'
                              %ifaceobjrunning.name)
             return
-        if self.brctlcmd.bridge_get_stp(bridgename) == 'no':
+        if self.sysfs.bridge_get_stp(bridgename) == 'no':
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return
@@ -1138,7 +1137,7 @@ class mstpctl(Addon, moduleBase):
         #    portconfig['mstpctl-treeportcost'] += ' %s=%s' %(p, v)
 
     def _query_running_bridge(self, ifaceobjrunning):
-        if self.brctlcmd.bridge_get_stp(ifaceobjrunning.name) == 'no':
+        if self.sysfs.bridge_get_stp(ifaceobjrunning.name) == 'no':
            # This bridge does not run stp, return
            return
         # if userspace stp not set, return

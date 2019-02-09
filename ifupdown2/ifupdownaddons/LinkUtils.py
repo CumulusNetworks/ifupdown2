@@ -1788,20 +1788,6 @@ class LinkUtils(utilsBase):
             return
         utils.exec_command('%s stp %s %s' % (utils.brctl_cmd, bridge, stp_state))
 
-    def bridge_get_stp(self, bridge):
-        sysfs_stpstate = '/sys/class/net/%s/bridge/stp_state' % bridge
-        if not os.path.exists(sysfs_stpstate):
-            return 'error'
-        stpstate = self.read_file_oneline(sysfs_stpstate)
-        if not stpstate:
-            return 'error'
-        try:
-            if int(stpstate) > 0:
-                return 'yes'
-            elif int(stpstate) == 0:
-                return 'no'
-        except:
-            return 'unknown'
 
     @staticmethod
     def _conv_value_to_user(s):
