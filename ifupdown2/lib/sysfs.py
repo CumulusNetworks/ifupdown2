@@ -93,9 +93,9 @@ class Sysfs(IO, Cache):
             alias = ""
         self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias)
 
-    #
+    ############################################################################
     # BOND
-    #
+    ############################################################################
 
     def bond_remove_slave(self, bond_name, slave_name):
         if self.cache.is_link_enslaved_to(slave_name, bond_name):
@@ -138,9 +138,9 @@ class Sysfs(IO, Cache):
             except Exception as e:
                 self.logger.warning("%s: %s %s: %s" % (bond_name, bond_attr_name, value, str(e)))
 
-    #
+    ############################################################################
     # /proc/sys/ipv6/conf
-    #
+    ############################################################################
 
     def get_ipv6_conf_disable_ipv6(self, ifname):
         return int(self.read_file_oneline("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname) or 0)
