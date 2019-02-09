@@ -1195,20 +1195,6 @@ class _NetlinkCache:
     # BRIDGE #################################################################
     ##########################################################################
 
-    def is_link_brport(self, ifname):
-        try:
-            with self._cache_lock:
-                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_KIND] == 'bridge'
-        except (KeyError, AttributeError):
-            return False
-
-    def brport_exists(self, bridge_ifname, brport_ifname):
-        try:
-            with self._cache_lock:
-                return brport_ifname in self._masters_and_slaves[bridge_ifname]
-        except KeyError:
-            return False
-
     def get_brport_learning(self, ifname):
         try:
             with self._cache_lock:
