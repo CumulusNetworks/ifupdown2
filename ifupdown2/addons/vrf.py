@@ -737,8 +737,7 @@ class vrf(Addon, moduleBase):
                                      self.vrf_table_id_start,
                                      self.vrf_table_id_end), ifaceobj)
             try:
-                self.ipcmd.link_create(ifaceobj.name, 'vrf',
-                                       {'table' : '%s' %vrf_table})
+                self.netlink.link_add_vrf(ifaceobj.name, vrf_table)
             except Exception, e:
                 self.log_error('create failed (%s)\n' % str(e), ifaceobj)
             if vrf_table != 'auto':
