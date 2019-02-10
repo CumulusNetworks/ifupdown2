@@ -32,26 +32,33 @@ except ImportError:
 
 
 class link(Addon, moduleBase):
-    _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',
-                'attrs' : {
-                   'link-type' :
-                        {'help' : 'type of link as in \'ip link\' command.',
-                         'validvals' : ['dummy', 'veth'],
-                         'example' : ['link-type <dummy|veth>']},
-                   'link-down' :
-                        {'help': 'keep link down',
-                         'example' : ['link-down yes/no'],
-                         'default' : 'no',
-                         'validvals' : ['yes', 'no']}}}
+    _modinfo = {
+        "mhelp": "create/configure link types. similar to ip-link",
+        "attrs": {
+            "link-type": {
+                "help": "type of link as in 'ip link' command.",
+                "validvals": ["dummy", "veth"],
+                "example": ["link-type <dummy|veth>"]
+            },
+            "link-down": {
+                "help": "keep link down",
+                "example": ["link-down yes/no"],
+                "default": "no",
+                "validvals": ["yes", "no"]
+            }
+        }
+    }
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
 
-        self.check_physical_port_existance = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(
-            self.__class__.__name__,
-            'warn_on_physdev_not_present'
-        ))
+        self.check_physical_port_existance = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__,
+                'warn_on_physdev_not_present'
+            )
+        )
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self.check_physical_port_existance:
@@ -60,11 +67,9 @@ class link(Addon, moduleBase):
                 return False
         return True
 
-    def _is_my_interface(self, ifaceobj):
-        if (ifaceobj.get_attr_value_first('link-type')
-                or ifaceobj.get_attr_value_first('link-down')):
-            return True
-        return False
+    @staticmethod
+    def _is_my_interface(ifaceobj):
+        return ifaceobj.get_attr_value_first('link-type') or ifaceobj.get_attr_value_first('link-down')
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if ifaceobj.get_attr_value_first('link-down') == 'yes':
@@ -80,9 +85,8 @@ class link(Addon, moduleBase):
     def _down(self, ifaceobj):
         if not ifaceobj.get_attr_value_first('link-type'):
             return
-        if (not ifupdownflags.flags.PERFMODE and
-            not netlink.cache.link_exists(ifaceobj.name)):
-           return
+        if not ifupdownflags.flags.PERFMODE and not netlink.cache.link_exists(ifaceobj.name):
+            return
         try:
             self.netlink.link_del(ifaceobj.name)
         except Exception, e:
@@ -95,11 +99,9 @@ class link(Addon, moduleBase):
             else:
                 link_type = ifaceobj.get_attr_value_first('link-type')
                 if netlink.cache.get_link_kind(ifaceobj.name) == link_type:
-                    ifaceobjcurr.update_config_with_status('link-type',
-                                                            link_type, 0)
+                    ifaceobjcurr.update_config_with_status('link-type', link_type, 0)
                 else:
-                    ifaceobjcurr.update_config_with_status('link-type',
-                                                            link_type, 1)
+                    ifaceobjcurr.update_config_with_status('link-type', link_type, 1)
 
         link_down = ifaceobj.get_attr_value_first('link-down')
         if link_down:
@@ -118,9 +120,11 @@ class link(Addon, moduleBase):
 
             ifaceobjcurr.update_config_with_status('link-down', link_down, status)
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check}
+    _run_ops = {
+        "pre-up": _up,
+        "post-down": _down,
+        "query-checkcurr": _query_check
+    }
 
     def get_ops(self):
         return self._run_ops.keys()
