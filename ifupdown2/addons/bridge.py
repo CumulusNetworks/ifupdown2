@@ -1100,7 +1100,7 @@ class bridge(Addon, moduleBase):
         if attrval:
             running_mcqv4src = {}
             if not ifupdownflags.flags.PERFMODE:
-                running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(ifaceobj.name)
+                running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobj.name)
             mcqs = {}
             srclist = attrval.split()
             for s in srclist:
@@ -1113,7 +1113,7 @@ class bridge(Addon, moduleBase):
             for v in mcqs.keys():
                 self.brctlcmd.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
         elif not ifupdownflags.flags.PERFMODE:
-            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(ifaceobj.name)
+            running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobj.name)
             if running_mcqv4src:
                 for v in running_mcqv4src.keys():
                     self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
@@ -2290,7 +2290,7 @@ class bridge(Addon, moduleBase):
         return running_attrs
 
     def _query_running_mcqv4src(self, ifaceobjrunning):
-        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(ifaceobjrunning.name)
+        running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobjrunning.name)
         mcqs = ['%s=%s' %(v, i) for v, i in running_mcqv4src.items()]
         mcqs.sort()
         mcq = ' '.join(mcqs)

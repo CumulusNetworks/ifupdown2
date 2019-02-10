@@ -5,6 +5,8 @@
 #
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.netlink import netlink
 
@@ -13,6 +15,8 @@ try:
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
+    from lib.addon import Addon
+
     from ifupdown.iface import *
     from ifupdown.netlink import netlink
 
@@ -22,7 +26,7 @@ except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
 
 
-class bridgevlan(moduleBase):
+class bridgevlan(Addon, moduleBase):
     """  ifupdown2 addon module to configure vlan attributes on a vlan
          aware bridge """
 
@@ -39,6 +43,7 @@ class bridgevlan(moduleBase):
                               'example' : ['bridge-igmp-querier-src 172.16.101.1']}}}
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.brctlcmd = None
 
@@ -80,7 +85,7 @@ class bridgevlan(moduleBase):
 
         running_mcqv4src = {}
         if not ifupdownflags.flags.PERFMODE:
-            running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(bridgename)
+            running_mcqv4src = self.sysfs.bridge_get_mcqv4src(bridgename)
         if running_mcqv4src:
             r_mcqv4src = running_mcqv4src.get(vlan)
         else:
@@ -116,7 +121,7 @@ class bridgevlan(moduleBase):
 
     def _query_running_bridge_igmp_querier_src(self, ifaceobj):
         (bridgename, vlanid) = ifaceobj.name.split('.')
-        running_mcqv4src = self.brctlcmd.bridge_get_mcqv4src_sysfs(bridgename)
+        running_mcqv4src = self.sysfs.bridge_get_mcqv4src(bridgename)
         if running_mcqv4src:
            return running_mcqv4src.get(vlanid)
         return None

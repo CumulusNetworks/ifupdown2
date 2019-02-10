@@ -1995,62 +1995,6 @@ class LinkUtils(utilsBase):
             return
         utils.exec_command('%s delmcqv4src %s %d' % (utils.brctl_cmd, bridge, vlan))
 
-    def bridge_get_mcqv4src(self, bridge, vlan=None):
-        if not LinkUtils.bridge_utils_is_installed:
-            return {}
-        if not self.supported_command['showmcqv4src']:
-            return {}
-        mcqv4src = {}
-        try:
-            mcqout = utils.exec_command('%s showmcqv4src %s' %
-                                        (utils.brctl_cmd, bridge))
-        except Exception as e:
-            s = str(e).lower()
-            if 'never heard' in s:
-                msg = ('%s showmcqv4src: skipping unsupported command'
-                       % utils.brctl_cmd)
-                self.logger.info(msg)
-                self.supported_command['showmcqv4src'] = False
-                return {}
-            raise
-        if not mcqout:
-            return {}
-        mcqlines = mcqout.splitlines()
-        for l in mcqlines[1:]:
-            l = l.strip()
-            k, d, v = l.split('\t')
-            if not k or not v:
-                continue
-            mcqv4src[k] = v
-        if vlan:
-            return mcqv4src.get(vlan)
-        return mcqv4src
-
-    def bridge_get_mcqv4src_sysfs(self, bridge, vlan=None):
-        if not LinkUtils.bridge_utils_is_installed:
-            return {}
-        if not self.supported_command['showmcqv4src']:
-            return {}
-        if ifupdownflags.flags.PERFMODE:
-            return {}
-        mcqv4src = {}
-        try:
-            filename = '/sys/class/net/%s/bridge/multicast_v4_queriers' % bridge
-            if os.path.exists(filename):
-                for line in self.read_file(filename) or []:
-                    vlan_id, ip = line.split('=')
-                    mcqv4src[vlan_id] = ip.strip()
-        except Exception as e:
-            s = str(e).lower()
-            msg = ('%s showmcqv4src: skipping unsupported command'
-                   % utils.brctl_cmd)
-            self.logger.info(msg)
-            self.supported_command['showmcqv4src'] = False
-            return {}
-        if vlan:
-            return mcqv4src.get(vlan)
-        return mcqv4src
-
     @staticmethod
     def bridge_set_mclmi(bridge, mclmi):
         if not LinkUtils.bridge_utils_is_installed:

@@ -27,14 +27,22 @@ import os
 try:
     from ifupdown2.lib.io import IO
     from ifupdown2.lib.base_objects import Cache
+
+    from ifupdown2.ifupdown.utils import utils
+
     from ifupdown2.nlmanager.nlpacket import Link
 except ImportError:
     from lib.io import IO
     from lib.base_objects import Cache
+
+    from ifupdown.utils import utils
+
     from nlmanager.nlpacket import Link
 
 
 class Sysfs(IO, Cache):
+
+    bridge_utils_is_installed = os.path.exists(utils.brctl_cmd)
 
     __bond_netlink_to_sysfs_attr_map = {
         Link.IFLA_BOND_MODE: "mode",
@@ -54,6 +62,11 @@ class Sysfs(IO, Cache):
     def __init__(self):
         IO.__init__(self)
         Cache.__init__(self)
+
+        # if bridge utils is not installed overrrides specific functions to
+        # avoid constantly checking bridge_utils_is_installed
+        if not self.bridge_utils_is_installed:
+            self.bridge_get_mcqv4src = self.bridge_get_mcqv4src_dry_run
 
     #
     # MTU
@@ -113,6 +126,24 @@ class Sysfs(IO, Cache):
             return "yes" if stp_state_int > 0 else "no"
         except:
             return "unknown"
+
+    def bridge_get_mcqv4src(self, bridge):
+        mcqv4src = {}
+        try:
+            filename = "/sys/class/net/%s/bridge/multicast_v4_queriers" % bridge
+            if os.path.exists(filename):
+                for line in self.read_file(filename) or []:
+                    vlan_id, ip = line.split('=')
+                    mcqv4src[vlan_id] = ip.strip()
+            return mcqv4src
+        except Exception as e:
+            self.logger.info("%s showmcqv4src: skipping unsupported command" % utils.brctl_cmd)
+            self.bridge_get_mcqv4src = self.bridge_get_mcqv4src_dry_run
+            return {}
+
+    @staticmethod
+    def bridge_get_mcqv4src_dry_run(bridge):
+        return {}
 
     ############################################################################
     # BOND
