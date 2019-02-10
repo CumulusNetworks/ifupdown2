@@ -57,3 +57,12 @@ class IO(BaseObject):
     def read_file_oneline_dry_run(self, path):
         self.logger.info("dryrun: reading \"%s\"" % path)
         return None
+
+    def read_file(self, path):
+        """ read file and return lines from the file """
+        try:
+            self.logger.info("reading '%s'" % path)
+            with open(path, "r") as f:
+                return f.readlines()
+        except:
+            return None
