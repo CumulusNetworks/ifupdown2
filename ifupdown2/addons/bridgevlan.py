@@ -143,10 +143,6 @@ class bridgevlan(Addon, moduleBase):
                 ifaceobjcurr.status = ifaceStatus.SUCCESS
         return
 
-    def _query_running(self, ifaceobjrunning):
-        # XXX not supported
-        return
-
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         ret = True
         bvlan_intf = self._is_bridge_vlan_device(ifaceobj)
@@ -159,7 +155,6 @@ class bridgevlan(Addon, moduleBase):
         "pre-up": _up,
         "post-down": _down,
         "query-checkcurr": _query_check,
-        "query-running": _query_running
     }
 
     def get_ops(self):
