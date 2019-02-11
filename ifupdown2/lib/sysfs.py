@@ -26,23 +26,21 @@ import os
 
 try:
     from ifupdown2.lib.io import IO
-    from ifupdown2.lib.base_objects import Cache
+    from ifupdown2.lib.base_objects import Cache, Requirements
 
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.nlmanager.nlpacket import Link
 except ImportError:
     from lib.io import IO
-    from lib.base_objects import Cache
+    from lib.base_objects import Cache, Requirements
 
     from ifupdown.utils import utils
 
     from nlmanager.nlpacket import Link
 
 
-class Sysfs(IO, Cache):
-
-    bridge_utils_is_installed = os.path.exists(utils.brctl_cmd)
+class Sysfs(IO, Cache, Requirements):
 
     __bond_netlink_to_sysfs_attr_map = {
         Link.IFLA_BOND_MODE: "mode",
@@ -62,6 +60,7 @@ class Sysfs(IO, Cache):
     def __init__(self):
         IO.__init__(self)
         Cache.__init__(self)
+        Requirements.__init__(self)
 
         # if bridge utils is not installed overrrides specific functions to
         # avoid constantly checking bridge_utils_is_installed

@@ -22,12 +22,15 @@
 # base_objects -- Base classes used by higher level classes
 #
 
+import os
 import logging
 
 try:
     from ifupdown2.lib.dry_run import DryRun
+    from ifupdown2.ifupdown.utils import utils
 except ImportError:
     from lib.dry_run import DryRun
+    from ifupdown.utils import utils
 
 
 class BaseObject(DryRun):
@@ -60,3 +63,7 @@ class Netlink(BaseObject):
     def __init__(self):
         BaseObject.__init__(self)
         self.netlink = _import_NetlinkListenerWithCache().get_instance()
+
+
+class Requirements(BaseObject):
+    bridge_utils_is_installed = os.path.exists(utils.brctl_cmd)
