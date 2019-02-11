@@ -495,9 +495,6 @@ class ifupdownMain:
         else:
             return ifaceobjlist[idx]
 
-    def get_ifaceobjrunning(self, ifacename):
-        return self.ifaceobjrunningdict.get(ifacename)
-
     def get_iface_refcnt(self, ifacename):
         """ Return iface ref count """
         max = 0
