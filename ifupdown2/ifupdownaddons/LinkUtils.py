@@ -1960,31 +1960,6 @@ class LinkUtils(utilsBase):
         return self.read_file_oneline(
             '/sys/class/net/%s/bridge/multicast_querier' % bridge)
 
-    def bridge_set_mcqv4src(self, bridge, vlan, mcquerier):
-        try:
-            vlan = int(vlan)
-        except:
-            self.logger.info('%s: set mcqv4src vlan: invalid parameter %s: %s' %(bridge, vlan, str(e)))
-            return
-        if vlan == 0 or vlan > 4095:
-            self.logger.warn('mcqv4src vlan \'%d\' invalid range' % vlan)
-            return
-
-        ip = mcquerier.split('.')
-        if len(ip) != 4:
-            self.logger.warn('mcqv4src \'%s\' invalid IPv4 address' % mcquerier)
-            return
-        for k in ip:
-            if not k.isdigit() or int(k, 10) < 0 or int(k, 10) > 255:
-                self.logger.warn('mcqv4src \'%s\' invalid IPv4 address' % mcquerier)
-                return
-
-        if not LinkUtils.bridge_utils_is_installed:
-            return
-
-        utils.exec_command('%s setmcqv4src %s %d %s' %
-                           (utils.brctl_cmd, bridge, vlan, mcquerier))
-
     @staticmethod
     def bridge_set_mclmi(bridge, mclmi):
         if not LinkUtils.bridge_utils_is_installed:

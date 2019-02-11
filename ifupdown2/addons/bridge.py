@@ -1111,7 +1111,7 @@ class bridge(Addon, moduleBase):
             for v in k_to_del:
                 self.iproute2.bridge_del_mcqv4src(ifaceobj.name, v)
             for v in mcqs.keys():
-                self.brctlcmd.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
+                self.iproute2.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
         elif not ifupdownflags.flags.PERFMODE:
             running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobj.name)
             if running_mcqv4src:

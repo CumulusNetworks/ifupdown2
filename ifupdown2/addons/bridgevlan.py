@@ -102,9 +102,9 @@ class bridgevlan(Addon, moduleBase):
 
         if r_mcqv4src and r_mcqv4src != mcqv4src:
             self.iproute2.bridge_del_mcqv4src(bridgename, vlanid)
-            self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
+            self.iproute2.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
         else:
-            self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
+            self.iproute2.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
 
     def _down(self, ifaceobj):
         try:
