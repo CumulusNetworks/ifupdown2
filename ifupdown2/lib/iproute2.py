@@ -29,30 +29,36 @@ import subprocess
 
 try:
     from ifupdown2.lib.sysfs import Sysfs
-    from ifupdown2.lib.base_objects import Cache
+    from ifupdown2.lib.base_objects import Cache, Requirements
 
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.nlmanager.nlpacket import Link
 except ImportError:
     from lib.sysfs import Sysfs
-    from lib.base_objects import Cache
+    from lib.base_objects import Cache, Requirements
 
     from ifupdown.utils import utils
     from nlmanager.nlpacket import Link
 
 
-class IPRoute2(Cache):
+class IPRoute2(Cache, Requirements):
 
     VXLAN_UDP_PORT = 4789
     VXLAN_PEER_REGEX_PATTERN = re.compile("\s+dst\s+(\d+.\d+.\d+.\d+)\s+")
 
     def __init__(self):
         Cache.__init__(self)
+        Requirements.__init__(self)
 
         self.sysfs = Sysfs()
 
         self.__batch = None
         self.__batch_mode = False
+
+        # if bridge utils is not installed overrrides specific functions to
+        # avoid constantly checking bridge_utils_is_installed
+        if not Requirements.bridge_utils_is_installed:
+            self.bridge_del_mcqv4src = lambda _, __: None
 
     ############################################################################
     # BATCH
@@ -434,6 +440,15 @@ class IPRoute2(Cache):
             utils.bridge_cmd,
             "vlan add vid %s untagged pvid dev %s" % (pvid, ifname)
         )
+
+    def bridge_del_mcqv4src(self, bridge, vlan):
+        try:
+            vlan = int(vlan)
+        except Exception as e:
+            self.logger.info("%s: del mcqv4src vlan: invalid parameter %s: %s"
+                             % (bridge, vlan, str(e)))
+            return
+        utils.exec_command("%s delmcqv4src %s %d" % (utils.brctl_cmd, bridge, vlan))
 
     ############################################################################
     # ROUTE

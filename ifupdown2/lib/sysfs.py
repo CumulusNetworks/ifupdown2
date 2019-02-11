@@ -64,7 +64,7 @@ class Sysfs(IO, Cache, Requirements):
 
         # if bridge utils is not installed overrrides specific functions to
         # avoid constantly checking bridge_utils_is_installed
-        if not self.bridge_utils_is_installed:
+        if not Requirements.bridge_utils_is_installed:
             self.bridge_get_mcqv4src = self.bridge_get_mcqv4src_dry_run
 
     #

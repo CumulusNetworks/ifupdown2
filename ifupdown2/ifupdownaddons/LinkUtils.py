@@ -1985,16 +1985,6 @@ class LinkUtils(utilsBase):
         utils.exec_command('%s setmcqv4src %s %d %s' %
                            (utils.brctl_cmd, bridge, vlan, mcquerier))
 
-    def bridge_del_mcqv4src(self, bridge, vlan):
-        if not LinkUtils.bridge_utils_is_installed:
-            return
-        try:
-            vlan = int(vlan)
-        except:
-            self.logger.info('%s: del mcqv4src vlan: invalid parameter %s: %s' %(bridge, vlan, str(e)))
-            return
-        utils.exec_command('%s delmcqv4src %s %d' % (utils.brctl_cmd, bridge, vlan))
-
     @staticmethod
     def bridge_set_mclmi(bridge, mclmi):
         if not LinkUtils.bridge_utils_is_installed:

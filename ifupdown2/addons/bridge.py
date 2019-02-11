@@ -1109,14 +1109,14 @@ class bridge(Addon, moduleBase):
 
             k_to_del = Set(running_mcqv4src.keys()).difference(mcqs.keys())
             for v in k_to_del:
-                self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
+                self.iproute2.bridge_del_mcqv4src(ifaceobj.name, v)
             for v in mcqs.keys():
                 self.brctlcmd.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
         elif not ifupdownflags.flags.PERFMODE:
             running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobj.name)
             if running_mcqv4src:
                 for v in running_mcqv4src.keys():
-                    self.brctlcmd.bridge_del_mcqv4src(ifaceobj.name, v)
+                    self.iproute2.bridge_del_mcqv4src(ifaceobj.name, v)
 
     def _get_running_vidinfo(self):
         if self._running_vidinfo_valid:

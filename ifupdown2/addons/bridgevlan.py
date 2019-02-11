@@ -97,11 +97,11 @@ class bridgevlan(Addon, moduleBase):
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if not mcqv4src:
             if r_mcqv4src:
-                self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
+                self.iproute2.bridge_del_mcqv4src(bridgename, vlanid)
             return
 
         if r_mcqv4src and r_mcqv4src != mcqv4src:
-            self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
+            self.iproute2.bridge_del_mcqv4src(bridgename, vlanid)
             self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
         else:
             self.brctlcmd.bridge_set_mcqv4src(bridgename, vlanid, mcqv4src)
@@ -121,7 +121,7 @@ class bridgevlan(Addon, moduleBase):
             return
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')
         if mcqv4src:
-            self.brctlcmd.bridge_del_mcqv4src(bridgename, vlanid)
+            self.iproute2.bridge_del_mcqv4src(bridgename, vlanid)
 
     def _query_running_bridge_igmp_querier_src(self, ifaceobj):
         (bridgename, vlanid) = ifaceobj.name.split('.')
