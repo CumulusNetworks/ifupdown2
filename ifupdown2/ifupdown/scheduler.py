@@ -14,8 +14,6 @@ from sets import Set
 
 try:
     from ifupdown2.ifupdown.graph import *
-    from ifupdown2.ifupdown.ifupdownbase import *
-
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.statemanager import *
@@ -23,8 +21,6 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
     from ifupdown.graph import *
-    from ifupdown.ifupdownbase import *
-
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.statemanager import *

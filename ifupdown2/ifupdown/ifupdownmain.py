@@ -7,6 +7,10 @@
 #    ifupdown main module
 #
 
+import re
+import os
+import logging
+import traceback
 import pprint
 
 from collections import OrderedDict
@@ -21,7 +25,6 @@ try:
     import ifupdown2.ifupdownaddons.mstpctlutil
 
     import ifupdown2.ifupdown.policymanager
-    import ifupdown2.ifupdown.ifupdownflags
     import ifupdown2.ifupdown.statemanager as statemanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
@@ -84,7 +87,7 @@ class ifacePrivFlags():
         self.BUILTIN = builtin
         self.NOCONFIG = noconfig
 
-class ifupdownMain(ifupdownBase):
+class ifupdownMain:
     """ ifupdown2 main class """
 
     scripts_dir = '/etc/network'
@@ -202,6 +205,29 @@ class ifupdownMain(ifupdownBase):
             except:
                 pass
 
+    def ignore_error(self, errmsg):
+        if (ifupdownflags.flags.FORCE == True or re.search(r'exists', errmsg,
+            re.IGNORECASE | re.MULTILINE) is not None):
+            return True
+        return False
+
+    def log_warn(self, str):
+        if self.ignore_error(str) == False:
+            if self.logger.getEffectiveLevel() == logging.DEBUG:
+                traceback.print_stack()
+                traceback.print_exc()
+            self.logger.warn(str)
+        pass
+
+    def log_error(self, str):
+        if self.ignore_error(str) == False:
+            raise Exception(str)
+        else:
+            pass
+
+    def link_exists(self, ifacename):
+        return os.path.exists('/sys/class/net/%s' %ifacename)
+
     def __init__(self, config={},
                  daemon=False, force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
@@ -223,7 +249,9 @@ class ifupdownMain(ifupdownBase):
         Raises:
             AttributeError, KeyError """
 
-        ifupdownBase.__init__(self)
+        modulename = self.__class__.__name__
+        self.logger = logging.getLogger('ifupdown.' + modulename)
+        self.netlink = nlcache.NetlinkListenerWithCache.get_instance()
 
         if daemon:
             self.reset_ifupdown2()

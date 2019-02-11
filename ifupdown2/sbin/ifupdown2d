@@ -163,8 +163,6 @@ class Daemon:
                 import ifupdown2.ifupdown.graph
                 import ifupdown2.ifupdown.iface
                 import ifupdown2.ifupdown.iff
-                import ifupdown2.ifupdown.ifupdownbase
-                import ifupdown2.ifupdown.ifupdownbase
                 import ifupdown2.ifupdown.ifupdownconfig
                 import ifupdown2.ifupdown.ifupdownflags
                 import ifupdown2.ifupdown.ifupdownmain
@@ -188,8 +186,6 @@ class Daemon:
                 import ifupdown.graph
                 import ifupdown.iface
                 import ifupdown.iff
-                import ifupdown.ifupdownbase
-                import ifupdown.ifupdownbase
                 import ifupdown.ifupdownconfig
                 import ifupdown.ifupdownflags
                 import ifupdown.ifupdownmain
