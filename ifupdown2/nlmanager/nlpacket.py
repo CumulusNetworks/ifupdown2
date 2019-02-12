@@ -534,7 +534,13 @@ class AttributeIPAddress(Attribute):
                 (data1, data2) = unpack(self.PACK, self.data[4:])
                 self.value = IPv6Address(data1 << 64 | data2)
 
-            self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
+            if isinstance(parent_msg, Route):
+                if self.atype == Route.RTA_SRC:
+                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.src_len))
+                elif self.atype == Route.RTA_DST:
+                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.dst_len))
+            else:
+                self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
 
             self.value_int = int(self.value)
             self.value_int_str = str(self.value_int)
