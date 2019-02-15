@@ -244,15 +244,21 @@ class addressvirtual(Addon, moduleBase):
         if not netlink.cache.link_exists(ifaceobj.name):
             return
         hwaddress = []
-        macvlan_prefix = self._get_macvlan_prefix(ifaceobj)
-        for macvlan_ifacename in glob.glob("/sys/class/net/%s*" %macvlan_prefix):
-            macvlan_ifacename = os.path.basename(macvlan_ifacename)
-            if not netlink.cache.link_exists(macvlan_ifacename):
-                continue
-            hwaddress.append(netlink.cache.get_link_address(macvlan_ifacename))
-            self.netlink.link_del(os.path.basename(macvlan_ifacename))
-            # XXX: Also delete any fdb addresses. This requires, checking mac address
-            # on individual macvlan interfaces and deleting the vlan from that.
+
+        for macvlan_prefix in [
+            self._get_macvlan_prefix(ifaceobj),
+            self.get_vrr_prefix(ifaceobj.name, "4"),
+            self.get_vrr_prefix(ifaceobj.name, "6")
+        ]:
+            for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % macvlan_prefix):
+                macvlan_ifacename = os.path.basename(macvlan_ifacename)
+                if not self.cache.link_exists(macvlan_ifacename):
+                    continue
+                hwaddress.append(self.cache.get_link_address(macvlan_ifacename))
+                self.netlink.link_del(os.path.basename(macvlan_ifacename))
+                # XXX: Also delete any fdb addresses. This requires, checking mac address
+                # on individual macvlan interfaces and deleting the vlan from that.
+
         if any(hwaddress):
             self._remove_addresses_from_bridge(ifaceobj, hwaddress)
 
