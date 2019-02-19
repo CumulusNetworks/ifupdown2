@@ -92,6 +92,10 @@ class addressvirtual(moduleBase):
     def _get_macvlan_prefix(self, ifaceobj):
         return '%s-v' %ifaceobj.name[0:13].replace('.', '-')
 
+    @staticmethod
+    def get_vrr_prefix(ifname, family):
+        return "%s-%sv" % (ifname[0:10].replace(".", "-"), family)
+
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
         if ifaceobj.link_kind & ifaceLinkKind.VLAN:
@@ -525,9 +529,6 @@ class addressvirtual(moduleBase):
         # add the vid to the bridge
         self._add_addresses_to_bridge(ifaceobj, hw_address_list)
 
-    def get_vrr_prefix(self, ifname, family):
-        return '%s-%sv' % (ifname[0:10].replace('.', '-'), family)
-
     def translate_vrr_user_config_to_list(self, ifaceobj, vrr_config_list, ifquery=False):
         """
         If (IPv4 addresses provided):
@@ -552,7 +553,7 @@ class addressvirtual(moduleBase):
         ifname = ifaceobj.name
         user_config_list = []
 
-        for config in vrr_config_list or []:
+        for index, config in enumerate(vrr_config_list or []):
             vrrp_id, ip_addrs = config.split(" ", 1)
             hex_id = '%02x' % int(vrrp_id)
             ip4 = []
@@ -567,8 +568,8 @@ class addressvirtual(moduleBase):
                 else:
                     ip4.append(ip_addr)
 
-            macvlan_ip4_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "4"), vrrp_id)
-            macvlan_ip6_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "6"), vrrp_id)
+            macvlan_ip4_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "4"), index)
+            macvlan_ip6_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "6"), index)
 
             merged_with_existing_obj = False
             # if the vrr config is defined in different lines for the same ID
