@@ -32,7 +32,7 @@ def build_deb_package():
 
 
 if build_deb_package():
-    DATA_FILES.append(('/usr/share/ifupdown2/', ['ifupdown2/sbin/ifupdown2d']))
+    DATA_FILES.append(('/usr/share/ifupdown2/', ['ifupdown2/ifupdown2d']))
 else:
     ENTRY_POINTS = {
         'console_scripts': [

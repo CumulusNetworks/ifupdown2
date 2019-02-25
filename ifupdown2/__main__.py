@@ -1,217 +1,120 @@
 #!/usr/bin/python
+# Copyright (C) 2016, 2017, 2018, 2019 Cumulus Networks, Inc. all rights reserved
 #
-# Copyright 2016 Cumulus Networks, Inc. All rights reserved.
-# Author: Julien Fortin, julien@cumulusnetworks.com
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; version 2.
 #
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+#
+# https://www.gnu.org/licenses/gpl-2.0-standalone.html
+#
+# Author:
+#       Julien Fortin, julien@cumulusnetworks.com
+#
+# ifupdown2 - Network Manager
 #
 
 import os
-import re
 import sys
-import json
-import errno
-import struct
-import select
-import socket
-import signal
 
 try:
-    import ifupdown2.ifupdown.config as core_config
-    from ifupdown2.ifupdown.log import log
-    from ifupdown2 import __version__
-    from ifupdown2.ifupdown.exceptions import ArgvParseHelp
-
-    core_config.__version__ = __version__
+    from ifupdown2.lib.log import LogManager, root_logger
+    from ifupdown2.lib.status import Status
 except:
-    import ifupdown.config as core_config
-    from ifupdown.log import log
+    from lib.log import LogManager, root_logger
+    from lib.status import Status
+
+# first thing first, setup the logging infra
+LogManager.get_instance()
+
+try:
+    import ifupdown2.ifupdown.config as config
+
+    from ifupdown2 import __version__
+
+    config.__version__ = __version__
+
+    from ifupdown2.lib.exceptions import ExitWithStatus, ExitWithStatusAndError
+
+    from ifupdown2.ifupdown.client import Client
+    from ifupdown2.ifupdown.exceptions import ArgvParseHelp
+except:
+    import ifupdown.config as config
+
+    config.__version__ = __import__("__init__").__version__
+
+    from lib.exceptions import ExitWithStatus, ExitWithStatusAndError
+
+    from ifupdown.client import Client
     from ifupdown.exceptions import ArgvParseHelp
 
-    core_config.__version__ = __import__('__init__').__version__
 
-
-class Ifupdown2Complete(Exception):
-    def __init__(self, status):
-        self.status = status
-
-
-class Ifupdown2Client:
-    def __init__(self, argv):
-
-        self.stdin = None
-        self.argv = argv
-        self.data = ''
-        self.HEADER_SIZE = 4
-        self.daemon_pid = -1
-
-        self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        try:
-            self.socket.connect('/var/run/ifupdown2d/uds')
-
-            signal.signal(signal.SIGINT, self.signal_handler)
-            signal.signal(signal.SIGTERM, self.signal_handler)
-            signal.signal(signal.SIGQUIT, self.signal_handler)
-
-            try:
-                self.SO_PEERCRED = socket.SO_PEERCRED
-            except AttributeError:
-                # powerpc is the only non-generic we care about. alpha, mips,
-                # sparc, and parisc also have non-generic values.
-                machine = os.uname()[4]
-                if re.search(r'^(ppc|powerpc)', machine):
-                    self.SO_PASSCRED = 20
-                    self.SO_PEERCRED = 21
-                else:
-                    self.SO_PASSCRED = 16
-                    self.SO_PEERCRED = 17
-            try:
-                self.socket.setsockopt(socket.SOL_SOCKET, self.SO_PASSCRED, 1)
-            except Exception as e:
-                raise Exception('setsockopt: %s' % str(e))
-
-        except socket.error:
-            self.socket.close()
-            self.socket = None
-            sys.stderr.write("""
-    ERROR: %s could not connect to ifupdown2 daemon
-
-    Try starting ifupdown2d with:
-    sudo systemctl start ifupdown2
-
-    To configure ifupdown2d to start when the box boots:
-    sudo systemctl enable ifupdown2\n\n""" % argv[0])
-
-    def __del__(self):
-        if self.socket:
-            self.socket.close()
-
-    def signal_handler(self, sig, frame):
-        if self.daemon_pid > 0:
-            os.kill(self.daemon_pid, sig)
-
-    def read_data(self):
-        ready = select.select([self.socket], [], [])
-        if ready and ready[0] and ready[0][0] == self.socket:
-            d = self.socket.recv(65536)
-            if self.data:
-                self.data += d
-            else:
-                self.data = d
-            return True
+def daemon_mode():
+    """ Check ifupdown2 config to see if we should start the client """
+    try:
+        with open(config.IFUPDOWN2_CONF_PATH) as f:
+            return "use_daemon=yes" in f.read()
+    except:
         return False
 
-    def get_packets(self):
-        """
-            ifupdown2 output is divided into "json packets"
-            the first 4 bytes is the size of the next json
-            object to etract
 
-        """
-        data_size = len(self.data)
-        if not data_size:
-            raise Ifupdown2Complete(status=1)
-
-        packets = []
-        try:
-            while data_size > 0:
-                packet_len = struct.unpack('=I', self.data[:self.HEADER_SIZE])[0]
-                packet_data = self.data[self.HEADER_SIZE:packet_len + self.HEADER_SIZE]
-
-                fmt = "=%ds" % packet_len
-
-                packets.append(json.loads(struct.unpack(fmt, packet_data)[0]))
-
-                self.data = self.data[self.HEADER_SIZE + packet_len:]
-                data_size -= self.HEADER_SIZE + packet_len
-        except:
-            pass
-        return packets
-
-    def process_packets(self, packets):
-        for packet in packets:
-            if 'pid' in packet:
-                self.daemon_pid = packet['pid']
-            if 'stdout' in packet:
-                sys.stdout.write(packet['stdout'])
-            if 'stderr' in packet:
-                sys.stderr.write(packet['stderr'])
-            if 'status' in packet:
-                raise Ifupdown2Complete(packet['status'])
-
-    def run(self):
-        status = 1
-        if self.socket:
-            for arg in ['-i', '--interfaces']:
-                try:
-                    if self.argv[self.argv.index(arg) + 1] == '-':
-                        self.stdin = sys.stdin.read()
-                        continue
-                except (ValueError, IndexError):
-                    pass
-
-            self.socket.send(json.dumps({
-                'argv': self.argv,
-                'stdin': self.stdin
-            }))
-
-            try:
-                while True:
-                    try:
-                        self.read_data()
-                        self.process_packets(self.get_packets())
-                    except Ifupdown2Complete as e:
-                        status = e.status
-                        break
-                    except Exception as e:
-                        if ((isinstance(e.args, tuple) and e[0] == 4)
-                            or (hasattr(e, 'errno') and e.errno == errno.EINTR)):
-                            pass
-                        else:
-                            raise
-            except Exception as e:
-                sys.stderr.write(str(e))
-            finally:
-                self.socket.close()
-        return status if status != None else 1
-
-
-def ifupdown2_standalone():
+def client():
     try:
-        import ifupdown2.ifupdown.main as main_ifupdown2
+        status = Client(sys.argv).run()
+    except ExitWithStatusAndError as e:
+        root_logger.error(e.message)
+        status = e.status
+    except ExitWithStatus as e:
+        status = e.status
+    return status
+
+
+def stand_alone():
+    try:
+        from ifupdown2.ifupdown.main import Ifupdown2
+        from ifupdown2.lib.nlcache import NetlinkListenerWithCache
     except:
-        import ifupdown.main as main_ifupdown2
-    ifupdown2 = main_ifupdown2.Ifupdown2(daemon=False, uid=os.geteuid())
+        from ifupdown.main import Ifupdown2
+        from lib.nlcache import NetlinkListenerWithCache
+    ifupdown2 = Ifupdown2(daemon=False, uid=os.geteuid())
     try:
         ifupdown2.parse_argv(sys.argv)
+        LogManager.get_instance().start_standalone_logging(ifupdown2.args)
     except ArgvParseHelp:
         # on --help parse_args raises SystemExit, we catch it and raise a
         # custom exception ArgvParseHelp to return 0
         return 0
-    ifupdown2.update_logger()
-    return ifupdown2.main()
+    try:
+        status = ifupdown2.main()
+    finally:
+        NetlinkListenerWithCache.get_instance().cleanup()
+    return status
 
 
 def main():
     try:
-        if 'use_daemon=yes' in open(core_config.IFUPDOWN2_CONF_PATH).read():
-            return Ifupdown2Client(sys.argv).run()
+        if daemon_mode():
+            return client()
         else:
-            try:
-                import ifupdown2.lib.nlcache as nlcache
-            except:
-                import lib.nlcache as nlcache
-            res = ifupdown2_standalone()
-            nlcache.NetlinkListenerWithCache.get_instance().cleanup()
-            return res
+            return stand_alone()
     except KeyboardInterrupt:
-        return 1
+        return Status.Client.STATUS_KEYBOARD_INTERRUPT
     except Exception as e:
-        log.error(str(e))
-        return 1
+        root_logger.exception("main: %s" % str(e))
+        return Status.Client.STATUS_EXCEPTION_MAIN
 
 
 if __name__ == '__main__':
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        sys.exit(1)
+        sys.exit(Status.Client.STATUS_KEYBOARD_INTERRUPT)

@@ -14,8 +14,11 @@ file. But can be extended to include any other network interface format
 """
 
 import json
+import logging
 
 from collections import OrderedDict
+
+log = logging.getLogger()
 
 
 class ifaceStatusUserStrs():

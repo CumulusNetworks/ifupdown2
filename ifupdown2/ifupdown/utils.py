@@ -103,6 +103,7 @@ class utils():
     systemctl_cmd   = '/bin/systemctl'
     dpkg_cmd        = '/usr/bin/dpkg'
 
+    logger.info("utils init command paths")
     for cmd in ['bridge',
                 'ip',
                 'brctl',

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2019 Cumulus Networks, Inc. All rights reserved.
 # Authors:
 #           Roopa Prabhu, roopa@cumulusnetworks.com
 #           Julien Fortin, julien@cumulusnetworks.com
@@ -10,12 +10,11 @@
 
 import os
 import sys
-import signal
+import logging
 import StringIO
 import ConfigParser
 
 try:
-    from ifupdown2.ifupdown.log import log
     from ifupdown2.ifupdown.argv import Parse
     from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
@@ -24,7 +23,6 @@ try:
     from ifupdown2.lib.dry_run import DryRunManager
 
 except ImportError:
-    from ifupdown.log import log
     from ifupdown.argv import Parse
     from ifupdown.netlink import netlink
     from ifupdown.config import IFUPDOWN2_CONF_PATH
@@ -33,6 +31,7 @@ except ImportError:
     from lib.dry_run import DryRunManager
 
 
+log = logging.getLogger()
 configmap_g = None
 
 
@@ -59,23 +58,6 @@ class Ifupdown2:
 
         self.args = args_parse.get_args()
         self.op = args_parse.get_op()
-
-    def update_logger(self, socket=None):
-        syslog = self.args.syslog if hasattr(self.args, 'syslog') else False
-
-        if not hasattr(self.args, 'verbose'):
-            verbose = False
-        else:
-            verbose = self.args.verbose
-
-        if not hasattr(self.args, 'debug'):
-            debug = False
-        else:
-            debug = self.args.debug
-
-        log.update_current_logger(syslog=syslog, verbose=verbose, debug=debug)
-        if socket:
-            log.set_socket(socket)
 
     def main(self, stdin_buffer=None):
         if self.op != 'query' and self.uid != 0:

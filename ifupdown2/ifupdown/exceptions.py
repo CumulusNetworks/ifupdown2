@@ -1,5 +1,3 @@
-#!/usr/bin/python
-#
 # Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Authors:
 #           Roopa Prabhu, roopa@cumulusnetworks.com
@@ -9,10 +7,9 @@
 #    exceptions
 #
 
-try:
-    from ifupdown2.ifupdown.log import log
-except:
-    from ifupdown.log import log
+import logging
+
+log = logging.getLogger()
 
 
 class Error(Exception):

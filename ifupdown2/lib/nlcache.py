@@ -29,6 +29,7 @@ import socket
 import struct
 import signal
 import inspect
+import logging
 import threading
 import traceback
 
@@ -40,7 +41,6 @@ try:
     from ifupdown2.lib.base_objects import BaseObject
 
     from ifupdown2.ifupdownaddons.cache import *
-    from ifupdown2.ifupdown.log import log
 
     import ifupdown2.nlmanager.nlpacket as nlpacket
     import ifupdown2.nlmanager.nllistener as nllistener
@@ -49,11 +49,13 @@ except:
     from lib.base_objects import BaseObject
 
     from ifupdownaddons.cache import *
-    from ifupdown.log import log
 
     import nlmanager.nlpacket as nlpacket
     import nlmanager.nllistener as nllistener
     import nlmanager.nlmanager as nlmanager
+
+
+log = logging.getLogger()
 
 
 class NetlinkError(Exception):

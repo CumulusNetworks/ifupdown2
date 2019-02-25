@@ -40,6 +40,8 @@ class policymanager():
         self.logger = logging.getLogger('ifupdown.' +
                             self.__class__.__name__)
 
+        self.logger.info("policymanager init")
+
         # we grab the json files from a known location and make sure that
         # the defaults_policy is checked first
         user_files = glob.glob('/etc/network/ifupdown2/policy.d/*.json')

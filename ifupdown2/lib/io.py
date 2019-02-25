@@ -1,4 +1,4 @@
-# Copyright (C) 2017, 2018 Cumulus Networks, Inc. all rights reserved
+# Copyright (C) 2017, 2018, 2019 Cumulus Networks, Inc. all rights reserved
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -21,6 +21,11 @@
 #
 # io -- all io (file) handlers
 #
+
+import json
+import struct
+import socket
+import select
 
 try:
     from ifupdown2.lib.base_objects import BaseObject
@@ -66,3 +71,60 @@ class IO(BaseObject):
                 return f.readlines()
         except:
             return None
+
+
+class SocketIO(object):
+    """
+    Helper class to provide common TX/RX methods for socket
+    communication to both client and daemon.
+    """
+
+    @staticmethod
+    def tx_data(_socket, data):
+        """
+        We don't send raw data over the socket, we pack it with the length
+        (first 4 bytes) then with the data. That way the the transfer is more
+        reliable
+        """
+        ready = select.select([], [_socket], [])
+        if ready and ready[1] and ready[1][0] == _socket:
+            frmt = "=%ds" % len(data)
+            packed_msg = struct.pack(frmt, data)
+            packed_hdr = struct.pack("=I", len(packed_msg))
+            _socket.sendall(packed_hdr + packed_msg)
+
+    @staticmethod
+    def rx_json_packet(_socket):
+        """
+        Reading data from socket. Unpacking the packets sent by "tx_data"
+        first 4 bytes are the length of the following data. The data should
+        be in json format
+        """
+        ready = select.select([_socket], [], [])
+
+        if ready and ready[0] and ready[0][0] == _socket:
+
+            header_data = _socket.recv(4)
+
+            if not header_data:
+                raise Exception("rx_json_packet: socket closed")
+            if len(header_data) < 4:
+                raise Exception("rx_json_packet: invalid data received")
+
+            data_len = struct.unpack("=I", header_data)[0]
+            data = _socket.recv(data_len)
+
+            while len(data) < data_len:
+                data = data + _socket.recv(data_len - len(data))
+
+            return json.loads(data)
+
+        return None
+
+    def get_socket_peer_cred(self, _socket):
+        """
+        Returns tuple of (pid, uid, gid) of connected AF_UNIX stream socket
+        :param _socket:
+        :return:
+        """
+        return struct.unpack("3i", _socket.getsockopt(socket.SOL_SOCKET, self.SO_PEERCRED, struct.calcsize("3i")))
