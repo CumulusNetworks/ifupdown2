@@ -95,9 +95,8 @@ class addressvirtual(Addon, moduleBase):
     def _get_macvlan_prefix(self, ifaceobj):
         return '%s-v' %ifaceobj.name[0:13].replace('.', '-')
 
-    @staticmethod
-    def get_vrr_prefix(ifname, family):
-        return "%s-%sv" % (ifname[0:10].replace(".", "-"), family)
+    def get_vrrp_prefix(self, ifname, family):
+        return "vrrp%s-if%s-v" % (family, self.cache.get_ifindex(ifname))
 
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
@@ -245,14 +244,14 @@ class addressvirtual(Addon, moduleBase):
         return False, None
 
     def _remove_running_address_config(self, ifaceobj):
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
         hwaddress = []
 
         for macvlan_prefix in [
             self._get_macvlan_prefix(ifaceobj),
-            self.get_vrr_prefix(ifaceobj.name, "4"),
-            self.get_vrr_prefix(ifaceobj.name, "6")
+            self.get_vrrp_prefix(ifaceobj.name, "4"),
+            self.get_vrrp_prefix(ifaceobj.name, "6")
         ]:
             for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % macvlan_prefix):
                 macvlan_ifacename = os.path.basename(macvlan_ifacename)
@@ -573,8 +572,8 @@ class addressvirtual(Addon, moduleBase):
                 else:
                     ip4.append(ip_addr)
 
-            macvlan_ip4_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "4"), index)
-            macvlan_ip6_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "6"), index)
+            macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), index)
+            macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), index)
 
             merged_with_existing_obj = False
             # if the vrr config is defined in different lines for the same ID
@@ -675,7 +674,7 @@ class addressvirtual(Addon, moduleBase):
 
             #### VRR
             hwaddress = []
-            for vrr_prefix in [self.get_vrr_prefix(ifaceobj.name, "4"), self.get_vrr_prefix(ifaceobj.name, "6")]:
+            for vrr_prefix in [self.get_vrrp_prefix(ifaceobj.name, "4"), self.get_vrrp_prefix(ifaceobj.name, "6")]:
                 for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % vrr_prefix):
                     macvlan_ifacename = os.path.basename(macvlan_ifacename)
                     if not self.cache.link_exists(macvlan_ifacename):
