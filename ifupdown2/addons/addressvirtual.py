@@ -400,13 +400,17 @@ class addressvirtual(Addon, moduleBase):
             link_created = False
             macvlan_ifname = intf_config_dict.get("ifname")
             macvlan_hwaddr = intf_config_dict.get("hwaddress")
+            macvlan_mode = intf_config_dict.get("mode")
             ips = intf_config_dict.get("ips")
 
             if not self.cache.link_exists(macvlan_ifname):
-                try:
-                    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
-                except:
-                    self.iproute2.link_add_macvlan(ifname, macvlan_ifname)
+                # When creating VRRP macvlan with bridge mode, the kernel
+                # return an error: 'Invalid argument' (22)
+                # so for now we should only use the iproute2 API.
+                # try:
+                #    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
+                # except:
+                self.iproute2.link_add_macvlan(ifname, macvlan_ifname, macvlan_mode)
                 link_created = True
 
             # first thing we need to handle vrf enslavement
@@ -550,6 +554,7 @@ class addressvirtual(Addon, moduleBase):
         #   {
         #        "ifname": "macvlan_ifname",
         #        "hwaddress": "macvlan_hwaddress",
+        #        "mode": "macvlan_mode",
         #        "ips": [str(IPNetwork), ]
         #    },
         # ]
@@ -599,6 +604,7 @@ class addressvirtual(Addon, moduleBase):
                     "ifname": macvlan_ip4_ifname,
                     "hwaddress": macvlan_ip4_mac,
                     "hwaddress_int": utils.mac_str_to_int(macvlan_ip4_mac),
+                    "mode": "bridge",
                     "ips": ip4,
                     "id": vrrp_id
                 })
@@ -610,6 +616,7 @@ class addressvirtual(Addon, moduleBase):
                     "ifname": macvlan_ip6_ifname,
                     "hwaddress": macvlan_ip6_mac,
                     "hwaddress_int": utils.mac_str_to_int(macvlan_ip6_mac),
+                    "mode": "bridge",
                     "ips": ip6,
                     "id": vrrp_id
                 })
@@ -652,7 +659,10 @@ class addressvirtual(Addon, moduleBase):
             if not self.check_mac_address(ifaceobj, mac):
                 continue
 
-            config = {"ifname": "%s%d" % (macvlan_prefix, index)}
+            config = {
+                "ifname": "%s%d" % (macvlan_prefix, index),
+                "mode": "private"
+            }
 
             if mac != "none":
                 config["hwaddress"] = mac
