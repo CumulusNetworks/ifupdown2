@@ -1306,8 +1306,8 @@ class LinkUtils(utilsBase):
         return False
 
     @staticmethod
-    def link_add_macvlan(ifname, macvlan_ifacename):
-        utils.exec_commandl(['ip', 'link', 'add',  'link', ifname, 'name', macvlan_ifacename, 'type', 'macvlan', 'mode', 'private'])
+    def link_add_macvlan(ifname, macvlan_ifacename, mode):
+        utils.exec_commandl(['ip', 'link', 'add',  'link', ifname, 'name', macvlan_ifacename, 'type', 'macvlan', 'mode', mode])
 
     @staticmethod
     def route_add(route):

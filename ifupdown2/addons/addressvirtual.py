@@ -402,10 +402,11 @@ class addressvirtual(moduleBase):
             link_created = False
             macvlan_ifname = intf_config_dict.get("ifname")
             macvlan_hwaddr = intf_config_dict.get("hwaddress")
+            macvlan_mode = intf_config_dict.get("mode")
             ips = intf_config_dict.get("ips")
 
             if not self.ipcmd.link_exists(macvlan_ifname):
-                self.ipcmd.link_add_macvlan(ifname, macvlan_ifname)
+                self.ipcmd.link_add_macvlan(ifname, macvlan_ifname, macvlan_mode)
                 link_created = True
 
             # first thing we need to handle vrf enslavement
@@ -546,6 +547,7 @@ class addressvirtual(moduleBase):
         #   {
         #        "ifname": "macvlan_ifname",
         #        "hwaddress": "macvlan_hwaddress",
+        #        "mode": "macvlan_mode",
         #        "ips": [str(IPNetwork), ]
         #    },
         # ]
@@ -595,6 +597,7 @@ class addressvirtual(moduleBase):
                     "ifname": macvlan_ip4_ifname,
                     "hwaddress": macvlan_ip4_mac,
                     "hwaddress_int": self.mac_str_to_int(macvlan_ip4_mac),
+                    "mode": "bridge",
                     "ips": ip4,
                     "id": vrrp_id
                 })
@@ -606,6 +609,7 @@ class addressvirtual(moduleBase):
                     "ifname": macvlan_ip6_ifname,
                     "hwaddress": macvlan_ip6_mac,
                     "hwaddress_int": self.mac_str_to_int(macvlan_ip6_mac),
+                    "mode": "bridge",
                     "ips": ip6,
                     "id": vrrp_id
                 })
@@ -648,7 +652,10 @@ class addressvirtual(moduleBase):
             if not self.check_mac_address(ifaceobj, mac):
                 continue
 
-            config = {"ifname": "%s%d" % (macvlan_prefix, index)}
+            config = {
+                "ifname": "%s%d" % (macvlan_prefix, index),
+                "mode": "private"
+            }
 
             if mac != "none":
                 config["hwaddress"] = mac
