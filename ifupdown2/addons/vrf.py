@@ -588,32 +588,32 @@ class vrf(moduleBase):
         #200: from all oif blue lookup blue
         #200: from all iif blue lookup blue
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
         if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '', pref, 'oif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
         if not self.l3mdev4_rule and rule not in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '', pref, 'iif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
         if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '-6', pref, 'oif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
         if not self.l3mdev6_rule and rule not in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '-6', pref, 'iif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
     def _is_address_virtual_slaves(self, vrfobj, config_vrfslaves,
