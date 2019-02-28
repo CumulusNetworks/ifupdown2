@@ -214,7 +214,7 @@ class ethtool(moduleBase,utilsBase):
                 cmd = ('%s -s %s %s' % (utils.ethtool_cmd, ifaceobj.name, cmd))
                 utils.exec_command(cmd)
             except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj, raise_error=False)
+                self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _pre_up(self, ifaceobj, operation='post_up'):
         """
