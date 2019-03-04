@@ -154,7 +154,9 @@ class ifupdownMain:
         if not self.link_exists(ifaceobj.name):
            return
         try:
-            self.netlink.link_down(ifaceobj.name)
+            if not ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
+                # set intf down (except loopback)
+                self.netlink.link_down(ifaceobj.name)
         except:
             if ifaceobj.addr_method == 'manual':
                 pass
