@@ -1128,7 +1128,14 @@ class vrf(Addon, moduleBase):
         if not op_handler:
             return
         self._init_command_handlers()
-        if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
-        else:
-            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
+        try:
+            if operation == 'query-checkcurr':
+                op_handler(self, ifaceobj, query_ifaceobj)
+            else:
+                op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
+        finally:
+            try:
+                if self.iproute2_vrf_map_fd:
+                    self.iproute2_vrf_map_fd.close()
+            except:
+                pass
