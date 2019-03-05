@@ -86,12 +86,13 @@ class LogRecordSocketReceiver(SocketServer.TCPServer):
     setup on the client/receiver side, the daemon will connect to the server to
     transmit and stream LogRecord to a socket.
     """
+    allow_reuse_address = True
 
     def __init__(
             self,
             host="localhost",
             handler=LogRecordStreamHandler,
-            port=logging.handlers.DEFAULT_TCP_LOGGING_PORT
+            port=LogManager.DEFAULT_TCP_LOGGING_PORT
     ):
         SocketServer.TCPServer.__init__(self, (host, port), handler)
 

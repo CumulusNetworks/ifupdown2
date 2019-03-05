@@ -34,6 +34,7 @@ class LogManager:
     LOGGER_NAME = "ifupdown2"
     LOGGER_NAME_DAEMON = "ifupdown2d"
 
+    DEFAULT_TCP_LOGGING_PORT = 42422
     DEFAULT_LOGGING_LEVEL_DAEMON = logging.INFO
     DEFAULT_LOGGING_LEVEL_NORMAL = logging.WARNING
 
@@ -209,7 +210,7 @@ class LogManager:
         # Create SocketHandler for daemon-client communication
         self.__socket_handler = logging.handlers.SocketHandler(
             "localhost",
-            logging.handlers.DEFAULT_TCP_LOGGING_PORT
+            port=self.DEFAULT_TCP_LOGGING_PORT
         )
         self.__root_logger.addHandler(self.__socket_handler)
 
