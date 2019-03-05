@@ -356,10 +356,10 @@ class NetlinkManagerWithListener(NetlinkManager):
                   (msg.seq, msg.pid, msg.length, msg.get_attribute_value(msg.IFLA_IFNAME), "up" if msg.is_up() else "down"))
 
     def rx_rtm_newaddr(self, msg):
-        log.debug("RXed RTM_NEWADDR seq %d, pid %d, %d bytes, for %s/%d on %s" % (msg.seq, msg.pid, msg.length, msg.get_attribute_value(msg.IFA_ADDRESS), msg.prefixlen, self.ifname_by_index.get(msg.ifindex)))
+        log.debug("RXed RTM_NEWADDR seq %d, pid %d, %d bytes, for %s on %s" % (msg.seq, msg.pid, msg.length, msg.get_attribute_value(msg.IFA_ADDRESS), self.ifname_by_index.get(msg.ifindex)))
 
     def rx_rtm_deladdr(self, msg):
-        log.debug("RXed RTM_DELADDR seq %d, pid %d, %d bytes, for %s/%d on %s" % (msg.seq, msg.pid, msg.length, msg.get_attribute_value(msg.IFA_ADDRESS), msg.prefixlen, self.ifname_by_index.get(msg.ifindex)))
+        log.debug("RXed RTM_DELADDR seq %d, pid %d, %d bytes, for %s on %s" % (msg.seq, msg.pid, msg.length, msg.get_attribute_value(msg.IFA_ADDRESS), self.ifname_by_index.get(msg.ifindex)))
 
     def rx_rtm_newneigh(self, msg):
         log.debug("RXed RTM_NEWNEIGH seq %d, pid %d, %d bytes, for %s on %s" %
