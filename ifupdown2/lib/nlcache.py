@@ -87,20 +87,19 @@ class NetlinkCacheIfindexNotFoundError(NetlinkCacheError):
 class _NetlinkCache:
     """ Netlink Cache Class """
 
-    _ifa_attributes = nlpacket.Address.attribute_to_class.keys()
-    # nlpacket.Address.attribute_to_class.keys() =
-    # (
-    #     nlpacket.Address.IFA_ADDRESS,
-    #     nlpacket.Address.IFA_LOCAL,
-    #     nlpacket.Address.IFA_LABEL,
-    #     nlpacket.Address.IFA_BROADCAST,
-    #     nlpacket.Address.IFA_ANYCAST,
-    #     nlpacket.Address.IFA_CACHEINFO,
-    #     nlpacket.Address.IFA_MULTICAST,
-    #     nlpacket.Address.IFA_FLAGS
-    # )
     # we need to store these attributes in a static list to be able to iterate
     # through it when comparing Address objects in add_address()
+    # we ignore IFA_CACHEINFO and IFA_FLAGS
+    _ifa_attributes = (
+        nlpacket.Address.IFA_ADDRESS,
+        nlpacket.Address.IFA_LOCAL,
+        nlpacket.Address.IFA_LABEL,
+        nlpacket.Address.IFA_BROADCAST,
+        nlpacket.Address.IFA_ANYCAST,
+        # nlpacket.Address.IFA_CACHEINFO,
+        nlpacket.Address.IFA_MULTICAST,
+        # nlpacket.Address.IFA_FLAGS
+    )
 
     def __init__(self):
         self._link_cache = {}
@@ -286,19 +285,17 @@ class _NetlinkCache:
                 obj.dump()
                 obj.debug = save_debug
 
-                if with_addresses:
-                    addrs = self._addr_cache.get(ifname, [])
-                    log.error('ADDRESSES=%s' % addrs)
-
-                    for addr in addrs:
-                        save_debug = addr.debug
-                        addr.debug = True
-                        addr.dump()
-                        addr.debug = save_debug
-
-                        log.error('-----------')
-                        log.error('-----------')
-                        log.error('-----------')
+                #if with_addresses:
+                #    addrs = self._addr_cache.get(ifname, [])
+                #    log.error('ADDRESSES=%s' % addrs)
+                #    for addr in addrs:
+                #        save_debug = addr.debug
+                #        addr.debug = True
+                #        addr.dump()
+                #        addr.debug = save_debug
+                #        log.error('-----------')
+                #        log.error('-----------')
+                #        log.error('-----------')
         except:
             traceback.print_exc()
         # TODO: save log_level at entry and re-apply it after the dump
@@ -1037,6 +1034,25 @@ class _NetlinkCache:
 
         return label, ifindex
 
+    def __check_and_replace_address(self, address_list, new_addr):
+        """
+        Check if new_addr is in address_list, if found we replace the occurrence
+        with the new and update object "new_addr"
+
+        address_list should be a valid list (check before calling to improve perf)
+        :param address_list:
+        :param new_addr:
+        :return:
+        """
+        ip_with_prefix = new_addr.get_attribute_value(nlpacket.Address.IFA_ADDRESS).with_prefixlen
+
+        for index, addr in enumerate(address_list):
+            if addr.get_attribute_value(nlpacket.Address.IFA_ADDRESS).with_prefixlen == ip_with_prefix:
+                address_list[index] = new_addr
+                return True
+
+        return False
+
     def add_address(self, addr):
         ifname, ifindex = self._address_get_ifname_and_ifindex(addr)
 
@@ -1044,11 +1060,22 @@ class _NetlinkCache:
             log.debug('nlcache: add_address: cannot cache addr for ifindex %s' % ifindex)
             return
 
+        ip_version = addr.get_attribute_value(nlpacket.Address.IFA_ADDRESS).version
+
         with self._cache_lock:
+
             if ifname in self._addr_cache:
-                self._addr_cache[ifname].append(addr)
+                address_list = self._addr_cache[ifname][ip_version]
+                # First check if the address is already cached, if so
+                # we need to update it's entry with the new obj
+                if not address_list or not self.__check_and_replace_address(address_list, addr):
+                    address_list.append(addr)
             else:
-                self._addr_cache[ifname] = [addr]
+                self._addr_cache[ifname] = {
+                    4: [],
+                    6: [],
+                    ip_version: [addr]
+                }
 
     def address_flush_link(self, ifname):
         """
@@ -1058,7 +1085,7 @@ class _NetlinkCache:
         """
         try:
             with self._cache_lock:
-                self._addr_cache[ifname] = []
+                self._addr_cache[ifname] = {4: [], 6: []}
         except:
             pass
 
@@ -1078,13 +1105,11 @@ class _NetlinkCache:
 
                 for cache_addr in self._addr_cache[ifname]:
                     try:
-                        ifa_address = cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value
-                        if ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
+                        if cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].with_prefixlen == addr.with_prefixlen:
                             obj_to_remove = cache_addr
                     except:
                         try:
-                            ifa_local = cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value
-                            if ifa_local.ip == addr.ip and ifa_local.prefixlen == addr.prefixlen:
+                            if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].with_prefixlen == addr.with_prefixlen:
                                 obj_to_remove = cache_addr
                         except:
                             return
@@ -1099,7 +1124,16 @@ class _NetlinkCache:
         with self._cache_lock:
             # iterate through the interface addresses
             # to find which one to remove from the cache
-            addrs_for_interface = self._addr_cache.get(ifname, [])
+            try:
+                ip_version = addr_to_remove.get_attribute_value(nlpacket.Address.IFA_ADDRESS).version
+            except:
+                try:
+                    ip_version = addr_to_remove.get_attribute_value(nlpacket.Address.IFA_LOCAL).version
+                except:
+                    # print debug error
+                    return
+
+            addrs_for_interface = self._addr_cache.get(ifname, {}).get(ip_version)
 
             if not addrs_for_interface:
                 return
@@ -1130,7 +1164,10 @@ class _NetlinkCache:
         addresses = []
         try:
             with self._cache_lock:
-                for addr in self._addr_cache[ifname] or []:
+                intf_addresses = self._addr_cache[ifname]
+                for addr in intf_addresses.get(4, []):
+                    addresses.append(addr.attributes[nlpacket.Address.IFA_ADDRESS].value)
+                for addr in intf_addresses.get(6, []):
                     addresses.append(addr.attributes[nlpacket.Address.IFA_ADDRESS].value)
                 return addresses
         except (KeyError, AttributeError):
@@ -1148,7 +1185,7 @@ class _NetlinkCache:
         """
         try:
             with self._cache_lock:
-                for cache_addr in self._addr_cache[ifname]:
+                for cache_addr in self._addr_cache[ifname][addr.version]:
                     try:
                         ifa_address = cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value
                         if ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
@@ -1242,16 +1279,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         signal.signal(signal.SIGTERM, self.signal_term_handler)
         signal.signal(signal.SIGINT, self.signal_int_handler)
 
-        ### DEBUG
-        if False:
-            self.debug_address(True)
-            self.debug_link(True)
-            nllistener.log.setLevel(DEBUG)
-            nlpacket.log.setLevel(DEBUG)
-            nlmanager.log.setLevel(DEBUG)
-
-        ###
-
         # we need to proctect the access to the old cache with a lock
         self.OLD_CACHE_LOCK = threading.Lock()
         self.FILL_OLD_CACHE = True
@@ -1262,6 +1289,16 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         nllistener.log.setLevel(log_level)
         nlpacket.log.setLevel(log_level)
         nlmanager.log.setLevel(log_level)
+
+        ### DEBUG
+        if False:
+            self.debug_address(True)
+            self.debug_link(True)
+            nllistener.log.setLevel(DEBUG)
+            nlpacket.log.setLevel(DEBUG)
+            nlmanager.log.setLevel(DEBUG)
+
+        ###
 
         self.IPNetwork_version_to_family = {4: socket.AF_INET, 6: socket.AF_INET6}
 
@@ -1339,6 +1376,18 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         self.worker = threading.Thread(target=self.main, name='NetlinkListenerWithCache')
         self.worker.start()
         self.is_ready.wait()
+
+    def DEBUG_ON(self):
+        self.debug_address(True)
+        nllistener.log.setLevel(DEBUG)
+        nlpacket.log.setLevel(DEBUG)
+        nlmanager.log.setLevel(DEBUG)
+
+    def DEBUG_OFF(self):
+        self.debug_address(False)
+        nllistener.log.setLevel(WARNING)
+        nlpacket.log.setLevel(WARNING)
+        nlmanager.log.setLevel(WARNING)
 
     def __str__(self):
         return "NetlinkListenerWithCache"
