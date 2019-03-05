@@ -1,6 +1,9 @@
 ifupdown2 (1.2.6-1) unstable; urgency=medium
 
   * New: add support for vxlan-ttl attribute
+  * New. add support for vrrp attribute
+  * New. introduce new bridge policy:
+        "vxlan_bridge_igmp_snooping_enable_port_mcrouter"
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Mon, 21 Jan 2019 23:42:43 +8000
 
