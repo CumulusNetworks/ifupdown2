@@ -197,7 +197,7 @@ class Client(SocketIO):
         If stdin data is provided we need to store it to forward it to the
         daemon
         """
-        if self.args.interfacesfile == "-":
+        if hasattr(self.args, "interfacesfile") and self.args.interfacesfile == "-":
             return sys.stdin.read()
 
     def run(self):
