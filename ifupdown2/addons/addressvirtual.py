@@ -94,7 +94,7 @@ class addressvirtual(moduleBase):
 
     @staticmethod
     def get_vrrp_prefix(ifname, family):
-        return "vrrp%s-if%s-v" % (family, netlink.get_iface_index(ifname))
+        return "vrrp%s-%s-" % (family, netlink.get_iface_index(ifname))
 
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
@@ -570,8 +570,8 @@ class addressvirtual(moduleBase):
                 else:
                     ip4.append(ip_addr)
 
-            macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), index)
-            macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), index)
+            macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), vrrp_id)
+            macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), vrrp_id)
 
             merged_with_existing_obj = False
             # if the vrr config is defined in different lines for the same ID
