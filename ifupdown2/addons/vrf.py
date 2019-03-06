@@ -136,7 +136,6 @@ class vrf(Addon, moduleBase):
             self.l3mdev_checked = True
         self._iproute2_vrf_map_initialized = False
         self.iproute2_vrf_map = {}
-        self.iproute2_vrf_map_fd = None
         self.iproute2_vrf_map_sync_to_disk = False
 
         self.vrf_table_id_start = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-table-id-start')
@@ -237,7 +236,6 @@ class vrf(Addon, moduleBase):
             self.iproute2_vrf_map = running_vrf_map
             iproute2_vrf_map_force_rewrite = True
 
-        self.iproute2_vrf_map_fd = None
         if writetodisk:
             if iproute2_vrf_map_force_rewrite:
                 # reopen the file and rewrite the map
@@ -297,22 +295,15 @@ class vrf(Addon, moduleBase):
         if ifupdownflags.flags.DRYRUN:
             return
         fmode = 'a+' if append else 'w'
-        try:
-            self.iproute2_vrf_map_fd = open(self.iproute2_vrf_filename,
-                                         '%s' %fmode)
-            fcntl.fcntl(self.iproute2_vrf_map_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-        except Exception, e:
-            self._iproute2_map_warn(str(e))
-            return
-
         if not append:
             # write file header
-            self.iproute2_vrf_map_fd.write(self.iproute2_vrf_filehdr
-                                           %(self.vrf_table_id_start,
-                                             self.vrf_table_id_end))
-            for t, v in self.iproute2_vrf_map.iteritems():
-                self.iproute2_vrf_map_fd.write('%s %s\n' %(t, v))
-            self.iproute2_vrf_map_fd.flush()
+            with open(self.iproute2_vrf_filename, fmode) as vrf_map_fd:
+                vrf_map_fd.write(self.iproute2_vrf_filehdr
+                                               %(self.vrf_table_id_start,
+                                                 self.vrf_table_id_end))
+                for t, v in self.iproute2_vrf_map.iteritems():
+                    vrf_map_fd.write('%s %s\n' %(t, v))
+                vrf_map_fd.flush()
 
     def _is_vrf(self, ifaceobj):
         if ifaceobj.get_attr_value_first('vrf-table'):
@@ -374,10 +365,10 @@ class vrf(Addon, moduleBase):
         old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
         if not old_vrf_name:
             self.iproute2_vrf_map[int(table_id)] = vrfifaceobj.name
-            if self.iproute2_vrf_map_fd:
-                self.iproute2_vrf_map_fd.write('%s %s\n'
-                                               %(table_id, vrfifaceobj.name))
-                self.iproute2_vrf_map_fd.flush()
+            with open(self.iproute2_vrf_filename, "a+") as vrf_map_fd:
+                vrf_map_fd.write('%s %s\n'
+                                 % (table_id, vrfifaceobj.name))
+                vrf_map_fd.flush()
                 self.vrf_count += 1
             return
         if old_vrf_name != vrfifaceobj.name:
@@ -1128,14 +1119,7 @@ class vrf(Addon, moduleBase):
         if not op_handler:
             return
         self._init_command_handlers()
-        try:
-            if operation == 'query-checkcurr':
-                op_handler(self, ifaceobj, query_ifaceobj)
-            else:
-                op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
-        finally:
-            try:
-                if self.iproute2_vrf_map_fd:
-                    self.iproute2_vrf_map_fd.close()
-            except:
-                pass
+        if operation == 'query-checkcurr':
+            op_handler(self, ifaceobj, query_ifaceobj)
+        else:
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
