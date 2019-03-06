@@ -32,6 +32,7 @@ import fcntl
 import signal
 import socket
 import daemon
+import logging
 import argparse
 import datetime
 import threading
@@ -250,6 +251,8 @@ class Daemon(SocketIO):
                         root_logger.info("shutdown signal RXed, breaking out loop")
                     break
 
+                LogManager.get_instance().start_stream()
+
                 status = Status.Daemon.STATUS_INIT
                 try:
                     # RX client request (dict with argv and stdin)
@@ -265,8 +268,8 @@ class Daemon(SocketIO):
                     # restore syslog handler
                     LogManager.get_instance().enable_syslog()
 
-                    # restore original daemon logging level
-                    LogManager.get_instance().set_daemon_logging_level(self.args)
+                    # set level to INFO to emit the exit status message
+                    LogManager.get_instance().set_level(logging.INFO, info=True)
 
                     root_logger.info("exit status %d - in %ssecs" %
                                      (status, (end - start).total_seconds()))
@@ -276,6 +279,8 @@ class Daemon(SocketIO):
                     # our stdin/stderr buffers.
                     LogManager.get_instance().close_log_stream()
                     self.__shutdown_session(client_socket, status)
+                    # restore original daemon logging level
+                    LogManager.get_instance().set_daemon_logging_level(self.args)
         finally:
             self.uds.close()
         return 0

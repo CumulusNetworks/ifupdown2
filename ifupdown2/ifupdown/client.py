@@ -212,6 +212,7 @@ class Client(SocketIO):
             # Then "handle_request" will block until the daemon closes
             # the channel, meaning that the request was processed.
             self.socket_receiver.handle_request()
+            self.socket_receiver.server_close()
 
             # Next the daemon should send us a dictionary containing stdout and
             # stderr buffers as well as the request's exit status. We print those

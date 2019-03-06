@@ -152,13 +152,17 @@ class LogManager:
         "createSocket" to open the channel to the client so that we can properly
         close it. That way the client can exit cleanly.
         """
+        self.__root_logger.removeHandler(self.__socket_handler)
         self.__socket_handler.acquire()
+        self.__socket_handler.retryTime = None
         try:
             if not self.__socket_handler.sock:
                 self.__socket_handler.createSocket()
         finally:
+            self.__socket_handler.close()
             self.__socket_handler.release()
-        self.__socket_handler.close()
+
+    def start_stream(self):
         self.__root_logger.addHandler(self.__socket_handler)
 
     def set_daemon_logging_level(self, args):
