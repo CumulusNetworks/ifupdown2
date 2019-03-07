@@ -17,6 +17,8 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
 
+    from ifupdown2.nlmanager.nlpacket import Link
+
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
@@ -29,6 +31,8 @@ except ImportError:
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
+
+    from nlmanager.nlpacket import Link
 
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
@@ -365,7 +369,8 @@ class addressvirtual(Addon, moduleBase):
                     self.ipcmd.link_set(u, 'master', vrfname,
                                         state='up')
 
-    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list):
+    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
+
         """
         intf_config_list = [
             {
@@ -419,12 +424,19 @@ class addressvirtual(Addon, moduleBase):
                 if vrf_ifname:
                     self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
-            if user_configured_ipv6_addrgenmode:
-                self.iproute2.link_set_ipv6_addrgen(
-                    macvlan_ifname,
-                    ipv6_addrgen_user_value,
-                    link_created
-                )
+            # if we are dealing with a VRRP macvlan we need to set addrgenmode to RANDOM
+            if vrrp:
+                try:
+                    self.iproute2.link_set_ipv6_addrgen(
+                        macvlan_ifname,
+                        Link.IN6_ADDR_GEN_MODE_RANDOM,
+                        link_created
+                    )
+                except Exception as e:
+                    self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
+                                     "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
+            elif user_configured_ipv6_addrgenmode:
+                self.ipcmd.ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
             if macvlan_hwaddr:
                 self.iproute2.link_set_address(macvlan_ifname, macvlan_hwaddr)
@@ -521,7 +533,8 @@ class addressvirtual(Addon, moduleBase):
             self.translate_vrr_user_config_to_list(
                 ifaceobj,
                 vrr_config_list
-            )
+            ),
+            vrrp=True
         )
 
         hw_address_list = addr_virtual_macs + vrr_macs

@@ -317,7 +317,8 @@ class IPRoute2(Cache, Requirements):
 
         self.__execute_or_batch(
             utils.ip_cmd,
-            "link set dev %s addrgenmode %s" % (ifname, "none" if addrgen else "eui64"))
+            "link set dev %s addrgenmode %s" % (ifname, Link.ifla_inet6_addr_gen_mode_dict.get(addrgen))
+        )
 
         if is_link_up:
             self.link_up_force(ifname)
