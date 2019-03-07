@@ -3482,6 +3482,19 @@ class Link(NetlinkPacket):
         IFLA_INET6_ADDR_GEN_MODE    : 'IFLA_INET6_ADDR_GEN_MODE',
     }
 
+    # IFLA_INET6_ADDR_GEN_MODE values
+    IN6_ADDR_GEN_MODE_EUI64 = 0
+    IN6_ADDR_GEN_MODE_NONE = 1
+    IN6_ADDR_GEN_MODE_STABLE_PRIVACY = 2
+    IN6_ADDR_GEN_MODE_RANDOM = 3
+
+    ifla_inet6_addr_gen_mode_dict = {
+        IN6_ADDR_GEN_MODE_EUI64: "eui64",
+        IN6_ADDR_GEN_MODE_NONE: "none",
+        IN6_ADDR_GEN_MODE_STABLE_PRIVACY: "stable_secret",
+        IN6_ADDR_GEN_MODE_RANDOM: "random"
+    }
+
     # Subtype attrbutes AF_INET
     IFLA_INET_UNSPEC    = 0
     IFLA_INET_CONF      = 1
