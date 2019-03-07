@@ -1953,12 +1953,14 @@ class bridge(moduleBase):
                                                                                      brport_ifla_info_slave_data,
                                                                                      bridge_ports_learning.get(brport_name))
 
-                    if self.vxlan_bridge_igmp_snooping_enable_port_mcrouter and utils.get_boolean_from_string(
+                    cached_bridge_mcsnoop = self.brctlcmd.link_cache_get([ifname, 'linkinfo', Link.IFLA_BR_MCAST_SNOOPING])
+
+                    if (self.vxlan_bridge_igmp_snooping_enable_port_mcrouter and utils.get_boolean_from_string(
                             self.get_bridge_mcsnoop_value(ifaceobj)
-                    ):
+                    )) or cached_bridge_mcsnoop:
                         # if policy "vxlan_bridge_igmp_snooping_enable_port_mcrouter"
-                        # is on and mcsnoop is on, set 'bridge-portmcrouter 2'
-                        # on vxlan ports (if not set by the user)
+                        # is on and mcsnoop is on (or mcsnoop is already enabled on the
+                        # bridge, set 'bridge-portmcrouter 2' on vxlan ports (if not set by the user)
                         if not brport_ifla_info_slave_data.get(Link.IFLA_BRPORT_MULTICAST_ROUTER):
                             brport_ifla_info_slave_data[Link.IFLA_BRPORT_MULTICAST_ROUTER] = 2
                             self.logger.info("%s: %s: vxlan bridge igmp snooping: enable port multicast router" % (ifname, brport_name))
