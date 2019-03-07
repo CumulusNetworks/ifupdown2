@@ -2695,17 +2695,18 @@ class LinkUtils(utilsBase):
             # is to flush our internal address cache
             self.reset_addr_cache(ifname)
 
-        cmd = 'link set dev %s addrgenmode %s' % (ifname, 'none' if addrgen else 'eui64')
+        cmd = 'link set dev %s addrgenmode %s' % (ifname, Link.ifla_inet6_addr_gen_mode_dict.get(addrgen))
 
         is_link_up = self.is_link_up(ifname)
 
         if is_link_up:
             self.link_down(ifname)
 
-        if LinkUtils.ipbatch:
-            self.add_to_batch(cmd)
-        else:
-            utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
+        #if LinkUtils.ipbatch:
+        #    self.add_to_batch(cmd)
+        #else:
+        # because this command might fail on older kernel its better to not batch it
+        utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
 
         if is_link_up:
             self.link_up(ifname)
