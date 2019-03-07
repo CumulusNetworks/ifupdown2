@@ -573,34 +573,31 @@ class addressvirtual(moduleBase):
             macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), vrrp_id)
             macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), vrrp_id)
 
-            merged_with_existing_obj = False
-            # if the vrr config is defined in different lines for the same ID
-            # we need to save the ip4 and ip6 in the objects we previously
-            # created, example:
-            #       vrrp 255 10.0.0.15/24 10.0.0.2/15
-            #       vrrp 255 fe80::a00:27ff:fe04:42/64
-            for obj in user_config_list:
-                if obj.get("ifname") == macvlan_ip4_ifname:
-                    obj["ips"] += ip4
-                    merged_with_existing_obj = True
-                elif obj.get("ifname") == macvlan_ip6_ifname:
-                    obj["ips"] += ip6
-                    merged_with_existing_obj = True
-
-            if merged_with_existing_obj:
-                continue
-
             if ip4 or ifquery:
-                # config_ip4
+                merged_with_existing_obj = False
                 macvlan_ip4_mac = "00:00:5e:00:01:%s" % hex_id
-                user_config_list.append({
-                    "ifname": macvlan_ip4_ifname,
-                    "hwaddress": macvlan_ip4_mac,
-                    "hwaddress_int": self.mac_str_to_int(macvlan_ip4_mac),
-                    "mode": "bridge",
-                    "ips": ip4,
-                    "id": vrrp_id
-                })
+                macvlan_ip4_mac_int = self.mac_str_to_int(macvlan_ip4_mac)
+                # if the vrr config is defined in different lines for the same ID
+                # we need to save the ip4 and ip6 in the objects we previously
+                # created, example:
+                # vrrp 255 10.0.0.15/24 10.0.0.2/15
+                # vrrp 255 fe80::a00:27ff:fe04:42/64
+                for obj in user_config_list:
+                    if obj.get("hwaddress_int") == macvlan_ip4_mac_int:
+                        obj["ips"] += ip4
+                        merged_with_existing_obj = True
+
+                if not merged_with_existing_obj:
+                    # if ip4 config wasn't merge with an existing object
+                    # we need to insert it in our list
+                    user_config_list.append({
+                        "ifname": macvlan_ip4_ifname,
+                        "hwaddress": macvlan_ip4_mac,
+                        "hwaddress_int": macvlan_ip4_mac_int,
+                        "mode": "bridge",
+                        "ips": ip4,
+                        "id": vrrp_id
+                    })
             elif not ip4 and not ifquery:
                 # special check to see if all ipv4 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
@@ -608,16 +605,31 @@ class addressvirtual(moduleBase):
                     netlink.link_del(macvlan_ip4_ifname)
 
             if ip6 or ifquery:
-                # config_ip6
+                merged_with_existing_obj = False
                 macvlan_ip6_mac = "00:00:5e:00:02:%s" % hex_id
-                user_config_list.append({
-                    "ifname": macvlan_ip6_ifname,
-                    "hwaddress": macvlan_ip6_mac,
-                    "hwaddress_int": self.mac_str_to_int(macvlan_ip6_mac),
-                    "mode": "bridge",
-                    "ips": ip6,
-                    "id": vrrp_id
-                })
+                macvlan_ip6_mac_int = self.mac_str_to_int(macvlan_ip6_mac)
+                # if the vrr config is defined in different lines for the same ID
+                # we need to save the ip4 and ip6 in the objects we previously
+                # created, example:
+                # vrrp 255 10.0.0.15/24 10.0.0.2/15
+                # vrrp 255 fe80::a00:27ff:fe04:42/64
+
+                for obj in user_config_list:
+                    if obj.get("hwaddress_int") == macvlan_ip6_mac_int:
+                        obj["ips"] += ip6
+                        merged_with_existing_obj = True
+
+                if not merged_with_existing_obj:
+                    # if ip6 config wasn't merge with an existing object
+                    # we need to insert it in our list
+                    user_config_list.append({
+                        "ifname": macvlan_ip6_ifname,
+                        "hwaddress": macvlan_ip6_mac,
+                        "hwaddress_int": macvlan_ip6_mac_int,
+                        "mode": "bridge",
+                        "ips": ip6,
+                        "id": vrrp_id
+                    })
             elif not ip6 and not ifquery:
                 # special check to see if all ipv6 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
