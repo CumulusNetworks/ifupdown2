@@ -451,7 +451,7 @@ class vrf(Addon, moduleBase):
         try:
             dhclient_cmd_prefix = None
             if (vrfname and self.vrf_exec_cmd_prefix and
-                netlink.cache.link_exists(vrfname)):
+                self.cache.link_exists(vrfname)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix,
                                                 vrfname)
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
@@ -472,7 +472,7 @@ class vrf(Addon, moduleBase):
                       ifaceobj_getfunc=None, vrf_exists=False):
         try:
             master_exists = True
-            if vrf_exists or netlink.cache.link_exists(vrfname):
+            if vrf_exists or self.cache.link_exists(vrfname):
                 uppers = self.ipcmd.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
@@ -652,7 +652,7 @@ class vrf(Addon, moduleBase):
         if add_slaves:
             for s in add_slaves:
                 try:
-                    if not netlink.cache.link_exists(s):
+                    if not self.cache.link_exists(s):
                         continue
                     sobj = None
                     if ifaceobj_getfunc:
@@ -699,7 +699,7 @@ class vrf(Addon, moduleBase):
         return False
 
     def _create_vrf_dev(self, ifaceobj, vrf_table):
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             self._check_vrf_system_reserved_names(ifaceobj)
 
             if self.vrf_count == self.vrf_max_count:
@@ -743,7 +743,7 @@ class vrf(Addon, moduleBase):
                     self.log_error('unable to get vrf table id', ifaceobj)
 
             # if the device exists, check if table id is same
-            running_table = netlink.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_VRF_TABLE)
+            running_table = self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_VRF_TABLE)
 
             if running_table is not None and vrf_table != str(running_table):
                 self.log_error('cannot change vrf table id,running table id'
@@ -880,7 +880,7 @@ class vrf(Addon, moduleBase):
                                        ifaceobj_getfunc)
                 elif not ifupdownflags.flags.PERFMODE:
                     # check if we were a slave before
-                    master = netlink.cache.get_master(ifaceobj.name)
+                    master = self.cache.get_master(ifaceobj.name)
                     if master:
                         self._iproute2_vrf_map_initialize()
                         if self._is_vrf_dev(master):
@@ -914,7 +914,7 @@ class vrf(Addon, moduleBase):
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
 
         if vrf_table == 'auto':
@@ -952,7 +952,7 @@ class vrf(Addon, moduleBase):
             pass
 
         try:
-            ifindex = netlink.cache.get_ifindex(ifaceobj.name)
+            ifindex = self.cache.get_ifindex(ifaceobj.name)
         except:
             ifindex = 0
 
@@ -1001,7 +1001,7 @@ class vrf(Addon, moduleBase):
 
     def _query_check_vrf_slave(self, ifaceobj, ifaceobjcurr, vrf):
         try:
-            master = netlink.cache.get_master(ifaceobj.name)
+            master = self.cache.get_master(ifaceobj.name)
             if not master or master != vrf:
                 ifaceobjcurr.update_config_with_status('vrf', str(master), 1)
             else:
@@ -1011,7 +1011,7 @@ class vrf(Addon, moduleBase):
 
     def _query_check_vrf_dev(self, ifaceobj, ifaceobjcurr, vrf_table):
         try:
-            if not netlink.cache.link_exists(ifaceobj.name):
+            if not self.cache.link_exists(ifaceobj.name):
                 self.logger.info('%s: vrf: does not exist' %(ifaceobj.name))
                 return
             if vrf_table == 'auto':
@@ -1019,7 +1019,7 @@ class vrf(Addon, moduleBase):
             else:
                 config_table = vrf_table
 
-            running_vrf_table = str(netlink.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_VRF_TABLE))
+            running_vrf_table = str(self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_VRF_TABLE))
 
             ifaceobjcurr.update_config_with_status('vrf-table', running_vrf_table, config_table != running_vrf_table)
 
@@ -1061,17 +1061,17 @@ class vrf(Addon, moduleBase):
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         try:
-            kind = netlink.cache.get_link_kind(ifaceobjrunning.name)
+            kind = self.cache.get_link_kind(ifaceobjrunning.name)
             if kind == 'vrf':
-                running_table = netlink.cache.get_link_info_data_attribute(ifaceobjrunning.name, Link.IFLA_VRF_TABLE)
+                running_table = self.cache.get_link_info_data_attribute(ifaceobjrunning.name, Link.IFLA_VRF_TABLE)
 
                 if running_table is not None:
                     ifaceobjrunning.update_config('vrf-table', str(running_table))
                     return
 
-            slave_kind = netlink.cache.get_link_slave_kind(ifaceobjrunning.name)
+            slave_kind = self.cache.get_link_slave_kind(ifaceobjrunning.name)
             if slave_kind == 'vrf_slave':
-                vrf = netlink.cache.get_master(ifaceobjrunning.name)
+                vrf = self.cache.get_master(ifaceobjrunning.name)
                 if vrf:
                     ifaceobjrunning.update_config('vrf', vrf)
         except Exception, e:
