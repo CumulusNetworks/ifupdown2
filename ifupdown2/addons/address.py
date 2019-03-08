@@ -12,7 +12,6 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
@@ -28,7 +27,6 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.LinkUtils import LinkUtils
@@ -350,13 +348,13 @@ class address(Addon, moduleBase):
         hwaddress = self._get_hwaddress(ifaceobj)
         addrs = ifaceobj.get_attr_value_first('address')
         is_vlan_dev_on_vlan_aware_bridge = False
-        is_bridge = netlink.cache.get_link_kind(ifaceobj.name) == 'bridge'
+        is_bridge = self.cache.get_link_kind(ifaceobj.name) == 'bridge'
         if not is_bridge:
             if ifaceobj.link_kind & ifaceLinkKind.VLAN:
                 bridgename = ifaceobj.lowerifaces[0]
                 vlan = self._get_vlan_id(ifaceobj)
-                is_vlan_dev_on_vlan_aware_bridge = netlink.cache.bridge_is_vlan_aware(bridgename)
-        if ((is_bridge and not netlink.cache.bridge_is_vlan_aware(ifaceobj.name))
+                is_vlan_dev_on_vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridgename)
+        if ((is_bridge and not self.cache.bridge_is_vlan_aware(ifaceobj.name))
                         or is_vlan_dev_on_vlan_aware_bridge):
             if self._address_valid(addrs):
                 if self.l3_intf_arp_accept:
@@ -890,7 +888,7 @@ class address(Addon, moduleBase):
             self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
 
         if not self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc):
@@ -949,7 +947,7 @@ class address(Addon, moduleBase):
         if hwaddress:
             running_hwaddress = None
             if not ifupdownflags.flags.PERFMODE:  # system is clean
-                running_hwaddress = netlink.cache.get_link_address(ifaceobj.name)
+                running_hwaddress = self.cache.get_link_address(ifaceobj.name)
             if hwaddress != running_hwaddress:
                 slave_down = False
                 if ifaceobj.link_kind & ifaceLinkKind.BOND:
@@ -967,7 +965,7 @@ class address(Addon, moduleBase):
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            if not netlink.cache.link_exists(ifaceobj.name):
+            if not self.cache.link_exists(ifaceobj.name):
                 return
             addr_method = ifaceobj.addr_method
             if addr_method != "dhcp":
@@ -1048,7 +1046,7 @@ class address(Addon, moduleBase):
         if ifaceobj.link_kind & ifaceLinkKind.VLAN:
             bridgename = ifaceobj.lowerifaces[0]
             vlan = self._get_vlan_id(ifaceobj)
-            if netlink.cache.bridge_is_vlan_aware(bridgename):
+            if self.cache.bridge_is_vlan_aware(bridgename):
                 fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
                 if not fdb_addrs or hwaddress not in fdb_addrs:
                    return False
@@ -1115,7 +1113,7 @@ class address(Addon, moduleBase):
             ifaceobjcurr.update_config_with_status(
                 'ipv6-addrgen',
                 ipv6_addrgen,
-                utils.get_boolean_from_string(ipv6_addrgen) == netlink.cache.get_link_ipv6_addrgen_mode(ifaceobj.name)
+                utils.get_boolean_from_string(ipv6_addrgen) == self.cache.get_link_ipv6_addrgen_mode(ifaceobj.name)
             )
         else:
             ifaceobjcurr.update_config_with_status('ipv6-addrgen', ipv6_addrgen, 1)
@@ -1125,7 +1123,7 @@ class address(Addon, moduleBase):
         TODO: Check broadcast address, scope, etc
         """
         runningaddrsdict = None
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             self.logger.debug('iface %s not found' %ifaceobj.name)
             return
 
@@ -1133,10 +1131,10 @@ class address(Addon, moduleBase):
 
         addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
-                'mtu', netlink.cache.get_link_mtu_str)
+                'mtu', self.cache.get_link_mtu_str)
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
-            rhwaddress = netlink.cache.get_link_address(ifaceobj.name)
+            rhwaddress = self.cache.get_link_address(ifaceobj.name)
             if not rhwaddress  or rhwaddress != hwaddress:
                ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
                        1)
@@ -1149,7 +1147,7 @@ class address(Addon, moduleBase):
                ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
                        0)
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
-                    'alias', netlink.cache.get_link_alias)
+                    'alias', self.cache.get_link_alias)
         self._query_sysctl(ifaceobj, ifaceobjcurr)
         # compare addresses
         if addr_method == 'dhcp':
@@ -1207,13 +1205,13 @@ class address(Addon, moduleBase):
         return
 
     def query_running_ipv6_addrgen(self, ifaceobjrunning):
-        ipv6_addrgen = netlink.cache.get_link_ipv6_addrgen_mode(ifaceobjrunning.name)
+        ipv6_addrgen = self.cache.get_link_ipv6_addrgen_mode(ifaceobjrunning.name)
 
         if ipv6_addrgen:
             ifaceobjrunning.update_config('ipv6-addrgen', 'off')
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
-        if not netlink.cache.link_exists(ifaceobjrunning.name):
+        if not self.cache.link_exists(ifaceobjrunning.name):
             self.logger.debug('iface %s not found' %ifaceobjrunning.name)
             return
 
@@ -1225,9 +1223,9 @@ class address(Addon, moduleBase):
             # If dhcp is configured on the interface, we skip it
             return
 
-        intf_running_addrs = netlink.cache.get_addresses_list(ifaceobjrunning.name) or []
+        intf_running_addrs = self.cache.get_addresses_list(ifaceobjrunning.name) or []
 
-        if netlink.cache.link_is_loopback(ifaceobjrunning.name):
+        if self.cache.link_is_loopback(ifaceobjrunning.name):
             for default_addr in self.default_loopback_addresses:
                 try:
                     intf_running_addrs.remove(default_addr)
@@ -1239,14 +1237,14 @@ class address(Addon, moduleBase):
         for addr in intf_running_addrs:
             ifaceobjrunning.update_config('address', str(addr))
 
-        mtu = netlink.cache.get_link_mtu_str(ifaceobjrunning.name)
+        mtu = self.cache.get_link_mtu_str(ifaceobjrunning.name)
         if (mtu and
                 (ifaceobjrunning.name == 'lo' and mtu != '16436') or
                 (ifaceobjrunning.name != 'lo' and
                     mtu != self.get_mod_subattr('mtu', 'default'))):
                 ifaceobjrunning.update_config('mtu', mtu)
 
-        alias = netlink.cache.get_link_alias(ifaceobjrunning.name)
+        alias = self.cache.get_link_alias(ifaceobjrunning.name)
         if alias:
             ifaceobjrunning.update_config('alias', alias)
 
