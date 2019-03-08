@@ -13,7 +13,6 @@ try:
     from ifupdown2.lib.addon import Addon
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
@@ -23,7 +22,6 @@ except ImportError:
     from lib.addon import Addon
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from ifupdownaddons.modulebase import moduleBase
 
@@ -80,12 +78,12 @@ class link(Addon, moduleBase):
     def _up(self, ifaceobj):
         link_type = ifaceobj.get_attr_value_first('link-type')
         if link_type:
-            netlink.link_add_set(ifaceobj.name, kind=link_type)
+            self.netlink.link_add_set(ifname=ifaceobj.name, kind=link_type)
 
     def _down(self, ifaceobj):
         if not ifaceobj.get_attr_value_first('link-type'):
             return
-        if not ifupdownflags.flags.PERFMODE and not netlink.cache.link_exists(ifaceobj.name):
+        if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
             return
         try:
             self.netlink.link_del(ifaceobj.name)
@@ -94,18 +92,18 @@ class link(Addon, moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if ifaceobj.get_attr_value('link-type'):
-            if not netlink.cache.link_exists(ifaceobj.name):
+            if not self.cache.link_exists(ifaceobj.name):
                 ifaceobjcurr.update_config_with_status('link-type', 'None', 1)
             else:
                 link_type = ifaceobj.get_attr_value_first('link-type')
-                if netlink.cache.get_link_kind(ifaceobj.name) == link_type:
+                if self.cache.get_link_kind(ifaceobj.name) == link_type:
                     ifaceobjcurr.update_config_with_status('link-type', link_type, 0)
                 else:
                     ifaceobjcurr.update_config_with_status('link-type', link_type, 1)
 
         link_down = ifaceobj.get_attr_value_first('link-down')
         if link_down:
-            link_up = netlink.cache.link_is_up(ifaceobj.name)
+            link_up = self.cache.link_is_up(ifaceobj.name)
             link_should_be_down = utils.get_boolean_from_string(link_down)
 
             if link_should_be_down and link_up:
