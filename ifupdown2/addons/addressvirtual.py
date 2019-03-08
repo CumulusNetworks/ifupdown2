@@ -436,7 +436,7 @@ class addressvirtual(Addon, moduleBase):
                     self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
                                      "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
             elif user_configured_ipv6_addrgenmode:
-                self.ipcmd.ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
+                self.iproute2.link_set_ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
             if macvlan_hwaddr:
                 self.iproute2.link_set_address(macvlan_ifname, macvlan_hwaddr)
@@ -978,6 +978,7 @@ class addressvirtual(Addon, moduleBase):
         if not op_handler:
             return
         self._init_command_handlers()
+
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
