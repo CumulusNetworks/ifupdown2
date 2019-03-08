@@ -83,6 +83,8 @@ class vrf(Addon, moduleBase):
         self.name = self.__class__.__name__
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
 
+        self.at_exit = False
+
         self.user_reserved_vrf_table = []
 
         if (ifupdownflags.flags.PERFMODE and
@@ -244,7 +246,8 @@ class vrf(Addon, moduleBase):
                 self._iproute2_vrf_map_open(False, True)
 
         self.iproute2_vrf_map_sync_to_disk = False
-        atexit.register(self._iproute2_vrf_map_sync_to_disk)
+        self.at_exit = True
+        #atexit.register(self._iproute2_vrf_map_sync_to_disk)
 
         self.logger.info("vrf: dumping iproute2_vrf_map")
         self.logger.info(self.iproute2_vrf_map)
@@ -1123,3 +1126,6 @@ class vrf(Addon, moduleBase):
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
             op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
+        if self.at_exit:
+            self._iproute2_vrf_map_sync_to_disk()
+            self.at_exit = False
