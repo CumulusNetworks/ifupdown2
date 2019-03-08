@@ -1228,7 +1228,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                                                 Link.IFLA_VXLAN_REMCSUM_RX,
                                                 Link.IFLA_VXLAN_REPLICATION_TYPE):
                             sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)
+                            sub_attr_payload.append(5)
                             sub_attr_payload.append(info_data_type)
 
                             sub_attr_pack_layout.append('B')
