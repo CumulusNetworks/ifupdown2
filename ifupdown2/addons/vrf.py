@@ -473,7 +473,7 @@ class vrf(Addon, moduleBase):
         try:
             master_exists = True
             if vrf_exists or self.cache.link_exists(vrfname):
-                uppers = self.ipcmd.link_get_uppers(ifacename)
+                uppers = self.sysfs.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.netlink.link_set_master(ifacename, vrfname)

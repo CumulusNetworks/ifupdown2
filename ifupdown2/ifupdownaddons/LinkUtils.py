@@ -1566,16 +1566,6 @@ class LinkUtils(utilsBase):
         except:
             return []
 
-    @staticmethod
-    def link_get_uppers(ifacename):
-        try:
-            uppers = glob.glob("/sys/class/net/%s/upper_*" % ifacename)
-            if not uppers:
-                return None
-            return [os.path.basename(u)[6:] for u in uppers]
-        except Exception:
-            return None
-
     def link_get_vrfs(self):
         if not LinkUtils._CACHE_FILL_DONE:
             self._fill_cache()

@@ -336,7 +336,7 @@ class addressvirtual(Addon, moduleBase):
                         (sobjs[0].link_privflags & ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE)):
                         # enslave all its upper devices to
                         # the vrf device
-                        upperdevs = self.ipcmd.link_get_uppers(sobjs[0].name)
+                        upperdevs = self.sysfs.link_get_uppers(sobjs[0].name)
                         if not upperdevs:
                             continue
                         for u in upperdevs:
@@ -356,7 +356,7 @@ class addressvirtual(Addon, moduleBase):
             vrfname = ifaceobj.get_attr_value_first('vrf')
             if not vrfname or not self.cache.link_exists(vrfname):
                 return
-            running_uppers = self.ipcmd.link_get_uppers(ifaceobj.name)
+            running_uppers = self.sysfs.link_get_uppers(ifaceobj.name)
             if not running_uppers:
                 return
             macvlan_prefix = self._get_macvlan_prefix(ifaceobj)

@@ -23,6 +23,7 @@
 #
 
 import os
+import glob
 
 try:
     from ifupdown2.lib.io import IO
@@ -66,6 +67,16 @@ class Sysfs(IO, Cache, Requirements):
         # avoid constantly checking bridge_utils_is_installed
         if not Requirements.bridge_utils_is_installed:
             self.bridge_get_mcqv4src = self.bridge_get_mcqv4src_dry_run
+
+    @staticmethod
+    def link_get_uppers(ifname):
+        try:
+            uppers = glob.glob("/sys/class/net/%s/upper_*" % ifname)
+            if not uppers:
+                return []
+            return [os.path.basename(u)[6:] for u in uppers]
+        except:
+            return []
 
     #
     # MTU
