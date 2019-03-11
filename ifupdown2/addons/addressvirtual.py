@@ -17,6 +17,8 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.netlink import netlink
 
+    from ifupdown2.nlmanager.nlpacket import Link
+
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
@@ -29,6 +31,8 @@ except ImportError:
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.netlink import netlink
+
+    from nlmanager.nlpacket import Link
 
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
@@ -95,9 +99,8 @@ class addressvirtual(Addon, moduleBase):
     def _get_macvlan_prefix(self, ifaceobj):
         return '%s-v' %ifaceobj.name[0:13].replace('.', '-')
 
-    @staticmethod
-    def get_vrr_prefix(ifname, family):
-        return "%s-%sv" % (ifname[0:10].replace(".", "-"), family)
+    def get_vrrp_prefix(self, ifname, family):
+        return "vrrp%s-%s-" % (family, self.cache.get_ifindex(ifname))
 
     def _add_addresses_to_bridge(self, ifaceobj, hwaddress):
         # XXX: batch the addresses
@@ -245,14 +248,14 @@ class addressvirtual(Addon, moduleBase):
         return False, None
 
     def _remove_running_address_config(self, ifaceobj):
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
         hwaddress = []
 
         for macvlan_prefix in [
             self._get_macvlan_prefix(ifaceobj),
-            self.get_vrr_prefix(ifaceobj.name, "4"),
-            self.get_vrr_prefix(ifaceobj.name, "6")
+            self.get_vrrp_prefix(ifaceobj.name, "4"),
+            self.get_vrrp_prefix(ifaceobj.name, "6")
         ]:
             for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % macvlan_prefix):
                 macvlan_ifacename = os.path.basename(macvlan_ifacename)
@@ -366,7 +369,8 @@ class addressvirtual(Addon, moduleBase):
                     self.ipcmd.link_set(u, 'master', vrfname,
                                         state='up')
 
-    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list):
+    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
+
         """
         intf_config_list = [
             {
@@ -401,13 +405,17 @@ class addressvirtual(Addon, moduleBase):
             link_created = False
             macvlan_ifname = intf_config_dict.get("ifname")
             macvlan_hwaddr = intf_config_dict.get("hwaddress")
+            macvlan_mode = intf_config_dict.get("mode")
             ips = intf_config_dict.get("ips")
 
             if not self.cache.link_exists(macvlan_ifname):
-                try:
-                    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
-                except:
-                    self.iproute2.link_add_macvlan(ifname, macvlan_ifname)
+                # When creating VRRP macvlan with bridge mode, the kernel
+                # return an error: 'Invalid argument' (22)
+                # so for now we should only use the iproute2 API.
+                # try:
+                #    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
+                # except:
+                self.iproute2.link_add_macvlan(ifname, macvlan_ifname, macvlan_mode)
                 link_created = True
 
             # first thing we need to handle vrf enslavement
@@ -416,12 +424,19 @@ class addressvirtual(Addon, moduleBase):
                 if vrf_ifname:
                     self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
-            if user_configured_ipv6_addrgenmode:
-                self.iproute2.link_set_ipv6_addrgen(
-                    macvlan_ifname,
-                    ipv6_addrgen_user_value,
-                    link_created
-                )
+            # if we are dealing with a VRRP macvlan we need to set addrgenmode to RANDOM
+            if vrrp:
+                try:
+                    self.iproute2.link_set_ipv6_addrgen(
+                        macvlan_ifname,
+                        Link.IN6_ADDR_GEN_MODE_RANDOM,
+                        link_created
+                    )
+                except Exception as e:
+                    self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
+                                     "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
+            elif user_configured_ipv6_addrgenmode:
+                self.iproute2.link_set_ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
             if macvlan_hwaddr:
                 self.iproute2.link_set_address(macvlan_ifname, macvlan_hwaddr)
@@ -518,7 +533,8 @@ class addressvirtual(Addon, moduleBase):
             self.translate_vrr_user_config_to_list(
                 ifaceobj,
                 vrr_config_list
-            )
+            ),
+            vrrp=True
         )
 
         hw_address_list = addr_virtual_macs + vrr_macs
@@ -551,6 +567,7 @@ class addressvirtual(Addon, moduleBase):
         #   {
         #        "ifname": "macvlan_ifname",
         #        "hwaddress": "macvlan_hwaddress",
+        #        "mode": "macvlan_mode",
         #        "ips": [str(IPNetwork), ]
         #    },
         # ]
@@ -573,47 +590,71 @@ class addressvirtual(Addon, moduleBase):
                 else:
                     ip4.append(ip_addr)
 
-            macvlan_ip4_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "4"), index)
-            macvlan_ip6_ifname = "%s%s" % (self.get_vrr_prefix(ifname, "6"), index)
-
-            merged_with_existing_obj = False
-            # if the vrr config is defined in different lines for the same ID
-            # we need to save the ip4 and ip6 in the objects we previously
-            # created, example:
-            #       vrrp 255 10.0.0.15/24 10.0.0.2/15
-            #       vrrp 255 fe80::a00:27ff:fe04:42/64
-            for obj in user_config_list:
-                if obj.get("ifname") == macvlan_ip4_ifname:
-                    obj["ips"] += ip4
-                    merged_with_existing_obj = True
-                elif obj.get("ifname") == macvlan_ip6_ifname:
-                    obj["ips"] += ip6
-                    merged_with_existing_obj = True
-
-            if merged_with_existing_obj:
-                continue
+            macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), vrrp_id)
+            macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), vrrp_id)
 
             if ip4 or ifquery:
-                # config_ip4
+                merged_with_existing_obj = False
                 macvlan_ip4_mac = "00:00:5e:00:01:%s" % hex_id
-                user_config_list.append({
-                    "ifname": macvlan_ip4_ifname,
-                    "hwaddress": macvlan_ip4_mac,
-                    "hwaddress_int": utils.mac_str_to_int(macvlan_ip4_mac),
-                    "ips": ip4,
-                    "id": vrrp_id
-                })
+                macvlan_ip4_mac_int = utils.mac_str_to_int(macvlan_ip4_mac)
+                # if the vrr config is defined in different lines for the same ID
+                # we need to save the ip4 and ip6 in the objects we previously
+                # created, example:
+                # vrrp 255 10.0.0.15/24 10.0.0.2/15
+                # vrrp 255 fe80::a00:27ff:fe04:42/64
+                for obj in user_config_list:
+                    if obj.get("hwaddress_int") == macvlan_ip4_mac_int:
+                        obj["ips"] += ip4
+                        merged_with_existing_obj = True
+
+                if not merged_with_existing_obj:
+                    # if ip4 config wasn't merge with an existing object
+                    # we need to insert it in our list
+                    user_config_list.append({
+                        "ifname": macvlan_ip4_ifname,
+                        "hwaddress": macvlan_ip4_mac,
+                        "hwaddress_int": macvlan_ip4_mac_int,
+                        "mode": "bridge",
+                        "ips": ip4,
+                        "id": vrrp_id
+                    })
+            elif not ip4 and not ifquery:
+                # special check to see if all ipv4 were removed from the vrrp
+                # configuration, if so we need to remove the associated macvlan
+                if self.ipcmd.link_exists(macvlan_ip4_ifname):
+                    netlink.link_del(macvlan_ip4_ifname)
 
             if ip6 or ifquery:
-                # config_ip6
+                merged_with_existing_obj = False
                 macvlan_ip6_mac = "00:00:5e:00:02:%s" % hex_id
-                user_config_list.append({
-                    "ifname": macvlan_ip6_ifname,
-                    "hwaddress": macvlan_ip6_mac,
-                    "hwaddress_int": utils.mac_str_to_int(macvlan_ip6_mac),
-                    "ips": ip6,
-                    "id": vrrp_id
-                })
+                macvlan_ip6_mac_int = utils.mac_str_to_int(macvlan_ip6_mac)
+                # if the vrr config is defined in different lines for the same ID
+                # we need to save the ip4 and ip6 in the objects we previously
+                # created, example:
+                # vrrp 255 10.0.0.15/24 10.0.0.2/15
+                # vrrp 255 fe80::a00:27ff:fe04:42/64
+
+                for obj in user_config_list:
+                    if obj.get("hwaddress_int") == macvlan_ip6_mac_int:
+                        obj["ips"] += ip6
+                        merged_with_existing_obj = True
+
+                if not merged_with_existing_obj:
+                    # if ip6 config wasn't merge with an existing object
+                    # we need to insert it in our list
+                    user_config_list.append({
+                        "ifname": macvlan_ip6_ifname,
+                        "hwaddress": macvlan_ip6_mac,
+                        "hwaddress_int": macvlan_ip6_mac_int,
+                        "mode": "bridge",
+                        "ips": ip6,
+                        "id": vrrp_id
+                    })
+            elif not ip6 and not ifquery:
+                # special check to see if all ipv6 were removed from the vrrp
+                # configuration, if so we need to remove the associated macvlan
+                if self.ipcmd.link_exists(macvlan_ip6_ifname):
+                    netlink.link_del(macvlan_ip6_ifname)
 
         return user_config_list
 
@@ -653,7 +694,10 @@ class addressvirtual(Addon, moduleBase):
             if not self.check_mac_address(ifaceobj, mac):
                 continue
 
-            config = {"ifname": "%s%d" % (macvlan_prefix, index)}
+            config = {
+                "ifname": "%s%d" % (macvlan_prefix, index),
+                "mode": "private"
+            }
 
             if mac != "none":
                 config["hwaddress"] = mac
@@ -675,7 +719,7 @@ class addressvirtual(Addon, moduleBase):
 
             #### VRR
             hwaddress = []
-            for vrr_prefix in [self.get_vrr_prefix(ifaceobj.name, "4"), self.get_vrr_prefix(ifaceobj.name, "6")]:
+            for vrr_prefix in [self.get_vrrp_prefix(ifaceobj.name, "4"), self.get_vrrp_prefix(ifaceobj.name, "6")]:
                 for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % vrr_prefix):
                     macvlan_ifacename = os.path.basename(macvlan_ifacename)
                     if not self.cache.link_exists(macvlan_ifacename):
@@ -934,6 +978,7 @@ class addressvirtual(Addon, moduleBase):
         if not op_handler:
             return
         self._init_command_handlers()
+
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

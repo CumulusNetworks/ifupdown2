@@ -257,6 +257,15 @@ class vxlan(Addon, moduleBase):
                 return True
         return False
 
+    def get_vxlan_ttl_from_string(self, ttl_config):
+        ttl = 0
+        if ttl_config:
+            if ttl_config.lower() == "auto":
+                ttl = 0
+            else:
+                ttl = int(ttl_config)
+        return ttl
+
     def _vxlan_create(self, ifaceobj):
         vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
         if vxlanid:
@@ -279,6 +288,21 @@ class vxlan(Addon, moduleBase):
                     )
 
                 ttl = int(ttl_config or 0)
+            except:
+                self.log_error('%s: invalid vxlan-ttl \'%s\'' % (ifname, ttl_config), ifaceobj)
+                return
+
+            ttl_config = ifaceobj.get_attr_value_first('vxlan-ttl')
+            try:
+                if ttl_config:
+                    ttl = self.get_vxlan_ttl_from_string(ttl_config)
+                else:
+                    ttl = self.get_vxlan_ttl_from_string(
+                        policymanager.policymanager_api.get_attr_default(
+                            module_name=self.__class__.__name__,
+                            attr='vxlan-ttl'
+                        )
+                    )
             except:
                 self.log_error('%s: invalid vxlan-ttl \'%s\'' % (ifname, ttl_config), ifaceobj)
                 return

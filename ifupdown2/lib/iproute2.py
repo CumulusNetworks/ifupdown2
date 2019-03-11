@@ -179,18 +179,18 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_add_macvlan(self, ifname, macvlan_ifname):
+    def link_add_macvlan(self, ifname, macvlan_ifname, macvlan_mode):
         utils.exec_command(
-            "%s link add link %s name %s type macvlan mode private"
-            % (utils.ip_cmd, ifname, macvlan_ifname)
+            "%s link add link %s name %s type macvlan mode %s"
+            % (utils.ip_cmd, ifname, macvlan_ifname, macvlan_mode)
         )
 
-    def link_add_macvlan_dry_run(self, ifname, macvlan_ifname):
+    def link_add_macvlan_dry_run(self, ifname, macvlan_ifname, macvlan_mode):
         # this dryrun method can be removed once dryrun handlers
         # are added to the utils module
         self.logger.info(
-            "%s: dryrun: executing %s link add link %s name %s type macvlan mode private"
-            % (ifname, utils.ip_cmd, ifname, macvlan_ifname)
+            "%s: dryrun: executing %s link add link %s name %s type macvlan mode %s"
+            % (ifname, utils.ip_cmd, ifname, macvlan_ifname, macvlan_mode)
         )
 
     ###
@@ -317,7 +317,8 @@ class IPRoute2(Cache, Requirements):
 
         self.__execute_or_batch(
             utils.ip_cmd,
-            "link set dev %s addrgenmode %s" % (ifname, "none" if addrgen else "eui64"))
+            "link set dev %s addrgenmode %s" % (ifname, Link.ifla_inet6_addr_gen_mode_dict.get(addrgen))
+        )
 
         if is_link_up:
             self.link_up_force(ifname)

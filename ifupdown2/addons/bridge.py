@@ -648,6 +648,14 @@ class bridge(Addon, moduleBase):
             )
         )
 
+        self.vxlan_bridge_igmp_snooping_enable_port_mcrouter = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="vxlan_bridge_igmp_snooping_enable_port_mcrouter"
+            ),
+            default=True
+        )
+
         self.l2protocol_tunnel_callback = {
             'all': self._l2protocol_tunnel_set_all,
             'stp': self._l2protocol_tunnel_set_stp,
@@ -1935,6 +1943,18 @@ class bridge(Addon, moduleBase):
                                                                                      brport_name,
                                                                                      brport_ifla_info_slave_data,
                                                                                      bridge_ports_learning.get(brport_name))
+
+                    cached_bridge_mcsnoop = self.brctlcmd.link_cache_get([ifname, 'linkinfo', Link.IFLA_BR_MCAST_SNOOPING])
+
+                    if (self.vxlan_bridge_igmp_snooping_enable_port_mcrouter and utils.get_boolean_from_string(
+                            self.get_bridge_mcsnoop_value(ifaceobj)
+                    )) or cached_bridge_mcsnoop:
+                        # if policy "vxlan_bridge_igmp_snooping_enable_port_mcrouter"
+                        # is on and mcsnoop is on (or mcsnoop is already enabled on the
+                        # bridge, set 'bridge-portmcrouter 2' on vxlan ports (if not set by the user)
+                        if not brport_ifla_info_slave_data.get(Link.IFLA_BRPORT_MULTICAST_ROUTER):
+                            brport_ifla_info_slave_data[Link.IFLA_BRPORT_MULTICAST_ROUTER] = 2
+                            self.logger.info("%s: %s: vxlan bridge igmp snooping: enable port multicast router" % (ifname, brport_name))
                 else:
                     kind = None
                     ifla_info_data = {}
