@@ -7,30 +7,32 @@
 import os
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 
     from ifupdown2.ifupdownaddons.utilsbase import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
     from ifupdown.exceptions import moduleNotSupported
 
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.modulebase import moduleBase
 
 
-class ethtool(moduleBase,utilsBase):
+class ethtool(Addon, moduleBase):
     """  ifupdown2 addon module to configure ethtool attributes """
 
     _modinfo = {'mhelp' : 'ethtool configuration module for interfaces',
@@ -64,6 +66,7 @@ class ethtool(moduleBase,utilsBase):
                              'default' : 'varies by platform and port'}}}
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         if not os.path.exists(utils.ethtool_cmd):
             raise moduleNotSupported('module init failed: %s: not found' % utils.ethtool_cmd)
@@ -220,7 +223,7 @@ class ethtool(moduleBase,utilsBase):
         _pre_up and _pre_down will reset the layer 2 attributes to default policy
         settings.
         """
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
 
         self.do_speed_settings(ifaceobj)
@@ -327,7 +330,7 @@ class ethtool(moduleBase,utilsBase):
                                             (utils.ethtool_cmd, ifaceobj.name))
                 running_attr = self.get_fec_encoding(ethtool_output=output)
             else:
-                running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
+                running_attr = self.io.read_file_oneline('/sys/class/net/%s/%s' % \
                                                       (ifaceobj.name, attr))
         except Exception as e:
             # for nonexistent interfaces, we get an error (rc = 256 or 19200)
@@ -346,7 +349,7 @@ class ethtool(moduleBase,utilsBase):
         """
         # do not bother showing swp ifaces that are not up for the speed
         # duplex and autoneg are not reliable.
-        if not netlink.cache.link_is_up(ifaceobj.name):
+        if not self.cache.link_is_up(ifaceobj.name):
             return
         for attr in ['speed', 'duplex', 'autoneg']:
             default_val = policymanager.policymanager_api.get_iface_default(
