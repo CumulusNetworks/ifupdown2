@@ -82,7 +82,7 @@ class bridgevlan(Addon, moduleBase):
                            "to format (eg. br0.100)" % ifaceobj.name, ifaceobj)
             raise
 
-        if not netlink.cache.link_exists(bridgename):
+        if not self.cache.link_exists(bridgename):
             #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return
@@ -115,7 +115,7 @@ class bridgevlan(Addon, moduleBase):
                              "correspond to format (eg. br0.100)" % ifaceobj.name)
             raise
 
-        if not netlink.cache.link_exists(bridgename):
+        if not self.cache.link_exists(bridgename):
             #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return

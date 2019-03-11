@@ -67,7 +67,7 @@ class dhcp(Addon, moduleBase):
             wait = not str(dhcp_wait).lower() == "no"
             vrf = ifaceobj.get_attr_value_first('vrf')
             if (vrf and self.vrf_exec_cmd_prefix and
-                netlink.cache.link_exists(vrf)):
+                self.cache.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
             if 'inet' in ifaceobj.addr_family:
@@ -136,7 +136,7 @@ class dhcp(Addon, moduleBase):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
-            netlink.cache.link_exists(vrf)):
+            self.cache.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
         if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
@@ -171,7 +171,7 @@ class dhcp(Addon, moduleBase):
         ifaceobjcurr.status = status
 
     def _query_running(self, ifaceobjrunning):
-        if not netlink.cache.link_exists(ifaceobjrunning.name):
+        if not self.cache.link_exists(ifaceobjrunning.name):
             return
         if self.dhclientcmd.is_running(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet')

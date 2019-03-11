@@ -265,7 +265,7 @@ class bond(Addon, moduleBase):
         return self.syntax_check_updown_delay(ifaceobj)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
-        return netlink.cache.get_slaves(ifaceobj.name)
+        return self.cache.get_slaves(ifaceobj.name)
 
     def _get_slave_list(self, ifaceobj):
         """ Returns slave list present in ifaceobj config """
@@ -295,19 +295,19 @@ class bond(Addon, moduleBase):
             return
 
         if not ifupdownflags.flags.PERFMODE:
-            runningslaves = netlink.cache.get_slaves(ifaceobj.name)
+            runningslaves = self.cache.get_slaves(ifaceobj.name)
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
         for slave in Set(slaves).difference(Set(runningslaves)):
             if (not ifupdownflags.flags.PERFMODE and
-                not netlink.cache.link_exists(slave)):
+                not self.cache.link_exists(slave)):
                     self.log_error('%s: skipping slave %s, does not exist'
                                    %(ifaceobj.name, slave), ifaceobj,
                                      raise_error=False)
                     continue
             link_up = False
-            if netlink.cache.link_is_up(slave):
+            if self.cache.link_is_up(slave):
                 self.netlink.link_down(slave)
                 link_up = True
             # If clag bond place the slave in a protodown state; clagd
@@ -345,7 +345,7 @@ class bond(Addon, moduleBase):
                 else:
                     # apply link-down config changes on running slaves
                     try:
-                        link_up = netlink.cache.link_is_up(s)
+                        link_up = self.cache.link_is_up(s)
                         config_link_down = (ifaceobj_getfunc(s)[0].link_privflags &
                                             ifaceLinkPrivFlags.KEEP_LINK_DOWN)
                         if (config_link_down and link_up):
@@ -409,7 +409,7 @@ class bond(Addon, moduleBase):
         """
         ifla_bond_miimon = ifla_info_data.get(Link.IFLA_BOND_MIIMON)
         if link_exists and ifla_bond_miimon is None:
-            ifla_bond_miimon = netlink.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_BOND_MIIMON)
+            ifla_bond_miimon = self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_BOND_MIIMON)
 
         if ifla_bond_miimon == 0:
             for nl_attr, attr_name in self._bond_updown_delay_nl_list:
@@ -430,7 +430,7 @@ class bond(Addon, moduleBase):
     def _check_bond_mode_user_config(self, ifname, link_exists, ifla_info_data):
         ifla_bond_mode = ifla_info_data.get(Link.IFLA_BOND_MODE)
         if ifla_bond_mode is None and link_exists:
-            ifla_bond_mode = netlink.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
+            ifla_bond_mode = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
             # in this case the link already exists (we have a cached value):
             # if IFLA_BOND_MODE is not present in ifla_info_data it means:
             #   - that bond-mode was present in the user config and didn't change
@@ -443,7 +443,7 @@ class bond(Addon, moduleBase):
         if ifla_bond_mode == 4:  # 802.3ad
             min_links = ifla_info_data.get(Link.IFLA_BOND_MIN_LINKS)
             if min_links is None:
-                min_links = netlink.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MIN_LINKS)
+                min_links = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MIN_LINKS)
             # get_min_links_nl may return None so we need to strictly check 0
             if min_links == 0:
                 self.logger.warn('%s: attribute bond-min-links is set to \'0\'' % ifname)
@@ -508,7 +508,7 @@ class bond(Addon, moduleBase):
                     nl_value = func_ptr(user_config.lower())
 
                     if link_exists:
-                        cached_value = netlink.cache.get_link_info_data_attribute(ifname, netlink_attr)
+                        cached_value = self.cache.get_link_info_data_attribute(ifname, netlink_attr)
 
                     if link_exists and cached_value is None:
                         # the link already exists but we don't have any value
@@ -555,7 +555,7 @@ class bond(Addon, moduleBase):
     def should_update_bond_mode(self, ifaceobj, ifname, is_link_up, ifla_info_data):
         # if bond-mode was changed the bond needs to be brought
         # down and slaves un-slaved before bond mode is changed.
-        cached_bond_mode = netlink.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
+        cached_bond_mode = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
         ifla_bond_mode = ifla_info_data.get(Link.IFLA_BOND_MODE)
 
         # bond-mode was changed or is not specified
@@ -578,7 +578,7 @@ class bond(Addon, moduleBase):
 
     def create_or_set_bond_config(self, ifaceobj):
         ifname          = ifaceobj.name
-        link_exists, is_link_up = netlink.cache.link_exists_and_up(ifname)
+        link_exists, is_link_up = self.cache.link_exists_and_up(ifname)
         ifla_info_data  = self.get_ifla_bond_attr_from_user_config(ifaceobj, link_exists)
 
         remove_delay_from_cache = self.check_updown_delay_nl(link_exists, ifaceobj, ifla_info_data)
@@ -617,7 +617,7 @@ class bond(Addon, moduleBase):
             self.netlink.link_up(ifname)
 
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             self.sysfs.bond_create(ifaceobj.name)
         self.sysfs.bond_set_attrs_nl(ifaceobj.name, ifla_info_data)
 
@@ -655,7 +655,7 @@ class bond(Addon, moduleBase):
         ifaceobjcurr.update_config_with_status(attr, ' '.join(user_bond_slaves) if user_bond_slaves else 'None', query)
 
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
-        if not netlink.cache.bond_exists(ifaceobj.name):
+        if not self.cache.bond_exists(ifaceobj.name):
             self.logger.debug('bond iface %s does not exist' % ifaceobj.name)
             return
 
@@ -677,7 +677,7 @@ class bond(Addon, moduleBase):
             query_slaves = True
             if not user_bond_slaves:
                 user_bond_slaves = self._get_slave_list(ifaceobj)
-                running_bond_slaves = netlink.cache.get_slaves(ifaceobj.name)
+                running_bond_slaves = self.cache.get_slaves(ifaceobj.name)
 
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-slaves', user_bond_slaves, running_bond_slaves)
         except:
@@ -688,7 +688,7 @@ class bond(Addon, moduleBase):
             # if user specified bond-ports we need to display it
             if not query_slaves and not user_bond_slaves: # if get_slave_list was already called for slaves
                 user_bond_slaves = self._get_slave_list(ifaceobj)
-                running_bond_slaves = netlink.cache.get_slaves(ifaceobj.name)
+                running_bond_slaves = self.cache.get_slaves(ifaceobj.name)
 
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-ports', user_bond_slaves, running_bond_slaves)
         except:
@@ -697,7 +697,7 @@ class bond(Addon, moduleBase):
         for attr in iface_attrs:
             nl_attr         = self._bond_attr_netlink_map[attr]
             translate_func  = self._bond_attr_ifquery_check_translate_func[nl_attr]
-            current_config  = netlink.cache.get_link_info_data_attribute(ifaceobj.name, nl_attr)
+            current_config  = self.cache.get_link_info_data_attribute(ifaceobj.name, nl_attr)
             user_config     = ifaceobj.get_attr_value_first(attr)
 
             if current_config == translate_func(user_config):
@@ -714,7 +714,7 @@ class bond(Addon, moduleBase):
         return 'fast' if value else 'slow'
 
     def _query_running_attrs(self, bondname):
-        cached_vxlan_ifla_info_data = netlink.cache.get_link_info_data(bondname)
+        cached_vxlan_ifla_info_data = self.cache.get_link_info_data(bondname)
 
         bond_attrs = {
             'bond-mode': Link.ifla_bond_mode_pretty_tbl.get(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MODE)),
@@ -731,13 +731,13 @@ class bond(Addon, moduleBase):
             'bond-updelay': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_UPDELAY),
             'bond-downdelay': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_DOWNDELAY)
         }
-        slaves = netlink.cache.get_slaves(bondname)
+        slaves = self.cache.get_slaves(bondname)
         if slaves:
             bond_attrs['bond-slaves'] = slaves
         return bond_attrs
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
-        if not netlink.cache.bond_exists(ifaceobjrunning.name):
+        if not self.cache.bond_exists(ifaceobjrunning.name):
             return
         bond_attrs = self._query_running_attrs(ifaceobjrunning.name)
         if bond_attrs.get('bond-slaves'):

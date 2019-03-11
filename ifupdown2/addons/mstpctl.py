@@ -402,7 +402,7 @@ class mstpctl(Addon, moduleBase):
         for bridgeport in Set(bridgeports).difference(Set(runningbridgeports)):
             try:
                 if (not ifupdownflags.flags.DRYRUN and
-                    not netlink.cache.link_exists(bridgeport)):
+                    not self.cache.link_exists(bridgeport)):
                     self.log_warn('%s: bridge port %s does not exist'
                             %(ifaceobj.name, bridgeport))
                     err += 1
@@ -450,7 +450,7 @@ class mstpctl(Addon, moduleBase):
                     self.logger.warn('%s' %str(e))
                     pass
 
-            if netlink.cache.bridge_is_vlan_aware(ifaceobj.name):
+            if self.cache.bridge_is_vlan_aware(ifaceobj.name):
                 return
             # set bridge port attributes
             for attrname, dstattrname in self._port_attrs_map.items():
@@ -557,7 +557,7 @@ class mstpctl(Addon, moduleBase):
                              %(ifaceobj.name) +
                              ' (stp on bridge %s is not on yet)' %bridgename)
             return applied
-        bvlan_aware = netlink.cache.bridge_is_vlan_aware(bridgename)
+        bvlan_aware = self.cache.bridge_is_vlan_aware(bridgename)
         if (not mstpd_running or
             not os.path.exists('/sys/class/net/%s/brport' %ifaceobj.name) or
             not bvlan_aware):
@@ -649,7 +649,7 @@ class mstpctl(Addon, moduleBase):
         for bport in bridgeports:
             self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))
-            if not netlink.cache.link_exists(bport):
+            if not self.cache.link_exists(bport):
                continue
             if not os.path.exists('/sys/class/net/%s/brport' %bport):
                 continue
@@ -679,7 +679,7 @@ class mstpctl(Addon, moduleBase):
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         # Check if bridge port
-        bridgename = netlink.cache.get_bridge_name_from_port(ifaceobj.name)
+        bridgename = self.cache.get_bridge_name_from_port(ifaceobj.name)
         if bridgename:
             mstpd_running = self.mstpd_running
             stp_running_on = self._is_running_userspace_stp_state_on(bridgename)
@@ -1016,7 +1016,7 @@ class mstpctl(Addon, moduleBase):
 
 
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
-        if not netlink.cache.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             #self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
             return
@@ -1026,7 +1026,7 @@ class mstpctl(Addon, moduleBase):
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
                             self._port_attrs_map.keys(), 0)
             return
-        bridgename = netlink.cache.get_master(ifaceobj.name)
+        bridgename = self.cache.get_master(ifaceobj.name)
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-portpathcost',
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
@@ -1073,7 +1073,7 @@ class mstpctl(Addon, moduleBase):
             ifaceobjrunning.update_config(attr, v)
 
     def _query_running_bridge_port(self, ifaceobjrunning):
-        bridgename = netlink.cache.get_master(ifaceobjrunning.name)
+        bridgename = self.cache.get_master(ifaceobjrunning.name)
         if not bridgename:
             self.logger.warn('%s: unable to determine bridgename'
                              %ifaceobjrunning.name)

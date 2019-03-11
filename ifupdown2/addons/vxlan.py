@@ -315,7 +315,7 @@ class vxlan(Addon, moduleBase):
             purge_remotes = self._get_purge_remotes(ifaceobj)
             physdev = self.vxlan_getphysdev(ifaceobj, mcast_grp)
 
-            link_exists = netlink.cache.link_exists(ifname)
+            link_exists = self.cache.link_exists(ifname)
 
             try:
                 vxlanid = int(vxlanid)
@@ -324,7 +324,7 @@ class vxlan(Addon, moduleBase):
 
             if link_exists:
 
-                device_link_kind = netlink.cache.get_link_kind(ifname)
+                device_link_kind = self.cache.get_link_kind(ifname)
                 if device_link_kind != "vxlan":
                     self.logger.error("%s: device already exists and is not a vxlan" % ifname)
                     ifaceobj.set_status(ifaceStatus.ERROR)
@@ -334,7 +334,7 @@ class vxlan(Addon, moduleBase):
                     ifaceobj.set_status(ifaceStatus.ERROR)
                     return
 
-                cached_vxlan_ifla_info_data = netlink.cache.get_link_info_data(ifname)
+                cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname)
 
                 # on ifreload do not overwrite anycast_ip to individual ip
                 # if clagd has modified
@@ -605,10 +605,10 @@ class vxlan(Addon, moduleBase):
     def _query_check(self, ifaceobj, ifaceobjcurr):
         ifname = ifaceobj.name
 
-        if not netlink.cache.link_exists(ifname):
+        if not self.cache.link_exists(ifname):
             return
 
-        cached_vxlan_ifla_info_data = netlink.cache.get_link_info_data(ifname)
+        cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname)
 
         if not cached_vxlan_ifla_info_data:
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj, self.get_mod_attrs(), -1)
@@ -619,7 +619,7 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-port', Link.IFLA_VXLAN_PORT, int),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, int),
                 ('vxlan-svcnodeip', Link.IFLA_VXLAN_GROUP, IPv4Address),
-                ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: netlink.cache.get_ifindex(x)),
+                ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: self.cache.get_ifindex(x)),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
         ):
             vxlan_attr_value = ifaceobj.get_attr_value_first(vxlan_attr_str)
@@ -684,13 +684,13 @@ class vxlan(Addon, moduleBase):
     def _query_running(self, ifaceobjrunning):
         ifname = ifaceobjrunning.name
 
-        if not netlink.cache.link_exists(ifname):
+        if not self.cache.link_exists(ifname):
             return
 
-        if not netlink.cache.get_link_kind(ifname) == 'vxlan':
+        if not self.cache.get_link_kind(ifname) == 'vxlan':
             return
 
-        cached_vxlan_ifla_info_data = netlink.cache.get_link_info_data(ifname)
+        cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname)
 
         if not cached_vxlan_ifla_info_data:
             return
