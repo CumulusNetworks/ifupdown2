@@ -325,7 +325,7 @@ class addressvirtual(Addon, moduleBase):
             # that have address virtual config,
             # enslave the slaves 'address virtual
             # interfaces (macvlans)' to myself:
-            running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+            running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
             if running_slaves:
                 # pick up any existing slaves of a vrf device and
                 # look for their upperdevices and enslave them to the

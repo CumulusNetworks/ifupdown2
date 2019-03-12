@@ -633,14 +633,14 @@ class vrf(Addon, moduleBase):
         #  - check if it is also a macvlan device of the
         #    format <vrf_slave>-v<int> created by the
         #    address virtual module
-        vrfslave_lowers = self.ipcmd.link_get_lowers(vrfslave)
+        vrfslave_lowers = self.sysfs.link_get_lowers(vrfslave)
         if vrfslave_lowers:
             if vrfslave_lowers[0] in config_vrfslaves:
                 return True
         return False
 
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
-        running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+        running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
         config_slaves = ifaceobj.lowerifaces
         if not config_slaves and not running_slaves:
             return
@@ -920,7 +920,7 @@ class vrf(Addon, moduleBase):
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
 
-        running_slaves = self.ipcmd.link_get_lowers(ifaceobj.name)
+        running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
         if running_slaves:
             for s in running_slaves:
                 if ifaceobj_getfunc:

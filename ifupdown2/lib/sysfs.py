@@ -78,6 +78,16 @@ class Sysfs(IO, Cache, Requirements):
         except:
             return []
 
+    @staticmethod
+    def link_get_lowers(ifname):
+        try:
+            lowers = glob.glob("/sys/class/net/%s/lower_*" % ifname)
+            if not lowers:
+                return []
+            return [os.path.basename(l)[6:] for l in lowers]
+        except:
+            return []
+
     #
     # MTU
     #

@@ -1556,16 +1556,6 @@ class LinkUtils(utilsBase):
             self.logger.debug('ip_route_get_dev: failed .. %s' % str(e))
         return None
 
-    @staticmethod
-    def link_get_lowers(ifacename):
-        try:
-            lowers = glob.glob("/sys/class/net/%s/lower_*" % ifacename)
-            if not lowers:
-                return []
-            return [os.path.basename(l)[6:] for l in lowers]
-        except:
-            return []
-
     def link_get_vrfs(self):
         if not LinkUtils._CACHE_FILL_DONE:
             self._fill_cache()
