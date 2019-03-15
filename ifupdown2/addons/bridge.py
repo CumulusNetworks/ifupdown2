@@ -939,7 +939,7 @@ class bridge(moduleBase):
     def handle_ipv6(self, ports, state, ifaceobj=None):
         if (ifaceobj and
                 (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN) and
-                not ifaceobj.get_attr_value('address')):
+                not ifaceobj.get_attr_value('address') and not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE):
             self._enable_disable_ipv6(ifaceobj.name, state)
         for p in ports:
             self._enable_disable_ipv6(p, state)
