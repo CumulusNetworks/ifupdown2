@@ -509,32 +509,32 @@ class vrf(moduleBase):
         ip_rule_out_format = '%s: from all %s %s lookup %s'
         ip_rule_cmd = '%s %s rule del pref %s %s %s table %s'
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '', pref, 'oif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
         if rule in self.ip_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '', pref, 'iif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'oif', vrf_dev_name, vrf_table)
         if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '-6', pref, 'oif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
-        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_dev_name)
+        rule = ip_rule_out_format %(pref, 'iif', vrf_dev_name, vrf_table)
         if rule in self.ip6_rule_cache:
             rule_cmd = ip_rule_cmd %(utils.ip_cmd,
                                      '-6', pref, 'iif', vrf_dev_name,
-                                     vrf_dev_name)
+                                     vrf_table)
             utils.exec_command(rule_cmd)
 
     def _l3mdev_rule(self, ip_rules):
