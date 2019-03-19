@@ -417,7 +417,8 @@ class addressvirtual(moduleBase):
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
                 self._handle_vrf_slaves(macvlan_ifname, ifaceobj)
 
-            # if we are dealing with a VRRP macvlan we need to set addrgenmode to RANDOM
+            # if we are dealing with a VRRP macvlan we need to set addrgenmode
+            # to RANDOM, and protodown on
             if vrrp:
                 try:
                     self.ipcmd.ipv6_addrgen(
@@ -428,6 +429,10 @@ class addressvirtual(moduleBase):
                 except Exception as e:
                     self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
                                      "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
+                try:
+                    netlink.link_set_protodown(macvlan_ifname, "on")
+                except Exception as e:
+                    self.logger.warning("%s: %s: ip link set dev %s protodown on: operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
             elif user_configured_ipv6_addrgenmode:
                 self.ipcmd.ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
