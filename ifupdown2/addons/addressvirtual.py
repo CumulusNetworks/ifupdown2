@@ -15,7 +15,6 @@ try:
     from ifupdown2.lib.addon import Addon
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.nlmanager.nlpacket import Link
 
@@ -30,7 +29,6 @@ except ImportError:
     from lib.addon import Addon
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from nlmanager.nlpacket import Link
 
@@ -622,7 +620,7 @@ class addressvirtual(Addon, moduleBase):
                 # special check to see if all ipv4 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
                 if self.ipcmd.link_exists(macvlan_ip4_ifname):
-                    netlink.link_del(macvlan_ip4_ifname)
+                    self.netlink.link_del(macvlan_ip4_ifname)
 
             if ip6 or ifquery:
                 merged_with_existing_obj = False
@@ -654,7 +652,7 @@ class addressvirtual(Addon, moduleBase):
                 # special check to see if all ipv6 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
                 if self.ipcmd.link_exists(macvlan_ip6_ifname):
-                    netlink.link_del(macvlan_ip6_ifname)
+                    self.netlink.link_del(macvlan_ip6_ifname)
 
         return user_config_list
 
