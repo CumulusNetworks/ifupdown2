@@ -588,8 +588,6 @@ class bridge(Addon, moduleBase):
         self.ipcmd = None
         self.name = self.__class__.__name__
         self.brctlcmd = None
-        self._running_vidinfo = {}
-        self._running_vidinfo_valid = False
         self._resv_vlan_range =  self._get_reserved_vlan_range()
         self.logger.debug('%s: using reserved vlan range %s' % (self.__class__.__name__, str(self._resv_vlan_range)))
 
@@ -1126,17 +1124,6 @@ class bridge(Addon, moduleBase):
                 for v in running_mcqv4src.keys():
                     self.iproute2.bridge_del_mcqv4src(ifaceobj.name, v)
 
-    def _get_running_vidinfo(self):
-        if self._running_vidinfo_valid:
-            return self._running_vidinfo
-        self._running_vidinfo = {}
-
-        # CM-8161.  Removed check for PERFMODE.  Need the get in all cases
-        # including reboot, so that we can configure the pvid correctly.
-        self._running_vidinfo = self.ipcmd.bridge_port_vids_get_all_json()
-        self._running_vidinfo_valid = True
-        return self._running_vidinfo
-
     def _set_bridge_vidinfo_compat(self, ifaceobj):
         #
         # Supports old style vlan vid info format
@@ -1160,7 +1147,7 @@ class bridge(Addon, moduleBase):
                 try:
                     (port, pvid) = p.split('=')
                     pvid = int(pvid)
-                    running_pvid = self._get_running_pvid(port)
+                    running_pvid = self.cache.get_pvid(port)
                     if running_pvid:
                         if running_pvid == pvid:
                             continue
@@ -1183,7 +1170,7 @@ class bridge(Addon, moduleBase):
                     (port, val) = p.split('=')
                     vids = val.split(',')
                     vids_int =  self._ranges_to_ints(vids)
-                    running_vids = self.ipcmd.bridge_vlan_get_vids(port)
+                    _, running_vids = self.cache.get_pvid_and_vids(port)
                     if running_vids:
                         (vids_to_del, vids_to_add) = \
                                 self._diff_vids(vids_int, running_vids)
@@ -1363,22 +1350,8 @@ class bridge(Addon, moduleBase):
                                  %(ifaceobj.name, v))
         return ret
 
-    def _get_running_pvid(self, ifacename):
-        pvid = 0
-
-        running_vidinfo = self._get_running_vidinfo()
-        for vinfo in running_vidinfo.get(ifacename, {}):
-            v = vinfo.get('vlan')
-            pvid = v if 'PVID' in vinfo.get('flags', []) else 0
-            if pvid:
-                return pvid
-        return pvid
-
     def _get_running_vids_n_pvid_str(self, ifacename):
-        vids = []
-        pvid = None
-
-        (vids, pvid) = self.ipcmd.bridge_vlan_get_vids_n_pvid(ifacename)
+        pvid, vids = self.cache.get_pvid_and_vids(ifacename)
 
         if vids:
             ret_vids = self._compress_into_ranges(vids)
@@ -1423,8 +1396,7 @@ class bridge(Addon, moduleBase):
             if not self._check_vids(bportifaceobj, vids):
                return
 
-            (running_vids, running_pvid) = self.ipcmd.bridge_vlan_get_vids_n_pvid(
-                                                        bportifaceobj.name)
+            running_pvid, running_vids = self.cache.get_pvid_and_vids(bportifaceobj.name)
 
             if not running_vids and not running_pvid:
                 # There cannot be a no running pvid.
@@ -2224,7 +2196,7 @@ class bridge(Addon, moduleBase):
             running_bridge_port_vids = ''
             for p in ports:
                 try:
-                    running_vids = self._get_runing_vids(p)
+                    _, running_vids = self.cache.get_pvid_and_vids(p)
                     if running_vids:
                         running_bridge_port_vids += ' %s=%s' %(p,
                                                       ','.join(running_vids))
@@ -2235,7 +2207,7 @@ class bridge(Addon, moduleBase):
             running_bridge_port_pvid = ''
             for p in ports:
                 try:
-                    running_pvid = self._get_runing_pvid(p)
+                    running_pvid = self.cache.get_pvid(p)
                     if running_pvid:
                         running_bridge_port_pvid += ' %s=%s' %(p,
                                                         running_pvid)
@@ -2243,7 +2215,7 @@ class bridge(Addon, moduleBase):
                     pass
             running_attrs['bridge-port-pvids'] = running_bridge_port_pvid
 
-        running_bridge_vids = self.ipcmd.bridge_vlan_get_vids(ifaceobjrunning.name)
+        _, running_bridge_vids = self.cache.get_pvid_and_vids(ifaceobjrunning.name)
         if running_bridge_vids:
             running_attrs['bridge-vids'] = ','.join(self._compress_into_ranges(running_bridge_vids))
         return running_attrs
@@ -2472,7 +2444,7 @@ class bridge(Addon, moduleBase):
                 try:
                     (port, val) = p.split('=')
                     vids = val.split(',')
-                    running_vids = self.ipcmd.bridge_vlan_get_vids(port)
+                    _, running_vids = self.cache.get_pvid_and_vids(port)
                     if running_vids:
                         if not self._compare_vids(vids, running_vids):
                             err += 1
@@ -2504,7 +2476,7 @@ class bridge(Addon, moduleBase):
             for p in portlist:
                 try:
                     (port, pvid) = p.split('=')
-                    running_pvid = self.ipcmd.bridge_vlan_get_vids(port)
+                    _, running_pvid = self.cache.get_pvid_and_vids(port)
                     if running_pvid and running_pvid == pvid:
                         running_bridge_port_pvids += ' %s' %p
                     else:
@@ -2742,17 +2714,17 @@ class bridge(Addon, moduleBase):
 
     def _query_check_bridge_port_vidinfo(self, ifaceobj, ifaceobjcurr,
                                          ifaceobj_getfunc, bridgename):
+
+        running_pvid, running_vids = self.cache.get_pvid_and_vids(ifaceobj.name)
+
         attr_name = 'bridge-access'
         vid = ifaceobj.get_attr_value_first(attr_name)
         if vid:
-            (running_vids, running_pvid) = self._get_running_vids_n_pvid_str(
-                                                        ifaceobj.name)
-            if (not running_pvid or running_pvid != vid or
-                (running_vids and running_vids[0] != vid)):
-               ifaceobjcurr.update_config_with_status(attr_name,
-                                running_pvid, 1)
+            vid_int = int(vid)
+            if running_pvid == vid_int or running_vids[0] == vid_int:
+                ifaceobjcurr.update_config_with_status(attr_name, vid, 0)
             else:
-               ifaceobjcurr.update_config_with_status(attr_name, vid, 0)
+                ifaceobjcurr.update_config_with_status(attr_name, running_pvid, 1)
             return
 
         (running_vids, running_pvid) = self._get_running_vids_n_pvid_str(

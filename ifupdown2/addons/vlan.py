@@ -112,7 +112,7 @@ class vlan(Addon, moduleBase):
         is configured on the bridge """
         if not self.cache.bridge_is_vlan_aware(bridgename):
             return
-        vids = self.ipcmd.bridge_vlan_get_vids(bridgename)
+        _, vids = self.cache.get_pvid_and_vids(bridgename)
         if not vids or vlanid not in vids:
             ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.status_str = 'bridge vid error'

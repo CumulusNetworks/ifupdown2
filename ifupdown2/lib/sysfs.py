@@ -130,6 +130,9 @@ class Sysfs(IO, Cache, Requirements):
     # BRIDGE
     ############################################################################
 
+    def bridge_port_pvids_get(self, bridge_port_name):
+        return self.read_file_oneline("/sys/class/net/%s/brport/pvid" % bridge_port_name)
+
     def bridge_get_stp(self, bridge):
         stp_state_path = "/sys/class/net/%s/bridge/stp_state" % bridge
 

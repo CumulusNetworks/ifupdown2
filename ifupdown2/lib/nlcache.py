@@ -104,6 +104,7 @@ class _NetlinkCache:
     def __init__(self):
         self._link_cache = {}
         self._addr_cache = {}
+        self._bridge_vlan_cache = {}
 
         # helper dictionaries
         # ifindex: ifname
@@ -170,6 +171,25 @@ class _NetlinkCache:
         """
         log.debug('nlcache: %s: %s: TypeError: %s' % (func_name, data, str(exception)))
         return return_value
+
+    def __unslave(self, master, slave):
+        """
+        This function centralizes access to _masters_and_slaves.
+        When unslaving a device, we need to clear it's associated bridge vlans (if any)
+
+        :param master:
+        :param slave:
+        :return:
+        """
+        try:
+            self._masters_and_slaves[master].remove(slave)
+        except (KeyError, ValueError):
+            pass
+
+        try:
+            del self._bridge_vlan_cache[slave]
+        except KeyError:
+            pass
 
     def append_to_ignore_rtm_newlinkq(self, ifname):
         """
@@ -263,11 +283,7 @@ class _NetlinkCache:
                 del self._link_cache[slave].attributes[nlpacket.Link.IFLA_MASTER]
             except:
                 pass
-            try:
-                self._masters_and_slaves[master].remove(slave)
-            except:
-                pass
-
+            self.__unslave(master, slave)
 
     def DEBUG_IFNAME(self, ifname, with_addresses=False):
         """
@@ -701,6 +717,83 @@ class _NetlinkCache:
     # BRIDGE #################################################################
     ##########################################################################
 
+    def get_pvid_and_vids(self, ifname):
+        """
+        vlan-identifiers are stored in:
+
+        self._bridge_vlan_cache = {
+            ifname: [(vlan, flag), (vlan, flag), ...]
+        }
+
+        Those vlans are stored in compressed format (RTEXT_FILTER_BRVLAN_COMPRESSED)
+        We only uncompress the vlan when the user request it.
+
+        This function replaces LinkUtils.bridge_vlan_get_vids_n_pvid
+
+        :param ifname:
+        :return tuple: pvid, vids = int, [int, ]
+        """
+        pvid = None
+        vlans = []
+        try:
+            range_begin_vlan_id = None
+            range_flag = None
+
+            with self._cache_lock:
+                bridge_vlans_tuples = self._bridge_vlan_cache.get(ifname)
+
+                if bridge_vlans_tuples:
+                    for (vlan_id, vlan_flag) in sorted(bridge_vlans_tuples):
+
+                        if vlan_flag & nlpacket.Link.BRIDGE_VLAN_INFO_PVID:
+                            pvid = vlan_id
+
+                        if vlan_flag & nlpacket.Link.BRIDGE_VLAN_INFO_RANGE_BEGIN:
+                            range_begin_vlan_id = vlan_id
+                            range_flag = vlan_flag
+
+                        elif vlan_flag & nlpacket.Link.BRIDGE_VLAN_INFO_RANGE_END:
+                            range_flag |= vlan_flag
+
+                            if not range_begin_vlan_id:
+                                log.warning("BRIDGE_VLAN_INFO_RANGE_END is %d but we never "
+                                            "saw a BRIDGE_VLAN_INFO_RANGE_BEGIN" % vlan_id)
+                                range_begin_vlan_id = vlan_id
+
+                            for x in xrange(range_begin_vlan_id, vlan_id + 1):
+                                vlans.append(x)
+
+                            range_begin_vlan_id = None
+                            range_flag = None
+
+                        else:
+                            vlans.append(vlan_id)
+        except:
+            log.exception("get_bridge_vids")
+        return pvid, vlans
+
+    def get_pvid(self, ifname):
+        """
+        Get Port VLAN ID for device 'ifname'
+
+        :param ifname:
+        :return:
+        """
+        pvid = None
+        try:
+            with self._cache_lock:
+                bridge_vlans_tuples = self._bridge_vlan_cache.get(ifname)
+
+                if bridge_vlans_tuples:
+
+                    for (vlan_id, vlan_flag) in sorted(bridge_vlans_tuples):
+
+                        if vlan_flag & nlpacket.Link.BRIDGE_VLAN_INFO_PVID:
+                            return vlan_id
+        except:
+            log.exception("get_pvid")
+        return pvid
+
     def bridge_exists(self, ifname):
         """
         Check if cached device is a bridge
@@ -895,8 +988,8 @@ class _NetlinkCache:
                     # the link was previously enslaved but master is now unset on this device
                     # we need to reflect that on the _masters_and_slaves dictionary
                     try:
-                        self._masters_and_slaves[self.get_ifname(old_ifla_master)].remove(ifname)
-                    except (KeyError, NetlinkCacheIfindexNotFoundError):
+                        self.__unslave(master=self.get_ifname(old_ifla_master), slave=ifname)
+                    except NetlinkCacheIfindexNotFoundError:
                         pass
                 else:
                     # the master status didn't change we can assume that our internal
@@ -935,6 +1028,53 @@ class _NetlinkCache:
             else:
                 self._masters_and_slaves[master_ifname] = set([ifname])
 
+    def add_bridge_vlan(self, msg):
+        """
+        Process AF_BRIDGE family packets (AF_BRIDGE family should be check
+        before calling this function).
+
+        Extract VLAN_INFO (vlan id and flag) and store it in cache.
+
+        :param link:
+        :return:
+        """
+        vlans_list = []
+
+        with self._cache_lock:
+            ifla_af_spec = msg.get_attribute_value(nlpacket.Link.IFLA_AF_SPEC)
+            ifname = msg.get_attribute_value(nlpacket.Link.IFLA_IFNAME)
+
+            if not ifla_af_spec:
+                return
+
+            try:
+                # We need to check if this object is still in cache, after a bridge
+                # is removed we still receive AF_BRIDGE notifications for it's slave
+                # those notifications should be ignored.
+                ifla_master = msg.get_attribute_value(nlpacket.Link.IFLA_MASTER)
+
+                if not ifla_master or not ifla_master in self._ifname_by_ifindex:
+                    return
+            except:
+                pass
+
+            # Example IFLA_AF_SPEC
+            #  20: 0x1c001a00  ....  Length 0x001c (28), Type 0x001a (26) IFLA_AF_SPEC
+            #  21: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
+            #  22: 0x00000a00  ....
+            #  23: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
+            #  24: 0x00001000  ....
+            #  25: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
+            #  26: 0x00001400  ....
+            for x_type, x_value in ifla_af_spec.iteritems():
+                if x_type == nlpacket.Link.IFLA_BRIDGE_VLAN_INFO:
+                    for vlan_flag, vlan_id in x_value:
+                        # We store these in the tuple as (vlan, flag) instead
+                        # (flag, vlan) so that we can sort the list of tuples
+                        vlans_list.append((vlan_id, vlan_flag))
+
+            self._bridge_vlan_cache.update({ifname: vlans_list})
+
     def force_add_slave(self, master, slave):
         """
         When calling link_set_master, we don't want to wait for the RTM_GETLINK
@@ -971,6 +1111,12 @@ class _NetlinkCache:
                     if slave_ifname in slaves_set:
                         slaves_set.remove(slave_ifname)
                         break
+
+                try:
+                    # clear associated bridge vlan
+                    del self._bridge_vlan_cache[slave_ifname]
+                except:
+                    pass
         except:
             # since this is an optimization function we can ignore all error
             pass
@@ -1034,6 +1180,22 @@ class _NetlinkCache:
                 log.debug('del _link_cache: KeyError ifname: %s' % ifname)
 
             try:
+                # like in __unslave() we need to make sure that all deleted link
+                # have their bridge-vlans entry cleared.
+                for slave in self._masters_and_slaves[ifname]:
+                    try:
+                        del self._bridge_vlan_cache[slave]
+                    except:
+                        pass
+            except:
+                pass
+
+            try:
+                del self._bridge_vlan_cache[ifname]
+            except:
+                pass
+
+            try:
                 del self._ifname_by_ifindex[ifindex]
             except KeyError:
                 log.debug('del _ifname_by_ifindex: KeyError ifindex: %s' % ifindex)
@@ -1057,12 +1219,11 @@ class _NetlinkCache:
             # it's entry from our _masters_and_slaves dictionary
             if link_ifla_master > 0:
                 try:
-                    master_ifname = self.get_ifname(link_ifla_master)
-                    self._masters_and_slaves[master_ifname].remove(ifname)
-                except (NetlinkCacheIfindexNotFoundError, ValueError) as e:
+                    self.__unslave(master=self.get_ifname(link_ifla_master), slave=ifname)
+                except NetlinkCacheIfindexNotFoundError as e:
                     log.debug('cache: remove_link: %s: %s' % (ifname, str(e)))
                 except KeyError:
-                    log.debug('_masters_and_slaves[%s].remove(%s): KeyError' % (master_ifname, ifname))
+                    log.debug('_masters_and_slaves[if%s].remove(%s): KeyError' % (link_ifla_master, ifname))
 
     def _address_get_ifname_and_ifindex(self, addr):
         ifindex = addr.ifindex
@@ -1625,6 +1786,9 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         #    },
         # }
         if rxed_link_packet.family != socket.AF_UNSPEC:
+            # special handling for AF_BRIDGE packets
+            if rxed_link_packet.family == socket.AF_BRIDGE:
+                self.cache.add_bridge_vlan(rxed_link_packet)
             return
 
         super(NetlinkListenerWithCache, self).rx_rtm_newlink(rxed_link_packet)
@@ -1994,6 +2158,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         # create netlinkq notify event so we can wait until the links are cached
         self.netlinkq_notify_event = threading.Event()
         self.get_all_links()
+        # we also need a dump of all existing bridge vlans
+        self.get_all_br_links(compress_vlans=True)
         # block until the netlinkq was serviced and cached
         self.service_netlinkq(self.netlinkq_notify_event)
         self.netlinkq_notify_event.wait()
