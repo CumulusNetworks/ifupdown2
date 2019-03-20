@@ -2384,38 +2384,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         bridge_self = False if master else True
         self.vlan_modify(nlpacket.RTM_DELLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
 
-    def _link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None, group=None, learning=True, ageing=None, physdev=None, ttl=None):
-        debug = nlpacket.RTM_NEWLINK in self.debug
-        info_data = {nlpacket.Link.IFLA_VXLAN_ID: int(vxlanid)}
-
-        if dstport:
-            info_data[nlpacket.Link.IFLA_VXLAN_PORT] = int(dstport)
-        if local:
-            info_data[nlpacket.Link.IFLA_VXLAN_LOCAL] = local
-        if group:
-            info_data[nlpacket.Link.IFLA_VXLAN_GROUP] = group
-
-        info_data[nlpacket.Link.IFLA_VXLAN_LEARNING] = int(learning)
-        info_data[nlpacket.Link.IFLA_VXLAN_TTL] = ttl
-
-        if ageing:
-            info_data[nlpacket.Link.IFLA_VXLAN_AGEING] = int(ageing)
-
-        if physdev:
-            info_data[nlpacket.Link.IFLA_VXLAN_LINK] = int(physdev)
-
-        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
-        link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-        link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
-        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-        link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
-            nlpacket.Link.IFLA_INFO_KIND: "vxlan",
-            nlpacket.Link.IFLA_INFO_DATA: info_data
-        })
-
-        link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
-
     #############################################################################################################
     # Netlink API ###############################################################################################
     #############################################################################################################
@@ -2639,6 +2607,92 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_add_bridge_dry_run(self, ifname):
         self.logger.info("%s: dry_run: netlink: ip link add dev %s type bridge" % (ifname, ifname))
         return True
+
+    ###
+
+    def link_add_vxlan(self, ifname, id, learning=True, local=None, port=None, group=None, ageing=None, physdev=None, ttl=None):
+        info_data = {nlpacket.Link.IFLA_VXLAN_ID: int(id)}
+        cmd = ["ip link add %s type vxlan id %s" % (ifname, id)]
+
+        if port:
+            cmd.append("dstport %s" % port)
+            info_data[nlpacket.Link.IFLA_VXLAN_PORT] = int(port)
+
+        if local:
+            cmd.append("local %s" % local)
+            info_data[nlpacket.Link.IFLA_VXLAN_LOCAL] = local
+
+        if ageing:
+            cmd.append("ageing %s" % ageing)
+            info_data[nlpacket.Link.IFLA_VXLAN_AGEING] = int(ageing)
+
+        if group:
+            if group.is_multicast:
+                cmd.append("group %s" % group)
+            else:
+                cmd.append("remote %s" % group)
+            info_data[nlpacket.Link.IFLA_VXLAN_GROUP] = group
+        else:
+            cmd.append("noremote")
+
+        if not learning:
+            cmd.append("nolearning")
+        info_data[nlpacket.Link.IFLA_VXLAN_LEARNING] = int(learning)
+
+        if physdev:
+            cmd.append("dev %s" % physdev)
+            info_data[nlpacket.Link.IFLA_VXLAN_LINK] = self.cache.get_ifindex(physdev)
+
+        if ttl:
+            cmd.append("ttl %s" % ttl)
+            info_data[nlpacket.Link.IFLA_VXLAN_TTL] = ttl
+
+        self.logger.info('%s: netlink: %s' % (ifname, " ".join(cmd)))
+
+        debug = nlpacket.RTM_NEWLINK in self.debug
+
+        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+        link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+        link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
+            nlpacket.Link.IFLA_INFO_KIND: "vxlan",
+            nlpacket.Link.IFLA_INFO_DATA: info_data
+        })
+
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
+
+    def link_add_vxlan_dry_run(self, ifname, id, learning=True, local=None, port=None, group=None, ageing=None, physdev=None, ttl=None):
+        cmd = ["ip link add %s type vxlan id %s" % (ifname, id)]
+
+        if port:
+            cmd.append("dstport %s" % port)
+
+        if local:
+            cmd.append("local %s" % local)
+
+        if ageing:
+            cmd.append("ageing %s" % ageing)
+
+        if group:
+            if group.is_multicast:
+                cmd.append("group %s" % group)
+            else:
+                cmd.append("remote %s" % group)
+        else:
+            cmd.append("noremote")
+
+        if not learning:
+            cmd.append("nolearning")
+
+        if physdev:
+            cmd.append("dev %s" % physdev)
+
+        if ttl:
+            cmd.append("ttl %s" % ttl)
+
+        self.logger.info('%s: netlink: %s' % (ifname, " ".join(cmd)))
 
     ############################################################################
     # ADDRESS

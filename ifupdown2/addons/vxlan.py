@@ -469,10 +469,10 @@ class vxlan(Addon, moduleBase):
             except TypeError:
                 # TypeError means vxlan_port was None
                 # ie: not provided by the user or the policy
-                vxlan_port = netlink.VXLAN_UDP_PORT
+                vxlan_port = self.iproute2.VXLAN_UDP_PORT
             except ValueError as e:
                 self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, netlink.VXLAN_UDP_PORT, str(e)))
-                vxlan_port = netlink.VXLAN_UDP_PORT
+                vxlan_port = self.iproute2.VXLAN_UDP_PORT
 
             if link_exists and not ifupdownflags.flags.DRYRUN:
                 cache_port = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_PORT)
@@ -484,14 +484,16 @@ class vxlan(Addon, moduleBase):
 
             if self.should_create_set_vxlan(link_exists, vxlanid, local, learning, ageing, group, ttl, cached_vxlan_ifla_info_data):
                 try:
-                    netlink.link_add_vxlan(ifname, vxlanid,
-                                           local=local,
-                                           learning=learning,
-                                           ageing=ageing,
-                                           group=group,
-                                           dstport=vxlan_port,
-                                           physdev=physdev,
-                                           ttl=ttl)
+                    self.netlink.link_add_vxlan(
+                        ifname, vxlanid,
+                        local=local,
+                        learning=learning,
+                        ageing=ageing,
+                        group=group,
+                        port=vxlan_port,
+                        physdev=physdev,
+                        ttl=ttl
+                    )
                 except Exception as e_netlink:
                     self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:

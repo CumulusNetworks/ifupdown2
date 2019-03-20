@@ -256,43 +256,6 @@ class Netlink(utilsBase):
             raise Exception('netlink: %s: cannot remove bridge vlan %s: %s'
                             % (ifacename, vlanid, str(e)))
 
-    def link_add_vxlan(self, ifacename, vxlanid, local=None, dstport=VXLAN_UDP_PORT,
-                       group=None, learning=True, ageing=None, physdev=None, ttl=None):
-        cmd = 'ip link add %s type vxlan id %s dstport %s' % (ifacename,
-                                                              vxlanid,
-                                                              dstport)
-        cmd += ' local %s' % local if local else ''
-        cmd += ' ageing %s' % ageing if ageing else ''
-
-        if group and group.is_multicast:
-            cmd += ' group %s' % group
-        else:
-            cmd += ' remote %s' % group if group else ' noremote'
-
-        cmd += ' nolearning' if not learning else ''
-        cmd += ' dev %s' % physdev if physdev else ''
-
-        if ttl is not None:
-            cmd += ' ttl %s' % ttl
-
-        self.logger.info('%s: netlink: %s' % (ifacename, cmd))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            if physdev:
-                physdev = self.get_iface_index(physdev)
-            return self.netlink._link_add_vxlan(ifacename,
-                                                      vxlanid,
-                                                      dstport=dstport,
-                                                      local=local,
-                                                      group=group,
-                                                      learning=learning,
-                                                      ageing=ageing,
-                                                      physdev=physdev,
-                                                      ttl=ttl)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot create vxlan %s: %s'
-                            % (ifacename, vxlanid, str(e)))
-
     @staticmethod
     def _link_dump_attr(link, ifla_attributes, dump):
         for obj in ifla_attributes:
