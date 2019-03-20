@@ -15,7 +15,6 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
@@ -27,7 +26,6 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.modulebase import moduleBase
