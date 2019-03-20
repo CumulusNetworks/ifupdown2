@@ -8,9 +8,7 @@ try:
     from ifupdown2.lib.addon import Addon
 
     from ifupdown2.ifupdown.iface import *
-    from ifupdown2.ifupdown.netlink import netlink
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -18,9 +16,7 @@ except ImportError:
     from lib.addon import Addon
 
     from ifupdown.iface import *
-    from ifupdown.netlink import netlink
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -48,7 +44,6 @@ class bridgevlan(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.brctlcmd = None
 
     @staticmethod
     def _is_bridge_vlan_device(ifaceobj):
@@ -161,10 +156,6 @@ class bridgevlan(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.brctlcmd:
-            self.brctlcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
@@ -193,7 +184,6 @@ class bridgevlan(Addon, moduleBase):
                     and not self.syntax_check(ifaceobj, None):
                 ifaceobj.status = ifaceStatus.ERROR
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
