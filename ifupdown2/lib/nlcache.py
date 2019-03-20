@@ -274,7 +274,16 @@ class _NetlinkCache:
         A very useful function to use while debugging, it dumps the netlink
         packet with debug and color output.
         """
+        import logging
+        root = logging.getLogger()
+
+        level = root.level
+
         try:
+            root.setLevel(DEBUG)
+            for handler in root.handlers:
+                handler.setLevel(DEBUG)
+
             nllistener.log.setLevel(DEBUG)
             nlpacket.log.setLevel(DEBUG)
             nlmanager.log.setLevel(DEBUG)
@@ -302,6 +311,39 @@ class _NetlinkCache:
         nllistener.log.setLevel(WARNING)
         nlpacket.log.setLevel(WARNING)
         nlmanager.log.setLevel(WARNING)
+
+        root.setLevel(level)
+        for handler in root.handlers:
+            handler.setLevel(level)
+
+    def DEBUG_MSG(self, msg):
+        import logging
+        root = logging.getLogger()
+        level = root.level
+
+        try:
+            root.setLevel(DEBUG)
+            for handler in root.handlers:
+                handler.setLevel(DEBUG)
+
+            nllistener.log.setLevel(DEBUG)
+            nlpacket.log.setLevel(DEBUG)
+            nlmanager.log.setLevel(DEBUG)
+
+            save_debug = msg.debug
+            msg.debug = True
+            msg.dump()
+            msg.debug = save_debug
+        except:
+            traceback.print_exc()
+        # TODO: save log_level at entry and re-apply it after the dump
+        nllistener.log.setLevel(WARNING)
+        nlpacket.log.setLevel(WARNING)
+        nlmanager.log.setLevel(WARNING)
+
+        root.setLevel(level)
+        for handler in root.handlers:
+            handler.setLevel(level)
 
     def _populate_sysfs_ifname_ifindex_dicts(self):
         ifname_by_ifindex_dict = {}
