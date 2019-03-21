@@ -487,6 +487,7 @@ class addressvirtual(Addon, moduleBase):
 
             # Disable IPv6 duplicate address detection on VRR interfaces
             for key, sysval in {
+                "enhanced_dad": "0",
                 "accept_dad": "0",
                 "dad_transmits": "0"
             }.iteritems():
