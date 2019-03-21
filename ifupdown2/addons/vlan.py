@@ -14,7 +14,6 @@ try:
 
     from ifupdown2.nlmanager.nlmanager import Link
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     from lib.addon import Addon
@@ -26,7 +25,6 @@ except ImportError:
 
     from nlmanager.nlmanager import Link
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -57,7 +55,6 @@ class vlan(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
 
     def _is_vlan_device(self, ifaceobj):
         vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
@@ -272,10 +269,6 @@ class vlan(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument
 
@@ -300,7 +293,6 @@ class vlan(Addon, moduleBase):
         if (operation != 'query-running' and
                 not self._is_vlan_device(ifaceobj)):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
