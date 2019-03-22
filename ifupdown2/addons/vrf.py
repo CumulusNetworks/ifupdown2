@@ -194,16 +194,6 @@ class vrf(Addon, moduleBase):
             return False
         return True
 
-    def get_vrf_running_map(self):
-        running_vrf_map = {}
-        vrfs = netlink.cache.get_vrfs()
-        for vrf in vrfs:
-            try:
-                running_vrf_map[vrf.attributes[Link.IFLA_LINKINFO].value[Link.IFLA_INFO_DATA][Link.IFLA_VRF_TABLE]] = vrf.attributes[Link.IFLA_IFNAME].value
-            except (KeyError, AttributeError):
-                pass
-        return running_vrf_map
-
     def _iproute2_vrf_map_initialize(self, writetodisk=True):
         if self._iproute2_vrf_map_initialized:
             return
@@ -232,7 +222,7 @@ class vrf(Addon, moduleBase):
                         self.logger.info('vrf: iproute2_vrf_map: unable to parse %s (%s)' %(l, str(e)))
                         pass
 
-        running_vrf_map = self.get_vrf_running_map()
+        running_vrf_map = self.cache.get_vrf_table_map()
 
         if (not running_vrf_map or (running_vrf_map != self.iproute2_vrf_map)):
             self.iproute2_vrf_map = running_vrf_map

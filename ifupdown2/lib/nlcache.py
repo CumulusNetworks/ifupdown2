@@ -696,6 +696,23 @@ class _NetlinkCache:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=None)
 
     ##########################################################################
+    # VRF ####################################################################
+    ##########################################################################
+
+    def get_vrf_table_map(self):
+        vrf_table_map = {}
+        try:
+            with self._cache_lock:
+                for ifname, obj in self._link_cache.iteritems():
+                    linkinfo = obj.attributes.get(nlpacket.Link.IFLA_LINKINFO)
+
+                    if linkinfo and linkinfo.value.get(nlpacket.Link.IFLA_INFO_KIND) == "vrf":
+                        vrf_table_map[linkinfo.value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_VRF_TABLE]] = ifname
+        except Exception as e:
+            log.debug("get_vrf_table_map: %s" % str(e))
+        return vrf_table_map
+
+    ##########################################################################
     # BOND ###################################################################
     ##########################################################################
 
@@ -863,25 +880,6 @@ class _NetlinkCache:
             return 0
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
-
-    ##########################################################################
-    # VRF ####################################################################
-    ##########################################################################
-
-    def get_vrfs(self):
-        vrfs = []
-        with self._cache_lock:
-            try:
-                for link in self._link_cache.itervalues():
-                    linkinfo = link.attributes.get(nlpacket.Link.IFLA_LINKINFO)
-                    if linkinfo and linkinfo.value.get(nlpacket.Link.IFLA_INFO_KIND, None) == 'vrf':
-                        vrfs.append(link)
-            except (KeyError, AttributeError):
-                return vrfs
-            except TypeError as e:
-                return self.__handle_type_error(inspect.currentframe().f_code.co_name, 'NONE', str(e), return_value=vrfs)
-        return vrfs
-
 
     # old
     def get_vrf_table(self, ifname):
