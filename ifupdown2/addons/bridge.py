@@ -25,6 +25,8 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
+
+    import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
     import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
@@ -39,6 +41,8 @@ except ImportError:
     from ifupdownaddons.cache import *
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
+
+    import ifupdown.ifupdownconfig as ifupdownconfig
 
 
 class bridgeFlags:
@@ -2227,6 +2231,14 @@ class bridge(moduleBase):
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         try:
             netlink.link_del(ifname)
+
+            if utils.get_boolean_from_string(ifupdownconfig.config.get("ifreload_down_changed")):
+                self.ipcmd.del_cache_entry(ifname)
+                for upper in ifaceobj.upperifaces or []:
+                    try:
+                        self.ipcmd.del_cache_entry(upper)
+                    except:
+                        pass
         except Exception as e:
             ifaceobj.set_status(ifaceStatus.ERROR)
             self.logger.error(str(e))
