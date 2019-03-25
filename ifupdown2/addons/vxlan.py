@@ -239,12 +239,6 @@ class vxlan(Addon, moduleBase):
         if not link_exists:
             return True
 
-        try:
-            if ageing:
-                ageing = int(ageing)
-        except:
-            pass
-
         for nl_attr, nl_value in (
                 (Link.IFLA_VXLAN_ID, vxlan_id),
                 (Link.IFLA_VXLAN_AGEING, ageing),
@@ -322,6 +316,22 @@ class vxlan(Addon, moduleBase):
             except:
                 self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
 
+            if not ageing:
+                ageing = policymanager.policymanager_api.get_attr_default(
+                    module_name=self.__class__.__name__,
+                    attr='vxlan-ageing'
+                )
+
+                if not ageing and link_exists:
+                    # if link doesn't exist we let the kernel define ageing
+                    ageing = self.get_attr_default_value('vxlan-ageing')
+
+            if ageing:
+                try:
+                    ageing = int(ageing)
+                except:
+                    self.log_error('%s: invalid vxlan-ageing \'%s\'' % (ifname, ageing), ifaceobj)
+
             if link_exists:
 
                 device_link_kind = self.cache.get_link_kind(ifname)
@@ -346,6 +356,12 @@ class vxlan(Addon, moduleBase):
                 if cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_ID) != vxlanid:
                     self.log_error('%s: Cannot change running vxlan id: '
                                    'Operation not supported' % ifname, ifaceobj)
+
+                cached_vxlan_ageing = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_AGEING)
+                if ageing and cached_vxlan_ageing != ageing:
+                    self.log_error("%s: Cannot change running vxlan-ageing (%s to %s): Operation not supported"
+                                   % (ifname, cached_vxlan_ageing, ageing), ifaceobj)
+
             else:
                 cached_vxlan_ifla_info_data = {}
 
@@ -448,15 +464,13 @@ class vxlan(Addon, moduleBase):
                     except:
                         raise Exception('%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format' % (ifname, local))
 
-            if not ageing:
-                ageing = policymanager.policymanager_api.get_attr_default(
-                    module_name=self.__class__.__name__,
-                    attr='vxlan-ageing'
-                )
-
-                if not ageing and link_exists:
-                    # if link doesn't exist we let the kernel define ageing
-                    ageing = self.get_attr_default_value('vxlan-ageing')
+            if link_exists:
+                for vxlan_attr, user_config, cached_value in (
+                        ("vxlan-local-tunnelip", local, cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)),
+                ):
+                    if user_config != cached_value:
+                        self.log_error("%s: Cannot change running %s (%s to %s): Operation not supported"
+                                       % (ifname, vxlan_attr, cached_value, user_config), ifaceobj)
 
             if not vxlan_port:
                 vxlan_port = policymanager.policymanager_api.get_attr_default(
@@ -495,7 +509,7 @@ class vxlan(Addon, moduleBase):
                         ttl=ttl
                     )
                 except Exception as e_netlink:
-                    self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
+                    self.logger.info('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
                     try:
                         self.iproute2.link_create_vxlan(ifname, vxlanid,
                                                      localtunnelip=local,
