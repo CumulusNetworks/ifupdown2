@@ -10,7 +10,6 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.ifupdown.iface import *
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.nlmanager.nlmanager import Link
 
@@ -21,7 +20,6 @@ except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown.iface import *
-    from ifupdown.netlink import netlink
 
     from nlmanager.nlmanager import Link
 
@@ -163,7 +161,7 @@ class vlan(Addon, moduleBase):
                 self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
                 return
 
-        netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol)
+        self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol)
         self._bridge_vid_add_del(ifaceobj, vlanrawdevice, vlanid)
 
     def _down(self, ifaceobj):

@@ -189,22 +189,6 @@ class Netlink(utilsBase):
 
             raise Exception('netlink: cannot %s %s %s with options: %s' % (action, kind_str, ifname, str(e)))
 
-    def link_add_vlan(self, vlanrawdevice, ifacename, vlanid, vlan_protocol):
-        if vlan_protocol:
-            self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s protocol %s'
-                             % (ifacename, vlanrawdevice, ifacename, vlanid, vlan_protocol))
-
-        else:
-            self.logger.info('%s: netlink: ip link add link %s name %s type vlan id %s'
-                             % (ifacename, vlanrawdevice, ifacename, vlanid))
-        if ifupdownflags.flags.DRYRUN: return
-        ifindex = self.get_iface_index(vlanrawdevice)
-        try:
-            return self.netlink._link_add_vlan(ifindex, ifacename, vlanid, vlan_protocol)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot create vlan %s: %s'
-                            % (vlanrawdevice, vlanid, str(e)))
-
     def link_add_macvlan(self, ifacename, macvlan_ifacename):
         self.logger.info('%s: netlink: ip link add link %s name %s type macvlan mode private'
                          % (ifacename, ifacename, macvlan_ifacename))

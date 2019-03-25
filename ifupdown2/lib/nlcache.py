@@ -2263,32 +2263,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             self.cache.remove_from_ignore_rtm_newlinkq(ifname)
             raise
 
-    def _link_add_vlan(self, ifindex, ifname, vlanid, vlan_protocol=None):
-        """
-        ifindex is the index of the parent interface that this sub-interface
-        is being added to
-        """
-
-        '''
-        If you name an interface swp2.17 but assign it to vlan 12, the kernel
-        will return a very misleading NLE_MSG_OVERFLOW error.  It only does
-        this check if the ifname uses dot notation.
-
-        Do this check here so we can provide a more intuitive error
-        '''
-        if '.' in ifname:
-            ifname_vlanid = int(ifname.split('.')[-1])
-
-            if ifname_vlanid != vlanid:
-                raise Exception("Interface %s must belong to VLAN %d (VLAN %d was requested)" % (ifname, ifname_vlanid, vlanid))
-
-        ifla_info_data = {nlpacket.Link.IFLA_VLAN_ID: vlanid}
-
-        if vlan_protocol:
-            ifla_info_data[nlpacket.Link.IFLA_VLAN_PROTOCOL] = vlan_protocol
-
-        return self._link_add(ifindex, ifname, 'vlan', ifla_info_data)
-
     def _link_add_macvlan(self, ifindex, ifname):
         """
         ifindex is the index of the parent interface that this sub-interface
@@ -2628,6 +2602,77 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     def link_del_bridge_vlan(self, ifname, vlan_id):
         self.logger.info("%s: netlink: bridge vlan del vid %s dev %s" % (ifname, vlan_id, ifname))
+
+    ###
+
+    def link_add_vlan(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None):
+        """
+        ifindex is the index of the parent interface that this sub-interface
+        is being added to
+
+        If you name an interface swp2.17 but assign it to vlan 12, the kernel
+        will return a very misleading NLE_MSG_OVERFLOW error.  It only does
+        this check if the ifname uses dot notation.
+
+        Do this check here so we can provide a more intuitive error
+        """
+        try:
+            if vlan_protocol:
+                self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s protocol %s"
+                                 % (ifname, vlan_raw_device, ifname, vlan_id, vlan_protocol))
+
+            else:
+                self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s"
+                                 % (ifname, vlan_raw_device, ifname, vlan_id))
+
+            if "." in ifname:
+                ifname_vlanid = int(ifname.split(".")[-1])
+
+                if ifname_vlanid != vlan_id:
+                    raise Exception("Interface %s must belong to VLAN %d (VLAN %d was requested)" % (ifname, ifname_vlanid, vlanid))
+
+            ifindex = self.cache.get_ifindex(vlan_raw_device)
+
+            ifla_info_data = {nlpacket.Link.IFLA_VLAN_ID: vlan_id}
+
+            if vlan_protocol:
+                ifla_info_data[nlpacket.Link.IFLA_VLAN_PROTOCOL] = vlan_protocol
+
+            debug = nlpacket.RTM_NEWLINK in self.debug
+
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+
+            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+            link.add_attribute(nlpacket.Link.IFLA_LINK, ifindex)
+            link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
+                nlpacket.Link.IFLA_INFO_KIND: "vlan",
+                nlpacket.Link.IFLA_INFO_DATA: ifla_info_data
+            })
+            link.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
+        except Exception as e:
+            raise NetlinkError(e, "cannot create vlan %s %s" % (ifname, vlan_id), ifname=ifname)
+
+    def link_add_vlan_dry_run(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None):
+        """
+        ifindex is the index of the parent interface that this sub-interface
+        is being added to
+
+        If you name an interface swp2.17 but assign it to vlan 12, the kernel
+        will return a very misleading NLE_MSG_OVERFLOW error.  It only does
+        this check if the ifname uses dot notation.
+
+        Do this check here so we can provide a more intuitive error
+        """
+        if vlan_protocol:
+            self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s protocol %s"
+                             % (ifname, vlan_raw_device, ifname, vlan_id, vlan_protocol))
+
+        else:
+            self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s"
+                             % (ifname, vlan_raw_device, ifname, vlan_id))
 
     ###
 
