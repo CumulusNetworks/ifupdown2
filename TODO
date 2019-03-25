@@ -1,1 +1,2 @@
 - set DEFAULT_TCP_LOGGING_PORT via ifupdown2.conf
+- DRYRUN: maybe use a decorator instead of foo_dryrun()
