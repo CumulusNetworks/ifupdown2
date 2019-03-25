@@ -2270,22 +2270,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         """
         return self._link_add(ifindex, ifname, 'macvlan', {nlpacket.Link.IFLA_MACVLAN_MODE: nlpacket.Link.MACVLAN_MODE_PRIVATE})
 
-    def _link_set_protodown(self, ifname, state):
-        """
-        Either bring ifname up or take it down by setting IFLA_PROTO_DOWN on or off
-        """
-        protodown = 1 if state == "on" else 0
-
-        debug = nlpacket.RTM_NEWLINK in self.debug
-
-        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
-        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-        link.body = struct.pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
-        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-        link.add_attribute(nlpacket.Link.IFLA_PROTO_DOWN, protodown)
-        link.build_message(self.sequence.next(), self.pid)
-        return self.tx_nlpacket_get_response_with_error(link)
-
     def _link_add_bridge(self, ifname, ifla_info_data={}):
         return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data)
 
@@ -2398,6 +2382,44 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     def link_down_dry_run(self, ifname):
         self.logger.info("%s: dryrun: netlink: ip link set dev %s down" % (ifname, ifname))
+
+    ###
+
+    def __link_set_protodown(self, ifname, state):
+        debug = nlpacket.RTM_NEWLINK in self.debug
+        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+        link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, 0, 0)
+        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+        link.add_attribute(nlpacket.Link.IFLA_PROTO_DOWN, state)
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response_with_error(link)
+
+    def link_set_protodown_on(self, ifname):
+        """
+        Bring ifname up by setting IFLA_PROTO_DOWN on
+        """
+        self.logger.info("%s: netlink: set link %s protodown on" % (ifname, ifname))
+        try:
+            self.__link_set_protodown(ifname, 1)
+        except Exception as e:
+            raise NetlinkError(e, "cannot set link %s protodown on" % ifname, ifname=ifname)
+
+    def link_set_protodown_off(self, ifname):
+        """
+        Take ifname down by setting IFLA_PROTO_DOWN off
+        """
+        self.logger.info("%s: netlink: set link %s protodown off" % (ifname, ifname))
+        try:
+            self.__link_set_protodown(ifname, 0)
+        except Exception as e:
+            raise NetlinkError(e, "cannot set link %s protodown off" % ifname, ifname=ifname)
+
+    def link_set_protodown_on_dry_run(self, ifname):
+        self.logger.info("%s: netlink: set link %s protodown on" % (ifname, ifname))
+
+    def link_set_protodown_off_dry_run(self, ifname):
+        self.logger.info("%s: netlink: set link %s protodown off" % (ifname, ifname))
 
     ###
 

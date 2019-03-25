@@ -314,7 +314,7 @@ class bond(Addon, moduleBase):
             # will protoup it when it is ready
             if clag_bond:
                 try:
-                    netlink.link_set_protodown(slave, "on")
+                    self.netlink.link_set_protodown_on(slave)
                 except Exception, e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -339,7 +339,7 @@ class bond(Addon, moduleBase):
                     self.sysfs.bond_remove_slave(ifaceobj.name, s)
                     if clag_bond:
                         try:
-                            netlink.link_set_protodown(s, "off")
+                            self.netlink.link_set_protodown_off(s)
                         except Exception, e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
                 else:

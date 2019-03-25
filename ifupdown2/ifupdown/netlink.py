@@ -200,16 +200,6 @@ class Netlink(utilsBase):
             raise Exception('netlink: %s: cannot create macvlan %s: %s'
                             % (ifacename, macvlan_ifacename, str(e)))
 
-    def link_set_protodown(self, ifacename, state):
-        self.logger.info('%s: netlink: set link %s protodown %s'
-                         % (ifacename, ifacename, state))
-        if ifupdownflags.flags.DRYRUN: return
-        try:
-            return self.netlink._link_set_protodown(ifacename, state)
-        except Exception as e:
-            raise Exception('netlink: cannot set link %s protodown %s: %s'
-                            % (ifacename, state, str(e)))
-
     def link_add_bridge(self, ifname):
         self.logger.info('%s: netlink: ip link add %s type bridge' % (ifname, ifname))
         if ifupdownflags.flags.DRYRUN: return
