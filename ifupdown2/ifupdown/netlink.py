@@ -234,28 +234,6 @@ class Netlink(utilsBase):
         except Exception as e:
             raise Exception('netlink: cannot create bridge %s: %s' % (ifname, str(e)))
 
-    def link_add_bridge_vlan(self, ifacename, vlanid):
-        self.logger.info('%s: netlink: bridge vlan add vid %s dev %s'
-                         % (ifacename, vlanid, ifacename))
-        if ifupdownflags.flags.DRYRUN: return
-        ifindex = self.get_iface_index(ifacename)
-        try:
-            return self.netlink._link_add_bridge_vlan(ifindex, vlanid)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot create bridge vlan %s: %s'
-                            % (ifacename, vlanid, str(e)))
-
-    def link_del_bridge_vlan(self, ifacename, vlanid):
-        self.logger.info('%s: netlink: bridge vlan del vid %s dev %s'
-                         % (ifacename, vlanid, ifacename))
-        if ifupdownflags.flags.DRYRUN: return
-        ifindex = self.get_iface_index(ifacename)
-        try:
-            return self.netlink._link_del_bridge_vlan(ifindex, vlanid)
-        except Exception as e:
-            raise Exception('netlink: %s: cannot remove bridge vlan %s: %s'
-                            % (ifacename, vlanid, str(e)))
-
     @staticmethod
     def _link_dump_attr(link, ifla_attributes, dump):
         for obj in ifla_attributes:

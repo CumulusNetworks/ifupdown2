@@ -100,9 +100,9 @@ class vlan(Addon, moduleBase):
         to the bridge """
         if self.cache.bridge_is_vlan_aware(bridgename):
            if add:
-               netlink.link_add_bridge_vlan(bridgename, vlanid)
+               self.netlink.link_add_bridge_vlan(bridgename, vlanid)
            else:
-               netlink.link_del_bridge_vlan(bridgename, vlanid)
+               self.netlink.link_del_bridge_vlan(bridgename, vlanid)
 
     def _bridge_vid_check(self, ifaceobj, ifaceobjcurr, bridgename, vlanid):
         """ If the lower device is a vlan aware bridge, check if the vlanid

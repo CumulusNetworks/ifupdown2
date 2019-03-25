@@ -2315,13 +2315,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def _link_add_bridge(self, ifname, ifla_info_data={}):
         return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data)
 
-    def _link_add_bridge_vlan(self, ifindex, vlanid_start, vlanid_end=None, pvid=False, untagged=False, master=False):
-        """
-        Add VLAN(s) to a bridge interface
-        """
-        bridge_self = False if master else True
-        self.vlan_modify(nlpacket.RTM_SETLINK, ifindex, vlanid_start, vlanid_end, bridge_self, master, pvid, untagged)
-
     def vlan_modify(self, msgtype, ifindex, vlanid_start, vlanid_end=None, bridge_self=False, bridge_master=False, pvid=False, untagged=False):
         """
         iproute2 bridge/vlan.c vlan_modify()
@@ -2605,6 +2598,36 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_add_bridge_dry_run(self, ifname):
         self.logger.info("%s: dry_run: netlink: ip link add dev %s type bridge" % (ifname, ifname))
         return True
+
+    ###
+
+    def link_add_bridge_vlan(self, ifname, vlan_id):
+        """
+        Add VLAN(s) to a bridge interface
+        """
+        self.logger.info("%s: netlink: bridge vlan add vid %s dev %s" % (ifname, vlan_id, ifname))
+        try:
+            ifindex = self.cache.get_ifindex(ifname)
+            self.vlan_modify(nlpacket.RTM_SETLINK, ifindex, vlan_id, bridge_self=True)
+        except Exception as e:
+            raise NetlinkError(e, "cannot add bridge vlan %s" % vlan_id, ifname=ifname)
+
+    def link_del_bridge_vlan(self, ifname, vlan_id):
+        """
+        Delete VLAN(s) from a bridge interface
+        """
+        self.logger.info("%s: netlink: bridge vlan del vid %s dev %s" % (ifname, vlan_id, ifname))
+        try:
+            ifindex = self.cache.get_ifindex(ifname)
+            self.vlan_modify(nlpacket.RTM_DELLINK, ifindex, vlan_id, bridge_self=True)
+        except Exception as e:
+            raise NetlinkError(e, "cannot remove bridge vlan %s" % vlan_id, ifname=ifname)
+
+    def link_add_bridge_vlan_dry_run(self, ifname, vlan_id):
+        self.logger.info("%s: dry_run: netlink: bridge vlan add vid %s dev %s" % (ifname, vlan_id, ifname))
+
+    def link_del_bridge_vlan(self, ifname, vlan_id):
+        self.logger.info("%s: netlink: bridge vlan del vid %s dev %s" % (ifname, vlan_id, ifname))
 
     ###
 
