@@ -17,7 +17,6 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
@@ -29,7 +28,6 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.modulebase import moduleBase
@@ -485,7 +483,7 @@ class vxlan(Addon, moduleBase):
                 # ie: not provided by the user or the policy
                 vxlan_port = self.iproute2.VXLAN_UDP_PORT
             except ValueError as e:
-                self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, netlink.VXLAN_UDP_PORT, str(e)))
+                self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, self.iproute2.VXLAN_UDP_PORT, str(e)))
                 vxlan_port = self.iproute2.VXLAN_UDP_PORT
 
             if link_exists and not ifupdownflags.flags.DRYRUN:
@@ -770,15 +768,14 @@ class vxlan(Addon, moduleBase):
                 if vxlan_attr_value:
                     ifaceobjrunning.update_config(vxlan_attr_name, vxlan_attr_value_str)
 
-    @staticmethod
-    def _get_ifname_for_ifindex(ifindex):
+    def _get_ifname_for_ifindex(self, ifindex):
         """
         we need this middle-man function to query the cache
         cache.get_ifname can raise KeyError, we need to catch
         it and return None
         """
         try:
-            return netlink.cache.get_ifname(ifindex)
+            return self.cache.get_ifname(ifindex)
         except KeyError:
             return None
 
