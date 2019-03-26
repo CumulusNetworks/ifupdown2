@@ -424,7 +424,8 @@ class addressvirtual(Addon, moduleBase):
                 if vrf_ifname:
                     self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
-            # if we are dealing with a VRRP macvlan we need to set addrgenmode to RANDOM
+            # if we are dealing with a VRRP macvlan we need to set addrgenmode
+            # to RANDOM, and protodown on
             if vrrp:
                 try:
                     self.iproute2.link_set_ipv6_addrgen(
@@ -435,6 +436,10 @@ class addressvirtual(Addon, moduleBase):
                 except Exception as e:
                     self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
                                      "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
+                try:
+                    netlink.link_set_protodown(macvlan_ifname, "on")
+                except Exception as e:
+                    self.logger.warning("%s: %s: ip link set dev %s protodown on: operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
             elif user_configured_ipv6_addrgenmode:
                 self.iproute2.link_set_ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
