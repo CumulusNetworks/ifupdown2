@@ -53,332 +53,388 @@ class bridgeFlags:
 class bridge(Addon, moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
 
-    _modinfo = { 'mhelp' : 'Bridge configuration module. Supports both ' +
-                    'vlan aware and non vlan aware bridges. For the vlan ' +
-                    'aware bridge, the port specific attributes must be ' +
-                    'specified under the port. And for vlan unaware bridge ' +
-                    'port specific attributes must be specified under the ' +
-                    'bridge.',
-                 'attrs' : {
-                   'bridge-vlan-aware' :
-                        {'help' : 'vlan aware bridge. Setting this ' +
-                                  'attribute to yes enables vlan filtering' +
-                                  ' on the bridge',
-                         'validvals' : ['yes', 'no'],
-                         'example' : ['bridge-vlan-aware yes/no'],
-                         'default': 'no'
-                         },
-                   'bridge-ports' :
-                        {'help' : 'bridge ports',
-                         'multivalue' : True,
-                         'required' : True,
-                         'validvals': ['<interface-list>'],
-                         'example' : ['bridge-ports swp1.100 swp2.100 swp3.100',
-                                      'bridge-ports glob swp1-3.100',
-                                      'bridge-ports regex (swp[1|2|3].100)']},
-                   'bridge-stp' :
-                        {'help': 'bridge-stp yes/no',
-                         'example' : ['bridge-stp no'],
-                         'validvals' : ['yes', 'on', 'off', 'no'],
-                         'default' : 'no'},
-                   'bridge-bridgeprio' :
-                        {'help': 'bridge priority',
-                         'validrange' : ['0', '65535'],
-                         'example' : ['bridge-bridgeprio 32768'],
-                         'default' : '32768'},
-                   'bridge-ageing' :
-                       {'help': 'bridge ageing',
-                         'validrange' : ['0', '65535'],
-                         'example' : ['bridge-ageing 300'],
-                         'default' : '300'},
-                   'bridge-fd' :
-                        { 'help' : 'bridge forward delay',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bridge-fd 15'],
-                          'default' : '15'},
-                   'bridge-gcint' :
-                        # XXX: recheck values
-                        { 'help' : 'bridge garbage collection interval in secs',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bridge-gcint 4'],
-                          'default' : '4',
-                          'compat' : True,
-                          'deprecated': True},
-                   'bridge-hello' :
-                        { 'help' : 'bridge set hello time',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bridge-hello 2'],
-                          'default' : '2'},
-                   'bridge-maxage' :
-                        { 'help' : 'bridge set maxage',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bridge-maxage 20'],
-                          'default' : '20'},
-                   'bridge-pathcosts' :
-                        { 'help' : 'bridge set port path costs',
-                          'validvals': ['<interface-range-list>'],
-                          'validrange' : ['0', '65535'],
-                          'example' : ['under the port (for vlan aware bridge): bridge-pathcosts 100',
-                                       'under the bridge (for vlan unaware bridge): bridge-pathcosts swp1=100 swp2=100'],
-                          'default' : '100'},
-                   'bridge-portprios' :
-                        { 'help' : 'bridge port prios',
-                          'validvals': ['<interface-range-list>'],
-                          'validrange' : ['0', '65535'],
-                          'example' : ['under the port (for vlan aware bridge): bridge-portprios 32',
-                                       'under the bridge (for vlan unaware bridge): bridge-portprios swp1=32 swp2=32'],
-                          'default' : '32'},
-                   'bridge-mclmc' :
-                        { 'help' : 'set multicast last member count',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bridge-mclmc 2'],
-                          'default' : '2'},
-                    'bridge-mcrouter' :
-                        { 'help': 'Set bridge multicast routers: 0 - disabled - no, 1 - automatic (queried), 2 - permanently enabled - yes',
-                          'validvals' : ['yes', 'no', '0', '1', '2'],
-                          'example' : ['bridge-mcrouter 1'],
-                          'default': 'yes'
-                          },
-                    'bridge-mcsnoop' :
-                        { 'help' : 'set multicast snooping',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'yes',
-                          'example' : ['bridge-mcsnoop yes']},
-                    'bridge-mcsqc' :
-                        { 'help' : 'set multicast startup query count',
-                          'validrange' : ['0', '255'],
-                          'default' : '2',
-                          'example' : ['bridge-mcsqc 2']},
-                    'bridge-mcqifaddr' :
-                        { 'help' : 'set multicast query to use ifaddr',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'no',
-                          'example' : ['bridge-mcqifaddr no']},
-                    'bridge-mcquerier' :
-                        { 'help' : 'set multicast querier',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'no',
-                          'example' : ['bridge-mcquerier no']},
-                    'bridge-hashel' :
-                        { 'help' : 'set hash elasticity',
-                          'validrange' : ['0', '4096'],
-                          'default' : '4',
-                          'example' : ['bridge-hashel 4096']},
-                    'bridge-hashmax' :
-                        { 'help' : 'set hash max',
-                          'validrange' : ['0', '4096'],
-                          'default' : '512',
-                          'example' : ['bridge-hashmax 4096']},
-                    'bridge-mclmi' :
-                        { 'help' : 'set multicast last member interval (in secs)',
-                          'validrange' : ['0', '255'],
-                          'default' : '1',
-                          'example' : ['bridge-mclmi 1']},
-                    'bridge-mcmi' :
-                        { 'help' : 'set multicast membership interval (in secs)',
-                          'validrange' : ['0', '255'],
-                          'default' : '260',
-                          'example' : ['bridge-mcmi 260']},
-                    'bridge-mcqpi' :
-                        { 'help' : 'set multicast querier interval (in secs)',
-                          'validrange' : ['0', '255'],
-                          'default' : '255',
-                          'example' : ['bridge-mcqpi 255']},
-                    'bridge-mcqi' :
-                        { 'help' : 'set multicast query interval (in secs)',
-                          'validrange' : ['0', '255'],
-                          'default' : '125',
-                          'example' : ['bridge-mcqi 125']},
-                    'bridge-mcqri' :
-                        { 'help' : 'set multicast query response interval (in secs)',
-                          'validrange' : ['0', '255'],
-                          'default' : '10',
-                          'example' : ['bridge-mcqri 10']},
-                    'bridge-mcsqi' :
-                        { 'help' : 'set multicast startup query interval (in secs)',
-                          'validrange' : ['0', '255'],
-                          'default' : '31',
-                          'example' : ['bridge-mcsqi 31']},
-                    'bridge-mcqv4src' :
-                        { 'help' : 'set per VLAN v4 multicast querier source address',
-                          'validvals' : ['<number-ipv4-list>', ],
-                          'multivalue' : True,
-                          'compat' : True,
-                          'example' : ['bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1']},
-                     'bridge-portmcrouter':
-                         {
-                             'help': 'Set port multicast routers: 0 - disabled, 1 - automatic (queried), 2 - permanently enabled',
-                             'validvals': ['<interface-disabled-automatic-enabled>'],
-                             'example': [
-                                 'under the port (for vlan aware bridge): bridge-portmcrouter 0',
-                                 'under the port (for vlan aware bridge): bridge-portmcrouter 1',
-                                 'under the port (for vlan aware bridge): bridge-portmcrouter 2',
-                                 'under the port (for vlan aware bridge): bridge-portmcrouter disabled',
-                                 'under the port (for vlan aware bridge): bridge-portmcrouter automatic',
-                                 'under the port (for vlan aware bridge): bridge-portmcrouter enabled',
-                                 'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=0 swp2=1 swp2=2',
-                                 'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=disabled swp2=automatic swp3=enabled',
-                                 'under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=2 swp2=disabled swp3=1',
-                             ]
-                         },
-                    'bridge-portmcfl' :
-                        { 'help' : 'port multicast fast leave.',
-                          'validvals': ['<interface-yes-no-0-1-list>'],
-                          'default' : 'no',
-                          'example' : ['under the port (for vlan aware bridge): bridge-portmcfl no',
-                                       'under the bridge (for vlan unaware bridge): bridge-portmcfl swp1=no swp2=no']},
-                    'bridge-waitport' :
-                        { 'help' : 'wait for a max of time secs for the' +
-                                ' specified ports to become available,' +
-                                'if no ports are specified then those' +
-                                ' specified on bridge-ports will be' +
-                                ' used here. Specifying no ports here ' +
-                                'should not be used if we are using ' +
-                                'regex or \"all\" on bridge_ports,' +
-                                'as it wouldnt work.',
-                          'default' : '0',
-                          'validvals': ['<number-interface-list>'],
-                          'example' : ['bridge-waitport 4 swp1 swp2']},
-                    'bridge-maxwait' :
-                        { 'help' : 'forces to time seconds the maximum time ' +
-                                'that the Debian bridge setup scripts will ' +
-                                'wait for the bridge ports to get to the ' +
-                                'forwarding status, doesn\'t allow factional ' +
-                                'part. If it is equal to 0 then no waiting' +
-                                ' is done',
-                          'validrange' : ['0', '255'],
-                          'default' : '0',
-                          'example' : ['bridge-maxwait 3']},
-                    'bridge-vids' :
-                        { 'help' : 'bridge port vids. Can be specified ' +
-                                   'under the bridge or under the port. ' +
-                                   'If specified under the bridge the ports ' +
-                                   'inherit it unless overridden by a ' +
-                                   'bridge-vids attribute under the port',
-                          'multivalue' : True,
-                          'validvals': ['<number-comma-range-list>'],
-                          'example' : ['bridge-vids 4000',
-                                       'bridge-vids 2000 2200-3000'],
-                          'aliases': ['bridge-trunk']},
-                    'bridge-pvid' :
-                        { 'help' : 'bridge port pvid. Must be specified under' +
-                                   ' the bridge port',
-                          'validrange' : ['0', '4096'],
-                          'example' : ['bridge-pvid 1']},
-                    'bridge-access' :
-                        { 'help' : 'bridge port access vlan. Must be ' +
-                                   'specified under the bridge port',
-                          'validrange' : ['1', '4094'],
-                          'example' : ['bridge-access 300']},
-                    'bridge-allow-untagged' :
-                        { 'help' : 'indicate if the bridge port accepts ' +
-                                   'untagged packets or not.  Must be ' +
-                                   'specified under the bridge port. ' +
-                                   'Default is \'yes\'',
-                          'validvals' : ['yes', 'no'],
-                          'example' : ['bridge-allow-untagged yes'],
-                          'default' : 'yes'},
-                    'bridge-port-vids' :
-                        { 'help' : 'bridge vlans',
-                          'compat': True,
-                          'example' : ['bridge-port-vids bond0=1-1000,1010-1020']},
-                    'bridge-port-pvids' :
-                        { 'help' : 'bridge port vlans',
-                          'compat': True,
-                          'example' : ['bridge-port-pvids bond0=100 bond1=200']},
-                    'bridge-learning' :
-                        { 'help' : 'bridge port learning flag',
-                          'validvals': ['on', 'off', '<interface-on-off-list>'],
-                          'default': 'on',
-                          'example' : ['bridge-learning off']},
-                    'bridge-igmp-version' :
-                        { 'help' : 'mcast igmp version',
-                          'validvals': ['2', '3'],
-                          'default' : '2',
-                          'example' : ['bridge-igmp-version 2']},
-                    'bridge-mld-version':
-                        { 'help' : 'mcast mld version',
-                          'validvals': ['1', '2'],
-                          'default' : '1',
-                          'example' : ['bridge-mld-version 1']},
-                    'bridge-unicast-flood' :
-                        { 'help' : 'bridge port unicast flood flag',
-                          'validvals': ['on', 'off', '<interface-on-off-list>'],
-                          'default': 'on',
-                          'example' : ['under the port (for vlan aware bridge): bridge-unicast-flood on',
-                                       'under the bridge (for vlan unaware bridge): bridge-unicast-flood swp1=on swp2=on']},
-                    'bridge-multicast-flood' :
-                        { 'help' : 'bridge port multicast flood flag',
-                          'validvals': ['on', 'off', '<interface-on-off-list>'],
-                          'default': 'on',
-                          'example' : ['under the port (for vlan aware bridge): bridge-multicast-flood on',
-                                       'under the bridge (for vlan unaware bridge): bridge-multicast-flood swp1=on swp2=on']},
-                    'bridge-vlan-protocol' :
-                        { 'help' : 'bridge vlan protocol',
-                          'default' : '802.1q',
-                          'validvals': ['802.1q', '802.1ad'],
-                          'example' : ['bridge-vlan-protocol 802.1q']},
-                    'bridge-vlan-stats' :
-                        { 'help' : 'bridge vlan stats',
-                          'default' : 'off',
-                          'validvals': ['on', 'off'],
-                          'example' : ['bridge-vlan-stats off']},
-                    'bridge-arp-nd-suppress' :
-                        { 'help' : 'bridge port arp nd suppress flag',
-                          'validvals': ['on', 'off', '<interface-on-off-list>'],
-                          'default': 'off',
-                          'example' : ['under the port (for vlan aware bridge): bridge-arp-nd-suppress on',
-                                       'under the bridge (for vlan unaware bridge): bridge-arp-nd-suppress swp1=on swp2=on']},
-                    'bridge-mcstats' :
-                        { 'help' : 'bridge multicast stats',
-                          'default' : 'off',
-                          'validvals': ['on', 'off'],
-                          'example' : ['bridge-mcstats off']},
-                     'bridge-l2protocol-tunnel': {
-                         'help': 'layer 2 protocol tunneling',
-                         'validvals': [ # XXX: lists all combinations, should move to
-                                        # a better representation
-                                        'all',
-                                        'cdp',
-                                        'cdp lacp',
-                                        'cdp lacp lldp',
-                                        'cdp lacp lldp pvst',
-                                        'cdp lacp lldp stp',
-                                        'cdp lacp pvst',
-                                        'cdp lacp pvst stp',
-                                        'cdp lacp stp',
-                                        'cdp lldp',
-                                        'cdp lldp pvst',
-                                        'cdp lldp pvst stp',
-                                        'cdp lldp stp',
-                                        'cdp pvst',
-                                        'cdp pvst stp',
-                                        'cdp stp',
-                                        'lacp',
-                                        'lacp lldp',
-                                        'lacp lldp pvst',
-                                        'lacp lldp pvst stp',
-                                        'lacp lldp stp',
-                                        'lacp pvst',
-                                        'lacp pvst stp',
-                                        'lacp stp',
-                                        'lldp',
-                                        'lldp pvst',
-                                        'lldp pvst stp',
-                                        'lldp stp',
-                                        'pvst',
-                                        'pvst stp',
-                                        'stp',
-                                        '<interface-l2protocol-tunnel-list>'],
-                         'example': [
-                             'under the bridge (for vlan unaware bridge): bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all',
-                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel lacp stp lldp cdp pvst',
-                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel lldp pvst',
-                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel stp',
-                             'under the port (for vlan aware bridge): bridge-l2protocol-tunnel all'
-                         ]
-                     }
-                     }}
+    _modinfo = {
+        "mhelp": "Bridge configuration module. Supports both vlan aware and non "
+                 "vlan aware bridges. For the vlan aware bridge, the port "
+                 "specific attributes must be specified under the port. And for "
+                 "vlan unaware bridge port specific attributes must be specified "
+                 "under the bridge.",
+        "attrs": {
+            "bridge-vlan-aware": {
+                "help": "vlan aware bridge. Setting this "
+                        "attribute to yes enables vlan filtering"
+                        " on the bridge",
+                "validvals": ["yes", "no"],
+                "example": ["bridge-vlan-aware yes/no"],
+                "default": "no"
+            },
+            "bridge-ports": {
+                "help": "bridge ports",
+                "multivalue": True,
+                "required": True,
+                "validvals": ["<interface-list>"],
+                "example": [
+                    "bridge-ports swp1.100 swp2.100 swp3.100",
+                    "bridge-ports glob swp1-3.100",
+                    "bridge-ports regex (swp[1|2|3].100)"
+                ]
+            },
+            "bridge-stp": {
+                "help": "bridge-stp yes/no",
+                "example": ["bridge-stp no"],
+                "validvals": ["yes", "on", "off", "no"],
+                "default": "no"
+            },
+            "bridge-bridgeprio": {
+                "help": "bridge priority",
+                "validrange": ["0", "65535"],
+                "example": ["bridge-bridgeprio 32768"],
+                "default": "32768"
+            },
+            "bridge-ageing": {
+                "help": "bridge ageing",
+                "validrange": ["0", "65535"],
+                "example": ["bridge-ageing 300"],
+                "default": "300"
+            },
+            "bridge-fd": {
+                "help": "bridge forward delay",
+                "validrange": ["0", "255"],
+                "example": ["bridge-fd 15"],
+                "default": "15"
+            },
+            # XXX: recheck values
+            "bridge-gcint": {
+                "help": "bridge garbage collection interval in secs",
+                "validrange": ["0", "255"],
+                "example": ["bridge-gcint 4"],
+                "default": "4",
+                "compat": True,
+                "deprecated": True
+            },
+            "bridge-hello": {
+                "help": "bridge set hello time",
+                "validrange": ["0", "255"],
+                "example": ["bridge-hello 2"],
+                "default": "2"
+            },
+            "bridge-maxage": {
+                "help": "bridge set maxage",
+                "validrange": ["0", "255"],
+                "example": ["bridge-maxage 20"],
+                "default": "20"
+            },
+            "bridge-pathcosts": {
+                "help": "bridge set port path costs",
+                "validvals": ["<interface-range-list>"],
+                "validrange": ["0", "65535"],
+                "example": [
+                    "under the port (for vlan aware bridge): bridge-pathcosts 100",
+                    "under the bridge (for vlan unaware bridge): bridge-pathcosts swp1=100 swp2=100"
+                ],
+                "default": "100"
+            },
+            "bridge-portprios": {
+                "help": "bridge port prios",
+                "validvals": ["<interface-range-list>"],
+                "validrange": ["0", "65535"],
+                "example": [
+                    "under the port (for vlan aware bridge): bridge-portprios 32",
+                    "under the bridge (for vlan unaware bridge): bridge-portprios swp1=32 swp2=32"
+                ],
+                "default": "32"
+            },
+            "bridge-mclmc": {
+                "help": "set multicast last member count",
+                "validrange": ["0", "255"],
+                "example": ["bridge-mclmc 2"],
+                "default": "2"
+            },
+            "bridge-mcrouter": {
+                "help": "Set bridge multicast routers: 0 - disabled - no, 1 - automatic (queried), 2 - permanently enabled - yes",
+                "validvals": ["yes", "no", "0", "1", "2"],
+                "example": ["bridge-mcrouter 1"],
+                "default": "yes"
+            },
+            "bridge-mcsnoop": {
+                "help": "set multicast snooping",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "yes",
+                "example": ["bridge-mcsnoop yes"]
+            },
+            "bridge-mcsqc": {
+                "help": "set multicast startup query count",
+                "validrange": ["0", "255"],
+                "default": "2",
+                "example": ["bridge-mcsqc 2"]
+            },
+            "bridge-mcqifaddr": {
+                "help": "set multicast query to use ifaddr",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "no",
+                "example": ["bridge-mcqifaddr no"]
+            },
+            "bridge-mcquerier": {
+                "help": "set multicast querier",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "no",
+                "example": ["bridge-mcquerier no"]
+            },
+            "bridge-hashel": {
+                "help": "set hash elasticity",
+                "validrange": ["0", "4096"],
+                "default": "4",
+                "example": ["bridge-hashel 4096"]
+            },
+            "bridge-hashmax": {
+                "help": "set hash max",
+                "validrange": ["0", "4096"],
+                "default": "512",
+                "example": ["bridge-hashmax 4096"]
+            },
+            "bridge-mclmi": {
+                "help": "set multicast last member interval (in secs)",
+                "validrange": ["0", "255"],
+                "default": "1",
+                "example": ["bridge-mclmi 1"]
+            },
+            "bridge-mcmi": {
+                "help": "set multicast membership interval (in secs)",
+                "validrange": ["0", "255"],
+                "default": "260",
+                "example": ["bridge-mcmi 260"]
+            },
+            "bridge-mcqpi": {
+                "help": "set multicast querier interval (in secs)",
+                "validrange": ["0", "255"],
+                "default": "255",
+                "example": ["bridge-mcqpi 255"]
+            },
+            "bridge-mcqi": {
+                "help": "set multicast query interval (in secs)",
+                "validrange": ["0", "255"],
+                "default": "125",
+                "example": ["bridge-mcqi 125"]
+            },
+            "bridge-mcqri": {
+                "help": "set multicast query response interval (in secs)",
+                "validrange": ["0", "255"],
+                "default": "10",
+                "example": ["bridge-mcqri 10"]
+            },
+            "bridge-mcsqi": {
+                "help": "set multicast startup query interval (in secs)",
+                "validrange": ["0", "255"],
+                "default": "31",
+                "example": ["bridge-mcsqi 31"]
+            },
+            "bridge-mcqv4src": {
+                "help": "set per VLAN v4 multicast querier source address",
+                "validvals": ["<number-ipv4-list>", ],
+                "multivalue": True,
+                "compat": True,
+                "example": ["bridge-mcqv4src 100=172.16.100.1 101=172.16.101.1"]
+            },
+            "bridge-portmcrouter": {
+                "help": "Set port multicast routers: 0 - disabled, 1 - automatic (queried), 2 - permanently enabled",
+                "validvals": ["<interface-disabled-automatic-enabled>"],
+                "example": [
+                    "under the port (for vlan aware bridge): bridge-portmcrouter 0",
+                    "under the port (for vlan aware bridge): bridge-portmcrouter 1",
+                    "under the port (for vlan aware bridge): bridge-portmcrouter 2",
+                    "under the port (for vlan aware bridge): bridge-portmcrouter disabled",
+                    "under the port (for vlan aware bridge): bridge-portmcrouter automatic",
+                    "under the port (for vlan aware bridge): bridge-portmcrouter enabled",
+                    "under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=0 swp2=1 swp2=2",
+                    "under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=disabled swp2=automatic swp3=enabled",
+                    "under the bridge (for vlan unaware bridge): bridge-portmcrouter swp1=2 swp2=disabled swp3=1",
+                ]
+            },
+            "bridge-portmcfl": {
+                "help": "port multicast fast leave.",
+                "validvals": ["<interface-yes-no-0-1-list>"],
+                "default": "no",
+                "example": [
+                    "under the port (for vlan aware bridge): bridge-portmcfl no",
+                    "under the bridge (for vlan unaware bridge): bridge-portmcfl swp1=no swp2=no"
+                ]
+            },
+            "bridge-waitport": {
+                "help": "wait for a max of time secs for the"
+                        " specified ports to become available,"
+                        "if no ports are specified then those"
+                        " specified on bridge-ports will be"
+                        " used here. Specifying no ports here "
+                        "should not be used if we are using "
+                        "regex or \"all\" on bridge_ports,"
+                        "as it wouldnt work.",
+                "default": "0",
+                "validvals": ["<number-interface-list>"],
+                "example": ["bridge-waitport 4 swp1 swp2"]
+            },
+            "bridge-maxwait": {
+                "help": "forces to time seconds the maximum time "
+                        "that the Debian bridge setup scripts will "
+                        "wait for the bridge ports to get to the "
+                        "forwarding status, doesn\"t allow factional "
+                        "part. If it is equal to 0 then no waiting"
+                        " is done",
+                "validrange": ["0", "255"],
+                "default": "0",
+                "example": ["bridge-maxwait 3"]
+            },
+            "bridge-vids": {
+                "help": "bridge port vids. Can be specified "
+                        "under the bridge or under the port. "
+                        "If specified under the bridge the ports "
+                        "inherit it unless overridden by a "
+                        "bridge-vids attribute under the port",
+                "multivalue": True,
+                "validvals": ["<number-comma-range-list>"],
+                "example": [
+                    "bridge-vids 4000",
+                    "bridge-vids 2000 2200-3000"
+                ],
+                "aliases": ["bridge-trunk"]
+            },
+            "bridge-pvid": {
+                "help": "bridge port pvid. Must be specified under"
+                        " the bridge port",
+                "validrange": ["0", "4096"],
+                "example": ["bridge-pvid 1"]
+            },
+            "bridge-access": {
+                "help": "bridge port access vlan. Must be "
+                        "specified under the bridge port",
+                "validrange": ["1", "4094"],
+                "example": ["bridge-access 300"]
+            },
+            "bridge-allow-untagged": {
+                "help": "indicate if the bridge port accepts "
+                        "untagged packets or not.  Must be "
+                        "specified under the bridge port. "
+                        "Default is \"yes\"",
+                "validvals": ["yes", "no"],
+                "example": ["bridge-allow-untagged yes"],
+                "default": "yes"
+            },
+            "bridge-port-vids": {
+                "help": "bridge vlans",
+                "compat": True,
+                "example": ["bridge-port-vids bond0=1-1000,1010-1020"]
+            },
+            "bridge-port-pvids": {
+                "help": "bridge port vlans",
+                "compat": True,
+                "example": ["bridge-port-pvids bond0=100 bond1=200"]
+            },
+            "bridge-learning": {
+                "help": "bridge port learning flag",
+                "validvals": ["on", "off", "<interface-on-off-list>"],
+                "default": "on",
+                "example": ["bridge-learning off"]
+            },
+            "bridge-igmp-version": {
+                "help": "mcast igmp version",
+                "validvals": ["2", "3"],
+                "default": "2",
+                "example": ["bridge-igmp-version 2"]
+            },
+            "bridge-mld-version": {
+                "help": "mcast mld version",
+                "validvals": ["1", "2"],
+                "default": "1",
+                "example": ["bridge-mld-version 1"]
+            },
+            "bridge-unicast-flood": {
+                "help": "bridge port unicast flood flag",
+                "validvals": ["on", "off", "<interface-on-off-list>"],
+                "default": "on",
+                "example": ["under the port (for vlan aware bridge): bridge-unicast-flood on",
+                            "under the bridge (for vlan unaware bridge): bridge-unicast-flood swp1=on swp2=on"]
+            },
+            "bridge-multicast-flood": {
+                "help": "bridge port multicast flood flag",
+                "validvals": ["on", "off", "<interface-on-off-list>"],
+                "default": "on",
+                "example": [
+                    "under the port (for vlan aware bridge): bridge-multicast-flood on",
+                    "under the bridge (for vlan unaware bridge): bridge-multicast-flood swp1=on swp2=on"
+                ]
+            },
+            "bridge-vlan-protocol": {
+                "help": "bridge vlan protocol",
+                "default": "802.1q",
+                "validvals": ["802.1q", "802.1ad"],
+                "example": ["bridge-vlan-protocol 802.1q"]
+            },
+            "bridge-vlan-stats": {
+                "help": "bridge vlan stats",
+                "default": "off",
+                "validvals": ["on", "off"],
+                "example": ["bridge-vlan-stats off"]
+            },
+            "bridge-arp-nd-suppress": {
+                "help": "bridge port arp nd suppress flag",
+                "validvals": ["on", "off", "<interface-on-off-list>"],
+                "default": "off",
+                "example": [
+                    "under the port (for vlan aware bridge): bridge-arp-nd-suppress on",
+                    "under the bridge (for vlan unaware bridge): bridge-arp-nd-suppress swp1=on swp2=on"
+                ]
+            },
+            "bridge-mcstats": {
+                "help": "bridge multicast stats",
+                "default": "off",
+                "validvals": ["on", "off"],
+                "example": ["bridge-mcstats off"]
+            },
+            "bridge-l2protocol-tunnel": {
+                "help": "layer 2 protocol tunneling",
+                "validvals": [  # XXX: lists all combinations, should move to
+                    # a better representation
+                    "all",
+                    "cdp",
+                    "cdp lacp",
+                    "cdp lacp lldp",
+                    "cdp lacp lldp pvst",
+                    "cdp lacp lldp stp",
+                    "cdp lacp pvst",
+                    "cdp lacp pvst stp",
+                    "cdp lacp stp",
+                    "cdp lldp",
+                    "cdp lldp pvst",
+                    "cdp lldp pvst stp",
+                    "cdp lldp stp",
+                    "cdp pvst",
+                    "cdp pvst stp",
+                    "cdp stp",
+                    "lacp",
+                    "lacp lldp",
+                    "lacp lldp pvst",
+                    "lacp lldp pvst stp",
+                    "lacp lldp stp",
+                    "lacp pvst",
+                    "lacp pvst stp",
+                    "lacp stp",
+                    "lldp",
+                    "lldp pvst",
+                    "lldp pvst stp",
+                    "lldp stp",
+                    "pvst",
+                    "pvst stp",
+                    "stp",
+                    "<interface-l2protocol-tunnel-list>"],
+                "example": [
+                    "under the bridge (for vlan unaware bridge): bridge-l2protocol-tunnel swpX=lacp,stp swpY=cdp swpZ=all",
+                    "under the port (for vlan aware bridge): bridge-l2protocol-tunnel lacp stp lldp cdp pvst",
+                    "under the port (for vlan aware bridge): bridge-l2protocol-tunnel lldp pvst",
+                    "under the port (for vlan aware bridge): bridge-l2protocol-tunnel stp",
+                    "under the port (for vlan aware bridge): bridge-l2protocol-tunnel all"
+                ]
+            }
+        }
+    }
 
     # Netlink attributes not associated with ifupdown2
     # attributes are left commented-out for a future use
