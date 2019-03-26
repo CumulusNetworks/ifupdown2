@@ -802,6 +802,7 @@ class vxlan(Addon, moduleBase):
                     and self.vxlan_physdev_mcast \
                     and self.cache.link_exists(self.vxlan_physdev_mcast):
                 self.netlink.link_del(self.vxlan_physdev_mcast)
+                self.reset()
 
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
