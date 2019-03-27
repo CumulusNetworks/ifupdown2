@@ -1206,9 +1206,15 @@ class bridge(Addon, moduleBase):
 
     def get_bridge_mcsnoop_value(self, ifaceobj):
         mcsnoop = ifaceobj.get_attr_value_first('bridge-mcsnoop')
-        if not mcsnoop and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
-            return self._vxlan_bridge_default_igmp_snooping
-        return mcsnoop
+
+        if mcsnoop:
+            return mcsnoop
+
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
+            if self._vxlan_bridge_default_igmp_snooping is not None:
+                return self._vxlan_bridge_default_igmp_snooping
+
+        return self.get_attr_default_value("bridge-mcsnoop")
 
     def fill_ifla_info_data_with_ifla_br_attribute(self,
                                                    ifla_info_data,
