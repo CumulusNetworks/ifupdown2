@@ -590,7 +590,7 @@ class bridge(Addon, moduleBase):
         '2': 2,
     }
 
-    _ifla_brpot_multicast_router_dict_int_to_str = {
+    _ifla_brport_multicast_router_dict_int_to_str = {
         0: "disabled",
         1: "automatic",
         2: "enabled"
@@ -2756,7 +2756,7 @@ class bridge(Addon, moduleBase):
     @classmethod
     def _query_check_brport_attr_portmcrouter(cls, port, user_config, cached_value):
         return (
-            "%s=%s" % (port, cls._ifla_brpot_multicast_router_dict_int_to_str.get(cached_value)),
+            "%s=%s" % (port, cls._ifla_brport_multicast_router_dict_int_to_str.get(cached_value)),
             cls._ifla_brport_multicast_router_dict_to_int.get(user_config) != cached_value
         )
 
