@@ -2369,39 +2369,84 @@ class bridge(Addon, moduleBase):
 
     def _query_running_attrs(self, ifaceobjrunning, ifaceobj_getfunc,
                              bridge_vlan_aware=False):
+
+        ifname = ifaceobjrunning.name
         bridgeattrdict = {}
         userspace_stp = 0
         ports = None
-        skip_kernel_stp_attrs = 0
-
         try:
             if self.systcl_get_net_bridge_stp_user_space() == '1':
                 userspace_stp = 1
         except Exception as e:
             self.logger.info('%s: %s' % (ifaceobjrunning.name, str(e)))
 
-        tmpbridgeattrdict = self.brctlcmd.get_bridge_attrs(ifaceobjrunning.name)
-        if not tmpbridgeattrdict:
-            self.logger.warn('%s: unable to get bridge attrs'
-                    %ifaceobjrunning.name)
-            return bridgeattrdict
+        bridge_ifla_info_data = self.cache.get_link_info_data(ifname)
+
 
         # Fill bridge_ports and bridge stp attributes first
-        ports = tmpbridgeattrdict.get('ports')
-        if ports:
-            bridgeattrdict['bridge-ports'] = [' '.join(ports.keys())]
-        stp = tmpbridgeattrdict.get('stp', 'no')
-        if stp != self.get_mod_subattr('bridge-stp', 'default'):
-            bridgeattrdict['bridge-stp'] = [stp]
+        #
+        # bridge-ports
+        #
+        bridgeattrdict["bridge-ports"] = [" ".join(self.cache.get_slaves(ifname))]
 
-        if  stp == 'yes' and userspace_stp:
-            skip_kernel_stp_attrs = 1
+        #
+        # bridge-stp
+        #
+        cached_stp = bool(bridge_ifla_info_data.get(Link.IFLA_BR_STP_STATE))
 
-        vlan_stats = utils.get_onff_from_onezero(
-                            tmpbridgeattrdict.get('vlan-stats', None))
-        if (vlan_stats and
-            vlan_stats != self.get_mod_subattr('bridge-vlan-stats', 'default')):
-            bridgeattrdict['bridge-vlan-stats'] = [vlan_stats]
+        if cached_stp != utils.get_boolean_from_string(
+                self.get_mod_subattr("bridge-stp", "default")
+        ):
+            bridgeattrdict['bridge-stp'] = ["yes" if cached_stp else "no"]
+
+        skip_kernel_stp_attrs = cached_stp and userspace_stp
+
+        if skip_kernel_stp_attrs:
+            bridge_attributes_map = {
+                "bridge-mcqifaddr": Link.IFLA_BR_MCAST_QUERY_USE_IFADDR,
+                "bridge-mcquerier": Link.IFLA_BR_MCAST_QUERIER,
+                "bridge-mcrouter": Link.IFLA_BR_MCAST_ROUTER,
+                "bridge-mcstats": Link.IFLA_BR_MCAST_STATS_ENABLED,
+                "bridge-mcsnoop": Link.IFLA_BR_MCAST_SNOOPING,
+                "bridge-mclmc": Link.IFLA_BR_MCAST_LAST_MEMBER_CNT,
+                "bridge-mclmi": Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL,
+                "bridge-mcqri": Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
+                "bridge-mcqpi": Link.IFLA_BR_MCAST_QUERIER_INTVL,
+                "bridge-mcsqc": Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT,
+                "bridge-mcsqi": Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL,
+                "bridge-mcmi": Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
+                "bridge-mcqi": Link.IFLA_BR_MCAST_QUERY_INTVL,
+            }
+        else:
+            bridge_attributes_map = dict(self._ifla_br_attributes_map)
+            try:
+                del bridge_attributes_map[Link.IFLA_BR_STP_STATE]
+            except:
+                pass
+
+        #
+        # bridge-vlan-stats
+        #
+        cached_vlan_stats = bridge_ifla_info_data.get(Link.IFLA_BR_VLAN_STATS_ENABLED)
+
+        if cached_vlan_stats != utils.get_boolean_from_string(
+                self.get_mod_subattr("bridge-vlan-stats", "default")
+        ):
+            bridgeattrdict['bridge-vlan-stats'] = ["on" if cached_vlan_stats else "off"]
+
+        try:
+            del bridge_attributes_map[Link.IFLA_BR_VLAN_STATS_ENABLED]
+        except:
+            pass
+
+        #for attr_name, attr_nl in bridge_attributes_map.iteritems():
+        #
+        #    default_value = self.get_mod_subattr(attr_name, "default")
+        #    cached_value = bridge_ifla_info_data.get(attr_nl)
+
+        tmpbridgeattrdict = self.brctlcmd.get_bridge_attrs(ifaceobjrunning.name)
+        #for key, v in tmpbridgeattrdict.iteritems():
+        #    print "[%s]=%s" % (key, v)
 
         bool2str = {'0': 'no', '1': 'yes'}
         # pick all other attributes
