@@ -2814,52 +2814,67 @@ class bridge(Addon, moduleBase):
                 break
         return pvid
 
-    def _query_check_bridge_port_vidinfo(self, ifaceobj, ifaceobjcurr,
-                                         ifaceobj_getfunc, bridgename):
+    def _query_check_bridge_port_vidinfo(self, ifname, bridge_name, ifaceobj, ifaceobjcurr, ifaceobj_getfunc):
+        running_pvid, running_vids = self.cache.get_pvid_and_vids(ifname)
 
-        running_pvid, running_vids = self.cache.get_pvid_and_vids(ifaceobj.name)
+        #
+        # bridge-access
+        #
+        brport_vid_access_user_config = ifaceobj.get_attr_value_first("bridge-access")
 
-        attr_name = 'bridge-access'
-        vid = ifaceobj.get_attr_value_first(attr_name)
-        if vid:
-            vid_int = int(vid)
-            if running_pvid == vid_int or running_vids[0] == vid_int:
-                ifaceobjcurr.update_config_with_status(attr_name, vid, 0)
-            else:
-                ifaceobjcurr.update_config_with_status(attr_name, running_pvid, 1)
+        if brport_vid_access_user_config:
+            try:
+                vid_int = int(brport_vid_access_user_config)
+            except ValueError as e:
+                ifaceobjcurr.update_config_with_status("bridge-access", brport_vid_access_user_config, 1)
+                raise Exception("%s: bridge-access invalid value: %s" % (ifname, str(e)))
+
+            ifaceobjcurr.update_config_with_status(
+                "bridge-access",
+                str(running_pvid),
+                running_pvid != vid_int or running_vids[0] != vid_int
+            )
             return
 
-        (running_vids, running_pvid) = self._get_running_vids_n_pvid_str(
-                                                        ifaceobj.name)
-        attr_name = 'bridge-pvid'
-        pvid = ifaceobj.get_attr_value_first('bridge-pvid')
-        if pvid:
-            if running_pvid and running_pvid == pvid:
-                ifaceobjcurr.update_config_with_status(attr_name,
-                                                       running_pvid, 0)
-            else:
-                ifaceobjcurr.update_config_with_status(attr_name,
-                                                       running_pvid, 1)
+        #
+        # bridge-pvid
+        #
+        brport_pvid_user_config = ifaceobj.get_attr_value_first("bridge-pvid")
+
+        if brport_pvid_user_config:
+            try:
+                pvid = int(brport_pvid_user_config)
+            except ValueError as e:
+                ifaceobjcurr.update_config_with_status("bridge-pvid", brport_pvid_user_config, 1)
+                raise Exception("%s: bridge-pvid invalid value: %s" % (ifname, str(e)))
+
+            ifaceobjcurr.update_config_with_status(
+                "bridge-pvid",
+                str(running_pvid),
+                running_pvid != pvid
+            )
         elif (not (ifaceobj.flags & iface.HAS_SIBLINGS) or
               ((ifaceobj.flags & iface.HAS_SIBLINGS) and
                (ifaceobj.flags & iface.OLDEST_SIBLING))):
             # if the interface has multiple iface sections,
             # we check the below only for the oldest sibling
             # or the last iface section
-            pvid = self._get_bridge_pvid(bridgename, ifaceobj_getfunc)
+            try:
+                pvid = int(self._get_bridge_pvid(bridge_name, ifaceobj_getfunc))
+            except (TypeError, ValueError):
+                pvid = 0
             if pvid:
                 if not running_pvid or running_pvid != pvid:
                     ifaceobjcurr.status = ifaceStatus.ERROR
                     ifaceobjcurr.status_str = 'bridge pvid error'
-            elif not running_pvid or running_pvid != '1':
+            elif not running_pvid or running_pvid != 1:
                 ifaceobjcurr.status = ifaceStatus.ERROR
                 ifaceobjcurr.status_str = 'bridge pvid error'
 
         attr_name, vids = self.get_ifaceobj_bridge_vids(ifaceobj)
         if vids:
            vids = re.split(r'[\s\t]\s*', vids)
-           if not running_vids or not self._compare_vids(vids, running_vids,
-                                                         running_pvid):
+           if not running_vids or not self._compare_vids(vids, running_vids, running_pvid, expand_range=False):
                ifaceobjcurr.update_config_with_status(attr_name,
                                             ' '.join(running_vids), 1)
            else:
@@ -2873,80 +2888,127 @@ class bridge(Addon, moduleBase):
            # or the last iface section
 
            # check if it matches the bridge vids
-           bridge_vids = self._get_bridge_vids(bridgename, ifaceobj_getfunc)
+           bridge_vids = self._get_bridge_vids(bridge_name, ifaceobj_getfunc)
            if (bridge_vids and (not running_vids  or
-                   not self._compare_vids(bridge_vids, running_vids, running_pvid))):
+                   not self._compare_vids(bridge_vids, running_vids, running_pvid, expand_range=False))):
               ifaceobjcurr.status = ifaceStatus.ERROR
               ifaceobjcurr.status_str = 'bridge vid error'
 
+    _query_check_brport_attributes = (
+        "bridge-pvid",
+        "bridge-vids",
+        "bridge-trunk",
+        "bridge-access",
+        "bridge-pathcosts",
+        "bridge-portprios",
+        "bridge-portmcrouter",
+        "bridge-learning",
+        "bridge-portmcfl",
+        "bridge-unicast-flood",
+        "bridge-multicast-flood",
+        "bridge-arp-nd-suppress",
+        "bridge-l2protocol-tunnel"
+    )
+
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr,
                                  ifaceobj_getfunc):
-        if not self.cache.link_is_bridge_port(ifaceobj.name):
-            # Mark all bridge attributes as failed
-            ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
-                    ['bridge-vids', 'bridge-trunk', 'bridge-pvid', 'bridge-access',
-                     'bridge-pathcosts', 'bridge-portprios',
-                     'bridge-portmcrouter',
-                     'bridge-learning',
-                     'bridge-portmcfl', 'bridge-unicast-flood',
-                     'bridge-multicast-flood',
-                     'bridge-arp-nd-suppress', 'bridge-l2protocol-tunnel'
-                    ], 1)
-            return
-        bridgename = self.cache.get_bridge_name_from_port(ifaceobj.name)
-        if not bridgename:
-            self.logger.warn('%s: unable to determine bridge name'
-                             %ifaceobj.name)
+
+        ifname = ifaceobj.name
+
+        if not self.cache.link_is_bridge_port(ifname):
+            # Mark all bridge brport attributes as failed
+            ifaceobjcurr.check_n_update_config_with_status_many(
+                ifaceobj, self._query_check_brport_attributes, 1
+            )
             return
 
-        if self.cache.bridge_is_vlan_aware(bridgename):
-            self._query_check_bridge_port_vidinfo(ifaceobj, ifaceobjcurr,
-                                                  ifaceobj_getfunc,
-                                                  bridgename)
-        for attr, dstattr in {'bridge-pathcosts' : 'pathcost',
-                              'bridge-portprios' : 'portprio',
-                              'bridge-portmcrouter' : 'portmcrouter',
-                              'bridge-portmcfl' : 'portmcfl',
-                              'bridge-learning' : 'learning',
-                              'bridge-unicast-flood' : 'unicast-flood',
-                              'bridge-multicast-flood' : 'multicast-flood',
-                              'bridge-arp-nd-suppress' : 'arp-nd-suppress',
-                             }.items():
-            attrval = ifaceobj.get_attr_value_first(attr)
-            if not attrval:
+        bridge_name = self.cache.get_bridge_name_from_port(ifname)
+        if not bridge_name:
+            self.logger.warn("%s: unable to determine bridge name" % ifname)
+            return
+
+        if self.cache.bridge_is_vlan_aware(bridge_name):
+            self._query_check_bridge_port_vidinfo(ifname, bridge_name, ifaceobj, ifaceobjcurr, ifaceobj_getfunc)
+
+        brport_info_slave_data = self.cache.get_link_info_slave_data(ifname)
+
+        #
+        # bridge-portmcfl
+        #
+        portmcfl = ifaceobj.get_attr_value_first("bridge-portmcfl")
+
+        if portmcfl:
+            cached_value = brport_info_slave_data.get(Link.IFLA_BRPORT_FAST_LEAVE)
+
+            ifaceobjcurr.update_config_with_status(
+                "bridge-portmcfl",
+                "yes" if cached_value else "no",
+                utils.get_boolean_from_string(portmcfl) != cached_value
+            )
+
+        #
+        # bridge-portmcrouter
+        #
+        portmcrouter = ifaceobj.get_attr_value_first("bridge-portmcrouter")
+
+        if portmcrouter:
+            cached_value = brport_info_slave_data.get(Link.IFLA_BRPORT_MULTICAST_ROUTER)
+
+            ifaceobjcurr.update_config_with_status(
+                "bridge-portmcrouter",
+                self._ifla_brport_multicast_router_dict_int_to_str.get(cached_value),
+                self._ifla_brport_multicast_router_dict_to_int.get(portmcrouter) != cached_value
+            )
+
+        #
+        # bridge-learning
+        # bridge-unicast-flood
+        # bridge-multicast-flood
+        # bridge-arp-nd-suppress
+        #
+        for attr_name, attr_nl in (
+                ("bridge-learning", Link.IFLA_BRPORT_LEARNING),
+                ("bridge-unicast-flood", Link.IFLA_BRPORT_UNICAST_FLOOD),
+                ("bridge-multicast-flood", Link.IFLA_BRPORT_MCAST_FLOOD),
+                ("bridge-arp-nd-suppress", Link.IFLA_BRPORT_NEIGH_SUPPRESS),
+        ):
+            attribute_value = ifaceobj.get_attr_value_first(attr_name)
+
+            if not attribute_value:
                 continue
 
+            cached_value = brport_info_slave_data.get(attr_nl)
+
+            ifaceobjcurr.update_config_with_status(
+                attr_name,
+                "on" if cached_value else "off",
+                utils.get_boolean_from_string(attribute_value) != cached_value
+                )
+
+        #
+        # bridge-pathcosts
+        # bridge-portprios
+        #
+        for attr_name, attr_nl in (
+                ("bridge-pathcosts", Link.IFLA_BRPORT_COST),
+                ("bridge-portprios", Link.IFLA_BRPORT_PRIORITY),
+        ):
+            attribute_value = ifaceobj.get_attr_value_first(attr_name)
+
+            if not attribute_value:
+                continue
+
+            cached_value = brport_info_slave_data.get(attr_nl)
+
             try:
-                running_attrval = self.brctlcmd.get_bridgeport_attr(
-                                       bridgename, ifaceobj.name, dstattr)
-
-                if dstattr == 'portmcfl':
-                    if not utils.is_binary_bool(attrval) and running_attrval:
-                        running_attrval = utils.get_yesno_boolean(
-                            utils.get_boolean_from_string(running_attrval))
-                elif dstattr == 'portmcrouter':
-                    if self._ifla_brport_multicast_router_dict_to_int.get(attrval) == int(running_attrval):
-                        ifaceobjcurr.update_config_with_status(attr, attrval, 0)
-                    else:
-                        ifaceobjcurr.update_config_with_status(attr, attrval, 1)
-                    continue
-                elif dstattr in ['learning',
-                                 'unicast-flood',
-                                 'multicast-flood',
-                                 'arp-nd-suppress',
-                                ]:
-                    if not utils.is_binary_bool(attrval) and running_attrval:
-                        running_attrval = utils.get_onff_from_onezero(
-                                                running_attrval)
-
-                if running_attrval != attrval:
-                    ifaceobjcurr.update_config_with_status(attr,
-                                            running_attrval, 1)
-                else:
-                    ifaceobjcurr.update_config_with_status(attr,
-                                            running_attrval, 0)
-            except Exception, e:
-                self.log_warn('%s: %s' %(ifaceobj.name, str(e)))
+                ifaceobjcurr.update_config_with_status(
+                    attr_name,
+                    str(cached_value),
+                    int(attribute_value) != cached_value
+                )
+            except ValueError as e:
+                ifaceobjcurr.update_config_with_status(attr_name, str(cached_value), 1)
+                raise Exception("%s: %s invalid value: %s" % (ifname, attr_name, str(e)))
 
         self._query_check_l2protocol_tunnel_on_port(ifaceobj, ifaceobjcurr)
 
