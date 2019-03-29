@@ -689,6 +689,12 @@ class LinkUtils(utilsBase):
         [linkCache.update_attrdict([ifname], linkattrs)
          for ifname, linkattrs in linkout.items()]
 
+    def del_cache_entry(self, ifname):
+        try:
+            del linkCache.links[ifname]
+        except:
+            pass
+
     def cache_get(self, t, attrlist, refresh=False):
         return self._cache_get(t, attrlist, refresh)
 
