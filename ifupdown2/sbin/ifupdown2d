@@ -61,13 +61,16 @@ class Daemon:
             log.info('removing uds %s' % self.server_address)
             os.remove(self.server_address)
 
+        # FROM CHERRY-PICK 7aa2b547672ff
+        self.__signal_map = {
+            signal.SIGINT: self.signal_handler,
+            signal.SIGTERM: self.signal_handler,
+            signal.SIGQUIT: self.signal_handler,
+        }
+
         self.context = daemon.DaemonContext(
             working_directory=self.working_directory,
-            signal_map={
-                signal.SIGINT: self.signal_handler,
-                signal.SIGTERM: self.signal_handler,
-                signal.SIGQUIT: self.signal_handler,
-            },
+            signal_map=self.__signal_map,
             umask=0o22
         )
 
@@ -223,6 +226,9 @@ class Daemon:
         cumulus.sdnotify.sd_notify(0, "READY=1")
 
         try:
+            for sig, sig_handler in self.__signal_map.iteritems():
+                signal.signal(sig, sig_handler)
+
             while True:
                 if Daemon.shutdown_event.is_set():
                     log.info("shutdown signal RXed, breaking out loop")
