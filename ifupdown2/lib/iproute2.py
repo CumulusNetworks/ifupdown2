@@ -216,8 +216,6 @@ class IPRoute2(Cache, Requirements):
                 cmd.append("group %s" % svcnodeip)
             else:
                 cmd.append("remote %s" % svcnodeip)
-        else:
-            cmd.append("noremote")
 
         if ageing:
             cmd.append("ageing %s" % ageing)
