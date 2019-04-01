@@ -133,17 +133,19 @@ class Daemon(SocketIO):
                 self.SO_PASSCRED = 16
                 self.SO_PEERCRED = 17
 
+        self.__signal_map = {
+            signal.SIGINT: self.__signal_handler,
+            signal.SIGTERM: self.__signal_handler,
+            signal.SIGQUIT: self.__signal_handler,
+        }
+
         # for debugging purpose we accept the option "--no-daemon"
         if not self.args.no_daemon:
             root_logger.info("daemonizing ifupdown2d...")
 
             self.context = daemon.DaemonContext(
                 working_directory=self.working_directory,
-                signal_map={
-                    signal.SIGINT: self.__signal_handler,
-                    signal.SIGTERM: self.__signal_handler,
-                    signal.SIGQUIT: self.__signal_handler,
-                },
+                signal_map=self.__signal_map,
                 umask=0o22
             )
             self.context.open()
@@ -233,6 +235,9 @@ class Daemon(SocketIO):
     def run(self):
         self.__notify_systemd_ready()
         try:
+            for sig, sig_handler in self.__signal_map.iteritems():
+                signal.signal(sig, sig_handler)
+
             while True:
                 if Daemon.shutdown_event.is_set():
                     root_logger.info("shutdown signal RXed, breaking out loop")

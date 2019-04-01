@@ -422,7 +422,8 @@ class addressvirtual(Addon, moduleBase):
                 if vrf_ifname:
                     self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
-            # if we are dealing with a VRRP macvlan we need to set addrgenmode to RANDOM
+            # if we are dealing with a VRRP macvlan we need to set addrgenmode
+            # to RANDOM, and protodown on
             if vrrp:
                 try:
                     self.iproute2.link_set_ipv6_addrgen(
@@ -433,6 +434,10 @@ class addressvirtual(Addon, moduleBase):
                 except Exception as e:
                     self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
                                      "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
+                try:
+                    netlink.link_set_protodown(macvlan_ifname, "on")
+                except Exception as e:
+                    self.logger.warning("%s: %s: ip link set dev %s protodown on: operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
             elif user_configured_ipv6_addrgenmode:
                 self.iproute2.link_set_ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
@@ -484,11 +489,20 @@ class addressvirtual(Addon, moduleBase):
                     self.logger.debug('fix_vrf_slave_ipv6_route_metric: failed: %s' % e)
 
             # Disable IPv6 duplicate address detection on VRR interfaces
+            sysctl_prefix = "net.ipv6.conf.%s" % macvlan_ifname
+
+            try:
+                syskey = "%s.%s" % (sysctl_prefix, "enhanced_dad")
+                if self.sysctl_get(syskey) != "0":
+                    self.sysctl_set(syskey, "0")
+            except Exception as e:
+                self.logger.info("sysctl failure: operation not supported: %s" % str(e))
+
             for key, sysval in {
                 "accept_dad": "0",
                 "dad_transmits": "0"
             }.iteritems():
-                syskey = "net.ipv6.conf.%s.%s" % (macvlan_ifname, key)
+                syskey = "%s.%s" % (sysctl_prefix, key)
                 if self.sysctl_get(syskey) != sysval:
                     self.sysctl_set(syskey, sysval)
 
