@@ -773,11 +773,6 @@ class bridge(moduleBase):
             result = True
             for port_name in ports:
                 port_obj_l = ifaceobj_getfunc(port_name)
-                if port_obj_l and port_obj_l[0].link_kind & ifaceLinkKind.VLAN:
-                    self.logger.error('%s: %s: vlan sub-interface is not '
-                                      'supported in a vlan-aware bridge'
-                                      % (ifaceobj.name, port_name))
-                    result = False
                 if (port_obj_l and
                     port_obj_l[0].get_attr_value('bridge-arp-nd-suppress') and
                     self.arp_nd_suppress_only_on_vxlan and
