@@ -682,6 +682,14 @@ class bridge(Addon, moduleBase):
             default=True
         )
 
+        self.vxlan_brport_arp_nd_suppress = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="vxlan_brport_arp_nd_suppress"
+            ),
+            default=True
+        )
+
         self.l2protocol_tunnel_callback = {
             'all': self._l2protocol_tunnel_set_all,
             'stp': self._l2protocol_tunnel_set_stp,
@@ -2012,6 +2020,11 @@ class bridge(Addon, moduleBase):
                         if not brport_ifla_info_slave_data.get(Link.IFLA_BRPORT_MULTICAST_ROUTER):
                             brport_ifla_info_slave_data[Link.IFLA_BRPORT_MULTICAST_ROUTER] = 2
                             self.logger.info("%s: %s: vxlan bridge igmp snooping: enable port multicast router" % (ifname, brport_name))
+
+                    if self.vxlan_brport_arp_nd_suppress:
+                        brport_ifla_info_slave_data[Link.IFLA_BRPORT_NEIGH_SUPPRESS] = 1
+                        self.logger.info("%s: set bridge-arp-nd-suppress on by default on vxlan port (%s)" % (ifname, brport_name))
+
                 else:
                     kind = None
                     ifla_info_data = {}
