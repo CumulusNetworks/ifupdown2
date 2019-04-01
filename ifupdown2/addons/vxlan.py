@@ -651,7 +651,7 @@ class vxlan(Addon, moduleBase):
             # TODO: vxlan._vxlan_local_tunnelip should be a IPNetwork obj
             ifaceobj.update_config('vxlan-local-tunnelip', attrval)
 
-        if running_attrval == self._clagd_vxlan_anycast_ip:
+        if str(running_attrval) == self._clagd_vxlan_anycast_ip:
             # if local ip is anycast_ip, then let query_check to go through
             attrval = self._clagd_vxlan_anycast_ip
 
