@@ -4,6 +4,8 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import socket
+
 from ipaddr import IPNetwork, IPv4Network, IPv6Network
 
 try:
@@ -925,9 +927,11 @@ class address(Addon, moduleBase):
                 if dhclientcmd.is_running(ifaceobj.name):
                     # release any dhcp leases
                     dhclientcmd.release(ifaceobj.name)
+                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
                     force_reapply = True
                 elif dhclientcmd.is_running6(ifaceobj.name):
                     dhclientcmd.release6(ifaceobj.name)
+                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
                     force_reapply = True
         except:
             pass

@@ -6,6 +6,7 @@
 
 import re
 import time
+import socket
 
 try:
     from ifupdown2.lib.addon import Addon
@@ -140,8 +141,10 @@ class dhcp(Addon, moduleBase):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
         if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
+            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
         if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
 
     def _down(self, ifaceobj):
         self._dhcp_down(ifaceobj)
