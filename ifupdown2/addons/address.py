@@ -292,10 +292,19 @@ class address(moduleBase):
                 else:
                     self.write_file('/proc/sys/net/ipv4/conf/%s/arp_accept' % ifaceobj.name, '0')
         if hwaddress and is_vlan_dev_on_vlan_aware_bridge:
-           if up:
-              self.ipcmd.bridge_fdb_add(bridgename, hwaddress, vlan)
-           else:
-              self.ipcmd.bridge_fdb_del(bridgename, hwaddress, vlan)
+            if up:
+                # check statemanager to delete the old entry if necessary
+                try:
+                    for old_obj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
+                        old_hwaddress = old_obj.get_attr_value_first("hwaddress")
+                        if old_hwaddress and self.ipcmd.mac_str_to_int(old_hwaddress) != self.ipcmd.mac_str_to_int(hwaddress):
+                            self.ipcmd.bridge_fdb_del(bridgename, old_hwaddress, vlan)
+                            break
+                except:
+                    pass
+                self.ipcmd.bridge_fdb_add(bridgename, hwaddress, vlan)
+            else:
+                self.ipcmd.bridge_fdb_del(bridgename, hwaddress, vlan)
 
     def _get_anycast_addr(self, ifaceobjlist):
         for ifaceobj in ifaceobjlist:
