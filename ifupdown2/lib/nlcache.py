@@ -1278,6 +1278,13 @@ class _NetlinkCache:
                     ip_version: [addr]
                 }
 
+    def force_address_flush_family(self, ifname, family):
+        try:
+            with self._cache_lock:
+                self._addr_cache[ifname][family] = []
+        except:
+            pass
+
     def address_flush_link(self, ifname):
         """
         Flush address cache for link 'ifname'
