@@ -6,7 +6,7 @@
 
 
 from sets import Set
-from ipaddr import IPNetwork, IPv4Address, IPv4Network, AddressValueError
+from ipaddr import IPNetwork, IPAddress, IPv4Address, IPv4Network, AddressValueError
 
 try:
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -348,8 +348,10 @@ class vxlan(Addon, moduleBase):
                 # if clagd has modified
                 running_localtunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
 
-                if (anycastip and running_localtunnelip and anycastip == running_localtunnelip):
-                    local = running_localtunnelip
+                if anycastip and running_localtunnelip:
+                    anycastip = IPAddress(anycastip)
+                    if anycastip == running_localtunnelip:
+                        local = running_localtunnelip
 
                 if cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_ID) != vxlanid:
                     self.log_error('%s: Cannot change running vxlan id: '
@@ -665,7 +667,7 @@ class vxlan(Addon, moduleBase):
             # TODO: vxlan._vxlan_local_tunnelip should be a IPNetwork obj
             ifaceobj.update_config('vxlan-local-tunnelip', attrval)
 
-        if running_attrval == self._clagd_vxlan_anycast_ip:
+        if str(running_attrval) == self._clagd_vxlan_anycast_ip:
             # if local ip is anycast_ip, then let query_check to go through
             attrval = self._clagd_vxlan_anycast_ip
 

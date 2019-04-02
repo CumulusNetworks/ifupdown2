@@ -756,6 +756,14 @@ class bridge(Addon, moduleBase):
             "bridge-portmcrouter": self._query_check_brport_attr_portmcrouter,
         }
 
+        self.bridge_vxlan_port_learning = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__,
+                "bridge_vxlan_port_learning"
+            ),
+            default=True
+        )
+
     @staticmethod
     def _l2protocol_tunnel_set_pvst(ifla_brport_group_mask, ifla_brport_group_maskhi):
         if not ifla_brport_group_maskhi:
@@ -1789,19 +1797,26 @@ class bridge(Addon, moduleBase):
                              % (bridge_name, brport_name, brport_learning))
 
         elif brport_learning is None and bridge_vlan_aware:
-            # is bridge-learning is not configured but the bridge is vlan-aware
+            # if bridge-learning is not configured but the bridge is vlan-aware
+            if self.bridge_vxlan_port_learning:
+                kind = "vxlan"
+                brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING] = 0
 
-            running_value = self.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_LEARNING)
-            default_value = utils.get_boolean_from_string(self.get_mod_subattr('bridge-learning', 'default'))
+                if brport_vxlan_learning:
+                    ifla_info_data = {Link.IFLA_VXLAN_LEARNING: 0}
+                    self.logger.info("%s: %s: disable learning on vxlan bridge by default" % (bridge_name, brport_name))
+            else:
+                running_value = self.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_LEARNING)
+                default_value = utils.get_boolean_from_string(self.get_mod_subattr('bridge-learning', 'default'))
 
-            if default_value != running_value:
-                brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING] = default_value
+                if default_value != running_value:
+                    brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING] = default_value
 
-                if not brport_vxlan_learning_config:
-                    kind = 'vxlan'
-                    ifla_info_data = {Link.IFLA_VXLAN_LEARNING: default_value}
-                    self.logger.info('%s: %s: reset brport learning to %s and sync vxlan learning'
-                                     % (bridge_name, brport_name, default_value))
+                    if not brport_vxlan_learning_config:
+                        kind = 'vxlan'
+                        ifla_info_data = {Link.IFLA_VXLAN_LEARNING: default_value}
+                        self.logger.info('%s: %s: reset brport learning to %s and sync vxlan learning'
+                                         % (bridge_name, brport_name, default_value))
 
         # if kind and ifla_info_data are set they will be added to the
         # netlink request on the VXLAN brport, to sync IFLA_VXLAN_LEARNING
