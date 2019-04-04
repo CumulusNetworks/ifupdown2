@@ -540,7 +540,10 @@ class AttributeIPAddress(Attribute):
                 elif self.atype == Route.RTA_DST:
                     self.value = IPNetwork('%s/%s' % (self.value, parent_msg.dst_len))
             else:
-                self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
+                try:
+                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
+                except AttributeError:
+                    self.value = IPNetwork('%s' % self.value)
 
             self.value_int = int(self.value)
             self.value_int_str = str(self.value_int)
