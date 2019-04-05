@@ -661,7 +661,7 @@ class bridge(Addon, moduleBase):
                 module_name=self.__class__.__name__,
                 attr="bridge-vxlan-arp-nd-suppress"
             ),
-            default=True
+            default=False
         )
 
         self.l2protocol_tunnel_callback = {
