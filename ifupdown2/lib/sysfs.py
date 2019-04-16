@@ -176,7 +176,7 @@ class Sysfs(IO, Cache, Requirements):
         if self.cache.is_link_enslaved_to(slave_name, bond_name):
             if self.write_to_file("/sys/class/net/%s/bonding/slaves" % bond_name, "-%s" % slave_name):
                 # success we can manually update our cache to make sure we stay up-to-date
-                self.cache.override_unslave_link(master=bond_name, slave=slave_name)
+                self.cache.override_cache_unslave_link(slave=slave_name, master=bond_name)
 
     def bond_remove_slave_dry_run(self, bond_name, slave_name):
         self.write_to_file("/sys/class/net/%s/bonding/slaves" % bond_name, "-%s" % slave_name)
