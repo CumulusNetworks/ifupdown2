@@ -1,3 +1,10 @@
+ifupdown2 (1.2.6-cl3u25) RELEASED; urgency=medium
+
+  * Closes: CM-24275: when ifreload_down_changed=1: purge bridge
+                      and upper devices cache
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Tue, 16 Apr 2019 23:42:42 -1000
+
 ifupdown2 (1.2.5-cl3u24) UNRELEASED; urgency=medium
 
   * New. Enabled: add support for vxlan-ttl attribute
