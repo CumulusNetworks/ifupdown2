@@ -117,6 +117,10 @@ class _NetlinkCache:
         # master_ifname: [slave_ifname, slave_ifname]
         self._masters_and_slaves = {}
 
+        # slave/master dictionary
+        # slave_ifname: master_ifname
+        self._slaves_master = {}
+
         # RLock is needed because we don't want to have separate handling in
         # get_ifname, get_ifindex and all the API function
         self._cache_lock = threading.RLock()
@@ -266,7 +270,10 @@ class _NetlinkCache:
                 self._masters_and_slaves[master].remove(slave)
             except:
                 pass
-
+            try:
+                del self._slaves_master[slave]
+            except:
+                pass
 
     def DEBUG_IFNAME(self, ifname, with_addresses=False):
         """
@@ -593,7 +600,7 @@ class _NetlinkCache:
         """
         try:
             with self._cache_lock:
-                return self._ifname_by_ifindex[self._link_cache[ifname].attributes[nlpacket.Link.IFLA_MASTER].value]
+                return self._slaves_master[ifname]
         except (KeyError, AttributeError):
             return None
         except TypeError as e:
@@ -620,7 +627,7 @@ class _NetlinkCache:
         """
         try:
             with self._cache_lock:
-                return slave in self._masters_and_slaves[master]
+                return self._slaves_master[slave] == master
         except KeyError:
             return False
 
@@ -699,7 +706,7 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 # we are assuming that bridge_name is a valid bridge?
-                return brport_name in self._masters_and_slaves[bridge_name]
+                return self._slaves_master[brport_name] == bridge_name
         except (KeyError, AttributeError):
             return False
         except TypeError as e:
@@ -778,8 +785,8 @@ class _NetlinkCache:
                 return
 
         # we need to check if the device was previously enslaved
-        # so we can update the _masters_and_slaves dictionary if
-        # the master has changed or was un-enslaved.
+        # so we can update the _masters_and_slaves and _slaves_master
+        # dictionaries if the master has changed or was un-enslaved.
         old_ifla_master = None
 
         with self._cache_lock:
@@ -857,6 +864,11 @@ class _NetlinkCache:
                         self._masters_and_slaves[self.get_ifname(old_ifla_master)].remove(ifname)
                     except (KeyError, NetlinkCacheIfindexNotFoundError):
                         pass
+
+                    try:
+                        del self._slaves_master[ifname]
+                    except:
+                        pass
                 else:
                     # the master status didn't change we can assume that our internal
                     # masters_slaves dictionary is up to date and return here
@@ -894,6 +906,8 @@ class _NetlinkCache:
             else:
                 self._masters_and_slaves[master_ifname] = set([ifname])
 
+            self._slaves_master[ifname] = master_ifname
+
     def force_add_slave(self, master, slave):
         """
         When calling link_set_master, we don't want to wait for the RTM_GETLINK
@@ -911,6 +925,8 @@ class _NetlinkCache:
                     self._masters_and_slaves[master] = {slave}
                 else:
                     master_slaves.add(slave)
+
+                self._slaves_master[slave] = master
         except:
             # since this is an optimization function we can ignore all error
             pass
@@ -932,6 +948,10 @@ class _NetlinkCache:
                         break
         except:
             # since this is an optimization function we can ignore all error
+            pass
+        try:
+            del self._slaves_master[slave_ifname]
+        except:
             pass
 
     def force_remove_link(self, ifname):
@@ -1015,6 +1035,10 @@ class _NetlinkCache:
             # if the device was enslaved to another device we need to remove
             # it's entry from our _masters_and_slaves dictionary
             if link_ifla_master > 0:
+                try:
+                    del self._slaves_master[ifname]
+                except:
+                    pass
                 try:
                     master_ifname = self.get_ifname(link_ifla_master)
                     self._masters_and_slaves[master_ifname].remove(ifname)
@@ -2273,7 +2297,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         if master_ifindex:
             self.cache.force_add_slave(master_ifname, ifname)
         else:
-            self.cache.force_remove_slave(ifname)
+            self.cache.override_unslave_link(slave=ifname, master=master_ifname)
         return result
 
     def link_set_master(self, ifname, master_ifname):
