@@ -3,6 +3,7 @@ Description=ifupdown2 daemon
 Documentation=man:interfaces(5)
 DefaultDependencies=no
 Before=shutdown.target networking.service
+After=syslog.service
 Conflicts=shutdown.target
 
 [Service]
