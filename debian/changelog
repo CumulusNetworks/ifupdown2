@@ -2,8 +2,7 @@ ifupdown2 (2.0.0-cl4u0) UNRELEASED; urgency=medium
 
   * New. Enabled: ifupdown2 as a daemon
   * New. Enabled: add support for vxlan multicast group (vxlan-mcastgrp)
-  * New. Enabled: set bridge-arp-nd-suppress on by default on brport vxlan intfs
-                  controlled by new policy: "bridge-vxlan-arp-nd-suppres"
+  * New. Enabled: new policy for bridge-arp-nd-suppress
   * New. Enabled: brport vxlan learning controlled by new policy:
                   "bridge_vxlan_port_learning"
   * New. Enabled: bridge: add new policy
