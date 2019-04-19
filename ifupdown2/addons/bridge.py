@@ -2101,8 +2101,8 @@ class bridge(Addon, moduleBase):
         finally:
             if ifaceobj.link_type != ifaceLinkType.LINK_NA:
                 for p in running_ports:
-                    if (ifaceobj_getfunc(p)[0].link_privflags &
-                            ifaceLinkPrivFlags.KEEP_LINK_DOWN):
+                    ifaceobj_list = ifaceobj_getfunc(p)
+                    if (ifaceobj_list and ifaceobj_list[0].link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN):
                         self.netlink.link_down(p)
                         continue
                     try:
