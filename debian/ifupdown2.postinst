@@ -70,8 +70,12 @@ case "$1" in
         process_udev
         chmod +x /usr/share/ifupdown2/__main__.py
 
-        sudo systemctl start ifupdown2 || true
-        sudo systemctl enable ifupdown2 || true
+        # disable ifupdown2d for now
+        sudo systemctl stop ifupdown2 || true
+        sudo systemctl disable ifupdown2 || true
+
+        #sudo systemctl start ifupdown2 || true
+        #sudo systemctl enable ifupdown2 || true
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
