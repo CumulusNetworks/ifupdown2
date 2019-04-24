@@ -658,6 +658,39 @@ class addressvirtual(moduleBase):
                 if self.ipcmd.link_exists(macvlan_ip6_ifname):
                     netlink.link_del(macvlan_ip6_ifname)
 
+        if not ifquery:
+            # check if vrrp attribute was removed/re-assigned
+            old_vrr_ids = set()
+
+            try:
+                for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifname) or []:
+                    for vrr_config in old_ifaceobj.get_attr_value("vrrp") or []:
+                        try:
+                            old_vrr_ids.add(vrr_config.split()[0])
+                        except:
+                            continue
+
+                if old_vrr_ids:
+
+                    for config in user_config_list:
+                        try:
+                            old_vrr_ids.remove(config["id"])
+                        except KeyError:
+                            pass
+
+                    for id_to_remove in old_vrr_ids:
+                        macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), id_to_remove)
+                        macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), id_to_remove)
+
+                        if self.ipcmd.link_exists(macvlan_ip4_ifname):
+                            netlink.link_del(macvlan_ip4_ifname)
+
+                        if self.ipcmd.link_exists(macvlan_ip6_ifname):
+                            netlink.link_del(macvlan_ip6_ifname)
+
+            except Exception as e:
+                self.logger.debug("%s: vrrp: failure while removing unused macvlan(s)" % ifname)
+
         return user_config_list
 
     def translate_addrvirtual_user_config_to_list(self, ifaceobj, address_virtual_list):
