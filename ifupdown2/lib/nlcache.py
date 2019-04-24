@@ -1237,6 +1237,7 @@ class _NetlinkCache:
 class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject):
 
     __instance = None
+    VXLAN_UDP_PORT = 4789
 
     @staticmethod
     def get_instance(log_level=None):
@@ -2411,6 +2412,26 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_add_bridge_dry_run(self, ifname):
         self.logger.info("%s: dry_run: netlink: ip link add dev %s type bridge" % (ifname, ifname))
         return True
+
+    ###
+
+    def link_add_vxlan_with_info_data(self, ifname, info_data):
+        self.logger.info(
+            "%s: netlink: ip link add dev %s type vxlan id %s (with attributes)"
+            % (ifname, ifname, info_data.get(nlpacket.Link.IFLA_VXLAN_ID))
+        )
+        self.logger.debug("%s" % info_data)
+        debug = nlpacket.RTM_NEWLINK in self.debug
+        link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+        link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+        link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
+            nlpacket.Link.IFLA_INFO_KIND: "vxlan",
+            nlpacket.Link.IFLA_INFO_DATA: info_data
+        })
+        link.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
 
     ############################################################################
     # ADDRESS

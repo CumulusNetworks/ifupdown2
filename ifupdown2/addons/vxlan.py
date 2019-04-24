@@ -13,6 +13,8 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.nlcache import NetlinkCacheIfnameNotFoundError
+
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import *
@@ -25,6 +27,8 @@ except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
 
     from lib.addon import Addon
+    from lib.nlcache import NetlinkCacheIfnameNotFoundError
+
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import *
@@ -108,11 +112,13 @@ class vxlan(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        purge_remotes = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vxlan-purge-remotes')
-        if purge_remotes:
-            self._purge_remotes = utils.get_boolean_from_string(purge_remotes)
-        else:
-            self._purge_remotes = False
+
+        self._vxlan_purge_remotes = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="vxlan-purge-remotes"
+            )
+        )
         self._vxlan_local_tunnelip = None
         self._clagd_vxlan_anycast_ip = ""
 
@@ -182,7 +188,335 @@ class vxlan(Addon, moduleBase):
 
         return None
 
-    def vxlan_getphysdev(self, ifaceobj, mcastgrp):
+    def _set_global_local_ip(self, ifaceobj):
+        vxlan_local_tunnel_ip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+        if vxlan_local_tunnel_ip and not self._vxlan_local_tunnelip:
+            self._vxlan_local_tunnelip = vxlan_local_tunnel_ip
+
+    @staticmethod
+    def _is_vxlan_device(ifaceobj):
+        return ifaceobj.link_kind & ifaceLinkKind.VXLAN or ifaceobj.get_attr_value_first('vxlan-id')
+
+    def __get_vlxan_purge_remotes(self, ifaceobj):
+        if not ifaceobj:
+            return self._vxlan_purge_remotes
+        purge_remotes = ifaceobj.get_attr_value_first('vxlan-purge-remotes')
+        if purge_remotes:
+            purge_remotes = utils.get_boolean_from_string(purge_remotes)
+        else:
+            purge_remotes = self._vxlan_purge_remotes
+        return purge_remotes
+
+    def get_vxlan_ttl_from_string(self, ttl_config):
+        ttl = 0
+        if ttl_config:
+            if ttl_config.lower() == "auto":
+                ttl = 0
+            else:
+                ttl = int(ttl_config)
+        return ttl
+
+    def __config_vxlan_id(self, ifname, ifaceobj, vxlan_id_str, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Get vxlan-id user config and check it's value before inserting it in our netlink dictionary
+        :param ifname:
+        :param ifaceobj:
+        :param vxlan_id_str:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        try:
+            vxlan_id = int(vxlan_id_str)
+            cached_vxlan_id = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_ID)
+
+            if cached_vxlan_id and cached_vxlan_id != vxlan_id:
+                self.log_error(
+                    "%s: Cannot change running vxlan id (%s): Operation not supported"
+                    % (ifname, cached_vxlan_id),
+                    ifaceobj
+                )
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_ID] = vxlan_id
+        except ValueError:
+            self.log_error("%s: invalid vxlan-id '%s'" % (ifname, vxlan_id_str), ifaceobj)
+
+    def __get_vxlan_ageing_int(self, ifname, ifaceobj, link_exists):
+        """
+        Get vxlan-ageing user config or via policy, return integer value, None or raise on error
+        :param ifname:
+        :param ifaceobj:
+        :param link_exists:
+        :return:
+        """
+        vxlan_ageing_str = ifaceobj.get_attr_value_first("vxlan-ageing")
+        try:
+            if vxlan_ageing_str:
+                return int(vxlan_ageing_str)
+
+            vxlan_ageing_str = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr="vxlan-ageing"
+            )
+
+            if not vxlan_ageing_str and link_exists:
+                # if link doesn't exist we let the kernel define ageing
+                vxlan_ageing_str = self.get_attr_default_value("vxlan-ageing")
+
+                if vxlan_ageing_str:
+                    return int(vxlan_ageing_str)
+        except:
+            self.log_error("%s: invalid vxlan-ageing '%s'" % (ifname, vxlan_ageing_str), ifaceobj)
+
+    def __config_vxlan_ageing(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Check user config vxlan-ageing and insert it in our netlink dictionary if needed
+        """
+        vxlan_ageing = self.__get_vxlan_ageing_int(ifname, ifaceobj, link_exists)
+
+        if not vxlan_ageing or (link_exists and vxlan_ageing == cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_AGEING)):
+            return
+
+        user_request_vxlan_info_data[Link.IFLA_VXLAN_AGEING] = vxlan_ageing
+
+    def __config_vxlan_port(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Check vxlan-port user config, validate the integer value and insert it in the netlink dictionary if needed
+        :param ifname:
+        :param ifaceobj:
+        :param link_exists:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        vxlan_port_str = ifaceobj.get_attr_value_first("vxlan-port")
+        try:
+            if not vxlan_port_str:
+                vxlan_port_str = policymanager.policymanager_api.get_attr_default(
+                    module_name=self.__class__.__name__,
+                    attr="vxlan-port"
+                )
+
+            try:
+                vxlan_port = int(vxlan_port_str)
+            except TypeError:
+                # TypeError means vxlan_port was None
+                # ie: not provided by the user or the policy
+                vxlan_port = netlink.VXLAN_UDP_PORT
+            except ValueError as e:
+                self.logger.warning(
+                    "%s: vxlan-port: using default %s: invalid configured value %s"
+                    % (ifname, netlink.VXLAN_UDP_PORT, str(e))
+                )
+                vxlan_port = netlink.VXLAN_UDP_PORT
+
+            cached_vxlan_port = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_PORT)
+
+            if link_exists:
+                if vxlan_port != cached_vxlan_port:
+                    self.logger.warning(
+                        "%s: vxlan-port (%s) cannot be changed - to apply the desired change please run: ifdown %s && ifup %s"
+                        % (ifname, cached_vxlan_port, ifname, ifname)
+                    )
+                return
+
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_PORT] = vxlan_port
+        except:
+            self.log_error("%s: invalid vxlan-port '%s'" % (ifname, vxlan_port_str), ifaceobj)
+
+    def __config_vxlan_ttl(self, ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Get vxlan-ttl from user config or policy, validate integer value and insert in netlink dict
+        :param ifname:
+        :param ifaceobj:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        vxlan_ttl_str = ifaceobj.get_attr_value_first("vxlan-ttl")
+        try:
+            if vxlan_ttl_str:
+                vxlan_ttl = self.get_vxlan_ttl_from_string(vxlan_ttl_str)
+            else:
+                vxlan_ttl = self.get_vxlan_ttl_from_string(
+                    policymanager.policymanager_api.get_attr_default(
+                        module_name=self.__class__.__name__,
+                        attr="vxlan-ttl"
+                    )
+                )
+
+            if vxlan_ttl != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_TTL):
+                user_request_vxlan_info_data[Link.IFLA_VXLAN_TTL] = vxlan_ttl
+        except:
+            self.log_error("%s: invalid vxlan-ttl '%s'" % (ifname, vxlan_ttl_str), ifaceobj)
+
+    def __config_vxlan_local_tunnelip(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Get vxlan-local-tunnelip user config or policy, validate ip address format and insert in netlink dict
+        :param ifname:
+        :param ifaceobj:
+        :param link_exists:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        local = ifaceobj.get_attr_value_first("vxlan-local-tunnelip")
+
+        if not local and self._vxlan_local_tunnelip:
+            local = self._vxlan_local_tunnelip
+
+        if link_exists:
+            # on ifreload do not overwrite anycast_ip to individual ip
+            # if clagd has modified
+            running_localtunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
+
+            if self._clagd_vxlan_anycast_ip and running_localtunnelip:
+                anycastip = IPAddress(self._clagd_vxlan_anycast_ip)
+                if anycastip == running_localtunnelip:
+                    local = running_localtunnelip
+
+        if not local:
+            local = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr="vxlan-local-tunnelip"
+            )
+
+        if local:
+            try:
+                local = IPv4Address(local)
+            except AddressValueError:
+                try:
+                    local_ip = IPv4Network(local).ip
+                    self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
+                    local = local_ip
+                except:
+                    raise Exception("%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format" % (ifname, local))
+
+        if local and local != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL):
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = local
+
+            # if both local-ip and anycast-ip are identical the function prints a warning
+            self.syntax_check_localip_anycastip_equal(ifname, local, self._clagd_vxlan_anycast_ip)
+
+        return local
+
+    def __get_vxlan_mcast_grp(self, ifaceobj):
+        """
+        Get vxlan-mcastgrp user config or policy
+        :param ifaceobj:
+        :return:
+        """
+        vxlan_mcast_grp = ifaceobj.get_attr_value_first("vxlan-mcastgrp")
+
+        if not vxlan_mcast_grp:
+            vxlan_mcast_grp = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr="vxlan-mcastgrp"
+            )
+
+        return vxlan_mcast_grp
+
+    def __get_vxlan_svcnodeip(self, ifaceobj):
+        """
+        Get vxlan-svcnodeip user config or policy
+        :param ifaceobj:
+        :return:
+        """
+        vxlan_svcnodeip = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
+
+        if not vxlan_svcnodeip:
+            vxlan_svcnodeip = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr="vxlan-svcnodeip"
+            )
+
+        return vxlan_svcnodeip
+
+    def __config_vxlan_group(self, ifname, ifaceobj, mcast_grp, group, physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        vxlan-mcastgrp and vxlan-svcnodeip are mutually exclusive
+        this function validates ip format for both attribute and tries to understand
+        what the user really want (remote or group option).
+
+        :param ifname:
+        :param ifaceobj:
+        :param mcast_grp:
+        :param group:
+        :param physdev:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        if mcast_grp and group:
+            self.log_error("%s: both group (vxlan-mcastgrp %s) and "
+                           "remote (vxlan-svcnodeip %s) cannot be specified"
+                           % (ifname, mcast_grp, group), ifaceobj)
+
+        if group:
+            try:
+                group = IPv4Address(group)
+            except AddressValueError:
+                try:
+                    group_ip = IPv4Network(group).ip
+                    self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
+                    group = group_ip
+                except:
+                    raise Exception("%s: invalid vxlan-svcnodeip %s: must be in ipv4 format" % (ifname, group))
+
+            if group.is_multicast:
+                self.logger.warning("%s: vxlan-svcnodeip %s: invalid group address, "
+                                    "for multicast IP please use attribute \"vxlan-mcastgrp\"" % (ifname, group))
+                # if svcnodeip is used instead of mcastgrp we warn the user
+                # if mcast_grp is not provided by the user we can instead
+                # use the svcnodeip value
+                if not physdev:
+                    self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
+
+        if mcast_grp:
+            try:
+                mcast_grp = IPv4Address(mcast_grp)
+            except AddressValueError:
+                try:
+                    group_ip = IPv4Network(mcast_grp).ip
+                    self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
+                    mcast_grp = group_ip
+                except:
+                    raise Exception("%s: invalid vxlan-mcastgrp %s: must be in ipv4 format" % (ifname, mcast_grp))
+
+            if not mcast_grp.is_multicast:
+                self.logger.warning("%s: vxlan-mcastgrp %s: invalid group address, "
+                                    "for non-multicast IP please use attribute \"vxlan-svcnodeip\""
+                                    % (ifname, mcast_grp))
+                # if mcastgrp is specified with a non-multicast address
+                # we warn the user. If the svcnodeip wasn't specified by
+                # the user we can use the mcastgrp value as svcnodeip
+                if not group:
+                    group = mcast_grp
+                    mcast_grp = None
+
+            if mcast_grp:
+                group = mcast_grp
+
+                if not physdev:
+                    self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
+
+        if group != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_GROUP):
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP] = group
+
+        return group
+
+    def __config_vxlan_learning(self, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        if not link_exists or not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+            vxlan_learning = ifaceobj.get_attr_value_first('vxlan-learning')
+            if not vxlan_learning:
+                vxlan_learning = self.get_attr_default_value('vxlan-learning')
+            vxlan_learning = utils.get_boolean_from_string(vxlan_learning)
+        else:
+            vxlan_learning = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LEARNING)
+
+        if vxlan_learning != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LEARNING):
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_LEARNING] = vxlan_learning
+
+    def __get_vxlan_physdev(self, ifaceobj, mcastgrp):
         """
         vxlan-physdev wrapper, special handling is required for mcastgrp is provided
         the vxlan needs to use a dummy or real device for tunnel endpoint communication
@@ -211,371 +545,133 @@ class vxlan(Addon, moduleBase):
 
         return physdev
 
-    def _set_global_local_ip(self, ifaceobj):
-        vxlan_local_tunnel_ip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
-        if vxlan_local_tunnel_ip and not self._vxlan_local_tunnelip:
-            self._vxlan_local_tunnelip = vxlan_local_tunnel_ip
-
-    @staticmethod
-    def _is_vxlan_device(ifaceobj):
-        return ifaceobj.link_kind & ifaceLinkKind.VXLAN or ifaceobj.get_attr_value_first('vxlan-id')
-
-    def _get_purge_remotes(self, ifaceobj):
-        if not ifaceobj:
-            return self._purge_remotes
-        purge_remotes = ifaceobj.get_attr_value_first('vxlan-purge-remotes')
-        if purge_remotes:
-            purge_remotes = utils.get_boolean_from_string(purge_remotes)
-        else:
-            purge_remotes = self._purge_remotes
-        return purge_remotes
-
-    @staticmethod
-    def should_create_set_vxlan(link_exists, vxlan_id, local, learning, ageing, group, ttl, cached_vxlan_ifla_info_data):
-        """
-            should we issue a netlink: ip link add dev %ifname type vxlan ...?
-            checking each attribute against the cache
-        """
-        if not link_exists:
-            return True
-
-        try:
-            if ageing:
-                ageing = int(ageing)
-        except:
-            pass
-
-        for nl_attr, nl_value in (
-                (Link.IFLA_VXLAN_ID, vxlan_id),
-                (Link.IFLA_VXLAN_AGEING, ageing),
-                (Link.IFLA_VXLAN_LOCAL, local),
-                (Link.IFLA_VXLAN_LEARNING, learning),
-                (Link.IFLA_VXLAN_GROUP, group),
-                (Link.IFLA_VXLAN_TTL, ttl),
-        ):
-            if nl_value != cached_vxlan_ifla_info_data.get(nl_attr):
-                return True
-        return False
-
-    def get_vxlan_ttl_from_string(self, ttl_config):
-        ttl = 0
-        if ttl_config:
-            if ttl_config.lower() == "auto":
-                ttl = 0
-            else:
-                ttl = int(ttl_config)
-        return ttl
-
-    def _vxlan_create(self, ifaceobj):
-        vxlanid = ifaceobj.get_attr_value_first('vxlan-id')
-        if vxlanid:
-            ifname = ifaceobj.name
-            anycastip = self._clagd_vxlan_anycast_ip
-            # TODO: vxlan._clagd_vxlan_anycast_ip should be a IPNetwork obj
-            group = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
-            mcast_grp = ifaceobj.get_attr_value_first("vxlan-mcastgrp")
-
-            local = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
-            if not local and self._vxlan_local_tunnelip:
-                local = self._vxlan_local_tunnelip
-
-            ttl_config = ifaceobj.get_attr_value_first('vxlan-ttl')
+    def __config_vxlan_physdev(self, ifaceobj, vxlan_physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        if vxlan_physdev:
             try:
-                if not ttl_config:
-                    ttl_config = policymanager.policymanager_api.get_attr_default(
-                        module_name=self.__class__.__name__,
-                        attr='vxlan-ttl'
-                    )
-
-                ttl = int(ttl_config or 0)
-            except:
-                self.log_error('%s: invalid vxlan-ttl \'%s\'' % (ifname, ttl_config), ifaceobj)
-                return
-
-            ttl_config = ifaceobj.get_attr_value_first('vxlan-ttl')
-            try:
-                if ttl_config:
-                    ttl = self.get_vxlan_ttl_from_string(ttl_config)
-                else:
-                    ttl = self.get_vxlan_ttl_from_string(
-                        policymanager.policymanager_api.get_attr_default(
-                            module_name=self.__class__.__name__,
-                            attr='vxlan-ttl'
-                        )
-                    )
-            except:
-                self.log_error('%s: invalid vxlan-ttl \'%s\'' % (ifname, ttl_config), ifaceobj)
-                return
-
-            self.syntax_check_localip_anycastip_equal(ifname, local, anycastip)
-            # if both local-ip and anycast-ip are identical the function prints a warning
-
-            ageing = ifaceobj.get_attr_value_first('vxlan-ageing')
-            vxlan_port = ifaceobj.get_attr_value_first('vxlan-port')
-            purge_remotes = self._get_purge_remotes(ifaceobj)
-            physdev = self.vxlan_getphysdev(ifaceobj, mcast_grp)
-
-            link_exists = netlink.cache.link_exists(ifname)
-
-            try:
-                vxlanid = int(vxlanid)
-            except:
-                self.log_error('%s: invalid vxlan-id \'%s\'' % (ifname, vxlanid), ifaceobj)
-
-            if link_exists:
-
-                device_link_kind = netlink.cache.get_link_kind(ifname)
-                if device_link_kind != "vxlan":
-                    self.logger.error("%s: device already exists and is not a vxlan" % ifname)
-                    ifaceobj.set_status(ifaceStatus.ERROR)
-                    return
-                elif device_link_kind != "vxlan":
-                    self.logger.error("%s: device already exists and is not a vxlan (type %s)" % (ifname, device_link_kind))
-                    ifaceobj.set_status(ifaceStatus.ERROR)
-                    return
-
-                cached_vxlan_ifla_info_data = netlink.cache.get_link_info_data(ifname)
-
-                # on ifreload do not overwrite anycast_ip to individual ip
-                # if clagd has modified
-                running_localtunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
-
-                if anycastip and running_localtunnelip:
-                    anycastip = IPAddress(anycastip)
-                    if anycastip == running_localtunnelip:
-                        local = running_localtunnelip
-
-                if cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_ID) != vxlanid:
-                    self.log_error('%s: Cannot change running vxlan id: '
-                                   'Operation not supported' % ifname, ifaceobj)
-            else:
-                cached_vxlan_ifla_info_data = {}
-
-            if not link_exists or not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
-                vxlan_learning = ifaceobj.get_attr_value_first('vxlan-learning')
-                if not vxlan_learning:
-                    vxlan_learning = self.get_attr_default_value('vxlan-learning')
-                learning = utils.get_boolean_from_string(vxlan_learning)
-            else:
-                learning = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LEARNING)
-
-            #
-            # vxlan-svcnodeip
-            # vxlan-mcastgrp
-            #
-
-            if not group:
-                group = policymanager.policymanager_api.get_attr_default(
-                    module_name=self.__class__.__name__,
-                    attr='vxlan-svcnodeip'
-                )
-
-            if not mcast_grp:
-                mcast_grp = policymanager.policymanager_api.get_attr_default(
-                    module_name=self.__class__.__name__,
-                    attr='vxlan-mcastgrp'
-                )
-
-            if mcast_grp and group:
-                self.log_error("%s: both group (vxlan-mcastgrp %s) and "
-                               "remote (vxlan-svcnodeip %s) cannot be specified"
-                               % (ifname, mcast_grp, group), ifaceobj)
-
-            if group:
+                vxlan_physdev_ifindex = self.cache.get_ifindex(vxlan_physdev)
+            except NetlinkCacheIfnameNotFoundError:
                 try:
-                    group = IPv4Address(group)
-                except AddressValueError:
-                    try:
-                        group_ip = IPv4Network(group).ip
-                        self.logger.warning('%s: vxlan-svcnodeip %s: netmask ignored' % (ifname, group))
-                        group = group_ip
-                    except:
-                        raise Exception('%s: invalid vxlan-svcnodeip %s: must be in ipv4 format' % (ifname, group))
-
-                if group.is_multicast:
-                    self.logger.warning('%s: vxlan-svcnodeip %s: invalid group address, '
-                                        'for multicast IP please use attribute "vxlan-mcastgrp"' % (ifname, group))
-                    # if svcnodeip is used instead of mcastgrp we warn the user
-                    # if mcast_grp is not provided by the user we can instead
-                    # use the svcnodeip value
-                    if not physdev:
-                        self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
-
-            if mcast_grp:
-                try:
-                    mcast_grp = IPv4Address(mcast_grp)
-                except AddressValueError:
-                    try:
-                        group_ip = IPv4Network(mcast_grp).ip
-                        self.logger.warning('%s: vxlan-mcastgrp %s: netmask ignored' % (ifname, mcast_grp))
-                        mcast_grp = group_ip
-                    except:
-                        raise Exception('%s: invalid vxlan-mcastgrp %s: must be in ipv4 format' % (ifname, mcast_grp))
-
-                if not mcast_grp.is_multicast:
-                    self.logger.warning('%s: vxlan-mcastgrp %s: invalid group address, '
-                                        'for non-multicast IP please use attribute "vxlan-svcnodeip"'
-                                        % (ifname, mcast_grp))
-                    # if mcastgrp is specified with a non-multicast address
-                    # we warn the user. If the svcnodeip wasn't specified by
-                    # the user we can use the mcastgrp value as svcnodeip
-                    if not group:
-                        group = mcast_grp
-                        mcast_grp = None
-
-                if mcast_grp:
-                    group = mcast_grp
-
-                    if not physdev:
-                        self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
-
-            #
-            # vxlan-local-tunnelip
-            #
-
-            if not local:
-                local = policymanager.policymanager_api.get_attr_default(
-                    module_name=self.__class__.__name__,
-                    attr='vxlan-local-tunnelip'
-                )
-
-            if local:
-                try:
-                    local = IPv4Address(local)
-                except AddressValueError:
-                    try:
-                        local_ip = IPv4Network(local).ip
-                        self.logger.warning('%s: vxlan-local-tunnelip %s: netmask ignored' % (ifname, local))
-                        local = local_ip
-                    except:
-                        raise Exception('%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format' % (ifname, local))
-
-            if not ageing:
-                ageing = policymanager.policymanager_api.get_attr_default(
-                    module_name=self.__class__.__name__,
-                    attr='vxlan-ageing'
-                )
-
-                if not ageing and link_exists:
-                    # if link doesn't exist we let the kernel define ageing
-                    ageing = self.get_attr_default_value('vxlan-ageing')
-
-            if not vxlan_port:
-                vxlan_port = policymanager.policymanager_api.get_attr_default(
-                    module_name=self.__class__.__name__,
-                    attr='vxlan-port'
-                )
-
-            try:
-                vxlan_port = int(vxlan_port)
-            except TypeError:
-                # TypeError means vxlan_port was None
-                # ie: not provided by the user or the policy
-                vxlan_port = netlink.VXLAN_UDP_PORT
-            except ValueError as e:
-                self.logger.warning('%s: vxlan-port: using default %s: invalid configured value %s' % (ifname, netlink.VXLAN_UDP_PORT, str(e)))
-                vxlan_port = netlink.VXLAN_UDP_PORT
-
-            if link_exists and not ifupdownflags.flags.DRYRUN:
-                cache_port = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_PORT)
-
-                if vxlan_port != cache_port:
-                    self.logger.warning('%s: vxlan-port (%s) cannot be changed - to apply the desired change please run: ifdown %s && ifup %s'
-                                        % (ifname, cache_port, ifname, ifname))
-                    vxlan_port = cache_port
-
-            if self.should_create_set_vxlan(link_exists, vxlanid, local, learning, ageing, group, ttl, cached_vxlan_ifla_info_data):
-                try:
-                    netlink.link_add_vxlan(ifname, vxlanid,
-                                           local=local,
-                                           learning=learning,
-                                           ageing=ageing,
-                                           group=group,
-                                           dstport=vxlan_port,
-                                           physdev=physdev,
-                                           ttl=ttl)
-                except Exception as e_netlink:
-                    self.logger.debug('%s: vxlan netlink: %s' % (ifname, str(e_netlink)))
-                    try:
-                        self.iproute2.link_create_vxlan(ifname, vxlanid,
-                                                     localtunnelip=local,
-                                                     svcnodeip=group,
-                                                     remoteips=ifaceobj.get_attr_value('vxlan-remoteip'),
-                                                     learning='on' if learning else 'off',
-                                                     ageing=ageing,
-                                                     ttl=ttl,
-                                                     physdev=physdev)
-                    except Exception as e_iproute2:
-                        self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e_iproute2)))
-                        return
-
-                try:
-                    # manually adding an entry to the caching after creating/updating the vxlan
-                    if ifname not in linkCache.links:
-                        linkCache.links[ifname] = {'linkinfo': {}}
-                    linkCache.links[ifname]['linkinfo'].update({
-                        'learning': learning,
-                        Link.IFLA_VXLAN_LEARNING: learning,
-                        'vxlanid': str(vxlanid),
-                        Link.IFLA_VXLAN_ID: vxlanid
-                    })
-                    if ageing:
-                        linkCache.links[ifname]['linkinfo'].update({
-                            'ageing': ageing,
-                            Link.IFLA_VXLAN_AGEING: int(ageing)
-                        })
+                    vxlan_physdev_ifindex = int(self.sysfs.read_file_oneline("/sys/class/net/%s/ifindex" % vxlan_physdev))
                 except:
-                    pass
-            else:
-                self.logger.info('%s: vxlan already exists' % ifname)
-                # if the vxlan already exists it's already cached
+                    self.logger.error("%s: physdev %s doesn't exists" % (ifaceobj.name, vxlan_physdev))
+                    return
 
-            remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
-            if remoteips:
-                try:
-                    for remoteip in remoteips:
-                        IPv4Address(remoteip)
-                except Exception as e:
-                    self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
-
-            if purge_remotes or remoteips:
-                # figure out the diff for remotes and do the bridge fdb updates
-                # only if provisioned by user and not by an vxlan external
-                # controller.
-                peers = self.iproute2.get_vxlan_peers(ifaceobj.name, group)
-                if local and remoteips and local in remoteips:
-                    remoteips.remove(local)
-                cur_peers = set(peers)
-                if remoteips:
-                    new_peers = set(remoteips)
-                    del_list = cur_peers.difference(new_peers)
-                    add_list = new_peers.difference(cur_peers)
-                else:
-                    del_list = cur_peers
-                    add_list = []
-
-                for addr in del_list:
-                    try:
-                        self.iproute2.bridge_fdb_del(
-                            ifaceobj.name,
-                            "00:00:00:00:00:00",
-                            None, True, addr
-                        )
-                    except:
-                        pass
-
-                for addr in add_list:
-                    try:
-                        self.iproute2.bridge_fdb_append(
-                            ifaceobj.name,
-                            "00:00:00:00:00:00",
-                            None, True, addr
-                        )
-                    except:
-                        pass
+            if vxlan_physdev_ifindex != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LINK):
+                user_request_vxlan_info_data[Link.IFLA_VXLAN_LINK] = vxlan_physdev_ifindex
 
     def _up(self, ifaceobj):
-        self._vxlan_create(ifaceobj)
+        vxlan_id_str = ifaceobj.get_attr_value_first("vxlan-id")
+
+        if not vxlan_id_str:
+            return
+
+        ifname = ifaceobj.name
+        link_exists = self.cache.link_exists(ifname)
+
+        if link_exists:
+            # if link already exists make sure this is a vxlan
+            device_link_kind = self.cache.get_link_kind(ifname)
+
+            if device_link_kind != "vxlan":
+                self.logger.error(
+                    "%s: device already exists and is not a vxlan (type %s)"
+                    % (ifname, device_link_kind)
+                )
+                ifaceobj.set_status(ifaceStatus.ERROR)
+                return
+
+            # get vxlan running attributes
+            cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname)
+        else:
+            cached_vxlan_ifla_info_data = {}
+
+        user_request_vxlan_info_data = {}
+
+        self.__config_vxlan_id(ifname, ifaceobj, vxlan_id_str, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        self.__config_vxlan_learning(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        self.__config_vxlan_ageing(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        self.__config_vxlan_port(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        self.__config_vxlan_ttl(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+
+        vxlan_mcast_grp = self.__get_vxlan_mcast_grp(ifaceobj)
+        vxlan_svcnodeip = self.__get_vxlan_svcnodeip(ifaceobj)
+        vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp)
+
+        self.__config_vxlan_physdev(ifaceobj, vxlan_physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+
+        group = self.__config_vxlan_group(
+            ifname,
+            ifaceobj,
+            vxlan_mcast_grp,
+            vxlan_svcnodeip,
+            vxlan_physdev,
+            user_request_vxlan_info_data,
+            cached_vxlan_ifla_info_data
+        )
+
+        if user_request_vxlan_info_data:
+
+            if link_exists and not len(user_request_vxlan_info_data) > 1:
+                # if the vxlan already exists it's already cached
+                # user_request_vxlan_info_data always contains at least one
+                # element: vxlan-id
+                self.logger.info('%s: vxlan already exists - no change detected' % ifname)
+
+                return
+            try:
+                self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
+            except Exception as e:
+                self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e)))
+
+                import traceback
+                traceback.print_exc()
+
+        vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
+
+        remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
+        if remoteips:
+            try:
+                for remoteip in remoteips:
+                    IPv4Address(remoteip)
+            except Exception as e:
+                self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
+
+        if vxlan_purge_remotes or remoteips:
+            # figure out the diff for remotes and do the bridge fdb updates
+            # only if provisioned by user and not by an vxlan external
+            # controller.
+            peers = self.iproute2.get_vxlan_peers(ifaceobj.name, group)
+            if local and remoteips and local in remoteips:
+                remoteips.remove(local)
+            cur_peers = set(peers)
+            if remoteips:
+                new_peers = set(remoteips)
+                del_list = cur_peers.difference(new_peers)
+                add_list = new_peers.difference(cur_peers)
+            else:
+                del_list = cur_peers
+                add_list = []
+
+            for addr in del_list:
+                try:
+                    self.iproute2.bridge_fdb_del(
+                        ifaceobj.name,
+                        "00:00:00:00:00:00",
+                        None, True, addr
+                    )
+                except:
+                    pass
+
+            for addr in add_list:
+                try:
+                    self.iproute2.bridge_fdb_append(
+                        ifaceobj.name,
+                        "00:00:00:00:00:00",
+                        None, True, addr
+                    )
+                except:
+                    pass
 
     def _down(self, ifaceobj):
         try:
@@ -668,7 +764,7 @@ class vxlan(Addon, moduleBase):
         #
         # vxlan-remoteip
         #
-        purge_remotes = self._get_purge_remotes(ifaceobj)
+        purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
         if purge_remotes or ifaceobj.get_attr_value('vxlan-remoteip'):
             # If purge remotes or if vxlan-remoteip's are set
             # in the config file, we are owners of the installed
@@ -728,7 +824,7 @@ class vxlan(Addon, moduleBase):
         #
         # vxlan-remoteip
         #
-        purge_remotes = self._get_purge_remotes(None)
+        purge_remotes = self.__get_vlxan_purge_remotes(None)
         if purge_remotes:
             # if purge_remotes is on, it means we own the
             # remote ips. Query them and add it to the running config
