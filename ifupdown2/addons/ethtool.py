@@ -96,10 +96,6 @@ class ethtool(Addon, moduleBase):
         if default_val:
             default_val = default_val.lower()
 
-        if running_val in ["none", "notsupported"]:
-            # None and NotSupported ethtool FEC values mean "off"
-            running_val = "off"
-
         # check running values
         if config_val and config_val == running_val:
             return
@@ -308,9 +304,9 @@ class ethtool(Addon, moduleBase):
         """
         try:
             for attr in ethtool_output.splitlines():
-                if attr.startswith('FEC encodings'):
+                if attr.startswith('Configured FEC encodings:'):
                     fec_attrs = attr.split()
-                    return(fec_attrs[fec_attrs.index(':')+1])
+                    return(fec_attrs[fec_attrs.index('encodings:')+1])
         except Exception as e:
             self.logger.debug('ethtool: problems in ethtool set-fec output'
                                ' %s: %s' %(ethtool_output.splitlines(), str(e)))

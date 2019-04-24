@@ -384,7 +384,7 @@ class address(Addon, moduleBase):
                 self.iproute2.bridge_fdb_del(bridgename, hwaddress, vlan)
 
     def __get_ip_addr_with_attributes(self, ifaceobj_list, ifname):
-        user_config_ip_addrs = OrderedDict()
+        user_config_ip_addrs_list = list()
 
         try:
             for ifaceobj in ifaceobj_list:
@@ -424,16 +424,16 @@ class address(Addon, moduleBase):
                     except Exception as e:
                         self.logger.warning("%s: pointopoint %s: %s" % (ifaceobj.name, pointopoint, str(e)))
 
-                    user_config_ip_addrs[addr_obj] = addr_attributes
+                    user_config_ip_addrs_list.append((addr_obj, addr_attributes))
         except Exception as e:
             self.logger.warning("%s: convert string ip address into IPNetwork object: %s" % (ifname, str(e)))
             return False, None
 
-        return True, user_config_ip_addrs
+        return True, user_config_ip_addrs_list
 
     def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs):
         try:
-            for ip, attributes in user_config_ip_addrs.items():
+            for ip, attributes in user_config_ip_addrs:
                 if attributes:
                     self.netlink.addr_add(
                         ifname, ip,
@@ -486,7 +486,7 @@ class address(Addon, moduleBase):
         else:
             ifaceobj_list = [ifaceobj]
 
-        addr_supported, user_config_ip_addrs = self.__get_ip_addr_with_attributes(ifaceobj_list, ifname)
+        addr_supported, user_config_ip_addrs_list = self.__get_ip_addr_with_attributes(ifaceobj_list, ifname)
 
         if not addr_supported:
             return
@@ -500,11 +500,11 @@ class address(Addon, moduleBase):
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
                 self.__add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobj_list, running_ip_addrs)
 
-            user_ip4, user_ip6, ordered_user_configured_ips = self.order_user_configured_addrs(user_config_ip_addrs.keys())
+            user_ip4, user_ip6, ordered_user_configured_ips = self.order_user_configured_addrs(user_config_ip_addrs_list)
 
             if ordered_user_configured_ips == running_ip_addrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, running_ip_addrs):
                 if force_reapply:
-                    self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs)
+                    self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
                 return
             try:
                 # if primary address is not same, there is no need to keep any, reset all addresses.
@@ -520,9 +520,9 @@ class address(Addon, moduleBase):
                     self.netlink.addr_del(ifname, addr)
             except Exception, e:
                 self.log_warn(str(e))
-        if not user_config_ip_addrs:
+        if not user_config_ip_addrs_list:
             return
-        self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs)
+        self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
 
     def compare_running_ips_and_user_config(self, user_ip4, user_ip6, running_addrs):
         """
@@ -574,7 +574,7 @@ class address(Addon, moduleBase):
         ip4 = []
         ip6 = []
 
-        for a in user_config_addrs:
+        for a, _ in user_config_addrs:
             if isinstance(a, IPv6Network):
                 ip6.append(a)
             else:
