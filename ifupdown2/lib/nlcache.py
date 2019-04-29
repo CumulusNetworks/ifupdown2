@@ -2815,6 +2815,110 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
 
+    ###
+
+    def link_add_bond_with_info_data(self, ifname, ifla_info_data):
+        self.logger.info(
+            "%s: netlink: ip link add dev %s type bond (with attributes)"
+            % (ifname, ifname)
+        )
+        self.logger.debug("attributes: %s" % ifla_info_data)
+
+        try:
+            debug = nlpacket.RTM_NEWLINK in self.debug
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+            link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
+                nlpacket.Link.IFLA_INFO_KIND: "bond",
+                nlpacket.Link.IFLA_INFO_DATA: ifla_info_data
+            })
+            link.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
+        except Exception as e:
+            raise Exception("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
+
+    def link_add_bond_with_info_data_dry_run(self, ifname, ifla_info_data):
+        self.logger.info(
+            "%s: dry_run: netlink: ip link add dev %s type bond (with attributes)"
+            % (ifname, ifname)
+        )
+        self.logger.debug("attributes: %s" % ifla_info_data)
+
+    ###
+
+    def link_add_bridge_with_info_data(self, ifname, ifla_info_data):
+        self.logger.info(
+            "%s: netlink: ip link add dev %s type bridge (with attributes)"
+            % (ifname, ifname)
+        )
+        self.logger.debug("attributes: %s" % ifla_info_data)
+
+        try:
+            debug = nlpacket.RTM_NEWLINK in self.debug
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+            link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
+                nlpacket.Link.IFLA_INFO_KIND: "bridge",
+                nlpacket.Link.IFLA_INFO_DATA: ifla_info_data
+            })
+            link.build_message(self.sequence.next(), self.pid)
+            return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
+        except Exception as e:
+            raise Exception("%s: netlink: cannot create bridge or set attributes: %s" % (ifname, str(e)))
+
+    def link_add_bridge_with_info_data_dry_run(self, ifname, ifla_info_data):
+        self.logger.info(
+            "%s: dry_run: netlink: ip link add dev %s type bridge (with attributes)"
+            % (ifname, ifname)
+        )
+        self.logger.debug("attributes: %s" % ifla_info_data)
+
+    ###
+
+    def link_set_brport_with_info_slave_data(self, ifname, kind, ifla_info_data, ifla_info_slave_data):
+        """
+        Build and TX a RTM_NEWLINK message to add the desired interface
+        """
+        self.logger.info("%s: netlink: ip link set dev %s: bridge port attributes" % (ifname, ifname))
+        self.logger.debug("attributes: %s" % ifla_info_slave_data)
+
+        try:
+            debug = nlpacket.RTM_NEWLINK in self.debug
+
+            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
+            link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
+            link.body = struct.pack("Bxxxiii", socket.AF_UNSPEC, 0, 0, 0)
+
+            if ifname:
+                link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
+
+            linkinfo = dict()
+
+            if kind:
+                linkinfo[nlpacket.Link.IFLA_INFO_KIND] = kind
+                linkinfo[nlpacket.Link.IFLA_INFO_DATA] = ifla_info_data
+
+            linkinfo[nlpacket.Link.IFLA_INFO_SLAVE_KIND] = "bridge"
+            linkinfo[nlpacket.Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
+
+            link.add_attribute(nlpacket.Link.IFLA_LINKINFO, linkinfo)
+            link.build_message(self.sequence.next(), self.pid)
+
+            # the brport already exists and is cached - after this operation we most
+            # likely don't need to do anything about the brport so we don't need to
+            # wait for the new notification to be cached.
+            return self.tx_nlpacket_get_response_with_error(link)
+        except Exception as e:
+            raise Exception("netlink: %s: cannot set %s (bridge slave) with options: %s" % (kind, ifname, str(e)))
+
+    def link_set_brport_with_info_slave_data_dry_run(self, ifname, _, __, ifla_info_slave_data):
+        self.logger.info("%s: dry_run: netlink: ip link set dev %s: bridge port attributes" % (ifname, ifname))
+        self.logger.debug("attributes: %s" % ifla_info_slave_data)
+
     ############################################################################
     # ADDRESS
     ############################################################################

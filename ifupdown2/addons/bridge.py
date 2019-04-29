@@ -22,7 +22,6 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
@@ -38,7 +37,6 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.LinkUtils import LinkUtils
@@ -1431,7 +1429,7 @@ class bridge(Addon, moduleBase):
             self.logger.warning('%s: bridge stp: %s' % (ifname, str(e)))
 
         if ifla_info_data:
-            netlink.link_add_set(ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data, link_exists=True)
+            self.netlink.link_add_bridge_with_info_data(ifname, ifla_info_data)
 
     def _check_vids(self, ifaceobj, vids):
         ret = True
@@ -1659,7 +1657,6 @@ class bridge(Addon, moduleBase):
             # Use the brctlcmd bulk set method: first build a dictionary
             # and then call set
 
-            # netlink.cache.bridge_port_exists(ifaceobj.name, bport)
             # on link_set_master we need to wait until we cache the correct
             # notification and register the brport as slave
             if not self.cache.bridge_port_exists(ifaceobj.name, bport):
@@ -2046,12 +2043,12 @@ class bridge(Addon, moduleBase):
 
                 if brport_ifla_info_slave_data or ifla_info_data:
                     try:
-                        netlink.link_add_set(ifname=brport_name,
-                                             kind=kind,
-                                             ifla_info_data=ifla_info_data,
-                                             slave_kind='bridge',
-                                             ifla_info_slave_data=brport_ifla_info_slave_data,
-                                             link_exists=True)
+                        self.netlink.link_set_brport_with_info_slave_data(
+                            ifname=brport_name,
+                            kind=kind,
+                            ifla_info_data=ifla_info_data,
+                            ifla_info_slave_data=brport_ifla_info_slave_data
+                        )
                     except Exception as e:
                         self.logger.warning('%s: %s: %s' % (ifname, brport_name, str(e)))
 
@@ -2121,7 +2118,7 @@ class bridge(Addon, moduleBase):
             link_just_created = not link_exists
 
         if not link_exists:
-            netlink.link_add_bridge(ifname)
+            self.netlink.link_add_bridge_with_info_data(ifname, {})
         else:
             self.logger.info('%s: bridge already exists' % ifname)
 

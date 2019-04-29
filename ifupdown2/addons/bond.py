@@ -16,7 +16,6 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
 
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -29,7 +28,6 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
     from ifupdown.statemanager import statemanager_api as statemanager
 
     from ifupdownaddons.modulebase import moduleBase
@@ -600,7 +598,7 @@ class bond(Addon, moduleBase):
             self.logger.info('%s: already exists, no change detected' % ifname)
         else:
             try:
-                netlink.link_add_set(kind='bond', ifname=ifname, ifla_info_data=ifla_info_data, link_exists=link_exists)
+                self.netlink.link_add_bond_with_info_data(ifname, ifla_info_data)
             except Exception as e:
                 # defensive code
                 # if anything happens, we try to set up the bond with the sysfs api
