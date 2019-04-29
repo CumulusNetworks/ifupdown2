@@ -2980,6 +2980,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 #    __u32	tstamp; /* updated timestamp, hundredths of seconds */
                 # };
                 log_msg.append("preferred_lft %s" % preferred_lifetime)
+
+                if preferred_lifetime.lower() == "forever":
+                    preferred_lifetime = nlpacket.INFINITY_LIFE_TIME
+
                 packet.add_attribute(nlpacket.Address.IFA_CACHEINFO, (int(preferred_lifetime), nlpacket.INFINITY_LIFE_TIME, 0, 0))
 
             if metric:
