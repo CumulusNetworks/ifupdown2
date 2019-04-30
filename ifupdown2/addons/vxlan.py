@@ -615,12 +615,11 @@ class vxlan(Addon, moduleBase):
                 # user_request_vxlan_info_data always contains at least one
                 # element: vxlan-id
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
-
-                return
-            try:
-                self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
-            except Exception as e:
-                self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e)))
+            else:
+                try:
+                    self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
+                except Exception as e:
+                    self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e)))
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
