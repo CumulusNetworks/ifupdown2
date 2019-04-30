@@ -770,7 +770,8 @@ class iface():
                         outbuf += (indent + '{0:55} {1:>10}'.format(
                               '%s %s' %(cname, cv), status_str)) + '\n'
                     else:
-                        outbuf += indent + '%s %s\n' %(cname, cv)
+                        if cv:
+                            outbuf += indent + '%s %s\n' % (cname, cv)
                     idx += 1
         if with_status:
             outbuf = (outbuf.encode('utf8')
