@@ -502,7 +502,12 @@ class address(Addon, moduleBase):
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
                 self.__add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobj_list, running_ip_addrs)
 
+            # user_ip4, user_ip6 and ordered_user_configured_ips  IP addresses are now represented
+            # in string format. Comparaisons between IPNetwork object are not reliable, i.e.:
+            #    IPNetwork("2001:aa::2/64") == IPNetwork("2001:aa::150/64")
             user_ip4, user_ip6, ordered_user_configured_ips = self.order_user_configured_addrs(user_config_ip_addrs_list)
+
+            running_ip_addrs_str = self.get_ipnetwork_object_list_in_string_format(running_ip_addrs)
 
             if ordered_user_configured_ips == running_ip_addrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, running_ip_addrs):
                 if force_reapply:
@@ -510,21 +515,27 @@ class address(Addon, moduleBase):
                 return
             try:
                 # if primary address is not same, there is no need to keep any, reset all addresses.
-                if ordered_user_configured_ips and running_ip_addrs and ordered_user_configured_ips[0] != running_ip_addrs[0]:
+                if ordered_user_configured_ips and running_ip_addrs_str and ordered_user_configured_ips[0] != running_ip_addrs_str[0]:
                     self.logger.info("%s: primary ip changed (from %s to %s) we need to purge all ip addresses and re-add them"
-                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs[0]))
+                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs_str[0]))
                     skip_addrs = []
                 else:
                     skip_addrs = ordered_user_configured_ips
-                for addr in running_ip_addrs:
+
+                for index, addr in enumerate(running_ip_addrs_str):
                     if addr in skip_addrs:
                         continue
-                    self.netlink.addr_del(ifname, addr)
+                    # we still have to send the IPNetwork object
+                    # to the netlink "addr_del" API
+                    self.netlink.addr_del(ifname, running_ip_addrs[index])
             except Exception, e:
                 self.log_warn(str(e))
         if not user_config_ip_addrs_list:
             return
         self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
+
+    def get_ipnetwork_object_list_in_string_format(self, obj_list):
+        return [str(obj) for obj in obj_list]
 
     def compare_running_ips_and_user_config(self, user_ip4, user_ip6, running_addrs):
         """
@@ -577,10 +588,10 @@ class address(Addon, moduleBase):
         ip6 = []
 
         for a, _ in user_config_addrs:
-            if isinstance(a, IPv6Network):
-                ip6.append(a)
+            if a.version == 6:
+                ip6.append(str(a))
             else:
-                ip4.append(a)
+                ip4.append(str(a))
 
         return ip4, ip6, ip4 + ip6
 
