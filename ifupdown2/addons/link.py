@@ -100,7 +100,7 @@ class link(Addon, moduleBase):
                 self.iproute2.link_add_veth(ifaceobj.name, peer_name)
 
         elif link_type:
-            self.iproute2.link_add(ifaceobj.name, link_type)
+            self.netlink.link_add(ifname=ifaceobj.name, kind=link_type)
 
     def _down(self, ifaceobj):
         if not ifaceobj.get_attr_value_first('link-type'):
