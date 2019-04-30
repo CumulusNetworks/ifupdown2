@@ -1316,18 +1316,18 @@ class _NetlinkCache:
                 # to find which one to remove from the cache
                 obj_to_remove = None
 
-                for cache_addr in self._addr_cache[ifname]:
+                for cache_addr in self._addr_cache[ifname][addr.version]:
                     try:
-                        if cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].with_prefixlen == addr.with_prefixlen:
+                        if cache_addr.attributes[nlpacket.Address.IFA_ADDRESS].value.with_prefixlen == addr.with_prefixlen:
                             obj_to_remove = cache_addr
                     except:
                         try:
-                            if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].with_prefixlen == addr.with_prefixlen:
+                            if cache_addr.attributes[nlpacket.Address.IFA_LOCAL].value.with_prefixlen == addr.with_prefixlen:
                                 obj_to_remove = cache_addr
                         except:
                             return
                 if obj_to_remove:
-                    self._addr_cache[ifname].remove(obj_to_remove)
+                    self._addr_cache[ifname][addr.version].remove(obj_to_remove)
         except:
             pass
 
