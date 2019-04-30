@@ -78,7 +78,7 @@ class link(Addon, moduleBase):
     def _up(self, ifaceobj):
         link_type = ifaceobj.get_attr_value_first('link-type')
         if link_type:
-            self.netlink.link_add_set(ifname=ifaceobj.name, kind=link_type)
+            self.netlink.link_add(ifname=ifaceobj.name, kind=link_type)
 
     def _down(self, ifaceobj):
         if not ifaceobj.get_attr_value_first('link-type'):
