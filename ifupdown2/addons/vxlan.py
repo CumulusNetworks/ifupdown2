@@ -538,7 +538,7 @@ class vxlan(Addon, moduleBase):
             self.logger.info("%s: needs a dummy device (%s) to use for "
                              "multicast termination (vxlan-mcastgrp %s)"
                              % (ifaceobj.name, physdev, mcastgrp))
-            self.netlink._link_add_set(ifname=physdev, kind="dummy", ifla={Link.IFLA_MTU: 65536})
+            self.netlink._link_add_set(ifname=physdev, kind="dummy", ifla={Link.IFLA_MTU: 16000})
             self.netlink.link_up(physdev)
 
         return physdev
