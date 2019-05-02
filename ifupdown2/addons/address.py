@@ -595,10 +595,12 @@ class address(moduleBase):
             return
 
         if ifaceobj.link_kind:
-            # bonds and vxlan devices need an explicit set of mtu.
+            # bonds, vxlan and custom devices (like dummy) need an explicit set of mtu.
             # bridges don't need mtu set
             if (ifaceobj.link_kind & ifaceLinkKind.BOND or
-                ifaceobj.link_kind & ifaceLinkKind.VXLAN):
+                ifaceobj.link_kind & ifaceLinkKind.VXLAN or
+                ifaceobj.link_kind & ifaceLinkKind.OTHER
+            ):
                 running_mtu = self.ipcmd.link_get_mtu(ifaceobj.name)
                 if (self.default_mtu and running_mtu != self.default_mtu):
                     self.ipcmd.link_set(ifaceobj.name, 'mtu', self.default_mtu)
