@@ -432,7 +432,8 @@ class addressvirtual(moduleBase):
                     self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
                                      "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
                 try:
-                    netlink.link_set_protodown(macvlan_ifname, "on")
+                    if link_created:
+                        netlink.link_set_protodown(macvlan_ifname, "on")
                 except Exception as e:
                     self.logger.warning("%s: %s: ip link set dev %s protodown on: operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
             elif user_configured_ipv6_addrgenmode:
