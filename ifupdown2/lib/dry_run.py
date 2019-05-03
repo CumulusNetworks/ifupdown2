@@ -33,8 +33,6 @@ class DryRun(object):
         # Once a new object is created (with DryRun inheritance) we can look
         # in this "cache" to see if we already have an existing dryrun entry
         # and re-use this one.
-        return
-
         for attr_name in dir(self):
             try:
                 # We need to iterate through the object attribute
