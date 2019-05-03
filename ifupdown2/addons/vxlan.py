@@ -274,6 +274,7 @@ class vxlan(Addon, moduleBase):
         if not vxlan_ageing or (link_exists and vxlan_ageing == cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_AGEING)):
             return
 
+        self.logger.info("%s: set vxlan-ageing %s" % (ifname, vxlan_ageing))
         user_request_vxlan_info_data[Link.IFLA_VXLAN_AGEING] = vxlan_ageing
 
     def __config_vxlan_port(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
@@ -317,6 +318,7 @@ class vxlan(Addon, moduleBase):
                     )
                 return
 
+            self.logger.info("%s: set vxlan-port %s" % (ifname, vxlan_port))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_PORT] = vxlan_port
         except:
             self.log_error("%s: invalid vxlan-port '%s'" % (ifname, vxlan_port_str), ifaceobj)
@@ -343,6 +345,7 @@ class vxlan(Addon, moduleBase):
                 )
 
             if vxlan_ttl != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_TTL):
+                self.logger.info("%s: set vxlan-ttl %s" % (ifname, vxlan_ttl_str if vxlan_ttl_str else vxlan_ttl))
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TTL] = vxlan_ttl
         except:
             self.log_error("%s: invalid vxlan-ttl '%s'" % (ifname, vxlan_ttl_str), ifaceobj)
@@ -390,6 +393,7 @@ class vxlan(Addon, moduleBase):
                     raise Exception("%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format" % (ifname, local))
 
         if local and local != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL):
+            self.logger.info("%s: set vxlan-local-tunnelip %s" % (ifname, local))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = local
 
             # if both local-ip and anycast-ip are identical the function prints a warning
@@ -449,6 +453,8 @@ class vxlan(Addon, moduleBase):
                            "remote (vxlan-svcnodeip %s) cannot be specified"
                            % (ifname, mcast_grp, group), ifaceobj)
 
+        attribute_name = "vxlan-svcnodeip"
+
         if group:
             try:
                 group = IPv4Address(group)
@@ -490,6 +496,8 @@ class vxlan(Addon, moduleBase):
                 if not group:
                     group = mcast_grp
                     mcast_grp = None
+            else:
+                attribute_name = "vxlan-mcastgrp"
 
             if mcast_grp:
                 group = mcast_grp
@@ -498,6 +506,7 @@ class vxlan(Addon, moduleBase):
                     self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
 
         if group != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_GROUP):
+            self.logger.info("%s: set %s %s" % (ifname, attribute_name, group))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP] = group
 
         return group
@@ -512,6 +521,7 @@ class vxlan(Addon, moduleBase):
             vxlan_learning = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LEARNING)
 
         if vxlan_learning != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LEARNING):
+            self.logger.info("%s: set vxlan-learning %s" % (ifaceobj.name, "on" if vxlan_learning else "off"))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_LEARNING] = vxlan_learning
 
     def __get_vxlan_physdev(self, ifaceobj, mcastgrp):
@@ -555,6 +565,7 @@ class vxlan(Addon, moduleBase):
                     return
 
             if vxlan_physdev_ifindex != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LINK):
+                self.logger.info("%s: set vxlan-physdev %s" % (ifaceobj.name, vxlan_physdev))
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_LINK] = vxlan_physdev_ifindex
 
     def _up(self, ifaceobj):
