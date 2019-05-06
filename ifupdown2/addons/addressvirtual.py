@@ -634,7 +634,7 @@ class addressvirtual(Addon, moduleBase):
             elif not ip4 and not ifquery:
                 # special check to see if all ipv4 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
-                if self.ipcmd.link_exists(macvlan_ip4_ifname):
+                if self.cache.link_exists(macvlan_ip4_ifname):
                     self.netlink.link_del(macvlan_ip4_ifname)
 
             if ip6 or ifquery:
@@ -666,7 +666,7 @@ class addressvirtual(Addon, moduleBase):
             elif not ip6 and not ifquery:
                 # special check to see if all ipv6 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
-                if self.ipcmd.link_exists(macvlan_ip6_ifname):
+                if self.cache.link_exists(macvlan_ip6_ifname):
                     self.netlink.link_del(macvlan_ip6_ifname)
 
         return user_config_list
