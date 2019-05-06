@@ -16,7 +16,6 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.statemanager as statemanager
@@ -31,7 +30,6 @@ except ImportError:
     from ifupdown.utils import utils
 
     from ifupdownaddons.dhclient import dhclient
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.statemanager as statemanager
@@ -171,7 +169,6 @@ class address(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
         self._bridge_fdb_query_cache = {}
         self.ipforward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip-forward')
         self.ip6forward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip6-forward')
@@ -495,7 +492,7 @@ class address(Addon, moduleBase):
             # if perfmode is not set and purge addresses is set to True
             # lets purge addresses not in the config
 
-            running_ip_addrs = self.ipcmd.get_running_addrs_from_cache(ifaceobj_list, ifname)
+            running_ip_addrs = self.cache.get_ifupdown2_addresses_list(ifaceobj_list, ifname)
 
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
                 self.__add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobj_list, running_ip_addrs)
@@ -997,7 +994,6 @@ class address(Addon, moduleBase):
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist or []:
                         self.netlink.addr_del(ifaceobj.name, addr)
-                    #self.ipcmd.addr_del(ifaceobj.name, ifaceobj.get_attr_value('address')[0])
                 elif not ifaceobj.link_kind:
                     # for logical interfaces we don't need to remove the ip addresses
                     # kernel will do it for us on 'ip link del'
@@ -1006,7 +1002,7 @@ class address(Addon, moduleBase):
                     else:
                         ifaceobj_list = [ifaceobj]
 
-                    for addr in self.ipcmd.get_running_addrs_from_cache(ifaceobj_list, ifaceobj.name):
+                    for addr in self.cache.get_ifupdown2_addresses_list(ifaceobj_list, ifaceobj.name):
                         self.netlink.addr_del(ifaceobj.name, addr)
 
             gateways = ifaceobj.get_attr_value('gateway')
@@ -1182,8 +1178,8 @@ class address(Addon, moduleBase):
         else:
             ifaceobj_list = [ifaceobj]
 
-        intf_running_addrs = self.ipcmd.get_running_addrs_from_cache(ifaceobj_list, ifaceobj.name)
-        user_config_addrs = self.ipcmd.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format([ifaceobj], details=False)
+        intf_running_addrs = self.cache.get_ifupdown2_addresses_list(ifaceobj_list, ifaceobj.name)
+        user_config_addrs = self.cache.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format([ifaceobj], details=False)
 
         try:
             clagd_vxlan_anycast_ip = IPNetwork(ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip'))
@@ -1217,7 +1213,7 @@ class address(Addon, moduleBase):
             if not ifaceobj.flags & iface.YOUNGEST_SIBLING:
                 return
 
-        all_stanza_user_config_ip = self.ipcmd.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
+        all_stanza_user_config_ip = self.cache.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
             ifaceobj_list,
             details=False
         )
@@ -1283,10 +1279,6 @@ class address(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument
 
@@ -1308,7 +1300,6 @@ class address(Addon, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)

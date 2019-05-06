@@ -839,11 +839,11 @@ class addressvirtual(Addon, moduleBase):
 
             # Check mac and ip address
             rhwaddress = ip4_macvlan_hwaddress = self.cache.get_link_address(macvlan_ifacename)
-            raddrs = ip4_running_addrs = self.ipcmd.get_running_addrs(
+            raddrs = ip4_running_addrs =[str(ip) for ip in self.cache.get_ifupdown2_addresses_list(
                 ifname=macvlan_ifacename,
-                details=False,
-                addr_virtual_ifaceobj=ifaceobj
-            )
+                ifaceobj_list=[ifaceobj],
+                with_address_virtual=True
+            )]
 
             if not is_vrr:
                 ips = config.get("ips")
@@ -890,11 +890,12 @@ class addressvirtual(Addon, moduleBase):
                                 ip4_running_addrs,
                                 ip4_config.get("ips")
                         ) and self._check_addresses_in_bridge(ifaceobj, ip4_macvlan_hwaddress):
-                            ip6_running_addrs = self.ipcmd.get_running_addrs(
+                            ip6_running_addrs = [str(ip) for ip in self.cache.get_ifupdown2_addresses_list(
                                 ifname=ip6_macvlan_ifname,
                                 details=False,
-                                addr_virtual_ifaceobj=ifaceobj
-                            )
+                                ifaceobj_list=[ifaceobj],
+                                with_address_virtual=True
+                            )]
 
                             # check all ip6
                             if self.ipcmd.compare_user_config_vs_running_state(
@@ -924,10 +925,11 @@ class addressvirtual(Addon, moduleBase):
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)
             rhwaddress = self.cache.get_link_address(macvlan_ifacename)
-
-            raddress = []
-            for obj in ifaceobj_getfunc(ifaceobjrunning.name) or []:
-                raddress.extend(self.ipcmd.get_running_addrs(None, macvlan_ifacename, addr_virtual_ifaceobj=obj) or [])
+            raddress = [str(ip) for ip in self.cache.get_ifupdown2_addresses_list(
+                ifaceobj_list=ifaceobj_getfunc(ifaceobjrunning.name) or [],
+                ifname=ifaceobjrunning.name,
+                with_address_virtual=True
+            )]
 
             raddress = list(set(raddress))
 

@@ -25,7 +25,6 @@ try:
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.utilsbase import *
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     from lib.addon import Addon
@@ -40,7 +39,6 @@ except ImportError:
 
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -76,7 +74,6 @@ class vrf(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
         self.dhclientcmd = None
         self.name = self.__class__.__name__
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(module_name=self.__class__.__name__, attr='vrf-mgmt-devname')
@@ -452,7 +449,7 @@ class vrf(Addon, moduleBase):
             return
         if (self.vrf_mgmt_devname and
             self.vrf_mgmt_devname == vrfname):
-            self._kill_ssh_connections(ifaceobj.name)
+            self._kill_ssh_connections(ifaceobj.name, ifaceobj)
         if self._is_dhcp_slave(ifaceobj):
             self._down_dhcp_slave(ifaceobj, vrfname)
 
@@ -776,12 +773,23 @@ class vrf(Addon, moduleBase):
         except Exception, e:
             self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
-    def _kill_ssh_connections(self, ifacename):
+    def _kill_ssh_connections(self, ifacename, ifaceobj):
         try:
-            runningaddrsdict = self.ipcmd.get_running_addrs(None, ifacename)
-            if not runningaddrsdict:
+            running_addrs_list = [str(ip) for ip in self.cache.get_ifupdown2_addresses_list(
+                ifaceobj_list=[ifaceobj],
+                ifname=ifacename,
+            )]
+
+            if not running_addrs_list:
                 return
-            iplist = [i.split('/', 1)[0] for i in runningaddrsdict.keys()]
+
+            iplist = [i.split('/', 1)[0] for i in running_addrs_list]
+
+            #runningaddrsdict = self.ipcmd.get_running_addrs(None, ifacename)
+            #if not runningaddrsdict:
+            #    return
+            #iplist = [i.split('/', 1)[0] for i in runningaddrsdict.keys()]
+
             if not iplist:
                 return
             proc=[]
@@ -1083,8 +1091,6 @@ class vrf(Addon, moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
         if not self.dhclientcmd:
             self.dhclientcmd = dhclient()
 
