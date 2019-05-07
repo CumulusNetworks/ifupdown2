@@ -83,7 +83,7 @@ class IPRoute2(Cache, Requirements):
         if self.__batch_mode:
             self.__add_to_batch(cmd)
         else:
-            self.logger.info("dryrun: executing: %s %s" % (prefix, cmd))
+            self.log_info_dry_run("executing: %s %s" % (prefix, cmd))
 
     def batch_start(self):
         self.__batch_mode = True
@@ -188,9 +188,8 @@ class IPRoute2(Cache, Requirements):
     def link_add_macvlan_dry_run(self, ifname, macvlan_ifname, macvlan_mode):
         # this dryrun method can be removed once dryrun handlers
         # are added to the utils module
-        self.logger.info(
-            "%s: dryrun: executing %s link add link %s name %s type macvlan mode %s"
-            % (ifname, utils.ip_cmd, ifname, macvlan_ifname, macvlan_mode)
+        self.log_info_ifname_dry_run(ifname, "executing %s link add link %s name %s type macvlan mode %s"
+            % (utils.ip_cmd, ifname, macvlan_ifname, macvlan_mode)
         )
 
     ###

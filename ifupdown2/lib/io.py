@@ -48,7 +48,7 @@ class IO(BaseObject):
             return False
 
     def write_to_file_dry_run(self, path, string):
-        self.logger.info("dryrun: writing \"%s\" to file %s" % (string, path))
+        self.log_info_dry_run("writing \"%s\" to file %s" % (string, path))
         return True
 
     def read_file_oneline(self, path):
@@ -60,7 +60,7 @@ class IO(BaseObject):
             return None
 
     def read_file_oneline_dry_run(self, path):
-        self.logger.info("dryrun: reading \"%s\"" % path)
+        self.log_info_dry_run("reading \"%s\"" % path)
         return None
 
     def read_file(self, path):

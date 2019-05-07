@@ -2509,10 +2509,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise Exception("%s: cannot create link %s type %s" % (ifname, ifname, kind))
 
     def link_add_dry_run(self, ifname, kind):
-        """
-        Build and TX a RTM_NEWLINK message to add the desired interface
-        """
-        self.logger.info("%s: dryrun: netlink: ip link add dev %s type %s" % (ifname, ifname, kind))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type %s" % (ifname, kind))
 
     ###
 
@@ -2557,10 +2554,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         self.__link_set_flag(ifname, flags=0)
 
     def link_up_dry_run(self, ifname):
-        self.logger.info("%s: dryrun: netlink: ip link set dev %s up" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s up" % ifname)
 
     def link_down_dry_run(self, ifname):
-        self.logger.info("%s: dryrun: netlink: ip link set dev %s down" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s down" % ifname)
 
     ###
 
@@ -2595,10 +2592,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkError(e, "cannot set link %s protodown off" % ifname, ifname=ifname)
 
     def link_set_protodown_on_dry_run(self, ifname):
-        self.logger.info("%s: netlink: set link %s protodown on" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: set link %s protodown on" % ifname)
 
     def link_set_protodown_off_dry_run(self, ifname):
-        self.logger.info("%s: netlink: set link %s protodown off" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: set link %s protodown off" % ifname)
 
     ###
 
@@ -2639,7 +2636,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkError(e, "cannot delete link %s" % ifname, ifname=ifname)
 
     def link_del_dry_run(self, ifname):
-        self.logger.info('%s: dryrun: netlink: ip link del %s' % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link del %s" % ifname)
 
     ###
 
@@ -2677,15 +2674,15 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkError(e, "cannot un-enslave link %s" % ifname, ifname=ifname)
 
     def link_set_master_dry_run(self, ifname, master_dev):
-        self.logger.info("%s: dryrun: netlink: ip link set dev %s master %s" % (ifname, ifname, master_dev))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s master %s" % (ifname, master_dev))
 
     def link_set_nomaster_dry_run(self, ifname):
-        self.logger.info("%s: dryrun: netlink: ip link set dev %s nomaster" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s nomaster" % ifname)
 
     ###
 
     def link_set_address_dry_run(self, ifname, hw_address):
-        self.logger.info("%s: dryrun: netlink: ip link set dev %s address %s" % (ifname, ifname, hw_address))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s address %s" % (ifname, hw_address))
 
     def link_set_address(self, ifname, hw_address):
         is_link_up = self.cache.link_is_up(ifname)
@@ -2725,8 +2722,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                             % (ifname, macvlan_ifname, str(e)))
 
     def link_add_macvlan_dry_run(self, ifname, macvlan_ifame):
-        self.logger.info("%s: dry_run: netlink: ip link add link %s name %s type macvlan mode private"
-                         % (ifname, ifname, macvlan_ifame))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link add link %s name %s type macvlan mode private" % (ifname, macvlan_ifame))
         return True
 
     ###
@@ -2750,7 +2746,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
 
     def link_add_vrf_dry_run(self, ifname, vrf_table):
-        self.logger.info("%s: dry_run: netlink: ip link add dev %s type vrf table %s" % (ifname, ifname, vrf_table))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type vrf table %s" % (ifname, vrf_table))
         return True
 
     ###
@@ -2771,7 +2767,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
 
     def link_add_bridge_dry_run(self, ifname):
-        self.logger.info("%s: dry_run: netlink: ip link add dev %s type bridge" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge" % ifname)
         return True
 
     ###
@@ -2799,10 +2795,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkError(e, "cannot remove bridge vlan %s" % vlan_id, ifname=ifname)
 
     def link_add_bridge_vlan_dry_run(self, ifname, vlan_id):
-        self.logger.info("%s: dry_run: netlink: bridge vlan add vid %s dev %s" % (ifname, vlan_id, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: bridge vlan add vid %s dev %s" % (vlan_id, ifname))
 
-    def link_del_bridge_vlan(self, ifname, vlan_id):
-        self.logger.info("%s: netlink: bridge vlan del vid %s dev %s" % (ifname, vlan_id, ifname))
+    def link_del_bridge_vlan_dry_run(self, ifname, vlan_id):
+        self.log_info_ifname_dry_run(ifname, "netlink: bridge vlan del vid %s dev %s" % (vlan_id, ifname))
 
     ###
 
@@ -2868,12 +2864,18 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         Do this check here so we can provide a more intuitive error
         """
         if vlan_protocol:
-            self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s protocol %s"
-                             % (ifname, vlan_raw_device, ifname, vlan_id, vlan_protocol))
+            self.log_info_ifname_dry_run(
+                ifname,
+                "netlink: ip link add link %s name %s type vlan id %s protocol %s"
+                % (vlan_raw_device, ifname, vlan_id, vlan_protocol)
+            )
 
         else:
-            self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s"
-                             % (ifname, vlan_raw_device, ifname, vlan_id))
+            self.log_info_ifname_dry_run(
+                ifname,
+                "netlink: ip link add link %s name %s type vlan id %s"
+                % (vlan_raw_device, ifname, vlan_id)
+            )
 
     ###
 
@@ -2959,7 +2961,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         if ttl:
             cmd.append("ttl %s" % ttl)
 
-        self.logger.info('%s: netlink: %s' % (ifname, " ".join(cmd)))
+        self.log_info_ifname_dry_run(ifname, "netlink: %s" % " ".join(cmd))
 
     ###
 
@@ -3006,10 +3008,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise Exception("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
 
     def link_add_bond_with_info_data_dry_run(self, ifname, ifla_info_data):
-        self.logger.info(
-            "%s: dry_run: netlink: ip link add dev %s type bond (with attributes)"
-            % (ifname, ifname)
-        )
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bond (with attributes)" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_data)
 
     ###
@@ -3037,10 +3036,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise Exception("%s: netlink: cannot create bridge or set attributes: %s" % (ifname, str(e)))
 
     def link_add_bridge_with_info_data_dry_run(self, ifname, ifla_info_data):
-        self.logger.info(
-            "%s: dry_run: netlink: ip link add dev %s type bridge (with attributes)"
-            % (ifname, ifname)
-        )
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge (with attributes)" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_data)
 
     ###
@@ -3082,7 +3078,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise Exception("netlink: %s: cannot set %s (bridge slave) with options: %s" % (kind, ifname, str(e)))
 
     def link_set_brport_with_info_slave_data_dry_run(self, ifname, _, __, ifla_info_slave_data):
-        self.logger.info("%s: dry_run: netlink: ip link set dev %s: bridge port attributes" % (ifname, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s: bridge port attributes" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_slave_data)
 
     ############################################################################
@@ -3090,7 +3086,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     ############################################################################
 
     def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
-        log_msg = ["%s: dryrun: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
+        log_msg = ["netlink: ip addr add %s dev %s" % (addr, ifname)]
 
         if scope:
             log_msg.append("scope %s" % scope)
@@ -3107,7 +3103,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         if metric:
             log_msg.append("metric %s" % metric)
 
-        self.logger.info(" ".join(log_msg))
+        self.log_info_ifname_dry_run(ifname, " ".join(log_msg))
 
     def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
         log_msg = ["%s: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
@@ -3179,7 +3175,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     ###
 
     def addr_del_dry_run(self, ifname, addr):
-        self.logger.info("%s: dryrun: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
+        self.log_info_ifname_dry_run(ifname, "netlink: ip addr del %s dev %s" % (addr, ifname))
 
     def addr_del(self, ifname, addr):
         if not self.cache.addr_is_cached(ifname, addr):
