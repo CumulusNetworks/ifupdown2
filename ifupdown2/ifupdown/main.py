@@ -16,7 +16,6 @@ import ConfigParser
 
 try:
     from ifupdown2.ifupdown.argv import Parse
-    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
 
@@ -24,7 +23,6 @@ try:
 
 except ImportError:
     from ifupdown.argv import Parse
-    from ifupdown.netlink import netlink
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
 
@@ -62,8 +60,6 @@ class Ifupdown2:
     def main(self, stdin_buffer=None):
         if self.op != 'query' and self.uid != 0:
             raise Exception('must be root to run this command')
-
-        netlink.init()
 
         try:
             self.read_config()
