@@ -1122,49 +1122,6 @@ class LinkUtils(utilsBase):
 
             return None
 
-    def fix_ipv6_route_metric(self, ifaceobj, macvlan_ifacename, ips):
-        vrf_table = None
-
-        if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
-            try:
-                for upper_iface in ifaceobj.upperifaces:
-                    vrf_table = self._get_vrf_id(upper_iface)
-                    if vrf_table:
-                        break
-            except:
-                pass
-
-        ip_route_del = []
-        for ip in ips:
-            ip_network_obj = IPNetwork(ip)
-
-            if type(ip_network_obj) == IPv6Network:
-                route_prefix = '%s/%d' % (ip_network_obj.network, ip_network_obj.prefixlen)
-
-                if vrf_table:
-                    if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-                        LinkUtils.add_to_batch('route del %s table %s dev %s' % (route_prefix, vrf_table, macvlan_ifacename))
-                    else:
-                        utils.exec_commandl([utils.ip_cmd, 'route', 'del', route_prefix, 'table', vrf_table, 'dev', macvlan_ifacename])
-                else:
-                    if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-                        LinkUtils.add_to_batch('route del %s dev %s' % (route_prefix, macvlan_ifacename))
-                    else:
-                        utils.exec_commandl([utils.ip_cmd, 'route', 'del', route_prefix, 'dev', macvlan_ifacename])
-                ip_route_del.append((route_prefix, vrf_table))
-
-        for ip, vrf_table in ip_route_del:
-            if vrf_table:
-                if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-                    LinkUtils.add_to_batch('route add %s table %s dev %s proto kernel metric 9999' % (ip, vrf_table, macvlan_ifacename))
-                else:
-                    utils.exec_commandl([utils.ip_cmd, 'route', 'add', ip, 'table', vrf_table, 'dev', macvlan_ifacename, 'proto', 'kernel' 'metric', '9999'])
-            else:
-                if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
-                    LinkUtils.add_to_batch('route add %s dev %s proto kernel metric 9999' % (ip, macvlan_ifacename))
-                else:
-                    utils.exec_commandl([utils.ip_cmd, 'route', 'add', ip, 'dev', macvlan_ifacename, 'proto', 'kernel' 'metric', '9999'])
-
     def link_create_vlan(self, vlan_device_name, vlan_raw_device, vlanid):
         if self.link_exists(vlan_device_name):
             return

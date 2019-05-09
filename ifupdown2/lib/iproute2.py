@@ -27,17 +27,21 @@ import shlex
 import signal
 import subprocess
 
+from ipaddr import IPNetwork
+
 try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.base_objects import Cache, Requirements
 
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags
     from ifupdown2.nlmanager.nlpacket import Link
 except ImportError:
     from lib.sysfs import Sysfs
     from lib.base_objects import Cache, Requirements
 
     from ifupdown.utils import utils
+    from ifupdown.iface import ifaceLinkPrivFlags
     from nlmanager.nlpacket import Link
 
 
@@ -513,3 +517,47 @@ class IPRoute2(Cache, Requirements):
 
         cmd += " dev %s" % ifname
         utils.exec_command(cmd)
+
+    def fix_ipv6_route_metric(self, ifaceobj, macvlan_ifacename, ips):
+        vrf_table = None
+
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
+            try:
+                for upper_iface in ifaceobj.upperifaces:
+                    vrf_table = self.cache.get_vrf_table(upper_iface)
+                    if vrf_table:
+                        break
+            except:
+                pass
+
+        ip_route_del = []
+        for ip in ips:
+            ip_network_obj = IPNetwork(ip)
+
+            if ip_network_obj.version == 6:
+                route_prefix = '%s/%d' % (ip_network_obj.network, ip_network_obj.prefixlen)
+
+                if vrf_table:
+                    self.__execute_or_batch(
+                        utils.ip_cmd,
+                        "route del %s table %s dev %s" % (route_prefix, vrf_table, macvlan_ifacename)
+                    )
+                else:
+                    self.__execute_or_batch(
+                        utils.ip_cmd,
+                        "route del %s dev %s" % (route_prefix, macvlan_ifacename)
+                    )
+
+                ip_route_del.append((route_prefix, vrf_table))
+
+        for ip, vrf_table in ip_route_del:
+            if vrf_table:
+                self.__execute_or_batch(
+                    utils.ip_cmd,
+                    "route add %s table %s dev %s proto kernel metric 9999" % (ip, vrf_table, macvlan_ifacename)
+                )
+            else:
+                self.__execute_or_batch(
+                    utils.ip_cmd,
+                    "route add %s dev %s proto kernel metric 9999" % (ip, macvlan_ifacename)
+                )

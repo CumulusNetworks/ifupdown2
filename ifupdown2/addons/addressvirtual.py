@@ -485,7 +485,7 @@ class addressvirtual(Addon, moduleBase):
                     if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
                         # if the system doesn't support ip addr set METRIC
                         # we need to do manually check the ordering of the ip6 routes
-                        self.ipcmd.fix_ipv6_route_metric(ifaceobj, macvlan_ifname, ips)
+                        self.iproute2.fix_ipv6_route_metric(ifaceobj, macvlan_ifname, ips)
                 except Exception as e:
                     self.logger.debug('fix_vrf_slave_ipv6_route_metric: failed: %s' % e)
 

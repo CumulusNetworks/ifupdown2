@@ -743,6 +743,13 @@ class _NetlinkCache:
             log.debug("get_vrf_table_map: %s" % str(e))
         return vrf_table_map
 
+    def get_vrf_table(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_VRF_TABLE]
+        except (KeyError, AttributeError):
+            return 0
+
     ##########################################################################
     # BOND ###################################################################
     ##########################################################################
@@ -912,13 +919,6 @@ class _NetlinkCache:
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
 
-    # old
-    def get_vrf_table(self, ifname):
-        try:
-            with self._cache_lock:
-                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_VRF_TABLE]
-        except (KeyError, AttributeError):
-            return 0
 
     #####################################################
     #####################################################
