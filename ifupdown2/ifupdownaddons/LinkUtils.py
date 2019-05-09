@@ -23,7 +23,6 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
 
     from ifupdown2.ifupdownaddons.utilsbase import utilsBase
     from ifupdown2.ifupdownaddons.cache import linkCache, MSTPAttrsCache
@@ -35,7 +34,6 @@ except ImportError:
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
 
     from ifupdownaddons.utilsbase import utilsBase
     from ifupdownaddons.cache import linkCache, MSTPAttrsCache
@@ -83,16 +81,6 @@ class LinkUtils(utilsBase):
             except Exception:
                 LinkUtils.ADDR_METRIC_SUPPORT = False
                 self.logger.info('address metric support: KO')
-
-    def fill_old_cache(self):
-        #
-        # Our old linkCache got some extra information from sysfs
-        # we need to fill it in the same way so nothing breaks.
-        #
-        if netlink.netlink.FILL_OLD_CACHE:
-            self._fill_bond_info(None)
-            self._fill_bridge_info(None)
-            netlink.netlink.FILL_OLD_CACHE = False
 
     @classmethod
     def addr_metric_support(cls):
@@ -1104,23 +1092,6 @@ class LinkUtils(utilsBase):
 
     def link_get_status(self, ifacename):
         return self._cache_get('link', [ifacename, 'ifflag'], refresh=True)
-
-    @staticmethod
-    def _get_vrf_id(ifacename):
-        try:
-            return linkCache.vrfs[ifacename]['table']
-        except KeyError:
-            dump = netlink.link_dump(ifacename)
-
-            [linkCache.update_attrdict([ifname], linkattrs)
-             for ifname, linkattrs in dump.items()]
-
-            if dump and dump.get(ifacename, {}).get('kind') == 'vrf':
-                vrf_table = dump.get(ifacename, {}).get('linkinfo', {}).get('table')
-                linkCache.vrfs[ifacename] = {'table': vrf_table}
-                return vrf_table
-
-            return None
 
     def link_create_vlan(self, vlan_device_name, vlan_raw_device, vlanid):
         if self.link_exists(vlan_device_name):
