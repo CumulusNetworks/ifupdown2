@@ -186,15 +186,15 @@ class addressvirtual(Addon, moduleBase):
             else:
                 vrf_master = None
 
-            dev = self.ipcmd.ip_route_get_dev(route_prefix, vrf_master=vrf_master)
+            dev = self.iproute2.ip_route_get_dev(route_prefix, vrf_master=vrf_master)
 
             if dev and dev != ifaceobj.name:
                 self.logger.info('%s: preferred routing entry ' %ifaceobj.name +
                                  'seems to be of the macvlan dev %s'
                                  %vifacename +
                                  ' .. flapping macvlan dev to fix entry.')
-                self.ipcmd.link_down(vifacename)
-                self.ipcmd.link_up(vifacename)
+                self.iproute2.link_down(vifacename)
+                self.iproute2.link_up(vifacename)
         except Exception, e:
             self.logger.debug('%s: fixing route entry failed (%s)'
                               % (ifaceobj.name, str(e)))

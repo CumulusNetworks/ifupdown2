@@ -561,3 +561,20 @@ class IPRoute2(Cache, Requirements):
                     utils.ip_cmd,
                     "route add %s dev %s proto kernel metric 9999" % (ip, macvlan_ifacename)
                 )
+
+    def ip_route_get_dev(self, prefix, vrf_master=None):
+        try:
+            if vrf_master:
+                cmd = "%s route get %s vrf %s" % (utils.ip_cmd, prefix, vrf_master)
+            else:
+                cmd = "%s route get %s" % (utils.ip_cmd, prefix)
+
+            output = utils.exec_command(cmd)
+            if output:
+                rline = output.splitlines()[0]
+                if rline:
+                    rattrs = rline.split()
+                    return rattrs[rattrs.index("dev") + 1]
+        except Exception, e:
+            self.logger.debug("ip_route_get_dev: failed .. %s" % str(e))
+        return None
