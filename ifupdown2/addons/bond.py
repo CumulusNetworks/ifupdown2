@@ -284,16 +284,11 @@ class bond(Addon, moduleBase):
                 return True
         return False
 
-    def _add_slaves(self, ifaceobj, ifaceobj_getfunc=None):
-        runningslaves = []
-
+    def _add_slaves(self, ifaceobj, runningslaves, ifaceobj_getfunc=None):
         slaves = self._get_slave_list(ifaceobj)
         if not slaves:
             self.logger.debug('%s: no slaves found' %ifaceobj.name)
             return
-
-        if not ifupdownflags.flags.PERFMODE:
-            runningslaves = self.cache.get_slaves(ifaceobj.name)
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
@@ -550,7 +545,7 @@ class bond(Addon, moduleBase):
                 return True
         return False
 
-    def should_update_bond_mode(self, ifaceobj, ifname, is_link_up, ifla_info_data):
+    def should_update_bond_mode(self, ifaceobj, ifname, is_link_up, ifla_info_data, bond_slaves):
         # if bond-mode was changed the bond needs to be brought
         # down and slaves un-slaved before bond mode is changed.
         cached_bond_mode = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
@@ -567,12 +562,17 @@ class bond(Addon, moduleBase):
 
                 for lower_dev in ifaceobj.lowerifaces:
                     self.netlink.link_set_nomaster(lower_dev)
+                    try:
+                        bond_slaves.remove(lower_dev)
+                    except:
+                        pass
+
             else:
                 # bond-mode user config value is the current running(cached) value
                 # no need to reset it again we can ignore this attribute
                 del ifla_info_data[Link.IFLA_BOND_MODE]
 
-        return is_link_up
+        return is_link_up, bond_slaves
 
     def create_or_set_bond_config(self, ifaceobj):
         ifname          = ifaceobj.name
@@ -584,13 +584,21 @@ class bond(Addon, moduleBase):
         # if link exists: down link if specific attributes are specified
         if link_exists:
             # did bond-mode changed?
-            is_link_up = self.should_update_bond_mode(ifaceobj, ifname, is_link_up, ifla_info_data)
+            is_link_up, bond_slaves = self.should_update_bond_mode(
+                ifaceobj,
+                ifname,
+                is_link_up,
+                ifla_info_data,
+                self.cache.get_slaves(ifname)
+            )
 
             # if specific attributes need to be set we need to down the bond first
             if ifla_info_data and is_link_up:
                 if self._should_down_bond(ifla_info_data):
                     self.netlink.link_down(ifname)
                     is_link_up = False
+        else:
+            bond_slaves = []
 
         if link_exists and not ifla_info_data:
             # if the bond already exists and no attrs need to be set
@@ -614,6 +622,8 @@ class bond(Addon, moduleBase):
         if link_exists and ifla_info_data and not is_link_up:
             self.netlink.link_up(ifname)
 
+        return bond_slaves
+
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
         if not self.cache.link_exists(ifaceobj.name):
             self.sysfs.bond_create(ifaceobj.name)
@@ -621,8 +631,12 @@ class bond(Addon, moduleBase):
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            self.create_or_set_bond_config(ifaceobj)
-            self._add_slaves(ifaceobj, ifaceobj_getfunc)
+            bond_slaves = self.create_or_set_bond_config(ifaceobj)
+            self._add_slaves(
+                ifaceobj,
+                bond_slaves,
+                ifaceobj_getfunc,
+            )
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
