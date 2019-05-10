@@ -704,9 +704,11 @@ class address(Addon, moduleBase):
         cached_link_mtu = self.cache.get_link_mtu(ifaceobj.name)
 
         if ifaceobj.link_kind:
-            # bonds and vxlan devices need an explicit set of mtu.
+            # bonds, vxlan and custom devices (like dummy) need an explicit set of mtu.
             # bridges don't need mtu set
-            if ifaceobj.link_kind & ifaceLinkKind.BOND or ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            if ifaceobj.link_kind & ifaceLinkKind.BOND \
+                    or ifaceobj.link_kind & ifaceLinkKind.VXLAN \
+                    or ifaceobj.link_kind & ifaceLinkKind.OTHER:
                 if cached_link_mtu != self.default_mtu_int:
                     self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=self.default_mtu, mtu_int=self.default_mtu_int)
                 return
