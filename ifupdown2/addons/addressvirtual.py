@@ -343,8 +343,8 @@ class addressvirtual(Addon, moduleBase):
                             # upper device list
                             if u == ifaceobj.name:
                                 continue
-                            self.ipcmd.link_set(u, 'master', ifaceobj.name,
-                                                state='up')
+                            self.netlink.link_set_master(u, ifaceobj.name)
+                            self.netlink.link_up(u)
         elif ((ifaceobj.link_privflags & ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE) and
               (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) and
               self.cache.link_exists(ifaceobj.name)):
@@ -364,8 +364,8 @@ class addressvirtual(Addon, moduleBase):
                 if u == vrfname:
                     continue
                 if u.startswith(macvlan_prefix):
-                    self.ipcmd.link_set(u, 'master', vrfname,
-                                        state='up')
+                    self.netlink.link_set_master(u, vrfname)
+                    self.netlink.link_up(u)
 
     def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
 
