@@ -148,6 +148,23 @@ class _NetlinkCache:
         self._ignore_rtm_newlinkq = list()
         self._ignore_rtm_newlinkq_lock = threading.Lock()
 
+        # After sending a no master request (IFLA_MASTER=0) the kernels send
+        # 2 or 3 notifications (with IFLA_MASTER) before sending the final
+        # notification where IFLA_MASTER is removed. For performance purposes
+        # we don't wait for those notifications, we simply update the cache
+        # to reflect the change (if we got an ACK on the nomaster request).
+        # Those extra notification re-add the former slave to it's master
+        # (in our internal data-structures at least). ifupdown2 relies on
+        # the cache to get accurate information, this puts the cache in an
+        # unreliable state. We can detected this bad state and avoid it. Afer
+        # a nomaster request we "register" the device as "nomaster", meaning
+        # that we will manually remove the IFLA_MASTER attribute from any
+        # subsequent packet, until the final packet arrives - then unregister
+        # the device from the nomasterq.
+        # We need an extra data-structure and lock mechanism for this:
+        self._rtm_newlink_nomasterq = list()
+        self._rtm_newlink_nomasterq_lock = threading.Lock()
+
         # In the scenario of NetlinkListenerWithCache, the listener thread
         # decode netlink packets and perform caching operation based on their
         # respective msgtype add_link for RTM_NEWLINK, remove_link for DELLINK
@@ -234,6 +251,19 @@ class _NetlinkCache:
         try:
             with self._ignore_rtm_newlinkq_lock:
                 self._ignore_rtm_newlinkq.remove(ifname)
+        except ValueError:
+            pass
+
+    def append_to_rtm_newlink_nomasterq(self, ifname):
+        """ Register device 'ifname' to the _ignore_rtm_newlink_nomasterq """
+        with self._rtm_newlink_nomasterq_lock:
+            self._rtm_newlink_nomasterq.append(ifname)
+
+    def remove_from_rtm_newlink_nomasterq(self, ifname):
+        """ Unregister ifname from _ignore_rtm_newlink_nomasterq list """
+        try:
+            with self._rtm_newlink_nomasterq_lock:
+                self._rtm_newlink_nomasterq.remove(ifname)
         except ValueError:
             pass
 
@@ -939,6 +969,16 @@ class _NetlinkCache:
         with self._ignore_rtm_newlinkq_lock:
             if ifname in self._ignore_rtm_newlinkq:
                 return
+        # check if this device is registered in the nomaster list:
+        # if so we need to remove IFLA_MASTER attribute (if it fails
+        # it means we've received the final notification and we should
+        # unregister the device from our list.
+        with self._rtm_newlink_nomasterq_lock:
+            if ifname in self._rtm_newlink_nomasterq:
+                try:
+                    del link.attributes[nlpacket.Link.IFLA_MASTER]
+                except:
+                    self._rtm_newlink_nomasterq.remove(ifname)
 
         # we need to check if the device was previously enslaved
         # so we can update the _masters_and_slaves and _slaves_master
@@ -2669,8 +2709,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_set_nomaster(self, ifname):
         self.logger.info("%s: netlink: ip link set dev %s nomaster" % (ifname, ifname))
         try:
+            self.cache.append_to_rtm_newlink_nomasterq(ifname)
             self.__link_set_master(ifname, 0)
         except Exception as e:
+            self.cache.remove_from_rtm_newlink_nomasterq(ifname)
             raise NetlinkError(e, "cannot un-enslave link %s" % ifname, ifname=ifname)
 
     def link_set_master_dry_run(self, ifname, master_dev):
