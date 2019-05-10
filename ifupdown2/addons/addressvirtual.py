@@ -693,11 +693,11 @@ class addressvirtual(Addon, moduleBase):
                         macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), id_to_remove)
                         macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), id_to_remove)
 
-                        if self.ipcmd.link_exists(macvlan_ip4_ifname):
-                            netlink.link_del(macvlan_ip4_ifname)
+                        if self.cache.link_exists(macvlan_ip4_ifname):
+                            self.netlink.link_del(macvlan_ip4_ifname)
 
-                        if self.ipcmd.link_exists(macvlan_ip6_ifname):
-                            netlink.link_del(macvlan_ip6_ifname)
+                        if self.cache.link_exists(macvlan_ip6_ifname):
+                            self.netlink.link_del(macvlan_ip6_ifname)
 
             except Exception as e:
                 self.logger.debug("%s: vrrp: failure while removing unused macvlan(s)" % ifname)
