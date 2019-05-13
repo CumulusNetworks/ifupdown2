@@ -1245,8 +1245,11 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                             sub_attr_pack_layout.append('L')
 
-                            reorder = unpack('<L', IPv4Address(info_data_value).packed)[0]
-                            sub_attr_payload.append(IPv4Address(reorder))
+                            if info_data_value:
+                                reorder = unpack('<L', IPv4Address(info_data_value).packed)[0]
+                                sub_attr_payload.append(IPv4Address(reorder))
+                            else:
+                                sub_attr_payload.append(0)
 
                         elif info_data_type in (Link.IFLA_VXLAN_PORT,):
                             sub_attr_pack_layout.append('HH')
