@@ -723,8 +723,10 @@ class vxlan(Addon, moduleBase):
 
         for vxlan_attr_str, vxlan_attr_nl, callable_type in (
                 ('vxlan-id', Link.IFLA_VXLAN_ID, int),
+                ('vxlan-ttl', Link.IFLA_VXLAN_TTL, int),
                 ('vxlan-port', Link.IFLA_VXLAN_PORT, int),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, int),
+                ('vxlan-mcastgrp', Link.IFLA_VXLAN_GROUP, IPv4Address),
                 ('vxlan-svcnodeip', Link.IFLA_VXLAN_GROUP, IPv4Address),
                 ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: self.cache.get_ifindex(x)),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
