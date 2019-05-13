@@ -445,7 +445,7 @@ class vxlan(Addon, moduleBase):
 
         return vxlan_svcnodeip
 
-    def __config_vxlan_group(self, ifname, ifaceobj, mcast_grp, group, physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+    def __config_vxlan_group(self, ifname, ifaceobj, link_exists, mcast_grp, group, physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         """
         vxlan-mcastgrp and vxlan-svcnodeip are mutually exclusive
         this function validates ip format for both attribute and tries to understand
@@ -466,6 +466,7 @@ class vxlan(Addon, moduleBase):
                            % (ifname, mcast_grp, group), ifaceobj)
 
         attribute_name = "vxlan-svcnodeip"
+        multicast_group_change = False
 
         if group:
             try:
@@ -487,7 +488,7 @@ class vxlan(Addon, moduleBase):
                 if not physdev:
                     self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
 
-        if mcast_grp:
+        elif mcast_grp:
             try:
                 mcast_grp = IPv4Address(mcast_grp)
             except AddressValueError:
@@ -517,11 +518,33 @@ class vxlan(Addon, moduleBase):
                 if not physdev:
                     self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp) requires 'vxlan-physdev' to be specified" % (ifname))
 
-        if group != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_GROUP):
+        cached_ifla_vxlan_group = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_GROUP)
+
+        if group != cached_ifla_vxlan_group:
+
+            if not group:
+                group = IPAddress("0.0.0.0")
+                attribute_name = "vxlan-svcnodeip/vxlan-mcastgrp"
+
             self.logger.info("%s: set %s %s" % (ifname, attribute_name, group))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP] = group
 
-        return group
+            # if the mcastgrp address is changed we need to signal this to the upper function
+            # in this case vxlan needs to be down before applying changes then up'd
+            multicast_group_change = True
+
+            if link_exists:
+                if cached_ifla_vxlan_group:
+                    self.logger.info(
+                        "%s: vxlan-mcastgrp configuration changed (cache %s): flapping vxlan device required"
+                        % (ifname, cached_ifla_vxlan_group)
+                    )
+                else:
+                    self.logger.info(
+                        "%s: vxlan-mcastgrp configuration changed: flapping vxlan device required" % ifname
+                    )
+
+        return group, multicast_group_change
 
     def __config_vxlan_learning(self, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         if not link_exists or not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
@@ -565,7 +588,7 @@ class vxlan(Addon, moduleBase):
 
         return physdev
 
-    def __config_vxlan_physdev(self, ifaceobj, vxlan_physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+    def __config_vxlan_physdev(self, link_exists, ifaceobj, vxlan_physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         if vxlan_physdev:
             try:
                 vxlan_physdev_ifindex = self.cache.get_ifindex(vxlan_physdev)
@@ -579,6 +602,14 @@ class vxlan(Addon, moduleBase):
             if vxlan_physdev_ifindex != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LINK):
                 self.logger.info("%s: set vxlan-physdev %s" % (ifaceobj.name, vxlan_physdev))
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_LINK] = vxlan_physdev_ifindex
+
+                # if the vxlan exists we need to return True, meaning that the vxlan
+                # needs to be flapped because we detected a vxlan-physdev change
+                if link_exists:
+                    self.logger.info("%s: vxlan-physdev configuration changed: flapping vxlan device required" % ifaceobj.name)
+                    return True
+
+        return False
 
     def _up(self, ifaceobj):
         vxlan_id_str = ifaceobj.get_attr_value_first("vxlan-id")
@@ -619,17 +650,26 @@ class vxlan(Addon, moduleBase):
         vxlan_svcnodeip = self.__get_vxlan_svcnodeip(ifaceobj)
         vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp)
 
-        self.__config_vxlan_physdev(ifaceobj, vxlan_physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        vxlan_physdev_changed = self.__config_vxlan_physdev(
+            link_exists,
+            ifaceobj,
+            vxlan_physdev,
+            user_request_vxlan_info_data,
+            cached_vxlan_ifla_info_data
+        )
 
-        group = self.__config_vxlan_group(
+        group, multicast_group_changed = self.__config_vxlan_group(
             ifname,
             ifaceobj,
+            link_exists,
             vxlan_mcast_grp,
             vxlan_svcnodeip,
             vxlan_physdev,
             user_request_vxlan_info_data,
             cached_vxlan_ifla_info_data
         )
+
+        flap_vxlan_device = link_exists and (multicast_group_changed or vxlan_physdev_changed)
 
         if user_request_vxlan_info_data:
 
@@ -640,7 +680,13 @@ class vxlan(Addon, moduleBase):
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
             else:
                 try:
+                    if flap_vxlan_device:
+                        self.netlink.link_down(ifname)
+
                     self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
+
+                    if flap_vxlan_device:
+                        self.netlink.link_up(ifname)
                 except Exception as e:
                     if link_exists:
                         self.log_error("%s: applying vxlan change failed: %s" % (ifname, str(e)), ifaceobj)
