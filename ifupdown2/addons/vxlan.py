@@ -630,7 +630,11 @@ class vxlan(Addon, moduleBase):
                 try:
                     self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
                 except Exception as e:
-                    self.logger.warning('%s: vxlan add/set failed: %s' % (ifname, str(e)))
+                    if link_exists:
+                        self.log_error("%s: applying vxlan change failed: %s" % (ifname, str(e)), ifaceobj)
+                    else:
+                        self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
+                    return
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
