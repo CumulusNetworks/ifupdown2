@@ -79,6 +79,9 @@ def client():
 
 
 def stand_alone():
+    if not sys.argv[0].endswith("query") and os.geteuid() != 0:
+        sys.stderr.write('must be root to run this command\n')
+        return 1
     try:
         from ifupdown2.ifupdown.main import Ifupdown2
         from ifupdown2.lib.nlcache import NetlinkListenerWithCache
