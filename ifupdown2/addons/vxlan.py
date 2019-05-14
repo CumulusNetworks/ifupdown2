@@ -344,8 +344,9 @@ class vxlan(Addon, moduleBase):
                     )
                 )
 
-            if vxlan_ttl != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_TTL):
-                self.logger.info("%s: set vxlan-ttl %s" % (ifname, vxlan_ttl_str if vxlan_ttl_str else vxlan_ttl))
+            cached_ifla_vxlan_ttl = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_TTL)
+            if vxlan_ttl != cached_ifla_vxlan_ttl:
+                self.logger.info("%s: set vxlan-ttl %s (cache %s)" % (ifname, vxlan_ttl_str if vxlan_ttl_str else vxlan_ttl, cached_ifla_vxlan_ttl))
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TTL] = vxlan_ttl
         except:
             self.log_error("%s: invalid vxlan-ttl '%s'" % (ifname, vxlan_ttl_str), ifaceobj)
