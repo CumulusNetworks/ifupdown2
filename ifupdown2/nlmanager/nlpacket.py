@@ -2073,7 +2073,6 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_NEIGH_SUPPRESS):
                     sub_attr_pack_layout.append('B')
                     sub_attr_payload.append(sub_attr_value)
-                    sub_attr_pack_layout.extend('xxx')
 
                 # 2 Byte attributes
                 elif sub_attr_type in (Link.IFLA_BRPORT_PRIORITY,
@@ -2083,7 +2082,6 @@ class AttributeIFLA_PROTINFO(Attribute):
                                        Link.IFLA_BRPORT_NO):
                     sub_attr_pack_layout.append('H')
                     sub_attr_payload.append(sub_attr_value)
-                    sub_attr_pack_layout.extend('xx')
 
                 # 4 Byte attributes
                 elif sub_attr_type in (Link.IFLA_BRPORT_COST, Link.IFLA_BRPORT_BACKUP_PORT):
