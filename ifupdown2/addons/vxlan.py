@@ -392,12 +392,18 @@ class vxlan(Addon, moduleBase):
                 except:
                     raise Exception("%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format" % (ifname, local))
 
-        if local and local != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL):
-            self.logger.info("%s: set vxlan-local-tunnelip %s" % (ifname, local))
-            user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = local
+        cached_ifla_vxlan_local = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
 
-            # if both local-ip and anycast-ip are identical the function prints a warning
-            self.syntax_check_localip_anycastip_equal(ifname, local, self._clagd_vxlan_anycast_ip)
+        if local:
+            if local != cached_ifla_vxlan_local:
+                self.logger.info("%s: set vxlan-local-tunnelip %s" % (ifname, local))
+                user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = local
+
+                # if both local-ip and anycast-ip are identical the function prints a warning
+                self.syntax_check_localip_anycastip_equal(ifname, local, self._clagd_vxlan_anycast_ip)
+        elif cached_ifla_vxlan_local:
+            self.logger.info("%s: removing vxlan-local-tunnelip (cache %s)" % (ifname, cached_ifla_vxlan_local))
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = None
 
         return local
 
