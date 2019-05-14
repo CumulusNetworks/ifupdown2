@@ -102,7 +102,10 @@ class NetlinkListener(Thread):
         # with the netlink manager which always attempts to bind with the pid.
         self.rx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
         _SO_RCVBUFFORCE = socket.SO_RCVBUFFORCE if hasattr(socket, 'SO_RCVBUFFORCE') else 33
-        self.rx_socket.setsockopt(socket.SOL_SOCKET, _SO_RCVBUFFORCE, self.rcvbuf_sz)
+        try:
+            self.rx_socket.setsockopt(socket.SOL_SOCKET, _SO_RCVBUFFORCE, self.rcvbuf_sz)
+        except Exception as e:
+            log.debug("nllistener: rx socket: setsockopt: %s" % str(e))
         self.rx_socket.bind((manager.pid | (self.pid_offset << 22), self.groups))
         self.rx_socket_prev_seq = {}
 
