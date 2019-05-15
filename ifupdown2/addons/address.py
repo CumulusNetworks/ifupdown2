@@ -716,6 +716,11 @@ class address(moduleBase):
                                'bridge port' %ifaceobj.name)
             return
 
+        setting_default_value = False
+        if not ipforward:
+            setting_default_value = True
+            ipforward = self.ipforward
+
         if ipforward:
             ipforward = utils.boolean_support_binary(ipforward)
             # File read has been used for better performance
@@ -731,8 +736,15 @@ class address(moduleBase):
                                     %('/'.join(ifaceobj.name.split("."))),
                                     ipforward)
                 except Exception as e:
-                    ifaceobj.status = ifaceStatus.ERROR
-                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+                    if not setting_default_value:
+                        ifaceobj.status = ifaceStatus.ERROR
+                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+
+
+        setting_default_value = False
+        if not ip6forward:
+            setting_default_value = True
+            ip6forward = self.ip6forward
 
         if ip6forward:
             ip6forward = utils.boolean_support_binary(ip6forward)
@@ -751,8 +763,9 @@ class address(moduleBase):
                     # for example, setting mtu < 1280
                     # In such cases, log error only if user has configured
                     # ip6-forward
-                    ifaceobj.status = ifaceStatus.ERROR
-                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+                    if not setting_default_value:
+                        ifaceobj.status = ifaceStatus.ERROR
+                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
         mtu = ifaceobj.get_attr_value_first('mtu')
