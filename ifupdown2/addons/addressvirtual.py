@@ -6,6 +6,7 @@
 
 import os
 import glob
+import subprocess
 
 from string import maketrans
 from collections import deque
@@ -18,7 +19,6 @@ try:
 
     from ifupdown2.nlmanager.nlpacket import Link
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.statemanager as statemanager
@@ -32,7 +32,6 @@ except ImportError:
 
     from nlmanager.nlpacket import Link
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.statemanager as statemanager
@@ -74,10 +73,12 @@ class addressvirtual(Addon, moduleBase):
         }
     }
 
+    DEFAULT_IP_METRIC = 1024
+    ADDR_METRIC_SUPPORT = None
+
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
         self._bridge_fdb_query_cache = {}
         self.addressvirtual_with_route_metric = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -89,6 +90,27 @@ class addressvirtual(Addon, moduleBase):
 
         self.address_virtual_ipv6_addrgen_value_dict = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}
         self.mac_translate_tab = maketrans(":.-,", "    ")
+
+        if addressvirtual.ADDR_METRIC_SUPPORT is None:
+            try:
+                cmd = [utils.ip_cmd, 'addr', 'help']
+                self.logger.info('executing %s addr help' % utils.ip_cmd)
+
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, stderr = process.communicate()
+                addressvirtual.ADDR_METRIC_SUPPORT = '[ metric METRIC ]' in stderr or ''
+                self.logger.info('address metric support: %s' % ('OK' if addressvirtual.ADDR_METRIC_SUPPORT else 'KO'))
+            except Exception:
+                addressvirtual.ADDR_METRIC_SUPPORT = False
+                self.logger.info('address metric support: KO')
+
+    @classmethod
+    def addr_metric_support(cls):
+        return cls.ADDR_METRIC_SUPPORT
+
+    @classmethod
+    def get_default_ip_metric(cls):
+        return cls.DEFAULT_IP_METRIC
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if ifaceobj.get_attr_value('address-virtual') or ifaceobj.get_attr_value("vrrp"):
@@ -396,7 +418,6 @@ class addressvirtual(Addon, moduleBase):
             lower_iface_mtu = self.cache.get_link_mtu(ifaceobj.name)
             lower_iface_mtu_str = str(lower_iface_mtu)
 
-        self.ipcmd.batch_start()
         self.iproute2.batch_start()  # TODO: make sure we only do 1 ip link set down and set up (only one flap in the batch)
 
         for intf_config_dict in intf_config_list:
@@ -446,8 +467,8 @@ class addressvirtual(Addon, moduleBase):
                 self.iproute2.link_set_address(macvlan_ifname, macvlan_hwaddr)
                 hw_address_list.append(macvlan_hwaddr)
 
-            if self.addressvirtual_with_route_metric and self.ipcmd.addr_metric_support():
-                metric = self.ipcmd.get_default_ip_metric()
+            if self.addressvirtual_with_route_metric and self.addr_metric_support():
+                metric = self.get_default_ip_metric()
             else:
                 metric = None
 
@@ -462,7 +483,7 @@ class addressvirtual(Addon, moduleBase):
             # If link existed before, flap the link
             if not link_created:
 
-                if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
+                if not self.addressvirtual_with_route_metric or not self.addr_metric_support():
                     # if the system doesn't support ip addr set METRIC
                     # we need to do manually check the ordering of the ip4 routes
                     self._fix_connected_route(ifaceobj, macvlan_ifname, ips[0])
@@ -482,7 +503,7 @@ class addressvirtual(Addon, moduleBase):
                 self.netlink.link_up(macvlan_ifname)
             else:
                 try:
-                    if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
+                    if not self.addressvirtual_with_route_metric or not self.addr_metric_support():
                         # if the system doesn't support ip addr set METRIC
                         # we need to do manually check the ordering of the ip6 routes
                         self.iproute2.fix_ipv6_route_metric(ifaceobj, macvlan_ifname, ips)
@@ -507,7 +528,6 @@ class addressvirtual(Addon, moduleBase):
                 if self.sysctl_get(syskey) != sysval:
                     self.sysctl_set(syskey, sysval)
 
-        self.ipcmd.batch_commit()
         self.iproute2.batch_commit()
         return hw_address_list
 
@@ -829,6 +849,25 @@ class addressvirtual(Addon, moduleBase):
                     return
             ifaceobjcurr.update_config_with_status('address-virtual-ipv6-addrgen', user_config_address_virtual_ipv6_addr, 0)
 
+    @staticmethod
+    def compare_user_config_vs_running_state(running_addrs, user_addrs):
+        ip4 = []
+        ip6 = []
+
+        for ip in user_addrs or []:
+            obj = IPNetwork(ip)
+
+            if type(obj) == IPv6Network:
+                ip6.append(obj)
+            else:
+                ip4.append(obj)
+
+        running_ipobj = []
+        for ip in running_addrs or []:
+            running_ipobj.append(IPNetwork(ip))
+
+        return running_ipobj == (ip4 + ip6)
+
     def query_check_macvlan_config(self, ifaceobj, ifaceobjcurr, attr_name, user_config_address_virtual_ipv6_addr, virtual_addr_list_raw, macvlan_config_list):
         """
         macvlan_config_list = [
@@ -887,7 +926,7 @@ class addressvirtual(Addon, moduleBase):
 
                 try:
                     if utils.mac_str_to_int(rhwaddress) == macvlan_hwaddress_int \
-                            and self.ipcmd.compare_user_config_vs_running_state(raddrs, ips) \
+                            and self.compare_user_config_vs_running_state(raddrs, ips) \
                             and self._check_addresses_in_bridge(ifaceobj, macvlan_hwaddress):
                         ifaceobjcurr.update_config_with_status(
                             attr_name,
@@ -919,7 +958,7 @@ class addressvirtual(Addon, moduleBase):
                     if not ip6_config.get("ips") or self.cache.get_link_address_raw(ip6_macvlan_ifname) == ip6_config.get("hwaddress_int"):
 
                         # check all ip4
-                        if self.ipcmd.compare_user_config_vs_running_state(
+                        if self.compare_user_config_vs_running_state(
                                 ip4_running_addrs,
                                 ip4_config.get("ips")
                         ) and self._check_addresses_in_bridge(ifaceobj, ip4_macvlan_hwaddress):
@@ -931,7 +970,7 @@ class addressvirtual(Addon, moduleBase):
                             )]
 
                             # check all ip6
-                            if self.ipcmd.compare_user_config_vs_running_state(
+                            if self.compare_user_config_vs_running_state(
                                     ip6_running_addrs,
                                     ip6_config.get("ips")
                             ) and self._check_addresses_in_bridge(ifaceobj, ip6_macvlan_hwaddress):
@@ -999,9 +1038,6 @@ class addressvirtual(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):
@@ -1025,7 +1061,6 @@ class addressvirtual(Addon, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        self._init_command_handlers()
 
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)

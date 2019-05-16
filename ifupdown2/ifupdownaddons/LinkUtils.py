@@ -53,9 +53,6 @@ class LinkUtils(utilsBase):
     bridge_utils_is_installed = os.path.exists(utils.brctl_cmd)
     bridge_utils_missing_warning = True
 
-    DEFAULT_IP_METRIC = 1024
-    ADDR_METRIC_SUPPORT = None
-
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
 
@@ -68,27 +65,6 @@ class LinkUtils(utilsBase):
 
         if not ifupdownflags.flags.PERFMODE and not LinkUtils._CACHE_FILL_DONE:
             self._fill_cache()
-
-        if LinkUtils.ADDR_METRIC_SUPPORT is None:
-            try:
-                cmd = [utils.ip_cmd, 'addr', 'help']
-                self.logger.info('executing %s addr help' % utils.ip_cmd)
-
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                stdout, stderr = process.communicate()
-                LinkUtils.ADDR_METRIC_SUPPORT = '[ metric METRIC ]' in stderr or ''
-                self.logger.info('address metric support: %s' % ('OK' if LinkUtils.ADDR_METRIC_SUPPORT else 'KO'))
-            except Exception:
-                LinkUtils.ADDR_METRIC_SUPPORT = False
-                self.logger.info('address metric support: KO')
-
-    @classmethod
-    def addr_metric_support(cls):
-        return cls.ADDR_METRIC_SUPPORT
-
-    @classmethod
-    def get_default_ip_metric(cls):
-        return cls.DEFAULT_IP_METRIC
 
     @classmethod
     def reset(cls):
@@ -879,25 +855,6 @@ class LinkUtils(utilsBase):
         else:
             utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
         self._cache_delete([ifacename, 'addrs'])
-
-    @staticmethod
-    def compare_user_config_vs_running_state(running_addrs, user_addrs):
-        ip4 = []
-        ip6 = []
-
-        for ip in user_addrs or []:
-            obj = IPNetwork(ip)
-
-            if type(obj) == IPv6Network:
-                ip6.append(obj)
-            else:
-                ip4.append(obj)
-
-        running_ipobj = []
-        for ip in running_addrs or []:
-            running_ipobj.append(IPNetwork(ip))
-
-        return running_ipobj == (ip4 + ip6)
 
     def _link_set_ifflag(self, ifacename, value):
         # Dont look at the cache, the cache may have stale value
