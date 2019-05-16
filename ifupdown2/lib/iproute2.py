@@ -326,6 +326,50 @@ class IPRoute2(Cache, Requirements):
 
         return True
 
+    @staticmethod
+    def __compare_user_config_vs_running_state(running_addrs, user_addrs):
+        ip4 = []
+        ip6 = []
+
+        for ip in user_addrs or []:
+            obj = IPNetwork(ip)
+
+            if obj.version == 6:
+                ip6.append(str(obj))
+            else:
+                ip4.append(str(obj))
+
+        running_ipobj = []
+        for ip in running_addrs or []:
+            running_ipobj.append(str(ip))
+
+        return running_ipobj == (ip4 + ip6)
+
+    def add_addresses(self, ifacobj, ifname, address_list, purge_existing=False, metric=None, with_address_virtual=False):
+        if purge_existing:
+            running_address_list = self.cache.get_ifupdown2_addresses_list(
+                [ifacobj],
+                ifname,
+                with_address_virtual=with_address_virtual
+            )
+            address_list = utils.get_normalized_ip_addr(ifname, address_list)
+
+            if self.__compare_user_config_vs_running_state(running_address_list, address_list):
+                return
+
+            try:
+                self.__execute_or_batch(utils.ip_cmd, "addr flush dev %s" % ifname)
+            except Exception, e:
+                self.logger.warning("%s: flushing all ip address failed: %s" % (ifname, str(e)))
+        for addr in address_list:
+            try:
+                if metric:
+                    self.__execute_or_batch(utils.ip_cmd, "addr add %s dev %s metric %s" % (addr, ifname, metric))
+                else:
+                    self.__execute_or_batch(utils.ip_cmd, "addr add %s dev %s" % (addr, ifname))
+            except Exception as e:
+                self.logger.error("%s: add_address: %s" % (ifname, str(e)))
+
     ############################################################################
     # BRIDGE
     ############################################################################

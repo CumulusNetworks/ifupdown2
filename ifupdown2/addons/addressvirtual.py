@@ -451,7 +451,7 @@ class addressvirtual(Addon, moduleBase):
             else:
                 metric = None
 
-            self.ipcmd.addr_add_multiple(
+            self.iproute2.add_addresses(
                 ifaceobj,
                 macvlan_ifname,
                 ips,
