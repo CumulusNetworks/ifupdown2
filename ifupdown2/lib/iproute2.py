@@ -62,6 +62,7 @@ class IPRoute2(Cache, Requirements):
         # if bridge utils is not installed overrrides specific functions to
         # avoid constantly checking bridge_utils_is_installed
         if not Requirements.bridge_utils_is_installed:
+            self.bridge_set_stp = lambda _, __: None
             self.bridge_del_mcqv4src = lambda _, __: None
             self.bridge_set_mcqv4src = lambda _, __, ___: None
 
@@ -373,6 +374,10 @@ class IPRoute2(Cache, Requirements):
     ############################################################################
     # BRIDGE
     ############################################################################
+
+    @staticmethod
+    def bridge_set_stp(bridge, stp_state):
+        utils.exec_command("%s stp %s %s" % (utils.brctl_cmd, bridge, stp_state))
 
     @staticmethod
     def bridge_fdb_show_dev(dev):

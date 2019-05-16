@@ -1317,13 +1317,6 @@ class LinkUtils(utilsBase):
                                      bridgeportname, attrname])
 
     @staticmethod
-    def bridge_set_stp(bridge, stp_state):
-        if not LinkUtils.bridge_utils_is_installed:
-            return
-        utils.exec_command('%s stp %s %s' % (utils.brctl_cmd, bridge, stp_state))
-
-
-    @staticmethod
     def _conv_value_to_user(s):
         try:
             ret = int(s) / 100

@@ -17,7 +17,6 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
     from ifupdown2.ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdown2.ifupdownaddons.systemutils import systemUtils
@@ -30,7 +29,6 @@ except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdownaddons.systemutils import systemUtils
@@ -284,7 +282,6 @@ class mstpctl(Addon, moduleBase):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.name = self.__class__.__name__
-        self.brctlcmd = None
         self.mstpctlcmd = None
         self.mstpd_running = (True if systemUtils.is_process_running('mstpd')
                              else False)
@@ -717,7 +714,7 @@ class mstpctl(Addon, moduleBase):
             stp = ifaceobj.get_attr_value_first('mstpctl-stp')
             if stp:
                self.set_iface_attr(ifaceobj, 'mstpctl-stp',
-                                   self.brctlcmd.bridge_set_stp)
+                                   self.iproute2.bridge_set_stp)
             else:
                stp = self.sysfs.bridge_get_stp(ifaceobj.name)
             if (self.mstpd_running and
@@ -1280,8 +1277,6 @@ class mstpctl(Addon, moduleBase):
         return self._run_ops.keys()
 
     def _init_command_handlers(self):
-        if not self.brctlcmd:
-            self.brctlcmd = LinkUtils()
         if not self.mstpctlcmd:
             self.mstpctlcmd = mstpctlutil()
 
