@@ -802,6 +802,58 @@ class _NetlinkCache:
     # BRIDGE #################################################################
     ##########################################################################
 
+    def get_brport_cost(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_BRPORT_COST]
+        except (KeyError, AttributeError):
+            return None
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=None)
+
+    def get_brport_priority(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_BRPORT_PRIORITY]
+        except (KeyError, AttributeError):
+            return None
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=None)
+
+    def get_brport_unicast_flood(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_BRPORT_UNICAST_FLOOD]
+        except (KeyError, AttributeError):
+            return 0
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
+
+    def get_brport_multicast_flood(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_BRPORT_MCAST_FLOOD]
+        except (KeyError, AttributeError):
+            return 0
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
+
+    def get_brport_neigh_suppress(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_DATA][nlpacket.Link.IFLA_BRPORT_NEIGH_SUPPRESS]
+        except (KeyError, AttributeError):
+            return 0
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
+
+    def get_brport_learning(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_DATA][nlpacket.Link.IFLA_BRPORT_LEARNING]
+        except (KeyError, AttributeError):
+            return 0
+
     def get_pvid_and_vids(self, ifname):
         """
         vlan-identifiers are stored in:
@@ -1620,17 +1672,6 @@ class _NetlinkCache:
                 return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_KIND] == _type
         except (KeyError, AttributeError):
             return False
-
-    ##########################################################################
-    # BRIDGE #################################################################
-    ##########################################################################
-
-    def get_brport_learning(self, ifname):
-        try:
-            with self._cache_lock:
-                return self._link_cache[ifname].attributes[nlpacket.Link.IFLA_LINKINFO].value[nlpacket.Link.IFLA_INFO_SLAVE_DATA][nlpacket.Link.IFLA_BRPORT_LEARNING]
-        except (KeyError, AttributeError):
-            return 0
 
 
 class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject):

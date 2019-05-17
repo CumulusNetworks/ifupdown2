@@ -1390,19 +1390,11 @@ class LinkUtils(utilsBase):
             return
         utils.exec_command('%s setpathcost %s %s %s' % (utils.brctl_cmd, bridge, port, pathcost))
 
-    def bridge_get_pathcost(self, bridge, port):
-        return self.read_file_oneline('/sys/class/net/%s/brport/path_cost'
-                                      % port)
-
     @staticmethod
     def bridge_set_portprio(bridge, port, prio):
         if not LinkUtils.bridge_utils_is_installed:
             return
         utils.exec_command('%s setportprio %s %s %s' % (utils.brctl_cmd, bridge, port, prio))
-
-    def bridge_get_portprio(self, bridge, port):
-        return self.read_file_oneline('/sys/class/net/%s/brport/priority'
-                                      % port)
 
     @staticmethod
     def bridge_set_hashmax(bridge, hashmax):
