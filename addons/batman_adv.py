@@ -64,6 +64,13 @@ class batman_adv (moduleBase):
                 'required' : False,
                 'batman-attr' : True,
             },
+
+           'batman-routing-algo' : {
+                'help' : 'B.A.T.M.A.N. routing algo',
+                'validvals' : [ 'BATMAN_IV', 'BATMAN_V' ],
+                'required' : False,
+                'batman-attr' : False,
+            },
         }
     }
 
@@ -116,12 +123,17 @@ class batman_adv (moduleBase):
         return None
 
 
-    def _read_current_batman_attr (self, ifaceobj, attr):
-        if attr not in self._batman_attrs:
-            raise ValueError ("_read_current_batman_attr: Invalid or unsupported B.A.T.M.A.N. adv. attribute: %s" % attr)
+    def _read_current_batman_attr (self, ifaceobj, attr, dont_map = False):
+	# 'routing_algo' needs special handling, D'oh.
+        if dont_map:
+            attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr)
+        else:
+            if attr not in self._batman_attrs:
+                raise ValueError ("_read_current_batman_attr: Invalid or unsupported B.A.T.M.A.N. adv. attribute: %s" % attr)
 
-        attr_file_name = self._batman_attrs[attr]['filename']
-        attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr_file_name)
+            attr_file_name = self._batman_attrs[attr]['filename']
+            attr_file_path = "/sys/class/net/%s/mesh/%s" % (ifaceobj.name, attr_file_name)
+
         try:
             with open (attr_file_path, "r") as fh:
                  return fh.readline ().strip ()
@@ -155,6 +167,18 @@ class batman_adv (moduleBase):
             raise Exception ("Command \"batctl -m %s if %s %s\" failed: %s" % (bat_iface, op, mesh_iface, c.output))
         except Exception as e:
             raise Exception ("_batctl_if: %s" % e)
+
+    def _set_routing_algo (self, routing_algo):
+        if routing_algo not in ['BATMAN_IV', 'BATMAN_V']:
+            raise Exception ("_set_routing_algo() called with invalid \"routing_algo\" value: %s" % routing_algo)
+
+        try:
+            self.logger.debug ("Running batctl ra %s" % routing_algo)
+            batctl_output = subprocess.check_output (["batctl", "ra", routing_algo], stderr = subprocess.STDOUT)
+        except subprocess.CalledProcessError as c:
+            raise Exception ("Command \"batctl ra %s\" failed: %s" % (routing_algo, c.output))
+        except Exception as e:
+            raise Exception ("_set_routing_algo: %s" % e)
 
 
     def _find_member_ifaces (self, ifaceobj, ignore = True):
@@ -198,6 +222,11 @@ class batman_adv (moduleBase):
 
         if len (batman_ifaces) == 0:
             raise Exception ("None of the configured batman interfaces are available!")
+
+        routing_algo = ifaceobj.get_attr_value_first ('batman-routing-algo')
+        if routing_algo:
+            self._set_routing_algo (routing_algo)
+
 
         if_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
         # Is the batman main interface already present?
@@ -288,6 +317,16 @@ class batman_adv (moduleBase):
                 value_ok = 1
 
             ifaceobjcurr.update_config_with_status ('batman-%s' % attr, value_curr, value_ok)
+
+        routing_algo = ifaceobj.get_attr_value_first ('batman-routing-algo')
+        if routing_algo:
+            value_curr = self._read_current_batman_attr (ifaceobj, "routing_algo", dont_map = True)
+
+            value_ok = 0
+            if routing_algo != value_curr:
+                value_ok = 1
+
+            ifaceobjcurr.update_config_with_status ('batman-routing-algo', value_curr, value_ok)
 
 
     def _query_running (self, ifaceobjrunning):
