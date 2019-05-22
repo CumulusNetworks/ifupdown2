@@ -20,6 +20,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
     from ifupdown2.ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdown2.ifupdownaddons.systemutils import systemUtils
+    from ifupdown2.ifupdown.exceptions import moduleNotSupported
 except ImportError:
     from ifupdown.iface import *
     from ifupdown.utils import utils
@@ -32,6 +33,7 @@ except ImportError:
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdownaddons.systemutils import systemUtils
+    from ifupdown.exceptions import moduleNotSupported
 
 
 class mstpctlFlags:
@@ -235,6 +237,8 @@ class mstpctl(moduleBase):
 
     def __init__(self, *args, **kargs):
         moduleBase.__init__(self, *args, **kargs)
+        if not os.path.exists('/sbin/mstpctl'):
+            raise moduleNotSupported('module init failed: no /sbin/mstpctl found')
         self.ipcmd = None
         self.name = self.__class__.__name__
         self.brctlcmd = None

@@ -18,6 +18,7 @@ try:
 
     from ifupdown2.nlmanager.nlpacket import Link
 
+    from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
@@ -32,6 +33,7 @@ except ImportError:
 
     from nlmanager.nlpacket import Link
 
+    from ifupdownaddons.cache import *
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
@@ -912,7 +914,11 @@ class addressvirtual(moduleBase):
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         macvlan_prefix = self._get_macvlan_prefix(ifaceobjrunning)
-        address_virtuals = glob.glob("/sys/class/net/%s*" %macvlan_prefix)
+        address_virtuals = []
+        for av in linkCache.links:
+            if av.startswith(macvlan_prefix):
+                address_virtuals.append(av)
+
         macvlans_ipv6_addrgen_list = []
         for av in address_virtuals:
             macvlan_ifacename = os.path.basename(av)

@@ -10,19 +10,22 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
     from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdown.netlink import netlink
+    from ifupdown2.ifupdown.exceptions import moduleNotSupported
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+
 except:
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdownaddons.modulebase import moduleBase
     from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown.netlink import netlink
+    from ifupdown.exceptions import moduleNotSupported
     import ifupdown.ifupdownflags as ifupdownflags
 
 import logging
 import re
 import subprocess
-
+import os
 
 class batman_adv (moduleBase):
     """  ifupdown2 addon module to configure B.A.T.M.A.N. advanced interfaces """
@@ -83,6 +86,8 @@ class batman_adv (moduleBase):
 
     def __init__ (self, *args, **kargs):
         moduleBase.__init__ (self, *args, **kargs)
+        if not os.path.exists('/usr/sbin/batctl'):
+            raise moduleNotSupported('module init failed: no /usr/sbin/batctl found')
         self.ipcmd = None
 
         for longname, entry in self._modinfo['attrs'].items ():
