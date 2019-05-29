@@ -61,9 +61,10 @@ class policymanager():
 
             for module in system_array.keys():
                 if self.system_policy_array.has_key(module):
-                    self.logger.debug('warning: overwriting system module %s from file %s' \
-                                      % (module,filename))
-                self.system_policy_array[module] = system_array[module]
+                    self.logger.debug("policymanager: merging system module %s policy with file %s" % (module, filename))
+                    self.system_policy_array[module].update(system_array[module])
+                else:
+                    self.system_policy_array[module] = system_array[module]
 
         # take care of user defined policy defaults
         self.user_policy_array = {}
@@ -84,7 +85,11 @@ class policymanager():
                     # warn user that we are overriding the system module setting
                     self.logger.debug('warning: overwriting system with user module %s from file %s' \
                                       % (module,filename))
-                self.user_policy_array[module] = user_array[module]
+                if module in self.user_policy_array:
+                    self.logger.debug("policymanager: merging user module %s policy with file %s" % (module, filename))
+                    self.user_policy_array[module].update(user_array[module])
+                else:
+                    self.user_policy_array[module] = user_array[module]
         return
 
     def get_iface_default(self,module_name=None,ifname=None,attr=None):
