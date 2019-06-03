@@ -322,7 +322,11 @@ class moduleBase(object):
     def systcl_get_net_bridge_stp_user_space(self):
         if self._bridge_stp_user_space:
             return self._bridge_stp_user_space
-        self._bridge_stp_user_space = self.sysctl_get('net.bridge.bridge-stp-user-space')
+        try:
+            self._bridge_stp_user_space = self.sysctl_get('net.bridge.bridge-stp-user-space')
+        except:
+            self._bridge_stp_user_space = 0
+
         return self._bridge_stp_user_space
 
     def set_iface_attr(self, ifaceobj, attr_name, attr_valsetfunc,
