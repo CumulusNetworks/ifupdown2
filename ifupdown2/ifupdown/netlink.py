@@ -242,11 +242,11 @@ class Netlink(utilsBase):
             raise Exception('netlink: cannot set link %s protodown %s: %s'
                             % (ifacename, state, str(e)))
 
-    def link_add_bridge(self, ifname):
+    def link_add_bridge(self, ifname, mtu=None):
         self.logger.info('%s: netlink: ip link add %s type bridge' % (ifname, ifname))
         if ifupdownflags.flags.DRYRUN: return
         try:
-            return self._nlmanager_api.link_add_bridge(ifname)
+            return self._nlmanager_api.link_add_bridge(ifname, mtu=mtu)
         except Exception as e:
             raise Exception('netlink: cannot create bridge %s: %s' % (ifname, str(e)))
 

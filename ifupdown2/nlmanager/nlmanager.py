@@ -637,7 +637,7 @@ class NetlinkManager(object):
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
-    def _link_add(self, ifindex, ifname, kind, ifla_info_data):
+    def _link_add(self, ifindex, ifname, kind, ifla_info_data, mtu=None):
         """
         Build and TX a RTM_NEWLINK message to add the desired interface
         """
@@ -651,6 +651,9 @@ class NetlinkManager(object):
         if ifindex:
             link.add_attribute(Link.IFLA_LINK, ifindex)
 
+        if mtu:
+            link.add_attribute(Link.IFLA_MTU, mtu)
+
         link.add_attribute(Link.IFLA_LINKINFO, {
             Link.IFLA_INFO_KIND: kind,
             Link.IFLA_INFO_DATA: ifla_info_data
@@ -658,8 +661,8 @@ class NetlinkManager(object):
         link.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(link)
 
-    def link_add_bridge(self, ifname, ifla_info_data={}):
-        return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data)
+    def link_add_bridge(self, ifname, ifla_info_data={}, mtu=None):
+        return self._link_add(ifindex=None, ifname=ifname, kind='bridge', ifla_info_data=ifla_info_data, mtu=mtu)
 
     def link_add_vlan(self, ifindex, ifname, vlanid, vlan_protocol=None):
         """

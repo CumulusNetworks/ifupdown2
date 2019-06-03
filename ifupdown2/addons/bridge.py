@@ -2043,6 +2043,24 @@ class bridge(moduleBase):
                 self.logger.debug('(cache %s)' % cached_ifla_brport_group_fwd_maskhi)
             brports_ifla_info_slave_data[brport_name][Link.IFLA_BRPORT_GROUP_FWD_MASKHI] = ifla_brport_group_fwd_maskhi
 
+    def get_bridge_mtu(self, ifaceobj):
+        user_config_mtu = ifaceobj.get_attr_value_first("mtu")
+
+        if not user_config_mtu:
+            user_config_mtu = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr="mtu"
+            )
+
+        try:
+            if user_config_mtu:
+                mtu = int(user_config_mtu)
+                self.logger.info("%s: set bridge mtu %s" % (ifaceobj.name, mtu))
+                return mtu
+        except Exception as e:
+            self.logger.warning("%s: invalid bridge mtu %s: %s" % (ifaceobj.name, user_config_mtu, str(e)))
+        return 0
+
     def up_bridge(self, ifaceobj, ifaceobj_getfunc):
         ifname = ifaceobj.name
 
@@ -2054,7 +2072,7 @@ class bridge(moduleBase):
             link_just_created = not link_exists
 
         if not link_exists:
-            netlink.link_add_bridge(ifname)
+            netlink.link_add_bridge(ifname, self.get_bridge_mtu(ifaceobj))
         else:
             self.logger.info('%s: bridge already exists' % ifname)
 
