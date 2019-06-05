@@ -871,11 +871,11 @@ class LinkUtils(utilsBase):
             return
         cmd = 'addr del %s' % address
         if broadcast:
-            cmd += 'broadcast %s' % broadcast
+            cmd += ' broadcast %s' % broadcast
         if peer:
-            cmd += 'peer %s' % peer
+            cmd += ' peer %s' % peer
         if scope:
-            cmd += 'scope %s' % scope
+            cmd += ' scope %s' % scope
         cmd += ' dev %s' % ifacename
         utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
         self._cache_delete([ifacename, 'addrs', address])
@@ -1128,7 +1128,7 @@ class LinkUtils(utilsBase):
                    (utils.ip_cmd, vrf, gateway))
         # Add metric
         if metric:
-            cmd += 'metric %s' % metric
+            cmd += ' metric %s' % metric
         cmd += ' dev %s' % ifacename
 
         if onlink:
@@ -1272,12 +1272,12 @@ class LinkUtils(utilsBase):
 
         cmd = ''
         if '6' in mode:
-            cmd = ' -6 '
+            cmd = ' -6'
 
         if mode in ['gretap']:
-            cmd += 'link add %s type %s' % (tunnelname, mode)
+            cmd += ' link add %s type %s' % (tunnelname, mode)
         else:
-            cmd += 'tunnel add %s mode %s' % (tunnelname, mode)
+            cmd += ' tunnel add %s mode %s' % (tunnelname, mode)
 
         if attrs:
             for k, v in attrs.iteritems():
