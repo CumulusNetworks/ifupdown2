@@ -586,6 +586,8 @@ class LinkUtils(utilsBase):
                         break
                     elif citems[i] == 'macvlan' and citems[i + 1] == 'mode':
                         linkattrs['kind'] = 'macvlan'
+                    elif citems[i] == 'xfrm':
+                        linkattrs['kind'] = 'xfrm'
                 except Exception as e:
                     if warn:
                         self.logger.debug('%s: parsing error: id, mtu, state, '
@@ -1376,6 +1378,10 @@ class LinkUtils(utilsBase):
     @staticmethod
     def link_add_macvlan(ifname, macvlan_ifacename, mode):
         utils.exec_commandl(['ip', 'link', 'add',  'link', ifname, 'name', macvlan_ifacename, 'type', 'macvlan', 'mode', mode])
+
+    @staticmethod
+    def link_add_xfrm(ifname, xfrm_name, xfrm_id):
+        utils.exec_commandl(['ip', 'link', 'add', xfrm_name, 'type', 'xfrm', 'dev', ifname, 'if_id', xfrm_id])
 
     @staticmethod
     def route_add(route):
