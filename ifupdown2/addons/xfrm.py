@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
-# Author: Roopa Prabhu, roopa@cumulusnetworks.com
+# Copyright 2019 Voleatech GmbH. All rights reserved.
+# Author: Sven Auhagen, sven.auhagen@voleatech.de
 #
 
 import os
