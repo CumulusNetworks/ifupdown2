@@ -2099,7 +2099,7 @@ class ifupdownMain(ifupdownBase):
                                      % (newifaceobjlist[objidx].name,
                                         ifaceLinkKind.to_str(lastifaceobjlist[0].link_kind)))
                     ifacedownlist.append(newifaceobjlist[objidx].name)
-                if not down_changed:
+                if not down_changed and ifaceLinkKind.to_str(lastifaceobjlist[0].link_kind) != 'vxlan':
                     continue
                 if len(newifaceobjlist) != len(lastifaceobjlist):
                     ifacedownlist.append(ifname)
