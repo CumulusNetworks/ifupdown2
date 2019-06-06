@@ -40,10 +40,10 @@ class xfrm(moduleBase):
     """  ifupdown2 addon module to create a xfrm interface """
     _modinfo = {'mhelp' : 'xfrm module creates a xfrm interface for',
                 'attrs' : {
-                    'xfrmid' :
+                    'xfrm-id' :
                         { 'help' : 'xfrm id',
                           'validrange' : ['1', '65535'],
-                          'example': ['xfrmid 1'] 
+                          'example': ['xfrm-id 1'] 
                         },
                     'xfrm-physdev':
                         {'help': 'xfrm physical device',
@@ -73,8 +73,8 @@ class xfrm(moduleBase):
         return None
 
     def _get_xfrmid(self, ifaceobj):
-        if ifaceobj.get_attr_value('xfrmid'):
-            av_attr = ifaceobj.get_attr_value_first('xfrmid')
+        if ifaceobj.get_attr_value('xfrm-id'):
+            av_attr = ifaceobj.get_attr_value_first('xfrm-id')
             return av_attr
 
         return None
@@ -84,7 +84,7 @@ class xfrm(moduleBase):
 
     @staticmethod
     def _is_my_interface(ifaceobj):
-        return ifaceobj.get_attr_value_first('xfrmid')
+        return ifaceobj.get_attr_value_first('xfrm-id')
 
     def _up(self, ifaceobj):
         """
@@ -104,7 +104,7 @@ class xfrm(moduleBase):
             link_created = True
         else:
             current_attrs = self.ipcmd.link_get_linkinfo_attrs(ifaceobj.name)
-            xfrmid_cur = current_attrs.get('xfrmid', None)
+            xfrmid_cur = current_attrs.get('xfrm-id', None)
             physdev_cur = current_attrs.get('xfrm-physdev', None)
             # Check XFRM Values
             if xfrmid != xfrmid_cur or physdev != physdev_cur:

@@ -560,7 +560,7 @@ class Netlink(utilsBase):
         xfrm_physdev_link_ifindex = linkdata.get(Link.IFLA_XFRM_LINK)
 
         return {
-            'xfrmid': str(linkdata.get(Link.IFLA_XFRM_IF_ID, '')),
+            'xfrm-id': str(linkdata.get(Link.IFLA_XFRM_IF_ID, '')),
             'xfrm-physdev': self.get_iface_name(xfrm_physdev_link_ifindex) if xfrm_physdev_link_ifindex else ""
         }
 
