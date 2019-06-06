@@ -699,6 +699,18 @@ class NetlinkManager(object):
         """
         return self._link_add(ifindex, ifname, 'macvlan', {Link.IFLA_MACVLAN_MODE: Link.MACVLAN_MODE_PRIVATE})
 
+    def link_add_xfrm(self, physdev, xfrm_ifname, xfrm_id):
+        """
+        ifindex is the index of the parent interface that this sub-interface
+        is being added to
+        """
+        ifla_info_data = {
+            Link.IFLA_XFRM_IF_ID: int(xfrm_id),
+            Link.IFLA_XFRM_LINK: int(physdev)
+        }
+        
+        return self._link_add(ifindex=None, ifname=xfrm_ifname, kind='xfrm', ifla_info_data=ifla_info_data)
+
     def vlan_get(self, filter_ifindex=None, filter_vlanid=None, compress_vlans=True):
         """
         filter_ifindex should be a tuple if interface indexes, this is a whitelist filter

@@ -1105,7 +1105,7 @@ class AttributeIFLA_LINKINFO(Attribute):
         kind        = self.value.get(Link.IFLA_INFO_KIND)
         slave_kind  = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
 
-        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge'):
+        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge', 'xfrm'):
             raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
         elif not kind and slave_kind != 'bridge':
             # only support brport for now.
@@ -1176,6 +1176,15 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                         else:
                             self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA macvlan sub-attribute type %d' % info_data_type)
+
+                    elif kind == 'xfrm':
+                        if info_data_type in (Link.IFLA_XFRM_IF_ID, Link.IFLA_XFRM_LINK):
+                            sub_attr_pack_layout.append('HH')
+                            sub_attr_payload.append(8)  # length
+                            sub_attr_payload.append(info_data_type)
+
+                            sub_attr_pack_layout.append('L')
+                            sub_attr_payload.append(info_data_value)
 
                     elif kind == 'vxlan':
                         if info_data_type in (Link.IFLA_VXLAN_ID,
@@ -1703,6 +1712,11 @@ class AttributeIFLA_LINKINFO(Attribute):
                                     self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
                                                 (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
 
+                            elif ifla_info_kind == 'xfrm':
+                                # 4-byte int
+                                if info_data_type in (Link.IFLA_XFRM_IF_ID, Link.IFLA_XFRM_LINK):
+                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
+
                             elif ifla_info_kind == 'vxlan':
 
                                 # IPv4Address
@@ -2031,7 +2045,8 @@ class AttributeIFLA_LINKINFO(Attribute):
             'vti6':         Link.ifla_vti_to_string,
             'ipip':         Link.ifla_iptun_to_string,
             'sit':          Link.ifla_iptun_to_string,
-            'ip6tnl':       Link.ifla_iptun_to_string
+            'ip6tnl':       Link.ifla_iptun_to_string,
+            'xfrm':       Link.ifla_xfrm_to_string
         }.get(ifla_info_kind, {})
 
         kind_dict[Link.IFLA_INFO_SLAVE_DATA] = {
@@ -3241,6 +3256,19 @@ class Link(NetlinkPacket):
     }
 
     # =========================================
+    # IFLA_INFO_DATA attributes for xfrm
+    # =========================================
+    IFLA_XFRM_UNSPEC = 0
+    IFLA_XFRM_LINK   = 1
+    IFLA_XFRM_IF_ID  = 2
+
+    ifla_xfrm_to_string = {
+        IFLA_XFRM_UNSPEC : 'IFLA_XFRM_UNSPEC',
+        IFLA_XFRM_LINK   : 'IFLA_XFRM_LINK',
+        IFLA_XFRM_IF_ID   : 'IFLA_XFRM_IF_ID'
+    }
+
+    # =========================================
     # IFLA_INFO_DATA attributes for vxlan
     # =========================================
     IFLA_VXLAN_UNSPEC            = 0
@@ -3909,6 +3937,9 @@ class Link(NetlinkPacket):
 
     def get_ifla_macvlan_string(self, index):
         return self.get_string(self.ifla_macvlan_to_string, index)
+
+    def get_ifla_xfrm_string(self, index):
+        return self.get_string(self.ifla_xfrm_to_string, index)
 
     def get_macvlan_mode_string(self, index):
         return self.get_string(self.macvlan_mode_to_string, index)
