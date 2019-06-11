@@ -864,13 +864,25 @@ class address(moduleBase):
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj, raise_error=False)
 
+        self.up_hwaddress(ifaceobj)
+
+        gateways = ifaceobj.get_attr_value('gateway')
+        if not gateways:
+            gateways = []
+        prev_gw = self._get_prev_gateway(ifaceobj, gateways)
+        self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+
+    def up_hwaddress(self, ifaceobj):
         try:
             hwaddress = self._get_hwaddress(ifaceobj)
+
             if hwaddress:
-                running_hwaddress = None
-                if not ifupdownflags.flags.PERFMODE: # system is clean
+                if not ifupdownflags.flags.PERFMODE:  # system is clean
                     running_hwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
-                if hwaddress != running_hwaddress:
+                else:
+                    running_hwaddress = None
+
+                if self.ipcmd.mac_str_to_int(running_hwaddress) != self.ipcmd.mac_str_to_int(hwaddress):
                     slave_down = False
                     netlink.link_set_updown(ifaceobj.name, "down")
                     if ifaceobj.link_kind & ifaceLinkKind.BOND:
@@ -880,7 +892,7 @@ class address(moduleBase):
                                 netlink.link_set_updown(l, "down")
                             slave_down = True
                     try:
-                        self.ipcmd.link_set(ifaceobj.name, 'address', hwaddress)
+                        self.ipcmd.link_set_hwaddress(ifaceobj.name, hwaddress, force=True)
                     finally:
                         netlink.link_set_updown(ifaceobj.name, "up")
                         if slave_down:
@@ -890,13 +902,7 @@ class address(moduleBase):
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
         except Exception, e:
-            self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
-
-        gateways = ifaceobj.get_attr_value('gateway')
-        if not gateways:
-            gateways = []
-        prev_gw = self._get_prev_gateway(ifaceobj, gateways)
-        self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+            self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
@@ -965,9 +971,12 @@ class address(moduleBase):
             bridgename = ifaceobj.lowerifaces[0]
             vlan = self._get_vlan_id(ifaceobj)
             if self.ipcmd.bridge_is_vlan_aware(bridgename):
-                fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
-                if not fdb_addrs or hwaddress not in fdb_addrs:
-                   return False
+                fdb_addrs = [self.ipcmd.mac_str_to_int(fdb_addr) for fdb_addr in self._get_bridge_fdbs(bridgename, str(vlan))]
+                if not fdb_addrs:
+                    return False
+                hwaddress_int = self.ipcmd.mac_str_to_int(hwaddress)
+                if hwaddress_int not in fdb_addrs:
+                    return False
         return True
 
     def _query_sysctl(self, ifaceobj, ifaceobjcurr):
@@ -1050,7 +1059,7 @@ class address(moduleBase):
         hwaddress = self._get_hwaddress(ifaceobj)
         if hwaddress:
             rhwaddress = self.ipcmd.link_get_hwaddress(ifaceobj.name)
-            if not rhwaddress  or rhwaddress != hwaddress:
+            if not rhwaddress or self.ipcmd.mac_str_to_int(rhwaddress) != self.ipcmd.mac_str_to_int(hwaddress):
                ifaceobjcurr.update_config_with_status('hwaddress', rhwaddress,
                        1)
             elif not self._check_addresses_in_bridge(ifaceobj, hwaddress):

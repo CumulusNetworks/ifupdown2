@@ -13,6 +13,7 @@ import signal
 import socket
 import subprocess
 
+from string import maketrans
 from ipaddr import IPNetwork, IPv6Network
 
 try:
@@ -59,6 +60,8 @@ class LinkUtils(utilsBase):
     DEFAULT_IP_METRIC = 1024
     ADDR_METRIC_SUPPORT = None
 
+    mac_translate_tab = maketrans(":.-,", "    ")
+
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
 
@@ -84,6 +87,14 @@ class LinkUtils(utilsBase):
             except Exception:
                 LinkUtils.ADDR_METRIC_SUPPORT = False
                 self.logger.info('address metric support: KO')
+
+    @classmethod
+    def mac_str_to_int(cls, mac):
+        mac_int = 0
+        if mac:
+            for n in mac.translate(cls.mac_translate_tab).split():
+                mac_int += int(n, 16)
+        return mac_int
 
     @classmethod
     def addr_metric_support(cls):
@@ -1081,8 +1092,11 @@ class LinkUtils(utilsBase):
 
     def link_set_hwaddress(self, ifacename, hwaddress, force=False):
         if not force:
-            if self._cache_check('link', [ifacename, 'hwaddress'], hwaddress):
-                return
+            link_hwaddress = self.link_get_hwaddress(ifacename)
+
+            if self.mac_str_to_int(link_hwaddress) == self.mac_str_to_int(hwaddress):
+                return False
+
         self.link_down(ifacename)
         cmd = 'link set dev %s address %s' % (ifacename, hwaddress)
         if LinkUtils.ipbatch:
@@ -1091,6 +1105,7 @@ class LinkUtils(utilsBase):
             utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
         self.link_up(ifacename)
         self._cache_update([ifacename, 'hwaddress'], hwaddress)
+        return True
 
     def link_set_mtu(self, ifacename, mtu):
         if ifupdownflags.flags.DRYRUN:

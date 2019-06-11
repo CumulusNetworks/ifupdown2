@@ -7,7 +7,6 @@
 import os
 import glob
 
-from string import maketrans
 from collections import deque
 from ipaddr import IPNetwork, IPv6Network
 
@@ -89,7 +88,6 @@ class addressvirtual(moduleBase):
         )
 
         self.address_virtual_ipv6_addrgen_value_dict = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}
-        self.mac_translate_tab = maketrans(":.-,", "    ")
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if ifaceobj.get_attr_value('address-virtual') or ifaceobj.get_attr_value("vrrp"):
@@ -153,9 +151,9 @@ class addressvirtual(moduleBase):
                 fdb_addrs = self._get_bridge_fdbs(bridgename, str(vlan))
                 if not fdb_addrs:
                    return False
-                hwaddress_int = self.mac_str_to_int(hwaddress)
+                hwaddress_int = self.ipcmd.mac_str_to_int(hwaddress)
                 for mac in fdb_addrs:
-                    if self.mac_str_to_int(mac) == hwaddress_int:
+                    if self.ipcmd.mac_str_to_int(mac) == hwaddress_int:
                         return True
                 return False
         return True
@@ -376,12 +374,6 @@ class addressvirtual(moduleBase):
                     self.ipcmd.link_set(u, 'master', vrfname,
                                         state='up')
 
-    def mac_str_to_int(self, mac):
-        mac_int = 0
-        for n in mac.translate(self.mac_translate_tab).split():
-            mac_int += int(n, 16)
-        return mac_int
-
     def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
         """
         intf_config_list = [
@@ -600,7 +592,7 @@ class addressvirtual(moduleBase):
             if ip4 or ifquery:
                 merged_with_existing_obj = False
                 macvlan_ip4_mac = "00:00:5e:00:01:%s" % hex_id
-                macvlan_ip4_mac_int = self.mac_str_to_int(macvlan_ip4_mac)
+                macvlan_ip4_mac_int = self.ipcmd.mac_str_to_int(macvlan_ip4_mac)
                 # if the vrr config is defined in different lines for the same ID
                 # we need to save the ip4 and ip6 in the objects we previously
                 # created, example:
@@ -631,7 +623,7 @@ class addressvirtual(moduleBase):
             if ip6 or ifquery:
                 merged_with_existing_obj = False
                 macvlan_ip6_mac = "00:00:5e:00:02:%s" % hex_id
-                macvlan_ip6_mac_int = self.mac_str_to_int(macvlan_ip6_mac)
+                macvlan_ip6_mac_int = self.ipcmd.mac_str_to_int(macvlan_ip6_mac)
                 # if the vrr config is defined in different lines for the same ID
                 # we need to save the ip4 and ip6 in the objects we previously
                 # created, example:
@@ -738,7 +730,7 @@ class addressvirtual(moduleBase):
 
             if mac != "none":
                 config["hwaddress"] = mac
-                config["hwaddress_int"] = self.mac_str_to_int(mac)
+                config["hwaddress_int"] = self.ipcmd.mac_str_to_int(mac)
 
             ip_network_obj_list = []
             for ip in av_attrs[1:]:
@@ -882,7 +874,7 @@ class addressvirtual(moduleBase):
                     continue
 
                 try:
-                    if self.mac_str_to_int(rhwaddress) == macvlan_hwaddress_int \
+                    if self.ipcmd.mac_str_to_int(rhwaddress) == macvlan_hwaddress_int \
                             and self.ipcmd.compare_user_config_vs_running_state(raddrs, ips) \
                             and self._check_addresses_in_bridge(ifaceobj, macvlan_hwaddress):
                         ifaceobjcurr.update_config_with_status(

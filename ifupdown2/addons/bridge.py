@@ -2205,7 +2205,7 @@ class bridge(moduleBase):
             # and compare the ints, it will increase perfs and be safer.
             cached_value = self.ipcmd.cache_get('link', [ifname, 'hwaddress'])
             self.logger.debug('%s: cached hwaddress value: %s' % (ifname, cached_value))
-            if cached_value and cached_value == bridge_mac:
+            if cached_value and self.ipcmd.mac_str_to_int(cached_value) == self.ipcmd.mac_str_to_int(bridge_mac):
                 # the bridge mac is already set to the bridge_mac_intf's mac
                 return
 
