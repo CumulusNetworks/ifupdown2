@@ -61,12 +61,12 @@ class dhcp(moduleBase):
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
                 module_name=self.__class__.__name__, attr='dhcp-wait')
             wait = not str(dhcp_wait).lower() == "no"
-            inet6_ll_wait = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
-                ifname=ifaceobj.name, attr='inet6-ll-wait')
+            dhcp6_ll_wait = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
+                ifname=ifaceobj.name, attr='dhcp6-ll-wait')
             try:
-                ll_wait_time = int(inet6_ll_wait)
+                timeout = int(dhcp6_ll_wait)+1
             except:
-                ll_wait_time = 10
+                timeout = 10
                 pass
 
             vrf = ifaceobj.get_attr_value_first('vrf')
@@ -108,11 +108,8 @@ class dhcp(moduleBase):
                             pass
                     #add delay before starting IPv6 dhclient to
                     #make sure the configured interface/link is up.
-                    if ll_wait_time:
-                       timeout = ll_wait_time
+                    if timeout > 1:
                        time.sleep(1)
-                    else:
-                       timeout = ll_wait_time+1
 
                     while timeout:
                         addr_output = utils.exec_command('%s -6 addr show %s'
