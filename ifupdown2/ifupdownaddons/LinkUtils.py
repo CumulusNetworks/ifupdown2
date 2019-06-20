@@ -1090,7 +1090,7 @@ class LinkUtils(utilsBase):
         if key not in ['master', 'nomaster']:
             self._cache_update([ifacename, key], value)
 
-    def link_set_hwaddress(self, ifacename, hwaddress, force=False):
+    def link_set_hwaddress(self, ifacename, hwaddress, force=False, keep_down=False):
         if not force:
             link_hwaddress = self.link_get_hwaddress(ifacename)
 
@@ -1103,7 +1103,9 @@ class LinkUtils(utilsBase):
             self.add_to_batch(cmd)
         else:
             utils.exec_command('%s %s' % (utils.ip_cmd, cmd))
-        self.link_up(ifacename)
+
+        if not keep_down:
+            self.link_up(ifacename)
         self._cache_update([ifacename, 'hwaddress'], hwaddress)
         return True
 

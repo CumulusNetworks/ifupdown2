@@ -432,7 +432,7 @@ class addressvirtual(moduleBase):
                 self.ipcmd.ipv6_addrgen(macvlan_ifname, ipv6_addrgen_user_value, link_created)
 
             if macvlan_hwaddr:
-                self.ipcmd.link_set_hwaddress(macvlan_ifname, macvlan_hwaddr)
+                self.ipcmd.link_set_hwaddress(macvlan_ifname, macvlan_hwaddr, keep_down=ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN)
                 hw_address_list.append(macvlan_hwaddr)
 
             if self.addressvirtual_with_route_metric and self.ipcmd.addr_metric_support():
@@ -447,6 +447,10 @@ class addressvirtual(moduleBase):
                 purge_existing,
                 metric=metric
             )
+
+            if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                self.logger.info("%s: keeping macvlan down - link-down yes on lower device %s" % (macvlan_ifname, ifname))
+                netlink.link_set_updown(macvlan_ifname, "down")
 
             # If link existed before, flap the link
             if not link_created:
@@ -472,7 +476,8 @@ class addressvirtual(moduleBase):
                 # since we auto create them here..we are responsible
                 # to bring them up here in the case they were brought down
                 # by some other entity in the system.
-                netlink.link_set_updown(macvlan_ifname, "up")
+                if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                    netlink.link_set_updown(macvlan_ifname, "up")
             else:
                 try:
                     if not self.addressvirtual_with_route_metric or not self.ipcmd.addr_metric_support():
