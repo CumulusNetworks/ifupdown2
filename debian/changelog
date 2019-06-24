@@ -1,14 +1,16 @@
 ifupdown2 (1.2.6-1) unstable; urgency=medium
 
   * Fix: AttributeError exception in bridge module (fixes #90)
+  * Fix: ifupdownaddons: LinkUtils fix cmd concatenation (closes: #930839)
   * New. policymanager: merge module policy instead of overriding duplicates
   * New: set default mtu on user defined device (via link-type)
   * New: add support for vxlan-ttl attribute
-  * New. add support for vrrp attribute
-  * New. introduce new bridge policy:
+  * New: add support for vrrp attribute
+  * New: introduce new bridge policy:
         "vxlan_bridge_igmp_snooping_enable_port_mcrouter"
+  * New: link-down yes will also down macvlans
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Sun, 21 Apr 2019 23:42:42 +8000
+ -- Julien Fortin <julien@cumulusnetworks.com>  Sun, 23 Jun 2019 23:42:42 -1000
 
 ifupdown2 (1.2.5-1) unstable; urgency=medium
 
