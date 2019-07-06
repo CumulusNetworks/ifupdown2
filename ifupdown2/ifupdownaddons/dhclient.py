@@ -85,25 +85,34 @@ class dhclient(utilsBase):
                    '%s' %ifacename]
         self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def start6(self, ifacename, wait=True, cmd_prefix=None):
+    def start6(self, ifacename, wait=True, cmd_prefix=None, duid=None):
         cmd = ['/sbin/dhclient', '-6', '-pf',
                 '/run/dhclient6.%s.pid' %ifacename, '-lf',
                 '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                 '%s' %ifacename]
         if not wait:
             cmd.append('-nw')
+        if duid is not None:
+            cmd.append('-D')
+            cmd.append(duid)
         self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def stop6(self, ifacename, cmd_prefix=None):
+    def stop6(self, ifacename, cmd_prefix=None, duid=None):
         cmd = ['/sbin/dhclient', '-6', '-x', '-pf',
                '/run/dhclient6.%s.pid' % ifacename, '-lf',
                '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                '%s' %ifacename]
+        if duid is not None:
+            cmd.append('-D')
+            cmd.append(duid)
         self._run_dhclient_cmd(cmd, cmd_prefix)
 
-    def release6(self, ifacename, cmd_prefix=None):
+    def release6(self, ifacename, cmd_prefix=None, duid=None):
         cmd = ['/sbin/dhclient', '-6', '-r', '-pf',
                '/run/dhclient6.%s.pid' %ifacename,
               '-lf', '/var/lib/dhcp/dhclient6.%s.leases' % ifacename,
                '%s' %ifacename]
+        if duid is not None:
+            cmd.append('-D')
+            cmd.append(duid)
         self._run_dhclient_cmd(cmd, cmd_prefix)

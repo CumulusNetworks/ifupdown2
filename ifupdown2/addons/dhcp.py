@@ -68,6 +68,8 @@ class dhcp(moduleBase):
             except:
                 timeout = 10
                 pass
+            dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
+                ifname=ifaceobj.name, attr='dhcp6-duid')
 
             vrf = ifaceobj.get_attr_value_first('vrf')
             if (vrf and self.vrf_exec_cmd_prefix and
@@ -103,7 +105,7 @@ class dhcp(moduleBase):
                         self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
                                 '.autoconf', autoconf)
                         try:
-                            self.dhclientcmd.stop6(ifaceobj.name)
+                            self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
                         except:
                             pass
                     #add delay before starting IPv6 dhclient to
@@ -118,7 +120,7 @@ class dhcp(moduleBase):
                         if r:
                             self.dhclientcmd.start6(ifaceobj.name,
                                                     wait=wait,
-                                                    cmd_prefix=dhclient_cmd_prefix)
+                                                    cmd_prefix=dhclient_cmd_prefix, duid=dhcp6_duid)
                             return
                         timeout -= 1
                         if timeout:
@@ -144,8 +146,10 @@ class dhcp(moduleBase):
         if (vrf and self.vrf_exec_cmd_prefix and
             self.ipcmd.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+        dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
+            ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
-            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix)
+            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
         if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
 
