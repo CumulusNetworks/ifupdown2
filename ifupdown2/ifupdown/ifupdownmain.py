@@ -1800,6 +1800,9 @@ class ifupdownMain(ifupdownBase):
         if self.flags.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
         self.flags.STATEMANAGER_UPDATE = False
+
+        iface_read_ret = True
+
         if auto:
             self.logger.debug('setting flag ALL')
             ifupdownflags.flags.ALL = True
@@ -1814,7 +1817,7 @@ class ifupdownMain(ifupdownBase):
                                 ifacePrivFlags(False, True)), ifacenames)
         else:
             try:
-                self.read_iface_config()
+                iface_read_ret = self.read_iface_config()
             except Exception:
                 raise
 
@@ -1865,13 +1868,15 @@ class ifupdownMain(ifupdownBase):
         if ops[0] == 'query' and ifupdownflags.flags.WITHDEFAULTS:
             return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
         elif ops[0] == 'query-checkcurr':
-            ret = self.print_ifaceobjscurr_pretty(filtered_ifacenames, format)
-            if ret != 0:
+            if self.print_ifaceobjscurr_pretty(filtered_ifacenames, format):
                 # if any of the object has an error, signal that silently
                 raise Exception('')
         elif ops[0] == 'query-running':
             self.print_ifaceobjsrunning_pretty(filtered_ifacenames, format)
             return
+
+        if not iface_read_ret or not ret:
+            raise Exception()
 
     def _reload_currentlyup(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
