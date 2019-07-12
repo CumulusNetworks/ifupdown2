@@ -17,6 +17,7 @@ ifupdown2 (1.2.6-1) unstable; urgency=medium
   * New: link-down yes will also down macvlans
   * New: XFRM addon module
   * New: Add policy to wait for IPv6 link local address to be available
+  * New: Add policy dhcp6-duid to specify DUID type to be used for IPv6 interfaces
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Sun, 23 Jun 2019 23:42:42 -1000
 
