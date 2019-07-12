@@ -34,30 +34,30 @@ class dhcp(moduleBase):
 
     _modinfo = {
         "mhelp": "Configure dhcp",
-        "attrs": {
+        "policies": {
             "dhcp6-duid": {
                 "help": "Override the default when selecting the type of DUID to use. By default, DHCPv6 dhclient "
                         "creates an identifier based on the link-layer address (DUID-LL) if it is running in stateless "
                         "mode (with -S, not requesting an address), or it creates an identifier based on the "
-                       "link-layer address plus a timestamp (DUID-LLT) if it is running in stateful mode (without -S, "
+                        "link-layer address plus a timestamp (DUID-LLT) if it is running in stateful mode (without -S, "
                         "requesting an  address). When DHCPv4 is configured to use a DUID using -i option the default "
                         "is to use a DUID-LLT. -D overrides these default, with a value of either LL or LLT.",
-               "validvals": ["LL", "LLT"],
+                "validvals": ["LL", "LLT"],
                 "example": ["dhcp6-duid LL"]
             },
-           "dhcp-wait": {
+            "dhcp-wait": {
                 "help": "Wait or not wait and become a daemon immediately (nowait) rather than waiting until an "
-                         "IP address has been acquired. If not specified default value is true, that is to wait.",
-               "validvals": ["true", "false"],
+                        "IP address has been acquired. If not specified default value is true, that is to wait.",
+                "validvals": ["true", "false"],
                 "example": ["dhcp-wait false"]
             },
-           "dhcp6-ll-wait": {
+            "dhcp6-ll-wait": {
                 "help": "Overrides the default wait time before DHCPv6 client is started. During this wait time, "
                         "ifupdown2 checks if the interface requesting an address has a valid link-local address. "
                         "If not specified default value used is 10 seconds.",
-               "validvals": ["whole numbers"],
+                "validvals": ["whole numbers"],
                 "example": ["dhcp6-ll-wait 0"]
-           }
+            }
         }
     }
 
