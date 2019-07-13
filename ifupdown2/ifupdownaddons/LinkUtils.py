@@ -1012,13 +1012,13 @@ class LinkUtils(utilsBase):
             obj = IPNetwork(ip)
 
             if type(obj) == IPv6Network:
-                ip6.append(obj)
+                ip6.append(str(obj))
             else:
-                ip4.append(obj)
+                ip4.append(str(obj))
 
         running_ipobj = []
         for ip in running_addrs or []:
-            running_ipobj.append(IPNetwork(ip))
+            running_ipobj.append(str(IPNetwork(ip)))
 
         return running_ipobj == (ip4 + ip6)
 
