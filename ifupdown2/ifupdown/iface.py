@@ -647,14 +647,13 @@ class iface():
         del odict['env']
         del odict['link_type']
         del odict['link_kind']
-        del odict['link_privflags']
+        #del odict['link_privflags']
         del odict['role']
         del odict['dependency_type']
         del odict['blacklisted']
         return odict
 
     def __setstate__(self, dict):
-        self.__dict__.update(dict)
         self._config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
@@ -674,6 +673,7 @@ class iface():
         self.link_privflags = ifaceLinkPrivFlags.UNKNOWN
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
+        self.__dict__.update(dict)
 
     def dump_raw(self, logger):
         indent = '  '

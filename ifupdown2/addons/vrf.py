@@ -15,6 +15,7 @@ from sets import Set
 try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
@@ -27,6 +28,7 @@ try:
 except ImportError:
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.statemanager import statemanager_api as statemanager
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
@@ -439,7 +441,21 @@ class vrf(moduleBase):
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
         self.ipcmd.link_set(ifacename, 'master', vrfname)
+        self.enable_ipv6(ifacename)
         return
+
+    def enable_ipv6(self, ifname):
+        """
+        Only enable ipv6 on former bridge port
+        - workaround for intf moved from bridge port to VRF slave
+        """
+        try:
+            for ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+                    self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
+                    return
+        except Exception, e:
+            self.logger.info(str(e))
 
     def _down_dhcp_slave(self, ifaceobj, vrfname):
         try:
