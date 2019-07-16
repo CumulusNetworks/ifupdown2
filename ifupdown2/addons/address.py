@@ -856,6 +856,12 @@ class address(moduleBase):
         if addr_method not in ["dhcp", "ppp"]:
             self._inet_address_config(ifaceobj, ifaceobj_getfunc,
                                       force_reapply)
+        else:
+            # remove old addresses added by ifupdown2
+            # (if intf was moved from static config to dhcp)
+            for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
+                for addr in old_ifaceobj.get_attr_value("address") or []:
+                    self.ipcmd.addr_del(ifaceobj.name, addr)
 
         self.process_mtu(ifaceobj, ifaceobj_getfunc)
 
