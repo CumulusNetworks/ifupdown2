@@ -142,8 +142,39 @@ class NetlinkManager(object):
         The TX socket is used for install requests, sending RTM_GETXXXX
         requests, etc
         """
-        self.tx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
-        self.tx_socket.bind((self.pid, 0))
+        try:
+            self.tx_socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
+
+            # bind retry mechanism:
+            # in some cases we are running into weird issues... Address already in use
+            # to counter this problem, we will retry up to NLMANAGER_BIND_RETRY times to
+            # bind our socket, every time increasing the address (or pid) that we bind it
+            # to. NLMANAGER_BIND_RETRY default to 4242
+            for i in xrange(0, int(os.getenv("NLMANAGER_BIND_RETRY", 4242))):
+                try:
+                    self.tx_socket.bind((self.pid + i, 0))
+                    # the bind call succeeded, we need to update self.pid
+                    # to reflect the correct value we are binded to. If we
+                    # couldn't bind to our real pid (os.getpid()) warn user
+                    # to avoid confusion (via debug logs).
+                    if i != 0:
+                        log.debug(
+                            "nlmanager: pid %s already in use - binding netlink socket to pid %s"
+                            % (self.pid, self.pid + i)
+                        )
+                    self.pid = self.pid + i
+                    return
+                except:
+                    pass
+            # if we reach this code it means all our bind calls failed. We are trying to
+            # bind the socket one last time on the original parameters if not we will not
+            # be catching the exception
+            self.tx_socket.bind((self.pid, 0))
+        except:
+            if self.tx_socket:
+                self.tx_socket.close()
+                self.tx_socket = None
+            raise
 
     def tx_nlpacket_raw(self, message):
         """
