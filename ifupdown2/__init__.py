@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__version__ = '1.2.5'
+__version__ = '1.2.9'
 
 # Copyright (C) 2014,2015,2016,2017,2018,219 Cumulus Networks, Inc. All rights reserved
 #
