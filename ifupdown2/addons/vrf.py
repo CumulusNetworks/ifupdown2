@@ -450,10 +450,7 @@ class vrf(moduleBase):
         - workaround for intf moved from bridge port to VRF slave
         """
         try:
-            for ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
-                if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
-                    self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
-                    return
+            self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
         except Exception, e:
             self.logger.info(str(e))
 
@@ -487,6 +484,7 @@ class vrf(moduleBase):
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
+                    self.enable_ipv6(ifacename)
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
