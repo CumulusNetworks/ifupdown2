@@ -440,17 +440,17 @@ class vrf(moduleBase):
                     raise
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
+        self.enable_ipv6_if_prev_brport(ifacename)
         self.ipcmd.link_set(ifacename, 'master', vrfname)
-        self.enable_ipv6(ifacename)
         return
 
-    def enable_ipv6(self, ifname):
+    def enable_ipv6_if_prev_brport(self, ifname):
         """
-        Only enable ipv6 on former bridge port
-        - workaround for intf moved from bridge port to VRF slave
+        If the intf was previously enslaved to a bridge it is possible ipv6 is still disabled.
         """
         try:
-            self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
+            if os.path.exists("/sys/class/net/%s/brport" % ifname):
+                self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
         except Exception, e:
             self.logger.info(str(e))
 
@@ -483,8 +483,8 @@ class vrf(moduleBase):
                 uppers = self.ipcmd.link_get_uppers(ifacename)
                 if not uppers or vrfname not in uppers:
                     self._handle_existing_connections(ifaceobj, vrfname)
+                    self.enable_ipv6_if_prev_brport(ifacename)
                     self.ipcmd.link_set(ifacename, 'master', vrfname)
-                    self.enable_ipv6(ifacename)
             elif ifaceobj:
                 vrf_master_objs = ifaceobj_getfunc(vrfname)
                 if not vrf_master_objs:
