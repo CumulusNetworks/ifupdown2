@@ -259,6 +259,16 @@ class bond(moduleBase):
         else:
             return None
 
+    def enable_ipv6_if_prev_brport(self, ifname):
+        """
+        If the intf was previously enslaved to a bridge it is possible ipv6 is still disabled.
+        """
+        try:
+            if os.path.exists("/sys/class/net/%s/brport" % ifname):
+                self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
+        except Exception, e:
+            self.logger.info(str(e))
+
     def _is_clag_bond(self, ifaceobj):
         if self.get_bond_slaves(ifaceobj):
             attrval = ifaceobj.get_attr_value_first('clag-id')
@@ -297,6 +307,7 @@ class bond(moduleBase):
                     netlink.link_set_protodown(slave, "on")
                 except Exception, e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+            self.enable_ipv6_if_prev_brport(slave)
             netlink.link_set_master(slave, ifaceobj.name)
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
