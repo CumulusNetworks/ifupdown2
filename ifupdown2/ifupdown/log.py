@@ -167,23 +167,3 @@ class Log:
 
 
 log = Log()
-
-
-"""
-
-#logging.basicConfig( format="%(filename)s: %(username)s says '%(message)s' in %(funcname)s" )
-
-Logger.debug(msg, *args, **kwargs)
-Logs a message with level DEBUG on this logger. The msg is the message format string, and the args are the arguments which are merged into msg using the string formatting operator. (Note that this means that you can use keywords in the format string, together with a single dictionary argument.)
-
-There are two keyword arguments in kwargs which are inspected: exc_info which, if it does not evaluate as false, causes exception information to be added to the logging message. If an exception tuple (in the format returned by sys.exc_info()) is provided, it is used; otherwise, sys.exc_info() is called to get the exception information.
-
-"""
-
-"""
-USE FILTER TO IGNORE "EXITS" MESSAGES
-Now that you know the basic plot, let me introduce one more character - the Filter.
-Filter as the name suggests, allows you to filter a message before you log it. Yes, messages are filtered based on the level setting, but adding a Filter gives you more fine grained control of messages you log.
-Both Loggers and Handlers can have multiple Filters. You can add Filters using addFilter and removeFilter methods.
-When a Logger/Handler receives a message, it consults all of its filters. If the filter(record) method on any of the Filters attached returns False (or 0) the message is dropped.
-The official documentation, though detailed, is actually pretty confusing about the role of Filters. This is a pity; because Filters can be handy when you want to drop a message based on a regular expression, error code, contextual information and pretty much anything else. The default Filter is pretty much useless (and the doc string is very confusing too). Just inherit from the default filter and override the filter method according to what you want to filter out. (Be sure to download the source for logging module and check out the unit tests which have some good examples. See the references at the end of this post.)"""
