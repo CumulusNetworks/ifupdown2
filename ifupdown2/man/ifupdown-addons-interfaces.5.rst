@@ -238,7 +238,7 @@ EXAMPLES
 
         **required**: False
 
-        **default**: no
+        **default**: yes
 
         **validvals**: yes,on,off,no
 
