@@ -2087,14 +2087,57 @@ class ifupdownMain(ifupdownBase):
                     not self.is_ifaceobj_builtin(newifaceobjlist[0]) and
                     lastifaceobjlist[0].is_config_present() and
                     lastifaceobjlist[0].link_kind):
-                    self.logger.warn('%s: misconfig ? removed but still exists '
-                                     'as a dependency of %s.\nPlease remove '
-                                     'the dependency manually `ifdown %s` if '
-                                     'it is being picked up as part of a regex'
-                                     % (newifaceobjlist[objidx].name,
-                                        str(newifaceobjlist[objidx].upperifaces),
-                                        newifaceobjlist[objidx].name))
-                if (lastifaceobjlist[0].link_kind and
+
+                    # Check if interface is picked up by a regex in the upperifaces.
+                    print_warning = True
+
+                    for upper in newifaceobjlist[objidx].upperifaces or []:
+                        slaves = []
+                        for upper_ifaceobj in self.ifaceobjdict.get(upper):
+                            slaves.extend(upper_ifaceobj.get_attr_value("bond-slaves") or [])
+                            slaves.extend(upper_ifaceobj.get_attr_value("bridge-ports") or [])
+                        slaves_string = " ".join(slaves)
+                        if newifaceobjlist[objidx].name not in slaves_string:
+                            print_warning = "regex" not in slaves_string
+                            if not print_warning:
+                                break
+                    ###############################################################
+
+                    warning_no_config_regex = (
+                        "%s: misconfig ? removed but still exists as a dependency of %s.\n"
+                        "Please remove the dependency manually `ifdown %s` if it is being "
+                        "picked up as part of a regex" % (
+                            newifaceobjlist[objidx].name,
+                            str(newifaceobjlist[objidx].upperifaces),
+                            newifaceobjlist[objidx].name
+                        )
+                    )
+
+                    if print_warning:
+                        self.logger.warn(warning_no_config_regex)
+                    else:
+                        # The warning shouldn't be printed because we've detected that this
+                        # interface was pick up as part of a regex but the config doesn't
+                        # exist anymore. It was most likely removed from the config file itself
+                        # We should down this interface and remove it from the ifaceobjdict
+                        # and dependency graph used for the following ifreload.
+                        ifname_to_remove = newifaceobjlist[objidx].name
+                        ifacedownlist.append(ifname_to_remove)
+
+                        try:
+                            if new_ifaceobjdict:
+                                del new_ifaceobjdict[ifname_to_remove]
+
+                            for k, v in new_dependency_graph.iteritems():
+                                if ifname_to_remove in v:
+                                    v.remove(ifname_to_remove)
+                            del new_dependency_graph[ifname_to_remove]
+                        except Exception as e:
+                            self.logger.warning(warning_no_config_regex)
+                            self.logger.warning("while trying to fix this situation "
+                                                "we ran into the following issues: %s" % str(e))
+
+                elif (lastifaceobjlist[0].link_kind and
                     not newifaceobjlist[0].link_kind):
                     self.logger.warn('%s: moved from being a %s to a'
                                      ' physical interface (non-logical interface).'
