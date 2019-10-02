@@ -30,7 +30,7 @@ class pickling():
     def save(cls, filename, list_of_objects):
         """ pickle a list of iface objects """
         try:
-            with open(filename, 'w') as f:
+            with open(filename, 'wb') as f:
                 for obj in list_of_objects:
                     pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
         except:
@@ -47,7 +47,7 @@ class pickling():
     @classmethod
     def load(cls, filename):
         """ load picked iface object """
-        with open(filename, 'r') as f:
+        with open(filename, 'rb') as f:
             while True:
                 try: yield pickle.load(f)
                 except EOFError: break
@@ -192,7 +192,7 @@ class stateManager():
         """ saves state (ifaceobjects) to persistent state file """
 
         try:
-            with open(self.state_file, 'w') as f:
+            with open(self.state_file, 'wb') as f:
                 if not len(self.ifaceobjdict):
                     f.truncate(0)
                     return
