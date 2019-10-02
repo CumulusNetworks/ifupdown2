@@ -2320,6 +2320,8 @@ class bridge(Addon, moduleBase):
                                              newly_enslaved_ports=newly_enslaved_ports)
         except Exception as e:
             self.logger.warning('%s: apply bridge ports settings: %s' % (ifname, str(e)))
+            import traceback
+            traceback.print_exc()
 
         running_ports = ''
         try:
