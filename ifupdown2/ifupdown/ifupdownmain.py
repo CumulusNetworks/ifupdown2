@@ -351,6 +351,8 @@ class ifupdownMain:
                 # if read_saved_state fails, state file might be corrupt.
                 # Ignore old state and continue
                 self.logger.warning('error reading state (%s)' %str(e))
+                import traceback
+                traceback.print_exc()
         else:
             self.flags.STATEMANAGER_UPDATE = False
         self._delay_admin_state = True if self.config.get(
