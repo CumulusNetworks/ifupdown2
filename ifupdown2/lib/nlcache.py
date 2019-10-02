@@ -1170,7 +1170,7 @@ class _NetlinkCache:
         :return:
         """
         ifindex = link.ifindex
-        ifname = link.get_attribute_value(Link.IFLA_IFNAME)
+        ifname = link.get_attribute_value(Link.IFLA_IFNAME).decode("ascii")
 
         # check if this device is registered in the ignore list
         with self._ignore_rtm_newlinkq_lock:
@@ -1540,6 +1540,9 @@ class _NetlinkCache:
                 label = self.get_ifname(ifindex)
             except NetlinkCacheIfindexNotFoundError:
                 pass
+
+        if isinstance(label, bytes):
+            label = label.decode()
 
         return label, ifindex
 
