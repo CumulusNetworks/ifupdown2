@@ -3202,7 +3202,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
                                      Link.IFLA_BRPORT_NEIGH_SUPPRESS):
-                    self.value[sub_attr_type] = unpack('=B', data[4])[0]
+                    self.value[sub_attr_type] = unpack('=B', bytes([data[4]]))[0]
 
                 # 2 Byte attributes
                 elif sub_attr_type in (Link.IFLA_BRPORT_PRIORITY,
