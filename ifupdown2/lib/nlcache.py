@@ -1523,7 +1523,7 @@ class _NetlinkCache:
 
             # if the device was enslaved to another device we need to remove
             # it's entry from our _masters_and_slaves dictionary
-            if link_ifla_master > 0:
+            if link_ifla_master and link_ifla_master > 0:
                 try:
                     self.__unslave_nolock(slave=ifname)
                 except NetlinkCacheIfindexNotFoundError as e:
