@@ -315,7 +315,7 @@ class moduleBase(object):
         """ get value of sysctl variable """
         output = utils.exec_command('%s %s' %
                                     (utils.sysctl_cmd, variable))
-        split = output.split('=')
+        split = output.split(b'=')
         if len(split) > 1:
             return split[1].strip()
         return None
