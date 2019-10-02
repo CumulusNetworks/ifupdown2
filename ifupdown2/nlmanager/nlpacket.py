@@ -210,11 +210,7 @@ def remove_trailing_null(line):
     Remove the last character if it is a NULL...having that NULL
     causes python to print a garbage character
     """
-
-    if ord(line[-1]) == 0:
-        line = line[:-1]
-
-    return line
+    return line.split(b'\0', 1)[0]
 
 
 def mac_int_to_str(mac_int):
@@ -942,7 +938,7 @@ class Attribute(object):
         pad = self.pad_bytes_needed(length)
 
         if pad:
-            raw += '\0' * pad
+            raw = raw + bytes(('\0' * pad).encode("ascii"))
 
         return raw
 
@@ -1325,13 +1321,14 @@ class AttributeString(Attribute):
     def encode(self):
         # some interface names come from JSON as unicode strings
         # and cannot be packed as is so we must convert them to strings
-        if isinstance(self.value, unicode):
-            self.value = str(self.value)
+        if isinstance(self.value, bytes):
+            self.value = self.value.decode()
         self.PACK = '%ds' % len(self.value)
         self.LEN = calcsize(self.PACK)
 
         length = self.HEADER_LEN + self.LEN
-        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value)
+        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value.encode("ascii"))
+        #raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value)
         raw = self.pad(length, raw)
         return raw
 
@@ -1341,7 +1338,7 @@ class AttributeString(Attribute):
         self.LEN = calcsize(self.PACK)
 
         try:
-            self.value = str(remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0]))
+            self.value = remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0])
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:self.length])))
             raise
@@ -1761,7 +1758,8 @@ class AttributeIFLA_AF_SPEC(Attribute):
 
                         # 1 byte attr
                         if inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
-                            inet6_attr[inet6_attr_type] = unpack('=B', sub_attr_data[4])[0]
+                            #inet6_attr[inet6_attr_type] = unpack('=B', sub_attr_data[4])[0]
+                            inet6_attr[inet6_attr_type] = sub_attr_data[4]
                             # nlmanager doesn't support multiple kernel version
                             # all the other attributes like IFLA_INET6_CONF are
                             # based on DEVCONF_MAX from _UAPI_IPV6_H.
@@ -3591,13 +3589,14 @@ class NetlinkPacket(object):
     def build_message(self, seq, pid):
         self.seq = seq
         self.pid = pid
-        attrs = ''
+        attrs = bytes()
 
-        for attr in self.attributes.itervalues():
-            attrs += attr.encode()
+        for attr in self.attributes.values():
+            attrs = attrs + bytes(attr.encode())
 
         self.length = self.header_LEN + len(self.body) + len(attrs)
         self.header_data = pack(self.header_PACK, self.length, self.msgtype, self.flags, self.seq, self.pid)
+
         self.msg_data = self.body + attrs
         self.message = self.header_data + self.msg_data
 
