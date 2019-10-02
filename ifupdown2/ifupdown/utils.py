@@ -412,7 +412,7 @@ class utils():
                                   stderr=stderr)
             utils.enable_subprocess_signal_forwarding(ch, signal.SIGINT)
             if stdout or stdin:
-                cmd_output = ch.communicate(input=stdin)[0]
+                cmd_output = ch.communicate(input=stdin.encode() if stdin else stdin)[0]
             cmd_returncode = ch.wait()
         except Exception as e:
             raise Exception('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
