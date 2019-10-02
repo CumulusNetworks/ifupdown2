@@ -1662,7 +1662,18 @@ class AttributeIFLA_AF_SPEC(Attribute):
         length = calcsize(pack_layout)
         payload[attr_length_index] = length
 
-        raw = pack(pack_layout, *payload)
+        # WORK AROUND: converting string to bytes and ignoring NoneType
+        # I'm not even sure why we have NoneTypes here...
+        plist = []
+        for p in payload:
+            if not p:
+                plist.append(0)
+            elif isinstance(p, str):
+                plist.append(p.encode())
+            else:
+                plist.append(p)
+        raw = pack(pack_layout, *plist)
+
         raw = self.pad(length, raw)
         return raw
 
