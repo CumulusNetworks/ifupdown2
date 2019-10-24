@@ -96,6 +96,11 @@ class address(moduleBase):
                               'dual connected VxLANs',
                               'validvals' : ['<ipv4>', ],
                               'example'  : ['clagd-vxlan-anycast-ip 36.0.0.11']},
+                      'arp-accept' :
+                            { 'help': 'Allow gratuitous arp to update arp table',
+                              'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
+                              'default' : 'off',
+                              'example' : ['arp-accept on']},
                       'ip-forward' :
                             { 'help': 'ip forwarding flag',
                               'validvals': ['on', 'off', 'yes', 'no', '0', '1'],
@@ -272,6 +277,8 @@ class address(moduleBase):
     def _process_bridge(self, ifaceobj, up):
         hwaddress = self._get_hwaddress(ifaceobj)
         addrs = ifaceobj.get_attr_value_first('address')
+        arp_accept = ifaceobj.get_attr_value_first('arp-accept')
+        arp_accept = utils.boolean_support_binary(arp_accept)
         is_vlan_dev_on_vlan_aware_bridge = False
         is_bridge = self.ipcmd.is_bridge(ifaceobj.name)
         if not is_bridge:
@@ -290,7 +297,7 @@ class address(moduleBase):
                         self.write_file('/proc/sys/net/ipv4/conf/%s' % ifaceobj.name +
                                         '/arp_accept', '0')
                 else:
-                    self.write_file('/proc/sys/net/ipv4/conf/%s/arp_accept' % ifaceobj.name, '0')
+                    self.write_file('/proc/sys/net/ipv4/conf/%s/arp_accept' % ifaceobj.name, arp_accept)
         if hwaddress and is_vlan_dev_on_vlan_aware_bridge:
             if up:
                 # check statemanager to delete the old entry if necessary
