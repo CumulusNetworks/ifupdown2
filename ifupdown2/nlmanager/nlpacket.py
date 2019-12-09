@@ -1131,7 +1131,9 @@ class Attribute(object):
         sub_attr_pack_layout.append("BBBB")
 
         if info_data_value:
-            sub_attr_payload.extend(socket.inet_aton(info_data_value))
+            sub_attr_payload.extend(socket.inet_aton(str(info_data_value)))
+            # force concert to string (in case of IPv4Address but really this
+            # should already be in the integer format to save some cycles
         else:
             sub_attr_payload.extend([0, 0, 0, 0])
 
