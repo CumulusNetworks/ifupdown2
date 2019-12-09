@@ -29,7 +29,7 @@ class templateEngine():
             try:
                 self.tclass = utils.importName('mako.template', 'Template')
             except Exception as e:
-                self.logger.warn('unable to load template engine %s (%s)'
+                self.logger.warning('unable to load template engine %s (%s)'
                         %(template_engine, str(e)))
                 pass
             if template_lookuppath:
@@ -40,7 +40,7 @@ class templateEngine():
                     self.tclassargs['lookup'] = lc(
                                 directories=template_lookuppath.split(':'))
                 except Exception as e:
-                    self.logger.warn('unable to set template lookup path'
+                    self.logger.warning('unable to set template lookup path'
                                      ' %s (%s): are you sure \'python-mako\''
                                      'is installed?'
                                      % (template_lookuppath, str(e)))

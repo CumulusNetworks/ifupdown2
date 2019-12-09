@@ -52,7 +52,7 @@ class usercmds(moduleBase):
                     utils.exec_user_command(cmd)
                 except Exception as e:
                     if not self.ignore_error(str(e)):
-                        self.logger.warn('%s: %s %s' % (ifaceobj.name, op,
+                        self.logger.warning('%s: %s %s' % (ifaceobj.name, op,
                                                         str(e).strip('\n')))
                     pass
 

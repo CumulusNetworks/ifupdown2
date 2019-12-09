@@ -633,7 +633,7 @@ class address(Addon, moduleBase):
         retval = True
         if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
             if syntaxcheck:
-                self.logger.warn('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
+                self.logger.warning('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
                 retval = False
             else:
                 self.logger.info('%s: bridge inherits mtu from its ports. There is no need to assign mtu on a bridge' %ifaceobj.name)
@@ -648,7 +648,7 @@ class address(Addon, moduleBase):
                                   "There is no need to configure mtu on a bond slave." %
                                    (ifaceobj.name, mtu_str, masterobj[0].name, master_mtu))
                         if syntaxcheck:
-                            self.logger.warn(log_msg)
+                            self.logger.warning(log_msg)
                             retval = False
                         else:
                             self.logger.info(log_msg)
@@ -661,18 +661,18 @@ class address(Addon, moduleBase):
                     else:
                         lowerdev_mtu = self.cache.get_link_mtu(lowerobj[0].name)  # return type: int
                     if lowerdev_mtu and mtu_int > lowerdev_mtu:
-                        self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
+                        self.logger.warning('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
                                          %(ifaceobj.name, mtu_str, lowerobj[0].name, lowerdev_mtu))
                         retval = False
                     elif (not lowerobj[0].link_kind and
                           not (lowerobj[0].link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
                           not lowerdev_mtu and self.default_mtu and (mtu_int > self.default_mtu_int)):
                         # only check default mtu on lower device which is a physical interface
-                        self.logger.warn('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
+                        self.logger.warning('%s: vlan dev mtu %s is greater than lower realdev %s mtu %s'
                                          %(ifaceobj.name, mtu_str, lowerobj[0].name, self.default_mtu))
                         retval = False
             if self.max_mtu and mtu_int > self.max_mtu:
-                self.logger.warn('%s: specified mtu %s is greater than max mtu %s'
+                self.logger.warning('%s: specified mtu %s is greater than max mtu %s'
                                  %(ifaceobj.name, mtu_str, self.max_mtu))
                 retval = False
         return retval

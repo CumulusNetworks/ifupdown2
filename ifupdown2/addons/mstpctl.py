@@ -443,7 +443,7 @@ class mstpctl(Addon, moduleBase):
                        self.mstpctlcmd.set_bridge_attr(ifaceobj.name,
                                 dstattrname, config_val, check)
                 except Exception as e:
-                    self.logger.warn('%s' %str(e))
+                    self.logger.warning('%s' %str(e))
                     pass
 
             if self.cache.bridge_is_vlan_aware(ifaceobj.name):
@@ -1080,7 +1080,7 @@ class mstpctl(Addon, moduleBase):
     def _query_running_bridge_port(self, ifaceobjrunning):
         bridgename = self.cache.get_master(ifaceobjrunning.name)
         if not bridgename:
-            self.logger.warn('%s: unable to determine bridgename'
+            self.logger.warning('%s: unable to determine bridgename'
                              %ifaceobjrunning.name)
             return
         if self.sysfs.bridge_get_stp(bridgename) == 'no':

@@ -94,9 +94,9 @@ class networkInterfaces():
 
     def _parse_warn(self, filename, lineno, msg):
         if lineno == -1 or self._currentfile_has_template:
-            self.logger.warn('%s: %s' %(filename, msg))
+            self.logger.warning('%s: %s' %(filename, msg))
         else:
-            self.logger.warn('%s: line%d: %s' %(filename, lineno, msg))
+            self.logger.warning('%s: line%d: %s' %(filename, lineno, msg))
         self.warns += 1
 
     def _validate_addr_family(self, ifaceobj, lineno=-1):
@@ -475,7 +475,7 @@ class networkInterfaces():
             with open(filename) as f:
                 filedata = f.read()
         except Exception as e:
-            self.logger.warn('error processing file %s (%s)',
+            self.logger.warning('error processing file %s (%s)',
                              filename, str(e))
             return
         self.read_filedata(filedata)
@@ -512,8 +512,8 @@ class networkInterfaces():
         parser arguments
         """
         if not self.interfacesfile and not self.interfacesfileiobuf:
-            self.logger.warn('no terminal line stdin used or ')
-            self.logger.warn('no network interfaces file defined.')
+            self.logger.warning('no terminal line stdin used or ')
+            self.logger.warning('no network interfaces file defined.')
             self.warns += 1
             return
 

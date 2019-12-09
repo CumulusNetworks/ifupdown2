@@ -1000,7 +1000,7 @@ class addressvirtual(Addon, moduleBase):
             raddress = list(set(raddress))
 
             if not raddress:
-                self.logger.warn('%s: no running addresses'
+                self.logger.warning('%s: no running addresses'
                                  %ifaceobjrunning.name)
                 raddress = []
             ifaceobjrunning.update_config('address-virtual',

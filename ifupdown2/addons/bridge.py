@@ -875,7 +875,7 @@ class bridge(Addon, moduleBase):
         if (ifaceobj.get_attr_value('bridge-access') and
             (self.get_ifaceobj_bridge_vids_value(ifaceobj) or
              ifaceobj.get_attr_value('bridge-pvid'))):
-            self.logger.warn('%s: bridge-access given, bridge-vids and bridge-pvid '
+            self.logger.warning('%s: bridge-access given, bridge-vids and bridge-pvid '
                              'will be ignored' % ifaceobj.name)
             return False
         return True
@@ -1190,7 +1190,7 @@ class bridge(Addon, moduleBase):
                     a = int(part)
                     result.append(a)
         except:
-            self.logger.warn('unable to parse vids \'%s\''
+            self.logger.warning('unable to parse vids \'%s\''
                              %''.join(rangelist))
             pass
         return result
@@ -1481,7 +1481,7 @@ class bridge(Addon, moduleBase):
             except exceptions.ReservedVlanException as e:
                 raise e
             except Exception:
-                self.logger.warn('%s: unable to parse vid \'%s\''
+                self.logger.warning('%s: unable to parse vid \'%s\''
                                  %(ifaceobj.name, v))
         return ret
 
@@ -1517,7 +1517,7 @@ class bridge(Addon, moduleBase):
         try:
             pvid_int = int(pvid) if pvid else 0
         except Exception:
-            self.logger.warn('%s: unable to parse pvid \'%s\''
+            self.logger.warning('%s: unable to parse pvid \'%s\''
                              %(bportifaceobj.name, pvid))
             pvid_int = 0
             pass
@@ -1720,7 +1720,7 @@ class bridge(Addon, moduleBase):
                     raise e
                 except Exception as e:
                     err = True
-                    self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
+                    self.logger.warning('%s: %s' %(ifaceobj.name, str(e)))
                     pass
         self.iproute2.batch_commit()
         if err:
@@ -1731,7 +1731,7 @@ class bridge(Addon, moduleBase):
             lower_ifaceobj_list = ifaceobj_getfunc(bridgeportifaceobj.lowerifaces[0])
             if lower_ifaceobj_list and lower_ifaceobj_list[0] and \
                     not lower_ifaceobj_list[0].link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
-                self.logger.warn('%s: untagged bridge not found. Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.' % bridgename)
+                self.logger.warning('%s: untagged bridge not found. Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.' % bridgename)
                 self.warn_on_untagged_bridge_absence = False
 
     def bridge_port_get_bridge_name(self, ifaceobj):
@@ -3225,7 +3225,7 @@ class bridge(Addon, moduleBase):
 
         bridge_name = self.cache.get_bridge_name_from_port(ifname)
         if not bridge_name:
-            self.logger.warn("%s: unable to determine bridge name" % ifname)
+            self.logger.warning("%s: unable to determine bridge name" % ifname)
             return
 
         if self.cache.bridge_is_vlan_aware(bridge_name):
@@ -3430,7 +3430,7 @@ class bridge(Addon, moduleBase):
         bridge_vids = None
         bridge_pvid = None
         if not bridgename:
-            self.logger.warn('%s: unable to find bridgename'
+            self.logger.warning('%s: unable to find bridgename'
                              %ifaceobjrunning.name)
             return
 

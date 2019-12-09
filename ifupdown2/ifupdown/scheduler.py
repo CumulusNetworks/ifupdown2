@@ -173,7 +173,7 @@ class ifaceScheduler():
                     handler(ifupdownobj, ifaceobjs[0])
                 except Exception as e:
                     if not ifupdownobj.link_master_slave_ignore_error(str(e)):
-                       ifupdownobj.logger.warn('%s: %s'
+                       ifupdownobj.logger.warning('%s: %s'
                                    %(ifaceobjs[0].name, str(e)))
                     pass
             for ifaceobj in ifaceobjs:
@@ -187,7 +187,7 @@ class ifaceScheduler():
                 [posthookfunc(ifupdownobj, ifaceobj, ops[0])
                     for ifaceobj in ifaceobjs]
             except Exception as e:
-                ifupdownobj.logger.warn('%s' %str(e))
+                ifupdownobj.logger.warning('%s' %str(e))
                 pass
 
     @classmethod
@@ -232,7 +232,7 @@ class ifaceScheduler():
                         ifupdownobj.logger.info('%s: skipping interface down,'
                             %ifaceobj.name + ' upperiface %s still around ' %u)
                     else:
-                        ifupdownobj.logger.warn('%s: skipping interface down,'
+                        ifupdownobj.logger.warning('%s: skipping interface down,'
                             %ifaceobj.name + ' upperiface %s still around ' %u)
                 return False
         return True
@@ -376,7 +376,7 @@ class ifaceScheduler():
             except Exception as e:
                 if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                     traceback.print_tb(sys.exc_info()[2])
-                ifupdownobj.logger.warn('%s : %s' %(ifacename, str(e)))
+                ifupdownobj.logger.warning('%s : %s' %(ifacename, str(e)))
                 pass
 
     @classmethod
@@ -442,7 +442,7 @@ class ifaceScheduler():
                 cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
             except Exception as e:
                 if continueonfailure:
-                    ifupdownobj.logger.warn('%s' %str(e))
+                    ifupdownobj.logger.warning('%s' %str(e))
 
     @classmethod
     def _dump_dependency_info(cls, ifupdownobj, ifacenames,
@@ -570,7 +570,7 @@ class ifaceScheduler():
                     ifupdownobj.logger.debug('graph roots (interfaces that ' +
                             'dont have dependents):' + ' %s' %str(run_queue))
                 else:
-                    ifupdownobj.logger.warn('interface sort returned None')
+                    ifupdownobj.logger.warning('interface sort returned None')
 
         # If queue not present, just run interfaces that were asked by the
         # user

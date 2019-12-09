@@ -366,7 +366,7 @@ class bond(Addon, moduleBase):
                         elif (not config_link_down and not link_up):
                             self.netlink.link_up_force(s)
                     except Exception as e:
-                        self.logger.warn('%s: %s' % (ifaceobj.name, str(e)))
+                        self.logger.warning('%s: %s' % (ifaceobj.name, str(e)))
 
     def _check_updown_delay_log(self, ifaceobj, attr_name, value):
         ifaceobj.status = ifaceStatus.ERROR
@@ -459,7 +459,7 @@ class bond(Addon, moduleBase):
                 min_links = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MIN_LINKS)
             # get_min_links_nl may return None so we need to strictly check 0
             if min_links == 0:
-                self.logger.warn('%s: attribute bond-min-links is set to \'0\'' % ifname)
+                self.logger.warning('%s: attribute bond-min-links is set to \'0\'' % ifname)
         else:
             # IFLA_BOND_AD_LACP_RATE and IFLA_BOND_AD_LACP_BYPASS only for 802.3ad mode (4)
             for nl_attr, attr_name in self._bond_lacp_attrs:

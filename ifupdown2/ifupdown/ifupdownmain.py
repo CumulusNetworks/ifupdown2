@@ -207,7 +207,7 @@ class ifupdownMain:
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
                 traceback.print_exc()
-            self.logger.warn(str)
+            self.logger.warning(str)
         pass
 
     def log_error(self, str):
@@ -686,7 +686,7 @@ class ifupdownMain:
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                         ifacenames)
             except Exception as e:
-                self.logger.warn('%s: error getting dependent interfaces (%s)'
+                self.logger.warning('%s: error getting dependent interfaces (%s)'
                         %(ifaceobj.name, str(e)))
                 dlist = None
                 pass
@@ -710,7 +710,7 @@ class ifupdownMain:
                         continue
                     ulist = module.get_upper_ifacenames(ifaceobj, ifacenames)
             except Exception as e:
-                self.logger.warn('%s: error getting upper interfaces (%s)'
+                self.logger.warning('%s: error getting upper interfaces (%s)'
                                  %(ifaceobj.name, str(e)))
                 ulist = None
                 pass
@@ -829,7 +829,7 @@ class ifupdownMain:
             self.ifaceobjdict[ifaceobj.name] = [ifaceobj]
             return
         if ifaceobj.compare(currentifaceobjlist[0]):
-            self.logger.warn('duplicate interface %s found' %ifaceobj.name)
+            self.logger.warning('duplicate interface %s found' %ifaceobj.name)
             return
         for obj in self.ifaceobjdict[ifaceobj.name]:
             if obj.type == ifaceobj.type:
@@ -850,7 +850,7 @@ class ifupdownMain:
                 ifaceobj.flags |= ifaceobj.YOUNGEST_SIBLING
             return
         if ifaceobj.compare(currentifaceobjlist[0]):
-            self.logger.warn('duplicate interface %s found' %ifaceobj.name)
+            self.logger.warning('duplicate interface %s found' %ifaceobj.name)
             return
         if currentifaceobjlist[0].type == ifaceobj.type:
             currentifaceobjlist[0].flags |= ifaceobj.HAS_SIBLINGS
@@ -1234,11 +1234,11 @@ class ifupdownMain:
                                                       validvals,
                                                       validrange)
                     if not res['result']:
-                        self.logger.warn('%s: %s: %s' %
+                        self.logger.warning('%s: %s: %s' %
                                          (ifacename, attrname, res['message']))
                         success = False
             except Exception as e:
-                self.logger.warn('addon \'%s\': %s: %s' % (module_name,
+                self.logger.warning('addon \'%s\': %s: %s' % (module_name,
                                                            attrname,
                                                            str(e)))
                 success = False
@@ -1259,7 +1259,7 @@ class ifupdownMain:
                                                    self.get_ifaceobjs):
                             result = False
                 except Exception as e:
-                    self.logger.warn('%s: %s' % (ifacename, str(e)))
+                    self.logger.warning('%s: %s' % (ifacename, str(e)))
                     result = False
         return result
 
@@ -1274,9 +1274,9 @@ class ifupdownMain:
                     if a.get('deprecated'):
                         newa = a.get('new-attribute')
                         if newa:
-                            self.logger.warn('attribute %s is deprecated. use %s instead.' %(attrname, newa))
+                            self.logger.warning('attribute %s is deprecated. use %s instead.' %(attrname, newa))
                         else:
-                            self.logger.warn('attribute %s is deprecated.'
+                            self.logger.warning('attribute %s is deprecated.'
                                              %attrname)
                     return True
                 else:
@@ -1298,7 +1298,7 @@ class ifupdownMain:
                     break
             if not found:
                 ret = False
-                self.logger.warn('%s: unsupported attribute \'%s\'' \
+                self.logger.warning('%s: unsupported attribute \'%s\'' \
                                  % (ifaceobj.name, attrname))
                 continue
         return ret
@@ -1345,7 +1345,7 @@ class ifupdownMain:
                     mname = litems[1]
                     self.module_ops[operation].append(mname)
                 except Exception as e:
-                    self.logger.warn('error reading line \'%s\' %s:' %(l, str(e)))
+                    self.logger.warning('error reading line \'%s\' %s:' %(l, str(e)))
                     continue
 
     def load_addon_modules(self, modules_dir_list):
@@ -1658,7 +1658,7 @@ class ifupdownMain:
                 if self.link_exists(i):
                    func(i)
             except Exception as e:
-                self.logger.warn(str(e))
+                self.logger.warning(str(e))
                 pass
 
     def _get_iface_exclude_companion(self, ifacename):
@@ -1794,7 +1794,7 @@ class ifupdownMain:
         if not filtered_ifacenames:
             filtered_ifacenames = []
 
-        for ifname, ifaceobj_list in self.ifaceobjdict.iteritems():
+        for ifname, ifaceobj_list in self.ifaceobjdict.items():
 
             if not all and ifname not in filtered_ifacenames:
                 continue
@@ -2009,7 +2009,7 @@ class ifupdownMain:
         except:
             raise
         if not self.ifaceobjdict:
-            self.logger.warn("nothing to reload ..exiting.")
+            self.logger.warning("nothing to reload ..exiting.")
             return
         already_up_ifacenames = []
         if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
@@ -2104,7 +2104,7 @@ class ifupdownMain:
             raise
 
         if not self.ifaceobjdict:
-            self.logger.warn("nothing to reload ..exiting.")
+            self.logger.warning("nothing to reload ..exiting.")
             return
 
         if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
@@ -2235,7 +2235,7 @@ class ifupdownMain:
                     )
 
                     if print_warning:
-                        self.logger.warn(warning_no_config_regex)
+                        self.logger.warning(warning_no_config_regex)
                     else:
                         # The warning shouldn't be printed because we've detected that this
                         # interface was pick up as part of a regex but the config doesn't
@@ -2260,7 +2260,7 @@ class ifupdownMain:
 
                 elif (lastifaceobjlist[0].link_kind and
                     not newifaceobjlist[0].link_kind):
-                    self.logger.warn('%s: moved from being a %s to a'
+                    self.logger.warning('%s: moved from being a %s to a'
                                      ' physical interface (non-logical interface).'
                                      'This interface will be downed.\n'
                                      ' If this was not intentional, please restore the'

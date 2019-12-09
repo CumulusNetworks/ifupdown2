@@ -92,13 +92,13 @@ class vrrpd(moduleBase):
         if attrval:
             cmd += ' -p %s' %attrval
         else:
-            self.logger.warn('%s: incomplete vrrp parameters ' %ifaceobj.name,
+            self.logger.warning('%s: incomplete vrrp parameters ' %ifaceobj.name,
                     '(priority not found)')
         attrval = ifaceobj.get_attr_value_first('vrrp-virtual-ip')
         if attrval:
             cmd += ' %s' %attrval
         else:
-            self.logger.warn('%s: incomplete vrrp arguments ' %ifaceobj.name,
+            self.logger.warning('%s: incomplete vrrp arguments ' %ifaceobj.name,
                     '(virtual ip not found)')
             return
         cmd = ('%s -n -D -i %s %s' %

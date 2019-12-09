@@ -319,7 +319,7 @@ class IPRoute2(Cache, Requirements):
                     if m and m.group(1) != svcnodeip:
                         cur_peers.append(m.group(1))
             except:
-                self.logger.warn('error parsing ip link output')
+                self.logger.warning('error parsing ip link output')
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 self.logger.error(str(e))
@@ -623,16 +623,16 @@ class IPRoute2(Cache, Requirements):
             self.logger.info("%s: set mcqv4src vlan: invalid parameter %s: %s" % (bridge, vlan, str(e)))
             return
         if vlan == 0 or vlan > 4095:
-            self.logger.warn("mcqv4src vlan '%d' invalid range" % vlan)
+            self.logger.warning("mcqv4src vlan '%d' invalid range" % vlan)
             return
 
         ip = mcquerier.split(".")
         if len(ip) != 4:
-            self.logger.warn("mcqv4src '%s' invalid IPv4 address" % mcquerier)
+            self.logger.warning("mcqv4src '%s' invalid IPv4 address" % mcquerier)
             return
         for k in ip:
             if not k.isdigit() or int(k, 10) < 0 or int(k, 10) > 255:
-                self.logger.warn("mcqv4src '%s' invalid IPv4 address" % mcquerier)
+                self.logger.warning("mcqv4src '%s' invalid IPv4 address" % mcquerier)
                 return
 
         utils.exec_command("%s setmcqv4src %s %d %s" % (utils.brctl_cmd, bridge, vlan, mcquerier))

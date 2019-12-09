@@ -78,7 +78,7 @@ class bridgevlan(Addon, moduleBase):
             raise
 
         if not self.cache.link_exists(bridgename):
-            #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
+            #self.logger.warning('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return
 
@@ -106,12 +106,12 @@ class bridgevlan(Addon, moduleBase):
             (bridgename, vlan) = self._get_bridge_n_vlan(ifaceobj)
             vlanid = int(vlan, 10)
         except:
-            self.logger.warn("%s: bridge vlan interface name does not "
+            self.logger.warning("%s: bridge vlan interface name does not "
                              "correspond to format (eg. br0.100)" % ifaceobj.name)
             raise
 
         if not self.cache.link_exists(bridgename):
-            #self.logger.warn('%s: bridge %s does not exist' %(ifaceobj.name,
+            #self.logger.warning('%s: bridge %s does not exist' %(ifaceobj.name,
             #                 bridgename))
             return
         mcqv4src = ifaceobj.get_attr_value_first('bridge-igmp-querier-src')

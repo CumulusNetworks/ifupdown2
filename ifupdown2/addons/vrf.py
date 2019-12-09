@@ -118,7 +118,7 @@ class vrf(Addon, moduleBase):
             self.ip_rule_cache = [b' '.join(r.split()) for r in ip_rules]
         except Exception as e:
             self.ip_rule_cache = []
-            self.logger.warn('vrf: cache v4: %s' % str(e))
+            self.logger.warning('vrf: cache v4: %s' % str(e))
 
         try:
             ip_rules = utils.exec_command('%s -6 rule show'
@@ -126,7 +126,7 @@ class vrf(Addon, moduleBase):
             self.ip6_rule_cache = [b' '.join(r.split()) for r in ip_rules]
         except Exception as e:
             self.ip6_rule_cache = []
-            self.logger.warn('vrf: cache v6: %s' % str(e))
+            self.logger.warning('vrf: cache v6: %s' % str(e))
 
         #self.logger.debug("vrf: ip rule cache")
         #self.logger.info(self.ip_rule_cache)
@@ -268,7 +268,7 @@ class vrf(Addon, moduleBase):
                                  ' pls check if your iproute2 version' +
                                  ' supports rt_tables.d')
             else:
-                self.logger.warn('unable to open iproute2 vrf to table ' +
+                self.logger.warning('unable to open iproute2 vrf to table ' +
                                  'map (%s)\n' %errstr)
             self.warn_on_vrf_map_write_err = False
 
@@ -417,7 +417,7 @@ class vrf(Addon, moduleBase):
         elif ifaceobj.upperifaces:
             vrf_master = ifaceobj.upperifaces[0]
         if not vrf_master:
-            self.logger.warn('%s: vrf master not found' %ifacename)
+            self.logger.warning('%s: vrf master not found' %ifacename)
             return
         if os.path.exists('/sys/class/net/%s' %vrf_master):
             self.logger.info('%s: vrf master %s exists returning'
@@ -974,7 +974,7 @@ class vrf(Addon, moduleBase):
         try:
             self._down_vrf_helper(ifaceobj, vrf_table)
         except Exception as e:
-            self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
+            self.logger.warning('%s: %s' %(ifaceobj.name, str(e)))
             pass
 
         try:
@@ -1009,7 +1009,7 @@ class vrf(Addon, moduleBase):
             if ifaceobj:
                 self.netlink.link_down(ifacename)
         except Exception as e:
-            self.logger.warn('%s: %s' %(ifacename, str(e)))
+            self.logger.warning('%s: %s' %(ifacename, str(e)))
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:

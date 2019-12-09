@@ -96,7 +96,7 @@ class moduleBase(object):
             if self.logger.getEffectiveLevel() == logging.DEBUG:
                 traceback.print_stack()
                 traceback.print_exc()
-            self.logger.warn(str)
+            self.logger.warning(str)
             if ifaceobj:
                 ifaceobj.set_status(ifaceStatus.WARNING)
         pass
@@ -140,7 +140,7 @@ class moduleBase(object):
         try:
             proc_ifacenames = self.get_ifaces_from_proc()
         except:
-            self.logger.warn('%s: error reading ifaces from proc' %ifacename)
+            self.logger.warning('%s: error reading ifaces from proc' %ifacename)
 
         for proc_ifacename in proc_ifacenames:
             try:
@@ -175,7 +175,7 @@ class moduleBase(object):
                     '  or swp[1-10]sub[0-4].300')
 
         if ',' in expr:
-            self.logger.warn('%s: comma are not supported in glob: %s' % (ifacename, errmsg))
+            self.logger.warning('%s: comma are not supported in glob: %s' % (ifacename, errmsg))
             yield expr
             return
 
@@ -222,7 +222,7 @@ class moduleBase(object):
 
         else:
             # Could not match anything.
-            self.logger.warn('%s: %s' %(ifacename, errmsg))
+            self.logger.warning('%s: %s' %(ifacename, errmsg))
             yield expr
 
     def parse_port_list(self, ifacename, port_expr, ifacenames=None):
@@ -281,7 +281,7 @@ class moduleBase(object):
             with open(filename, 'w') as f:
                 f.write(strexpr)
         except IOError as e:
-            self.logger.warn('error writing to file %s'
+            self.logger.warning('error writing to file %s'
                 %filename + '(' + str(e) + ')')
             return -1
         return 0

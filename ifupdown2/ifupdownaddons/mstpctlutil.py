@@ -258,7 +258,7 @@ class mstpctlutil(utilsBase):
             try:
                 self.set_bridge_attr(bridgename, k, v, check)
             except Exception as e:
-                self.logger.warn('%s: %s' %(bridgename, str(e)))
+                self.logger.warning('%s: %s' %(bridgename, str(e)))
 
     def get_bridge_treeprio(self, bridgename):
         return self.get_bridge_attr(bridgename, 'treeprio')
