@@ -1096,5 +1096,5 @@ class NetlinkManager(object):
         msg = MDB(RTM_GETMDB, debug, use_color=self.use_color)
         msg.body = pack('Bxxxiii', socket.AF_BRIDGE, 0, 0, 0)
         msg.flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK
-        msg.build_message(self.sequence.next(), self.pid)
+        msg.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(msg)
