@@ -423,7 +423,7 @@ class utils():
                                               cmd_returncode,
                                               cmd_output,
                                               stdin))
-        return cmd_output
+        return cmd_output.decode() if cmd_output else None
 
     @classmethod
     def exec_user_command(cls, cmd, close_fds=False, stdout=True,
