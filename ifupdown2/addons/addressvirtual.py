@@ -928,17 +928,19 @@ class addressvirtual(Addon, moduleBase):
                             0
                         )
                     else:
-                        ifaceobjcurr.update_config_with_status(
-                            attr_name,
-                            '%s %s' % (rhwaddress, ' '.join(raddrs)),
-                            1
-                        )
+                        if raddrs:
+                            address_virtual_value = "%s %s" % (rhwaddress, " ".join(raddrs))
+                        else:
+                            address_virtual_value = rhwaddress
+
+                        ifaceobjcurr.update_config_with_status(attr_name, address_virtual_value, 1)
                 except:
-                    ifaceobjcurr.update_config_with_status(
-                        attr_name,
-                        '%s %s' % (rhwaddress, ' '.join(raddrs)),
-                        1
-                    )
+                    if raddrs:
+                        address_virtual_value = "%s %s" % (rhwaddress, " ".join(raddrs))
+                    else:
+                        address_virtual_value = rhwaddress
+
+                    ifaceobjcurr.update_config_with_status(attr_name, address_virtual_value, 1)
             else:
                 # VRRP
 
