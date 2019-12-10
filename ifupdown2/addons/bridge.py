@@ -1408,7 +1408,7 @@ class bridge(Addon, moduleBase):
             # we compare the user value (or policy value) with the current running state
             # we need to divide the cached value by 100 to ignore small difference.
             # i.e. our default value is 31 but the kernel default seems to be 3125
-            cached_ifla_info_data[Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL] /= 100
+            cached_ifla_info_data[Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL] //= 100
             cached_ifla_info_data[Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL] *= 100
         except:
             pass
@@ -2661,7 +2661,7 @@ class bridge(Addon, moduleBase):
         except:
             pass
 
-        lambda_nl_value_int_divide100 = lambda x: str(x / 100)
+        lambda_nl_value_int_divide100 = lambda x: str(x // 100)
         lambda_nl_value_to_yes_no_boolean = lambda x: "yes" if x else "no"
 
         bridge_attr_value_netlink_to_string_dict = {
@@ -2990,7 +2990,7 @@ class bridge(Addon, moduleBase):
 
     @staticmethod
     def _query_check_br_attr_int_divided100(attr, user_config, ifaceobjcurr, cached_value):
-        value = cached_value / 100
+        value = cached_value // 100
         ifaceobjcurr.update_config_with_status(
             attr,
             str(value),
