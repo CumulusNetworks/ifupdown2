@@ -399,7 +399,7 @@ class ifaceScheduler():
             ifaceobj = ifupdownobj.get_ifaceobj_first(ifacename)
             if not ifaceobj:
                continue
-            ulist = set(ifaceobj.upperifaces).difference(upperifacenames)
+            ulist = set(ifaceobj.upperifaces or []).difference(upperifacenames)
             nulist = []
             for u in ulist:
                 uifaceobj = ifupdownobj.get_ifaceobj_first(u)
