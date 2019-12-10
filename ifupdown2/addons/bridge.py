@@ -2237,8 +2237,9 @@ class bridge(Addon, moduleBase):
         """
         ifla_brport_group_fwd_mask = 0
         ifla_brport_group_fwd_maskhi = 0
+
         if user_config:
-            for group in re.split(',|\s*', user_config):
+            for group in user_config.replace(",", " ").split():
                 if not group:
                     continue
 
