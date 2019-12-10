@@ -115,7 +115,7 @@ class vrf(Addon, moduleBase):
         try:
             ip_rules = utils.exec_command('%s rule show'
                                           %utils.ip_cmd).splitlines()
-            self.ip_rule_cache = [b' '.join(r.split()) for r in ip_rules]
+            self.ip_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception as e:
             self.ip_rule_cache = []
             self.logger.warning('vrf: cache v4: %s' % str(e))
@@ -123,7 +123,7 @@ class vrf(Addon, moduleBase):
         try:
             ip_rules = utils.exec_command('%s -6 rule show'
                                           %utils.ip_cmd).splitlines()
-            self.ip6_rule_cache = [b' '.join(r.split()) for r in ip_rules]
+            self.ip6_rule_cache = [' '.join(r.split()) for r in ip_rules]
         except Exception as e:
             self.ip6_rule_cache = []
             self.logger.warning('vrf: cache v6: %s' % str(e))
@@ -558,7 +558,7 @@ class vrf(Addon, moduleBase):
     def _l3mdev_rule(self, ip_rules):
         for rule in ip_rules:
             if not re.search(r"\d.*from\s+all\s+lookup\s+\W?l3mdev-table\W?",
-                             rule.decode("ascii")):
+                             rule):
                 continue
             return True
         return False

@@ -418,12 +418,15 @@ class utils():
             raise Exception('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
+
+        cmd_output_string = cmd_output.decode() if cmd_output else cmd_output
+
         if cmd_returncode != 0:
             raise Exception(cls._format_error(cmd,
                                               cmd_returncode,
-                                              cmd_output,
+                                              cmd_output_string,
                                               stdin))
-        return cmd_output.decode() if cmd_output else None
+        return cmd_output_string
 
     @classmethod
     def exec_user_command(cls, cmd, close_fds=False, stdout=True,

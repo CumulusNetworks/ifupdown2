@@ -142,7 +142,7 @@ class mstpctlutil(utilsBase):
             return mstpctl_bridgeport_attrs_dict
         portname = bridgename  # assigning portname to avoid an exception, in the exception handler
         try:
-            mstpctl_bridge_cache = json.loads(output.strip(b'\n'))
+            mstpctl_bridge_cache = json.loads(output.strip("\n"))
             for portname in list(mstpctl_bridge_cache.keys()):
                 for portid in list(mstpctl_bridge_cache[portname].keys()):
                     mstpctl_bridgeport_attrs_dict[portname] = {}
@@ -165,7 +165,7 @@ class mstpctlutil(utilsBase):
             self.logger.info(str(e))
             return mstpctl_bridge_attrs_dict
         try:
-            mstpctl_bridge_cache = json.loads(output.strip(b'\n'))
+            mstpctl_bridge_cache = json.loads(output.strip('\n'))
             for jsonAttr in list(mstpctl_bridge_cache[bridgename].keys()):
                 mstpctl_bridge_attrs_dict[jsonAttr] = (
                     str(mstpctl_bridge_cache[bridgename][jsonAttr]))

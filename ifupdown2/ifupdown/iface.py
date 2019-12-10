@@ -768,9 +768,7 @@ class iface():
             else:
                 outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
-                outbuf = (outbuf.encode('utf8')
-                    if isinstance(outbuf, str) else outbuf)
-                print(outbuf.decode() + '\n')
+                print(outbuf + '\n')
                 return
         else:
             outbuf += ifaceline + '\n'
@@ -795,10 +793,7 @@ class iface():
                         if cv:
                             outbuf += indent + '%s %s\n' % (cname, cv)
                     idx += 1
-        if with_status:
-            outbuf = (outbuf.encode('utf8')
-                        if isinstance(outbuf, str) else outbuf)
-        print(outbuf.decode())
+        print(outbuf)
 
     def dump_pretty(self, with_status=False, use_realname=False):
         if not self.addr_family:

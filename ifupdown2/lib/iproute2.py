@@ -310,7 +310,7 @@ class IPRoute2(Cache, Requirements):
         try:
             ps = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, close_fds=False)
             utils.enable_subprocess_signal_forwarding(ps, signal.SIGINT)
-            output = subprocess.check_output(("grep", "00:00:00:00:00:00"), stdin=ps.stdout)
+            output = subprocess.check_output(("grep", "00:00:00:00:00:00"), stdin=ps.stdout).decode()
             ps.wait()
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
             try:
