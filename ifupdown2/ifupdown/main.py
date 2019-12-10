@@ -73,8 +73,8 @@ class Ifupdown2:
             # else:
             if log:
                 log.error('main exception: ' + str(e))
-                import traceback
-                traceback.print_exc()
+                #import traceback
+                #traceback.print_exc()
             else:
                 print(str(e))
                 # if args and not args.debug:
