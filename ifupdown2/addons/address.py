@@ -187,7 +187,11 @@ class address(Addon, moduleBase):
         )
 
         self.default_mtu = self.__policy_get_default_mtu()
-        self.max_mtu     = self.__policy_get_max_mtu()
+        self.default_mgmt_intf_mtu = self.__policy_get_mgmt_intf_mtu()
+        if not self.default_mgmt_intf_mtu:
+            self.default_mgmt_intf_mtu = self.default_mtu
+            self.default_mgmt_intf_mtu_int = self.default_mtu_int
+        self.max_mtu    = self.__policy_get_max_mtu()
 
         self.default_loopback_addresses = (IPNetwork('127.0.0.1/8'), IPNetwork('::1/128'))
 
@@ -239,6 +243,26 @@ class address(Addon, moduleBase):
         else:
             self.logger.info("address: max_mtu undefined")
         return 0
+
+    def __policy_get_mgmt_intf_mtu(self):
+        default_mgmt_mtu = policymanager.policymanager_api.get_module_globals(
+                                module_name=self.__class__.__name__,
+                                attr="mgmt_intf_mtu")
+        self.default_mgmt_mtu_int = None
+
+        if not default_mgmt_mtu:
+            return None
+
+        try:
+            self.default_mgmt_mtu_int = int(default_mgmt_mtu)
+        except ValueError as e:
+            self.logger.error("address: invalid default mgmt mtu \"%s\" set via policy: %s" % (default_mgmt_mtu, str(e)))
+            default_mgmt_mtu = self.DEFAULT_MTU_STRING
+            self.default_mgmt_mtu_int = int(self.DEFAULT_MTU_STRING)
+
+        self.logger.info("address: using default mgmt interface mtu %s" % default_mgmt_mtu)
+
+        return default_mgmt_mtu
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
         return (self.syntax_check_multiple_gateway(ifaceobj)
@@ -712,6 +736,10 @@ class address(Addon, moduleBase):
         return
 
     def _process_mtu_config_mtu_none(self, ifaceobj):
+
+        if (ifaceobj.link_privflags & ifaceLinkPrivFlags.MGMT_INTF):
+            return
+
         cached_link_mtu = self.cache.get_link_mtu(ifaceobj.name)
 
         if ifaceobj.link_kind:
@@ -863,7 +891,11 @@ class address(Addon, moduleBase):
         mtu_from_policy = False
 
         if not mtu_str:
-            mtu_str = self.ifaces_defaults.get(ifaceobj.name, {}).get('mtu')
+            if (ifaceobj.link_privflags & ifaceLinkPrivFlags.MGMT_INTF):
+                mtu_str = self.default_mgmt_intf_mtu
+            if not mtu_str:
+                mtu_str = self.ifaces_defaults.get(ifaceobj.name, {}).get('mtu')
+
             mtu_from_policy = True
 
         if mtu_str:
