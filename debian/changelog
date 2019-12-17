@@ -1,3 +1,9 @@
+ifupdown2 (3.0.0-1) unstable; urgency=medium
+
+   * New. Enabled: python3 support
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 01 Oct 2019 23:42:42 +0200
+
 ifupdown2 (2.0.0-1) unstable; urgency=medium
 
   * Introduction of the live netlink cache

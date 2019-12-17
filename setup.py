@@ -51,8 +51,7 @@ setup(
         'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
         'Natural Language :: English',
         'Operating System :: POSIX :: Linux',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
         'Topic :: System :: Networking',
         'Topic :: System :: Systems Administration'
     ],
@@ -63,7 +62,7 @@ setup(
     name='ifupdown2',
     packages=find_packages(),
     url='https://github.com/CumulusNetworks/ifupdown2',
-    version='2.0.0',
+    version='3.0.0',
     data_files=DATA_FILES,
     setup_requires=['setuptools'],
     scripts=SCRIPTS,
