@@ -11,136 +11,162 @@ import os
 from sets import Set
 
 try:
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdown.netlink import netlink
     from ifupdown.statemanager import statemanager_api as statemanager
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-class bond(moduleBase):
+class bond(Addon, moduleBase):
     """  ifupdown2 addon module to configure bond interfaces """
 
     overrides_ifupdown_scripts = ['ifenslave', ]
 
-    _modinfo = { 'mhelp' : 'bond configuration module',
-                    'attrs' : {
-                    'bond-use-carrier':
-                         {'help' : 'bond use carrier',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'yes',
-                          'example': ['bond-use-carrier yes']},
-                     'bond-num-grat-arp':
-                         {'help' : 'bond use carrier',
-                          'validrange' : ['0', '255'],
-                          'default' : '1',
-                          'example' : ['bond-num-grat-arp 1']},
-                     'bond-num-unsol-na' :
-                         {'help' : 'bond slave devices',
-                          'validrange' : ['0', '255'],
-                          'default' : '1',
-                          'example' : ['bond-num-unsol-na 1']},
-                     'bond-xmit-hash-policy' :
-                         {'help' : 'bond slave devices',
-                          'validvals' : ['0', 'layer2',
-                                         '1', 'layer3+4',
-                                         '2', 'layer2+3',
-                                         '3', 'encap2+3',
-                                         '4', 'encap3+4'],
-                          'default' : 'layer2',
-                          'example' : ['bond-xmit-hash-policy layer2']},
-                     'bond-miimon' :
-                         {'help' : 'bond miimon',
-                          'validrange' : ['0', '255'],
-                          'default' : '0',
-                          'example' : ['bond-miimon 0']},
-                     'bond-mode' :
-                         {'help': 'bond mode',
-                          'validvals': ['0', 'balance-rr',
-                                        '1', 'active-backup',
-                                        '2', 'balance-xor',
-                                        '3', 'broadcast',
-                                        '4', '802.3ad',
-                                        '5', 'balance-tlb',
-                                        '6', 'balance-alb'],
-                          'default': 'balance-rr',
-                          'example': ['bond-mode 802.3ad']},
-                     'bond-lacp-rate':
-                         {'help' : 'bond lacp rate',
-                          'validvals' : ['0', 'slow', '1', 'fast'],
-                          'default' : '0',
-                          'example' : ['bond-lacp-rate 0']},
-                     'bond-min-links':
-                         {'help' : 'bond min links',
-                          'default' : '0',
-                          'validrange' : ['0', '255'],
-                          'example' : ['bond-min-links 0']},
-                     'bond-ad-sys-priority':
-                         {'help' : '802.3ad system priority',
-                          'default' : '65535',
-                          'validrange' : ['0', '65535'],
-                          'example' : ['bond-ad-sys-priority 65535'],
-                          'deprecated' : True,
-                          'new-attribute' : 'bond-ad-actor-sys-prio'},
-                     'bond-ad-actor-sys-prio':
-                         {'help' : '802.3ad system priority',
-                          'default' : '65535',
-                          'validrange' : ['0', '65535'],
-                          'example' : ['bond-ad-actor-sys-prio 65535']},
-                     'bond-ad-sys-mac-addr':
-                         {'help' : '802.3ad system mac address',
-                          'validvals': ['<mac>', ],
-                         'example' : ['bond-ad-sys-mac-addr 00:00:00:00:00:00'],
-                         'deprecated' : True,
-                         'new-attribute' : 'bond-ad-actor-system'},
-                     'bond-ad-actor-system':
-                         {'help' : '802.3ad system mac address',
-                          'validvals': ['<mac>', ],
-                         'example' : ['bond-ad-actor-system 00:00:00:00:00:00'],},
-                     'bond-lacp-bypass-allow':
-                         {'help' : 'allow lacp bypass',
-                          'validvals' : ['yes', 'no', '0', '1'],
-                          'default' : 'no',
-                          'example' : ['bond-lacp-bypass-allow no']},
-                     'bond-slaves' :
-                        {'help' : 'bond slaves',
-                         'required' : True,
-                         'multivalue' : True,
-                         'validvals': ['<interface-list>'],
-                         'example' : ['bond-slaves swp1 swp2',
-                                      'bond-slaves glob swp1-2',
-                                      'bond-slaves regex (swp[1|2)'],
-                         'aliases': ['bond-ports']},
-                     'bond-updelay' :
-                        {'help' : 'bond updelay',
-                         'default' : '0',
-                         'validrange' : ['0', '65535'],
-                         'example' : ['bond-updelay 100']},
-                     'bond-downdelay':
-                        {'help' : 'bond downdelay',
-                         'default' : '0',
-                         'validrange' : ['0', '65535'],
-                         'example' : ['bond-downdelay 100']}
-                    }}
+    _modinfo = {
+        "mhelp": "bond configuration module",
+        "attrs": {
+            "bond-use-carrier": {
+                "help": "bond use carrier",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "yes",
+                "example": ["bond-use-carrier yes"]},
+            "bond-num-grat-arp": {
+                "help": "bond use carrier",
+                "validrange": ["0", "255"],
+                "default": "1",
+                "example": ["bond-num-grat-arp 1"]
+            },
+            "bond-num-unsol-na": {
+                "help": "bond slave devices",
+                "validrange": ["0", "255"],
+                "default": "1",
+                "example": ["bond-num-unsol-na 1"]
+            },
+            "bond-xmit-hash-policy": {
+                "help": "bond slave devices",
+                "validvals": [
+                    "0", "layer2",
+                    "1", "layer3+4",
+                    "2", "layer2+3",
+                    "3", "encap2+3",
+                    "4", "encap3+4"
+                ],
+                "default": "layer2",
+                "example": ["bond-xmit-hash-policy layer2"]
+            },
+            "bond-miimon": {
+                "help": "bond miimon",
+                "validrange": ["0", "255"],
+                "default": "0",
+                "example": ["bond-miimon 0"]
+            },
+            "bond-mode": {
+                "help": "bond mode",
+                "validvals": [
+                    "0", "balance-rr",
+                    "1", "active-backup",
+                    "2", "balance-xor",
+                    "3", "broadcast",
+                    "4", "802.3ad",
+                    "5", "balance-tlb",
+                    "6", "balance-alb"
+                ],
+                "default": "balance-rr",
+                "example": ["bond-mode 802.3ad"]
+            },
+            "bond-lacp-rate": {
+                "help": "bond lacp rate",
+                "validvals": ["0", "slow", "1", "fast"],
+                "default": "0",
+                "example": ["bond-lacp-rate 0"]
+            },
+            "bond-min-links": {
+                "help": "bond min links",
+                "default": "0",
+                "validrange": ["0", "255"],
+                "example": ["bond-min-links 0"]
+            },
+            "bond-ad-sys-priority": {
+                "help": "802.3ad system priority",
+                "default": "65535",
+                "validrange": ["0", "65535"],
+                "example": ["bond-ad-sys-priority 65535"],
+                "deprecated": True,
+                "new-attribute": "bond-ad-actor-sys-prio"
+            },
+            "bond-ad-actor-sys-prio": {
+                "help": "802.3ad system priority",
+                "default": "65535",
+                "validrange": ["0", "65535"],
+                "example": ["bond-ad-actor-sys-prio 65535"]
+            },
+            "bond-ad-sys-mac-addr": {
+                "help": "802.3ad system mac address",
+                "validvals": ["<mac>", ],
+                "example": ["bond-ad-sys-mac-addr 00:00:00:00:00:00"],
+                "deprecated": True,
+                "new-attribute": "bond-ad-actor-system"
+            },
+            "bond-ad-actor-system": {
+                "help": "802.3ad system mac address",
+                "validvals": ["<mac>", ],
+                "example": ["bond-ad-actor-system 00:00:00:00:00:00"],
+            },
+            "bond-lacp-bypass-allow": {
+                "help": "allow lacp bypass",
+                "validvals": ["yes", "no", "0", "1"],
+                "default": "no",
+                "example": ["bond-lacp-bypass-allow no"]
+            },
+            "bond-slaves": {
+                "help": "bond slaves",
+                "required": True,
+                "multivalue": True,
+                "validvals": ["<interface-list>"],
+                "example": [
+                    "bond-slaves swp1 swp2",
+                    "bond-slaves glob swp1-2",
+                    "bond-slaves regex (swp[1|2)"
+                ],
+                "aliases": ["bond-ports"]
+            },
+            "bond-updelay": {
+                "help": "bond updelay",
+                "default": "0",
+                "validrange": ["0", "65535"],
+                "example": ["bond-updelay 100"]
+            },
+            "bond-downdelay": {
+                "help": "bond downdelay",
+                "default": "0",
+                "validrange": ["0", "65535"],
+                "example": ["bond-downdelay 100"]
+            },
+            "bond-primary": {
+                "help": "Control which slave interface is "
+                        "preferred active member",
+                "example": ["bond-primary swp1"]
+            }
+        }
+    }
 
     _bond_attr_netlink_map = {
         'bond-mode': Link.IFLA_BOND_MODE,
@@ -157,7 +183,8 @@ class bond(moduleBase):
         'bond-ad-actor-sys-prio': Link.IFLA_BOND_AD_ACTOR_SYS_PRIO,
         'bond-lacp-bypass-allow': Link.IFLA_BOND_AD_LACP_BYPASS,
         'bond-updelay': Link.IFLA_BOND_UPDELAY,
-        'bond-downdelay': Link.IFLA_BOND_DOWNDELAY
+        'bond-downdelay': Link.IFLA_BOND_DOWNDELAY,
+        'bond-primary': Link.IFLA_BOND_PRIMARY
     }
 
     # ifquery-check attr dictionary with callable object to translate user data to netlink format
@@ -173,7 +200,8 @@ class bond(moduleBase):
         Link.IFLA_BOND_AD_ACTOR_SYS_PRIO: int,
         Link.IFLA_BOND_AD_LACP_BYPASS: lambda x: int(utils.get_boolean_from_string(x)),
         Link.IFLA_BOND_UPDELAY: int,
-        Link.IFLA_BOND_DOWNDELAY: int
+        Link.IFLA_BOND_DOWNDELAY: int,
+        # Link.IFLA_BOND_PRIMARY: self.netlink.get_ifname is added in __init__()
     }
 
     # ifup attr list with callable object to translate user data to netlink format
@@ -194,19 +222,22 @@ class bond(moduleBase):
         ('bond-lacp-rate', Link.IFLA_BOND_AD_LACP_RATE, lambda x: int(utils.get_boolean_from_string(x))),
         ('bond-lacp-bypass-allow', Link.IFLA_BOND_AD_LACP_BYPASS, lambda x: int(utils.get_boolean_from_string(x))),
         ('bond-ad-sys-mac-addr', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
-        ('bond-ad-actor-system', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
+        ('bond-ad-actor-system', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str)
+        # ('bond-primary', Link.IFLA_BOND_PRIMARY, self.cache.get_ifindex) added in __init__()
     )
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
-        self.bondcmd = None
 
         if not os.path.exists('/sys/class/net/bonding_masters'):
             try:
                 utils.exec_command('modprobe -q bonding')
             except Exception as e:
                 self.logger.info("bond: error while loading bonding module: %s" % str(e))
+
+        self._bond_attr_ifquery_check_translate_func[Link.IFLA_BOND_PRIMARY] = self.cache.get_ifindex
+        self._bond_attr_set_list = self._bond_attr_set_list + (('bond-primary', Link.IFLA_BOND_PRIMARY, self.cache.get_ifindex),)
 
     @staticmethod
     def get_bond_slaves(ifaceobj):
@@ -218,9 +249,7 @@ class bond(moduleBase):
     def _is_bond(self, ifaceobj):
         # at first link_kind is not set but once ifupdownmain
         # calls get_dependent_ifacenames link_kind is set to BOND
-        if ifaceobj.link_kind & ifaceLinkKind.BOND or self.get_bond_slaves(ifaceobj):
-            return True
-        return False
+        return ifaceobj.link_kind & ifaceLinkKind.BOND or self.get_bond_slaves(ifaceobj)
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         """ Returns list of interfaces dependent on ifaceobj """
@@ -244,8 +273,7 @@ class bond(moduleBase):
         return self.syntax_check_updown_delay(ifaceobj)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
-        self._init_command_handlers()
-        return self.bondcmd.bond_get_slaves(ifaceobj.name)
+        return self.cache.get_slaves(ifaceobj.name)
 
     def _get_slave_list(self, ifaceobj):
         """ Returns slave list present in ifaceobj config """
@@ -264,8 +292,10 @@ class bond(moduleBase):
         If the intf was previously enslaved to a bridge it is possible ipv6 is still disabled.
         """
         try:
-            if os.path.exists("/sys/class/net/%s/brport" % ifname):
-                self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
+            for ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+                    self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
+                    return
         except Exception, e:
             self.logger.info(str(e))
 
@@ -276,46 +306,44 @@ class bond(moduleBase):
                 return True
         return False
 
-    def _add_slaves(self, ifaceobj, ifaceobj_getfunc=None):
-        runningslaves = []
-
+    def _add_slaves(self, ifaceobj, runningslaves, ifaceobj_getfunc=None):
         slaves = self._get_slave_list(ifaceobj)
         if not slaves:
             self.logger.debug('%s: no slaves found' %ifaceobj.name)
             return
 
-        if not ifupdownflags.flags.PERFMODE:
-            runningslaves = self.bondcmd.bond_get_slaves(ifaceobj.name)
-
         clag_bond = self._is_clag_bond(ifaceobj)
 
         for slave in Set(slaves).difference(Set(runningslaves)):
             if (not ifupdownflags.flags.PERFMODE and
-                not self.ipcmd.link_exists(slave)):
+                not self.cache.link_exists(slave)):
                     self.log_error('%s: skipping slave %s, does not exist'
                                    %(ifaceobj.name, slave), ifaceobj,
                                      raise_error=False)
                     continue
             link_up = False
-            if self.ipcmd.is_link_up(slave):
-                netlink.link_set_updown(slave, "down")
+            if self.cache.link_is_up(slave):
+                self.netlink.link_down_force(slave)
                 link_up = True
             # If clag bond place the slave in a protodown state; clagd
             # will protoup it when it is ready
             if clag_bond:
                 try:
-                    netlink.link_set_protodown(slave, "on")
+                    self.netlink.link_set_protodown_on(slave)
                 except Exception, e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+
             self.enable_ipv6_if_prev_brport(slave)
-            netlink.link_set_master(slave, ifaceobj.name)
+            self.netlink.link_set_master(slave, ifaceobj.name)
+            # TODO: if this fail we should switch to iproute2
+            # start a batch: down - set master - up
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
                try:
                     if (ifaceobj_getfunc(slave)[0].link_privflags &
                         ifaceLinkPrivFlags.KEEP_LINK_DOWN):
-                        netlink.link_set_updown(slave, "down")
+                        self.netlink.link_down_force(slave)
                     else:
-                        netlink.link_set_updown(slave, "up")
+                        self.netlink.link_up(slave)
                except Exception, e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
@@ -323,22 +351,22 @@ class bond(moduleBase):
         if runningslaves:
             for s in runningslaves:
                 if s not in slaves:
-                    self.bondcmd.bond_remove_slave(ifaceobj.name, s)
+                    self.sysfs.bond_remove_slave(ifaceobj.name, s)
                     if clag_bond:
                         try:
-                            netlink.link_set_protodown(s, "off")
+                            self.netlink.link_set_protodown_off(s)
                         except Exception, e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
                 else:
                     # apply link-down config changes on running slaves
                     try:
-                        link_up = self.ipcmd.is_link_up(s)
+                        link_up = self.cache.link_is_up(s)
                         config_link_down = (ifaceobj_getfunc(s)[0].link_privflags &
                                             ifaceLinkPrivFlags.KEEP_LINK_DOWN)
                         if (config_link_down and link_up):
-                            netlink.link_set_updown(s, "down")
+                            self.netlink.link_down_force(s)
                         elif (not config_link_down and not link_up):
-                            netlink.link_set_updown(s, "up")
+                            self.netlink.link_up_force(s)
                     except Exception, e:
                         self.logger.warn('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -396,7 +424,7 @@ class bond(moduleBase):
         """
         ifla_bond_miimon = ifla_info_data.get(Link.IFLA_BOND_MIIMON)
         if link_exists and ifla_bond_miimon is None:
-            ifla_bond_miimon = self.bondcmd.link_cache_get([ifaceobj.name, 'linkinfo', Link.IFLA_BOND_MIIMON])
+            ifla_bond_miimon = self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_BOND_MIIMON)
 
         if ifla_bond_miimon == 0:
             for nl_attr, attr_name in self._bond_updown_delay_nl_list:
@@ -417,7 +445,7 @@ class bond(moduleBase):
     def _check_bond_mode_user_config(self, ifname, link_exists, ifla_info_data):
         ifla_bond_mode = ifla_info_data.get(Link.IFLA_BOND_MODE)
         if ifla_bond_mode is None and link_exists:
-            ifla_bond_mode = self.bondcmd.link_cache_get([ifname, 'linkinfo', Link.IFLA_BOND_MODE])
+            ifla_bond_mode = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
             # in this case the link already exists (we have a cached value):
             # if IFLA_BOND_MODE is not present in ifla_info_data it means:
             #   - that bond-mode was present in the user config and didn't change
@@ -430,7 +458,7 @@ class bond(moduleBase):
         if ifla_bond_mode == 4:  # 802.3ad
             min_links = ifla_info_data.get(Link.IFLA_BOND_MIN_LINKS)
             if min_links is None:
-                min_links = self.bondcmd.link_cache_get([ifname, 'linkinfo', Link.IFLA_BOND_MIN_LINKS])
+                min_links = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MIN_LINKS)
             # get_min_links_nl may return None so we need to strictly check 0
             if min_links == 0:
                 self.logger.warn('%s: attribute bond-min-links is set to \'0\'' % ifname)
@@ -495,7 +523,7 @@ class bond(moduleBase):
                     nl_value = func_ptr(user_config.lower())
 
                     if link_exists:
-                        cached_value = self.bondcmd.link_cache_get([ifname, 'linkinfo', netlink_attr])
+                        cached_value = self.cache.get_link_info_data_attribute(ifname, netlink_attr)
 
                     if link_exists and cached_value is None:
                         # the link already exists but we don't have any value
@@ -539,10 +567,10 @@ class bond(moduleBase):
                 return True
         return False
 
-    def should_update_bond_mode(self, ifaceobj, ifname, is_link_up, ifla_info_data):
+    def should_update_bond_mode(self, ifaceobj, ifname, is_link_up, ifla_info_data, bond_slaves):
         # if bond-mode was changed the bond needs to be brought
         # down and slaves un-slaved before bond mode is changed.
-        cached_bond_mode = self.bondcmd.link_cache_get([ifname, 'linkinfo', Link.IFLA_BOND_MODE])
+        cached_bond_mode = self.cache.get_link_info_data_attribute(ifname, Link.IFLA_BOND_MODE)
         ifla_bond_mode = ifla_info_data.get(Link.IFLA_BOND_MODE)
 
         # bond-mode was changed or is not specified
@@ -551,24 +579,26 @@ class bond(moduleBase):
                 self.logger.info('%s: bond mode changed to %s: running ops on bond and slaves'
                                  % (ifname, ifla_bond_mode))
                 if is_link_up:
-                    netlink.link_set_updown(ifname, 'down')
+                    self.netlink.link_down(ifname)
                     is_link_up = False
 
                 for lower_dev in ifaceobj.lowerifaces:
-                    netlink.link_set_nomaster(lower_dev)
+                    self.netlink.link_set_nomaster(lower_dev)
+                    try:
+                        bond_slaves.remove(lower_dev)
+                    except:
+                        pass
 
-                self.bondcmd.cache_delete([ifname, 'linkinfo', 'slaves'])
             else:
                 # bond-mode user config value is the current running(cached) value
                 # no need to reset it again we can ignore this attribute
                 del ifla_info_data[Link.IFLA_BOND_MODE]
 
-        return is_link_up
+        return is_link_up, bond_slaves
 
     def create_or_set_bond_config(self, ifaceobj):
         ifname          = ifaceobj.name
-        link_exists     = self.ipcmd.link_exists(ifname)
-        is_link_up      = self.ipcmd.is_link_up(ifname) if link_exists else False
+        link_exists, is_link_up = self.cache.link_exists_and_up(ifname)
         ifla_info_data  = self.get_ifla_bond_attr_from_user_config(ifaceobj, link_exists)
 
         remove_delay_from_cache = self.check_updown_delay_nl(link_exists, ifaceobj, ifla_info_data)
@@ -576,13 +606,21 @@ class bond(moduleBase):
         # if link exists: down link if specific attributes are specified
         if link_exists:
             # did bond-mode changed?
-            is_link_up = self.should_update_bond_mode(ifaceobj, ifname, is_link_up, ifla_info_data)
+            is_link_up, bond_slaves = self.should_update_bond_mode(
+                ifaceobj,
+                ifname,
+                is_link_up,
+                ifla_info_data,
+                self.cache.get_slaves(ifname)
+            )
 
             # if specific attributes need to be set we need to down the bond first
             if ifla_info_data and is_link_up:
                 if self._should_down_bond(ifla_info_data):
-                    netlink.link_set_updown(ifname, 'down')
+                    self.netlink.link_down_force(ifname)
                     is_link_up = False
+        else:
+            bond_slaves = []
 
         if link_exists and not ifla_info_data:
             # if the bond already exists and no attrs need to be set
@@ -590,7 +628,7 @@ class bond(moduleBase):
             self.logger.info('%s: already exists, no change detected' % ifname)
         else:
             try:
-                netlink.link_add_set(kind='bond', ifname=ifname, ifla_info_data=ifla_info_data)
+                self.netlink.link_add_bond_with_info_data(ifname, ifla_info_data)
             except Exception as e:
                 # defensive code
                 # if anything happens, we try to set up the bond with the sysfs api
@@ -603,30 +641,30 @@ class bond(moduleBase):
                 ifla_info_data[Link.IFLA_BOND_UPDELAY] = 0
                 ifla_info_data[Link.IFLA_BOND_DOWNDELAY] = 0
 
-            # if link_add doesn't raise we can update the cache, the future
-            # netlink listener will update the cache based on the kernel response
-            for key, value in ifla_info_data.items():
-                self.bondcmd.cache_update([ifname, 'linkinfo', key], value)
-
         if link_exists and ifla_info_data and not is_link_up:
-            netlink.link_set_updown(ifname, 'up')
+            self.netlink.link_up_force(ifname)
+
+        return bond_slaves
 
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
-        if not self.ipcmd.link_exists(ifaceobj.name):
-            self.bondcmd.create_bond(ifaceobj.name)
-        self.bondcmd.bond_set_attrs_nl(ifaceobj.name, ifla_info_data)
+        if not self.cache.link_exists(ifaceobj.name):
+            self.sysfs.bond_create(ifaceobj.name)
+        self.sysfs.bond_set_attrs_nl(ifaceobj.name, ifla_info_data)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            self.create_or_set_bond_config(ifaceobj)
-            self._add_slaves(ifaceobj, ifaceobj_getfunc)
+            bond_slaves = self.create_or_set_bond_config(ifaceobj)
+            self._add_slaves(
+                ifaceobj,
+                bond_slaves,
+                ifaceobj_getfunc,
+            )
         except Exception, e:
             self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            netlink.link_del(ifaceobj.name)
-            self.bondcmd.cache_delete([ifaceobj.name])
+            self.netlink.link_del(ifaceobj.name)
         except Exception as e:
             self.log_warn('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -651,7 +689,7 @@ class bond(moduleBase):
         ifaceobjcurr.update_config_with_status(attr, ' '.join(user_bond_slaves) if user_bond_slaves else 'None', query)
 
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
-        if not self.bondcmd.bond_exists(ifaceobj.name):
+        if not self.cache.bond_exists(ifaceobj.name):
             self.logger.debug('bond iface %s does not exist' % ifaceobj.name)
             return
 
@@ -673,7 +711,7 @@ class bond(moduleBase):
             query_slaves = True
             if not user_bond_slaves:
                 user_bond_slaves = self._get_slave_list(ifaceobj)
-                running_bond_slaves = self.bondcmd.bond_get_slaves(ifaceobj.name)
+                running_bond_slaves = self.cache.get_slaves(ifaceobj.name)
 
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-slaves', user_bond_slaves, running_bond_slaves)
         except:
@@ -684,7 +722,7 @@ class bond(moduleBase):
             # if user specified bond-ports we need to display it
             if not query_slaves and not user_bond_slaves: # if get_slave_list was already called for slaves
                 user_bond_slaves = self._get_slave_list(ifaceobj)
-                running_bond_slaves = self.bondcmd.bond_get_slaves(ifaceobj.name)
+                running_bond_slaves = self.cache.get_slaves(ifaceobj.name)
 
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-ports', user_bond_slaves, running_bond_slaves)
         except:
@@ -693,7 +731,7 @@ class bond(moduleBase):
         for attr in iface_attrs:
             nl_attr         = self._bond_attr_netlink_map[attr]
             translate_func  = self._bond_attr_ifquery_check_translate_func[nl_attr]
-            current_config  = self.bondcmd.link_cache_get([ifaceobj.name, 'linkinfo', nl_attr])
+            current_config  = self.cache.get_link_info_data_attribute(ifaceobj.name, nl_attr)
             user_config     = ifaceobj.get_attr_value_first(attr)
 
             if current_config == translate_func(user_config):
@@ -710,28 +748,35 @@ class bond(moduleBase):
         return 'fast' if value else 'slow'
 
     def _query_running_attrs(self, bondname):
+        cached_vxlan_ifla_info_data = self.cache.get_link_info_data(bondname)
+
         bond_attrs = {
-            'bond-mode': Link.ifla_bond_mode_pretty_tbl.get(self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_MODE])),
-            'bond-miimon': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_MIIMON]),
-            'bond-use-carrier': self.translate_nl_value_yesno(self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_USE_CARRIER])),
-            'bond-lacp-rate': self.translate_nl_value_slowfast(self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_LACP_RATE])),
-            'bond-min-links': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_MIN_LINKS]),
-            'bond-ad-actor-system': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_ACTOR_SYSTEM]),
-            'bond-ad-actor-sys-prio': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_ACTOR_SYS_PRIO]),
-            'bond-xmit-hash-policy': Link.ifla_bond_xmit_hash_policy_pretty_tbl.get(self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_XMIT_HASH_POLICY])),
-            'bond-lacp-bypass-allow': self.translate_nl_value_yesno(self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_AD_LACP_BYPASS])),
-            'bond-num-unsol-na': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_NUM_PEER_NOTIF]),
-            'bond-num-grat-arp': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_NUM_PEER_NOTIF]),
-            'bond-updelay': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_UPDELAY]),
-            'bond-downdelay': self.bondcmd.link_cache_get([bondname, 'linkinfo', Link.IFLA_BOND_DOWNDELAY])
+            'bond-mode': Link.ifla_bond_mode_pretty_tbl.get(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MODE)),
+            'bond-miimon': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MIIMON),
+            'bond-use-carrier': self.translate_nl_value_yesno(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_USE_CARRIER)),
+            'bond-lacp-rate': self.translate_nl_value_slowfast(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_LACP_RATE)),
+            'bond-min-links': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MIN_LINKS),
+            'bond-ad-actor-system': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_ACTOR_SYSTEM),
+            'bond-ad-actor-sys-prio': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_ACTOR_SYS_PRIO),
+            'bond-xmit-hash-policy': Link.ifla_bond_xmit_hash_policy_pretty_tbl.get(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_XMIT_HASH_POLICY)),
+            'bond-lacp-bypass-allow': self.translate_nl_value_yesno(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_LACP_BYPASS)),
+            'bond-num-unsol-na': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_NUM_PEER_NOTIF),
+            'bond-num-grat-arp': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_NUM_PEER_NOTIF),
+            'bond-updelay': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_UPDELAY),
+            'bond-downdelay': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_DOWNDELAY)
         }
-        slaves = self.bondcmd.bond_get_slaves(bondname)
+
+        cached_bond_primary = cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_PRIMARY)
+        if cached_bond_primary:
+            bond_attrs['bond-primary'] = self.cache.get_ifname(cached_bond_primary)
+
+        slaves = self.cache.get_slaves(bondname)
         if slaves:
             bond_attrs['bond-slaves'] = slaves
         return bond_attrs
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
-        if not self.bondcmd.bond_exists(ifaceobjrunning.name):
+        if not self.cache.bond_exists(ifaceobjrunning.name):
             return
         bond_attrs = self._query_running_attrs(ifaceobjrunning.name)
         if bond_attrs.get('bond-slaves'):
@@ -751,10 +796,6 @@ class bond(moduleBase):
     def get_ops(self):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
-
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = self.bondcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None):
@@ -779,7 +820,6 @@ class bond(moduleBase):
             return
         if operation != 'query-running' and not self._is_bond(ifaceobj):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)

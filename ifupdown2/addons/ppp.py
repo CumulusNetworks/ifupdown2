@@ -4,28 +4,28 @@ import os
 import hashlib
 
 try:
+    from ifupdown2.lib.addon import Addon
     import ifupdown2.ifupdown.statemanager as statemanager
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 except ImportError:
+    from lib.addon import Addon
     import ifupdown.statemanager as statemanager
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     from ifupdown.exceptions import moduleNotSupported
 
 
-class ppp(moduleBase):
+class ppp(Addon, moduleBase):
     """
     ifupdown2 addon module to configure ppp
     """
@@ -48,10 +48,10 @@ class ppp(moduleBase):
     }
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         if not os.path.exists('/usr/bin/pon'):
             raise moduleNotSupported('module init failed: no /usr/bin/pon found')
-        self.ipcmd = None
 
     @staticmethod
     def _is_my_interface(ifaceobj):
@@ -81,7 +81,7 @@ class ppp(moduleBase):
             # Always save the current config files hash
             ifaceobj.update_config('provider_file', config)
 
-            if not self.ipcmd.link_exists(ifaceobj.name):
+            if not self.cache.link_exists(ifaceobj.name):
                 try:
                     # This fails if not running
                     utils.exec_user_command('/bin/ps ax | /bin/grep pppd | /bin/grep -v grep | /bin/grep ' + provider)
@@ -97,7 +97,7 @@ class ppp(moduleBase):
                 utils.exec_commandl(['/usr/bin/poff', old_provider], stdout=None, stderr=None)
                 utils.exec_commandl(['/usr/bin/pon', provider], stdout=None, stderr=None)
 
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def _down(self, ifaceobj):
@@ -109,7 +109,7 @@ class ppp(moduleBase):
             # This fails if not running
             utils.exec_user_command('/bin/ps ax | /bin/grep pppd | /bin/grep -v grep | /bin/grep ' + provider)
             utils.exec_commandl(['/usr/bin/poff', provider], stdout=None, stderr=None)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
@@ -124,12 +124,12 @@ class ppp(moduleBase):
         return None
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
         ifaceobjcurr.status = ifaceStatus.SUCCESS
 
     def _query_running(self, ifaceobjrunning):
-        if not self.ipcmd.link_exists(ifaceobjrunning.name):
+        if not self.cache.link_exists(ifaceobjrunning.name):
             return
 
     # Operations supported by this addon (yet).
@@ -143,10 +143,6 @@ class ppp(moduleBase):
     def get_ops(self):
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
 
@@ -156,7 +152,6 @@ class ppp(moduleBase):
         if operation != 'query-running' and not self._is_my_interface(ifaceobj):
             return
 
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

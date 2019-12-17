@@ -7,6 +7,10 @@
 #    ifupdown main module
 #
 
+import re
+import os
+import logging
+import traceback
 import pprint
 
 from collections import OrderedDict
@@ -14,12 +18,11 @@ from collections import OrderedDict
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
 
 try:
-    import ifupdown2.ifupdownaddons.cache
-    import ifupdown2.ifupdownaddons.LinkUtils
+    import ifupdown2.lib.nlcache as nlcache
+
     import ifupdown2.ifupdownaddons.mstpctlutil
 
     import ifupdown2.ifupdown.policymanager
-    import ifupdown2.ifupdown.ifupdownflags
     import ifupdown2.ifupdown.statemanager as statemanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
@@ -31,8 +34,8 @@ try:
     from ifupdown2.ifupdown.networkinterfaces import *
     from ifupdown2.ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
 except ImportError:
-    import ifupdownaddons.cache
-    import ifupdownaddons.LinkUtils
+    import lib.nlcache as nlcache
+
     import ifupdownaddons.mstpctlutil
 
     import ifupdown.ifupdownflags
@@ -80,7 +83,7 @@ class ifacePrivFlags():
         self.BUILTIN = builtin
         self.NOCONFIG = noconfig
 
-class ifupdownMain(ifupdownBase):
+class ifupdownMain:
     """ ifupdown2 main class """
 
     scripts_dir = '/etc/network'
@@ -111,7 +114,7 @@ class ifupdownMain(ifupdownBase):
         if self._keep_link_down(ifaceobj):
             return
         try:
-            self.link_up(ifaceobj.name)
+            self.netlink.link_up(ifaceobj.name)
         except:
             if ifaceobj.addr_method == 'manual':
                 pass
@@ -123,7 +126,7 @@ class ifupdownMain(ifupdownBase):
             # user has asked to explicitly keep the link down,
             # so, force link down
             self.logger.info('%s: keeping link down due to user config' %ifaceobj.name)
-            self.link_down(ifaceobj.name)
+            self.netlink.link_down(ifaceobj.name)
             return True
         return False
 
@@ -147,7 +150,11 @@ class ifupdownMain(ifupdownBase):
         if not self.link_exists(ifaceobj.name):
            return
         try:
-            self.link_down(ifaceobj.name)
+            if not ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
+                # set intf down (except loopback)
+                self.netlink.link_down(ifaceobj.name)
+            else:
+                self.logger.info("%s: ifupdown2 cannot bring loopback interface down" % ifaceobj.name)
         except:
             if ifaceobj.addr_method == 'manual':
                 pass
@@ -169,17 +176,48 @@ class ifupdownMain(ifupdownBase):
     sched_hooks = {'posthook' : run_sched_ifaceobj_posthook}
 
     def reset_ifupdown2(self):
+        self.modules = OrderedDict({})
+        self.module_attrs = {}
+
         ifaceScheduler.reset()
+        try:
+            ifupdown2.ifupdown.statemanager.reset()
+            ifupdown2.ifupdown.policymanager.reset()
+            ifupdown2.ifupdown.ifupdownflags.reset()
+            ifupdownConfig.reset()
+            ifupdown2.ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+        except:
+            try:
+                ifupdown.statemanager.reset()
+                ifupdown.policymanager.reset()
+                ifupdown.ifupdownflags.reset()
+                ifupdownConfig.reset()
+                ifupdownaddons.mstpctlutil.mstpctlutil.reset()
+            except:
+                pass
 
-        ifupdown2.ifupdown.statemanager.reset()
-        ifupdown2.ifupdown.policymanager.reset()
-        ifupdown2.ifupdown.ifupdownflags.reset()
-        ifupdownConfig.reset()
-        ifupdown2.ifupdownaddons.mstpctlutil.mstpctlutil.reset()
-        ifupdown2.ifupdownaddons.LinkUtils.LinkUtils.reset()
+    def ignore_error(self, errmsg):
+        if (ifupdownflags.flags.FORCE == True or re.search(r'exists', errmsg,
+            re.IGNORECASE | re.MULTILINE) is not None):
+            return True
+        return False
 
-        ifupdown2.ifupdownaddons.cache.linkCache.reset()
-        ifupdown2.ifupdownaddons.cache.MSTPAttrsCache.invalidate()
+    def log_warn(self, str):
+        if self.ignore_error(str) == False:
+            if self.logger.getEffectiveLevel() == logging.DEBUG:
+                traceback.print_stack()
+                traceback.print_exc()
+            self.logger.warn(str)
+        pass
+
+    def log_error(self, str):
+        if self.ignore_error(str) == False:
+            raise Exception(str)
+        else:
+            pass
+
+    def link_exists(self, ifacename):
+        return os.path.exists('/sys/class/net/%s' %ifacename)
 
     def __init__(self, config={},
                  daemon=False, force=False, dryrun=False, nowait=False,
@@ -202,8 +240,21 @@ class ifupdownMain(ifupdownBase):
         Raises:
             AttributeError, KeyError """
 
+        modulename = self.__class__.__name__
+        self.logger = logging.getLogger('ifupdown.' + modulename)
+
         if daemon:
             self.reset_ifupdown2()
+        else:
+            # init nlcache with appropriate log level
+            nlcache.NetlinkListenerWithCache.init(logging.root.level)
+
+            # start netlink listener and cache link/addr/netconf dumps
+            nlcache.NetlinkListenerWithCache.get_instance().start()
+
+        # save reference to nlcache
+        self.netlink = nlcache.NetlinkListenerWithCache.get_instance()
+        self.netlink.reset_errorq()
 
         # iface dictionary in the below format:
         # { '<ifacename>' : [<ifaceobject1>, <ifaceobject2> ..] }
@@ -444,9 +495,6 @@ class ifupdownMain(ifupdownBase):
         else:
             return ifaceobjlist[idx]
 
-    def get_ifaceobjrunning(self, ifacename):
-        return self.ifaceobjrunningdict.get(ifacename)
-
     def get_iface_refcnt(self, ifacename):
         """ Return iface ref count """
         max = 0
@@ -522,7 +570,7 @@ class ifupdownMain(ifupdownBase):
             (role == ifaceRole.SLAVE) and (upperifaceobj.role & ifaceRole.MASTER)):
 		self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
                                   %(ifaceobj.name,
-                                    ifaceLinkPrivFlags.get_all_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
+                                    ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
                 ifaceobj.set_status(ifaceStatus.ERROR)
                 return
         ifaceobj.role = role
@@ -855,13 +903,12 @@ class ifupdownMain(ifupdownBase):
 
     def _keyword_mac_ip_prefixlen_list(self, value, validrange=None):
         """
-            <mac> <ip> [<ip> ...]
+            MAC address followed by optional list of ip addresses
+            <mac> [<ip> <ip> ...]
             ex: address-virtual 00:11:22:33:44:01 11.0.1.1/24 11.0.1.2/24
         """
         try:
             res = value.split()
-            if len(res) < 2:
-                return False
             if not self._keyword_mac(res[0]):
                 return False
             for ip in res[1:]:
@@ -1254,7 +1301,7 @@ class ifupdownMain(ifupdownBase):
                 continue
         return ret
 
-    def read_iface_config(self):
+    def read_iface_config(self, raw=False):
         """ Reads default network interface config /etc/network/interfaces. """
         ret = True
         nifaces = networkInterfaces(self.interfacesfile,
@@ -1262,7 +1309,8 @@ class ifupdownMain(ifupdownBase):
                         self.interfacesfileformat,
                         template_enable=self.config.get('template_enable', 0),
                         template_engine=self.config.get('template_engine'),
-                template_lookuppath=self.config.get('template_lookuppath'))
+                template_lookuppath=self.config.get('template_lookuppath'),
+                                    raw=raw)
         if self._ifaceobj_squash or self._ifaceobj_squash_internal:
             nifaces.subscribe('iface_found', self._save_iface_squash)
         else:
@@ -1331,7 +1379,7 @@ class ifupdownMain(ifupdownBase):
                                 script_override = minstance.get_overrides_ifupdown_scripts()
                                 self.overridden_ifupdown_scripts.extend(script_override)
                             except moduleNotSupported, e:
-                                self.logger.info('module %s not loaded (%s)\n'
+                                self.logger.info('module %s not loaded (%s)'
                                                  %(mname, str(e)))
                                 continue
                             except:
@@ -1598,9 +1646,9 @@ class ifupdownMain(ifupdownBase):
         if not self._delay_admin_state_iface_queue:
            return
         if op == 'up':
-           func = self.link_up
+           func = self.netlink.link_up
         elif op == 'down':
-           func = self.link_down
+           func = self.netlink.link_down
         else:
            return
         for i in self._delay_admin_state_iface_queue:
@@ -1610,6 +1658,38 @@ class ifupdownMain(ifupdownBase):
             except Exception, e:
                 self.logger.warn(str(e))
                 pass
+
+    def _get_iface_exclude_companion(self, ifacename):
+        try:
+            return ifupdown2.ifupdown.policymanager.policymanager_api.get_iface_default(
+                                    module_name='main', ifname=ifacename,
+                                    attr='exclude-companion')
+        except:
+            return ifupdown.policymanager.policymanager_api.get_iface_default(
+                                    module_name='main', ifname=ifacename,
+                                    attr='exclude-companion')
+
+    def _preprocess_excludepats(self, excludepats):
+        new_excludepats = excludepats
+        for e in excludepats:
+            ifaceobjs = self.get_ifaceobjs(e)
+            for iobj in ifaceobjs or []:
+                ec = iobj.get_attr_value_first('exclude-companion')
+                if not ec:
+                    ec = self._get_iface_exclude_companion(e)
+                    if not ec:
+                        continue
+                    else:
+                        ec = ec.encode('ascii','ignore')
+                        for ee in ec.split():
+                            if ee in new_excludepats:
+                                continue
+                            if self.get_ifaceobjs(ee):
+                                # if we know the object add it to the new
+                                # excludepats list
+                                new_excludepats.append(ee)
+        self.logger.info('excludepats after processing companions [%s]' %' '.join(new_excludepats))
+        return new_excludepats
 
     def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
            excludepats=None, printdependency=None, syntaxcheck=False,
@@ -1641,6 +1721,9 @@ class ifupdownMain(ifupdownBase):
             iface_read_ret = self.read_iface_config()
         except Exception:
             raise
+
+        if excludepats:
+            excludepats = self._preprocess_excludepats(excludepats)
 
         filtered_ifacenames = None
         if ifacenames:
@@ -1695,6 +1778,35 @@ class ifupdownMain(ifupdownBase):
         if not iface_read_ret or not ret:
             raise Exception()
 
+        self.check_running_configuration(filtered_ifacenames)
+
+    def check_running_configuration(self, filtered_ifacenames, all=False):
+        """
+        Print warning and better info message when we don't recognize an interface
+        AKA when the interface wasn't created.
+
+        :param filtered_ifacenames:
+        :param all:
+        :return:
+        """
+        if not filtered_ifacenames:
+            filtered_ifacenames = []
+
+        for ifname, ifaceobj_list in self.ifaceobjdict.iteritems():
+
+            if not all and ifname not in filtered_ifacenames:
+                continue
+
+            auto = True
+
+            for ifaceobj in ifaceobj_list:
+                if not ifaceobj.auto:
+                    auto = False
+                    break
+
+            if auto and not os.path.exists("/sys/class/net/%s" % ifname):
+                self.logger.warning("%s: interface not recognized - please check interface configuration" % ifname)
+
     def _get_filtered_ifacenames_with_classes(self, auto, allow_classes, excludepats, ifacenames):
         # if user has specified ifacelist and allow_classes
         # append the allow_classes interfaces to user
@@ -1738,6 +1850,10 @@ class ifupdownMain(ifupdownBase):
                 self.read_iface_config()
             except Exception, e:
                 raise Exception('error reading iface config (%s)' %str(e))
+
+        if excludepats:
+            excludepats = self._preprocess_excludepats(excludepats)
+
         filtered_ifacenames = None
         if ifacenames:
             # If iface list is given by the caller, always check if iface
@@ -1817,7 +1933,7 @@ class ifupdownMain(ifupdownBase):
                                 ifacePrivFlags(False, True)), ifacenames)
         else:
             try:
-                iface_read_ret = self.read_iface_config()
+                iface_read_ret = self.read_iface_config(raw=ops[0] == "query-raw")
             except Exception:
                 raise
 
@@ -1859,7 +1975,7 @@ class ifupdownMain(ifupdownBase):
         if ops[0] == 'query' and not ifupdownflags.flags.WITHDEFAULTS:
             return self.print_ifaceobjs_pretty(filtered_ifacenames, format)
         elif ops[0] == 'query-raw':
-            return self.print_ifaceobjs_raw(filtered_ifacenames)
+            return self.print_ifaceobjs_raw(filtered_ifacenames, format)
 
         ret = self._sched_ifaces(filtered_ifacenames, ops,
                                  followdependents=True
@@ -2027,6 +2143,9 @@ class ifupdownMain(ifupdownBase):
             op = 'up'
             new_ifaceobjdict = self.ifaceobjdict
             new_dependency_graph = self.dependency_graph
+
+        if excludepats:
+            excludepats = self._preprocess_excludepats(excludepats)
 
         if op == 'reload' and ifacenames:
             ifacenames = self.ifaceobjdict.keys()
@@ -2236,6 +2355,8 @@ class ifupdownMain(ifupdownBase):
         else:
             self._reload_default(*args, **kargs)
 
+        self.check_running_configuration([], all=True)
+
     def _any_iface_errors(self, ifacenames):
         for i in ifacenames:
             ifaceobjs = self.get_ifaceobjs(i)
@@ -2271,8 +2392,12 @@ class ifupdownMain(ifupdownBase):
         for i in ifacenames:
             print i
 
-    def print_ifaceobjs_raw(self, ifacenames):
+    def print_ifaceobjs_raw(self, ifacenames, format=None):
         """ prints raw lines for ifaces from config file """
+
+        if format == "json":
+            self.print_ifaceobjs_pretty(ifacenames, format)
+            return
 
         for i in ifacenames:
             for ifaceobj in self.get_ifaceobjs(i):
@@ -2310,7 +2435,7 @@ class ifupdownMain(ifupdownBase):
         if not ifaceobjs: return
         if format == 'json':
             print json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
-                             indent=4, separators=(',', ': '))
+                             indent=2, separators=(',', ': '))
         else:
             expand = int(self.config.get('ifquery_ifacename_expand_range', '0'))
             for i in ifaceobjs:

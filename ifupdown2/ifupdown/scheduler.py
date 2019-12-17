@@ -14,22 +14,20 @@ from sets import Set
 
 try:
     from ifupdown2.ifupdown.graph import *
-    from ifupdown2.ifupdown.ifupdownbase import *
-
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.statemanager import *
 
+    import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
     from ifupdown.graph import *
-    from ifupdown.ifupdownbase import *
-
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdown.statemanager import *
 
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
 
 
 class ifaceSchedulerFlags():
@@ -49,6 +47,11 @@ class ifaceScheduler():
     _STATE_CHECK = True
 
     _SCHED_STATUS = True
+
+    VRF_MGMT_DEVNAME = policymanager.policymanager_api.get_module_globals(
+        module_name="vrf",
+        attr="vrf-mgmt-devname"
+    )
 
     @classmethod
     def reset(cls):
@@ -102,8 +105,10 @@ class ifaceScheduler():
                               ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
             except Exception, e:
                 if not ifupdownobj.ignore_error(str(e)):
-                   err = 1
-                   ifupdownobj.logger.error(str(e))
+                    err = 1
+                    #import traceback
+                    #traceback.print_exc()
+                    ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
                 pass
             finally:
@@ -148,7 +153,6 @@ class ifaceScheduler():
         # if interface exists in the system
         ifacename = ifaceobjs[0].name
         ifupdownobj.logger.info('%s: running ops ...' %ifacename)
-
         if ('down' in ops[0] and
                 ifaceobjs[0].type != ifaceType.BRIDGE_VLAN and
                 ifaceobjs[0].addr_method != 'ppp' and
@@ -265,6 +269,14 @@ class ifaceScheduler():
             # Run lowerifaces or dependents
             dlist = ifaceobj.lowerifaces
             if dlist:
+
+                if ifaceobj.link_kind == ifaceLinkKind.VRF:
+                    # remove non-auto lowerifaces from 'dlist'
+                    for lower_ifname in list(dlist):
+                        for lower_ifaceobj in ifupdownobj.get_ifaceobjs(lower_ifname) or []:
+                            if lower_ifaceobj and not lower_ifaceobj.auto and ifaceobj.name == cls.VRF_MGMT_DEVNAME:
+                                dlist.remove(lower_ifname)
+
                 ifupdownobj.logger.debug('%s: found dependents %s'
                             %(ifacename, str(dlist)))
                 try:

@@ -40,6 +40,8 @@ class policymanager():
         self.logger = logging.getLogger('ifupdown.' +
                             self.__class__.__name__)
 
+        self.logger.info("policymanager init")
+
         # we grab the json files from a known location and make sure that
         # the defaults_policy is checked first
         user_files = glob.glob('/etc/network/ifupdown2/policy.d/*.json')
@@ -64,7 +66,16 @@ class policymanager():
                     self.logger.debug("policymanager: merging system module %s policy with file %s" % (module, filename))
                     self.system_policy_array[module].update(system_array[module])
                 else:
-                    self.system_policy_array[module] = system_array[module]
+                    json_dict = system_array[module]
+
+                    if isinstance(json_dict, dict):
+                        self.system_policy_array[module] = system_array[module]
+                    elif module != "README":
+                        self.logger.warning(
+                            "file %s contains an invalid policy schema, key "
+                            "\"%s\" contains %s when a dictionary is expected" %
+                            (filename, module, type(json_dict))
+                        )
 
         # take care of user defined policy defaults
         self.user_policy_array = {}

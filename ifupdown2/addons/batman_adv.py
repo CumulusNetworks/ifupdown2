@@ -5,20 +5,20 @@
 #
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
-    from ifupdown2.ifupdown.netlink import netlink
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
 except:
+    from lib.addon import Addon
+
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdownaddons.modulebase import moduleBase
-    from ifupdownaddons.LinkUtils import LinkUtils
-    from ifupdown.netlink import netlink
     from ifupdown.exceptions import moduleNotSupported
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -27,62 +27,56 @@ import re
 import subprocess
 import os
 
-class batman_adv (moduleBase):
+
+class batman_adv(Addon, moduleBase):
     """  ifupdown2 addon module to configure B.A.T.M.A.N. advanced interfaces """
 
     _modinfo = {
-        'mhelp' : 'batman_adv module configures B.A.T.M.A.N. advanced interfaces.' +
-                  'Every B.A.T.M.A.N. advanced interface needs at least on ethernet ' +
-                  'interface to be creatable. You can specify a space separated list' +
-                  'of interfaces by using the "batma-ifaces" paramater. If this parameter' +
-                  'is set for an interfaces this module will do the magic.',
-
-        'attrs' : {
-            'batman-ifaces' : {
-                'help' : 'Interfaces to be part of this B.A.T.M.A.N. advanced instance',
-		'validvals' : [ '<interface-list>' ],
-                'required' : True,
+        'mhelp': 'batman_adv module configures B.A.T.M.A.N. advanced interfaces.' +
+                 'Every B.A.T.M.A.N. advanced interface needs at least on ethernet ' +
+                 'interface to be creatable. You can specify a space separated list' +
+                 'of interfaces by using the "batma-ifaces" paramater. If this parameter' +
+                 'is set for an interfaces this module will do the magic.',
+        'attrs': {
+            'batman-ifaces': {
+                'help': 'Interfaces to be part of this B.A.T.M.A.N. advanced instance',
+                'validvals': ['<interface-list>'],
+                'required': True,
             },
-
-            'batman-ifaces-ignore-regex' : {
-                'help' : 'Interfaces to ignore when verifying configuration (regexp)',
-                'required' : False,
+            'batman-ifaces-ignore-regex': {
+                'help': 'Interfaces to ignore when verifying configuration (regexp)',
+                'required': False,
             },
-
-            'batman-distributed-arp-table' : {
-                'help' : 'B.A.T.M.A.N. distributed ARP table',
-                'validvals' : [ 'enabled', 'disabled' ],
-                'required' : False,
-                'batman-attr' : True,
+            'batman-distributed-arp-table': {
+                'help': 'B.A.T.M.A.N. distributed ARP table',
+                'validvals': ['enabled', 'disabled'],
+                'required': False,
+                'batman-attr': True,
             },
-
-            'batman-gw-mode' : {
-                'help' : 'B.A.T.M.A.N. gateway mode',
-                'validvals' : [ 'off', 'client', 'server' ],
-                'required' : False,
-                'example' : [ 'batman-gw-mode client' ],
-                'batman-attr' : True,
+            'batman-gw-mode': {
+                'help': 'B.A.T.M.A.N. gateway mode',
+                'validvals': ['off', 'client', 'server'],
+                'required': False,
+                'example': ['batman-gw-mode client'],
+                'batman-attr': True,
             },
-
-            'batman-hop-penalty' : {
-                'help' : 'B.A.T.M.A.N. hop penalty',
-                'validvals' : [ '<number>' ],
-                'required' : False,
-                'batman-attr' : True,
+            'batman-hop-penalty': {
+                'help': 'B.A.T.M.A.N. hop penalty',
+                'validvals': ['<number>'],
+                'required': False,
+                'batman-attr': True,
             },
-
-            'batman-multicast-mode' : {
-                'help' : 'B.A.T.M.A.N. multicast mode',
-                'validvals' : [ 'enabled', 'disabled' ],
-                'required' : False,
-                'batman-attr' : True,
+            'batman-multicast-mode': {
+                'help': 'B.A.T.M.A.N. multicast mode',
+                'validvals': ['enabled', 'disabled'],
+                'required': False,
+                'batman-attr': True,
             },
-
-           'batman-routing-algo' : {
-                'help' : 'B.A.T.M.A.N. routing algo',
-                'validvals' : [ 'BATMAN_IV', 'BATMAN_V' ],
-                'required' : False,
-                'batman-attr' : False,
+            'batman-routing-algo': {
+                'help': 'B.A.T.M.A.N. routing algo',
+                'validvals': ['BATMAN_IV', 'BATMAN_V'],
+                'required': False,
+                'batman-attr': False,
             },
         }
     }
@@ -90,12 +84,11 @@ class batman_adv (moduleBase):
     _batman_attrs = {
     }
 
-
     def __init__ (self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__ (self, *args, **kargs)
         if not os.path.exists('/usr/sbin/batctl'):
             raise moduleNotSupported('module init failed: no /usr/sbin/batctl found')
-        self.ipcmd = None
 
         for longname, entry in self._modinfo['attrs'].items ():
             if entry.get ('batman-attr', False) == False:
@@ -106,12 +99,10 @@ class batman_adv (moduleBase):
                  'filename' : attr.replace ("-", "_"),
             }
 
-
     def _is_batman_device (self, ifaceobj):
         if ifaceobj.get_attr_value_first ('batman-ifaces'):
             return True
         return False
-
 
     def _get_batman_ifaces (self, ifaceobj ):
         batman_ifaces = ifaceobj.get_attr_value_first ('batman-ifaces')
@@ -119,13 +110,11 @@ class batman_adv (moduleBase):
             return sorted (batman_ifaces.split ())
         return None
 
-
     def _get_batman_ifaces_ignore_regex (self, ifaceobj):
         ifaces_ignore_regex = ifaceobj.get_attr_value_first ('batman-ifaces-ignore-regex')
         if ifaces_ignore_regex:
             return re.compile (r"%s" % ifaces_ignore_regex)
         return None
-
 
     def _get_batman_attr (self, ifaceobj, attr):
         if attr not in self._batman_attrs:
@@ -136,7 +125,6 @@ class batman_adv (moduleBase):
             return value
 
         return None
-
 
     def _read_current_batman_attr (self, ifaceobj, attr, dont_map = False):
 	# 'routing_algo' needs special handling, D'oh.
@@ -156,7 +144,6 @@ class batman_adv (moduleBase):
         except ValueError:
             raise Exception ("_read_current_batman_attr: Integer value expected, got: %s" % value)
 
-
     def _set_batman_attr (self, ifaceobj, attr, value):
         if attr not in self._batman_attrs:
             raise ValueError ("_set_batman_attr: Invalid or unsupported B.A.T.M.A.N. adv. attribute: %s" % attr)
@@ -167,7 +154,6 @@ class batman_adv (moduleBase):
             self.write_file(attr_file_path, "%s\n" % value)
         except IOError as i:
             raise Exception ("_set_batman_attr (%s): %s" % (attr, i))
-
 
     def _batctl_if (self, bat_iface, mesh_iface, op):
         if op not in [ 'add', 'del' ]:
@@ -193,7 +179,6 @@ class batman_adv (moduleBase):
         except Exception as e:
             raise Exception ("_set_routing_algo: %s" % e)
 
-
     def _find_member_ifaces (self, ifaceobj, ignore = True):
         members = []
         iface_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
@@ -208,7 +193,6 @@ class batman_adv (moduleBase):
 
         return sorted (members)
 
-
     def get_dependent_ifacenames (self, ifaceobj, ifaceobjs_all=None):
         if not self._is_batman_device (ifaceobj):
             return None
@@ -220,7 +204,6 @@ class batman_adv (moduleBase):
 
         return [None]
 
-
     def _up (self, ifaceobj):
         if self._get_batman_ifaces (ifaceobj) == None:
             raise Exception ('could not determine batman interfacaes')
@@ -228,7 +211,7 @@ class batman_adv (moduleBase):
         # Verify existance of batman interfaces (should be present already)
         batman_ifaces = []
         for iface in self._get_batman_ifaces (ifaceobj):
-            if not self.ipcmd.link_exists (iface):
+            if not self.cache.link_exists (iface):
                 self.logger.warn ('batman iface %s not present' % iface)
                 continue
 
@@ -241,10 +224,9 @@ class batman_adv (moduleBase):
         if routing_algo:
             self._set_routing_algo (routing_algo)
 
-
         if_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
         # Is the batman main interface already present?
-        if self.ipcmd.link_exists (ifaceobj.name):
+        if self.cache.link_exists (ifaceobj.name):
             # Verify which member interfaces are present
             members = self._find_member_ifaces (ifaceobj)
             for iface in members:
@@ -269,9 +251,8 @@ class batman_adv (moduleBase):
             netlink.link_set_updown(ifaceobj.name, "up")
 
 
-
     def _down (self, ifaceobj):
-        if not ifupdownflags.flags.PERFMODE and not self.ipcmd.link_exists (ifaceobj.name):
+        if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists (ifaceobj.name):
            return
 
         members = self._find_member_ifaces (ifaceobj)
@@ -283,7 +264,7 @@ class batman_adv (moduleBase):
 
 
     def _query_check (self, ifaceobj, ifaceobjcurr):
-        if not self.ipcmd.link_exists (ifaceobj.name):
+        if not self.cache.link_exists (ifaceobj.name):
             return
 
         batman_ifaces_cfg = self._get_batman_ifaces (ifaceobj)
@@ -342,29 +323,15 @@ class batman_adv (moduleBase):
 
             ifaceobjcurr.update_config_with_status ('batman-routing-algo', value_curr, value_ok)
 
-
-    def _query_running (self, ifaceobjrunning):
-        if not self.ipcmd.link_exists (ifaceobjrunning.name):
-            return
-
-        # XXX Now what?
-
-
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check}
-# XXX              'query-running' : _query_running}
-
+    _run_ops = {
+        'pre-up': _up,
+        'post-down': _down,
+        'query-checkcurr': _query_check
+    }
 
     def get_ops (self):
         """ returns list of ops supported by this module """
         return self._run_ops.keys ()
-
-
-    def _init_command_handlers (self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
 
     def run (self, ifaceobj, operation, query_ifaceobj = None, **extra_args):
         """ run B.A.T.M.A.N. configuration on the interface object passed as argument
@@ -388,8 +355,6 @@ class batman_adv (moduleBase):
 
         if (operation != 'query-running' and not self._is_batman_device (ifaceobj)):
             return
-
-        self._init_command_handlers ()
 
         if operation == 'query-checkcurr':
             op_handler (self, ifaceobj, query_ifaceobj)

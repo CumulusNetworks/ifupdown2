@@ -15,6 +15,7 @@ import signal
 import logging
 import subprocess
 
+from string import maketrans
 from functools import partial
 from ipaddr import IPNetwork, IPAddress
 
@@ -103,6 +104,7 @@ class utils():
     systemctl_cmd   = '/bin/systemctl'
     dpkg_cmd        = '/usr/bin/dpkg'
 
+    logger.info("utils init command paths")
     for cmd in ['bridge',
                 'ip',
                 'brctl',
@@ -129,6 +131,17 @@ class utils():
                 vars()[cmd + '_cmd'] = path + cmd
             else:
                 logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
+
+    mac_translate_tab = maketrans(":.-,", "    ")
+
+    @classmethod
+    def mac_str_to_int(cls, hw_address):
+        mac = 0
+        if hw_address:
+            for i in hw_address.translate(cls.mac_translate_tab).split():
+                mac = mac << 8
+                mac += int(i, 16)
+        return mac
 
     @staticmethod
     def get_onff_from_onezero(value):

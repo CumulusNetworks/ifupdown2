@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2015, 2017 Cumulus Networks, Inc. all rights reserved
+# Copyright (C) 2015-2020 Cumulus Networks, Inc. all rights reserved
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -130,7 +130,10 @@ class NetlinkManager(object):
         self._debug_set_clear((RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE), enabled)
 
     def debug_netconf(self, enabled):
-        self._debug_set_clear((RTM_GETNETCONF, RTM_NEWNETCONF), enabled)
+        self._debug_set_clear((RTM_GETNETCONF, RTM_NEWNETCONF, RTM_DELNETCONF), enabled)
+
+    def debug_mdb(self, enabled):
+        self._debug_set_clear((RTM_GETMDB, RTM_NEWMDB, RTM_DELMDB), enabled)
 
     def debug_this_packet(self, mtype):
         if mtype in self.debug:
@@ -353,6 +356,9 @@ class NetlinkManager(object):
                         elif msgtype in (RTM_GETNETCONF, RTM_NEWNETCONF):
                             msg = Netconf(msgtype, nlpacket.debug, use_color=self.use_color)
 
+                        elif msgtype in (RTM_GETMDB, RTM_NEWMDB, RTM_DELMDB):
+                            msg = MDB(msgtype, nlpacket.debug, use_color=self.use_color)
+
                         else:
                             raise Exception("RXed unknown netlink message type %s" % msgtype)
 
@@ -394,6 +400,10 @@ class NetlinkManager(object):
 
         elif rtm_type == RTM_GETROUTE:
             msg = Route(rtm_type, debug, use_color=self.use_color)
+            msg.body = pack('Bxxxii', family, 0, 0)
+
+        elif rtm_type == RTM_GETMDB:
+            msg = MDB(rtm_type, debug, use_color=self.use_color)
             msg.body = pack('Bxxxii', family, 0, 0)
 
         else:
@@ -723,24 +733,24 @@ class NetlinkManager(object):
 
         return self._link_add(ifindex, ifname, 'vlan', ifla_info_data)
 
-    def link_add_macvlan(self, ifindex, ifname):
+    def link_add_macvlan(self, ifindex, ifname, macvlan_mode):
         """
         ifindex is the index of the parent interface that this sub-interface
         is being added to
         """
-        return self._link_add(ifindex, ifname, 'macvlan', {Link.IFLA_MACVLAN_MODE: Link.MACVLAN_MODE_PRIVATE})
-
-    def link_add_xfrm(self, physdev, xfrm_ifname, xfrm_id):
-        """
-        ifindex is the index of the parent interface that this sub-interface
-        is being added to
-        """
-        ifla_info_data = {
-            Link.IFLA_XFRM_IF_ID: int(xfrm_id),
-            Link.IFLA_XFRM_LINK: int(physdev)
-        }
-        
-        return self._link_add(ifindex=None, ifname=xfrm_ifname, kind='xfrm', ifla_info_data=ifla_info_data)
+        return self._link_add(
+            ifindex,
+            ifname,
+            'macvlan',
+            {
+                Link.IFLA_MACVLAN_MODE: {
+                    "private": Link.MACVLAN_MODE_PRIVATE,
+                    "vepa": Link.MACVLAN_MODE_VEPA,
+                    "bridge": Link.MACVLAN_MODE_BRIDGE,
+                    "passthru": Link.MACVLAN_MODE_PASSTHRU
+                }.get(macvlan_mode, Link.MACVLAN_MODE_PRIVATE)
+            }
+        )
 
     def vlan_get(self, filter_ifindex=None, filter_vlanid=None, compress_vlans=True):
         """
@@ -1074,6 +1084,17 @@ class NetlinkManager(object):
         debug = RTM_GETNETCONF in self.debug
         msg = Netconf(RTM_GETNETCONF, debug, use_color=self.use_color)
         msg.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+        msg.flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK
+        msg.build_message(self.sequence.next(), self.pid)
+        return self.tx_nlpacket_get_response(msg)
+
+    # ===
+    # MDB
+    # ===
+    def mdb_dump(self):
+        debug = RTM_GETMDB in self.debug
+        msg = MDB(RTM_GETMDB, debug, use_color=self.use_color)
+        msg.body = pack('Bxxxiii', socket.AF_BRIDGE, 0, 0, 0)
         msg.flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK
         msg.build_message(self.sequence.next(), self.pid)
         return self.tx_nlpacket_get_response(msg)

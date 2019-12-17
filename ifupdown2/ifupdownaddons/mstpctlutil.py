@@ -60,6 +60,53 @@ class mstpctlutil(utilsBase):
     def __init__(self, *args, **kargs):
         utilsBase.__init__(self, *args, **kargs)
 
+        self.__batch = []
+        self.__batch_mode = False
+
+    def __add_to_batch(self, cmd):
+        self.__batch.append(cmd)
+
+    def __execute_or_batch(self, cmd):
+        if self.__batch_mode:
+            self.__add_to_batch(cmd)
+        else:
+            utils.exec_command("%s %s" % (utils.mstpctl_cmd, cmd))
+
+    def __execute_or_batch_dry_run(self, cmd):
+        """
+        The batch function has it's own dryrun handler so we only handle
+        dryrun for non-batch mode. Which will be removed once the "utils"
+        module has it's own dryrun handlers
+        """
+        if self.__batch_mode:
+            self.__add_to_batch(cmd)
+        else:
+            self.logger.info("DRY-RUN: executing: %s %s" % (utils.mstpctl_cmd, cmd))
+
+    def batch_start(self):
+        if not self.__batch_mode:
+            self.__batch_mode = True
+            self.__batch = []
+
+    def batch_commit(self):
+        if not self.__batch_mode or not self.__batch:
+            return
+        try:
+            utils.exec_command(
+                "%s batch -" % utils.mstpctl_cmd,
+                stdin="\n".join(self.__batch)
+            )
+        except:
+            raise
+        finally:
+            self.__batch_mode = False
+            del self.__batch
+            self.__batch = None
+
+    ###############################################################################
+    ###############################################################################
+    ###############################################################################
+
     @classmethod
     def reset(cls):
         cls._cache_fill_done = False
@@ -93,6 +140,7 @@ class mstpctlutil(utilsBase):
         except Exception as e:
             self.logger.info(str(e))
             return mstpctl_bridgeport_attrs_dict
+        portname = bridgename  # assigning portname to avoid an exception, in the exception handler
         try:
             mstpctl_bridge_cache = json.loads(output.strip('\n'))
             for portname in mstpctl_bridge_cache.keys():
@@ -104,7 +152,7 @@ class mstpctlutil(utilsBase):
                         mstpctl_bridgeport_attrs_dict[portname][jsonAttr] = str(jsonVal)
             MSTPAttrsCache.set(bridgename, mstpctl_bridgeport_attrs_dict)
         except Exception as e:
-            self.logger.info('%s: cannot fetch mstpctl bridge port attributes: %s' % str(e))
+            self.logger.info('%s: cannot fetch mstpctl bridge port attributes: %s' % (portname, str(e)))
 
         mstpctl_bridge_attrs_dict = {}
         try:
@@ -127,7 +175,7 @@ class mstpctlutil(utilsBase):
             del mstpctl_bridge_attrs_dict['bridgeId']
             MSTPAttrsCache.bridges[bridgename].update(mstpctl_bridge_attrs_dict)
         except Exception as e:
-            self.logger.info('%s: cannot fetch mstpctl bridge attributes: %s' % str(e))
+            self.logger.info('%s: cannot fetch mstpctl bridge attributes: %s' % (bridgename, str(e)))
         return MSTPAttrsCache.get(bridgename)
 
     def get_bridge_ports_attrs(self, bridgename):
@@ -161,11 +209,9 @@ class mstpctlutil(utilsBase):
         if cache_value and cache_value == value:
             return
         if attrname == 'treeportcost' or attrname == 'treeportprio':
-            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
-                                 bridgename, portname, '0', value])
+            self.__execute_or_batch("set%s %s %s 0 %s" % (attrname, bridgename, portname, value))
         else:
-            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
-                                 bridgename, portname, value])
+            self.__execute_or_batch("set%s %s %s %s" % (attrname, bridgename, portname, value))
         if json_attr:
             self.update_bridge_port_cache(bridgename, portname, json_attr, value)
 
@@ -195,13 +241,12 @@ class mstpctlutil(utilsBase):
                                         self._bridge_jsonAttr_map[attrname])
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
+
         if attrname == 'treeprio':
-            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
-                                 '%s' % bridgename, '0', '%s' % attrvalue], stderr=None)
+            self.__execute_or_batch("set%s %s 0 %s" % (attrname, bridgename, attrvalue))
             self.update_bridge_cache(bridgename, attrname, str(attrvalue))
         else:
-            utils.exec_commandl([utils.mstpctl_cmd, 'set%s' % attrname,
-                                 '%s' % bridgename, '%s' % attrvalue], stderr=None)
+            self.__execute_or_batch("set%s %s %s" % (attrname, bridgename, attrvalue))
             self.update_bridge_cache(bridgename,
                                      self._bridge_jsonAttr_map[attrname],
                                      str(attrvalue))
@@ -223,9 +268,8 @@ class mstpctlutil(utilsBase):
             attrvalue_curr = self.get_bridge_treeprio(bridgename)
             if attrvalue_curr and attrvalue_curr == attrvalue:
                 return
-        utils.exec_commandl([utils.mstpctl_cmd,
-                             'settreeprio', bridgename, '0',
-                             str(attrvalue)])
+        self.__execute_or_batch("settreeprio %s 0 %s" % (bridgename, str(attrvalue)))
+
         self.update_bridge_cache(bridgename, 'treeprio', str(attrvalue))
 
     def showbridge(self, bridgename=None):

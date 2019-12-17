@@ -12,7 +12,6 @@ INSTALL_REQUIRES = [
 ]
 
 DATA_FILES = [
-    ('/etc/default/', ['etc/default/networking']),
     ('/etc/network/ifupdown2/', ['etc/network/ifupdown2/addons.conf']),
     ('/etc/network/ifupdown2/', ['etc/network/ifupdown2/ifupdown2.conf']),
 ]
@@ -25,13 +24,12 @@ ENTRY_POINTS = {}
 def build_deb_package():
     try:
         return sys.argv[sys.argv.index('--root') + 1].endswith('/debian/ifupdown2')
-    except:
-        return False
+    except Exception:
+        pass
+    return False
 
 
-if build_deb_package():
-    DATA_FILES.append(('/usr/share/ifupdown2/sbin/', ['ifupdown2/sbin/start-networking']))
-else:
+if not build_deb_package():
     ENTRY_POINTS = {
         'console_scripts': [
             'ifup = ifupdown2.__main__:main',
@@ -42,8 +40,8 @@ else:
     }
 
 setup(
-    author='Roopa Prabhu',
-    author_email='roopa@cumulusnetworks.com',
+    author='Julien Fortin',
+    author_email='julien@cumulusnetworks.com',
     maintainer='Julien Fortin',
     maintainer_email='julien@cumulusnetworks.com',
     classifiers=[
@@ -65,7 +63,7 @@ setup(
     name='ifupdown2',
     packages=find_packages(),
     url='https://github.com/CumulusNetworks/ifupdown2',
-    version='1.2.9',
+    version='2.0.0',
     data_files=DATA_FILES,
     setup_requires=['setuptools'],
     scripts=SCRIPTS,

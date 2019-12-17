@@ -12,10 +12,10 @@ import argcomplete
 
 try:
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdown.exceptions import ArgvParseError
+    from ifupdown2.ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 except:
     from ifupdown.utils import utils
-    from ifupdown.exceptions import ArgvParseError
+    from ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 
 
 class VersionAction(argparse.Action):
@@ -78,7 +78,18 @@ class Parse:
                 self.update_ifquery_argparser(argparser)
         self.update_common_argparser(argparser)
         argcomplete.autocomplete(argparser)
-        self.args = argparser.parse_args(self.argv)
+
+        try:
+            self.args = argparser.parse_args(self.argv)
+        except SystemExit as e:
+            # on "--help" parse_args will raise SystemExit.
+            # We need to catch this behavior and raise a custom
+            # exception to return 0 properly
+            #raise ArgvParseHelp()
+            for help_str in ('-h', '--help'):
+                if help_str in argv:
+                    raise ArgvParseHelp()
+            raise
 
     def validate(self):
         if self.op == 'query' and (self.args.syntaxhelp or self.args.list):
@@ -102,8 +113,9 @@ class Parse:
             for key, value in self.valid_ops.iteritems():
                 if self.executable_name.endswith(key):
                     return value
+            raise ArgvParseError("Unexpected executable. Should be '%s'" % "' or '".join(self.valid_ops.keys()))
         except:
-            raise ArgvParseError("Unexpected executable. Should be 'ifup' or 'ifdown' or 'ifquery'")
+            raise ArgvParseError("Unexpected executable. Should be '%s'" % "' or '".join(self.valid_ops.keys()))
 
     def get_args(self):
         return self.args
@@ -140,7 +152,7 @@ class Parse:
     def update_ifupdown_argparser(self, argparser):
         """ common arg parser for ifup and ifdown """
         argparser.add_argument('-f', '--force', dest='force', action='store_true', help='force run all operations')
-        argparser.add_argument('-l', '--syslog', dest='syslog', action='store_true', help=argparse.SUPPRESS)
+        argparser.add_argument('-l', '--syslog', dest='syslog', action='store_true')
         group = argparser.add_mutually_exclusive_group(required=False)
         group.add_argument('-n', '--no-act', dest='noact', action='store_true',
                            help="print out what would happen, but don't do it")
@@ -220,7 +232,7 @@ class Parse:
                                     'With this option ifreload will only look at the current interfaces file. '
                                     'Useful when your state file is corrupted or you want down to use the latest '
                                     'from the interfaces file')
-        argparser.add_argument('-l', '--syslog', dest='syslog', action='store_true', help=argparse.SUPPRESS)
+        argparser.add_argument('-l', '--syslog', dest='syslog', action='store_true')
         argparser.add_argument('-f', '--force', dest='force', action='store_true', help='force run all operations')
         argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck', action='store_true',
                                help='Only run the interfaces file parser')

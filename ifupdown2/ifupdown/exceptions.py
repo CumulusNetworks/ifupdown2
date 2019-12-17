@@ -1,5 +1,3 @@
-#!/usr/bin/python
-#
 # Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
 # Authors:
 #           Roopa Prabhu, roopa@cumulusnetworks.com
@@ -9,10 +7,9 @@
 #    exceptions
 #
 
-try:
-    from ifupdown2.ifupdown.log import log
-except:
-    from ifupdown.log import log
+import logging
+
+log = logging.getLogger()
 
 
 class Error(Exception):
@@ -34,6 +31,14 @@ class Error(Exception):
 class ArgvParseError(Error):
     """
         Exception coming from argv parsing
+    """
+    pass
+
+
+class ArgvParseHelp(Error):
+    """
+    When ifupdown2 is called with --help argparse raise SystemExit
+    we need to catch this to properly print the help and exit 0 not 1
     """
     pass
 

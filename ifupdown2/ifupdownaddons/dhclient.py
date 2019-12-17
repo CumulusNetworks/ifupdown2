@@ -5,6 +5,7 @@
 #
 
 import os
+import errno
 
 try:
     from ifupdown2.ifupdown.utils import utils
@@ -20,12 +21,19 @@ class dhclient(utilsBase):
 
     def _pid_exists(self, pidfilename):
         if os.path.exists(pidfilename):
-            pid = self.read_file_oneline(pidfilename)
-            if not os.path.exists('/proc/%s' %pid):
+            try:
+                return os.readlink(
+                    "/proc/%s/exe" % self.read_file_oneline(pidfilename)
+                ).endswith("dhclient")
+            except OSError as e:
+                try:
+                    if e.errno == errno.EACCES:
+                        return os.path.exists("/proc/%s" % self.read_file_oneline(pidfilename))
+                except:
+                    return False
+            except:
                 return False
-        else:
-            return False
-        return True
+        return False
 
     def is_running(self, ifacename):
         return self._pid_exists('/run/dhclient.%s.pid' %ifacename)

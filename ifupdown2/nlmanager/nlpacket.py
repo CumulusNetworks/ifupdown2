@@ -1,6 +1,6 @@
 # Copyright (c) 2009-2013, Exa Networks Limited
 # Copyright (c) 2009-2013, Thomas Mangin
-# Copyright (c) 2015-2017 Cumulus Networks, Inc.
+# Copyright (c) 2015-2020 Cumulus Networks, Inc.
 #
 # All rights reserved.
 # Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 
 import logging
 import struct
-from ipaddr import IPv4Address, IPv6Address, IPAddress
+from ipaddr import IPNetwork, IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
 from socket import AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE, htons
@@ -40,6 +40,10 @@ from struct import pack, unpack, calcsize
 log = logging.getLogger(__name__)
 SYSLOG_EXTRA_DEBUG = 5
 
+ETH_P_IP = 0x0800
+ETH_P_IPV6 = 0x86DD
+
+INFINITY_LIFE_TIME = 0xFFFFFFFF
 
 # Interface name buffer size #define IFNAMSIZ 16 (kernel source)
 IF_NAME_SIZE = 15 # 15 because python doesn't have \0
@@ -72,7 +76,12 @@ RTM_DELQDISC  = 0x25
 RTM_GETQDISC  = 0x26
 
 RTM_NEWNETCONF = 80
+RTM_DELNETCONF = 81
 RTM_GETNETCONF = 82
+
+RTM_NEWMDB = 84
+RTM_DELMDB = 85
+RTM_GETMDB = 86
 
 # Netlink message flags
 NLM_F_REQUEST = 0x01  # It is query message.
@@ -112,12 +121,41 @@ RTMGRP_IPV6_IFINFO   = 0x800
 RTMGRP_DECnet_IFADDR = 0x1000
 RTMGRP_DECnet_ROUTE  = 0x4000
 RTMGRP_IPV6_PREFIX   = 0x20000
+RTNLGRP_MDB          = 0x1A
+
+
+def nl_mgrp(group):
+    """
+    The api is a reimplementation of "nl_mgrp" function from
+    iproute2/include/utils.h
+    """
+    if group > 31:
+        raise Exception("%d Invalid Group" % group)
+    else:
+        group = (1 << (group - 1)) if group else 0
+        return group
+
+
+RTNLGRP_IPV4_NETCONF = nl_mgrp(24)
+RTNLGRP_IPV6_NETCONF = nl_mgrp(25)
+RTNLGRP_MPLS_NETCONF = nl_mgrp(29)
+
 
 RTMGRP_ALL = (RTMGRP_LINK | RTMGRP_NOTIFY | RTMGRP_NEIGH | RTMGRP_TC |
               RTMGRP_IPV4_IFADDR | RTMGRP_IPV4_MROUTE | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_RULE |
               RTMGRP_IPV6_IFADDR | RTMGRP_IPV6_MROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFINFO |
-              RTMGRP_DECnet_IFADDR | RTMGRP_DECnet_ROUTE |
-              RTMGRP_IPV6_PREFIX)
+              RTMGRP_DECnet_IFADDR | RTMGRP_DECnet_ROUTE | nl_mgrp(RTNLGRP_MDB) |
+              RTMGRP_IPV6_PREFIX | RTNLGRP_IPV4_NETCONF | RTNLGRP_IPV6_NETCONF | RTNLGRP_MPLS_NETCONF)
+
+# /etc/iproute2/rt_scopes
+RT_SCOPES = {
+    "global": 0,
+    "universe": 0,
+    "nowhere": 255,
+    "host": 254,
+    "link": 253,
+    "site": 200
+}
 
 AF_MPLS = 28
 
@@ -216,6 +254,651 @@ def padded_length(length):
     return int((length + 3) / 4) * 4
 
 
+class NetlinkPacket_IFLA_LINKINFO_Attributes:
+
+    # =========================================
+    # IFLA_LINKINFO attributes
+    # =========================================
+    IFLA_INFO_UNSPEC     = 0
+    IFLA_INFO_KIND       = 1
+    IFLA_INFO_DATA       = 2
+    IFLA_INFO_XSTATS     = 3
+    IFLA_INFO_SLAVE_KIND = 4
+    IFLA_INFO_SLAVE_DATA = 5
+    IFLA_INFO_MAX        = 6
+
+    ifla_info_to_string = {
+        IFLA_INFO_UNSPEC     : 'IFLA_INFO_UNSPEC',
+        IFLA_INFO_KIND       : 'IFLA_INFO_KIND',
+        IFLA_INFO_DATA       : 'IFLA_INFO_DATA',
+        IFLA_INFO_XSTATS     : 'IFLA_INFO_XSTATS',
+        IFLA_INFO_SLAVE_KIND : 'IFLA_INFO_SLAVE_KIND',
+        IFLA_INFO_SLAVE_DATA : 'IFLA_INFO_SLAVE_DATA',
+        IFLA_INFO_MAX        : 'IFLA_INFO_MAX'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vlan
+    # =========================================
+    IFLA_VLAN_UNSPEC      = 0
+    IFLA_VLAN_ID          = 1
+    IFLA_VLAN_FLAGS       = 2
+    IFLA_VLAN_EGRESS_QOS  = 3
+    IFLA_VLAN_INGRESS_QOS = 4
+    IFLA_VLAN_PROTOCOL    = 5
+
+    ifla_vlan_to_string = {
+        IFLA_VLAN_UNSPEC      : 'IFLA_VLAN_UNSPEC',
+        IFLA_VLAN_ID          : 'IFLA_VLAN_ID',
+        IFLA_VLAN_FLAGS       : 'IFLA_VLAN_FLAGS',
+        IFLA_VLAN_EGRESS_QOS  : 'IFLA_VLAN_EGRESS_QOS',
+        IFLA_VLAN_INGRESS_QOS : 'IFLA_VLAN_INGRESS_QOS',
+        IFLA_VLAN_PROTOCOL    : 'IFLA_VLAN_PROTOCOL'
+    }
+
+    ifla_vlan_protocol_dict = {
+        '802.1Q':   0x8100,
+        '802.1q':   0x8100,
+
+        '802.1ad':  0x88A8,
+        '802.1AD':  0x88A8,
+        '802.1Ad':  0x88A8,
+        '802.1aD':  0x88A8,
+
+        0x8100:     '802.1Q',
+        0x88A8:     '802.1ad'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for macvlan
+    # =========================================
+    IFLA_MACVLAN_UNSPEC = 0
+    IFLA_MACVLAN_MODE   = 1
+
+    ifla_macvlan_to_string = {
+        IFLA_MACVLAN_UNSPEC : 'IFLA_MACVLAN_UNSPEC',
+        IFLA_MACVLAN_MODE   : 'IFLA_MACVLAN_MODE'
+    }
+
+    # enum macvlan_mode
+    MACVLAN_MODE_PRIVATE    = 1  # don't talk to other macvlans */
+    MACVLAN_MODE_VEPA       = 2  # talk to other ports through ext bridge */
+    MACVLAN_MODE_BRIDGE     = 4  # talk to bridge ports directly */
+    MACVLAN_MODE_PASSTHRU   = 8  # take over the underlying device */
+    MACVLAN_MODE_SOURCE     = 16  # use source MAC address list to assign */
+
+    macvlan_mode_to_string = {
+        MACVLAN_MODE_PRIVATE  : 'MACVLAN_MODE_PRIVATE',
+        MACVLAN_MODE_VEPA     : 'MACVLAN_MODE_VEPA',
+        MACVLAN_MODE_BRIDGE   : 'MACVLAN_MODE_BRIDGE',
+        MACVLAN_MODE_PASSTHRU : 'MACVLAN_MODE_PASSTHRU',
+        MACVLAN_MODE_SOURCE   : 'MACVLAN_MODE_SOURCE'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for xfrm
+    # =========================================
+    IFLA_XFRM_UNSPEC = 0
+    IFLA_XFRM_LINK   = 1
+    IFLA_XFRM_IF_ID  = 2
+
+    ifla_xfrm_to_string = {
+        IFLA_XFRM_UNSPEC: 'IFLA_XFRM_UNSPEC',
+        IFLA_XFRM_LINK  : 'IFLA_XFRM_LINK',
+        IFLA_XFRM_IF_ID : 'IFLA_XFRM_IF_ID'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vxlan
+    # =========================================
+    IFLA_VXLAN_UNSPEC            = 0
+    IFLA_VXLAN_ID                = 1
+    IFLA_VXLAN_GROUP             = 2
+    IFLA_VXLAN_LINK              = 3
+    IFLA_VXLAN_LOCAL             = 4
+    IFLA_VXLAN_TTL               = 5
+    IFLA_VXLAN_TOS               = 6
+    IFLA_VXLAN_LEARNING          = 7
+    IFLA_VXLAN_AGEING            = 8
+    IFLA_VXLAN_LIMIT             = 9
+    IFLA_VXLAN_PORT_RANGE        = 10
+    IFLA_VXLAN_PROXY             = 11
+    IFLA_VXLAN_RSC               = 12
+    IFLA_VXLAN_L2MISS            = 13
+    IFLA_VXLAN_L3MISS            = 14
+    IFLA_VXLAN_PORT              = 15
+    IFLA_VXLAN_GROUP6            = 16
+    IFLA_VXLAN_LOCAL6            = 17
+    IFLA_VXLAN_UDP_CSUM          = 18
+    IFLA_VXLAN_UDP_ZERO_CSUM6_TX = 19
+    IFLA_VXLAN_UDP_ZERO_CSUM6_RX = 20
+    IFLA_VXLAN_REMCSUM_TX        = 21
+    IFLA_VXLAN_REMCSUM_RX        = 22
+    IFLA_VXLAN_GBP               = 23
+    IFLA_VXLAN_REMCSUM_NOPARTIAL = 24
+    IFLA_VXLAN_COLLECT_METADATA  = 25
+    IFLA_VXLAN_REPLICATION_NODE  = 253
+    IFLA_VXLAN_REPLICATION_TYPE  = 254
+
+    ifla_vxlan_to_string = {
+        IFLA_VXLAN_UNSPEC            : 'IFLA_VXLAN_UNSPEC',
+        IFLA_VXLAN_ID                : 'IFLA_VXLAN_ID',
+        IFLA_VXLAN_GROUP             : 'IFLA_VXLAN_GROUP',
+        IFLA_VXLAN_LINK              : 'IFLA_VXLAN_LINK',
+        IFLA_VXLAN_LOCAL             : 'IFLA_VXLAN_LOCAL',
+        IFLA_VXLAN_TTL               : 'IFLA_VXLAN_TTL',
+        IFLA_VXLAN_TOS               : 'IFLA_VXLAN_TOS',
+        IFLA_VXLAN_LEARNING          : 'IFLA_VXLAN_LEARNING',
+        IFLA_VXLAN_AGEING            : 'IFLA_VXLAN_AGEING',
+        IFLA_VXLAN_LIMIT             : 'IFLA_VXLAN_LIMIT',
+        IFLA_VXLAN_PORT_RANGE        : 'IFLA_VXLAN_PORT_RANGE',
+        IFLA_VXLAN_PROXY             : 'IFLA_VXLAN_PROXY',
+        IFLA_VXLAN_RSC               : 'IFLA_VXLAN_RSC',
+        IFLA_VXLAN_L2MISS            : 'IFLA_VXLAN_L2MISS',
+        IFLA_VXLAN_L3MISS            : 'IFLA_VXLAN_L3MISS',
+        IFLA_VXLAN_PORT              : 'IFLA_VXLAN_PORT',
+        IFLA_VXLAN_GROUP6            : 'IFLA_VXLAN_GROUP6',
+        IFLA_VXLAN_LOCAL6            : 'IFLA_VXLAN_LOCAL6',
+        IFLA_VXLAN_UDP_CSUM          : 'IFLA_VXLAN_UDP_CSUM',
+        IFLA_VXLAN_UDP_ZERO_CSUM6_TX : 'IFLA_VXLAN_UDP_ZERO_CSUM6_TX',
+        IFLA_VXLAN_UDP_ZERO_CSUM6_RX : 'IFLA_VXLAN_UDP_ZERO_CSUM6_RX',
+        IFLA_VXLAN_REMCSUM_TX        : 'IFLA_VXLAN_REMCSUM_TX',
+        IFLA_VXLAN_REMCSUM_RX        : 'IFLA_VXLAN_REMCSUM_RX',
+        IFLA_VXLAN_GBP               : 'IFLA_VXLAN_GBP',
+        IFLA_VXLAN_REMCSUM_NOPARTIAL : 'IFLA_VXLAN_REMCSUM_NOPARTIAL',
+        IFLA_VXLAN_COLLECT_METADATA  : 'IFLA_VXLAN_COLLECT_METADATA',
+        IFLA_VXLAN_REPLICATION_NODE  : 'IFLA_VXLAN_REPLICATION_NODE',
+        IFLA_VXLAN_REPLICATION_TYPE  : 'IFLA_VXLAN_REPLICATION_TYPE'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for bonds
+    # =========================================
+    IFLA_BOND_UNSPEC                    = 0
+    IFLA_BOND_MODE                      = 1
+    IFLA_BOND_ACTIVE_SLAVE              = 2
+    IFLA_BOND_MIIMON                    = 3
+    IFLA_BOND_UPDELAY                   = 4
+    IFLA_BOND_DOWNDELAY                 = 5
+    IFLA_BOND_USE_CARRIER               = 6
+    IFLA_BOND_ARP_INTERVAL              = 7
+    IFLA_BOND_ARP_IP_TARGET             = 8
+    IFLA_BOND_ARP_VALIDATE              = 9
+    IFLA_BOND_ARP_ALL_TARGETS           = 10
+    IFLA_BOND_PRIMARY                   = 11
+    IFLA_BOND_PRIMARY_RESELECT          = 12
+    IFLA_BOND_FAIL_OVER_MAC             = 13
+    IFLA_BOND_XMIT_HASH_POLICY          = 14
+    IFLA_BOND_RESEND_IGMP               = 15
+    IFLA_BOND_NUM_PEER_NOTIF            = 16
+    IFLA_BOND_ALL_SLAVES_ACTIVE         = 17
+    IFLA_BOND_MIN_LINKS                 = 18
+    IFLA_BOND_LP_INTERVAL               = 19
+    IFLA_BOND_PACKETS_PER_SLAVE         = 20
+    IFLA_BOND_AD_LACP_RATE              = 21
+    IFLA_BOND_AD_SELECT                 = 22
+    IFLA_BOND_AD_INFO                   = 23
+    IFLA_BOND_AD_ACTOR_SYS_PRIO         = 24
+    IFLA_BOND_AD_USER_PORT_KEY          = 25
+    IFLA_BOND_AD_ACTOR_SYSTEM           = 26
+    IFLA_BOND_CL_START                  = 60
+    IFLA_BOND_AD_LACP_BYPASS            = IFLA_BOND_CL_START
+
+
+    ifla_bond_to_string = {
+        IFLA_BOND_UNSPEC                    : 'IFLA_BOND_UNSPEC',
+        IFLA_BOND_MODE                      : 'IFLA_BOND_MODE',
+        IFLA_BOND_ACTIVE_SLAVE              : 'IFLA_BOND_ACTIVE_SLAVE',
+        IFLA_BOND_MIIMON                    : 'IFLA_BOND_MIIMON',
+        IFLA_BOND_UPDELAY                   : 'IFLA_BOND_UPDELAY',
+        IFLA_BOND_DOWNDELAY                 : 'IFLA_BOND_DOWNDELAY',
+        IFLA_BOND_USE_CARRIER               : 'IFLA_BOND_USE_CARRIER',
+        IFLA_BOND_ARP_INTERVAL              : 'IFLA_BOND_ARP_INTERVAL',
+        IFLA_BOND_ARP_IP_TARGET             : 'IFLA_BOND_ARP_IP_TARGET',
+        IFLA_BOND_ARP_VALIDATE              : 'IFLA_BOND_ARP_VALIDATE',
+        IFLA_BOND_ARP_ALL_TARGETS           : 'IFLA_BOND_ARP_ALL_TARGETS',
+        IFLA_BOND_PRIMARY                   : 'IFLA_BOND_PRIMARY',
+        IFLA_BOND_PRIMARY_RESELECT          : 'IFLA_BOND_PRIMARY_RESELECT',
+        IFLA_BOND_FAIL_OVER_MAC             : 'IFLA_BOND_FAIL_OVER_MAC',
+        IFLA_BOND_XMIT_HASH_POLICY          : 'IFLA_BOND_XMIT_HASH_POLICY',
+        IFLA_BOND_RESEND_IGMP               : 'IFLA_BOND_RESEND_IGMP',
+        IFLA_BOND_NUM_PEER_NOTIF            : 'IFLA_BOND_NUM_PEER_NOTIF',
+        IFLA_BOND_ALL_SLAVES_ACTIVE         : 'IFLA_BOND_ALL_SLAVES_ACTIVE',
+        IFLA_BOND_MIN_LINKS                 : 'IFLA_BOND_MIN_LINKS',
+        IFLA_BOND_LP_INTERVAL               : 'IFLA_BOND_LP_INTERVAL',
+        IFLA_BOND_PACKETS_PER_SLAVE         : 'IFLA_BOND_PACKETS_PER_SLAVE',
+        IFLA_BOND_AD_LACP_RATE              : 'IFLA_BOND_AD_LACP_RATE',
+        IFLA_BOND_AD_SELECT                 : 'IFLA_BOND_AD_SELECT',
+        IFLA_BOND_AD_INFO                   : 'IFLA_BOND_AD_INFO',
+        IFLA_BOND_AD_ACTOR_SYS_PRIO         : 'IFLA_BOND_AD_ACTOR_SYS_PRIO',
+        IFLA_BOND_AD_USER_PORT_KEY          : 'IFLA_BOND_AD_USER_PORT_KEY',
+        IFLA_BOND_AD_ACTOR_SYSTEM           : 'IFLA_BOND_AD_ACTOR_SYSTEM',
+        IFLA_BOND_CL_START                  : 'IFLA_BOND_CL_START',
+        IFLA_BOND_AD_LACP_BYPASS            : 'IFLA_BOND_AD_LACP_BYPASS'
+    }
+
+    IFLA_BOND_AD_INFO_UNSPEC            = 0
+    IFLA_BOND_AD_INFO_AGGREGATOR        = 1
+    IFLA_BOND_AD_INFO_NUM_PORTS         = 2
+    IFLA_BOND_AD_INFO_ACTOR_KEY         = 3
+    IFLA_BOND_AD_INFO_PARTNER_KEY       = 4
+    IFLA_BOND_AD_INFO_PARTNER_MAC       = 5
+
+    ifla_bond_ad_to_string = {
+        IFLA_BOND_AD_INFO_UNSPEC            : 'IFLA_BOND_AD_INFO_UNSPEC',
+        IFLA_BOND_AD_INFO_AGGREGATOR        : 'IFLA_BOND_AD_INFO_AGGREGATOR',
+        IFLA_BOND_AD_INFO_NUM_PORTS         : 'IFLA_BOND_AD_INFO_NUM_PORTS',
+        IFLA_BOND_AD_INFO_ACTOR_KEY         : 'IFLA_BOND_AD_INFO_ACTOR_KEY',
+        IFLA_BOND_AD_INFO_PARTNER_KEY       : 'IFLA_BOND_AD_INFO_PARTNER_KEY',
+        IFLA_BOND_AD_INFO_PARTNER_MAC       : 'IFLA_BOND_AD_INFO_PARTNER_MAC'
+    }
+
+    ifla_bond_mode_tbl = {
+        'balance-rr': 0,
+        'active-backup': 1,
+        'balance-xor': 2,
+        'broadcast': 3,
+        '802.3ad': 4,
+        'balance-tlb': 5,
+        'balance-alb': 6,
+        '0': 0,
+        '1': 1,
+        '2': 2,
+        '3': 3,
+        '4': 4,
+        '5': 5,
+        '6': 6,
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4,
+        5: 5,
+        6: 6
+    }
+
+    ifla_bond_mode_pretty_tbl = {
+        0: 'balance-rr',
+        1: 'active-backup',
+        2: 'balance-xor',
+        3: 'broadcast',
+        4: '802.3ad',
+        5: 'balance-tlb',
+        6: 'balance-alb'
+    }
+
+    ifla_bond_xmit_hash_policy_tbl = {
+        'layer2': 0,
+        'layer3+4': 1,
+        'layer2+3': 2,
+        'encap2+3': 3,
+        'encap3+4': 4,
+        '0': 0,
+        '1': 1,
+        '2': 2,
+        '3': 3,
+        '4': 4,
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4
+    }
+
+    ifla_bond_xmit_hash_policy_pretty_tbl = {
+        0: 'layer2',
+        1: 'layer3+4',
+        2: 'layer2+3',
+        3: 'encap2+3',
+        4: 'encap3+4',
+    }
+
+    # =========================================
+    # IFLA_INFO_SLAVE_DATA attributes for bonds
+    # =========================================
+    IFLA_BOND_SLAVE_UNSPEC                      = 0
+    IFLA_BOND_SLAVE_STATE                       = 1
+    IFLA_BOND_SLAVE_MII_STATUS                  = 2
+    IFLA_BOND_SLAVE_LINK_FAILURE_COUNT          = 3
+    IFLA_BOND_SLAVE_PERM_HWADDR                 = 4
+    IFLA_BOND_SLAVE_QUEUE_ID                    = 5
+    IFLA_BOND_SLAVE_AD_AGGREGATOR_ID            = 6
+    IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE    = 7
+    IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE  = 8
+    IFLA_BOND_SLAVE_CL_START                    = 50
+    IFLA_BOND_SLAVE_AD_RX_BYPASS                = IFLA_BOND_SLAVE_CL_START
+
+    ifla_bond_slave_to_string = {
+        IFLA_BOND_SLAVE_UNSPEC                      : 'IFLA_BOND_SLAVE_UNSPEC',
+        IFLA_BOND_SLAVE_STATE                       : 'IFLA_BOND_SLAVE_STATE',
+        IFLA_BOND_SLAVE_MII_STATUS                  : 'IFLA_BOND_SLAVE_MII_STATUS',
+        IFLA_BOND_SLAVE_LINK_FAILURE_COUNT          : 'IFLA_BOND_SLAVE_LINK_FAILURE_COUNT',
+        IFLA_BOND_SLAVE_PERM_HWADDR                 : 'IFLA_BOND_SLAVE_PERM_HWADDR',
+        IFLA_BOND_SLAVE_QUEUE_ID                    : 'IFLA_BOND_SLAVE_QUEUE_ID',
+        IFLA_BOND_SLAVE_AD_AGGREGATOR_ID            : 'IFLA_BOND_SLAVE_AD_AGGREGATOR_ID',
+        IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE    : 'IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE',
+        IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE  : 'IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE',
+        IFLA_BOND_SLAVE_CL_START                    : 'IFLA_BOND_SLAVE_CL_START',
+        IFLA_BOND_SLAVE_AD_RX_BYPASS                : 'IFLA_BOND_SLAVE_AD_RX_BYPASS'
+    }
+
+    # =========================================
+    # IFLA_PROTINFO attributes for bridge ports
+    # =========================================
+    IFLA_BRPORT_UNSPEC              = 0
+    IFLA_BRPORT_STATE               = 1
+    IFLA_BRPORT_PRIORITY            = 2
+    IFLA_BRPORT_COST                = 3
+    IFLA_BRPORT_MODE                = 4
+    IFLA_BRPORT_GUARD               = 5
+    IFLA_BRPORT_PROTECT             = 6
+    IFLA_BRPORT_FAST_LEAVE          = 7
+    IFLA_BRPORT_LEARNING            = 8
+    IFLA_BRPORT_UNICAST_FLOOD       = 9
+    IFLA_BRPORT_PROXYARP            = 10
+    IFLA_BRPORT_LEARNING_SYNC       = 11
+    IFLA_BRPORT_PROXYARP_WIFI       = 12
+    IFLA_BRPORT_ROOT_ID             = 13
+    IFLA_BRPORT_BRIDGE_ID           = 14
+    IFLA_BRPORT_DESIGNATED_PORT     = 15
+    IFLA_BRPORT_DESIGNATED_COST     = 16
+    IFLA_BRPORT_ID                  = 17
+    IFLA_BRPORT_NO                  = 18
+    IFLA_BRPORT_TOPOLOGY_CHANGE_ACK = 19
+    IFLA_BRPORT_CONFIG_PENDING      = 20
+    IFLA_BRPORT_MESSAGE_AGE_TIMER   = 21
+    IFLA_BRPORT_FORWARD_DELAY_TIMER = 22
+    IFLA_BRPORT_HOLD_TIMER          = 23
+    IFLA_BRPORT_FLUSH               = 24
+    IFLA_BRPORT_MULTICAST_ROUTER    = 25
+    IFLA_BRPORT_PAD                 = 26
+    IFLA_BRPORT_MCAST_FLOOD         = 27
+    IFLA_BRPORT_MCAST_TO_UCAST      = 28
+    IFLA_BRPORT_VLAN_TUNNEL         = 29
+    IFLA_BRPORT_BCAST_FLOOD         = 30
+    IFLA_BRPORT_GROUP_FWD_MASK      = 31
+    IFLA_BRPORT_NEIGH_SUPPRESS      = 32
+    IFLA_BRPORT_ISOLATED            = 33
+    IFLA_BRPORT_BACKUP_PORT         = 34
+
+    IFLA_BRPORT_PEER_LINK           = 60
+    IFLA_BRPORT_DUAL_LINK           = 61
+    IFLA_BRPORT_GROUP_FWD_MASKHI    = 62
+
+    ifla_brport_to_string = {
+        IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
+        IFLA_BRPORT_STATE               : 'IFLA_BRPORT_STATE',
+        IFLA_BRPORT_PRIORITY            : 'IFLA_BRPORT_PRIORITY',
+        IFLA_BRPORT_COST                : 'IFLA_BRPORT_COST',
+        IFLA_BRPORT_MODE                : 'IFLA_BRPORT_MODE',
+        IFLA_BRPORT_GUARD               : 'IFLA_BRPORT_GUARD',
+        IFLA_BRPORT_PROTECT             : 'IFLA_BRPORT_PROTECT',
+        IFLA_BRPORT_FAST_LEAVE          : 'IFLA_BRPORT_FAST_LEAVE',
+        IFLA_BRPORT_LEARNING            : 'IFLA_BRPORT_LEARNING',
+        IFLA_BRPORT_UNICAST_FLOOD       : 'IFLA_BRPORT_UNICAST_FLOOD',
+        IFLA_BRPORT_PROXYARP            : 'IFLA_BRPORT_PROXYARP',
+        IFLA_BRPORT_LEARNING_SYNC       : 'IFLA_BRPORT_LEARNING_SYNC',
+        IFLA_BRPORT_PROXYARP_WIFI       : 'IFLA_BRPORT_PROXYARP_WIFI',
+        IFLA_BRPORT_ROOT_ID             : 'IFLA_BRPORT_ROOT_ID',
+        IFLA_BRPORT_BRIDGE_ID           : 'IFLA_BRPORT_BRIDGE_ID',
+        IFLA_BRPORT_DESIGNATED_PORT     : 'IFLA_BRPORT_DESIGNATED_PORT',
+        IFLA_BRPORT_DESIGNATED_COST     : 'IFLA_BRPORT_DESIGNATED_COST',
+        IFLA_BRPORT_ID                  : 'IFLA_BRPORT_ID',
+        IFLA_BRPORT_NO                  : 'IFLA_BRPORT_NO',
+        IFLA_BRPORT_TOPOLOGY_CHANGE_ACK : 'IFLA_BRPORT_TOPOLOGY_CHANGE_ACK',
+        IFLA_BRPORT_CONFIG_PENDING      : 'IFLA_BRPORT_CONFIG_PENDING',
+        IFLA_BRPORT_MESSAGE_AGE_TIMER   : 'IFLA_BRPORT_MESSAGE_AGE_TIMER',
+        IFLA_BRPORT_FORWARD_DELAY_TIMER : 'IFLA_BRPORT_FORWARD_DELAY_TIMER',
+        IFLA_BRPORT_HOLD_TIMER          : 'IFLA_BRPORT_HOLD_TIMER',
+        IFLA_BRPORT_FLUSH               : 'IFLA_BRPORT_FLUSH',
+        IFLA_BRPORT_MULTICAST_ROUTER    : 'IFLA_BRPORT_MULTICAST_ROUTER',
+        IFLA_BRPORT_PAD                 : 'IFLA_BRPORT_PAD',
+        IFLA_BRPORT_MCAST_FLOOD         : 'IFLA_BRPORT_MCAST_FLOOD',
+        IFLA_BRPORT_MCAST_TO_UCAST      : 'IFLA_BRPORT_MCAST_TO_UCAST',
+        IFLA_BRPORT_VLAN_TUNNEL         : 'IFLA_BRPORT_VLAN_TUNNEL',
+        IFLA_BRPORT_BCAST_FLOOD         : 'IFLA_BRPORT_BCAST_FLOOD',
+        IFLA_BRPORT_GROUP_FWD_MASK      : 'IFLA_BRPORT_GROUP_FWD_MASK',
+        IFLA_BRPORT_NEIGH_SUPPRESS      : 'IFLA_BRPORT_NEIGH_SUPPRESS',
+        IFLA_BRPORT_ISOLATED            : 'IFLA_BRPORT_ISOLATED',
+        IFLA_BRPORT_BACKUP_PORT         : 'IFLA_BRPORT_BACKUP_PORT',
+        IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
+        IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
+        IFLA_BRPORT_GROUP_FWD_MASKHI    : 'IFLA_BRPORT_GROUP_FWD_MASKHI'
+    }
+
+    IFLA_BR_UNSPEC                     =  0
+    IFLA_BR_FORWARD_DELAY              =  1
+    IFLA_BR_HELLO_TIME                 =  2
+    IFLA_BR_MAX_AGE                    =  3
+    IFLA_BR_AGEING_TIME                =  4
+    IFLA_BR_STP_STATE                  =  5
+    IFLA_BR_PRIORITY                   =  6
+    IFLA_BR_VLAN_FILTERING             =  7
+    IFLA_BR_VLAN_PROTOCOL              =  8
+    IFLA_BR_GROUP_FWD_MASK             =  9
+    IFLA_BR_ROOT_ID                    = 10
+    IFLA_BR_BRIDGE_ID                  = 11
+    IFLA_BR_ROOT_PORT                  = 12
+    IFLA_BR_ROOT_PATH_COST             = 13
+    IFLA_BR_TOPOLOGY_CHANGE            = 14
+    IFLA_BR_TOPOLOGY_CHANGE_DETECTED   = 15
+    IFLA_BR_HELLO_TIMER                = 16
+    IFLA_BR_TCN_TIMER                  = 17
+    IFLA_BR_TOPOLOGY_CHANGE_TIMER      = 18
+    IFLA_BR_GC_TIMER                   = 19
+    IFLA_BR_GROUP_ADDR                 = 20
+    IFLA_BR_FDB_FLUSH                  = 21
+    IFLA_BR_MCAST_ROUTER               = 22
+    IFLA_BR_MCAST_SNOOPING             = 23
+    IFLA_BR_MCAST_QUERY_USE_IFADDR     = 24
+    IFLA_BR_MCAST_QUERIER              = 25
+    IFLA_BR_MCAST_HASH_ELASTICITY      = 26
+    IFLA_BR_MCAST_HASH_MAX             = 27
+    IFLA_BR_MCAST_LAST_MEMBER_CNT      = 28
+    IFLA_BR_MCAST_STARTUP_QUERY_CNT    = 29
+    IFLA_BR_MCAST_LAST_MEMBER_INTVL    = 30
+    IFLA_BR_MCAST_MEMBERSHIP_INTVL     = 31
+    IFLA_BR_MCAST_QUERIER_INTVL        = 32
+    IFLA_BR_MCAST_QUERY_INTVL          = 33
+    IFLA_BR_MCAST_QUERY_RESPONSE_INTVL = 34
+    IFLA_BR_MCAST_STARTUP_QUERY_INTVL  = 35
+    IFLA_BR_NF_CALL_IPTABLES           = 36
+    IFLA_BR_NF_CALL_IP6TABLES          = 37
+    IFLA_BR_NF_CALL_ARPTABLES          = 38
+    IFLA_BR_VLAN_DEFAULT_PVID          = 39
+    IFLA_BR_PAD                        = 40
+    IFLA_BR_VLAN_STATS_ENABLED         = 41
+    IFLA_BR_MCAST_STATS_ENABLED        = 42
+    IFLA_BR_MCAST_IGMP_VERSION         = 43
+    IFLA_BR_MCAST_MLD_VERSION          = 44
+
+    ifla_br_to_string = {
+        IFLA_BR_UNSPEC                     : 'IFLA_BR_UNSPEC',
+        IFLA_BR_FORWARD_DELAY              : 'IFLA_BR_FORWARD_DELAY',
+        IFLA_BR_HELLO_TIME                 : 'IFLA_BR_HELLO_TIME',
+        IFLA_BR_MAX_AGE                    : 'IFLA_BR_MAX_AGE',
+        IFLA_BR_AGEING_TIME                : 'IFLA_BR_AGEING_TIME',
+        IFLA_BR_STP_STATE                  : 'IFLA_BR_STP_STATE',
+        IFLA_BR_PRIORITY                   : 'IFLA_BR_PRIORITY',
+        IFLA_BR_VLAN_FILTERING             : 'IFLA_BR_VLAN_FILTERING',
+        IFLA_BR_VLAN_PROTOCOL              : 'IFLA_BR_VLAN_PROTOCOL',
+        IFLA_BR_GROUP_FWD_MASK             : 'IFLA_BR_GROUP_FWD_MASK',
+        IFLA_BR_ROOT_ID                    : 'IFLA_BR_ROOT_ID',
+        IFLA_BR_BRIDGE_ID                  : 'IFLA_BR_BRIDGE_ID',
+        IFLA_BR_ROOT_PORT                  : 'IFLA_BR_ROOT_PORT',
+        IFLA_BR_ROOT_PATH_COST             : 'IFLA_BR_ROOT_PATH_COST',
+        IFLA_BR_TOPOLOGY_CHANGE            : 'IFLA_BR_TOPOLOGY_CHANGE',
+        IFLA_BR_TOPOLOGY_CHANGE_DETECTED   : 'IFLA_BR_TOPOLOGY_CHANGE_DETECTED',
+        IFLA_BR_HELLO_TIMER                : 'IFLA_BR_HELLO_TIMER',
+        IFLA_BR_TCN_TIMER                  : 'IFLA_BR_TCN_TIMER',
+        IFLA_BR_TOPOLOGY_CHANGE_TIMER      : 'IFLA_BR_TOPOLOGY_CHANGE_TIMER',
+        IFLA_BR_GC_TIMER                   : 'IFLA_BR_GC_TIMER',
+        IFLA_BR_GROUP_ADDR                 : 'IFLA_BR_GROUP_ADDR',
+        IFLA_BR_FDB_FLUSH                  : 'IFLA_BR_FDB_FLUSH',
+        IFLA_BR_MCAST_ROUTER               : 'IFLA_BR_MCAST_ROUTER',
+        IFLA_BR_MCAST_SNOOPING             : 'IFLA_BR_MCAST_SNOOPING',
+        IFLA_BR_MCAST_QUERY_USE_IFADDR     : 'IFLA_BR_MCAST_QUERY_USE_IFADDR',
+        IFLA_BR_MCAST_QUERIER              : 'IFLA_BR_MCAST_QUERIER',
+        IFLA_BR_MCAST_HASH_ELASTICITY      : 'IFLA_BR_MCAST_HASH_ELASTICITY',
+        IFLA_BR_MCAST_HASH_MAX             : 'IFLA_BR_MCAST_HASH_MAX',
+        IFLA_BR_MCAST_LAST_MEMBER_CNT      : 'IFLA_BR_MCAST_LAST_MEMBER_CNT',
+        IFLA_BR_MCAST_STARTUP_QUERY_CNT    : 'IFLA_BR_MCAST_STARTUP_QUERY_CNT',
+        IFLA_BR_MCAST_LAST_MEMBER_INTVL    : 'IFLA_BR_MCAST_LAST_MEMBER_INTVL',
+        IFLA_BR_MCAST_MEMBERSHIP_INTVL     : 'IFLA_BR_MCAST_MEMBERSHIP_INTVL',
+        IFLA_BR_MCAST_QUERIER_INTVL        : 'IFLA_BR_MCAST_QUERIER_INTVL',
+        IFLA_BR_MCAST_QUERY_INTVL          : 'IFLA_BR_MCAST_QUERY_INTVL',
+        IFLA_BR_MCAST_QUERY_RESPONSE_INTVL : 'IFLA_BR_MCAST_QUERY_RESPONSE_INTVL',
+        IFLA_BR_MCAST_STARTUP_QUERY_INTVL  : 'IFLA_BR_MCAST_STARTUP_QUERY_INTVL',
+        IFLA_BR_NF_CALL_IPTABLES           : 'IFLA_BR_NF_CALL_IPTABLES',
+        IFLA_BR_NF_CALL_IP6TABLES          : 'IFLA_BR_NF_CALL_IP6TABLES',
+        IFLA_BR_NF_CALL_ARPTABLES          : 'IFLA_BR_NF_CALL_ARPTABLES',
+        IFLA_BR_VLAN_DEFAULT_PVID          : 'IFLA_BR_VLAN_DEFAULT_PVID',
+        IFLA_BR_PAD                        : 'IFLA_BR_PAD',
+        IFLA_BR_VLAN_STATS_ENABLED         : 'IFLA_BR_VLAN_STATS_ENABLED',
+        IFLA_BR_MCAST_STATS_ENABLED        : 'IFLA_BR_MCAST_STATS_ENABLED',
+        IFLA_BR_MCAST_IGMP_VERSION         : 'IFLA_BR_MCAST_IGMP_VERSION',
+        IFLA_BR_MCAST_MLD_VERSION          : 'IFLA_BR_MCAST_MLD_VERSION'
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vrfs
+    # =========================================
+    IFLA_VRF_UNSPEC                         = 0
+    IFLA_VRF_TABLE                          = 1
+
+    ifla_vrf_to_string = {
+        IFLA_VRF_UNSPEC                     : 'IFLA_VRF_UNSPEC',
+        IFLA_VRF_TABLE                      : 'IFLA_VRF_TABLE'
+    }
+
+    # ================================================================
+    # IFLA_INFO_DATA attributes for (ip6)gre, (ip6)gretap, (ip6)erspan
+    # ================================================================
+    IFLA_GRE_UNSPEC             = 0
+    IFLA_GRE_LINK               = 1
+    IFLA_GRE_IFLAGS             = 2
+    IFLA_GRE_OFLAGS             = 3
+    IFLA_GRE_IKEY               = 4
+    IFLA_GRE_OKEY               = 5
+    IFLA_GRE_LOCAL              = 6
+    IFLA_GRE_REMOTE             = 7
+    IFLA_GRE_TTL                = 8
+    IFLA_GRE_TOS                = 9
+    IFLA_GRE_PMTUDISC           = 10
+    IFLA_GRE_ENCAP_LIMIT        = 11
+    IFLA_GRE_FLOWINFO           = 12
+    IFLA_GRE_FLAGS              = 13
+    IFLA_GRE_ENCAP_TYPE         = 14
+    IFLA_GRE_ENCAP_FLAGS        = 15
+    IFLA_GRE_ENCAP_SPORT        = 16
+    IFLA_GRE_ENCAP_DPORT        = 17
+    IFLA_GRE_COLLECT_METADATA   = 18
+    IFLA_GRE_IGNORE_DF          = 19
+    IFLA_GRE_FWMARK             = 20
+    IFLA_GRE_ERSPAN_INDEX       = 21
+    IFLA_GRE_ERSPAN_VER         = 22
+    IFLA_GRE_ERSPAN_DIR         = 23
+    IFLA_GRE_ERSPAN_HWID        = 24
+
+    ifla_gre_to_string = {
+        IFLA_GRE_UNSPEC             : "IFLA_GRE_UNSPEC",
+        IFLA_GRE_LINK               : "IFLA_GRE_LINK",
+        IFLA_GRE_IFLAGS             : "IFLA_GRE_IFLAGS",
+        IFLA_GRE_OFLAGS             : "IFLA_GRE_OFLAGS",
+        IFLA_GRE_IKEY               : "IFLA_GRE_IKEY",
+        IFLA_GRE_OKEY               : "IFLA_GRE_OKEY",
+        IFLA_GRE_LOCAL              : "IFLA_GRE_LOCAL",
+        IFLA_GRE_REMOTE             : "IFLA_GRE_REMOTE",
+        IFLA_GRE_TTL                : "IFLA_GRE_TTL",
+        IFLA_GRE_TOS                : "IFLA_GRE_TOS",
+        IFLA_GRE_PMTUDISC           : "IFLA_GRE_PMTUDISC",
+        IFLA_GRE_ENCAP_LIMIT        : "IFLA_GRE_ENCAP_LIMIT",
+        IFLA_GRE_FLOWINFO           : "IFLA_GRE_FLOWINFO",
+        IFLA_GRE_FLAGS              : "IFLA_GRE_FLAGS",
+        IFLA_GRE_ENCAP_TYPE         : "IFLA_GRE_ENCAP_TYPE",
+        IFLA_GRE_ENCAP_FLAGS        : "IFLA_GRE_ENCAP_FLAGS",
+        IFLA_GRE_ENCAP_SPORT        : "IFLA_GRE_ENCAP_SPORT",
+        IFLA_GRE_ENCAP_DPORT        : "IFLA_GRE_ENCAP_DPORT",
+        IFLA_GRE_COLLECT_METADATA   : "IFLA_GRE_COLLECT_METADATA",
+        IFLA_GRE_IGNORE_DF          : "IFLA_GRE_IGNORE_DF",
+        IFLA_GRE_FWMARK             : "IFLA_GRE_FWMARK",
+        IFLA_GRE_ERSPAN_INDEX       : "IFLA_GRE_ERSPAN_INDEX",
+        IFLA_GRE_ERSPAN_VER         : "IFLA_GRE_ERSPAN_VER",
+        IFLA_GRE_ERSPAN_DIR         : "IFLA_GRE_ERSPAN_DIR",
+        IFLA_GRE_ERSPAN_HWID        : "IFLA_GRE_ERSPAN_HWID",
+    }
+
+    # ===============================================
+    # IFLA_INFO_DATA attributes for ipip, sit, ip6tnl
+    # ===============================================
+    IFLA_IPTUN_UNSPEC                       = 0
+    IFLA_IPTUN_LINK                         = 1
+    IFLA_IPTUN_LOCAL                        = 2
+    IFLA_IPTUN_REMOTE                       = 3
+    IFLA_IPTUN_TTL                          = 4
+    IFLA_IPTUN_TOS                          = 5
+    IFLA_IPTUN_ENCAP_LIMIT                  = 6
+    IFLA_IPTUN_FLOWINFO                     = 7
+    IFLA_IPTUN_FLAGS                        = 8
+    IFLA_IPTUN_PROTO                        = 9
+    IFLA_IPTUN_PMTUDISC                     = 10
+    IFLA_IPTUN_6RD_PREFIX                   = 11
+    IFLA_IPTUN_6RD_RELAY_PREFIX             = 12
+    IFLA_IPTUN_6RD_PREFIXLEN                = 13
+    IFLA_IPTUN_6RD_RELAY_PREFIXLEN          = 14
+    IFLA_IPTUN_ENCAP_TYPE                   = 15
+    IFLA_IPTUN_ENCAP_FLAGS                  = 16
+    IFLA_IPTUN_ENCAP_SPORT                  = 17
+    IFLA_IPTUN_ENCAP_DPORT                  = 18
+    IFLA_IPTUN_COLLECT_METADATA             = 19
+    IFLA_IPTUN_FWMARK                       = 20
+
+    ifla_iptun_to_string = {
+        IFLA_IPTUN_UNSPEC                   : "IFLA_IPTUN_UNSPEC",
+        IFLA_IPTUN_LINK                     : "IFLA_IPTUN_LINK",
+        IFLA_IPTUN_LOCAL                    : "IFLA_IPTUN_LOCAL",
+        IFLA_IPTUN_REMOTE                   : "IFLA_IPTUN_REMOTE",
+        IFLA_IPTUN_TTL                      : "IFLA_IPTUN_TTL",
+        IFLA_IPTUN_TOS                      : "IFLA_IPTUN_TOS",
+        IFLA_IPTUN_ENCAP_LIMIT              : "IFLA_IPTUN_ENCAP_LIMIT",
+        IFLA_IPTUN_FLOWINFO                 : "IFLA_IPTUN_FLOWINFO",
+        IFLA_IPTUN_FLAGS                    : "IFLA_IPTUN_FLAGS",
+        IFLA_IPTUN_PROTO                    : "IFLA_IPTUN_PROTO",
+        IFLA_IPTUN_PMTUDISC                 : "IFLA_IPTUN_PMTUDISC",
+        IFLA_IPTUN_6RD_PREFIX               : "IFLA_IPTUN_6RD_PREFIX",
+        IFLA_IPTUN_6RD_RELAY_PREFIX         : "IFLA_IPTUN_6RD_RELAY_PREFIX",
+        IFLA_IPTUN_6RD_PREFIXLEN            : "IFLA_IPTUN_6RD_PREFIXLEN",
+        IFLA_IPTUN_6RD_RELAY_PREFIXLEN      : "IFLA_IPTUN_6RD_RELAY_PREFIXLEN",
+        IFLA_IPTUN_ENCAP_TYPE               : "IFLA_IPTUN_ENCAP_TYPE",
+        IFLA_IPTUN_ENCAP_FLAGS              : "IFLA_IPTUN_ENCAP_FLAGS",
+        IFLA_IPTUN_ENCAP_SPORT              : "IFLA_IPTUN_ENCAP_SPORT",
+        IFLA_IPTUN_ENCAP_DPORT              : "IFLA_IPTUN_ENCAP_DPORT",
+        IFLA_IPTUN_COLLECT_METADATA         : "IFLA_IPTUN_COLLECT_METADATA",
+        IFLA_IPTUN_FWMARK                   : "IFLA_IPTUN_FWMARK",
+    }
+
+    # =========================================
+    # IFLA_INFO_DATA attributes for vti, vti6
+    # =========================================
+    IFLA_VTI_UNSPEC     = 0
+    IFLA_VTI_LINK       = 1
+    IFLA_VTI_IKEY       = 2
+    IFLA_VTI_OKEY       = 3
+    IFLA_VTI_LOCAL      = 4
+    IFLA_VTI_REMOTE     = 5
+    IFLA_VTI_FWMARK     = 6
+
+    ifla_vti_to_string = {
+        IFLA_VTI_UNSPEC     : "IFLA_VTI_UNSPEC",
+        IFLA_VTI_LINK       : "IFLA_VTI_LINK",
+        IFLA_VTI_IKEY       : "IFLA_VTI_IKEY",
+        IFLA_VTI_OKEY       : "IFLA_VTI_OKEY",
+        IFLA_VTI_LOCAL      : "IFLA_VTI_LOCAL",
+        IFLA_VTI_REMOTE     : "IFLA_VTI_REMOTE",
+        IFLA_VTI_FWMARK     : "IFLA_VTI_FWMARK",
+    }
+
+
 class Attribute(object):
 
     def __init__(self, atype, string, logger):
@@ -225,6 +908,7 @@ class Attribute(object):
         self.HEADER_LEN = calcsize(self.HEADER_PACK)
         self.PACK = None
         self.LEN = None
+        self.raw = None  # raw value (i.e. int for mac address)
         self.value = None
         self.nested = False
         self.net_byteorder = False
@@ -242,7 +926,8 @@ class Attribute(object):
     def set_net_byteorder(self, net_byteorder):
         self.net_byteorder = net_byteorder
 
-    def pad_bytes_needed(self, length):
+    @staticmethod
+    def pad_bytes_needed(length):
         """
         Return the number of bytes that should be added to align on a 4-byte boundry
         """
@@ -333,6 +1018,222 @@ class Attribute(object):
         if obj and callable(obj):
             return obj(self.value)
         return self.value
+
+    @staticmethod
+    def decode_one_byte_attribute(data, _=None):
+        return unpack("=B", data[4])[0]
+
+    @staticmethod
+    def decode_two_bytes_attribute(data, _=None):
+        return unpack("=H", data[4:6])[0]
+
+    @staticmethod
+    def decode_two_bytes_network_byte_order_attribute(data, _=None):
+        # The form '!' is available for those poor souls who claim they can't
+        # remember whether network byte order is big-endian or little-endian.
+        return unpack("!H", data[4:6])[0]
+
+    @staticmethod
+    def decode_four_bytes_attribute(data, _=None):
+        return unpack("=L", data[4:8])[0]
+
+    @staticmethod
+    def decode_eight_bytes_attribute(data, _=None):
+        return unpack("=Q", data[4:12])[0]
+
+    @staticmethod
+    def decode_mac_address_attribute(data, _=None):
+        (data1, data2) = unpack(">LHxx", data[4:12])
+        return mac_int_to_str(data1 << 16 | data2)
+
+    @staticmethod
+    def decode_ipv4_address_attribute(data, _=None):
+        return IPv4Address(unpack(">L", data[4:8])[0])
+
+    @staticmethod
+    def decode_ipv6_address_attribute(data, _=None):
+        (data1, data2) = unpack(">QQ", data[4:20])
+        return IPv6Address(data1 << 64 | data2)
+
+    @staticmethod
+    def decode_bond_ad_info_attribute(data, info_data_end):
+        ifla_bond_ad_info = {}
+        ad_attr_data = data[4:info_data_end]
+
+        while ad_attr_data:
+            (ad_data_length, ad_data_type) = unpack("=HH", ad_attr_data[:4])
+            ad_data_end = padded_length(ad_data_length)
+
+            if ad_data_type == Link.IFLA_BOND_AD_INFO_PARTNER_MAC:
+                (data1, data2) = unpack(">LHxx", ad_attr_data[4:12])
+                ifla_bond_ad_info[ad_data_type] = mac_int_to_str(data1 << 16 | data2)
+
+            ad_attr_data = ad_attr_data[ad_data_end:]
+
+        return ifla_bond_ad_info
+
+    @staticmethod
+    def decode_vlan_protocol_attribute(data, _=None):
+        return Link.ifla_vlan_protocol_dict.get(int("0x%s" % data[4:6].encode("hex"), base=16))
+
+    ############################################################################
+    # encode methods
+    ############################################################################
+
+    @staticmethod
+    def encode_one_byte_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(5)  # length
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("B")
+        sub_attr_payload.append(info_data_value)
+
+        # pad 3 bytes
+        sub_attr_pack_layout.extend("xxx")
+
+    @staticmethod
+    def encode_one_byte_attribute_from_string_boolean(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        return Attribute.encode_one_byte_attribute(
+            sub_attr_pack_layout, sub_attr_payload, info_data_type, value_to_bool_dict.get(info_data_value)
+        )
+
+    @staticmethod
+    def encode_bond_xmit_hash_policy_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        return Attribute.encode_one_byte_attribute(
+            sub_attr_pack_layout,
+            sub_attr_payload,
+            info_data_type,
+            Link.ifla_bond_xmit_hash_policy_tbl.get(info_data_value, 0),
+        )
+
+    @staticmethod
+    def encode_bond_mode_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        return Attribute.encode_one_byte_attribute(
+            sub_attr_pack_layout,
+            sub_attr_payload,
+            info_data_type,
+            Link.ifla_bond_mode_tbl.get(info_data_value, 0),
+        )
+
+    @staticmethod
+    def encode_two_bytes_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(6)  # length
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("H")
+        sub_attr_payload.append(info_data_value)
+
+        # pad 2 bytes
+        sub_attr_pack_layout.extend("xx")
+
+    @staticmethod
+    def encode_four_bytes_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(8)  # length
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("L")
+        sub_attr_payload.append(info_data_value)
+
+    @staticmethod
+    def encode_eight_bytes_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(12)  # length
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("Q")
+        sub_attr_payload.append(info_data_value)
+
+    @staticmethod
+    def encode_ipv4_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(8)  # length
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("L")
+
+        if info_data_value:
+            reorder = unpack("<L", IPv4Address(info_data_value).packed)[0]
+            sub_attr_payload.append(IPv4Address(reorder))
+        else:
+            sub_attr_payload.append(0)
+
+    @staticmethod
+    def encode_ipv6_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        raise NotImplementedError("ipv6 tunnel local and remote not supported yet")
+
+    @staticmethod
+    def encode_vlan_protocol_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(6)  # length
+        sub_attr_payload.append(info_data_type)
+
+        # vlan protocol
+        vlan_protocol = NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vlan_protocol_dict.get(info_data_value)
+        if not vlan_protocol:
+            raise NotImplementedError('vlan protocol %s not implemented' % info_data_value)
+
+        sub_attr_pack_layout.append("H")
+        sub_attr_payload.append(htons(vlan_protocol))
+
+        # pad 2 bytes
+        sub_attr_pack_layout.extend("xx")
+
+    @staticmethod
+    def encode_vxlan_port_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(6)
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("H")
+
+        # byte swap
+        swaped = pack(">H", info_data_value)
+        sub_attr_payload.append(unpack("<H", swaped)[0])
+
+        # pad 2 bytes
+        sub_attr_pack_layout.extend("xx")
+
+    @staticmethod
+    def encode_mac_address_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(10)  # length
+        sub_attr_payload.append(info_data_type)
+
+        sub_attr_pack_layout.append("6B")
+        for mbyte in info_data_value.replace(".", " ").replace(":", " ").split():
+            sub_attr_payload.append(int(mbyte, 16))
+
+        # pad 2 bytes
+        sub_attr_pack_layout.extend('xx')
+
+
+class AttributeCACHEINFO(Attribute):
+    """
+        struct ifa_cacheinfo {
+            __u32	ifa_prefered;
+            __u32	ifa_valid;
+            __u32	cstamp; /* created timestamp, hundredths of seconds */
+            __u32	tstamp; /* updated timestamp, hundredths of seconds */
+        };
+    """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = "=IIII"
+        self.LEN = calcsize(self.PACK)
+
+    def encode(self):
+        ifa_prefered, ifa_valid, cstamp, tstamp = self.value
+        return pack(self.HEADER_PACK, self.HEADER_LEN + self.LEN , self.atype) + pack(self.PACK, ifa_prefered, ifa_valid, cstamp, tstamp)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        try:
+            self.value = unpack(self.PACK, self.data[4:])
+        except struct.error:
+            self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
 
 
 class AttributeFourByteList(Attribute):
@@ -440,7 +1341,7 @@ class AttributeString(Attribute):
         self.LEN = calcsize(self.PACK)
 
         try:
-            self.value = remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0])
+            self.value = str(remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0]))
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:self.length])))
             raise
@@ -483,21 +1384,29 @@ class AttributeIPAddress(Attribute):
         if value is None:
             self.value = None
         else:
-            self.value = IPAddress(value)
+            self.value = IPNetwork(value)
 
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
 
         try:
-            if self.family == AF_INET:
+            if self.family in (AF_INET, AF_BRIDGE):
                 self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
 
             elif self.family == AF_INET6:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
                 self.value = IPv6Address(data1 << 64 | data2)
 
-            elif self.family == AF_BRIDGE:
-                self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
+            if isinstance(parent_msg, Route):
+                if self.atype == Route.RTA_SRC:
+                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.src_len))
+                elif self.atype == Route.RTA_DST:
+                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.dst_len))
+            else:
+                try:
+                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
+                except AttributeError:
+                    self.value = IPNetwork('%s' % self.value)
 
             self.value_int = int(self.value)
             self.value_int_str = str(self.value_int)
@@ -550,9 +1459,9 @@ class AttributeMACAddress(Attribute):
 
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
-        
+
         # IFLA_ADDRESS and IFLA_BROADCAST attributes for all interfaces has been a
-        # 6-byte MAC address. But the GRE interface uses a 4-byte IP address and 
+        # 6-byte MAC address. But the GRE interface uses a 4-byte IP address and
         # GREv6 uses a 16-byte IPv6 address for this attribute.
         try:
             # GRE interface uses a 4-byte IP address for this attribute
@@ -560,11 +1469,12 @@ class AttributeMACAddress(Attribute):
                 self.value = IPv4Address(unpack('>L', self.data[4:])[0])
                 self.value_int = int(self.value)
                 self.value_int_str = str(self.value_int)
-            # MAC Address 
+            # MAC Address
             elif self.length == 10:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
-                self.value = mac_int_to_str(data1 << 16 | data2)
-            # GREv6 interface uses a 16-byte IP address for this attribute 
+                self.raw = data1 << 16 | data2
+                self.value = mac_int_to_str(self.raw)
+            # GREv6 interface uses a 16-byte IP address for this attribute
             elif self.length == 20:
                 self.value = IPv6Address(unpack('>L', self.data[16:])[0])
                 self.value_int = int(self.value)
@@ -1094,8 +2004,776 @@ class AttributeIFLA_LINKINFO(Attribute):
         }
     }
     """
+    decode_ifla_info_nested_data_handlers = {
+        NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_DATA: {
+            "bridge": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_FILTERING: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_TOPOLOGY_CHANGE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_TOPOLOGY_CHANGE_DETECTED: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_ROUTER: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_SNOOPING: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERY_USE_IFADDR: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERIER: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_NF_CALL_IPTABLES: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_NF_CALL_IP6TABLES: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_NF_CALL_ARPTABLES: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_STATS_ENABLED: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_STATS_ENABLED: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_IGMP_VERSION: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_MLD_VERSION: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_PRIORITY: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_GROUP_FWD_MASK: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_ROOT_PORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_DEFAULT_PVID: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_AGEING_TIME: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_FORWARD_DELAY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_HELLO_TIME: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MAX_AGE: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_STP_STATE: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_ROOT_PATH_COST: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_HASH_ELASTICITY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_HASH_MAX: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_LAST_MEMBER_CNT: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_STARTUP_QUERY_CNT: Attribute.decode_four_bytes_attribute,
+
+                # 8 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_MEMBERSHIP_INTVL: Attribute.decode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERIER_INTVL: Attribute.decode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_LAST_MEMBER_INTVL: Attribute.decode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERY_INTVL: Attribute.decode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL: Attribute.decode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_STARTUP_QUERY_INTVL: Attribute.decode_eight_bytes_attribute,
+
+                # vlan-protocol attribute ######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_PROTOCOL: Attribute.decode_vlan_protocol_attribute
+            },
+            "bond": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MODE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_USE_CARRIER: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_RATE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_BYPASS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_XMIT_HASH_POLICY: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_NUM_PEER_NOTIF: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYS_PRIO: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MIIMON: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_UPDELAY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_DOWNDELAY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MIN_LINKS: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_PRIMARY: Attribute.decode_four_bytes_attribute,
+
+                # mac address attributes #######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYSTEM: Attribute.decode_mac_address_attribute,
+
+                # bond ad info attribute #######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_INFO: Attribute.decode_bond_ad_info_attribute,
+            },
+            "vlan": {
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_ID: Attribute.decode_two_bytes_attribute,
+
+                # vlan-protocol attribute ######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_PROTOCOL: Attribute.decode_vlan_protocol_attribute
+            },
+            "macvlan": {
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_MACVLAN_MODE: Attribute.decode_four_bytes_attribute,
+            },
+            "vxlan": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LEARNING: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PROXY: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_RSC: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_L2MISS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_L3MISS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_UDP_CSUM: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_UDP_ZERO_CSUM6_TX: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_UDP_ZERO_CSUM6_RX: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_REMCSUM_TX: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_REMCSUM_RX: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_REPLICATION_TYPE: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes network byte order attributes ########################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PORT: Attribute.decode_two_bytes_network_byte_order_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_ID: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_AGEING: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LIMIT: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PORT_RANGE: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_GROUP: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LOCAL: Attribute.decode_ipv4_address_attribute,
+            },
+            "vrf": {
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VRF_TABLE: Attribute.decode_four_bytes_attribute
+            },
+            "xfrm": {
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_XFRM_IF_ID: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_XFRM_LINK: Attribute.decode_four_bytes_attribute
+            },
+
+            # Tunnels:
+            # There's is a lot of copy paste here because most of the tunnels
+            # share the same attribute key / attribute index value, but ipv6
+            # tunnels needs special handling for their ipv6 attributes.
+            #
+            # "gre", "gretap", "erspan", "ip6gre", "ip6gretap", "ip6erspan" are
+            # identical as well with special handling for LOCAL and REMOTE for
+            # the ipv6 tunnels
+            "gre": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.decode_ipv4_address_attribute
+            },
+            "gretap": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.decode_ipv4_address_attribute
+            },
+            "erspan": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.decode_ipv4_address_attribute
+            },
+            "ip6gre": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.decode_ipv6_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.decode_ipv6_address_attribute
+            },
+            "ip6gretap": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.decode_ipv6_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.decode_ipv6_address_attribute
+            },
+            "ip6erspan": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.decode_ipv6_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.decode_ipv6_address_attribute
+            },
+
+            # "ipip", "sit", "ip6tnl" are identical as well except for some
+            # special ipv6 handling for LOCAL and REMOTE.
+            "ipip": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_LINK: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_LOCAL: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_REMOTE: Attribute.decode_ipv4_address_attribute,
+            },
+            "sit": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_LINK: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_LOCAL: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_REMOTE: Attribute.decode_ipv4_address_attribute,
+            },
+            "ip6tnl": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_TTL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_TOS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_PMTUDISC: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_TYPE: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_SPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_DPORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_ENCAP_FLAGS: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_LINK: Attribute.decode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_LOCAL: Attribute.decode_ipv6_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_IPTUN_REMOTE: Attribute.decode_ipv6_address_attribute,
+            },
+
+            # Same story with "vti", "vti6"...
+            "vti": {
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_LOCAL: Attribute.decode_ipv4_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_REMOTE: Attribute.decode_ipv4_address_attribute
+            },
+            "vti6": {
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_LINK: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_IKEY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_OKEY: Attribute.decode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_LOCAL: Attribute.decode_ipv6_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_REMOTE: Attribute.decode_ipv6_address_attribute
+            }
+        },
+        NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
+            "bridge": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_STATE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MODE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_GUARD: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PROTECT: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_FAST_LEAVE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_LEARNING: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_UNICAST_FLOOD: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PROXYARP: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_LEARNING_SYNC: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PROXYARP_WIFI: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_CONFIG_PENDING: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MULTICAST_ROUTER: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MCAST_FLOOD: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_BCAST_FLOOD: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MCAST_TO_UCAST: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_VLAN_TUNNEL: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PEER_LINK: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_DUAL_LINK: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_NEIGH_SUPPRESS: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PRIORITY: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_DESIGNATED_PORT: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_DESIGNATED_COST: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_ID: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_NO: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_GROUP_FWD_MASK: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_GROUP_FWD_MASKHI: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_COST: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_BACKUP_PORT: Attribute.decode_four_bytes_attribute,
+            },
+            "bond": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_STATE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_MII_STATUS: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_AD_RX_BYPASS: Attribute.decode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_QUEUE_ID: Attribute.decode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_AD_AGGREGATOR_ID: Attribute.decode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_PERM_HWADDR: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_LINK_FAILURE_COUNT: Attribute.decode_four_bytes_attribute,
+            }
+        }
+    }
+
+    encode_ifla_info_nested_data_handlers = {
+        NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_DATA: {
+            "vlan": {
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_ID: Attribute.encode_two_bytes_attribute,
+
+                # vlan-protocol attribute ######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_PROTOCOL: Attribute.encode_vlan_protocol_attribute,
+            },
+            "macvlan": {
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_MACVLAN_MODE: Attribute.encode_four_bytes_attribute,
+            },
+            "vxlan": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LEARNING: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PROXY: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_RSC: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_L2MISS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_L3MISS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_UDP_CSUM: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_UDP_ZERO_CSUM6_TX: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_UDP_ZERO_CSUM6_RX: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_REMCSUM_TX: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_REMCSUM_RX: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_REPLICATION_TYPE: Attribute.encode_one_byte_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_ID: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_AGEING: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LIMIT: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PORT_RANGE: Attribute.encode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_GROUP: Attribute.encode_ipv4_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LOCAL: Attribute.encode_ipv4_attribute,
+
+                # vxlan-port attribute #########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PORT: Attribute.encode_vxlan_port_attribute,
+            },
+            "bond": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_NUM_PEER_NOTIF: Attribute.encode_one_byte_attribute,
+
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_USE_CARRIER: Attribute.encode_one_byte_attribute_from_string_boolean,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_BYPASS: Attribute.encode_one_byte_attribute_from_string_boolean,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_RATE: Attribute.encode_one_byte_attribute_from_string_boolean,
+
+                # bond-mode attribute ##########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MODE: Attribute.encode_bond_mode_attribute,
+
+                # bond-xmit-hash-policy attribute ##############################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_XMIT_HASH_POLICY: Attribute.encode_bond_xmit_hash_policy_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYS_PRIO: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MIIMON: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_UPDELAY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_DOWNDELAY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MIN_LINKS: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_PRIMARY: Attribute.encode_four_bytes_attribute,
+
+                # mac address attribute ########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYSTEM: Attribute.encode_mac_address_attribute
+            },
+            "vrf": {
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VRF_TABLE: Attribute.encode_four_bytes_attribute
+            },
+            "bridge": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_FILTERING: Attribute.encode_one_byte_attribute_from_string_boolean,
+
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_TOPOLOGY_CHANGE: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_TOPOLOGY_CHANGE_DETECTED: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_ROUTER: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_SNOOPING: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERY_USE_IFADDR: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERIER: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_NF_CALL_IPTABLES: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_NF_CALL_IP6TABLES: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_NF_CALL_ARPTABLES: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_STATS_ENABLED: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_STATS_ENABLED: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_IGMP_VERSION: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_MLD_VERSION: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_PRIORITY: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_GROUP_FWD_MASK: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_ROOT_PORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_DEFAULT_PVID: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_FORWARD_DELAY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_HELLO_TIME: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MAX_AGE: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_AGEING_TIME: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_STP_STATE: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_ROOT_PATH_COST: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_HASH_ELASTICITY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_HASH_MAX: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_LAST_MEMBER_CNT: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_STARTUP_QUERY_CNT: Attribute.encode_four_bytes_attribute,
+
+                # 8 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_LAST_MEMBER_INTVL: Attribute.encode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_MEMBERSHIP_INTVL: Attribute.encode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERIER_INTVL: Attribute.encode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERY_INTVL: Attribute.encode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL: Attribute.encode_eight_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_STARTUP_QUERY_INTVL: Attribute.encode_eight_bytes_attribute,
+
+                # vlan-protocol attribute ######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_PROTOCOL: Attribute.encode_vlan_protocol_attribute
+            },
+            # Tunnels:
+            # There's is a lot of copy paste here because most of the tunnels
+            # share the same attribute key / attribute index value, but ipv6
+            # tunnels needs special handling for their ipv6 attributes.
+            #
+            # "gre", "gretap", "erspan", "ip6gre", "ip6gretap", "ip6erspan" are
+            # identical as well with special handling for LOCAL and REMOTE for
+            # the ipv6 tunnels
+            "gre": {  # == ("gre", "gretap", "erspan")
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.encode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv4_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv4_attribute,
+            },
+            "gretap": {  # == ("gre", "gretap", "erspan")
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.encode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv4_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv4_attribute,
+            },
+            "erspan": {  # == ("gre", "gretap", "erspan")
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.encode_four_bytes_attribute,
+
+                # ipv4 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv4_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv4_attribute,
+            },
+            "ip6gre": {  # == ("ip6gre", "ip6gretap", "ip6erspan")
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.encode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv6_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv6_attribute,
+            },
+            "ip6gretap": {  # == ("ip6gre", "ip6gretap", "ip6erspan")
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.encode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv6_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv6_attribute,
+            },
+            "ip6erspan": {  # == ("ip6gre", "ip6gretap", "ip6erspan")
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TTL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_TOS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_PMTUDISC: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OFLAGS: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_TYPE: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_SPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_DPORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_ENCAP_FLAGS: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LINK: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_IKEY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_OKEY: Attribute.encode_four_bytes_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv6_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv6_attribute,
+            }
+        },
+        NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
+            "bridge": {
+                # 1 byte attributes ############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_STATE: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MODE: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_GUARD: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PROTECT: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_FAST_LEAVE: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_LEARNING: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_UNICAST_FLOOD: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PROXYARP: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_LEARNING_SYNC: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PROXYARP_WIFI: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_CONFIG_PENDING: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MULTICAST_ROUTER: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MCAST_FLOOD: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_MCAST_TO_UCAST: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_VLAN_TUNNEL: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_BCAST_FLOOD: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PEER_LINK: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_DUAL_LINK: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_NEIGH_SUPPRESS: Attribute.encode_one_byte_attribute,
+
+                # 2 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_PRIORITY: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_DESIGNATED_PORT: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_DESIGNATED_COST: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_ID: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_NO: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_GROUP_FWD_MASK: Attribute.encode_two_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_GROUP_FWD_MASKHI: Attribute.encode_two_bytes_attribute,
+
+                # 4 bytes attributes ###########################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_COST: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BRPORT_BACKUP_PORT: Attribute.encode_four_bytes_attribute,
+            },
+        }
+    }
+
+    ifla_info_nested_data_attributes_to_string_dict = {
+        NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_DATA: {
+            "bond": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_bond_to_string,
+            "vlan": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vlan_to_string,
+            "vxlan": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vxlan_to_string,
+            "bridge": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_br_to_string,
+            "macvlan": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_macvlan_to_string,
+            "vrf": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vrf_to_string,
+            "gre": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_gre_to_string,
+            "gretap": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_gre_to_string,
+            "erspan": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_gre_to_string,
+            "ip6gre": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_gre_to_string,
+            "ip6gretap": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_gre_to_string,
+            "ip6erspan": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_gre_to_string,
+            "vti": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vti_to_string,
+            "vti6": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vti_to_string,
+            "ipip": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
+            "sit": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
+            "ip6tnl": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string
+        },
+        NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
+            "bridge": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_brport_to_string,
+            "bond": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_bond_slave_to_string
+        }
+    }
+
     def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
+
+    def encode_ifla_info_nested_data(self, sub_attr_pack_layout, sub_attr_type, sub_attr_type_string, sub_attr_value, encode_handlers, ifla_info_nested_attr_to_str_dict, kind):
+        sub_attr_payload = [0, sub_attr_type | NLA_F_NESTED]
+
+        if not encode_handlers:
+            self.log.log(
+                SYSLOG_EXTRA_DEBUG,
+                "Add support for encoding %s for %s link kind" % (sub_attr_type_string, kind)
+            )
+        else:
+            for (info_data_type, info_data_value) in sub_attr_value.iteritems():
+                encode_handler = encode_handlers.get(info_data_type)
+
+                if encode_handler:
+                    encode_handler(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value)
+                else:
+                    self.log.log(
+                        SYSLOG_EXTRA_DEBUG,
+                        "Add support for encoding %s %s sub-attribute %s (%d)"
+                        % (
+                            sub_attr_type_string,
+                            kind,
+                            ifla_info_nested_attr_to_str_dict.get(info_data_type),
+                            info_data_type
+                        )
+                    )
+
+        return sub_attr_payload
 
     def encode(self):
         pack_layout = [self.HEADER_PACK]
@@ -1105,8 +2783,18 @@ class AttributeIFLA_LINKINFO(Attribute):
         kind        = self.value.get(Link.IFLA_INFO_KIND)
         slave_kind  = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
 
-        if not slave_kind and kind not in ('vlan', 'macvlan', 'vxlan', 'bond', 'bridge', 'xfrm'):
-            raise Exception('Unsupported IFLA_INFO_KIND %s' % kind)
+        if not slave_kind and kind not in (
+            "vrf",
+            "vlan",
+            "vxlan",
+            "bond",
+            "dummy",
+            "bridge",
+            "macvlan",
+        ):
+            self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
+            return
+
         elif not kind and slave_kind != 'bridge':
             # only support brport for now.
             raise Exception('Unsupported IFLA_INFO_SLAVE_KIND %s' % slave_kind)
@@ -1115,406 +2803,39 @@ class AttributeIFLA_LINKINFO(Attribute):
         # order (=). If a field is added that needs to be packed via network
         # order (>) then some smarts will need to be added to split the pack_layout
         # string at the >, split the payload and make the needed pack() calls.
-        #
         # Until we cross that bridge though we will keep things nice and simple and
         # pack everything via a single pack() call.
+
         for (sub_attr_type, sub_attr_value) in self.value.iteritems():
             sub_attr_pack_layout = ['=', 'HH']
             sub_attr_payload = [0, sub_attr_type]
             sub_attr_length_index = 0
 
-            if sub_attr_type == Link.IFLA_INFO_KIND:
+            if sub_attr_type in (Link.IFLA_INFO_KIND, Link.IFLA_INFO_SLAVE_KIND):
                 sub_attr_pack_layout.append('%ds' % len(sub_attr_value))
                 sub_attr_payload.append(sub_attr_value)
 
             elif sub_attr_type == Link.IFLA_INFO_DATA:
-
-                sub_attr_payload = [0, sub_attr_type | NLA_F_NESTED]
-
-                for (info_data_type, info_data_value) in sub_attr_value.iteritems():
-
-                    if kind == 'vlan':
-                        if info_data_type == Link.IFLA_VLAN_ID:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # The vlan-id
-                            sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(info_data_value)
-
-                            # pad 2 bytes
-                            sub_attr_pack_layout.extend('xx')
-
-                        elif info_data_type == Link.IFLA_VLAN_PROTOCOL:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # vlan protocol
-                            vlan_protocol = Link.ifla_vlan_protocol_dict.get(info_data_value)
-                            if not vlan_protocol:
-                                raise NotImplementedError('vlan protocol %s not implemented' % info_data_value)
-
-                            sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(htons(vlan_protocol))
-
-                            # pad 2 bytes
-                            sub_attr_pack_layout.extend('xx')
-                        else:
-                            self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA vlan sub-attribute type %d' % info_data_type)
-
-                    elif kind == 'macvlan':
-                        if info_data_type == Link.IFLA_MACVLAN_MODE:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # macvlan mode
-                            sub_attr_pack_layout.append('L')
-                            sub_attr_payload.append(info_data_value)
-
-                        else:
-                            self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA macvlan sub-attribute type %d' % info_data_type)
-
-                    elif kind == 'xfrm':
-                        if info_data_type in (Link.IFLA_XFRM_IF_ID, Link.IFLA_XFRM_LINK):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('L')
-                            sub_attr_payload.append(info_data_value)
-
-                    elif kind == 'vxlan':
-                        if info_data_type in (Link.IFLA_VXLAN_ID,
-                                              Link.IFLA_VXLAN_LINK,
-                                              Link.IFLA_VXLAN_AGEING,
-                                              Link.IFLA_VXLAN_LIMIT,
-                                              Link.IFLA_VXLAN_PORT_RANGE):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('L')
-                            sub_attr_payload.append(info_data_value)
-
-                        elif info_data_type in (Link.IFLA_VXLAN_GROUP,
-                                                Link.IFLA_VXLAN_LOCAL):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('L')
-
-                            reorder = unpack('<L', IPv4Address(info_data_value).packed)[0]
-                            sub_attr_payload.append(IPv4Address(reorder))
-
-                        elif info_data_type in (Link.IFLA_VXLAN_PORT,):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('H')
-
-                            # byte swap
-                            swaped = pack(">H", info_data_value)
-                            sub_attr_payload.append(unpack("<H", swaped)[0])
-
-                            sub_attr_pack_layout.extend('xx')
-
-                        elif info_data_type in (Link.IFLA_VXLAN_TTL,
-                                                Link.IFLA_VXLAN_TOS,
-                                                Link.IFLA_VXLAN_LEARNING,
-                                                Link.IFLA_VXLAN_PROXY,
-                                                Link.IFLA_VXLAN_RSC,
-                                                Link.IFLA_VXLAN_L2MISS,
-                                                Link.IFLA_VXLAN_L3MISS,
-                                                Link.IFLA_VXLAN_UDP_CSUM,
-                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
-                                                Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-                                                Link.IFLA_VXLAN_REMCSUM_TX,
-                                                Link.IFLA_VXLAN_REMCSUM_RX,
-                                                Link.IFLA_VXLAN_REPLICATION_TYPE):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(info_data_value)
-                            sub_attr_pack_layout.extend('xxx')
-
-                        else:
-                            self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA vxlan sub-attribute type %d' % info_data_type)
-
-                    elif kind == 'bond':
-                        if info_data_type in (Link.IFLA_BOND_AD_ACTOR_SYSTEM, ):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(10)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('6B')
-                            for mbyte in info_data_value.replace('.', ' ').replace(':', ' ').split():
-                                sub_attr_payload.append(int(mbyte, 16))
-                            sub_attr_pack_layout.extend('xx')
-
-                        elif info_data_type == Link.IFLA_BOND_AD_ACTOR_SYS_PRIO:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 2 bytes
-                            sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(int(info_data_value))
-
-                            # pad 2 bytes
-                            sub_attr_pack_layout.extend('xx')
-
-                        elif info_data_type == Link.IFLA_BOND_NUM_PEER_NOTIF:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 1 byte
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(int(info_data_value))
-
-                            # pad 3 bytes
-                            sub_attr_pack_layout.extend('xxx')
-
-
-                        elif info_data_type in (Link.IFLA_BOND_AD_LACP_RATE,
-                                                Link.IFLA_BOND_AD_LACP_BYPASS,
-                                                Link.IFLA_BOND_USE_CARRIER):
-                            # converts yes/no/on/off/0/1 strings to boolean value
-                            bool_value = self.get_bool_value(info_data_value)
-
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 1 byte
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(bool_value)
-
-                            # pad 3 bytes
-                            sub_attr_pack_layout.extend('xxx')
-
-                        elif info_data_type == Link.IFLA_BOND_XMIT_HASH_POLICY:
-                            index = self.get_index(Link.ifla_bond_xmit_hash_policy_tbl,
-                                                   'bond xmit hash policy',
-                                                   info_data_value)
-
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 1 byte
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(index)
-
-                            # pad 3 bytes
-                            sub_attr_pack_layout.extend('xxx')
-
-                        elif info_data_type == Link.IFLA_BOND_MODE:
-                            index = self.get_index(Link.ifla_bond_mode_tbl,
-                                                   'bond mode',
-                                                   info_data_value)
-
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 1 byte
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(index)
-
-                            # pad 3 bytes
-                            sub_attr_pack_layout.extend('xxx')
-
-                        elif info_data_type in (Link.IFLA_BOND_MIIMON,
-                                                Link.IFLA_BOND_UPDELAY,
-                                                Link.IFLA_BOND_DOWNDELAY,
-                                                Link.IFLA_BOND_MIN_LINKS):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('L')
-                            sub_attr_payload.append(int(info_data_value))
-
-                        else:
-                            self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA bond sub-attribute type %d' % info_data_type)
-
-                    elif kind == 'bridge':
-                        if info_data_type == Link.IFLA_BR_VLAN_PROTOCOL:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # vlan protocol
-                            vlan_protocol = Link.ifla_vlan_protocol_dict.get(info_data_value)
-                            if not vlan_protocol:
-                                raise NotImplementedError('vlan protocol %s not implemented' % info_data_value)
-
-                            sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(htons(vlan_protocol))
-
-                            # pad 2 bytes
-                            sub_attr_pack_layout.extend('xx')
-
-                        # 1 byte
-                        elif info_data_type in (Link.IFLA_BR_VLAN_FILTERING,
-                                              Link.IFLA_BR_TOPOLOGY_CHANGE,
-                                              Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED,
-                                              Link.IFLA_BR_MCAST_ROUTER,
-                                              Link.IFLA_BR_MCAST_SNOOPING,
-                                              Link.IFLA_BR_MCAST_QUERY_USE_IFADDR,
-                                              Link.IFLA_BR_MCAST_QUERIER,
-                                              Link.IFLA_BR_NF_CALL_IPTABLES,
-                                              Link.IFLA_BR_NF_CALL_IP6TABLES,
-                                              Link.IFLA_BR_NF_CALL_ARPTABLES,
-                                              Link.IFLA_BR_VLAN_STATS_ENABLED,
-                                              Link.IFLA_BR_MCAST_STATS_ENABLED,
-                                              Link.IFLA_BR_MCAST_IGMP_VERSION,
-                                              Link.IFLA_BR_MCAST_MLD_VERSION):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 1 byte
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(int(info_data_value))
-
-                            # pad 3 bytes
-                            sub_attr_pack_layout.extend('xxx')
-
-                        # 2 bytes
-                        elif info_data_type in (Link.IFLA_BR_PRIORITY,
-                                              Link.IFLA_BR_GROUP_FWD_MASK,
-                                              Link.IFLA_BR_ROOT_PORT,
-                                              Link.IFLA_BR_VLAN_DEFAULT_PVID):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            # 2 bytes
-                            sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(int(info_data_value))
-
-                            # pad 2 bytes
-                            sub_attr_pack_layout.extend('xx')
-
-                        # 4 bytes
-                        elif info_data_type in (Link.IFLA_BR_FORWARD_DELAY,
-                                                Link.IFLA_BR_HELLO_TIME,
-                                                Link.IFLA_BR_MAX_AGE,
-                                                Link.IFLA_BR_AGEING_TIME,
-                                                Link.IFLA_BR_STP_STATE,
-                                                Link.IFLA_BR_ROOT_PATH_COST,
-                                                Link.IFLA_BR_MCAST_QUERIER,
-                                                Link.IFLA_BR_MCAST_HASH_ELASTICITY,
-                                                Link.IFLA_BR_MCAST_HASH_MAX,
-                                                Link.IFLA_BR_MCAST_LAST_MEMBER_CNT,
-                                                Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('L')
-                            sub_attr_payload.append(int(info_data_value))
-
-                        # 8 bytes
-                        elif info_data_type in (Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL,
-                                                Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
-                                                Link.IFLA_BR_MCAST_QUERIER_INTVL,
-                                                Link.IFLA_BR_MCAST_QUERY_INTVL,
-                                                Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
-                                                Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(12)  # length
-                            sub_attr_payload.append(info_data_type)
-
-                            sub_attr_pack_layout.append('Q')
-                            sub_attr_payload.append(int(info_data_value))
-
-                        else:
-                            self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_DATA bridge sub-attribute type %d' % info_data_type)
+                sub_attr_payload = self.encode_ifla_info_nested_data(
+                    sub_attr_pack_layout,
+                    sub_attr_type,
+                    "IFLA_INFO_DATA",
+                    sub_attr_value,
+                    self.encode_ifla_info_nested_data_handlers.get(Link.IFLA_INFO_DATA, {}).get(kind),
+                    self.ifla_info_nested_data_attributes_to_string_dict.get(Link.IFLA_INFO_DATA, {}).get(kind),
+                    kind
+                )
 
             elif sub_attr_type == Link.IFLA_INFO_SLAVE_DATA:
-
-                sub_attr_payload = [0, sub_attr_type | NLA_F_NESTED]
-
-                for (info_slave_data_type, info_slave_data_value) in sub_attr_value.iteritems():
-
-                    if slave_kind == 'bridge':
-
-                        # 1 byte
-                        if info_slave_data_type in (Link.IFLA_BRPORT_STATE,
-                                                    Link.IFLA_BRPORT_MODE,
-                                                    Link.IFLA_BRPORT_GUARD,
-                                                    Link.IFLA_BRPORT_PROTECT,
-                                                    Link.IFLA_BRPORT_FAST_LEAVE,
-                                                    Link.IFLA_BRPORT_LEARNING,
-                                                    Link.IFLA_BRPORT_UNICAST_FLOOD,
-                                                    Link.IFLA_BRPORT_PROXYARP,
-                                                    Link.IFLA_BRPORT_LEARNING_SYNC,
-                                                    Link.IFLA_BRPORT_PROXYARP_WIFI,
-                                                    Link.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
-                                                    Link.IFLA_BRPORT_CONFIG_PENDING,
-                                                    Link.IFLA_BRPORT_MULTICAST_ROUTER,
-                                                    Link.IFLA_BRPORT_MCAST_FLOOD,
-                                                    Link.IFLA_BRPORT_MCAST_TO_UCAST,
-                                                    Link.IFLA_BRPORT_VLAN_TUNNEL,
-                                                    Link.IFLA_BRPORT_BCAST_FLOOD,
-                                                    Link.IFLA_BRPORT_PEER_LINK,
-                                                    Link.IFLA_BRPORT_DUAL_LINK,
-                                                    Link.IFLA_BRPORT_ARP_SUPPRESS,
-                                                    Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(5)  # length
-                            sub_attr_payload.append(info_slave_data_type)
-
-                            # 1 byte
-                            sub_attr_pack_layout.append('B')
-                            sub_attr_payload.append(int(info_slave_data_value))
-
-                            # pad 3 bytes
-                            sub_attr_pack_layout.extend('xxx')
-
-                        # 2 bytes
-                        elif info_slave_data_type in (Link.IFLA_BRPORT_PRIORITY,
-                                                      Link.IFLA_BRPORT_DESIGNATED_PORT,
-                                                      Link.IFLA_BRPORT_DESIGNATED_COST,
-                                                      Link.IFLA_BRPORT_ID,
-                                                      Link.IFLA_BRPORT_NO,
-                                                      Link.IFLA_BRPORT_GROUP_FWD_MASK,
-                                                      Link.IFLA_BRPORT_GROUP_FWD_MASKHI):
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(6)  # length
-                            sub_attr_payload.append(info_slave_data_type)
-
-                            # 2 bytes
-                            sub_attr_pack_layout.append('H')
-                            sub_attr_payload.append(int(info_slave_data_value))
-
-                            # pad 2 bytes
-                            sub_attr_pack_layout.extend('xx')
-
-                        # 4 bytes
-                        elif info_slave_data_type == Link.IFLA_BRPORT_COST:
-                            sub_attr_pack_layout.append('HH')
-                            sub_attr_payload.append(8)  # length
-                            sub_attr_payload.append(info_slave_data_type)
-
-                            sub_attr_pack_layout.append('L')
-                            sub_attr_payload.append(int(info_slave_data_value))
-
-                        else:
-                            self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_INFO_SLAVE_DATA bond sub-attribute type %d' % info_slave_data_type)
-
-                    else:
-                        self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_LINKINFO kind %s' % slave_kind)
+                sub_attr_payload = self.encode_ifla_info_nested_data(
+                    sub_attr_pack_layout,
+                    sub_attr_type,
+                    "IFLA_INFO_SLAVE_DATA",
+                    sub_attr_value,
+                    self.encode_ifla_info_nested_data_handlers.get(Link.IFLA_INFO_SLAVE_DATA, {}).get(slave_kind),
+                    self.ifla_info_nested_data_attributes_to_string_dict.get(Link.IFLA_INFO_SLAVE_DATA, {}).get(slave_kind),
+                    slave_kind
+                )
 
             else:
                 self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for encoding IFLA_LINKINFO sub-attribute type %d' % sub_attr_type)
@@ -1560,6 +2881,53 @@ class AttributeIFLA_LINKINFO(Attribute):
             self.log.debug('unsupported %s value %s (%s)' % (attr, value, tbl.keys()))
             return default
 
+    def decode_ifla_info_nested_data(self, kind, ifla_info_nested_kind_str, sub_attr_type, sub_attr_type_str, data, sub_attr_end):
+        sub_attr_data = data[4:sub_attr_end]
+        ifla_info_nested_data = {}
+
+        if not kind:
+            self.log.warning("%s is not known...we cannot parse %s" % (ifla_info_nested_kind_str, sub_attr_type_str))
+        else:
+            ifla_info_nested_data_handlers = self.decode_ifla_info_nested_data_handlers.get(sub_attr_type, {}).get(kind)
+            ifla_info_nested_attr_to_str_dict = self.ifla_info_nested_data_attributes_to_string_dict.get(sub_attr_type, {}).get(kind)
+
+            if not ifla_info_nested_data_handlers or not ifla_info_nested_attr_to_str_dict:
+                self.log.log(SYSLOG_EXTRA_DEBUG, "%s: decode: unsupported %s %s" % (sub_attr_type_str, ifla_info_nested_kind_str, kind))
+            else:
+                while sub_attr_data:
+                    (info_nested_data_length, info_nested_data_type) = unpack("=HH", sub_attr_data[:4])
+                    info_nested_data_end = padded_length(info_nested_data_length)
+                    handler = ifla_info_nested_data_handlers.get(info_nested_data_type)
+                    try:
+                        if handler:
+                            ifla_info_nested_data[info_nested_data_type] = handler(sub_attr_data, info_nested_data_end)
+                        else:
+                            self.log.log(
+                                SYSLOG_EXTRA_DEBUG,
+                                "Add support for decoding %s %s, attribute %s (%s)"
+                                % (
+                                    ifla_info_nested_kind_str,
+                                    kind,
+                                    ifla_info_nested_attr_to_str_dict.get(info_nested_data_type, "UNKNOWN"),
+                                    info_nested_data_type
+                                )
+                            )
+                    except Exception as e:
+                        self.log.warning(
+                            "%s: %s: attribute %s: %s (%s)"
+                            % (
+                                ifla_info_nested_kind_str,
+                                kind,
+                                ifla_info_nested_attr_to_str_dict.get(info_nested_data_type, "UNKNOWN"),
+                                info_nested_data_type,
+                                str(e)
+                            )
+                        )
+
+                    sub_attr_data = sub_attr_data[info_nested_data_end:]
+
+        return ifla_info_nested_data
+
     def decode(self, parent_msg, data):
         """
         value is a dictionary such as:
@@ -1584,6 +2952,9 @@ class AttributeIFLA_LINKINFO(Attribute):
             (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
             sub_attr_end = padded_length(sub_attr_length)
 
+            if sub_attr_type & NLA_F_NESTED:
+                sub_attr_type ^= NLA_F_NESTED
+
             if not sub_attr_length:
                 self.log.error('parsed a zero length sub-attr')
                 return
@@ -1591,387 +2962,28 @@ class AttributeIFLA_LINKINFO(Attribute):
             if sub_attr_type in (Link.IFLA_INFO_KIND, Link.IFLA_INFO_SLAVE_KIND):
                 self.value[sub_attr_type] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
 
-            elif sub_attr_type == Link.IFLA_INFO_SLAVE_DATA:
-                sub_attr_data = data[4:sub_attr_end]
-
-                ifla_info_slave_data = dict()
-                ifla_info_slave_kind = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
-
-                if not ifla_info_slave_kind:
-                    self.log.warning('IFLA_INFO_SLAVE_KIND is not known...we cannot parse IFLA_INFO_SLAVE_DATA')
-                else:
-                    while sub_attr_data:
-                        (info_data_length, info_data_type) = unpack('=HH', sub_attr_data[:4])
-                        info_data_end = padded_length(info_data_length)
-                        try:
-                            if ifla_info_slave_kind == 'bridge':
-                                # 1 byte
-                                if info_data_type in (Link.IFLA_BRPORT_STATE,
-                                                      Link.IFLA_BRPORT_MODE,
-                                                      Link.IFLA_BRPORT_GUARD,
-                                                      Link.IFLA_BRPORT_PROTECT,
-                                                      Link.IFLA_BRPORT_FAST_LEAVE,
-                                                      Link.IFLA_BRPORT_LEARNING,
-                                                      Link.IFLA_BRPORT_UNICAST_FLOOD,
-                                                      Link.IFLA_BRPORT_PROXYARP,
-                                                      Link.IFLA_BRPORT_LEARNING_SYNC,
-                                                      Link.IFLA_BRPORT_PROXYARP_WIFI,
-                                                      Link.IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
-                                                      Link.IFLA_BRPORT_CONFIG_PENDING,
-                                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
-                                                      Link.IFLA_BRPORT_MCAST_FLOOD,
-                                                      Link.IFLA_BRPORT_MCAST_TO_UCAST,
-                                                      Link.IFLA_BRPORT_VLAN_TUNNEL,
-                                                      Link.IFLA_BRPORT_PEER_LINK,
-                                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                                      Link.IFLA_BRPORT_ARP_SUPPRESS,
-                                                      Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
-                                    ifla_info_slave_data[info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                                # 2 bytes
-                                elif info_data_type in (Link.IFLA_BRPORT_PRIORITY,
-                                                        Link.IFLA_BRPORT_DESIGNATED_PORT,
-                                                        Link.IFLA_BRPORT_DESIGNATED_COST,
-                                                        Link.IFLA_BRPORT_ID,
-                                                        Link.IFLA_BRPORT_NO,
-                                                        Link.IFLA_BRPORT_GROUP_FWD_MASK,
-                                                        Link.IFLA_BRPORT_GROUP_FWD_MASKHI):
-                                    ifla_info_slave_data[info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                                # 4 bytes
-                                elif info_data_type == Link.IFLA_BRPORT_COST:
-                                    ifla_info_slave_data[info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                            elif ifla_info_slave_kind == 'bond':
-
-                                # 1 byte
-                                if info_data_type in (
-                                        Link.IFLA_BOND_SLAVE_STATE,
-                                        Link.IFLA_BOND_SLAVE_MII_STATUS,
-                                        Link.IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE,
-                                        Link.IFLA_BOND_SLAVE_AD_RX_BYPASS,
-                                ):
-                                    ifla_info_slave_data[info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                                # 2 bytes
-                                elif info_data_type in (
-                                        Link.IFLA_BOND_SLAVE_QUEUE_ID,
-                                        Link.IFLA_BOND_SLAVE_AD_AGGREGATOR_ID
-                                ):
-                                    ifla_info_slave_data[info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                                # 4 bytes
-                                elif info_data_type == (
-                                        Link.IFLA_BOND_SLAVE_PERM_HWADDR,
-                                        Link.IFLA_BOND_SLAVE_LINK_FAILURE_COUNT
-                                ):
-                                    ifla_info_slave_data[info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                        except Exception as e:
-                            self.log.debug('%s: attribute %s: %s'
-                                            % (self.value[Link.IFLA_INFO_SLAVE_KIND],
-                                               info_data_type,
-                                               str(e)))
-                        sub_attr_data = sub_attr_data[info_data_end:]
-
-                self.value[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
-
             elif sub_attr_type == Link.IFLA_INFO_DATA:
-                sub_attr_data = data[4:sub_attr_end]
-                self.value[Link.IFLA_INFO_DATA] = {}
+                self.value[Link.IFLA_INFO_DATA] = self.decode_ifla_info_nested_data(
+                    self.value.get(Link.IFLA_INFO_KIND), "IFLA_INFO_KIND",
+                    Link.IFLA_INFO_DATA, "IFLA_INFO_DATA",
+                    data, sub_attr_end,
+                )
 
-                ifla_info_kind = self.value.get(Link.IFLA_INFO_KIND)
-                if not ifla_info_kind:
-                    self.log.warning('IFLA_INFO_KIND is not known...we cannot parse IFLA_INFO_DATA')
-                else:
-                    while sub_attr_data:
-                        (info_data_length, info_data_type) = unpack('=HH', sub_attr_data[:4])
-                        info_data_end = padded_length(info_data_length)
-                        try:
-                            if ifla_info_kind == 'vlan':
-                                if info_data_type == Link.IFLA_VLAN_ID:
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                                elif info_data_type == Link.IFLA_VLAN_PROTOCOL:
-                                    hex_value = '0x%s' % sub_attr_data[4:6].encode('hex')
-                                    vlan_protocol = Link.ifla_vlan_protocol_dict.get(int(hex_value, base=16))
-
-                                    if vlan_protocol:
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = vlan_protocol
-                                    else:
-                                        self.log.warning('IFLA_VLAN_PROTOCOL: cannot decode vlan protocol %s' % hex_value)
-
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_INFO_KIND vlan type %s (%d), length %d, padded to %d' %
-                                                (parent_msg.get_ifla_vlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                            elif ifla_info_kind == 'macvlan':
-                                if info_data_type == Link.IFLA_MACVLAN_MODE:
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_INFO_KIND macvlan type %s (%d), length %d, padded to %d' %
-                                                (parent_msg.get_ifla_macvlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                            elif ifla_info_kind == 'xfrm':
-                                # 4-byte int
-                                if info_data_type in (Link.IFLA_XFRM_IF_ID, Link.IFLA_XFRM_LINK):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                            elif ifla_info_kind == 'vxlan':
-
-                                # IPv4Address
-                                if info_data_type in (Link.IFLA_VXLAN_GROUP,
-                                                      Link.IFLA_VXLAN_LOCAL):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack('>L', sub_attr_data[4:8])[0])
-
-                                # 4-byte int
-                                elif info_data_type in (Link.IFLA_VXLAN_ID,
-                                                        Link.IFLA_VXLAN_LINK,
-                                                        Link.IFLA_VXLAN_AGEING,
-                                                        Link.IFLA_VXLAN_LIMIT,
-                                                        Link.IFLA_VXLAN_PORT_RANGE):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                                # 2-byte int
-                                elif info_data_type in (Link.IFLA_VXLAN_PORT, ):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('!H', sub_attr_data[4:6])[0]
-                                    # The form '!' is available for those poor souls who claim they can't
-                                    # remember whether network byte order is big-endian or little-endian.
-
-                                # 1-byte int
-                                elif info_data_type in (Link.IFLA_VXLAN_TTL,
-                                                        Link.IFLA_VXLAN_TOS,
-                                                        Link.IFLA_VXLAN_LEARNING,
-                                                        Link.IFLA_VXLAN_PROXY,
-                                                        Link.IFLA_VXLAN_RSC,
-                                                        Link.IFLA_VXLAN_L2MISS,
-                                                        Link.IFLA_VXLAN_L3MISS,
-                                                        Link.IFLA_VXLAN_UDP_CSUM,
-                                                        Link.IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
-                                                        Link.IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-                                                        Link.IFLA_VXLAN_REMCSUM_TX,
-                                                        Link.IFLA_VXLAN_REMCSUM_RX,
-                                                        Link.IFLA_VXLAN_REPLICATION_TYPE):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                                else:
-                                    # sub_attr_end = padded_length(sub_attr_length)
-                                    self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_INFO_KIND vxlan type %s (%d), length %d, padded to %d' %
-                                                (parent_msg.get_ifla_vxlan_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                            elif ifla_info_kind == 'bond':
-
-                                if info_data_type in (Link.IFLA_BOND_AD_INFO, ):
-                                    ad_attr_data = sub_attr_data[4:info_data_end]
-                                    self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO] = {}
-
-                                    while ad_attr_data:
-                                        (ad_data_length, ad_data_type) = unpack('=HH', ad_attr_data[:4])
-                                        ad_data_end = padded_length(ad_data_length)
-
-                                        if ad_data_type in (Link.IFLA_BOND_AD_INFO_PARTNER_MAC,):
-                                            (data1, data2) = unpack('>LHxx', ad_attr_data[4:12])
-                                            self.value[Link.IFLA_INFO_DATA][Link.IFLA_BOND_AD_INFO][ad_data_type] = mac_int_to_str(data1 << 16 | data2)
-
-                                        ad_attr_data = ad_attr_data[ad_data_end:]
-
-                                # 1-byte int
-                                elif info_data_type in (Link.IFLA_BOND_MODE,
-                                                        Link.IFLA_BOND_USE_CARRIER,
-                                                        Link.IFLA_BOND_AD_LACP_RATE,
-                                                        Link.IFLA_BOND_AD_LACP_BYPASS,
-                                                        Link.IFLA_BOND_XMIT_HASH_POLICY,
-                                                        Link.IFLA_BOND_NUM_PEER_NOTIF):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                                # 2-bytes int
-                                elif info_data_type == Link.IFLA_BOND_AD_ACTOR_SYS_PRIO:
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                                # 4-bytes int
-                                elif info_data_type in (Link.IFLA_BOND_MIIMON,
-                                                        Link.IFLA_BOND_UPDELAY,
-                                                        Link.IFLA_BOND_DOWNDELAY,
-                                                        Link.IFLA_BOND_MIN_LINKS):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                                # mac address
-                                elif info_data_type in (Link.IFLA_BOND_AD_ACTOR_SYSTEM, ):
-                                    (data1, data2) = unpack('>LHxx', sub_attr_data[4:12])
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = mac_int_to_str(data1 << 16 | data2)
-
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_INFO_KIND bond type %s (%d), length %d, padded to %d' %
-                                                (parent_msg.get_ifla_bond_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                            elif ifla_info_kind == 'bridge':
-                                # 4 bytes
-                                if info_data_type in (Link.IFLA_BR_AGEING_TIME,
-                                                      Link.IFLA_BR_FORWARD_DELAY,
-                                                      Link.IFLA_BR_HELLO_TIME,
-                                                      Link.IFLA_BR_MAX_AGE,
-                                                      Link.IFLA_BR_STP_STATE,
-                                                      Link.IFLA_BR_ROOT_PATH_COST,
-                                                      Link.IFLA_BR_MCAST_HASH_ELASTICITY,
-                                                      Link.IFLA_BR_MCAST_HASH_MAX,
-                                                      Link.IFLA_BR_MCAST_LAST_MEMBER_CNT,
-                                                      Link.IFLA_BR_MCAST_STARTUP_QUERY_CNT):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                                # 2 bytes
-                                elif info_data_type in (Link.IFLA_BR_PRIORITY,
-                                                        Link.IFLA_BR_GROUP_FWD_MASK,
-                                                        Link.IFLA_BR_ROOT_PORT,
-                                                        Link.IFLA_BR_VLAN_DEFAULT_PVID):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                                elif info_data_type == Link.IFLA_BR_VLAN_PROTOCOL:
-                                    hex_value = '0x%s' % sub_attr_data[4:6].encode('hex')
-                                    vlan_protocol = Link.ifla_vlan_protocol_dict.get(int(hex_value, base=16))
-
-                                    if vlan_protocol:
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = vlan_protocol
-                                    else:
-                                        self.log.warning('IFLA_VLAN_PROTOCOL: cannot decode vlan protocol %s' % hex_value)
-
-                                # 8 bytes
-                                elif info_data_type in (Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
-                                                        Link.IFLA_BR_MCAST_QUERIER_INTVL,
-                                                        Link.IFLA_BR_MCAST_LAST_MEMBER_INTVL,
-                                                        Link.IFLA_BR_MCAST_MEMBERSHIP_INTVL,
-                                                        Link.IFLA_BR_MCAST_QUERIER_INTVL,
-                                                        Link.IFLA_BR_MCAST_QUERY_INTVL,
-                                                        Link.IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
-                                                        Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=Q', sub_attr_data[4:12])[0]
-
-                                # 1 bytes
-                                elif info_data_type in (Link.IFLA_BR_VLAN_FILTERING,
-                                                        Link.IFLA_BR_TOPOLOGY_CHANGE,
-                                                        Link.IFLA_BR_TOPOLOGY_CHANGE_DETECTED,
-                                                        Link.IFLA_BR_MCAST_ROUTER,
-                                                        Link.IFLA_BR_MCAST_SNOOPING,
-                                                        Link.IFLA_BR_MCAST_QUERY_USE_IFADDR,
-                                                        Link.IFLA_BR_MCAST_QUERIER,
-                                                        Link.IFLA_BR_NF_CALL_IPTABLES,
-                                                        Link.IFLA_BR_NF_CALL_IP6TABLES,
-                                                        Link.IFLA_BR_NF_CALL_ARPTABLES,
-                                                        Link.IFLA_BR_VLAN_STATS_ENABLED,
-                                                        Link.IFLA_BR_MCAST_STATS_ENABLED,
-                                                        Link.IFLA_BR_MCAST_IGMP_VERSION,
-                                                        Link.IFLA_BR_MCAST_MLD_VERSION):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_INFO_KIND bridge type %s (%d), length %d, padded to %d' %
-                                                (parent_msg.get_ifla_br_string(info_data_type), info_data_type, info_data_length, info_data_end))
-
-                            elif ifla_info_kind == 'vrf':
-
-                                if info_data_type in (Link.IFLA_VRF_TABLE,):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                            elif ifla_info_kind in ("gre", "gretap", "erspan", "ip6gre", "ip6gretap", "ip6erspan"):
-
-                                # 1-byte
-                                if info_data_type in (Link.IFLA_GRE_TTL, Link.IFLA_GRE_TOS, Link.IFLA_GRE_PMTUDISC):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                                # 2-bytes
-                                elif info_data_type in (
-                                        Link.IFLA_GRE_IFLAGS,
-                                        Link.IFLA_GRE_OFLAGS,
-                                        Link.IFLA_GRE_ENCAP_TYPE,
-                                        Link.IFLA_GRE_ENCAP_SPORT,
-                                        Link.IFLA_GRE_ENCAP_DPORT,
-                                        Link.IFLA_GRE_ENCAP_FLAGS
-                                ):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[0]
-
-                                # 4 bytes
-                                elif info_data_type in (Link.IFLA_GRE_LINK, Link.IFLA_GRE_IKEY, Link.IFLA_GRE_OKEY):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                                # ip addr
-                                elif info_data_type in (Link.IFLA_GRE_LOCAL, Link.IFLA_GRE_REMOTE):
-                                    if ifla_info_kind in ("ip6gre", "ip6gretap", "ip6erspan"):
-                                        (data1, data2) = unpack(">QQ", sub_attr_data[4:20])
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv6Address(data1 << 64 | data2)
-                                    else:
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack(">L", sub_attr_data[4:8])[0])
-
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG,
-                                                 'Add support for decoding IFLA_INFO_KIND %s type %s (%d), length %d, padded to %d' %
-                                                 (ifla_info_kind, parent_msg.get_ifla_gre_string(info_data_type), info_data_type,
-                                                  info_data_length, info_data_end))
-
-                            elif ifla_info_kind in ("ipip", "sit", "ip6tnl"):
-
-                                # 1-byte
-                                if info_data_type in (Link.IFLA_IPTUN_TTL, Link.IFLA_IPTUN_TOS, Link.IFLA_IPTUN_PMTUDISC):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=B', sub_attr_data[4])[0]
-
-                                # 2-bytes
-                                elif info_data_type in (Link.IFLA_IPTUN_ENCAP_TYPE, Link.IFLA_IPTUN_ENCAP_SPORT, Link.IFLA_IPTUN_ENCAP_DPORT, Link.IFLA_IPTUN_ENCAP_FLAGS):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=H', sub_attr_data[4:6])[
-                                        0]
-
-                                # 4 bytes
-                                elif info_data_type == Link.IFLA_IPTUN_LINK:
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[
-                                        0]
-
-                                # ip addr
-                                elif info_data_type in (Link.IFLA_IPTUN_LOCAL, Link.IFLA_IPTUN_REMOTE):
-                                    if ifla_info_kind == "ip6tnl":
-                                        (data1, data2) = unpack(">QQ", sub_attr_data[4:20])
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv6Address(data1 << 64 | data2)
-                                    else:
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack(">L", sub_attr_data[4:8])[0])
-
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG,
-                                             'Add support for decoding IFLA_INFO_KIND %s type %s (%d), length %d, padded to %d' %
-                                             (ifla_info_kind, parent_msg.get_ifla_iptun_string(info_data_type), info_data_type,
-                                              info_data_length, info_data_end))
-
-                            elif ifla_info_kind in ("vti", "vti6"):
-                                # 4 bytes
-                                if info_data_type in (Link.IFLA_VTI_LINK, Link.IFLA_VTI_IKEY, Link.IFLA_VTI_OKEY):
-                                    self.value[Link.IFLA_INFO_DATA][info_data_type] = unpack('=L', sub_attr_data[4:8])[0]
-
-                                # ip addr
-                                elif info_data_type in (Link.IFLA_VTI_LOCAL, Link.IFLA_VTI_REMOTE):
-                                    if ifla_info_kind == "vti6":
-                                        (data1, data2) = unpack(">QQ", sub_attr_data[4:20])
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv6Address(data1 << 64 | data2)
-                                    else:
-                                        self.value[Link.IFLA_INFO_DATA][info_data_type] = IPv4Address(unpack(">L", sub_attr_data[4:8])[0])
-
-                                else:
-                                    self.log.log(SYSLOG_EXTRA_DEBUG,
-                                             'Add support for decoding IFLA_INFO_KIND %s type %s (%d), length %d, padded to %d' %
-                                             (ifla_info_kind, parent_msg.get_ifla_vti_string(info_data_type), info_data_type,
-                                              info_data_length, info_data_end))
-
-                            else:
-                                self.log.log(SYSLOG_EXTRA_DEBUG, "Add support for decoding IFLA_INFO_KIND %s (%d), length %d, padded to %d" %
-                                            (ifla_info_kind, info_data_type, info_data_length, info_data_end))
-
-                        except Exception as e:
-                            self.log.debug('%s: attribute %s: %s'
-                                           % (self.value[Link.IFLA_INFO_KIND],
-                                              info_data_type,
-                                              str(e)))
-                        sub_attr_data = sub_attr_data[info_data_end:]
+            elif sub_attr_type == Link.IFLA_INFO_SLAVE_DATA:
+                self.value[Link.IFLA_INFO_SLAVE_DATA] = self.decode_ifla_info_nested_data(
+                    self.value.get(Link.IFLA_INFO_SLAVE_KIND), "IFLA_INFO_SLAVE_KIND",
+                    Link.IFLA_INFO_SLAVE_DATA, "IFLA_INFO_SLAVE_DATA",
+                    data, sub_attr_end,
+                )
 
             else:
-                self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_LINKINFO sub-attribute type %s (%d), length %d, padded to %d' %
-                            (parent_msg.get_ifla_info_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end))
+                self.log.log(
+                    SYSLOG_EXTRA_DEBUG,
+                    'Add support for decoding IFLA_LINKINFO sub-attribute type %s (%d), length %d, padded to %d'
+                    % (parent_msg.get_ifla_info_string(sub_attr_type), sub_attr_type, sub_attr_length, sub_attr_end)
+                )
 
             data = data[sub_attr_end:]
-
-        # self.log.info('IFLA_LINKINFO values %s' % pformat(self.value))
 
     def dump_lines(self, dump_buffer, line_number, color):
         line_number = self.dump_first_line(dump_buffer, line_number, color)
@@ -2000,11 +3012,14 @@ class AttributeIFLA_LINKINFO(Attribute):
                 else:
                     padded_to = ' padded to %d, ' % sub_attr_end
 
-                extra = 'Nested Attribute - Length %s (%d)%s Type %s (%d) %s' % \
+                if sub_attr_type & NLA_F_NESTED:
+                    sub_attr_type ^= NLA_F_NESTED
+
+                extra = 'Nested Attribute - Length %s (%d)%s Type %s (%d) %s (%s)' % \
                         (zfilled_hex(sub_attr_length, 4), sub_attr_length,
                          padded_to,
                          zfilled_hex(sub_attr_type, 4), sub_attr_type,
-                         Link.ifla_info_to_string.get(sub_attr_type))
+                         Link.ifla_info_to_string.get(sub_attr_type), sub_attr_type)
             else:
                 extra = ''
 
@@ -2022,38 +3037,10 @@ class AttributeIFLA_LINKINFO(Attribute):
         ifla_info_kind          = self.value.get(Link.IFLA_INFO_KIND)
         ifla_info_slave_kind    = self.value.get(Link.IFLA_INFO_SLAVE_KIND)
 
-        kind_dict = dict()
-
-        # We do this so we can print a more human readable dictionary
-        # with the names of the nested keys instead of their numbers
-
-        # Most of these are placeholders...we need to add support
-        # for more human readable dictionaries for bond, bridge, etc
-        kind_dict[Link.IFLA_INFO_DATA] = {
-            'bond':         Link.ifla_bond_to_string,
-            'vlan':         Link.ifla_vlan_to_string,
-            'vxlan':        Link.ifla_vxlan_to_string,
-            'bridge':       Link.ifla_br_to_string,
-            'macvlan':      Link.ifla_macvlan_to_string,
-            'gre':          Link.ifla_gre_to_string,
-            'gretap':       Link.ifla_gre_to_string,
-            'erspan':       Link.ifla_gre_to_string,
-            'ip6gre':       Link.ifla_gre_to_string,
-            'ip6gretap':    Link.ifla_gre_to_string,
-            'ip6erspan':    Link.ifla_gre_to_string,
-            'vti':          Link.ifla_vti_to_string,
-            'vti6':         Link.ifla_vti_to_string,
-            'ipip':         Link.ifla_iptun_to_string,
-            'sit':          Link.ifla_iptun_to_string,
-            'ip6tnl':       Link.ifla_iptun_to_string,
-            'xfrm':       Link.ifla_xfrm_to_string
-        }.get(ifla_info_kind, {})
-
-        kind_dict[Link.IFLA_INFO_SLAVE_DATA] = {
-            'bridge': Link.ifla_brport_to_string,
-            'bond': Link.ifla_bond_slave_to_string
-        }.get(ifla_info_slave_kind, {})
-
+        kind_dict = {
+            Link.IFLA_INFO_DATA: self.ifla_info_nested_data_attributes_to_string_dict.get(Link.IFLA_INFO_DATA, {}).get(ifla_info_kind),
+            Link.IFLA_INFO_SLAVE_DATA: self.ifla_info_nested_data_attributes_to_string_dict.get(Link.IFLA_INFO_SLAVE_DATA, {}).get(ifla_info_slave_kind)
+        }
         if ifla_info_kind or ifla_info_slave_kind:
             value_pretty = {}
 
@@ -2120,11 +3107,9 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                     Link.IFLA_BRPORT_ARP_SUPPRESS,
-                                     Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
+                                     Link.IFLA_BRPORT_NEIGH_SUPPRESS):
                     sub_attr_pack_layout.append('B')
                     sub_attr_payload.append(sub_attr_value)
-                    sub_attr_pack_layout.extend('xxx')
 
                 # 2 Byte attributes
                 elif sub_attr_type in (Link.IFLA_BRPORT_PRIORITY,
@@ -2134,10 +3119,9 @@ class AttributeIFLA_PROTINFO(Attribute):
                                        Link.IFLA_BRPORT_NO):
                     sub_attr_pack_layout.append('H')
                     sub_attr_payload.append(sub_attr_value)
-                    sub_attr_pack_layout.extend('xx')
 
                 # 4 Byte attributes
-                elif sub_attr_type in (Link.IFLA_BRPORT_COST,):
+                elif sub_attr_type in (Link.IFLA_BRPORT_COST, Link.IFLA_BRPORT_BACKUP_PORT):
                     sub_attr_pack_layout.append('L')
                     sub_attr_payload.append(sub_attr_value)
 
@@ -2219,8 +3203,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_MULTICAST_ROUTER,
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
-                                     Link.IFLA_BRPORT_ARP_SUPPRESS,
-                                     Link.IFLA_BRPORT_DOWN_PEERLINK_REDIRECT):
+                                     Link.IFLA_BRPORT_NEIGH_SUPPRESS):
                     self.value[sub_attr_type] = unpack('=B', data[4])[0]
 
                 # 2 Byte attributes
@@ -2232,7 +3215,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                     self.value[sub_attr_type] = unpack('=H', data[4:6])[0]
 
                 # 4 Byte attributes
-                elif sub_attr_type in (Link.IFLA_BRPORT_COST,):
+                elif sub_attr_type in (Link.IFLA_BRPORT_COST, Link.IFLA_BRPORT_BACKUP_PORT):
                     self.value[sub_attr_type] = unpack('=L', data[4:8])[0]
 
                 # 8 Byte attributes
@@ -2347,7 +3330,11 @@ class NetlinkPacket(object):
         RTM_DELQDISC  : 'RTM_DELQDISC',
         RTM_GETQDISC  : 'RTM_GETQDISC',
         RTM_NEWNETCONF: 'RTM_NEWNETCONF',
-        RTM_GETNETCONF: 'RTM_GETNETCONF'
+        RTM_GETNETCONF: 'RTM_GETNETCONF',
+        RTM_DELNETCONF: 'RTM_DELNETCONF',
+        RTM_NEWMDB    : 'RTM_NEWMDB',
+        RTM_DELMDB    : 'RTM_DELMDB',
+        RTM_GETMDB    : 'RTM_GETMDB'
     }
 
     af_family_to_string = {
@@ -2355,7 +3342,7 @@ class NetlinkPacket(object):
         AF_INET6    : 'inet6'
     }
 
-    def __init__(self, msgtype, debug, owner_logger=None, use_color=True):
+    def __init__(self, msgtype, debug, owner_logger=None, use_color=True, rx=False, tx=False):
         self.msgtype     = msgtype
         self.attributes  = {}
         self.dump_buffer = ['']
@@ -2364,6 +3351,9 @@ class NetlinkPacket(object):
         self.message     = None
         self.use_color   = use_color
         self.family      = None
+        self.rx          = rx
+        self.tx          = tx
+        self.priv_flags  = 0
 
         if owner_logger:
             self.log = owner_logger
@@ -2427,7 +3417,7 @@ class NetlinkPacket(object):
             foo.append('NLM_F_ECHO')
 
         # Modifiers to GET query
-        if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC, RTM_GETNETCONF):
+        if msg_type in (RTM_GETLINK, RTM_GETADDR, RTM_GETNEIGH, RTM_GETROUTE, RTM_GETQDISC, RTM_GETNETCONF, RTM_GETMDB):
             if flags & NLM_F_DUMP:
                 foo.append('NLM_F_DUMP')
             else:
@@ -2441,7 +3431,7 @@ class NetlinkPacket(object):
                 foo.append('NLM_F_ATOMIC')
 
         # Modifiers to NEW query
-        elif msg_type in (RTM_NEWLINK, RTM_NEWADDR, RTM_NEWNEIGH, RTM_NEWROUTE, RTM_NEWQDISC):
+        elif msg_type in (RTM_NEWLINK, RTM_NEWADDR, RTM_NEWNEIGH, RTM_NEWROUTE, RTM_NEWQDISC, RTM_NEWMDB):
             if flags & NLM_F_REPLACE:
                 foo.append('NLM_F_REPLACE')
 
@@ -2561,7 +3551,7 @@ class NetlinkPacket(object):
             take the family into account. For now we'll handle this as a special case for
             MPLS but long term we may need to make key a tuple of the attr_type and family.
             '''
-            if self.msgtype not in (RTM_NEWNETCONF, RTM_GETNETCONF) and attr_type == Route.RTA_DST and self.family == AF_MPLS:
+            if self.msgtype not in (RTM_NEWNETCONF, RTM_GETNETCONF, RTM_DELNETCONF) and attr_type == Route.RTA_DST and self.family == AF_MPLS:
                 attr_string = 'RTA_DST'
                 attr_class = AttributeMplsLabel
 
@@ -2675,6 +3665,7 @@ class Address(NetlinkPacket):
     IFA_CACHEINFO = 0x06
     IFA_MULTICAST = 0x07
     IFA_FLAGS     = 0x08
+    IFA_RT_PRIORITY = 0x09  # 32, priority / metricfor prefix route
 
     attribute_to_class = {
         IFA_UNSPEC    : ('IFA_UNSPEC', AttributeGeneric),
@@ -2683,9 +3674,10 @@ class Address(NetlinkPacket):
         IFA_LABEL     : ('IFA_LABEL', AttributeString),
         IFA_BROADCAST : ('IFA_BROADCAST', AttributeIPAddress),
         IFA_ANYCAST   : ('IFA_ANYCAST', AttributeIPAddress),
-        IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeGeneric),
+        IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeCACHEINFO),
         IFA_MULTICAST : ('IFA_MULTICAST', AttributeIPAddress),
-        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric)
+        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric),
+        IFA_RT_PRIORITY : ('IFA_RT_PRIORITY', AttributeFourByteValue)
     }
 
     # Address flags
@@ -2787,6 +3779,7 @@ class Error(NetlinkPacket):
     NLE_NODEV             = 0x1F
     NLE_IMMUTABLE         = 0x20
     NLE_DUMP_INTR         = 0x21
+    NLE_ATTRSIZE          = 0x22
 
     error_to_string = {
         NLE_SUCCESS           : 'NLE_SUCCESS',
@@ -2822,7 +3815,46 @@ class Error(NetlinkPacket):
         NLE_PARSE_ERR         : 'NLE_PARSE_ERR',
         NLE_NODEV             : 'NLE_NODEV',
         NLE_IMMUTABLE         : 'NLE_IMMUTABLE',
-        NLE_DUMP_INTR         : 'NLE_DUMP_INTR'
+        NLE_DUMP_INTR         : 'NLE_DUMP_INTR',
+        NLE_ATTRSIZE          : 'NLE_ATTRSIZE'
+    }
+
+    error_to_human_readable_string = {
+        NLE_SUCCESS:           "Success",
+        NLE_FAILURE:           "Unspecific failure",
+        NLE_INTR:              "Interrupted system call",
+        NLE_BAD_SOCK:          "Bad socket",
+        NLE_AGAIN:             "Try again",
+        NLE_NOMEM:             "Out of memory",
+        NLE_EXIST:             "Object exists",
+        NLE_INVAL:             "Invalid input data or parameter",
+        NLE_RANGE:             "Input data out of range",
+        NLE_MSGSIZE:           "Message size not sufficient",
+        NLE_OPNOTSUPP:         "Operation not supported",
+        NLE_AF_NOSUPPORT:      "Address family not supported",
+        NLE_OBJ_NOTFOUND:      "Object not found",
+        NLE_NOATTR:            "Attribute not available",
+        NLE_MISSING_ATTR:      "Missing attribute",
+        NLE_AF_MISMATCH:       "Address family mismatch",
+        NLE_SEQ_MISMATCH:      "Message sequence number mismatch",
+        NLE_MSG_OVERFLOW:      "Kernel reported message overflow",
+        NLE_MSG_TRUNC:         "Kernel reported truncated message",
+        NLE_NOADDR:            "Invalid address for specified address family",
+        NLE_SRCRT_NOSUPPORT:   "Source based routing not supported",
+        NLE_MSG_TOOSHORT:      "Netlink message is too short",
+        NLE_MSGTYPE_NOSUPPORT: "Netlink message type is not supported",
+        NLE_OBJ_MISMATCH:      "Object type does not match cache",
+        NLE_NOCACHE:           "Unknown or invalid cache type",
+        NLE_BUSY:              "Object busy",
+        NLE_PROTO_MISMATCH:    "Protocol mismatch",
+        NLE_NOACCESS:          "No Access",
+        NLE_PERM:              "Operation not permitted",
+        NLE_PKTLOC_FILE:       "Unable to open packet location file",
+        NLE_PARSE_ERR:         "Unable to parse object",
+        NLE_NODEV:             "No such device",
+        NLE_IMMUTABLE:         "Immutable attribute",
+        NLE_DUMP_INTR:         "Dump inconsistency detected, interrupted",
+        NLE_ATTRSIZE:          "Attribute max length exceeded",
     }
 
     def __init__(self, msgtype, debug=False, logger=None, use_color=True):
@@ -2849,7 +3881,8 @@ class Error(NetlinkPacket):
             for x in range(0, self.LEN/4):
 
                 if self.line_number == 5:
-                    extra = "Error Number %s is %s" % (self.negative_errno, self.error_to_string.get(abs(self.negative_errno)))
+                    error_number = abs(self.negative_errno)
+                    extra = "Error Number %s is %s (%s)" % (self.negative_errno, self.error_to_string.get(error_number), self.error_to_human_readable_string.get(error_number))
                     # zfilled_hex(self.negative_errno, 2)
 
                 elif self.line_number == 6:
@@ -2875,7 +3908,7 @@ class Error(NetlinkPacket):
                 self.line_number += 1
 
 
-class Link(NetlinkPacket):
+class Link(NetlinkPacket, NetlinkPacket_IFLA_LINKINFO_Attributes):
     """
     Service Header
 
@@ -2936,6 +3969,16 @@ class Link(NetlinkPacket):
     IFLA_PROTO_DOWN      = 39
     IFLA_GSO_MAX_SEGS    = 40
     IFLA_GSO_MAX_SIZE    = 41
+    IFLA_PAD             = 42
+    IFLA_XDP             = 43
+    IFLA_EVENT           = 44
+    IFLA_NEW_NETNSID     = 45
+    IFLA_IF_NETNSID      = 46
+    IFLA_CARRIER_UP_COUNT   = 47
+    IFLA_CARRIER_DOWN_COUNT = 48
+    IFLA_NEW_IFINDEX        = 49
+    IFLA_MIN_MTU            = 50
+    IFLA_MAX_MTU            = 51
 
     attribute_to_class = {
         IFLA_UNSPEC          : ('IFLA_UNSPEC', AttributeGeneric),
@@ -2958,7 +4001,7 @@ class Link(NetlinkPacket):
         IFLA_LINKMODE        : ('IFLA_LINKMODE', AttributeOneByteValue),
         IFLA_LINKINFO        : ('IFLA_LINKINFO', AttributeIFLA_LINKINFO),
         IFLA_NET_NS_PID      : ('IFLA_NET_NS_PID', AttributeGeneric),
-        IFLA_IFALIAS         : ('IFLA_IFALIAS', AttributeGeneric),
+        IFLA_IFALIAS         : ('IFLA_IFALIAS', AttributeString),
         IFLA_NUM_VF          : ('IFLA_NUM_VF', AttributeGeneric),
         IFLA_VFINFO_LIST     : ('IFLA_VFINFO_LIST', AttributeGeneric),
         IFLA_STATS64         : ('IFLA_STATS64', AttributeGeneric),
@@ -2979,7 +4022,17 @@ class Link(NetlinkPacket):
         IFLA_PHYS_PORT_NAME  : ('IFLA_PHYS_PORT_NAME', AttributeGeneric),
         IFLA_PROTO_DOWN      : ('IFLA_PROTO_DOWN', AttributeOneByteValue),
         IFLA_GSO_MAX_SEGS    : ('IFLA_GSO_MAX_SEGS', AttributeFourByteValue),
-        IFLA_GSO_MAX_SIZE    : ('IFLA_GSO_MAX_SIZE', AttributeFourByteValue)
+        IFLA_GSO_MAX_SIZE    : ('IFLA_GSO_MAX_SIZE', AttributeFourByteValue),
+        IFLA_PAD             : ('IFLA_PAD', AttributeGeneric),
+        IFLA_XDP             : ('IFLA_XDP', AttributeGeneric),
+        IFLA_EVENT           : ('IFLA_EVENT', AttributeFourByteValue),
+        IFLA_NEW_NETNSID     : ('IFLA_NEW_NETNSID', AttributeFourByteValue),
+        IFLA_IF_NETNSID      : ('IFLA_IF_NETNSID', AttributeFourByteValue),
+        IFLA_CARRIER_UP_COUNT   : ('IFLA_CARRIER_UP_COUNT', AttributeFourByteValue),
+        IFLA_CARRIER_DOWN_COUNT : ('IFLA_CARRIER_DOWN_COUNT', AttributeFourByteValue),
+        IFLA_NEW_IFINDEX        : ('IFLA_NEW_IFINDEX', AttributeFourByteValue),
+        IFLA_MIN_MTU            : ('IFLA_MIN_MTU', AttributeFourByteValue),
+        IFLA_MAX_MTU            : ('IFLA_MAX_MTU', AttributeFourByteValue),
     }
 
     # Link flags
@@ -3178,408 +4231,6 @@ class Link(NetlinkPacket):
         ARPHRD_NONE               : 'ARPHRD_NONE'
     }
 
-    # =========================================
-    # IFLA_LINKINFO attributes
-    # =========================================
-    IFLA_INFO_UNSPEC     = 0
-    IFLA_INFO_KIND       = 1
-    IFLA_INFO_DATA       = 2
-    IFLA_INFO_XSTATS     = 3
-    IFLA_INFO_SLAVE_KIND = 4
-    IFLA_INFO_SLAVE_DATA = 5
-    IFLA_INFO_MAX        = 6
-
-    ifla_info_to_string = {
-        IFLA_INFO_UNSPEC     : 'IFLA_INFO_UNSPEC',
-        IFLA_INFO_KIND       : 'IFLA_INFO_KIND',
-        IFLA_INFO_DATA       : 'IFLA_INFO_DATA',
-        IFLA_INFO_XSTATS     : 'IFLA_INFO_XSTATS',
-        IFLA_INFO_SLAVE_KIND : 'IFLA_INFO_SLAVE_KIND',
-        IFLA_INFO_SLAVE_DATA : 'IFLA_INFO_SLAVE_DATA',
-        IFLA_INFO_MAX        : 'IFLA_INFO_MAX'
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for vlan
-    # =========================================
-    IFLA_VLAN_UNSPEC      = 0
-    IFLA_VLAN_ID          = 1
-    IFLA_VLAN_FLAGS       = 2
-    IFLA_VLAN_EGRESS_QOS  = 3
-    IFLA_VLAN_INGRESS_QOS = 4
-    IFLA_VLAN_PROTOCOL    = 5
-
-    ifla_vlan_to_string = {
-        IFLA_VLAN_UNSPEC      : 'IFLA_VLAN_UNSPEC',
-        IFLA_VLAN_ID          : 'IFLA_VLAN_ID',
-        IFLA_VLAN_FLAGS       : 'IFLA_VLAN_FLAGS',
-        IFLA_VLAN_EGRESS_QOS  : 'IFLA_VLAN_EGRESS_QOS',
-        IFLA_VLAN_INGRESS_QOS : 'IFLA_VLAN_INGRESS_QOS',
-        IFLA_VLAN_PROTOCOL    : 'IFLA_VLAN_PROTOCOL'
-    }
-
-    ifla_vlan_protocol_dict = {
-        '802.1Q':   0x8100,
-        '802.1q':   0x8100,
-
-        '802.1ad':  0x88A8,
-        '802.1AD':  0x88A8,
-        '802.1Ad':  0x88A8,
-        '802.1aD':  0x88A8,
-
-        0x8100:     '802.1Q',
-        0x88A8:     '802.1ad'
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for macvlan
-    # =========================================
-    IFLA_MACVLAN_UNSPEC = 0
-    IFLA_MACVLAN_MODE   = 1
-
-    ifla_macvlan_to_string = {
-        IFLA_MACVLAN_UNSPEC : 'IFLA_MACVLAN_UNSPEC',
-        IFLA_MACVLAN_MODE   : 'IFLA_MACVLAN_MODE'
-    }
-
-    # macvlan modes
-    MACVLAN_MODE_PRIVATE  = 1
-    MACVLAN_MODE_VEPA     = 2
-    MACVLAN_MODE_BRIDGE   = 3
-    MACVLAN_MODE_PASSTHRU = 4
-
-    macvlan_mode_to_string = {
-        MACVLAN_MODE_PRIVATE  : 'MACVLAN_MODE_PRIVATE',
-        MACVLAN_MODE_VEPA     : 'MACVLAN_MODE_VEPA',
-        MACVLAN_MODE_BRIDGE   : 'MACVLAN_MODE_BRIDGE',
-        MACVLAN_MODE_PASSTHRU : 'MACVLAN_MODE_PASSTHRU'
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for xfrm
-    # =========================================
-    IFLA_XFRM_UNSPEC = 0
-    IFLA_XFRM_LINK   = 1
-    IFLA_XFRM_IF_ID  = 2
-
-    ifla_xfrm_to_string = {
-        IFLA_XFRM_UNSPEC : 'IFLA_XFRM_UNSPEC',
-        IFLA_XFRM_LINK   : 'IFLA_XFRM_LINK',
-        IFLA_XFRM_IF_ID   : 'IFLA_XFRM_IF_ID'
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for vxlan
-    # =========================================
-    IFLA_VXLAN_UNSPEC            = 0
-    IFLA_VXLAN_ID                = 1
-    IFLA_VXLAN_GROUP             = 2
-    IFLA_VXLAN_LINK              = 3
-    IFLA_VXLAN_LOCAL             = 4
-    IFLA_VXLAN_TTL               = 5
-    IFLA_VXLAN_TOS               = 6
-    IFLA_VXLAN_LEARNING          = 7
-    IFLA_VXLAN_AGEING            = 8
-    IFLA_VXLAN_LIMIT             = 9
-    IFLA_VXLAN_PORT_RANGE        = 10
-    IFLA_VXLAN_PROXY             = 11
-    IFLA_VXLAN_RSC               = 12
-    IFLA_VXLAN_L2MISS            = 13
-    IFLA_VXLAN_L3MISS            = 14
-    IFLA_VXLAN_PORT              = 15
-    IFLA_VXLAN_GROUP6            = 16
-    IFLA_VXLAN_LOCAL6            = 17
-    IFLA_VXLAN_UDP_CSUM          = 18
-    IFLA_VXLAN_UDP_ZERO_CSUM6_TX = 19
-    IFLA_VXLAN_UDP_ZERO_CSUM6_RX = 20
-    IFLA_VXLAN_REMCSUM_TX        = 21
-    IFLA_VXLAN_REMCSUM_RX        = 22
-    IFLA_VXLAN_GBP               = 23
-    IFLA_VXLAN_REMCSUM_NOPARTIAL = 24
-    IFLA_VXLAN_COLLECT_METADATA  = 25
-    IFLA_VXLAN_REPLICATION_NODE  = 253
-    IFLA_VXLAN_REPLICATION_TYPE  = 254
-
-    ifla_vxlan_to_string = {
-        IFLA_VXLAN_UNSPEC            : 'IFLA_VXLAN_UNSPEC',
-        IFLA_VXLAN_ID                : 'IFLA_VXLAN_ID',
-        IFLA_VXLAN_GROUP             : 'IFLA_VXLAN_GROUP',
-        IFLA_VXLAN_LINK              : 'IFLA_VXLAN_LINK',
-        IFLA_VXLAN_LOCAL             : 'IFLA_VXLAN_LOCAL',
-        IFLA_VXLAN_TTL               : 'IFLA_VXLAN_TTL',
-        IFLA_VXLAN_TOS               : 'IFLA_VXLAN_TOS',
-        IFLA_VXLAN_LEARNING          : 'IFLA_VXLAN_LEARNING',
-        IFLA_VXLAN_AGEING            : 'IFLA_VXLAN_AGEING',
-        IFLA_VXLAN_LIMIT             : 'IFLA_VXLAN_LIMIT',
-        IFLA_VXLAN_PORT_RANGE        : 'IFLA_VXLAN_PORT_RANGE',
-        IFLA_VXLAN_PROXY             : 'IFLA_VXLAN_PROXY',
-        IFLA_VXLAN_RSC               : 'IFLA_VXLAN_RSC',
-        IFLA_VXLAN_L2MISS            : 'IFLA_VXLAN_L2MISS',
-        IFLA_VXLAN_L3MISS            : 'IFLA_VXLAN_L3MISS',
-        IFLA_VXLAN_PORT              : 'IFLA_VXLAN_PORT',
-        IFLA_VXLAN_GROUP6            : 'IFLA_VXLAN_GROUP6',
-        IFLA_VXLAN_LOCAL6            : 'IFLA_VXLAN_LOCAL6',
-        IFLA_VXLAN_UDP_CSUM          : 'IFLA_VXLAN_UDP_CSUM',
-        IFLA_VXLAN_UDP_ZERO_CSUM6_TX : 'IFLA_VXLAN_UDP_ZERO_CSUM6_TX',
-        IFLA_VXLAN_UDP_ZERO_CSUM6_RX : 'IFLA_VXLAN_UDP_ZERO_CSUM6_RX',
-        IFLA_VXLAN_REMCSUM_TX        : 'IFLA_VXLAN_REMCSUM_TX',
-        IFLA_VXLAN_REMCSUM_RX        : 'IFLA_VXLAN_REMCSUM_RX',
-        IFLA_VXLAN_GBP               : 'IFLA_VXLAN_GBP',
-        IFLA_VXLAN_REMCSUM_NOPARTIAL : 'IFLA_VXLAN_REMCSUM_NOPARTIAL',
-        IFLA_VXLAN_COLLECT_METADATA  : 'IFLA_VXLAN_COLLECT_METADATA',
-        IFLA_VXLAN_REPLICATION_NODE  : 'IFLA_VXLAN_REPLICATION_NODE',
-        IFLA_VXLAN_REPLICATION_TYPE  : 'IFLA_VXLAN_REPLICATION_TYPE'
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for bonds
-    # =========================================
-    IFLA_BOND_UNSPEC                    = 0
-    IFLA_BOND_MODE                      = 1
-    IFLA_BOND_ACTIVE_SLAVE              = 2
-    IFLA_BOND_MIIMON                    = 3
-    IFLA_BOND_UPDELAY                   = 4
-    IFLA_BOND_DOWNDELAY                 = 5
-    IFLA_BOND_USE_CARRIER               = 6
-    IFLA_BOND_ARP_INTERVAL              = 7
-    IFLA_BOND_ARP_IP_TARGET             = 8
-    IFLA_BOND_ARP_VALIDATE              = 9
-    IFLA_BOND_ARP_ALL_TARGETS           = 10
-    IFLA_BOND_PRIMARY                   = 11
-    IFLA_BOND_PRIMARY_RESELECT          = 12
-    IFLA_BOND_FAIL_OVER_MAC             = 13
-    IFLA_BOND_XMIT_HASH_POLICY          = 14
-    IFLA_BOND_RESEND_IGMP               = 15
-    IFLA_BOND_NUM_PEER_NOTIF            = 16
-    IFLA_BOND_ALL_SLAVES_ACTIVE         = 17
-    IFLA_BOND_MIN_LINKS                 = 18
-    IFLA_BOND_LP_INTERVAL               = 19
-    IFLA_BOND_PACKETS_PER_SLAVE         = 20
-    IFLA_BOND_AD_LACP_RATE              = 21
-    IFLA_BOND_AD_SELECT                 = 22
-    IFLA_BOND_AD_INFO                   = 23
-    IFLA_BOND_AD_ACTOR_SYS_PRIO         = 24
-    IFLA_BOND_AD_USER_PORT_KEY          = 25
-    IFLA_BOND_AD_ACTOR_SYSTEM           = 26
-    IFLA_BOND_AD_LACP_BYPASS            = 100
-
-    ifla_bond_to_string = {
-        IFLA_BOND_UNSPEC                    : 'IFLA_BOND_UNSPEC',
-        IFLA_BOND_MODE                      : 'IFLA_BOND_MODE',
-        IFLA_BOND_ACTIVE_SLAVE              : 'IFLA_BOND_ACTIVE_SLAVE',
-        IFLA_BOND_MIIMON                    : 'IFLA_BOND_MIIMON',
-        IFLA_BOND_UPDELAY                   : 'IFLA_BOND_UPDELAY',
-        IFLA_BOND_DOWNDELAY                 : 'IFLA_BOND_DOWNDELAY',
-        IFLA_BOND_USE_CARRIER               : 'IFLA_BOND_USE_CARRIER',
-        IFLA_BOND_ARP_INTERVAL              : 'IFLA_BOND_ARP_INTERVAL',
-        IFLA_BOND_ARP_IP_TARGET             : 'IFLA_BOND_ARP_IP_TARGET',
-        IFLA_BOND_ARP_VALIDATE              : 'IFLA_BOND_ARP_VALIDATE',
-        IFLA_BOND_ARP_ALL_TARGETS           : 'IFLA_BOND_ARP_ALL_TARGETS',
-        IFLA_BOND_PRIMARY                   : 'IFLA_BOND_PRIMARY',
-        IFLA_BOND_PRIMARY_RESELECT          : 'IFLA_BOND_PRIMARY_RESELECT',
-        IFLA_BOND_FAIL_OVER_MAC             : 'IFLA_BOND_FAIL_OVER_MAC',
-        IFLA_BOND_XMIT_HASH_POLICY          : 'IFLA_BOND_XMIT_HASH_POLICY',
-        IFLA_BOND_RESEND_IGMP               : 'IFLA_BOND_RESEND_IGMP',
-        IFLA_BOND_NUM_PEER_NOTIF            : 'IFLA_BOND_NUM_PEER_NOTIF',
-        IFLA_BOND_ALL_SLAVES_ACTIVE         : 'IFLA_BOND_ALL_SLAVES_ACTIVE',
-        IFLA_BOND_MIN_LINKS                 : 'IFLA_BOND_MIN_LINKS',
-        IFLA_BOND_LP_INTERVAL               : 'IFLA_BOND_LP_INTERVAL',
-        IFLA_BOND_PACKETS_PER_SLAVE         : 'IFLA_BOND_PACKETS_PER_SLAVE',
-        IFLA_BOND_AD_LACP_RATE              : 'IFLA_BOND_AD_LACP_RATE',
-        IFLA_BOND_AD_SELECT                 : 'IFLA_BOND_AD_SELECT',
-        IFLA_BOND_AD_INFO                   : 'IFLA_BOND_AD_INFO',
-        IFLA_BOND_AD_ACTOR_SYS_PRIO         : 'IFLA_BOND_AD_ACTOR_SYS_PRIO',
-        IFLA_BOND_AD_USER_PORT_KEY          : 'IFLA_BOND_AD_USER_PORT_KEY',
-        IFLA_BOND_AD_ACTOR_SYSTEM           : 'IFLA_BOND_AD_ACTOR_SYSTEM',
-        IFLA_BOND_AD_LACP_BYPASS            : 'IFLA_BOND_AD_LACP_BYPASS'
-    }
-
-    IFLA_BOND_AD_INFO_UNSPEC            = 0
-    IFLA_BOND_AD_INFO_AGGREGATOR        = 1
-    IFLA_BOND_AD_INFO_NUM_PORTS         = 2
-    IFLA_BOND_AD_INFO_ACTOR_KEY         = 3
-    IFLA_BOND_AD_INFO_PARTNER_KEY       = 4
-    IFLA_BOND_AD_INFO_PARTNER_MAC       = 5
-
-    ifla_bond_ad_to_string = {
-        IFLA_BOND_AD_INFO_UNSPEC            : 'IFLA_BOND_AD_INFO_UNSPEC',
-        IFLA_BOND_AD_INFO_AGGREGATOR        : 'IFLA_BOND_AD_INFO_AGGREGATOR',
-        IFLA_BOND_AD_INFO_NUM_PORTS         : 'IFLA_BOND_AD_INFO_NUM_PORTS',
-        IFLA_BOND_AD_INFO_ACTOR_KEY         : 'IFLA_BOND_AD_INFO_ACTOR_KEY',
-        IFLA_BOND_AD_INFO_PARTNER_KEY       : 'IFLA_BOND_AD_INFO_PARTNER_KEY',
-        IFLA_BOND_AD_INFO_PARTNER_MAC       : 'IFLA_BOND_AD_INFO_PARTNER_MAC'
-    }
-
-    ifla_bond_mode_tbl = {
-        'balance-rr': 0,
-        'active-backup': 1,
-        'balance-xor': 2,
-        'broadcast': 3,
-        '802.3ad': 4,
-        'balance-tlb': 5,
-        'balance-alb': 6,
-        '0': 0,
-        '1': 1,
-        '2': 2,
-        '3': 3,
-        '4': 4,
-        '5': 5,
-        '6': 6,
-        0: 0,
-        1: 1,
-        2: 2,
-        3: 3,
-        4: 4,
-        5: 5,
-        6: 6
-    }
-
-    ifla_bond_mode_pretty_tbl = {
-        0: 'balance-rr',
-        1: 'active-backup',
-        2: 'balance-xor',
-        3: 'broadcast',
-        4: '802.3ad',
-        5: 'balance-tlb',
-        6: 'balance-alb'
-    }
-
-    ifla_bond_xmit_hash_policy_tbl = {
-        'layer2': 0,
-        'layer3+4': 1,
-        'layer2+3': 2,
-        'encap2+3': 3,
-        'encap3+4': 4,
-        '0': 0,
-        '1': 1,
-        '2': 2,
-        '3': 3,
-        '4': 4,
-        0: 0,
-        1: 1,
-        2: 2,
-        3: 3,
-        4: 4
-    }
-
-    ifla_bond_xmit_hash_policy_pretty_tbl = {
-        0: 'layer2',
-        1: 'layer3+4',
-        2: 'layer2+3',
-        3: 'encap2+3',
-        4: 'encap3+4',
-    }
-
-    # =========================================
-    # IFLA_INFO_SLAVE_DATA attributes for bonds
-    # =========================================
-    IFLA_BOND_SLAVE_UNSPEC                      = 0
-    IFLA_BOND_SLAVE_STATE                       = 1
-    IFLA_BOND_SLAVE_MII_STATUS                  = 2
-    IFLA_BOND_SLAVE_LINK_FAILURE_COUNT          = 3
-    IFLA_BOND_SLAVE_PERM_HWADDR                 = 4
-    IFLA_BOND_SLAVE_QUEUE_ID                    = 5
-    IFLA_BOND_SLAVE_AD_AGGREGATOR_ID            = 6
-    IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE    = 7
-    IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE  = 8
-    IFLA_BOND_SLAVE_CL_START                    = 50
-    IFLA_BOND_SLAVE_AD_RX_BYPASS                = IFLA_BOND_SLAVE_CL_START
-
-    ifla_bond_slave_to_string = {
-        IFLA_BOND_SLAVE_UNSPEC                      : 'IFLA_BOND_SLAVE_UNSPEC',
-        IFLA_BOND_SLAVE_STATE                       : 'IFLA_BOND_SLAVE_STATE',
-        IFLA_BOND_SLAVE_MII_STATUS                  : 'IFLA_BOND_SLAVE_MII_STATUS',
-        IFLA_BOND_SLAVE_LINK_FAILURE_COUNT          : 'IFLA_BOND_SLAVE_LINK_FAILURE_COUNT',
-        IFLA_BOND_SLAVE_PERM_HWADDR                 : 'IFLA_BOND_SLAVE_PERM_HWADDR',
-        IFLA_BOND_SLAVE_QUEUE_ID                    : 'IFLA_BOND_SLAVE_QUEUE_ID',
-        IFLA_BOND_SLAVE_AD_AGGREGATOR_ID            : 'IFLA_BOND_SLAVE_AD_AGGREGATOR_ID',
-        IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE    : 'IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE',
-        IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE  : 'IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE',
-        IFLA_BOND_SLAVE_CL_START                    : 'IFLA_BOND_SLAVE_CL_START',
-        IFLA_BOND_SLAVE_AD_RX_BYPASS                : 'IFLA_BOND_SLAVE_AD_RX_BYPASS'
-    }
-
-    # =========================================
-    # IFLA_PROTINFO attributes for bridge ports
-    # =========================================
-    IFLA_BRPORT_UNSPEC              = 0
-    IFLA_BRPORT_STATE               = 1
-    IFLA_BRPORT_PRIORITY            = 2
-    IFLA_BRPORT_COST                = 3
-    IFLA_BRPORT_MODE                = 4
-    IFLA_BRPORT_GUARD               = 5
-    IFLA_BRPORT_PROTECT             = 6
-    IFLA_BRPORT_FAST_LEAVE          = 7
-    IFLA_BRPORT_LEARNING            = 8
-    IFLA_BRPORT_UNICAST_FLOOD       = 9
-    IFLA_BRPORT_PROXYARP            = 10
-    IFLA_BRPORT_LEARNING_SYNC       = 11
-    IFLA_BRPORT_PROXYARP_WIFI       = 12
-    IFLA_BRPORT_ROOT_ID             = 13
-    IFLA_BRPORT_BRIDGE_ID           = 14
-    IFLA_BRPORT_DESIGNATED_PORT     = 15
-    IFLA_BRPORT_DESIGNATED_COST     = 16
-    IFLA_BRPORT_ID                  = 17
-    IFLA_BRPORT_NO                  = 18
-    IFLA_BRPORT_TOPOLOGY_CHANGE_ACK = 19
-    IFLA_BRPORT_CONFIG_PENDING      = 20
-    IFLA_BRPORT_MESSAGE_AGE_TIMER   = 21
-    IFLA_BRPORT_FORWARD_DELAY_TIMER = 22
-    IFLA_BRPORT_HOLD_TIMER          = 23
-    IFLA_BRPORT_FLUSH               = 24
-    IFLA_BRPORT_MULTICAST_ROUTER    = 25
-    IFLA_BRPORT_PAD                 = 26
-    IFLA_BRPORT_MCAST_FLOOD         = 27
-    IFLA_BRPORT_MCAST_TO_UCAST      = 28
-    IFLA_BRPORT_VLAN_TUNNEL         = 29
-    IFLA_BRPORT_BCAST_FLOOD         = 30
-    IFLA_BRPORT_GROUP_FWD_MASK      = 31
-    IFLA_BRPORT_ARP_SUPPRESS        = 32
-    IFLA_BRPORT_PEER_LINK           = 150
-    IFLA_BRPORT_DUAL_LINK           = 151
-    IFLA_BRPORT_GROUP_FWD_MASKHI    = 153
-    IFLA_BRPORT_DOWN_PEERLINK_REDIRECT = 154
-
-    ifla_brport_to_string = {
-        IFLA_BRPORT_UNSPEC              : 'IFLA_BRPORT_UNSPEC',
-        IFLA_BRPORT_STATE               : 'IFLA_BRPORT_STATE',
-        IFLA_BRPORT_PRIORITY            : 'IFLA_BRPORT_PRIORITY',
-        IFLA_BRPORT_COST                : 'IFLA_BRPORT_COST',
-        IFLA_BRPORT_MODE                : 'IFLA_BRPORT_MODE',
-        IFLA_BRPORT_GUARD               : 'IFLA_BRPORT_GUARD',
-        IFLA_BRPORT_PROTECT             : 'IFLA_BRPORT_PROTECT',
-        IFLA_BRPORT_FAST_LEAVE          : 'IFLA_BRPORT_FAST_LEAVE',
-        IFLA_BRPORT_LEARNING            : 'IFLA_BRPORT_LEARNING',
-        IFLA_BRPORT_UNICAST_FLOOD       : 'IFLA_BRPORT_UNICAST_FLOOD',
-        IFLA_BRPORT_PROXYARP            : 'IFLA_BRPORT_PROXYARP',
-        IFLA_BRPORT_LEARNING_SYNC       : 'IFLA_BRPORT_LEARNING_SYNC',
-        IFLA_BRPORT_PROXYARP_WIFI       : 'IFLA_BRPORT_PROXYARP_WIFI',
-        IFLA_BRPORT_ROOT_ID             : 'IFLA_BRPORT_ROOT_ID',
-        IFLA_BRPORT_BRIDGE_ID           : 'IFLA_BRPORT_BRIDGE_ID',
-        IFLA_BRPORT_DESIGNATED_PORT     : 'IFLA_BRPORT_DESIGNATED_PORT',
-        IFLA_BRPORT_DESIGNATED_COST     : 'IFLA_BRPORT_DESIGNATED_COST',
-        IFLA_BRPORT_ID                  : 'IFLA_BRPORT_ID',
-        IFLA_BRPORT_NO                  : 'IFLA_BRPORT_NO',
-        IFLA_BRPORT_TOPOLOGY_CHANGE_ACK : 'IFLA_BRPORT_TOPOLOGY_CHANGE_ACK',
-        IFLA_BRPORT_CONFIG_PENDING      : 'IFLA_BRPORT_CONFIG_PENDING',
-        IFLA_BRPORT_MESSAGE_AGE_TIMER   : 'IFLA_BRPORT_MESSAGE_AGE_TIMER',
-        IFLA_BRPORT_FORWARD_DELAY_TIMER : 'IFLA_BRPORT_FORWARD_DELAY_TIMER',
-        IFLA_BRPORT_HOLD_TIMER          : 'IFLA_BRPORT_HOLD_TIMER',
-        IFLA_BRPORT_FLUSH               : 'IFLA_BRPORT_FLUSH',
-        IFLA_BRPORT_MULTICAST_ROUTER    : 'IFLA_BRPORT_MULTICAST_ROUTER',
-        IFLA_BRPORT_PAD                 : 'IFLA_BRPORT_PAD',
-        IFLA_BRPORT_MCAST_FLOOD         : 'IFLA_BRPORT_MCAST_FLOOD',
-        IFLA_BRPORT_MCAST_TO_UCAST      : 'IFLA_BRPORT_MCAST_TO_UCAST',
-        IFLA_BRPORT_VLAN_TUNNEL         : 'IFLA_BRPORT_VLAN_TUNNEL',
-        IFLA_BRPORT_BCAST_FLOOD         : 'IFLA_BRPORT_BCAST_FLOOD',
-        IFLA_BRPORT_GROUP_FWD_MASK      : 'IFLA_BRPORT_GROUP_FWD_MASK',
-        IFLA_BRPORT_PEER_LINK           : 'IFLA_BRPORT_PEER_LINK',
-        IFLA_BRPORT_DUAL_LINK           : 'IFLA_BRPORT_DUAL_LINK',
-        IFLA_BRPORT_ARP_SUPPRESS        : 'IFLA_BRPORT_ARP_SUPPRESS',
-        IFLA_BRPORT_GROUP_FWD_MASKHI    : 'IFLA_BRPORT_GROUP_FWD_MASKHI',
-        IFLA_BRPORT_DOWN_PEERLINK_REDIRECT : 'IFLA_BRPORT_DOWN_PEERLINK_REDIRECT'
-    }
-
     # Subtype attributes for IFLA_AF_SPEC
     IFLA_INET6_UNSPEC           = 0
     IFLA_INET6_FLAGS            = 1  # link flags
@@ -3677,238 +4328,6 @@ class Link(NetlinkPacket):
         RTEXT_FILTER_SKIP_STATS        : 'RTEXT_FILTER_SKIP_STATS'
     }
 
-    IFLA_BR_UNSPEC                     =  0
-    IFLA_BR_FORWARD_DELAY              =  1
-    IFLA_BR_HELLO_TIME                 =  2
-    IFLA_BR_MAX_AGE                    =  3
-    IFLA_BR_AGEING_TIME                =  4
-    IFLA_BR_STP_STATE                  =  5
-    IFLA_BR_PRIORITY                   =  6
-    IFLA_BR_VLAN_FILTERING             =  7
-    IFLA_BR_VLAN_PROTOCOL              =  8
-    IFLA_BR_GROUP_FWD_MASK             =  9
-    IFLA_BR_ROOT_ID                    = 10
-    IFLA_BR_BRIDGE_ID                  = 11
-    IFLA_BR_ROOT_PORT                  = 12
-    IFLA_BR_ROOT_PATH_COST             = 13
-    IFLA_BR_TOPOLOGY_CHANGE            = 14
-    IFLA_BR_TOPOLOGY_CHANGE_DETECTED   = 15
-    IFLA_BR_HELLO_TIMER                = 16
-    IFLA_BR_TCN_TIMER                  = 17
-    IFLA_BR_TOPOLOGY_CHANGE_TIMER      = 18
-    IFLA_BR_GC_TIMER                   = 19
-    IFLA_BR_GROUP_ADDR                 = 20
-    IFLA_BR_FDB_FLUSH                  = 21
-    IFLA_BR_MCAST_ROUTER               = 22
-    IFLA_BR_MCAST_SNOOPING             = 23
-    IFLA_BR_MCAST_QUERY_USE_IFADDR     = 24
-    IFLA_BR_MCAST_QUERIER              = 25
-    IFLA_BR_MCAST_HASH_ELASTICITY      = 26
-    IFLA_BR_MCAST_HASH_MAX             = 27
-    IFLA_BR_MCAST_LAST_MEMBER_CNT      = 28
-    IFLA_BR_MCAST_STARTUP_QUERY_CNT    = 29
-    IFLA_BR_MCAST_LAST_MEMBER_INTVL    = 30
-    IFLA_BR_MCAST_MEMBERSHIP_INTVL     = 31
-    IFLA_BR_MCAST_QUERIER_INTVL        = 32
-    IFLA_BR_MCAST_QUERY_INTVL          = 33
-    IFLA_BR_MCAST_QUERY_RESPONSE_INTVL = 34
-    IFLA_BR_MCAST_STARTUP_QUERY_INTVL  = 35
-    IFLA_BR_NF_CALL_IPTABLES           = 36
-    IFLA_BR_NF_CALL_IP6TABLES          = 37
-    IFLA_BR_NF_CALL_ARPTABLES          = 38
-    IFLA_BR_VLAN_DEFAULT_PVID          = 39
-    IFLA_BR_PAD                        = 40
-    IFLA_BR_VLAN_STATS_ENABLED         = 41
-    IFLA_BR_MCAST_STATS_ENABLED        = 42
-    IFLA_BR_MCAST_IGMP_VERSION         = 43
-    IFLA_BR_MCAST_MLD_VERSION          = 44
-
-    ifla_br_to_string = {
-        IFLA_BR_UNSPEC                     : 'IFLA_BR_UNSPEC',
-        IFLA_BR_FORWARD_DELAY              : 'IFLA_BR_FORWARD_DELAY',
-        IFLA_BR_HELLO_TIME                 : 'IFLA_BR_HELLO_TIME',
-        IFLA_BR_MAX_AGE                    : 'IFLA_BR_MAX_AGE',
-        IFLA_BR_AGEING_TIME                : 'IFLA_BR_AGEING_TIME',
-        IFLA_BR_STP_STATE                  : 'IFLA_BR_STP_STATE',
-        IFLA_BR_PRIORITY                   : 'IFLA_BR_PRIORITY',
-        IFLA_BR_VLAN_FILTERING             : 'IFLA_BR_VLAN_FILTERING',
-        IFLA_BR_VLAN_PROTOCOL              : 'IFLA_BR_VLAN_PROTOCOL',
-        IFLA_BR_GROUP_FWD_MASK             : 'IFLA_BR_GROUP_FWD_MASK',
-        IFLA_BR_ROOT_ID                    : 'IFLA_BR_ROOT_ID',
-        IFLA_BR_BRIDGE_ID                  : 'IFLA_BR_BRIDGE_ID',
-        IFLA_BR_ROOT_PORT                  : 'IFLA_BR_ROOT_PORT',
-        IFLA_BR_ROOT_PATH_COST             : 'IFLA_BR_ROOT_PATH_COST',
-        IFLA_BR_TOPOLOGY_CHANGE            : 'IFLA_BR_TOPOLOGY_CHANGE',
-        IFLA_BR_TOPOLOGY_CHANGE_DETECTED   : 'IFLA_BR_TOPOLOGY_CHANGE_DETECTED',
-        IFLA_BR_HELLO_TIMER                : 'IFLA_BR_HELLO_TIMER',
-        IFLA_BR_TCN_TIMER                  : 'IFLA_BR_TCN_TIMER',
-        IFLA_BR_TOPOLOGY_CHANGE_TIMER      : 'IFLA_BR_TOPOLOGY_CHANGE_TIMER',
-        IFLA_BR_GC_TIMER                   : 'IFLA_BR_GC_TIMER',
-        IFLA_BR_GROUP_ADDR                 : 'IFLA_BR_GROUP_ADDR',
-        IFLA_BR_FDB_FLUSH                  : 'IFLA_BR_FDB_FLUSH',
-        IFLA_BR_MCAST_ROUTER               : 'IFLA_BR_MCAST_ROUTER',
-        IFLA_BR_MCAST_SNOOPING             : 'IFLA_BR_MCAST_SNOOPING',
-        IFLA_BR_MCAST_QUERY_USE_IFADDR     : 'IFLA_BR_MCAST_QUERY_USE_IFADDR',
-        IFLA_BR_MCAST_QUERIER              : 'IFLA_BR_MCAST_QUERIER',
-        IFLA_BR_MCAST_HASH_ELASTICITY      : 'IFLA_BR_MCAST_HASH_ELASTICITY',
-        IFLA_BR_MCAST_HASH_MAX             : 'IFLA_BR_MCAST_HASH_MAX',
-        IFLA_BR_MCAST_LAST_MEMBER_CNT      : 'IFLA_BR_MCAST_LAST_MEMBER_CNT',
-        IFLA_BR_MCAST_STARTUP_QUERY_CNT    : 'IFLA_BR_MCAST_STARTUP_QUERY_CNT',
-        IFLA_BR_MCAST_LAST_MEMBER_INTVL    : 'IFLA_BR_MCAST_LAST_MEMBER_INTVL',
-        IFLA_BR_MCAST_MEMBERSHIP_INTVL     : 'IFLA_BR_MCAST_MEMBERSHIP_INTVL',
-        IFLA_BR_MCAST_QUERIER_INTVL        : 'IFLA_BR_MCAST_QUERIER_INTVL',
-        IFLA_BR_MCAST_QUERY_INTVL          : 'IFLA_BR_MCAST_QUERY_INTVL',
-        IFLA_BR_MCAST_QUERY_RESPONSE_INTVL : 'IFLA_BR_MCAST_QUERY_RESPONSE_INTVL',
-        IFLA_BR_MCAST_STARTUP_QUERY_INTVL  : 'IFLA_BR_MCAST_STARTUP_QUERY_INTVL',
-        IFLA_BR_NF_CALL_IPTABLES           : 'IFLA_BR_NF_CALL_IPTABLES',
-        IFLA_BR_NF_CALL_IP6TABLES          : 'IFLA_BR_NF_CALL_IP6TABLES',
-        IFLA_BR_NF_CALL_ARPTABLES          : 'IFLA_BR_NF_CALL_ARPTABLES',
-        IFLA_BR_VLAN_DEFAULT_PVID          : 'IFLA_BR_VLAN_DEFAULT_PVID',
-        IFLA_BR_PAD                        : 'IFLA_BR_PAD',
-        IFLA_BR_VLAN_STATS_ENABLED         : 'IFLA_BR_VLAN_STATS_ENABLED',
-        IFLA_BR_MCAST_STATS_ENABLED        : 'IFLA_BR_MCAST_STATS_ENABLED',
-        IFLA_BR_MCAST_IGMP_VERSION         : 'IFLA_BR_MCAST_IGMP_VERSION',
-        IFLA_BR_MCAST_MLD_VERSION          : 'IFLA_BR_MCAST_MLD_VERSION'
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for vrfs
-    # =========================================
-    IFLA_VRF_UNSPEC                         = 0
-    IFLA_VRF_TABLE                          = 1
-
-    ifla_vrf_to_string = {
-        IFLA_VRF_UNSPEC                     : 'IFLA_VRF_UNSPEC',
-        IFLA_VRF_TABLE                      : 'IFLA_VRF_TABLE'
-    }
-
-    # ================================================================
-    # IFLA_INFO_DATA attributes for (ip6)gre, (ip6)gretap, (ip6)erspan
-    # ================================================================
-    IFLA_GRE_UNSPEC             = 0
-    IFLA_GRE_LINK               = 1
-    IFLA_GRE_IFLAGS             = 2
-    IFLA_GRE_OFLAGS             = 3
-    IFLA_GRE_IKEY               = 4
-    IFLA_GRE_OKEY               = 5
-    IFLA_GRE_LOCAL              = 6
-    IFLA_GRE_REMOTE             = 7
-    IFLA_GRE_TTL                = 8
-    IFLA_GRE_TOS                = 9
-    IFLA_GRE_PMTUDISC           = 10
-    IFLA_GRE_ENCAP_LIMIT        = 11
-    IFLA_GRE_FLOWINFO           = 12
-    IFLA_GRE_FLAGS              = 13
-    IFLA_GRE_ENCAP_TYPE         = 14
-    IFLA_GRE_ENCAP_FLAGS        = 15
-    IFLA_GRE_ENCAP_SPORT        = 16
-    IFLA_GRE_ENCAP_DPORT        = 17
-    IFLA_GRE_COLLECT_METADATA   = 18
-    IFLA_GRE_IGNORE_DF          = 19
-    IFLA_GRE_FWMARK             = 20
-    IFLA_GRE_ERSPAN_INDEX       = 21
-    IFLA_GRE_ERSPAN_VER         = 22
-    IFLA_GRE_ERSPAN_DIR         = 23
-    IFLA_GRE_ERSPAN_HWID        = 24
-
-    ifla_gre_to_string = {
-        IFLA_GRE_UNSPEC             : "IFLA_GRE_UNSPEC",
-        IFLA_GRE_LINK               : "IFLA_GRE_LINK",
-        IFLA_GRE_IFLAGS             : "IFLA_GRE_IFLAGS",
-        IFLA_GRE_OFLAGS             : "IFLA_GRE_OFLAGS",
-        IFLA_GRE_IKEY               : "IFLA_GRE_IKEY",
-        IFLA_GRE_OKEY               : "IFLA_GRE_OKEY",
-        IFLA_GRE_LOCAL              : "IFLA_GRE_LOCAL",
-        IFLA_GRE_REMOTE             : "IFLA_GRE_REMOTE",
-        IFLA_GRE_TTL                : "IFLA_GRE_TTL",
-        IFLA_GRE_TOS                : "IFLA_GRE_TOS",
-        IFLA_GRE_PMTUDISC           : "IFLA_GRE_PMTUDISC",
-        IFLA_GRE_ENCAP_LIMIT        : "IFLA_GRE_ENCAP_LIMIT",
-        IFLA_GRE_FLOWINFO           : "IFLA_GRE_FLOWINFO",
-        IFLA_GRE_FLAGS              : "IFLA_GRE_FLAGS",
-        IFLA_GRE_ENCAP_TYPE         : "IFLA_GRE_ENCAP_TYPE",
-        IFLA_GRE_ENCAP_FLAGS        : "IFLA_GRE_ENCAP_FLAGS",
-        IFLA_GRE_ENCAP_SPORT        : "IFLA_GRE_ENCAP_SPORT",
-        IFLA_GRE_ENCAP_DPORT        : "IFLA_GRE_ENCAP_DPORT",
-        IFLA_GRE_COLLECT_METADATA   : "IFLA_GRE_COLLECT_METADATA",
-        IFLA_GRE_IGNORE_DF          : "IFLA_GRE_IGNORE_DF",
-        IFLA_GRE_FWMARK             : "IFLA_GRE_FWMARK",
-        IFLA_GRE_ERSPAN_INDEX       : "IFLA_GRE_ERSPAN_INDEX",
-        IFLA_GRE_ERSPAN_VER         : "IFLA_GRE_ERSPAN_VER",
-        IFLA_GRE_ERSPAN_DIR         : "IFLA_GRE_ERSPAN_DIR",
-        IFLA_GRE_ERSPAN_HWID        : "IFLA_GRE_ERSPAN_HWID",
-    }
-
-    # ===============================================
-    # IFLA_INFO_DATA attributes for ipip, sit, ip6tnl
-    # ===============================================
-    IFLA_IPTUN_UNSPEC                       = 0
-    IFLA_IPTUN_LINK                         = 1
-    IFLA_IPTUN_LOCAL                        = 2
-    IFLA_IPTUN_REMOTE                       = 3
-    IFLA_IPTUN_TTL                          = 4
-    IFLA_IPTUN_TOS                          = 5
-    IFLA_IPTUN_ENCAP_LIMIT                  = 6
-    IFLA_IPTUN_FLOWINFO                     = 7
-    IFLA_IPTUN_FLAGS                        = 8
-    IFLA_IPTUN_PROTO                        = 9
-    IFLA_IPTUN_PMTUDISC                     = 10
-    IFLA_IPTUN_6RD_PREFIX                   = 11
-    IFLA_IPTUN_6RD_RELAY_PREFIX             = 12
-    IFLA_IPTUN_6RD_PREFIXLEN                = 13
-    IFLA_IPTUN_6RD_RELAY_PREFIXLEN          = 14
-    IFLA_IPTUN_ENCAP_TYPE                   = 15
-    IFLA_IPTUN_ENCAP_FLAGS                  = 16
-    IFLA_IPTUN_ENCAP_SPORT                  = 17
-    IFLA_IPTUN_ENCAP_DPORT                  = 18
-    IFLA_IPTUN_COLLECT_METADATA             = 19
-    IFLA_IPTUN_FWMARK                       = 20
-
-    ifla_iptun_to_string = {
-        IFLA_IPTUN_UNSPEC                   : "IFLA_IPTUN_UNSPEC",
-        IFLA_IPTUN_LINK                     : "IFLA_IPTUN_LINK",
-        IFLA_IPTUN_LOCAL                    : "IFLA_IPTUN_LOCAL",
-        IFLA_IPTUN_REMOTE                   : "IFLA_IPTUN_REMOTE",
-        IFLA_IPTUN_TTL                      : "IFLA_IPTUN_TTL",
-        IFLA_IPTUN_TOS                      : "IFLA_IPTUN_TOS",
-        IFLA_IPTUN_ENCAP_LIMIT              : "IFLA_IPTUN_ENCAP_LIMIT",
-        IFLA_IPTUN_FLOWINFO                 : "IFLA_IPTUN_FLOWINFO",
-        IFLA_IPTUN_FLAGS                    : "IFLA_IPTUN_FLAGS",
-        IFLA_IPTUN_PROTO                    : "IFLA_IPTUN_PROTO",
-        IFLA_IPTUN_PMTUDISC                 : "IFLA_IPTUN_PMTUDISC",
-        IFLA_IPTUN_6RD_PREFIX               : "IFLA_IPTUN_6RD_PREFIX",
-        IFLA_IPTUN_6RD_RELAY_PREFIX         : "IFLA_IPTUN_6RD_RELAY_PREFIX",
-        IFLA_IPTUN_6RD_PREFIXLEN            : "IFLA_IPTUN_6RD_PREFIXLEN",
-        IFLA_IPTUN_6RD_RELAY_PREFIXLEN      : "IFLA_IPTUN_6RD_RELAY_PREFIXLEN",
-        IFLA_IPTUN_ENCAP_TYPE               : "IFLA_IPTUN_ENCAP_TYPE",
-        IFLA_IPTUN_ENCAP_FLAGS              : "IFLA_IPTUN_ENCAP_FLAGS",
-        IFLA_IPTUN_ENCAP_SPORT              : "IFLA_IPTUN_ENCAP_SPORT",
-        IFLA_IPTUN_ENCAP_DPORT              : "IFLA_IPTUN_ENCAP_DPORT",
-        IFLA_IPTUN_COLLECT_METADATA         : "IFLA_IPTUN_COLLECT_METADATA",
-        IFLA_IPTUN_FWMARK                   : "IFLA_IPTUN_FWMARK",
-    }
-
-    # =========================================
-    # IFLA_INFO_DATA attributes for vti, vti6
-    # =========================================
-    IFLA_VTI_UNSPEC     = 0
-    IFLA_VTI_LINK       = 1
-    IFLA_VTI_IKEY       = 2
-    IFLA_VTI_OKEY       = 3
-    IFLA_VTI_LOCAL      = 4
-    IFLA_VTI_REMOTE     = 5
-    IFLA_VTI_FWMARK     = 6
-
-    ifla_vti_to_string = {
-        IFLA_VTI_UNSPEC     : "IFLA_VTI_UNSPEC",
-        IFLA_VTI_LINK       : "IFLA_VTI_LINK",
-        IFLA_VTI_IKEY       : "IFLA_VTI_IKEY",
-        IFLA_VTI_OKEY       : "IFLA_VTI_OKEY",
-        IFLA_VTI_LOCAL      : "IFLA_VTI_LOCAL",
-        IFLA_VTI_REMOTE     : "IFLA_VTI_REMOTE",
-        IFLA_VTI_FWMARK     : "IFLA_VTI_FWMARK",
-    }
-
     def __init__(self, msgtype, debug=False, logger=None, use_color=True):
         NetlinkPacket.__init__(self, msgtype, debug, logger, use_color)
         self.PACK = 'BxHiII'
@@ -3935,11 +4354,14 @@ class Link(NetlinkPacket):
     def get_ifla_vxlan_string(self, index):
         return self.get_string(self.ifla_vxlan_to_string, index)
 
+    def get_ifla_vrf_string(self, index):
+        return self.get_string(self.ifla_vrf_to_string, index)
+
+    def get_ifla_bond_slave_string(self, index):
+        return self.get_string(self.ifla_bond_slave_to_string, index)
+
     def get_ifla_macvlan_string(self, index):
         return self.get_string(self.ifla_macvlan_to_string, index)
-
-    def get_ifla_xfrm_string(self, index):
-        return self.get_string(self.ifla_xfrm_to_string, index)
 
     def get_macvlan_mode_string(self, index):
         return self.get_string(self.macvlan_mode_to_string, index)
@@ -4014,6 +4436,386 @@ class Link(NetlinkPacket):
         return False
 
 
+class AttributeMDBA_MDB(Attribute):
+    """
+    /* Bridge multicast database attributes
+     * [MDBA_MDB] = {
+     *     [MDBA_MDB_ENTRY] = {
+     *         [MDBA_MDB_ENTRY_INFO] {
+     *                struct br_mdb_entry
+     *                [MDBA_MDB_EATTR attributes]
+     *         }
+     *     }
+     * }
+    """
+    """
+    Current we support only MDB Dump and no MDB_GET.
+    The code has been written to handle multiple entries in a single msg.
+    data -- alignment
+    MDBA_MDB ===> data[0:4]
+    MDBA_MDB_ENTRY ===> data[4:8]
+    MDBA_MDB_ENTRY_INFO ===> data[8:12]
+    br_mdb_entry -- ===> ifindex data[12:16]
+                 -- ===> state,flags,vide data[16:20]
+                  -- ===> ip_addr data[20:36]
+                 -- ===> proto data[36:40]
+                 -- ===> MDB_MDB_EATTR_TIMER data[40:44]
+                 -- Timer Value data[44:48]
+    """
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+
+        data = self.data[4:]
+        if parent_msg.msgtype == RTM_GETMDB:
+            self.value = []
+            while data:
+                (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+                sub_attr_end = padded_length(sub_attr_length)
+                sub_attr_data = data[4:sub_attr_end]
+
+                mdb_entry = {}
+                mdb_entry[MDB.MDBA_MDB_ENTRY] = []
+                if not sub_attr_length:
+                    self.log.error('parsed a zero length sub-attr')
+                    return
+
+                if sub_attr_type == MDB.MDBA_MDB_ENTRY:
+                    while sub_attr_data:
+                        nested_mdb_entry = {}
+                        (nested_attr_length,nested_attr_type) = unpack('=HH',sub_attr_data[:4])
+                        nested_attr_end = padded_length(nested_attr_length)
+                        if nested_attr_type == MDB.MDBA_MDB_ENTRY_INFO:
+                            (ifindex, state, flags, vid) = unpack('=LBBH',sub_attr_data[4:12])
+                            info = [ifindex,state,flags,vid]
+                            proto = unpack('=H',sub_attr_data[28:30])[0]
+                            if proto == htons(ETH_P_IP):
+                                ip_addr = IPv4Address(unpack('>L', sub_attr_data[12:16])[0])
+                            else:
+                                (data1, data2) = unpack('>QQ',sub_attr_data[12:28])
+                                ip_addr        =  IPv6Address(data1 << 64 | data2)
+
+                            info.append(ip_addr)
+
+                            try:
+                                (timer_attr_length,timer_attr_type) = unpack('=HH',sub_attr_data[32:36])
+                                if(timer_attr_type ) == MDB.MDBA_MDB_EATTR_TIMER:
+                                    info.append({MDB.MDBA_MDB_EATTR_TIMER: (unpack('=I',sub_attr_data[36:40])[0])*0.01})
+                            except struct.error:
+                                self.log.error('No TimerAttribute')
+                            nested_mdb_entry[MDB.MDBA_MDB_ENTRY] = info
+                            mdb_entry[MDB.MDBA_MDB_ENTRY].append(nested_mdb_entry)
+                        sub_attr_data = sub_attr_data[nested_attr_end:]
+                self.value.append(mdb_entry)
+                data = data[sub_attr_end:]
+
+        else:
+            self.value = {}
+            while data:
+                (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+                sub_attr_end = padded_length(sub_attr_length)
+                sub_attr_data = data[4:]
+                if not sub_attr_length:
+                    self.log.error('parsed a zero length sub-attr')
+                    return
+
+                if sub_attr_type == MDB.MDBA_MDB_ENTRY:
+                    (nested_attr_length,nested_attr_type) = unpack('=HH',sub_attr_data[:4])
+                    if nested_attr_type == MDB.MDBA_MDB_ENTRY_INFO:
+                        self.value[MDB.MDBA_MDB_ENTRY] = {}
+                        (ifindex,state,flags,vid) = unpack('=LBBH',sub_attr_data[4:12])
+                        info = (ifindex,state,flags,vid)
+                        info = list(info)
+                        proto = unpack('=H',sub_attr_data[28:30])[0]
+                        if proto == 8:
+                            ip_addr = IPv4Address(unpack('>L', sub_attr_data[12:16])[0])
+                        else:
+                            (data1, data2) = unpack('>QQ',sub_attr_data[12:28])
+                            ip_addr        =  IPv6Address(data1 << 64 | data2)
+
+                        info.append(ip_addr)
+                        self.value[MDB.MDBA_MDB_ENTRY][MDB.MDBA_MDB_ENTRY_INFO] = info
+                data = data[sub_attr_end:]
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[0:4], self.value))
+        return line_number + 1
+
+
+
+class AttributeMDBA_ROUTER(Attribute):
+    """
+    /*
+     * [MDBA_ROUTER] = {
+     *    [MDBA_ROUTER_PORT] = {
+     *        u32 ifindex
+     *        [MDBA_ROUTER_PATTR attributes]
+     *    }
+     * }
+     */
+     """
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        data = self.data[4:]
+        if parent_msg.msgtype == RTM_GETMDB:
+            self.value = []
+            while data:
+                (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+                sub_attr_end = padded_length(sub_attr_length)
+                sub_attr_data = data[4:sub_attr_end]
+                router_entry = {}
+
+                if not sub_attr_length:
+                    self.log.error('parsed a zero length sub-attr')
+                    return
+
+                if sub_attr_type == MDB.MDBA_ROUTER_PORT:
+                    ifindex = unpack('=I',sub_attr_data[:4])[0]
+                    sub_attr_data = sub_attr_data[4:]
+                    timer_info = {}
+                    type_info  = {}
+                    while sub_attr_data:
+                        (nested_sub_attr_length, nested_sub_attr_type) = unpack('=HH',sub_attr_data[:4])
+                        nested_sub_attr_data = sub_attr_data[4:]
+                        nested_sub_attr_end = padded_length(nested_sub_attr_length)
+                        if nested_sub_attr_type == MDB.MDBA_ROUTER_PATTR_TIMER:
+                            timer_info[MDB.MDBA_ROUTER_PATTR_TIMER] = (unpack('=L',nested_sub_attr_data[ :4])[0])*0.01
+                        elif nested_sub_attr_type == MDB.MDBA_ROUTER_PATTR_TYPE:
+                            type_info[MDB.MDBA_ROUTER_PATTR_TYPE] = unpack('=B',nested_sub_attr_data[:1])[0]
+                        else:
+                            raise Exception("Invalid Router Port Attribute")
+                        sub_attr_data = sub_attr_data[nested_sub_attr_end:]
+                    router_entry[MDB.MDBA_ROUTER_PORT] = [ifindex,timer_info,type_info]
+
+                self.value.append(router_entry)
+                data = data[sub_attr_end:]
+
+        else:
+            self.value = {}
+            while data:
+                (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+                sub_attr_end = padded_length(sub_attr_length)
+                sub_attr_data = data[4:]
+
+                if not sub_attr_length:
+                    self.log.error('parsed a zero length sub-attr')
+                    return
+
+                if sub_attr_type == MDB.MDBA_ROUTER_PORT:
+                    ifindex = unpack('=L',sub_attr_data[:4])[0]
+                self.value[MDB.MDBA_ROUTER_PORT] = ifindex
+                data = data[sub_attr_end:]
+
+    def dump_lines(self, dump_buffer, line_number, color):
+        line_number = self.dump_first_line(dump_buffer, line_number, color)
+
+        dump_buffer.append(data_to_color_text(line_number, color, self.data[0:4], self.value))
+        return line_number + 1
+
+
+class AttributeMDBA_SET_ENTRY(Attribute):
+
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.PACK = None
+        self.LEN  = None
+
+    def set_value(self, value):
+        self.value = value
+
+
+    def encode(self):
+        if self.value:
+            (ifindex, flags, state,vid, ip, proto) = self.value
+            if proto == htons(ETH_P_IP):
+                self.PACK = '=IBBHLxxxxxxxxxxxxHxx'
+                reorder = unpack('<L', ip.packed)[0]
+                ip = IPv4Address(reorder)
+
+                self.LEN = calcsize(self.PACK)
+                length = self.HEADER_LEN + self.LEN
+                #TODO Please check the encoding for Ipv6
+                raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, ifindex, flags, state, vid, ip, proto)
+            elif proto == htons(ETH_P_IPV6):
+                self.PACK = '=IBBHQQHxx'
+                (data1, data2) = unpack('<QQ', ip.packed)
+                self.LEN = calcsize(self.PACK)
+                length = self.HEADER_LEN + self.LEN
+                raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, ifindex, flags, state, vid, data1,data2, proto)
+
+            else:
+                raise Exception("%d Invalid Proto" % proto)
+            raw = self.pad(length, raw)
+            return raw
+
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        if self.length == 32:
+            proto = unpack('=H', data[28:30])[0]
+            if proto == htons(ETH_P_IP):
+                self.PACK = '=IBBHLxxxxxxxxxxxxHxx'
+                (ifindex, flags, state,vid, ip, proto) = unpack(self.PACK, self.data[4:])
+            elif proto == htons(ETH_P_IPV6):
+                self.PACK = '=IBBHQQHxx'
+                (ifindex, flags, state,vid, data1,data2, proto) = unpack(self.PACK, self.data[4:])
+                ip = IPv6Address(data1 << 64 | data2)
+            else:
+                raise Exception("%d Invalid Proto" % proto)
+            self.LEN = calcsize(self.PACK)
+            self.value = (ifindex, flags, state,vid, ip, proto)
+        else:
+            raise Exception("Invalid Attribute Length")
+
+
+
+class MDB(NetlinkPacket):
+    """
+    Service Header
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   Family    |    Reserved1  |           Reserved2           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Interface Index                         |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    struct br_port_msg {
+    __u8  family;
+    __u32 ifindex;
+    };
+
+    RTM_GETMDB - Service Header
+
+    /* Bridge multicast database attributes
+     * [MDBA_MDB] = {
+     *     [MDBA_MDB_ENTRY] = {
+     *         [MDBA_MDB_ENTRY_INFO] {
+     *                struct br_mdb_entry
+     *                [MDBA_MDB_EATTR attributes]
+     *         }
+     *     }
+     * }
+     * [MDBA_ROUTER] = {
+     *    [MDBA_ROUTER_PORT] = {
+     *        u32 ifindex
+     *        [MDBA_ROUTER_PATTR attributes]
+     *    }
+     * }
+     */
+
+     struct br_mdb_entry {
+            __u32 ifindex;
+        #define MDB_TEMPORARY 0
+        #define MDB_PERMANENT 1
+            __u8 state;
+        #define MDB_FLAGS_OFFLOAD      (1 << 0)
+        #define MDB_FLAGS_FAST_LEAVE   (1 << 1)
+            __u8 flags;
+            __u16 vid;
+            struct {
+                union {
+                    __be32    ip4;
+                    struct in6_addr ip6;
+                } u;
+                __be16        proto;
+            } addr;
+        };
+    """
+    MDBA_UNSPEC = 0
+    MDBA_MDB    = 1
+    MDBA_ROUTER = 2
+    __MDBA_MAX  = 3
+    MDBA_MAX    = (__MDBA_MAX - 1)
+
+    #MDBA Set Attributes
+    MDBA_SET_ENTRY_UNSPEC  = 0
+    MDBA_SET_ENTRY         = 1
+    __MDBA_SET_ENTRY_MAX   = 2
+    MDBA_SET_ENTRY_MAX = (__MDBA_SET_ENTRY_MAX - 1)
+
+    #MDBA flags
+    MDB_FLAGS_OFFLOAD       = 1 << 0
+    MDB_FLAGS_FAST_LEAVE    = 1 << 1
+
+    #MDBA Attributes
+    MDBA_MDB_UNSPEC = 0
+    MDBA_MDB_ENTRY  = 1
+    __MDBA_MDB_MAX  = 2
+    MDBA_MDB_MAX    = (__MDBA_MDB_MAX - 1)
+
+    MDBA_MDB_ENTRY_UNSPEC   = 0
+    MDBA_MDB_ENTRY_INFO     = 1
+    __MDBA_MDB_ENTRY_MAX    = 2
+    MDBA_MDB_ENTRY_MAX      = (__MDBA_MDB_ENTRY_MAX - 1)
+
+    MDBA_MDB_EATTR_UNSPEC   = 0
+    MDBA_MDB_EATTR_TIMER    = 1
+    __MDBA_MDB_EATTR_MAX    = 2
+    MDBA_MDB_ENTRY_MAX            = (__MDBA_MDB_EATTR_MAX -1)
+
+    # router port attributes
+    MDBA_ROUTER_UNSPEC  = 0
+    MDBA_ROUTER_PORT    = 1
+    __MDBA_ROUTER_MAX   = 2
+    MDBA_ROUTER_MAX     = (__MDBA_ROUTER_MAX - 1)
+
+
+    MDBA_ROUTER_PATTR_UNSPEC    = 0
+    MDBA_ROUTER_PATTR_TIMER     = 1
+    MDBA_ROUTER_PATTR_TYPE      = 2
+    __MDBA_ROUTER_PATTR_MAX     = 3
+    MDBA_ROUTER_PATTR_MAX       = (__MDBA_ROUTER_PATTR_MAX - 1)
+
+    MDB_RTR_TYPE_DISABLED = 0
+    MDB_RTR_TYPE_TEMP_QUERY = 1
+    MDB_RTR_TYPE_PERM = 2
+    MDB_RTR_TYPE_TEMP = 3
+
+
+    def __init__(self, msgtype, debug=False, logger=None, use_color=True, rx=False, tx=False):
+        NetlinkPacket.__init__(self, msgtype, debug, logger, use_color, rx, tx)
+        if self.tx and msgtype in (RTM_NEWMDB, RTM_DELMDB):
+            self.attribute_to_class = {
+                self.MDBA_UNSPEC: ('MDBA_SET_ENTRY_UNSPEC', AttributeGeneric),
+                self.MDBA_SET_ENTRY: ('MDBA_SET_ENTRY', AttributeMDBA_SET_ENTRY),
+        }
+        else:
+            self.attribute_to_class = {
+                self.MDBA_UNSPEC: ('MDBA_UNSPEC', AttributeGeneric),
+                self.MDBA_MDB: ('MDBA_MDB', AttributeMDBA_MDB),
+                self.MDBA_ROUTER: ('MDBA_ROUTER', AttributeMDBA_ROUTER),
+            }
+
+        self.PACK = 'Bxxxi'
+        self.LEN  = calcsize(self.PACK)
+
+    def decode_service_header(self):
+        # Nothing to do if the message did not contain a service header
+        if self.length == self.header_LEN:
+            return
+
+        (self.family,self.ifindex) = unpack(self.PACK, self.msg_data[:self.LEN])
+        if self.debug:
+            color = yellow if self.use_color else None
+            color_start = "\033[%dm" % color if color else ""
+            color_end = "\033[0m" if color else ""
+            self.dump_buffer.append("  %sService Header%s" % (color_start, color_end))
+            self.dump_buffer.append(self.msg_data)
+            self.dump_buffer.append(data_to_color_text(1, color, bytearray(struct.pack('!I', self.family)),
+                                              "Family %s (%d)" % (zfilled_hex(self.family, 2), self.family)))
+            self.dump_buffer.append(data_to_color_text(2, color, bytearray(struct.pack('i', self.ifindex)),
+                                              "Ifindex %s (%d)" % (zfilled_hex(self.ifindex, 8), self.ifindex)))
+
 class Netconf(Link):
     """
     RTM_NEWNETCONF - Service Header
@@ -4048,7 +4850,8 @@ class Netconf(Link):
     NETCONFA_PROXY_NEIGH                    = 5
     NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN    = 6
     NETCONFA_INPUT                          = 7
-    __NETCONFA_MAX                          = 8
+    NETCONFA_BC_FORWARDING                  = 8
+    __NETCONFA_MAX                          = 9
 
     NETCONFA_MAX                            = (__NETCONFA_MAX - 1)
 
@@ -4073,6 +4876,7 @@ class Netconf(Link):
         NETCONFA_PROXY_NEIGH                    : ('NETCONFA_PROXY_NEIGH', AttributeFourByteValue),
         NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN    : ('NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN', AttributeFourByteValue),
         NETCONFA_INPUT                          : ('NETCONFA_INPUT', AttributeFourByteValue),
+        NETCONFA_BC_FORWARDING                  : ('NETCONFA_BC_FORWARDING', AttributeFourByteValue),
     }
 
     def __init__(self, msgtype, debug=False, logger=None, use_color=True):
@@ -4080,7 +4884,9 @@ class Netconf(Link):
         if msgtype == RTM_GETNETCONF:  # same as RTM_GETLINK
             self.PACK = 'BxHiII'
             self.LEN  = calcsize(self.PACK)
-        elif msgtype == RTM_NEWNETCONF:
+        else:
+            # RTM_NEWNETCONF
+            # RTM_DELNETCONF
             self.PACK = 'Bxxx'
             self.LEN  = calcsize(self.PACK)
 
@@ -4092,7 +4898,9 @@ class Netconf(Link):
         if self.msgtype == RTM_GETNETCONF:
             super(Netconf, self).decode_service_header()
 
-        elif self.msgtype == RTM_NEWNETCONF:
+        else:
+            # RTM_NEWNETCONF
+            # RTM_DELNETCONF
             (self.family,) = unpack(self.PACK, self.msg_data[:self.LEN])
 
             if self.debug:
@@ -4585,6 +5393,7 @@ class Route(NetlinkPacket):
                 end = start + 4
                 self.dump_buffer.append(data_to_color_text(self.line_number, color, self.msg_data[start:end], extra))
                 self.line_number += 1
+
 
 class Done(NetlinkPacket):
     """
