@@ -2969,7 +2969,8 @@ class AttributeIFLA_LINKINFO(Attribute):
                 return
 
             if sub_attr_type in (Link.IFLA_INFO_KIND, Link.IFLA_INFO_SLAVE_KIND):
-                self.value[sub_attr_type] = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+                kind = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
+                self.value[sub_attr_type] = kind.decode() if isinstance(kind, bytes) else kind
 
             elif sub_attr_type == Link.IFLA_INFO_DATA:
                 self.value[Link.IFLA_INFO_DATA] = self.decode_ifla_info_nested_data(
