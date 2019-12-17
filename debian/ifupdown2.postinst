@@ -92,6 +92,14 @@ case "$1" in
         process_udev
         chmod +x /usr/share/ifupdown2/__main__.py
         postinst_remove_diverts
+
+	#### WORK AROUND
+	# We have to manually install pip3
+	apt-get install python3-pip -y
+	sleep 1
+	pip3 install wheel
+	pip3 install setuptools
+	pip3 install ipaddr
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
