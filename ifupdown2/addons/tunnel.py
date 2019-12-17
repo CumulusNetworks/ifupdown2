@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
 # Maximilian Wilhelm <max@rfc2324.org>
 #  --  Mon 10 Oct 2016 10:53:13 PM CEST

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017, 2018 Cumulus Networks, Inc. all rights reserved
 #

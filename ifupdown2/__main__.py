@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # Copyright (C) 2016, 2017, 2018, 2019 Cumulus Networks, Inc. all rights reserved
 #
 # This program is free software; you can redistribute it and/or
