@@ -154,7 +154,7 @@ class bridgevlan(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

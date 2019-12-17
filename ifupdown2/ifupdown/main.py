@@ -11,8 +11,8 @@
 import os
 import sys
 import logging
-import StringIO
-import ConfigParser
+import io
+import configparser
 
 try:
     from ifupdown2.ifupdown.argv import Parse
@@ -65,7 +65,7 @@ class Ifupdown2:
             self.read_config()
             self.init(stdin_buffer)
             self.handlers.get(self.op)(self.args)
-        except Exception, e:
+        except Exception as e:
             if not str(e):
                 return 1
                 # if args and args.debug:
@@ -74,7 +74,7 @@ class Ifupdown2:
             if log:
                 log.error('main exception: ' + str(e))
             else:
-                print str(e)
+                print(str(e))
                 # if args and not args.debug:
                 #    print '\nrerun the command with \'-d\' for a detailed errormsg'
             return 1
@@ -125,8 +125,8 @@ class Ifupdown2:
         with open(IFUPDOWN2_CONF_PATH, 'r') as f:
             config = f.read()
         configStr = '[ifupdown2]\n' + config
-        configFP = StringIO.StringIO(configStr)
-        parser = ConfigParser.RawConfigParser()
+        configFP = io.StringIO(configStr)
+        parser = configparser.RawConfigParser()
         parser.readfp(configFP)
         configmap_g = dict(parser.items('ifupdown2'))
 

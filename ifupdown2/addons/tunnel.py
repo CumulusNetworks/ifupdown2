@@ -76,7 +76,7 @@ class tunnel(Addon, moduleBase):
 
     @staticmethod
     def _has_config_changed(attrs_present, attrs_configured):
-        for key, value in attrs_configured.iteritems():
+        for key, value in attrs_configured.items():
             if attrs_present.get(key) != value:
                 return True
         return False
@@ -139,7 +139,7 @@ class tunnel(Addon, moduleBase):
 
         # Only include attributes which have been set and map ifupdown2 names
         # to attribute names expected by iproute
-        for attr, iproute_attr in attr_map.items():
+        for attr, iproute_attr in list(attr_map.items()):
             attr_val = ifaceobj.get_attr_value_first(attr)
             if attr_val is not None:
                 attrs_mapped[iproute_attr] = attr_val
@@ -160,7 +160,7 @@ class tunnel(Addon, moduleBase):
                 # so just recreate it IFF there have been changes.
                 self.netlink.link_del(ifaceobj.name)
                 self.iproute2.tunnel_create(ifaceobj.name, mode, attrs_mapped)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def _down(self, ifaceobj):
@@ -168,7 +168,7 @@ class tunnel(Addon, moduleBase):
             return
         try:
             self.netlink.link_del(ifaceobj.name)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
@@ -228,7 +228,7 @@ class tunnel(Addon, moduleBase):
     }
 
     def get_ops(self):
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)

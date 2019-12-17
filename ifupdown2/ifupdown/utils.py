@@ -15,7 +15,6 @@ import signal
 import logging
 import subprocess
 
-from string import maketrans
 from functools import partial
 from ipaddr import IPNetwork, IPAddress
 
@@ -132,12 +131,13 @@ class utils():
             else:
                 logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
 
-    mac_translate_tab = maketrans(":.-,", "    ")
+    mac_translate_tab = str.maketrans(":.-,", "    ")
 
     @classmethod
     def mac_str_to_int(cls, hw_address):
         mac = 0
         if hw_address:
+            pass
             for i in hw_address.translate(cls.mac_translate_tab).split():
                 mac = mac << 8
                 mac += int(i, 16)

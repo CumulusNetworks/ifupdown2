@@ -131,7 +131,7 @@ class ethtool(Addon, moduleBase):
                 feccmd = ('%s --set-fec %s %s' %
                            (utils.ethtool_cmd, ifaceobj.name, feccmd))
                 utils.exec_command(feccmd)
-            except Exception, e:
+            except Exception as e:
                 if not self.ethtool_ignore_errors:
                     self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
@@ -226,7 +226,7 @@ class ethtool(Addon, moduleBase):
             try:
                 cmd = ('%s -s %s %s' % (utils.ethtool_cmd, ifaceobj.name, cmd))
                 utils.exec_command(cmd)
-            except Exception, e:
+            except Exception as e:
                 if not self.ethtool_ignore_errors:
                     self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
@@ -409,7 +409,7 @@ class ethtool(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run ethtool configuration on the interface object passed as

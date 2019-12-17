@@ -159,7 +159,7 @@ class IPRoute2(Cache, Requirements):
         try:
             if not self.__batch_mode or not self.__batch:
                 return
-            for prefix, commands in self.__batch.iteritems():
+            for prefix, commands in self.__batch.items():
                 utils.exec_command(
                     "%s -force -batch -" % prefix,
                     stdin="\n".join(commands)
@@ -352,7 +352,7 @@ class IPRoute2(Cache, Requirements):
             cmd.append("tunnel add %s mode %s" % (tunnelname, mode))
 
         if attrs:
-            for k, v in attrs.iteritems():
+            for k, v in attrs.items():
                 cmd.append(k)
                 if v:
                     cmd.append(v)
@@ -366,7 +366,7 @@ class IPRoute2(Cache, Requirements):
             return
         cmd = ["tunnel change %s" % tunnelname]
         if attrs:
-            for k, v in attrs.iteritems():
+            for k, v in attrs.items():
                 cmd.append(k)
                 if v:
                     cmd.append(v)
@@ -474,7 +474,7 @@ class IPRoute2(Cache, Requirements):
 
             try:
                 self.__execute_or_batch(utils.ip_cmd, "addr flush dev %s" % ifname)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warning("%s: flushing all ip address failed: %s" % (ifname, str(e)))
         for addr in address_list:
             try:
@@ -738,6 +738,6 @@ class IPRoute2(Cache, Requirements):
                 if rline:
                     rattrs = rline.split()
                     return rattrs[rattrs.index("dev") + 1]
-        except Exception, e:
+        except Exception as e:
             self.logger.debug("ip_route_get_dev: failed .. %s" % str(e))
         return None

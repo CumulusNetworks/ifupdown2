@@ -27,7 +27,7 @@
 
 from collections import OrderedDict
 from ipaddr import IPv4Address, IPv6Address
-from nlpacket import *
+from .nlpacket import *
 from select import select
 from struct import pack, unpack
 import logging
@@ -58,7 +58,7 @@ class Sequence(object):
     def __init__(self):
         self._next = 0
 
-    def next(self):
+    def __next__(self):
         self._next += 1
         return self._next
 
@@ -153,7 +153,7 @@ class NetlinkManager(object):
             # to counter this problem, we will retry up to NLMANAGER_BIND_RETRY times to
             # bind our socket, every time increasing the address (or pid) that we bind it
             # to. NLMANAGER_BIND_RETRY default to 4242
-            for i in xrange(0, int(os.getenv("NLMANAGER_BIND_RETRY", 4242))):
+            for i in range(0, int(os.getenv("NLMANAGER_BIND_RETRY", 4242))):
                 try:
                     self.tx_socket.bind((self.pid + i, 0))
                     # the bind call succeeded, we need to update self.pid
@@ -412,7 +412,7 @@ class NetlinkManager(object):
 
         msg.flags = NLM_F_REQUEST | NLM_F_DUMP
         msg.attributes = {}
-        msg.build_message(self.sequence.next(), self.pid)
+        msg.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(msg)
 
     # ======
@@ -458,7 +458,7 @@ class NetlinkManager(object):
                 if nexthop:
                     route.add_attribute(Route.RTA_GATEWAY, nexthop)
                 route.add_attribute(Route.RTA_OIF, interface_index)
-                route.build_message(self.sequence.next(), self.pid)
+                route.build_message(next(self.sequence), self.pid)
                 total_message = tx_or_concat_message(total_message, route)
 
             if total_message:
@@ -466,7 +466,7 @@ class NetlinkManager(object):
 
         if ecmp_routes:
 
-            for (route_key, value) in ecmp_routes.iteritems():
+            for (route_key, value) in ecmp_routes.items():
                 (afi, ip, mask) = route_key
 
                 route = Route(rtm_command, debug, use_color=self.use_color)
@@ -476,7 +476,7 @@ class NetlinkManager(object):
                 route.family = afi
                 route.add_attribute(Route.RTA_DST, ip)
                 route.add_attribute(Route.RTA_MULTIPATH, value)
-                route.build_message(self.sequence.next(), self.pid)
+                route.build_message(next(self.sequence), self.pid)
                 total_message = tx_or_concat_message(total_message, route)
 
             if total_message:
@@ -511,7 +511,7 @@ class NetlinkManager(object):
         route.body = pack('Bxxxxxxxi', afi, 0)
         route.family = afi
         route.add_attribute(Route.RTA_DST, ip)
-        route.build_message(self.sequence.next(), self.pid)
+        route.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(route)
 
     def routes_dump(self, family=socket.AF_UNSPEC, debug=True):
@@ -521,7 +521,7 @@ class NetlinkManager(object):
         """
         Print a table of 'routes'
         """
-        print "Prefix            Nexthop           ifindex"
+        print("Prefix            Nexthop           ifindex")
 
         for x in routes:
             if Route.RTA_DST not in x.attributes:
@@ -529,10 +529,10 @@ class NetlinkManager(object):
                 continue
 
             ip = "%s/%d" % (x.attributes[Route.RTA_DST].value, x.src_len)
-            print "%-15s   %-15s   %s" %\
+            print("%-15s   %-15s   %s" %\
                 (ip,
                  str(x.attributes[Route.RTA_GATEWAY].value) if Route.RTA_GATEWAY in x.attributes else None,
-                 x.attributes[Route.RTA_OIF].value)
+                 x.attributes[Route.RTA_OIF].value))
 
     # =====
     # Links
@@ -547,7 +547,7 @@ class NetlinkManager(object):
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
 
         try:
             return self.tx_nlpacket_get_response(link)[0]
@@ -565,7 +565,7 @@ class NetlinkManager(object):
         link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         try:
             return self.tx_nlpacket_get_response(link)[0]
         except NetlinkNoAddressError:
@@ -600,7 +600,7 @@ class NetlinkManager(object):
         else:
             msg.flags |= NLM_F_DUMP
 
-        msg.build_message(self.sequence.next(), self.pid)
+        msg.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(msg)
 
     def link_set_attrs(self, ifname, kind=None, slave_kind=None, ifindex=0, ifla={}, ifla_info_data={}, ifla_info_slave_data={}):
@@ -610,7 +610,7 @@ class NetlinkManager(object):
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
 
-        for nl_attr, value in ifla.items():
+        for nl_attr, value in list(ifla.items()):
             link.add_attribute(nl_attr, value)
 
         if ifname:
@@ -626,7 +626,7 @@ class NetlinkManager(object):
             linkinfo[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
 
         link.add_attribute(Link.IFLA_LINKINFO, linkinfo)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def link_add_set(self, kind,
@@ -645,7 +645,7 @@ class NetlinkManager(object):
         link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
 
-        for nl_attr, value in ifla.items():
+        for nl_attr, value in list(ifla.items()):
             link.add_attribute(nl_attr, value)
 
         if ifname:
@@ -660,7 +660,7 @@ class NetlinkManager(object):
             linkinfo[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
         link.add_attribute(Link.IFLA_LINKINFO, linkinfo)
 
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def link_del(self, ifindex=None, ifname=None):
@@ -675,7 +675,7 @@ class NetlinkManager(object):
         link = Link(RTM_DELLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('Bxxxiii', socket.AF_UNSPEC, ifindex, 0, 0)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def _link_add(self, ifindex, ifname, kind, ifla_info_data, mtu=None):
@@ -699,7 +699,7 @@ class NetlinkManager(object):
             Link.IFLA_INFO_KIND: kind,
             Link.IFLA_INFO_DATA: ifla_info_data
         })
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def link_add_bridge(self, ifname, ifla_info_data={}, mtu=None):
@@ -769,7 +769,7 @@ class NetlinkManager(object):
         else:
             link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN)
 
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         reply = self.tx_nlpacket_get_response(link)
 
         iface_vlans = {}
@@ -799,7 +799,7 @@ class NetlinkManager(object):
               25: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
               26: 0x00001400  ....
             '''
-            for (x_type, x_value) in ifla_af_spec.iteritems():
+            for (x_type, x_value) in ifla_af_spec.items():
                 if x_type == Link.IFLA_BRIDGE_VLAN_INFO:
                     for (vlan_flag, vlan_id) in x_value:
                         if filter_vlanid is None or vlan_id in filter_vlanid:
@@ -830,10 +830,10 @@ class NetlinkManager(object):
         range_begin_vlan_id = None
         range_flag = None
 
-        print "   Interface  VLAN  Flags"
-        print "  ==========  ====  ====="
+        print("   Interface  VLAN  Flags")
+        print("  ==========  ====  =====")
 
-        for (ifname, vlan_tuples) in sorted(iface_vlans.iteritems()):
+        for (ifname, vlan_tuples) in sorted(iface_vlans.items()):
             for (vlan_id, vlan_flag) in sorted(vlan_tuples):
 
                 if vlan_flag & Link.BRIDGE_VLAN_INFO_RANGE_BEGIN:
@@ -847,15 +847,15 @@ class NetlinkManager(object):
                         log.warning("BRIDGE_VLAN_INFO_RANGE_END is %d but we never saw a BRIDGE_VLAN_INFO_RANGE_BEGIN" % vlan_id)
                         range_begin_vlan_id = vlan_id
 
-                    for x in xrange(range_begin_vlan_id, vlan_id + 1):
-                        print "  %10s  %4d  %s" % (ifname, x, vlan_flag_to_string(vlan_flag))
+                    for x in range(range_begin_vlan_id, vlan_id + 1):
+                        print("  %10s  %4d  %s" % (ifname, x, vlan_flag_to_string(vlan_flag)))
                         ifname = ''
 
                     range_begin_vlan_id = None
                     range_flag = None
 
                 else:
-                    print "  %10s  %4d  %s" % (ifname, vlan_id, vlan_flag_to_string(vlan_flag))
+                    print("  %10s  %4d  %s" % (ifname, vlan_id, vlan_flag_to_string(vlan_flag)))
                     ifname = ''
 
 
@@ -909,7 +909,7 @@ class NetlinkManager(object):
             ]
 
         link.add_attribute(Link.IFLA_AF_SPEC, ifla_af_spec)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def link_add_bridge_vlan(self, ifindex, vlanid_start, vlanid_end=None, pvid=False, untagged=False, master=False):
@@ -945,7 +945,7 @@ class NetlinkManager(object):
         link.flags = NLM_F_REQUEST | NLM_F_ACK
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def link_set_protodown(self, ifname, state):
@@ -962,7 +962,7 @@ class NetlinkManager(object):
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_PROTO_DOWN, protodown)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     def link_set_master(self, ifname, master_ifindex=0, state=None):
@@ -987,7 +987,7 @@ class NetlinkManager(object):
         link.body = pack('=BxxxiLL', socket.AF_UNSPEC, 0, if_flags, if_change)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_MASTER, master_ifindex)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     # =========
@@ -1003,7 +1003,7 @@ class NetlinkManager(object):
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
-        nbr.build_message(self.sequence.next(), self.pid)
+        nbr.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(nbr)
 
     def neighbor_del(self, afi, ifindex, ip, mac):
@@ -1016,7 +1016,7 @@ class NetlinkManager(object):
         nbr.body = pack('=BxxxiHBB', afi, ifindex, Neighbor.NUD_REACHABLE, service_hdr_flags, Route.RTN_UNICAST)
         nbr.add_attribute(Neighbor.NDA_DST, ip)
         nbr.add_attribute(Neighbor.NDA_LLADDR, mac)
-        nbr.build_message(self.sequence.next(), self.pid)
+        nbr.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(nbr)
 
     def link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None,
@@ -1050,7 +1050,7 @@ class NetlinkManager(object):
             Link.IFLA_INFO_DATA: info_data
         })
 
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(link)
 
     # =========
@@ -1068,7 +1068,7 @@ class NetlinkManager(object):
         msg.body = pack('=Bxxxi', socket.AF_UNSPEC, 0)
         msg.flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP
 
-        msg.build_message(self.sequence.next(), self.pid)
+        msg.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(msg)
 
     # =======
@@ -1085,7 +1085,7 @@ class NetlinkManager(object):
         msg = Netconf(RTM_GETNETCONF, debug, use_color=self.use_color)
         msg.body = pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         msg.flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK
-        msg.build_message(self.sequence.next(), self.pid)
+        msg.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response(msg)
 
     # ===

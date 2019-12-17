@@ -56,13 +56,13 @@ class policymanager():
                     system_array = json.load(fd)
                 self.logger.debug('reading %s system policy defaults config' \
                                   % filename)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warning('could not read %s system policy defaults config' \
                                   % filename)
                 self.logger.warning('    exception is %s' % str(e))
 
-            for module in system_array.keys():
-                if self.system_policy_array.has_key(module):
+            for module in list(system_array.keys()):
+                if module in self.system_policy_array:
                     self.logger.debug("policymanager: merging system module %s policy with file %s" % (module, filename))
                     self.system_policy_array[module].update(system_array[module])
                 else:
@@ -86,13 +86,13 @@ class policymanager():
                     user_array = json.load(fd)
                 self.logger.debug('reading %s policy user defaults config' \
                                   % filename)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warning('could not read %s user policy defaults config' \
                                   % filename)
                 self.logger.warning('    exception is %s' % str(e))
             # customer added module attributes
-            for module in user_array.keys():
-                if self.system_policy_array.has_key(module):
+            for module in list(user_array.keys()):
+                if module in self.system_policy_array:
                     # warn user that we are overriding the system module setting
                     self.logger.debug('warning: overwriting system with user module %s from file %s' \
                                       % (module,filename))

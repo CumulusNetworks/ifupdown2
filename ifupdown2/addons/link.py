@@ -87,7 +87,7 @@ class link(Addon, moduleBase):
             return
         try:
             self.netlink.link_del(ifaceobj.name)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
@@ -125,7 +125,7 @@ class link(Addon, moduleBase):
     }
 
     def get_ops(self):
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)

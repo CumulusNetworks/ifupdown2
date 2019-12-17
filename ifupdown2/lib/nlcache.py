@@ -289,7 +289,7 @@ class _NetlinkCache:
 
             self._masters_and_slaves[master].remove(slave)
         except (KeyError, ValueError):
-            for master, slaves_set in self._masters_and_slaves.iteritems():
+            for master, slaves_set in self._masters_and_slaves.items():
                 if slave in slaves_set:
                     slaves_set.remove(slave)
                     break
@@ -850,7 +850,7 @@ class _NetlinkCache:
         vrf_table_map = {}
         try:
             with self._cache_lock:
-                for ifname, obj in self._link_cache.iteritems():
+                for ifname, obj in self._link_cache.items():
                     linkinfo = obj.attributes.get(Link.IFLA_LINKINFO)
 
                     if linkinfo and linkinfo.value.get(Link.IFLA_INFO_KIND) == "vrf":
@@ -1053,7 +1053,7 @@ class _NetlinkCache:
                                             "saw a BRIDGE_VLAN_INFO_RANGE_BEGIN" % vlan_id)
                                 range_begin_vlan_id = vlan_id
 
-                            for x in xrange(range_begin_vlan_id, vlan_id + 1):
+                            for x in range(range_begin_vlan_id, vlan_id + 1):
                                 vlans.append(x)
 
                             range_begin_vlan_id = None
@@ -1363,7 +1363,7 @@ class _NetlinkCache:
             #  24: 0x00001000  ....
             #  25: 0x08000200  ....  Nested Attribute - Length 0x0008 (8),  Type 0x0002 (2) IFLA_BRIDGE_VLAN_INFO
             #  26: 0x00001400  ....
-            for x_type, x_value in ifla_af_spec.iteritems():
+            for x_type, x_value in ifla_af_spec.items():
                 if x_type == Link.IFLA_BRIDGE_VLAN_INFO:
                     for vlan_flag, vlan_id in x_value:
                         # We store these in the tuple as (vlan, flag) instead
@@ -2415,7 +2415,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             ]
 
         link.add_attribute(Link.IFLA_AF_SPEC, ifla_af_spec)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error(link)
 
     #############################################################################################################
@@ -2441,14 +2441,14 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
             link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
 
-            for nl_attr, value in ifla.items():
+            for nl_attr, value in list(ifla.items()):
                 link.add_attribute(nl_attr, value)
 
             link.add_attribute(Link.IFLA_IFNAME, ifname)
             link.add_attribute(Link.IFLA_LINKINFO, {
                 Link.IFLA_INFO_KIND: kind
             })
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
         except Exception as e:
             raise Exception("%s: cannot create link %s type %s" % (ifname, ifname, kind))
@@ -2470,7 +2470,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.flags = NLM_F_REQUEST | NLM_F_ACK
             link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, flags, Link.IFF_UP)
             link.add_attribute(Link.IFLA_IFNAME, ifname)
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             result = self.tx_nlpacket_get_response_with_error(link)
             # if we reach this code it means the operation went through
             # without exception we can update the cache value this is
@@ -2527,7 +2527,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_PROTO_DOWN, state)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error(link)
 
     def link_set_protodown_on(self, ifname):
@@ -2572,7 +2572,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link = Link(RTM_DELLINK, debug, use_color=self.use_color)
             link.flags = NLM_F_REQUEST | NLM_F_ACK
             link.body = struct.pack("Bxxxiii", socket.AF_UNSPEC, ifindex, 0, 0)
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
 
             try:
                 # We need to register this ifname so the cache can ignore and discard
@@ -2606,7 +2606,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.body = struct.pack("=BxxxiLL", socket.AF_UNSPEC, 0, 0, 0)
         link.add_attribute(Link.IFLA_IFNAME, ifname)
         link.add_attribute(Link.IFLA_MASTER, master_ifindex)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         result = self.tx_nlpacket_get_response_with_error(link)
         # opti:
         # if we reach this code it means the slave/unslave opreation went through
@@ -2662,7 +2662,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.add_attribute(Link.IFLA_IFNAME, ifname)
             link.add_attribute(Link.IFLA_ADDRESS, hw_address)
 
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error(link)
         except Exception as e:
             raise NetlinkError(e, "cannot set dev %s address %s" % (ifname, hw_address), ifname=ifname)
@@ -2707,7 +2707,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     )
                 }
             })
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
 
         except Exception as e:
@@ -2741,7 +2741,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 Link.IFLA_VRF_TABLE: int(vrf_table)
             }
         })
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
 
     def link_add_vrf_dry_run(self, ifname, vrf_table):
@@ -2767,7 +2767,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.add_attribute(Link.IFLA_LINKINFO, {
             Link.IFLA_INFO_KIND: "bridge",
         })
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
 
     def link_add_bridge_dry_run(self, ifname):
@@ -2791,7 +2791,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 Link.IFLA_INFO_KIND: "bridge",
                 Link.IFLA_INFO_DATA: ifla_info_data
             })
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             result = self.tx_nlpacket_get_response_with_error(link)
 
             if link_just_created:
@@ -2886,7 +2886,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 Link.IFLA_INFO_KIND: "vlan",
                 Link.IFLA_INFO_DATA: ifla_info_data
             })
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
         except Exception as e:
             raise NetlinkError(e, "cannot create vlan %s %s" % (ifname, vlan_id), ifname=ifname)
@@ -2976,7 +2976,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             Link.IFLA_INFO_KIND: "vxlan",
             Link.IFLA_INFO_DATA: info_data
         })
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
 
     def link_add_vxlan_with_info_data_dry_run(self, ifname, info_data):
@@ -3007,7 +3007,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 Link.IFLA_INFO_KIND: "bond",
                 Link.IFLA_INFO_DATA: ifla_info_data
             })
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
         except Exception as e:
             raise Exception("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
@@ -3045,7 +3045,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             linkinfo[Link.IFLA_INFO_SLAVE_DATA] = ifla_info_slave_data
 
             link.add_attribute(Link.IFLA_LINKINFO, linkinfo)
-            link.build_message(self.sequence.next(), self.pid)
+            link.build_message(next(self.sequence), self.pid)
 
             # the brport already exists and is cached - after this operation we most
             # likely don't need to do anything about the brport so we don't need to
@@ -3140,7 +3140,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             log_msg_displayed = True
 
             packet.body = struct.pack("=4Bi", packet.family, packet_prefixlen, 0, scope_value, self.cache.get_ifindex(ifname))
-            packet.build_message(self.sequence.next(), self.pid)
+            packet.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error(packet)
         except Exception as e:
             if not log_msg_displayed:
@@ -3168,7 +3168,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             packet.add_attribute(Address.IFA_LOCAL, addr)
 
-            packet.build_message(self.sequence.next(), self.pid)
+            packet.build_message(next(self.sequence), self.pid)
             result = self.tx_nlpacket_get_response_with_error(packet)
 
             # RTM_DELADDR successful, we need to update our cache

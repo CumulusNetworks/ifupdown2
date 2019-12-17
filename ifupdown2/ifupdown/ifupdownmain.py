@@ -60,8 +60,8 @@ except ImportError:
 
 """
 
-_tickmark = u'\u2713'
-_crossmark = u'\u2717'
+_tickmark = '\u2713'
+_crossmark = '\u2717'
 _success_sym = '(%s)' %_tickmark
 _error_sym = '(%s)' %_crossmark
 
@@ -347,7 +347,7 @@ class ifupdownMain:
             self.statemanager = statemanager.statemanager_api
             try:
                 self.statemanager.read_saved_state()
-            except Exception, e:
+            except Exception as e:
                 # if read_saved_state fails, state file might be corrupt.
                 # Ignore old state and continue
                 self.logger.warning('error reading state (%s)' %str(e))
@@ -439,7 +439,7 @@ class ifupdownMain:
         return None
 
     def get_ifacenames(self):
-        return self.ifaceobjdict.keys()
+        return list(self.ifaceobjdict.keys())
 
     def get_iface_obj_last(self, ifacename):
         return self.ifaceobjdict.get(ifacename)[-1]
@@ -547,7 +547,7 @@ class ifupdownMain:
             example: bond and bridges.
             This function logs such errors """
         setdlist = Set(dlist)
-        for ifacename, ifacedlist in self.dependency_graph.items():
+        for ifacename, ifacedlist in list(self.dependency_graph.items()):
             if not ifacedlist:
                 continue
             check_depends = False
@@ -568,11 +568,11 @@ class ifupdownMain:
         if (self.flags.CHECK_SHARED_DEPENDENTS and
             (ifaceobj.role & ifaceRole.SLAVE) and
             (role == ifaceRole.SLAVE) and (upperifaceobj.role & ifaceRole.MASTER)):
-		self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
-                                  %(ifaceobj.name,
-                                    ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
-                ifaceobj.set_status(ifaceStatus.ERROR)
-                return
+            self.logger.error("misconfig..? %s %s is enslaved to multiple interfaces %s"
+                              % (ifaceobj.name,
+                                 ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags), str(ifaceobj.upperifaces)))
+            ifaceobj.set_status(ifaceStatus.ERROR)
+            return
         ifaceobj.role = role
 
     def _set_iface_role_n_kind(self, ifaceobj, upperifaceobj):
@@ -605,7 +605,7 @@ class ifupdownMain:
         """ debug funtion to print raw dependency
         info - lower and upper devices"""
 
-        for ifacename, ifaceobjs in self.ifaceobjdict.iteritems():
+        for ifacename, ifaceobjs in self.ifaceobjdict.items():
             iobj = ifaceobjs[0]
             self.logger.info("%s: refcnt: %d, lower: %s, upper: %s" %(ifacename,
                              self.get_iface_refcnt(ifacename),
@@ -671,7 +671,7 @@ class ifupdownMain:
         ret_dlist = []
 
         # Get dependents for interface by querying respective modules
-        for module in self.modules.values():
+        for module in list(self.modules.values()):
             try:
                 if ops[0] == 'query-running':
                     if (not hasattr(module,
@@ -683,7 +683,7 @@ class ifupdownMain:
                         continue
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                         ifacenames)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn('%s: error getting dependent interfaces (%s)'
                         %(ifaceobj.name, str(e)))
                 dlist = None
@@ -696,7 +696,7 @@ class ifupdownMain:
         ret_ulist = []
 
         # Get upperifaces for interface by querying respective modules
-        for module in self.modules.values():
+        for module in list(self.modules.values()):
             try:
                 if ops[0] == 'query-running':
                     if (not hasattr(module,
@@ -707,7 +707,7 @@ class ifupdownMain:
                     if (not hasattr(module, 'get_upper_ifacenames')):
                         continue
                     ulist = module.get_upper_ifacenames(ifaceobj, ifacenames)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn('%s: error getting upper interfaces (%s)'
                                  %(ifaceobj.name, str(e)))
                 ulist = None
@@ -719,7 +719,7 @@ class ifupdownMain:
         """ recursive function to generate iface dependency info """
 
         if not ifacenames:
-            ifacenames = self.ifaceobjdict.keys()
+            ifacenames = list(self.ifaceobjdict.keys())
 
         iqueue = deque(ifacenames)
         while iqueue:
@@ -755,7 +755,7 @@ class ifupdownMain:
             #if not self.dependency_graph.get(i):
             #    self.dependency_graph[i] = dlist
 
-        for i in self.ifaceobjdict.keys():
+        for i in list(self.ifaceobjdict.keys()):
             iobj = self.get_ifaceobj_first(i)
             if (not iobj.link_kind and
                not (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
@@ -771,7 +771,7 @@ class ifupdownMain:
 
         # Walk through the dependency graph and remove blacklisted
         # interfaces that were picked up as dependents
-        for i in self.dependency_graph.keys():
+        for i in list(self.dependency_graph.keys()):
             ifaceobj = self.get_ifaceobj_first(i)
             if not ifaceobj:
                 continue
@@ -801,14 +801,14 @@ class ifupdownMain:
         """ check if object has an attribute that is
         restricted to a single object in the system.
         if yes, warn and return """
-        for k,v in self._cache_no_repeats.items():
+        for k,v in list(self._cache_no_repeats.items()):
             iv = ifaceobj.config.get(k)
             if iv and iv[0] == v:
                 self.logger.error('ignoring interface %s. ' %ifaceobj.name +
                         'Only one object with attribute ' +
                         '\'%s %s\' allowed.' %(k, v))
                 return True
-        for k, v in self.config.get('no_repeats', {}).items():
+        for k, v in list(self.config.get('no_repeats', {}).items()):
             iv = ifaceobj.config.get(k)
             if iv and iv[0] == v:
                 self._cache_no_repeats[k] = v
@@ -872,7 +872,7 @@ class ifupdownMain:
     def _keyword_check_list(self, _list, obj, limit=None):
         try:
             if limit and limit > 0:
-                for i in xrange(0, limit):
+                for i in range(0, limit):
                     obj(_list[i])
                 return len(_list) == limit
             else:
@@ -1221,7 +1221,7 @@ class ifupdownMain:
         if not ifaceobj:
             return
         success = True
-        for attrname, attrvalue in ifaceobj[0].config.items():
+        for attrname, attrvalue in list(ifaceobj[0].config.items()):
             try:
                 attrname_dict = attrs.get(attrname, {})
                 validvals = attrname_dict.get('validvals', [])
@@ -1245,7 +1245,7 @@ class ifupdownMain:
     def _module_syntax_check(self, filtered_ifacenames):
         result = True
         for ifacename in filtered_ifacenames:
-            for module in self.modules.values():
+            for module in list(self.modules.values()):
                 try:
                     if hasattr(module, '_modinfo'):
                         if not self._check_validvals(ifacename,
@@ -1256,13 +1256,13 @@ class ifupdownMain:
                         if not module.syntax_check(self.get_ifaceobjs(ifacename)[0],
                                                    self.get_ifaceobjs):
                             result = False
-                except Exception, e:
+                except Exception as e:
                     self.logger.warn('%s: %s' % (ifacename, str(e)))
                     result = False
         return result
 
     def _iface_configattr_syntax_checker(self, attrname, attrval):
-        for m, mdict in self.module_attrs.items():
+        for m, mdict in list(self.module_attrs.items()):
             if not mdict:
                 continue
             attrsdict = mdict.get('attrs')
@@ -1288,9 +1288,9 @@ class ifupdownMain:
 
     def _ifaceobj_syntax_checker(self, ifaceobj):
         ret = True
-        for attrname, attrvalue in ifaceobj.config.items():
+        for attrname, attrvalue in list(ifaceobj.config.items()):
             found = False
-            for k, v in self.module_attrs.items():
+            for k, v in list(self.module_attrs.items()):
                 if v and v.get('attrs', {}).get(attrname):
                     found = True
                     break
@@ -1342,7 +1342,7 @@ class ifupdownMain:
                     operation = litems[0]
                     mname = litems[1]
                     self.module_ops[operation].append(mname)
-                except Exception, e:
+                except Exception as e:
                     self.logger.warn('error reading line \'%s\' %s:' %(l, str(e)))
                     continue
 
@@ -1361,7 +1361,7 @@ class ifupdownMain:
             if not modules_dir in sys.path:
                 sys.path.insert(1, modules_dir)
             try:
-                for op, mlist in self.module_ops.items():
+                for op, mlist in list(self.module_ops.items()):
                     for mname in mlist:
                         if self.modules.get(mname):
                             continue
@@ -1378,7 +1378,7 @@ class ifupdownMain:
                                 minstance = mclass()
                                 script_override = minstance.get_overrides_ifupdown_scripts()
                                 self.overridden_ifupdown_scripts.extend(script_override)
-                            except moduleNotSupported, e:
+                            except moduleNotSupported as e:
                                 self.logger.info('module %s not loaded (%s)'
                                                  %(mname, str(e)))
                                 continue
@@ -1393,11 +1393,11 @@ class ifupdownMain:
                 raise
 
         # Assign all modules to query operations
-        self.module_ops['query-checkcurr'] = self.modules.keys()
-        self.module_ops['query-running'] = self.modules.keys()
-        self.module_ops['query-dependency'] = self.modules.keys()
-        self.module_ops['query'] = self.modules.keys()
-        self.module_ops['query-raw'] = self.modules.keys()
+        self.module_ops['query-checkcurr'] = list(self.modules.keys())
+        self.module_ops['query-running'] = list(self.modules.keys())
+        self.module_ops['query-dependency'] = list(self.modules.keys())
+        self.module_ops['query'] = list(self.modules.keys())
+        self.module_ops['query-raw'] = list(self.modules.keys())
 
     def _keyword_number_comma_range_list(self, value, validrange=None):
         return self._keyword_number_range_list(value.replace(',', ' '), validrange=validrange)
@@ -1408,55 +1408,55 @@ class ifupdownMain:
 
         if fmt == 'json':
             modinfos = {}
-            for key, value in self.modules.items():
+            for key, value in list(self.modules.items()):
                 if hasattr(value, '_modinfo'):
                     modinfos[key] = {
                         'mhelp': value._modinfo['mhelp'],
                         'attrs': value.merge_modinfo_with_policy_files()
                     }
-            print json.dumps(modinfos)
+            print(json.dumps(modinfos))
         else:
             indent = '  '
-            for m, mdict in self.module_attrs.items():
+            for m, mdict in list(self.module_attrs.items()):
                 if not mdict:
                     continue
-                print('%s: %s' %(m, mdict.get('mhelp')))
+                print(('%s: %s' %(m, mdict.get('mhelp'))))
                 attrdict = self.modules[m].merge_modinfo_with_policy_files()
                 if not attrdict:
                     continue
                 try:
-                    for attrname, attrvaldict in attrdict.items():
+                    for attrname, attrvaldict in list(attrdict.items()):
                         if attrvaldict.get('compat', False):
                             continue
-                        print('%s%s' %(indent, attrname))
-                        print('%shelp: %s' %(indent + '  ',
-                              attrvaldict.get('help', '')))
-                        print ('%srequired: %s' %(indent + '  ',
-                                attrvaldict.get('required', False)))
+                        print(('%s%s' %(indent, attrname)))
+                        print(('%shelp: %s' %(indent + '  ',
+                              attrvaldict.get('help', ''))))
+                        print(('%srequired: %s' %(indent + '  ',
+                                attrvaldict.get('required', False))))
                         default = attrvaldict.get('default')
                         if default:
-                            print('%sdefault: %s' %(indent + '  ', default))
+                            print(('%sdefault: %s' %(indent + '  ', default)))
 
                         validrange = attrvaldict.get('validrange')
                         if validrange:
-                            print('%svalidrange: %s-%s'
-                                  %(indent + '  ', validrange[0], validrange[1]))
+                            print(('%svalidrange: %s-%s'
+                                  %(indent + '  ', validrange[0], validrange[1])))
 
                         validvals = attrvaldict.get('validvals')
                         if validvals:
-                            print('%svalidvals: %s'
-                                  %(indent + '  ', ','.join(validvals)))
+                            print(('%svalidvals: %s'
+                                  %(indent + '  ', ','.join(validvals))))
 
                         examples = attrvaldict.get('example')
                         if not examples:
                             continue
 
-                        print '%sexample:' %(indent + '  ')
+                        print('%sexample:' %(indent + '  '))
                         for e in examples:
-                            print '%s%s' %(indent + '    ', e)
+                            print('%s%s' %(indent + '    ', e))
                 except:
                     pass
-                print ''
+                print('')
 
     def load_scripts(self, modules_dir):
         """ loading user modules from /etc/network/.
@@ -1467,7 +1467,7 @@ class ifupdownMain:
         """
 
         self.logger.info('looking for user scripts under %s' %modules_dir)
-        for op, mlist in self.script_ops.items():
+        for op, mlist in list(self.script_ops.items()):
             msubdir = modules_dir + '/if-%s.d' %op
             self.logger.info('loading scripts under %s ...' %msubdir)
             try:
@@ -1628,7 +1628,7 @@ class ifupdownMain:
         try:
             # Update persistant iface states
             self.statemanager.save_state()
-        except Exception, e:
+        except Exception as e:
             if self.logger.isEnabledFor(logging.DEBUG):
                 t = sys.exc_info()[2]
                 traceback.print_tb(t)
@@ -1655,7 +1655,7 @@ class ifupdownMain:
             try:
                 if self.link_exists(i):
                    func(i)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn(str(e))
                 pass
 
@@ -1733,7 +1733,7 @@ class ifupdownMain:
                 filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
 
         # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
+        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
 
         if not filtered_ifacenames:
             # filter interfaces based on auto and allow classes
@@ -1811,7 +1811,7 @@ class ifupdownMain:
         # if user has specified ifacelist and allow_classes
         # append the allow_classes interfaces to user
         # ifacelist
-        filtered_ifacenames = [i for i in self.ifaceobjdict.keys()
+        filtered_ifacenames = [i for i in list(self.ifaceobjdict.keys())
                                if self._iface_whitelisted(auto, allow_classes,
                                                           excludepats, i)]
         filtered_ifacenames += ifacenames
@@ -1848,7 +1848,7 @@ class ifupdownMain:
             # If no old state available
             try:
                 self.read_iface_config()
-            except Exception, e:
+            except Exception as e:
                 raise Exception('error reading iface config (%s)' %str(e))
 
         if excludepats:
@@ -1864,13 +1864,13 @@ class ifupdownMain:
                if allow_classes:
                    filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
 
-            except Exception, e:
+            except Exception as e:
                raise Exception('%s' %str(e) +
                        ' (interface was probably never up ?)')
 
 
         # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
+        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
 
         if not filtered_ifacenames:
             # filter interfaces based on auto and allow classes
@@ -1945,7 +1945,7 @@ class ifupdownMain:
             filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
 
         # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
+        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
 
         # filter interfaces based on auto and allow classes
         if ops[0] == 'query-running':
@@ -2010,11 +2010,11 @@ class ifupdownMain:
             self.logger.warn("nothing to reload ..exiting.")
             return
         already_up_ifacenames = []
-        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
+        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
 
         if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):
-            already_up_ifacenames = self.statemanager.ifaceobjdict.keys()
+            already_up_ifacenames = list(self.statemanager.ifaceobjdict.keys())
 
         # Get already up interfaces that still exist in the interfaces file
         already_up_ifacenames_not_present = Set(
@@ -2105,7 +2105,7 @@ class ifupdownMain:
             self.logger.warn("nothing to reload ..exiting.")
             return
 
-        if not ifacenames: ifacenames = self.ifaceobjdict.keys()
+        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
         new_filtered_ifacenames = [i for i in ifacenames
                                if self._iface_whitelisted(auto, allow,
                                excludepats, i)]
@@ -2148,7 +2148,7 @@ class ifupdownMain:
             excludepats = self._preprocess_excludepats(excludepats)
 
         if op == 'reload' and ifacenames:
-            ifacenames = self.ifaceobjdict.keys()
+            ifacenames = list(self.ifaceobjdict.keys())
             old_filtered_ifacenames = [i for i in ifacenames
                                if self._iface_whitelisted(auto, allow,
                                excludepats, i)]
@@ -2162,7 +2162,7 @@ class ifupdownMain:
                 self.flags.CHECK_SHARED_DEPENDENTS = False
                 self.populate_dependency_info(upops)
                 self.flags.CHECK_SHARED_DEPENDENTS = True
-            except Exception, e:
+            except Exception as e:
                 self.logger.info("error generating dependency graph for "
                                  "saved interfaces (%s)" %str(e))
                 pass
@@ -2179,7 +2179,7 @@ class ifupdownMain:
             #   - interfaces that were changed between the last and current
             #     config
             ifacedownlist = []
-            for ifname in self.ifaceobjdict.keys():
+            for ifname in list(self.ifaceobjdict.keys()):
                 lastifaceobjlist = self.ifaceobjdict.get(ifname)
                 if not self.is_ifaceobj_builtin(lastifaceobjlist[0]):
                     # if interface is not built-in and is not in
@@ -2247,7 +2247,7 @@ class ifupdownMain:
                             if new_ifaceobjdict:
                                 del new_ifaceobjdict[ifname_to_remove]
 
-                            for k, v in new_dependency_graph.iteritems():
+                            for k, v in new_dependency_graph.items():
                                 if ifname_to_remove in v:
                                     v.remove(ifname_to_remove)
                             del new_dependency_graph[ifname_to_remove]
@@ -2305,7 +2305,7 @@ class ifupdownMain:
                     self._sched_ifaces(ifacedownlist, downops,
                                        followdependents=False,
                                        sort=True)
-                except Exception, e:
+                except Exception as e:
                     self.logger.error(str(e))
                     pass
                 finally:
@@ -2335,7 +2335,7 @@ class ifupdownMain:
                                      followdependents=True
                                      if ifupdownflags.flags.WITH_DEPENDS
                                      else False)
-        except Exception, e:
+        except Exception as e:
             ret = None
             self.logger.error(str(e))
         finally:
@@ -2369,7 +2369,7 @@ class ifupdownMain:
 
     def _pretty_print_ordered_dict(self, prefix, argdict):
         outbuf = prefix + ' {\n'
-        for k, vlist in argdict.items():
+        for k, vlist in list(argdict.items()):
             outbuf += '\t%s : %s\n' %(k, str(vlist))
         self.logger.debug(outbuf + '}')
 
@@ -2377,20 +2377,20 @@ class ifupdownMain:
         """ prints iface dependency information """
 
         if not ifacenames:
-            ifacenames = self.ifaceobjdict.keys()
+            ifacenames = list(self.ifaceobjdict.keys())
         if format == 'list':
-            for k,v in self.dependency_graph.items():
-                print '%s : %s' %(k, str(v))
+            for k,v in list(self.dependency_graph.items()):
+                print('%s : %s' %(k, str(v)))
         elif format == 'dot':
             indegrees = {}
             map(lambda i: indegrees.update({i :
                 self.get_iface_refcnt(i)}),
-                self.dependency_graph.keys())
+                list(self.dependency_graph.keys()))
             graph.generate_dots(self.dependency_graph, indegrees)
 
     def print_ifaceobjs_list(self, ifacenames):
         for i in ifacenames:
-            print i
+            print(i)
 
     def print_ifaceobjs_raw(self, ifacenames, format=None):
         """ prints raw lines for ifaces from config file """
@@ -2434,8 +2434,8 @@ class ifupdownMain:
         self._get_ifaceobjs_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
-                             indent=2, separators=(',', ': '))
+            print(json.dumps(ifaceobjs, cls=ifaceJsonEncoder,
+                             indent=4, separators=(',', ': ')))
         else:
             expand = int(self.config.get('ifquery_ifacename_expand_range', '0'))
             for i in ifaceobjs:
@@ -2472,7 +2472,6 @@ class ifupdownMain:
         returns 1 if any of the interface has an error,
         else returns 0
         """
-
         ifaceobjs = []
         ret = self._get_ifaceobjscurr_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
@@ -2482,8 +2481,8 @@ class ifupdownMain:
         ifaceStatusUserStrs.ERROR = self.config.get('ifquery_check_error_str', _error_sym)
         ifaceStatusUserStrs.UNKNOWN = self.config.get('ifquery_check_unknown_str', '')
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoderWithStatus,
-                             indent=2, separators=(',', ': '))
+            print(json.dumps(ifaceobjs, cls=ifaceJsonEncoderWithStatus,
+                             indent=2, separators=(',', ': ')))
         else:
             map(lambda i: i.dump_pretty(with_status=True), ifaceobjs)
         return ret
@@ -2495,19 +2494,19 @@ class ifupdownMain:
         self._get_ifaceobjs_pretty(ifacenames, ifaceobjs, running=True)
         if not ifaceobjs: return
         if format == 'json':
-            print json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
-                       separators=(',', ': '))
+            print(json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
+                       separators=(',', ': ')))
         else:
             map(lambda i: i.dump_pretty(), ifaceobjs)
 
     def _dump(self):
-        print 'ifupdown main object dump'
-        print self.pp.pprint(self.modules)
-        print self.pp.pprint(self.ifaceobjdict)
+        print('ifupdown main object dump')
+        print(self.pp.pprint(self.modules))
+        print(self.pp.pprint(self.ifaceobjdict))
 
     def _dump_ifaceobjs(self, ifacenames):
         for i in ifacenames:
             ifaceobjs = self.get_ifaceobjs(i)
             for i in ifaceobjs:
                 i.dump(self.logger)
-                print '\n'
+                print('\n')

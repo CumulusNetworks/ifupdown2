@@ -8,8 +8,6 @@
 
 import os
 
-from sets import Set
-
 try:
     from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
@@ -296,7 +294,7 @@ class bond(Addon, moduleBase):
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
                     self.write_file("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname, "0")
                     return
-        except Exception, e:
+        except Exception as e:
             self.logger.info(str(e))
 
     def _is_clag_bond(self, ifaceobj):
@@ -314,7 +312,7 @@ class bond(Addon, moduleBase):
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
-        for slave in Set(slaves).difference(Set(runningslaves)):
+        for slave in set(slaves).difference(set(runningslaves)):
             if (not ifupdownflags.flags.PERFMODE and
                 not self.cache.link_exists(slave)):
                     self.log_error('%s: skipping slave %s, does not exist'
@@ -330,7 +328,7 @@ class bond(Addon, moduleBase):
             if clag_bond:
                 try:
                     self.netlink.link_set_protodown_on(slave)
-                except Exception, e:
+                except Exception as e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
             self.enable_ipv6_if_prev_brport(slave)
@@ -344,7 +342,7 @@ class bond(Addon, moduleBase):
                         self.netlink.link_down_force(slave)
                     else:
                         self.netlink.link_up(slave)
-               except Exception, e:
+               except Exception as e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
 
@@ -355,7 +353,7 @@ class bond(Addon, moduleBase):
                     if clag_bond:
                         try:
                             self.netlink.link_set_protodown_off(s)
-                        except Exception, e:
+                        except Exception as e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
                 else:
                     # apply link-down config changes on running slaves
@@ -367,7 +365,7 @@ class bond(Addon, moduleBase):
                             self.netlink.link_down_force(s)
                         elif (not config_link_down and not link_up):
                             self.netlink.link_up_force(s)
-                    except Exception, e:
+                    except Exception as e:
                         self.logger.warn('%s: %s' % (ifaceobj.name, str(e)))
 
     def _check_updown_delay_log(self, ifaceobj, attr_name, value):
@@ -659,7 +657,7 @@ class bond(Addon, moduleBase):
                 bond_slaves,
                 ifaceobj_getfunc,
             )
-        except Exception, e:
+        except Exception as e:
             self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
@@ -783,7 +781,7 @@ class bond(Addon, moduleBase):
             bond_attrs['bond-slaves'] = ' '.join(bond_attrs.get('bond-slaves'))
 
         [ifaceobjrunning.update_config(k, str(v))
-         for k, v in bond_attrs.items()
+         for k, v in list(bond_attrs.items())
          if v is not None]
 
     _run_ops = {
@@ -795,7 +793,7 @@ class bond(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None):

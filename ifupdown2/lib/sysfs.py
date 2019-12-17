@@ -220,7 +220,7 @@ class __Sysfs(IO, Requirements):
         """
         bond_attr_name = 'None'  # for log purpose (in case an exception raised)
 
-        for nl_attr, value in ifla_info_data.items():
+        for nl_attr, value in list(ifla_info_data.items()):
             try:
                 bond_attr_name = self.__bond_netlink_to_sysfs_attr_map.get(nl_attr)
 

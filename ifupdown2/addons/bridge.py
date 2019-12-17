@@ -8,7 +8,6 @@ import re
 import time
 import itertools
 
-from sets import Set
 from collections import Counter
 
 try:
@@ -1028,7 +1027,7 @@ class bridge(Addon, moduleBase):
             try:
                 waitportlist = self.parse_port_list(ifaceobj.name,
                                                     waitportvals[1])
-            except IndexError, e:
+            except IndexError as e:
                 # ignore error and use all bridge ports
                 waitportlist = portlist
                 pass
@@ -1041,14 +1040,14 @@ class bridge(Addon, moduleBase):
                         if not self.cache.link_exists(p)]):
                     break;
                 time.sleep(1)
-        except Exception, e:
+        except Exception as e:
             self.log_warn('%s: unable to process waitport: %s'
                     %(ifaceobj.name, str(e)))
 
     def _enable_disable_ipv6(self, port, enable='1'):
         try:
             self.write_file('/proc/sys/net/ipv6/conf/%s/disable_ipv6' % port, enable)
-        except Exception, e:
+        except Exception as e:
             self.logger.info(str(e))
 
     def handle_ipv6(self, ports, state):
@@ -1106,7 +1105,7 @@ class bridge(Addon, moduleBase):
         if not bridgeports:
             return []
         err = 0
-        newbridgeports = Set(bridgeports).difference(Set(runningbridgeports))
+        newbridgeports = set(bridgeports).difference(set(runningbridgeports))
         newly_enslaved_ports = []
 
         newbridgeports_ordered = []
@@ -1134,7 +1133,7 @@ class bridge(Addon, moduleBase):
                 newly_enslaved_ports.append(bridgeport)
                 self.handle_ipv6([bridgeport], '1')
                 self.iproute2.addr_flush(bridgeport)
-            except Exception, e:
+            except Exception as e:
                 self.logger.error(str(e))
                 pass
 
@@ -1167,12 +1166,12 @@ class bridge(Addon, moduleBase):
                             %(ifaceobj.name, p)) != '3']):
                     break;
                 time.sleep(1)
-        except Exception, e:
+        except Exception as e:
             self.log_warn('%s: unable to process maxwait: %s'
                     %(ifaceobj.name, str(e)))
 
     def _ints_to_ranges(self, ints):
-        for a, b in itertools.groupby(enumerate(ints), lambda (x, y): y - x):
+        for a, b in itertools.groupby(enumerate(ints), lambda x_y: x_y[1] - x_y[0]):
             b = list(b)
             yield b[0][1], b[-1][1]
 
@@ -1186,7 +1185,7 @@ class bridge(Addon, moduleBase):
                 if '-' in part:
                     a, b = part.split('-')
                     a, b = int(a), int(b)
-                    result.extend(range(a, b + 1))
+                    result.extend(list(range(a, b + 1)))
                 else:
                     a = int(part)
                     result.append(a)
@@ -1201,7 +1200,7 @@ class bridge(Addon, moduleBase):
                        for start, end in self._ints_to_ranges(vids_ints)]
 
     def _diff_vids(self, vids1_ints, vids2_ints):
-        return Set(vids2_ints).difference(vids1_ints), Set(vids1_ints).difference(vids2_ints)
+        return set(vids2_ints).difference(vids1_ints), set(vids1_ints).difference(vids2_ints)
 
     def _compare_vids(self, vids1, vids2, pvid=None, expand_range=True):
         """ Returns true if the vids are same else return false """
@@ -1212,7 +1211,7 @@ class bridge(Addon, moduleBase):
         else:
             vids1_ints = self._ranges_to_ints(vids1)
             vids2_ints = vids2
-        set_diff = Set(vids1_ints).symmetric_difference(vids2_ints)
+        set_diff = set(vids1_ints).symmetric_difference(vids2_ints)
         if pvid and int(pvid) in set_diff:
             set_diff.remove(int(pvid))
         if set_diff:
@@ -1235,15 +1234,15 @@ class bridge(Addon, moduleBase):
                 k, v = s.split('=')
                 mcqs[k] = v
 
-            k_to_del = Set(running_mcqv4src.keys()).difference(mcqs.keys())
+            k_to_del = set(list(running_mcqv4src.keys())).difference(list(mcqs.keys()))
             for v in k_to_del:
                 self.iproute2.bridge_del_mcqv4src(ifaceobj.name, v)
-            for v in mcqs.keys():
+            for v in list(mcqs.keys()):
                 self.iproute2.bridge_set_mcqv4src(ifaceobj.name, v, mcqs[v])
         elif not ifupdownflags.flags.PERFMODE:
             running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobj.name)
             if running_mcqv4src:
-                for v in running_mcqv4src.keys():
+                for v in list(running_mcqv4src.keys()):
                     self.iproute2.bridge_del_mcqv4src(ifaceobj.name, v)
 
     def _set_bridge_vidinfo_compat(self, ifaceobj):
@@ -1276,7 +1275,7 @@ class bridge(Addon, moduleBase):
                         else:
                             self.iproute2.bridge_vlan_del_pvid(port, running_pvid)
                     self.iproute2.bridge_vlan_add_pvid(port, pvid)
-                except Exception, e:
+                except Exception as e:
                     self.log_warn('%s: failed to set pvid `%s` (%s)'
                             %(ifaceobj.name, p, str(e)))
 
@@ -1304,7 +1303,7 @@ class bridge(Addon, moduleBase):
                                     self._compress_into_ranges(vids_to_add))
                     else:
                         self.iproute2.bridge_vlan_add_vid_list(port, vids_int)
-                except Exception, e:
+                except Exception as e:
                     self.log_warn('%s: failed to set vid `%s` (%s)'
                         %(ifaceobj.name, p, str(e)))
 
@@ -1414,7 +1413,7 @@ class bridge(Addon, moduleBase):
         except:
             pass
 
-        for attr_name, nl_attr in self._ifla_br_attributes_map.iteritems():
+        for attr_name, nl_attr in self._ifla_br_attributes_map.items():
             self.fill_ifla_info_data_with_ifla_br_attribute(
                 ifla_info_data=ifla_info_data,
                 link_just_created=link_just_created,
@@ -1572,7 +1571,7 @@ class bridge(Addon, moduleBase):
                 vids_to_add.add(pvid_to_del)
         except exceptions.ReservedVlanException as e:
             raise e
-        except Exception, e:
+        except Exception as e:
             self.log_error('%s: failed to process vids/pvids'
                            %bportifaceobj.name + ' vids = %s' %str(vids) +
                            'pvid = %s ' %pvid + '(%s)' %str(e),
@@ -1584,7 +1583,7 @@ class bridge(Addon, moduleBase):
                self.iproute2.bridge_vlan_del_vid_list_self(bportifaceobj.name,
                                           self._compress_into_ranges(
                                           vids_to_del), isbridge)
-        except Exception, e:
+        except Exception as e:
                 self.log_warn('%s: failed to del vid `%s` (%s)'
                         %(bportifaceobj.name, str(vids_to_del), str(e)))
 
@@ -1592,7 +1591,7 @@ class bridge(Addon, moduleBase):
             if pvid_to_del:
                self.iproute2.bridge_vlan_del_pvid(bportifaceobj.name,
                                                pvid_to_del)
-        except Exception, e:
+        except Exception as e:
                 self.log_warn('%s: failed to del pvid `%s` (%s)'
                         %(bportifaceobj.name, pvid_to_del, str(e)))
 
@@ -1601,7 +1600,7 @@ class bridge(Addon, moduleBase):
                self.iproute2.bridge_vlan_add_vid_list_self(bportifaceobj.name,
                                           self._compress_into_ranges(
                                           vids_to_add), isbridge)
-        except Exception, e:
+        except Exception as e:
                 self.log_error('%s: failed to set vid `%s` (%s)'
                                %(bportifaceobj.name, str(vids_to_add),
                                  str(e)), bportifaceobj, raise_error=False)
@@ -1610,7 +1609,7 @@ class bridge(Addon, moduleBase):
             if pvid_to_add and pvid_to_add != running_pvid:
                 self.iproute2.bridge_vlan_add_pvid(bportifaceobj.name,
                                                 pvid_to_add)
-        except Exception, e:
+        except Exception as e:
                 self.log_error('%s: failed to set pvid `%s` (%s)'
                                %(bportifaceobj.name, pvid_to_add, str(e)),
                                bportifaceobj)
@@ -1719,7 +1718,7 @@ class bridge(Addon, moduleBase):
                         self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
                 except exceptions.ReservedVlanException as e:
                     raise e
-                except Exception, e:
+                except Exception as e:
                     err = True
                     self.logger.warn('%s: %s' %(ifaceobj.name, str(e)))
                     pass
@@ -1934,7 +1933,7 @@ class bridge(Addon, moduleBase):
             cached_bridge_ports_learning = {}
 
             # we iterate through all IFLA_BRPORT supported attributes
-            for attr_name, nl_attr in self._ifla_brport_attributes_map.iteritems():
+            for attr_name, nl_attr in self._ifla_brport_attributes_map.items():
                 br_config = ifaceobj.get_attr_value_first(attr_name)
                 translate_func = self._ifla_brport_attributes_translate_user_config_to_netlink_map.get(nl_attr)
 
@@ -1970,7 +1969,7 @@ class bridge(Addon, moduleBase):
                             self.log_error('error while parsing \'%s %s\'' % (attr_name, br_config))
                             continue
 
-                for brport_ifaceobj in brport_ifaceobj_dict.values():
+                for brport_ifaceobj in list(brport_ifaceobj_dict.values()):
                     brport_config = brport_ifaceobj.get_attr_value_first(attr_name)
                     brport_name = brport_ifaceobj.name
 
@@ -2097,7 +2096,7 @@ class bridge(Addon, moduleBase):
             qinq_bridge = None
 
             # applying bridge port configuration via netlink
-            for brport_name, brport_ifla_info_slave_data in brports_ifla_info_slave_data.items():
+            for brport_name, brport_ifla_info_slave_data in list(brports_ifla_info_slave_data.items()):
 
                 brport_ifaceobj = brport_ifaceobj_dict.get(brport_name)
                 if (brport_ifaceobj
@@ -2461,9 +2460,9 @@ class bridge(Addon, moduleBase):
             self.up_bridge(ifaceobj, ifaceobj_getfunc)
 
         else:
-            bridge_attributes = self._modinfo.get('attrs', {}).keys()
+            bridge_attributes = list(self._modinfo.get('attrs', {}).keys())
 
-            for ifaceobj_config_attr in ifaceobj.config.keys():
+            for ifaceobj_config_attr in list(ifaceobj.config.keys()):
                 if ifaceobj_config_attr in bridge_attributes:
                     self.logger.warning('%s: invalid use of bridge attribute (%s) on non-bridge stanza'
                                         % (ifaceobj.name, ifaceobj_config_attr))
@@ -2582,7 +2581,7 @@ class bridge(Addon, moduleBase):
 
     def _query_running_mcqv4src(self, ifaceobjrunning):
         running_mcqv4src = self.sysfs.bridge_get_mcqv4src(ifaceobjrunning.name)
-        mcqs = ['%s=%s' %(v, i) for v, i in running_mcqv4src.items()]
+        mcqs = ['%s=%s' %(v, i) for v, i in list(running_mcqv4src.items())]
         mcqs.sort()
         mcq = ' '.join(mcqs)
         return mcq
@@ -2681,7 +2680,7 @@ class bridge(Addon, moduleBase):
             Link.IFLA_BR_MCAST_ROUTER: lambda_nl_value_to_yes_no_boolean,
         }
 
-        for attr_name, attr_nl in bridge_attributes_map.iteritems():
+        for attr_name, attr_nl in bridge_attributes_map.items():
             default_value = self.get_mod_subattr(attr_name, "default")
             cached_value = bridge_ifla_info_data.get(attr_nl)
 
@@ -2698,12 +2697,12 @@ class bridge(Addon, moduleBase):
                 ports = {}
             bridgevidinfo = self._query_running_vidinfo(ifaceobjrunning,
                                                         ifaceobj_getfunc,
-                                                        ports.keys())
+                                                        list(ports.keys()))
         else:
             bridgevidinfo = self._query_running_vidinfo_compat(ifaceobjrunning,
                                                                ports)
         if bridgevidinfo:
-           bridgeattrdict.update({k : [v] for k, v in bridgevidinfo.items()
+           bridgeattrdict.update({k : [v] for k, v in list(bridgevidinfo.items())
                                   if v})
 
         mcq = self._query_running_mcqv4src(ifaceobjrunning)
@@ -2723,7 +2722,7 @@ class bridge(Addon, moduleBase):
                           'bridge-broadcast-flood' : '',
                           'bridge-arp-nd-suppress' : '',
                          }
-            for p, v in ports.items():
+            for p, v in list(ports.items()):
                 v = str(self.cache.get_brport_cost(p))
                 if v and v != self.get_mod_subattr('bridge-pathcosts',
                                                    'default'):
@@ -2763,7 +2762,7 @@ class bridge(Addon, moduleBase):
                                               'default')):
                     portconfig['bridge-arp-nd-suppress'] += ' %s=%s' %(p, v)
 
-            bridgeattrdict.update({k : [v] for k, v in portconfig.items()
+            bridgeattrdict.update({k : [v] for k, v in list(portconfig.items())
                                     if v})
 
         return bridgeattrdict
@@ -2907,7 +2906,7 @@ class bridge(Addon, moduleBase):
                 ifaceobjcurr.update_config_with_status(attr, ifaceobj.get_attr_value_first(attr), 2)
                 filter_attributes.append(attr)
 
-        bridge_config = Set(user_config_attributes).difference(filter_attributes)
+        bridge_config = set(user_config_attributes).difference(filter_attributes)
         cached_ifla_info_data = self.cache.get_link_info_data(ifname)
 
         self._query_check_bridge_attributes(ifaceobj, ifaceobjcurr, bridge_config, cached_ifla_info_data)
@@ -3336,7 +3335,7 @@ class bridge(Addon, moduleBase):
             if '=' in user_config_l2protocol_tunnel:
                 try:
                     config_per_port_dict = self.parse_interface_list_value(user_config_l2protocol_tunnel)
-                    brport_list = config_per_port_dict.keys()
+                    brport_list = list(config_per_port_dict.keys())
                 except:
                     ifaceobjcurr.update_config_with_status('bridge-l2protocol-tunnel', user_config_l2protocol_tunnel, 1)
                     return
@@ -3372,9 +3371,9 @@ class bridge(Addon, moduleBase):
         cached_ifla_brport_group_maskhi = self.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASKHI)
         cached_ifla_brport_group_mask = self.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASK)
         running_protocols = []
-        for protocol_name, callback in self.query_check_l2protocol_tunnel_callback.items():
+        for protocol_name, callback in list(self.query_check_l2protocol_tunnel_callback.items()):
             if protocol_name == 'all' and callback(cached_ifla_brport_group_mask, cached_ifla_brport_group_maskhi):
-                running_protocols = self.query_check_l2protocol_tunnel_callback.keys()
+                running_protocols = list(self.query_check_l2protocol_tunnel_callback.keys())
                 running_protocols.remove('all')
                 break
             elif callback(cached_ifla_brport_group_mask, cached_ifla_brport_group_maskhi):
@@ -3571,7 +3570,7 @@ class bridge(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run bridge configuration on the interface object passed as

@@ -43,7 +43,7 @@ class IO(BaseObject):
             with open(path, "w") as f:
                 f.write(string)
             return True
-        except IOError, e:
+        except IOError as e:
             self.logger.warn("error while writing to file %s: %s" % (path, str(e)))
             return False
 

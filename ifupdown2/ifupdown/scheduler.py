@@ -10,8 +10,6 @@
 import os
 import sys
 
-from sets import Set
-
 try:
     from ifupdown2.ifupdown.graph import *
     from ifupdown2.ifupdown.iface import *
@@ -103,7 +101,7 @@ class ifaceScheduler():
                         ifupdownobj.logger.debug(msg)
                         m.run(ifaceobj, op,
                               ifaceobj_getfunc=ifupdownobj.get_ifaceobjs)
-            except Exception, e:
+            except Exception as e:
                 if not ifupdownobj.ignore_error(str(e)):
                     err = 1
                     #import traceback
@@ -137,7 +135,7 @@ class ifaceScheduler():
                     %(ifacename, op, mname))
                 try:
                     utils.exec_command(mname, env=cenv)
-                except Exception, e:
+                except Exception as e:
                     if "permission denied" in str(e).lower():
                         ifupdownobj.logger.warning('%s: %s %s' % (ifacename, op, str(e)))
                     else:
@@ -173,7 +171,7 @@ class ifaceScheduler():
             if handler:
                 try:
                     handler(ifupdownobj, ifaceobjs[0])
-                except Exception, e:
+                except Exception as e:
                     if not ifupdownobj.link_master_slave_ignore_error(str(e)):
                        ifupdownobj.logger.warn('%s: %s'
                                    %(ifaceobjs[0].name, str(e)))
@@ -188,7 +186,7 @@ class ifaceScheduler():
             try:
                 [posthookfunc(ifupdownobj, ifaceobj, ops[0])
                     for ifaceobj in ifaceobjs]
-            except Exception, e:
+            except Exception as e:
                 ifupdownobj.logger.warn('%s' %str(e))
                 pass
 
@@ -297,7 +295,7 @@ class ifaceScheduler():
                                             ifacename, order,
                                             followdependents,
                                             continueonfailure=False)
-                except Exception, e:
+                except Exception as e:
                     if (ifupdownobj.ignore_error(str(e))):
                         pass
                     else:
@@ -318,7 +316,7 @@ class ifaceScheduler():
             try:
               cls.run_iface_graph(ifupdownobj, ifacename, ops, parent,
                       order, followdependents)
-            except Exception, e:
+            except Exception as e:
                 if continueonfailure:
                     if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                         traceback.print_tb(sys.exc_info()[2])
@@ -359,7 +357,7 @@ class ifaceScheduler():
                                             ifacename,
                                             followdependents,
                                             continueonfailure=True)
-                except Exception, e:
+                except Exception as e:
                     if (ifupdownobj.ignore_error(str(e))):
                         pass
                     else:
@@ -375,7 +373,7 @@ class ifaceScheduler():
             try:
               cls.run_iface_graph_upper(ifupdownobj, ifacename, ops, parent,
                       followdependents, skip_root)
-            except Exception, e:
+            except Exception as e:
                 if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                     traceback.print_tb(sys.exc_info()[2])
                 ifupdownobj.logger.warn('%s : %s' %(ifacename, str(e)))
@@ -401,7 +399,7 @@ class ifaceScheduler():
             ifaceobj = ifupdownobj.get_ifaceobj_first(ifacename)
             if not ifaceobj:
                continue
-            ulist = Set(ifaceobj.upperifaces).difference(upperifacenames)
+            ulist = set(ifaceobj.upperifaces).difference(upperifacenames)
             nulist = []
             for u in ulist:
                 uifaceobj = ifupdownobj.get_ifaceobj_first(u)
@@ -442,7 +440,7 @@ class ifaceScheduler():
                 if not ifaceobjs:
                    continue
                 cls.run_iface_list_ops(ifupdownobj, ifaceobjs, ops)
-            except Exception, e:
+            except Exception as e:
                 if continueonfailure:
                     ifupdownobj.logger.warn('%s' %str(e))
 
@@ -452,16 +450,16 @@ class ifaceScheduler():
         ifupdownobj.logger.info('{\n')
         ifupdownobj.logger.info('\nifaceobjs:')
         for iname in ifacenames:
-	        iobjs = ifupdownobj.get_ifaceobjs(iname)
-	        for iobj in iobjs:
-		        iobj.dump(ifupdownobj.logger)
+            iobjs = ifupdownobj.get_ifaceobjs(iname)
+            for iobj in iobjs:
+                iobj.dump(ifupdownobj.logger)
         if (dependency_graph):
             ifupdownobj.logger.info('\nDependency Graph:')
             ifupdownobj.logger.info(dependency_graph)
-	    if (indegrees):
-		    ifupdownobj.logger.info('\nIndegrees:')
-		    ifupdownobj.logger.info(indegrees)
-	    ifupdownobj.logger.info('}\n')
+        if (indegrees):
+            ifupdownobj.logger.info('\nIndegrees:')
+            ifupdownobj.logger.info(indegrees)
+        ifupdownobj.logger.info('}\n')
 
     @classmethod
     def get_sorted_iface_list(cls, ifupdownobj, ifacenames, ops,
@@ -471,7 +469,7 @@ class ifaceScheduler():
         # Get a sorted list of all interfaces
         if not indegrees:
             indegrees = OrderedDict()
-            for ifacename in dependency_graph.keys():
+            for ifacename in list(dependency_graph.keys()):
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
         #cls._dump_dependency_info(ifupdownobj, ifacenames,
@@ -534,7 +532,7 @@ class ifaceScheduler():
         skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
         if not skip_ifacesort and not indegrees:
             indegrees = OrderedDict()
-            for ifacename in dependency_graph.keys():
+            for ifacename in list(dependency_graph.keys()):
                 indegrees[ifacename] = ifupdownobj.get_iface_refcnt(ifacename)
 
         if not ifupdownflags.flags.ALL:

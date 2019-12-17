@@ -14,7 +14,7 @@ from collections import deque
 
 try:
     from gvgen import *
-except ImportError, e:
+except ImportError as e:
     pass
 
 
@@ -37,7 +37,7 @@ class graph():
         Q = deque()
 
         indegrees = copy.deepcopy(indegrees_arg)
-        for ifname,indegree in indegrees.items():
+        for ifname,indegree in list(indegrees.items()):
             if indegree == 0:
                 Q.append(ifname)
 
@@ -63,7 +63,7 @@ class graph():
 
             S.append(x)
 
-        for ifname,indegree in indegrees.items():
+        for ifname,indegree in list(indegrees.items()):
             if indegree != 0:
                 raise Exception('cycle found involving iface %s' %ifname +
                                 ' (indegree %d)' %indegree)
@@ -83,10 +83,10 @@ class graph():
 
         gvgraph = GvGen()
         graphnodes = {}
-        for v in dependency_graph.keys():
+        for v in list(dependency_graph.keys()):
             graphnodes[v] = gvgraph.newItem(v)
 
-        for i, v in graphnodes.items():
+        for i, v in list(graphnodes.items()):
             dlist = dependency_graph.get(i, [])
             if not dlist:
                 continue

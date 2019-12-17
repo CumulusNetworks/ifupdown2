@@ -44,13 +44,13 @@ class __WeakMethodBound:
     """ ActiveState recipes 81253-weakmethod """
 
     def __init__(self, f):
-        self.f = f.im_func
-        self.c = weakref.ref(f.im_self)
+        self.f = f.__func__
+        self.c = weakref.ref(f.__self__)
 
     def __call__(self, *arg, **kwargs):
         if not self.c():
             raise TypeError("Method called on dead object")
-        apply(self.f, (self.c(),) + arg, kwargs)
+        self.f(*(self.c(),) + arg, **kwargs)
 
 
 class __WeakMethodFree:
@@ -62,13 +62,13 @@ class __WeakMethodFree:
     def __call__(self, *arg, **kwargs):
         if not self.f():
             raise TypeError("Function no longer exist")
-        apply(self.f(), arg, kwargs)
+        self.f()(*arg, **kwargs)
 
 
 def WeakMethod(f):
     """ ActiveState recipes 81253-weakmethod """
     try:
-        f.im_func
+        f.__func__
     except AttributeError:
         return __WeakMethodFree(f)
     return __WeakMethodBound(f)
@@ -223,7 +223,7 @@ class DryRunManager(object):
         Enable the dry run mode
         WARNING: not thread-safe
         """
-        for entries in self.__entries.itervalues():
+        for entries in self.__entries.values():
             for entry in entries:
                 entry.set()
         self.__is_on = True
@@ -233,18 +233,18 @@ class DryRunManager(object):
         Disable the dry run mode
         WARNING: not thread-safe
         """
-        for entries in self.__entries.itervalues():
+        for entries in self.__entries.values():
             for entry in entries:
                 entry.unset()
         self.__is_on = False
 
     def dump_entries_stdout(self):
-        print "== DryRunManager dump =="
-        print "  MODULE:    HANDLER  STATUS"
-        for entries in self.__entries.itervalues():
+        print("== DryRunManager dump ==")
+        print("  MODULE:    HANDLER  STATUS")
+        for entries in self.__entries.values():
             for entry in entries:
-                print "  %s: %s() %s" % (repr(entry.target_module_weakref), entry.handler_name, "ON" if entry.get_status() else "OFF")
-        print "========================"
+                print("  %s: %s() %s" % (repr(entry.target_module_weakref), entry.handler_name, "ON" if entry.get_status() else "OFF"))
+        print("========================")
 
     def is_dry_mode_on(self):
         return self.__is_on

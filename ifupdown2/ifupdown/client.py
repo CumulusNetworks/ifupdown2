@@ -25,7 +25,7 @@
 import struct
 import pickle
 
-import SocketServer
+import socketserver
 
 import logging
 import logging.handlers
@@ -53,7 +53,7 @@ except:
     from ifupdown.argv import Parse
 
 
-class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
+class LogRecordStreamHandler(socketserver.StreamRequestHandler):
     """
     Handler for a streaming logging request.
     This basically logs the record using whatever logging policy is configured
@@ -79,7 +79,7 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
             logging.getLogger(record.name).handle(record)
 
 
-class LogRecordSocketReceiver(SocketServer.TCPServer):
+class LogRecordSocketReceiver(socketserver.TCPServer):
     """
     Simple TCP socket-based logging receiver. In ifupdown2d context, the running
     daemon is the "sender" and the client is the "receiver". The TCPServer is
@@ -94,7 +94,7 @@ class LogRecordSocketReceiver(SocketServer.TCPServer):
             handler=LogRecordStreamHandler,
             port=LogManager.DEFAULT_TCP_LOGGING_PORT
     ):
-        SocketServer.TCPServer.__init__(self, (host, port), handler)
+        socketserver.TCPServer.__init__(self, (host, port), handler)
 
 
 class Client(SocketIO):

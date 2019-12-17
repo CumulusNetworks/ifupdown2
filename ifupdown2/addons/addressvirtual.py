@@ -141,14 +141,14 @@ class addressvirtual(Addon, moduleBase):
                 for addr in hwaddress:
                     try:
                         self.iproute2.bridge_fdb_del(bridgename, addr, vlan)
-                    except Exception, e:
+                    except Exception as e:
                         self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
                         pass
         elif self.cache.link_is_bridge(ifaceobj.name):
             for addr in hwaddress:
                 try:
                     self.iproute2.bridge_fdb_del(ifaceobj.name, addr)
-                except Exception, e:
+                except Exception as e:
                     self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
                     pass
 
@@ -215,7 +215,7 @@ class addressvirtual(Addon, moduleBase):
                                  ' .. flapping macvlan dev to fix entry.')
                 self.iproute2.link_down(vifacename)
                 self.iproute2.link_up(vifacename)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('%s: fixing route entry failed (%s)'
                               % (ifaceobj.name, str(e)))
             pass
@@ -524,7 +524,7 @@ class addressvirtual(Addon, moduleBase):
             for key, sysval in {
                 "accept_dad": "0",
                 "dad_transmits": "0"
-            }.iteritems():
+            }.items():
                 syskey = "%s.%s" % (sysctl_prefix, key)
                 if self.sysctl_get(syskey) != sysval:
                     self.sysctl_set(syskey, sysval)
@@ -790,7 +790,7 @@ class addressvirtual(Addon, moduleBase):
                     # on individual macvlan interfaces and deleting the vlan from that.
             if any(hwaddress):
                 self._remove_addresses_from_bridge(ifaceobj, hwaddress)
-        except Exception, e:
+        except Exception as e:
             import traceback
             traceback.print_exc()
             self.log_warn(str(e))
@@ -1030,7 +1030,7 @@ class addressvirtual(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
 
     def run(self, ifaceobj, operation, query_ifaceobj=None,

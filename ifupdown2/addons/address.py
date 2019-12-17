@@ -341,8 +341,8 @@ class address(Addon, moduleBase):
     def _address_valid(self, addrs):
         if not addrs:
            return False
-        if any(map(lambda a: True if a[:7] != '0.0.0.0'
-                else False, addrs)):
+        if any([True if a[:7] != '0.0.0.0'
+                else False for a in addrs]):
            return True
         return False
 
@@ -534,7 +534,7 @@ class address(Addon, moduleBase):
                     # we still have to send the IPNetwork object
                     # to the netlink "addr_del" API
                     self.netlink.addr_del(ifname, running_ip_addrs[index])
-            except Exception, e:
+            except Exception as e:
                 self.log_warn(str(e))
         if not user_config_ip_addrs_list:
             return
@@ -965,7 +965,7 @@ class address(Addon, moduleBase):
 
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, True)
-        except Exception, e:
+        except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
@@ -1059,7 +1059,7 @@ class address(Addon, moduleBase):
 
             # Handle special things on a bridge
             self._process_bridge(ifaceobj, False)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
             pass
 
@@ -1298,7 +1298,7 @@ class address(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run address configuration on the interface object passed as argument

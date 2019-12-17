@@ -20,7 +20,7 @@ try:
     if ADDON_MODULES_DIR[0] != IFUPDOWN2_ADDON_DROPIN_FOLDER:
         ADDON_MODULES_DIR.append(IFUPDOWN2_ADDON_DROPIN_FOLDER)
 except Exception as e:
-    print "debug: error resolving ifupdown2 addons module directory: %s" % str(e)
+    print("debug: error resolving ifupdown2 addons module directory: %s" % str(e))
     ADDON_MODULES_DIR = [IFUPDOWN2_ADDON_DROPIN_FOLDER]
 
 __version__ = ''

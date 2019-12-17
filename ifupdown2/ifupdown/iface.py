@@ -265,7 +265,7 @@ class ifaceJsonEncoder(json.JSONEncoder):
         retifacedict = OrderedDict([])
         if o.config:
             retconfig = dict((k, (v[0] if len(v) == 1 else v))
-                             for k,v in o.config.items())
+                             for k,v in list(o.config.items()))
         retifacedict['name'] = o.name
         if o.addr_method:
             if 'inet' in o.addr_family and 'dhcp' in o.addr_method:
@@ -288,7 +288,7 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
         retconfig_status = {}
         retifacedict = OrderedDict([])
         if o.config:
-            for k,v in o.config.items():
+            for k,v in list(o.config.items()):
                 idx = 0
                 vitem_status = []
                 for vitem in v:
@@ -330,8 +330,8 @@ class ifaceJsonDecoder():
     def json_to_ifaceobj(cls, ifaceattrdict):
         ifaceattrdict['config'] = OrderedDict([(k, (v if isinstance(v, list)
                                                 else [v.strip()]))
-                                for k,v in ifaceattrdict.get('config',
-                                            OrderedDict()).items()])
+                                for k,v in list(ifaceattrdict.get('config',
+                                            OrderedDict()).items())])
         return iface(attrsdict=ifaceattrdict)
 
 class iface():
@@ -548,7 +548,7 @@ class iface():
         env = {}
         config = self.config
         env['IFACE'] = self.name
-        for attr, attr_value in config.items():
+        for attr, attr_value in list(config.items()):
             attr_env_name = 'IF_%s' %attr.upper().replace("-", "_")
             env[attr_env_name] = attr_value[0]
         self.env = env
@@ -616,13 +616,13 @@ class iface():
             return False
         if any(True for k in self.config if k not in dstiface.config):
             return False
-        if any(True for k,v in self.config.items()
+        if any(True for k,v in list(self.config.items())
                     if v != dstiface.config.get(k)): return False
         return True
 
     def squash(self, newifaceobj):
         """ This squashes the iface object """
-        for attrname, attrlist in newifaceobj.config.iteritems():
+        for attrname, attrlist in newifaceobj.config.items():
             # if allready present add it to the list
             # else add it to the end of the dictionary
             # We need to maintain order.
@@ -684,10 +684,10 @@ class iface():
     def dump_raw(self, logger):
         indent = '  '
         if self.auto:
-            print 'auto %s' %self.name
-        print (self.raw_config[0])
+            print('auto %s' %self.name)
+        print((self.raw_config[0]))
         for i in range(1, len(self.raw_config)):
-            print(indent + self.raw_config[i])
+            print((indent + self.raw_config[i]))
 
     def dump(self, logger):
         indent = '\t'
@@ -769,14 +769,14 @@ class iface():
                 outbuf += ifaceline + '\n'
             if self.status == ifaceStatus.NOTFOUND:
                 outbuf = (outbuf.encode('utf8')
-                    if isinstance(outbuf, unicode) else outbuf)
-                print outbuf + '\n'
+                    if isinstance(outbuf, str) else outbuf)
+                print(outbuf.decode() + '\n')
                 return
         else:
             outbuf += ifaceline + '\n'
         config = self.config
         if config and first:
-            for cname, cvaluelist in config.items():
+            for cname, cvaluelist in list(config.items()):
                 idx = 0
                 for cv in cvaluelist:
                     status_str = None
@@ -797,8 +797,8 @@ class iface():
                     idx += 1
         if with_status:
             outbuf = (outbuf.encode('utf8')
-                        if isinstance(outbuf, unicode) else outbuf)
-        print outbuf
+                        if isinstance(outbuf, str) else outbuf)
+        print(outbuf.decode())
 
     def dump_pretty(self, with_status=False, use_realname=False):
         if not self.addr_family:

@@ -172,7 +172,7 @@ class vlan(Addon, moduleBase):
         try:
             self.netlink.link_del(ifaceobj.name)
             self._bridge_vid_add_del(vlanrawdevice, vlanid, add=False)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
@@ -262,7 +262,7 @@ class vlan(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run vlan configuration on the interface object passed as argument

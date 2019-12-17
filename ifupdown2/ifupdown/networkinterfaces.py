@@ -128,8 +128,8 @@ class networkInterfaces():
         Warns on error
         """
 
-        if callback_name not in self.callbacks.keys():
-            print 'warning: invalid callback ' + callback_name
+        if callback_name not in list(self.callbacks.keys()):
+            print('warning: invalid callback ' + callback_name)
             return -1
 
         self.callbacks[callback_name] = callback_func
@@ -396,7 +396,7 @@ class networkInterfaces():
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword
-        if (str in self.network_elems.keys() or
+        if (str in list(self.network_elems.keys()) or
             str.split('-')[0] == 'allow'):
             return 1
         return 0
@@ -407,7 +407,7 @@ class networkInterfaces():
 
     def get_allow_classes_for_iface(self, ifacename):
         classes = []
-        for class_name, ifacenames in self.allow_classes.items():
+        for class_name, ifacenames in list(self.allow_classes.items()):
             if ifacename in ifacenames:
                 classes.append(class_name)
         return classes
@@ -455,7 +455,7 @@ class networkInterfaces():
                     self._currentfile_has_template = False
                 else:
                     self._currentfile_has_template = True
-            except Exception, e:
+            except Exception as e:
                 self._parse_error(self._currentfile, -1,
                                   'failed to render template (%s). Continue without template rendering ...'
                                   % str(e))
@@ -474,7 +474,7 @@ class networkInterfaces():
         try:
             with open(filename) as f:
                 filedata = f.read()
-        except Exception, e:
+        except Exception as e:
             self.logger.warn('error processing file %s (%s)',
                              filename, str(e))
             return

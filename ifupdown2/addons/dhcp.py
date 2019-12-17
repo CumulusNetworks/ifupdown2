@@ -127,7 +127,7 @@ class dhcp(Addon, moduleBase):
                         if timeout:
                             time.sleep(1)
 
-        except Exception, e:
+        except Exception as e:
             self.log_error(str(e), ifaceobj)
 
     def _down_stale_dhcp_config(self, ifaceobj, family, dhclientX_running):
@@ -201,7 +201,7 @@ class dhcp(Addon, moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run dhcp configuration on the interface object passed as argument

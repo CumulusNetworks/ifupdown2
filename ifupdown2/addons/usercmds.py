@@ -50,7 +50,7 @@ class usercmds(moduleBase):
             for cmd in cmd_list:
                 try:
                     utils.exec_user_command(cmd)
-                except Exception, e:
+                except Exception as e:
                     if not self.ignore_error(str(e)):
                         self.logger.warn('%s: %s %s' % (ifaceobj.name, op,
                                                         str(e).strip('\n')))
@@ -77,7 +77,7 @@ class usercmds(moduleBase):
 
     def get_ops(self):
         """ returns list of ops supported by this module """
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run user commands

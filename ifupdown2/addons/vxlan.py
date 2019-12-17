@@ -5,7 +5,6 @@
 #
 
 
-from sets import Set
 from ipaddr import IPNetwork, IPAddress, IPv4Address, IPv4Network, AddressValueError
 
 try:
@@ -743,7 +742,7 @@ class vxlan(Addon, moduleBase):
     def _down(self, ifaceobj):
         try:
             self.netlink.link_del(ifaceobj.name)
-        except Exception, e:
+        except Exception as e:
             self.log_warn(str(e))
 
     @staticmethod
@@ -763,8 +762,8 @@ class vxlan(Addon, moduleBase):
                     ifaceobjcurr.update_config_with_status(attrname, a, 0)
                 else:
                     ifaceobjcurr.update_config_with_status(attrname, a, 1)
-            running_addresses = Set(running_addresses).difference(
-                                                    Set(addresses))
+            running_addresses = set(running_addresses).difference(
+                                                    set(addresses))
         [ifaceobjcurr.update_config_with_status(attrname, a, 1) for a in running_addresses]
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
@@ -940,7 +939,7 @@ class vxlan(Addon, moduleBase):
     }
 
     def get_ops(self):
-        return self._run_ops.keys()
+        return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)

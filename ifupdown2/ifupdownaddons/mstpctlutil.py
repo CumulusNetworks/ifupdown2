@@ -143,11 +143,11 @@ class mstpctlutil(utilsBase):
         portname = bridgename  # assigning portname to avoid an exception, in the exception handler
         try:
             mstpctl_bridge_cache = json.loads(output.strip('\n'))
-            for portname in mstpctl_bridge_cache.keys():
-                for portid in mstpctl_bridge_cache[portname].keys():
+            for portname in list(mstpctl_bridge_cache.keys()):
+                for portid in list(mstpctl_bridge_cache[portname].keys()):
                     mstpctl_bridgeport_attrs_dict[portname] = {}
                     mstpctl_bridgeport_attrs_dict[portname]['treeportprio'] = self._extract_bridge_port_prio(portid)
-                    for jsonAttr in mstpctl_bridge_cache[portname][portid].keys():
+                    for jsonAttr in list(mstpctl_bridge_cache[portname][portid].keys()):
                         jsonVal = mstpctl_bridge_cache[portname][portid][jsonAttr]
                         mstpctl_bridgeport_attrs_dict[portname][jsonAttr] = str(jsonVal)
             MSTPAttrsCache.set(bridgename, mstpctl_bridgeport_attrs_dict)
@@ -166,7 +166,7 @@ class mstpctlutil(utilsBase):
             return mstpctl_bridge_attrs_dict
         try:
             mstpctl_bridge_cache = json.loads(output.strip('\n'))
-            for jsonAttr in mstpctl_bridge_cache[bridgename].keys():
+            for jsonAttr in list(mstpctl_bridge_cache[bridgename].keys()):
                 mstpctl_bridge_attrs_dict[jsonAttr] = (
                     str(mstpctl_bridge_cache[bridgename][jsonAttr]))
             mstpctl_bridge_attrs_dict['treeprio'] = '%d' %(
@@ -219,8 +219,8 @@ class mstpctlutil(utilsBase):
         bridgeattrs = {}
         try:
             bridgeattrs = dict((k, self.get_bridge_attr(bridgename, v))
-                                 for k,v in self._bridge_jsonAttr_map.items())
-        except Exception, e:
+                                 for k,v in list(self._bridge_jsonAttr_map.items()))
+        except Exception as e:
             self.logger.debug(bridgeattrs)
             self.logger.debug(str(e))
             pass
@@ -252,12 +252,12 @@ class mstpctlutil(utilsBase):
                                      str(attrvalue))
 
     def set_bridge_attrs(self, bridgename, attrdict, check=True):
-        for k, v in attrdict.iteritems():
+        for k, v in attrdict.items():
             if not v:
                 continue
             try:
                 self.set_bridge_attr(bridgename, k, v, check)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warn('%s: %s' %(bridgename, str(e)))
 
     def get_bridge_treeprio(self, bridgename):

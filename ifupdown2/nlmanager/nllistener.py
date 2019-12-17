@@ -25,12 +25,12 @@
 # Netlink Listener --
 #
 
-from nlpacket import *
-from nlmanager import NetlinkManager
+from .nlpacket import *
+from .nlmanager import NetlinkManager
 from select import select
 from struct import pack, unpack, calcsize
 from threading import Thread, Event, Lock
-from Queue import Queue
+from queue import Queue
 import logging
 import signal
 import socket
@@ -107,7 +107,7 @@ class NetlinkListener(Thread):
         :return:
         """
         pid_offset = self.pid_offset
-        for i in xrange(0, int(os.getenv("NLMANAGER_BIND_RETRY", 4242))):
+        for i in range(0, int(os.getenv("NLMANAGER_BIND_RETRY", 4242))):
             try:
                 pid_offset += i
                 self.rx_socket.bind((pid | (pid_offset << 22), self.groups))
@@ -209,7 +209,7 @@ class NetlinkListener(Thread):
 
                 try:
                     data = s.recv(self.RECV_BUFFER)
-                except socket.error, e:
+                except socket.error as e:
                     log.error('recv() error: ' + str(e))
                     data = []
                     if e.errno is errno.ENOBUFS and self.error_notification:
@@ -494,7 +494,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         addr = Address(RTM_GETADDR, debug, use_color=self.use_color)
         addr.flags = NLM_F_REQUEST | NLM_F_DUMP
         addr.body = pack('Bxxxi', family, 0)
-        addr.build_message(self.sequence.next(), self.pid)
+        addr.build_message(next(self.sequence), self.pid)
 
         if debug:
             self.debug_seq_pid[(addr.seq, addr.pid)] = True
@@ -508,7 +508,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         link = Link(RTM_GETLINK, debug, use_color=self.use_color)
         link.flags = NLM_F_REQUEST | NLM_F_DUMP
         link.body = pack('Bxxxiii', family, 0, 0, 0)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
 
         if debug:
             self.debug_seq_pid[(link.seq, link.pid)] = True
@@ -526,7 +526,7 @@ class NetlinkManagerWithListener(NetlinkManager):
             link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN_COMPRESSED)
         else:
             link.add_attribute(Link.IFLA_EXT_MASK, Link.RTEXT_FILTER_BRVLAN)
-        link.build_message(self.sequence.next(), self.pid)
+        link.build_message(next(self.sequence), self.pid)
 
         if debug:
             self.debug_seq_pid[(link.seq, link.pid)] = True
@@ -540,7 +540,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         neighbor = Neighbor(RTM_GETNEIGH, debug, use_color=self.use_color)
         neighbor.flags = NLM_F_REQUEST | NLM_F_DUMP
         neighbor.body = pack('Bxxxii', family, 0, 0)
-        neighbor.build_message(self.sequence.next(), self.pid)
+        neighbor.build_message(next(self.sequence), self.pid)
 
         if debug:
             self.debug_seq_pid[(neighbor.seq, neighbor.pid)] = True
@@ -554,7 +554,7 @@ class NetlinkManagerWithListener(NetlinkManager):
         route = Route(RTM_GETROUTE, debug, use_color=self.use_color)
         route.flags = NLM_F_REQUEST | NLM_F_DUMP
         route.body = pack('Bxxxii', family, 0, 0)
-        route.build_message(self.sequence.next(), self.pid)
+        route.build_message(next(self.sequence), self.pid)
 
         if debug:
             self.debug_seq_pid[(route.seq, route.pid)] = True
@@ -570,7 +570,7 @@ class NetlinkManagerWithListener(NetlinkManager):
             }
         }
         """
-        for (key, value) in attr_filter.items():
+        for (key, value) in list(attr_filter.items()):
             if type(value) is dict:
                 if not self.nested_attributes_match(msg, value):
                     return False

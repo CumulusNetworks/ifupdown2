@@ -8,6 +8,7 @@ import os
 import re
 import logging
 import traceback
+from functools import reduce
 
 try:
     from ifupdown2.ifupdown.iface import *
@@ -67,7 +68,7 @@ class moduleBase(object):
         error_msg = 'this attribute doesn\'t exist or isn\'t supported'
 
         # first check module_defaults
-        for key, value in policymanager.policymanager_api.get_module_defaults(self.modulename).items():
+        for key, value in list(policymanager.policymanager_api.get_module_defaults(self.modulename).items()):
             if not key in attrs:
                 self.logger.warning('%s: %s: %s' % (self.modulename, key, error_msg))
                 continue
@@ -79,7 +80,7 @@ class moduleBase(object):
             policy_attrs = policy_modinfo.get('attrs', {})
             update_attrs = dict()
 
-            for attr_name, attr_description in policy_attrs.items():
+            for attr_name, attr_description in list(policy_attrs.items()):
                 if attr_name not in attrs:
                     self.logger.warning('%s: %s: %s' % (self.modulename, attr_name, error_msg))
                 else:
@@ -145,7 +146,7 @@ class moduleBase(object):
             try:
                 if re.search(expr + '$', proc_ifacename):
                     yield proc_ifacename
-            except Exception, e:
+            except Exception as e:
                 raise Exception('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, proc_ifacename, str(e)))
         if not ifacenames:
@@ -154,7 +155,7 @@ class moduleBase(object):
             try:
                 if re.search(expr + '$', ifacename):
                     yield ifacename
-            except Exception, e:
+            except Exception as e:
                 raise Exception('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, ifacename, str(e)))
 
@@ -279,7 +280,7 @@ class moduleBase(object):
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
-        except IOError, e:
+        except IOError as e:
             self.logger.warn('error writing to file %s'
                 %filename + '(' + str(e) + ')')
             return -1
@@ -371,7 +372,7 @@ class moduleBase(object):
         try:
             retattrs = []
             attrsdict = self._modinfo.get('attrs')
-            for attrname, attrvals in attrsdict.iteritems():
+            for attrname, attrvals in attrsdict.items():
                 if not attrvals or attrvals.get('deprecated'):
                     continue
                 retattrs.append(attrname)
@@ -422,7 +423,7 @@ class moduleBase(object):
             (s, e) = utils.exec_command(get_resvvlan).strip('\n').split('-')
             start = int(s)
             end = int(e)
-        except Exception, e:
+        except Exception as e:
             self.logger.debug('%s failed (%s)' %(get_resvvlan, str(e)))
             # ignore errors
             pass

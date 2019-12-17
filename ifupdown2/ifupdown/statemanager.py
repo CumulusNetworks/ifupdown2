@@ -8,7 +8,7 @@
 #
 
 import os
-import cPickle
+import pickle
 import logging
 
 try:
@@ -32,7 +32,7 @@ class pickling():
         try:
             with open(filename, 'w') as f:
                 for obj in list_of_objects:
-                    cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
+                    pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
         except:
             raise
 
@@ -40,7 +40,7 @@ class pickling():
     def save_obj(cls, f, obj):
         """ pickle iface object """
         try:
-            cPickle.dump(obj, f, cPickle.HIGHEST_PROTOCOL)
+            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
         except:
             raise
 
@@ -49,7 +49,7 @@ class pickling():
         """ load picked iface object """
         with open(filename, 'r') as f:
             while True:
-                try: yield cPickle.load(f)
+                try: yield pickle.load(f)
                 except EOFError: break
                 except: raise
 
@@ -197,7 +197,7 @@ class stateManager():
                     f.truncate(0)
                     return
                 self.logger.debug('saving state ..')
-                for ifaceobjs in self.ifaceobjdict.values():
+                for ifaceobjs in list(self.ifaceobjdict.values()):
                     [pickling.save_obj(f, i) for i in ifaceobjs]
             open('%s/%s' %(self.state_rundir, self.state_runlockfile), 'w').close()
         except:
@@ -205,7 +205,7 @@ class stateManager():
 
     def dump_pretty(self, ifacenames, format='native'):
         if not ifacenames:
-            ifacenames = self.ifaceobjdict.keys()
+            ifacenames = list(self.ifaceobjdict.keys())
         for i in ifacenames:
             ifaceobjs = self.get_ifaceobjs(i)
             if not ifaceobjs:
@@ -226,7 +226,7 @@ class stateManager():
                                                         % i + ' not found')
                 ifaceobj.dump(self.logger)
         else:
-            for ifacename, ifaceobjs in self.ifaceobjdict.items():
+            for ifacename, ifaceobjs in list(self.ifaceobjdict.items()):
                 [i.dump(self.logger) for i in ifaceobjs]
 
 statemanager_api = stateManager()

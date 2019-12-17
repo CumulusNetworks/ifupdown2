@@ -25,8 +25,8 @@ def profile(func):
     def wrap(*args, **kwargs):
         started_at = time.time()
         result = func(*args, **kwargs)
-        print str(func)
-        print (time.time() - started_at)
+        print(str(func))
+        print((time.time() - started_at))
         return result
     return wrap
 
@@ -45,7 +45,7 @@ class utilsBase(object):
                 return 0
             with open(filename, 'w') as f:
                 f.write(strexpr)
-        except IOError, e:
+        except IOError as e:
             self.logger.warn('error writing to file %s'
                 %filename + '(' + str(e) + ')')
             return -1
