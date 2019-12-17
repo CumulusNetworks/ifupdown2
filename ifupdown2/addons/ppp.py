@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import os
 import hashlib
@@ -13,7 +13,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
     import ifupdown.statemanager as statemanager
 

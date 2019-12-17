@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2016-2017 Maximilian Wilhelm <max@sdn.clinic>
 # Author: Maximilian Wilhelm, max@sdn.clinic
@@ -13,7 +13,7 @@ try:
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-except:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
 
     from ifupdown.iface import *

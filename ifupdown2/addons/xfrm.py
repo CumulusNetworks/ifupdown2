@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2019 Voleatech GmbH. All rights reserved.
 # Author: Sven Auhagen, sven.auhagen@voleatech.de
@@ -24,7 +24,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
 
     from ifupdown.iface import *
