@@ -27,10 +27,7 @@ import shlex
 import signal
 import subprocess
 
-from ipaddress import ip_network
-
-def IPNetwork(ip):
-    return ip_network(ip, False)
+from ipaddr import IPNetwork
 
 try:
     from ifupdown2.lib.sysfs import Sysfs

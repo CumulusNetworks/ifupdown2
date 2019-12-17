@@ -5,16 +5,7 @@
 #
 
 
-from ipaddress import ip_network, ip_address, IPv4Address, IPv4Network, AddressValueError
-
-
-def IPNetwork(ip):
-    return ip_network(ip, False)
-
-
-def IPAddress(ip):
-    return ip_address(ip)
-
+from ipaddr import IPNetwork, IPAddress, IPv4Address, IPv4Network, AddressValueError
 
 try:
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -400,7 +391,7 @@ class vxlan(Addon, moduleBase):
                 local = IPv4Address(local)
             except AddressValueError:
                 try:
-                    local_ip = IPv4Network(local, strict=False).network_address
+                    local_ip = IPv4Network(local).ip
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
                     local = local_ip
                 except:
@@ -481,7 +472,7 @@ class vxlan(Addon, moduleBase):
                 group = IPv4Address(group)
             except AddressValueError:
                 try:
-                    group_ip = IPv4Network(group, strict=False).network_address
+                    group_ip = IPv4Network(group).ip
                     self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
                     group = group_ip
                 except:
@@ -501,7 +492,7 @@ class vxlan(Addon, moduleBase):
                 mcast_grp = IPv4Address(mcast_grp)
             except AddressValueError:
                 try:
-                    group_ip = IPv4Network(mcast_grp, strict=False).network_address
+                    group_ip = IPv4Network(mcast_grp).ip
                     self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
                     mcast_grp = group_ip
                 except:

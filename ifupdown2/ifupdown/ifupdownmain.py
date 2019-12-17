@@ -15,14 +15,7 @@ import pprint
 
 from collections import OrderedDict
 
-from ipaddress import ip_network, ip_address, IPv4Network, IPv6Network, IPv4Address, IPv6Address
-
-def IPNetwork(ip):
-    return ip_network(ip, False)
-
-def IPAddress(ip):
-    return ip_address(ip)
-
+from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
 
 try:
     import ifupdown2.lib.nlcache as nlcache
@@ -892,25 +885,17 @@ class ifupdownMain:
             self.logger.debug('keyword: check list: %s' % str(e))
             return False
 
-    @staticmethod
-    def validate_ipv4network(value):
-        return IPv4Network(value, strict=False)
-
-    @staticmethod
-    def validate_ipv6network(value):
-        return IPv6Network(value, strict=False)
-
     def _keyword_ipv4(self, value, validrange=None):
         return self._keyword_check_list(value.split(), IPv4Address, limit=1)
 
     def _keyword_ipv4_prefixlen(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), self.validate_ipv4network, limit=1)
+        return self._keyword_check_list(value.split(), IPv4Network, limit=1)
 
     def _keyword_ipv6(self, value, validrange=None):
         return self._keyword_check_list(value.split(), IPv6Address, limit=1)
 
     def _keyword_ipv6_prefixlen(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), self.validate_ipv6network, limit=1)
+        return self._keyword_check_list(value.split(), IPv6Network, limit=1)
 
     def _keyword_ip(self, value, validrange=None):
         return self._keyword_check_list(value.split(), IPAddress, limit=1)
