@@ -28,6 +28,7 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import socket
 import logging
 import struct
 from ipaddr import IPNetwork, IPv4Address, IPv6Address, IPAddress
@@ -36,6 +37,7 @@ from pprint import pformat
 from socket import AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE, htons
 from string import printable
 from struct import pack, unpack, calcsize
+
 
 log = logging.getLogger(__name__)
 SYSLOG_EXTRA_DEBUG = 5
@@ -162,8 +164,6 @@ AF_MPLS = 28
 
 AF_FAMILY = dict()
 
-import socket
-
 for family in [attr for attr in dir(socket) if attr.startswith('AF_')]:
     AF_FAMILY[getattr(socket, family)] = family
 
@@ -210,22 +210,13 @@ def remove_trailing_null(line):
     Remove the last character if it is a NULL...having that NULL
     causes python to print a garbage character
     """
-    return line.split(b'\0', 1)[0]
+    if line[-1] == 0:
+        line = line[:-1]
+
+    return line
 
 
-def mac_int_to_str(mac_int):
-    """
-    Return an integer in MAC string format
-    """
-
-    # [2:] to remove the leading 0x, then fill out to 12 zeroes, then uppercase
-    all_caps = hex(int(mac_int))[2:].zfill(12).upper()
-
-    if all_caps[-1] == 'L':
-        all_caps = all_caps[:-1]
-        all_caps = all_caps.zfill(12).upper()
-
-    return "%s.%s.%s" % (all_caps[0:4], all_caps[4:8], all_caps[8:12])
+mac_int_to_str = lambda mac_int: ":".join(("%012x" % mac_int)[i:i + 2] for i in range(0, 12, 2))
 
 
 def data_to_color_text(line_number, color, data, extra=''):
@@ -247,7 +238,7 @@ def data_to_color_text(line_number, color, data, extra=''):
 
 
 def padded_length(length):
-    return int((length + 3) / 4) * 4
+    return int((length + 3) // 4) * 4
 
 
 class NetlinkPacket_IFLA_LINKINFO_Attributes:
@@ -938,7 +929,7 @@ class Attribute(object):
         pad = self.pad_bytes_needed(length)
 
         if pad:
-            raw = raw + bytes(('\0' * pad).encode("ascii"))
+            raw += ("\0" * pad).encode("utf-8")
 
         return raw
 
@@ -1017,7 +1008,8 @@ class Attribute(object):
 
     @staticmethod
     def decode_one_byte_attribute(data, _=None):
-        return unpack("=B", data[4])[0]
+        # we don't need to use the unpack function because bytes are a list of ints
+        return data[4]
 
     @staticmethod
     def decode_two_bytes_attribute(data, _=None):
@@ -1070,7 +1062,7 @@ class Attribute(object):
 
     @staticmethod
     def decode_vlan_protocol_attribute(data, _=None):
-        return Link.ifla_vlan_protocol_dict.get(int("0x%s" % data[4:6].encode("hex"), base=16))
+        return Link.ifla_vlan_protocol_dict.get(unpack(">H", data[4:6])[0])
 
     ############################################################################
     # encode methods
@@ -1082,17 +1074,8 @@ class Attribute(object):
         sub_attr_payload.append(5)  # length
         sub_attr_payload.append(info_data_type)
 
-        sub_attr_pack_layout.append("B")
+        sub_attr_pack_layout.append("Bxxx")
         sub_attr_payload.append(info_data_value)
-
-        # pad 3 bytes
-        sub_attr_pack_layout.extend("xxx")
-
-    @staticmethod
-    def encode_one_byte_attribute_from_string_boolean(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
-        return Attribute.encode_one_byte_attribute(
-            sub_attr_pack_layout, sub_attr_payload, info_data_type, value_to_bool_dict.get(info_data_value)
-        )
 
     @staticmethod
     def encode_bond_xmit_hash_policy_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
@@ -1118,11 +1101,8 @@ class Attribute(object):
         sub_attr_payload.append(6)  # length
         sub_attr_payload.append(info_data_type)
 
-        sub_attr_pack_layout.append("H")
+        sub_attr_pack_layout.append("Hxx")
         sub_attr_payload.append(info_data_value)
-
-        # pad 2 bytes
-        sub_attr_pack_layout.extend("xx")
 
     @staticmethod
     def encode_four_bytes_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
@@ -1148,13 +1128,12 @@ class Attribute(object):
         sub_attr_payload.append(8)  # length
         sub_attr_payload.append(info_data_type)
 
-        sub_attr_pack_layout.append("L")
+        sub_attr_pack_layout.append("BBBB")
 
         if info_data_value:
-            reorder = unpack("<L", IPv4Address(info_data_value).packed)[0]
-            sub_attr_payload.append(IPv4Address(reorder))
+            sub_attr_payload.extend(socket.inet_aton(info_data_value))
         else:
-            sub_attr_payload.append(0)
+            sub_attr_payload.extend([0, 0, 0, 0])
 
     @staticmethod
     def encode_ipv6_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
@@ -1171,11 +1150,8 @@ class Attribute(object):
         if not vlan_protocol:
             raise NotImplementedError('vlan protocol %s not implemented' % info_data_value)
 
-        sub_attr_pack_layout.append("H")
+        sub_attr_pack_layout.append("Hxx")
         sub_attr_payload.append(htons(vlan_protocol))
-
-        # pad 2 bytes
-        sub_attr_pack_layout.extend("xx")
 
     @staticmethod
     def encode_vxlan_port_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
@@ -1183,14 +1159,12 @@ class Attribute(object):
         sub_attr_payload.append(6)
         sub_attr_payload.append(info_data_type)
 
-        sub_attr_pack_layout.append("H")
+        sub_attr_pack_layout.append("Hxx")
 
         # byte swap
         swaped = pack(">H", info_data_value)
-        sub_attr_payload.append(unpack("<H", swaped)[0])
 
-        # pad 2 bytes
-        sub_attr_pack_layout.extend("xx")
+        sub_attr_payload.append(unpack("<H", swaped)[0])
 
     @staticmethod
     def encode_mac_address_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
@@ -1198,12 +1172,9 @@ class Attribute(object):
         sub_attr_payload.append(10)  # length
         sub_attr_payload.append(info_data_type)
 
-        sub_attr_pack_layout.append("6B")
+        sub_attr_pack_layout.append("6Bxx")
         for mbyte in info_data_value.replace(".", " ").replace(":", " ").split():
             sub_attr_payload.append(int(mbyte, 16))
-
-        # pad 2 bytes
-        sub_attr_pack_layout.extend('xx')
 
 
 class AttributeCACHEINFO(Attribute):
@@ -1239,7 +1210,7 @@ class AttributeFourByteList(Attribute):
 
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
-        wordcount = (self.attr_end - 4)/4
+        wordcount = (self.attr_end - 4)//4
         self.PACK = '=%dL' % wordcount
         self.LEN = calcsize(self.PACK)
 
@@ -1321,14 +1292,13 @@ class AttributeString(Attribute):
     def encode(self):
         # some interface names come from JSON as unicode strings
         # and cannot be packed as is so we must convert them to strings
-        if isinstance(self.value, bytes):
-            self.value = self.value.decode()
+        if isinstance(self.value, str):
+            self.value = str(self.value)
         self.PACK = '%ds' % len(self.value)
         self.LEN = calcsize(self.PACK)
 
         length = self.HEADER_LEN + self.LEN
-        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value.encode("ascii"))
-        #raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value)
+        raw = pack(self.HEADER_PACK, length, self.atype) + pack(self.PACK, self.value.encode())
         raw = self.pad(length, raw)
         return raw
 
@@ -1338,7 +1308,7 @@ class AttributeString(Attribute):
         self.LEN = calcsize(self.PACK)
 
         try:
-            self.value = remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0])
+            self.value = remove_trailing_null(unpack(self.PACK, self.data[4:self.length])[0]).decode("utf-8")
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:self.length])))
             raise
@@ -1662,18 +1632,7 @@ class AttributeIFLA_AF_SPEC(Attribute):
         length = calcsize(pack_layout)
         payload[attr_length_index] = length
 
-        # WORK AROUND: converting string to bytes and ignoring NoneType
-        # I'm not even sure why we have NoneTypes here...
-        plist = []
-        for p in payload:
-            if not p:
-                plist.append(0)
-            elif isinstance(p, str):
-                plist.append(p.encode())
-            else:
-                plist.append(p)
-        raw = pack(pack_layout, *plist)
-
+        raw = pack(pack_layout, *payload)
         raw = self.pad(length, raw)
         return raw
 
@@ -1769,8 +1728,8 @@ class AttributeIFLA_AF_SPEC(Attribute):
 
                         # 1 byte attr
                         if inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
-                            #inet6_attr[inet6_attr_type] = unpack('=B', sub_attr_data[4])[0]
-                            inet6_attr[inet6_attr_type] = sub_attr_data[4]
+                            inet6_attr[inet6_attr_type] = self.decode_one_byte_attribute(sub_attr_data)
+
                             # nlmanager doesn't support multiple kernel version
                             # all the other attributes like IFLA_INET6_CONF are
                             # based on DEVCONF_MAX from _UAPI_IPV6_H.
@@ -2465,10 +2424,9 @@ class AttributeIFLA_LINKINFO(Attribute):
             "bond": {
                 # 1 byte attributes ############################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_NUM_PEER_NOTIF: Attribute.encode_one_byte_attribute,
-
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_USE_CARRIER: Attribute.encode_one_byte_attribute_from_string_boolean,
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_BYPASS: Attribute.encode_one_byte_attribute_from_string_boolean,
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_RATE: Attribute.encode_one_byte_attribute_from_string_boolean,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_USE_CARRIER: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_BYPASS: Attribute.encode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_RATE: Attribute.encode_one_byte_attribute,
 
                 # bond-mode attribute ##########################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MODE: Attribute.encode_bond_mode_attribute,
@@ -2495,8 +2453,7 @@ class AttributeIFLA_LINKINFO(Attribute):
             },
             "bridge": {
                 # 1 byte attributes ############################################
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_FILTERING: Attribute.encode_one_byte_attribute_from_string_boolean,
-
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_VLAN_FILTERING: Attribute.encode_one_byte_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_TOPOLOGY_CHANGE: Attribute.encode_one_byte_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_TOPOLOGY_CHANGE_DETECTED: Attribute.encode_one_byte_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BR_MCAST_ROUTER: Attribute.encode_one_byte_attribute,
@@ -2822,7 +2779,7 @@ class AttributeIFLA_LINKINFO(Attribute):
 
             if sub_attr_type in (Link.IFLA_INFO_KIND, Link.IFLA_INFO_SLAVE_KIND):
                 sub_attr_pack_layout.append('%ds' % len(sub_attr_value))
-                sub_attr_payload.append(sub_attr_value)
+                sub_attr_payload.append(sub_attr_value.encode("utf-8"))
 
             elif sub_attr_type == Link.IFLA_INFO_DATA:
                 sub_attr_payload = self.encode_ifla_info_nested_data(
@@ -2901,7 +2858,11 @@ class AttributeIFLA_LINKINFO(Attribute):
             ifla_info_nested_attr_to_str_dict = self.ifla_info_nested_data_attributes_to_string_dict.get(sub_attr_type, {}).get(kind)
 
             if not ifla_info_nested_data_handlers or not ifla_info_nested_attr_to_str_dict:
-                self.log.log(SYSLOG_EXTRA_DEBUG, "%s: decode: unsupported %s %s" % (sub_attr_type_str, ifla_info_nested_kind_str, kind))
+                self.log.log(
+                    SYSLOG_EXTRA_DEBUG,
+                    "%s: decode: unsupported %s %s"
+                    % (sub_attr_type_str, ifla_info_nested_kind_str, kind)
+                )
             else:
                 while sub_attr_data:
                     (info_nested_data_length, info_nested_data_type) = unpack("=HH", sub_attr_data[:4])
@@ -2969,8 +2930,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                 return
 
             if sub_attr_type in (Link.IFLA_INFO_KIND, Link.IFLA_INFO_SLAVE_KIND):
-                kind = remove_trailing_null(unpack('%ds' % (sub_attr_length - 4), data[4:sub_attr_length])[0])
-                self.value[sub_attr_type] = kind.decode() if isinstance(kind, bytes) else kind
+                self.value[sub_attr_type] = remove_trailing_null(unpack("%ds" % (sub_attr_length - 4), data[4:sub_attr_length])[0]).decode("utf-8")
 
             elif sub_attr_type == Link.IFLA_INFO_DATA:
                 self.value[Link.IFLA_INFO_DATA] = self.decode_ifla_info_nested_data(
@@ -3094,6 +3054,7 @@ class AttributeIFLA_PROTINFO(Attribute):
         #
         # Until we cross that bridge though we will keep things nice and simple and
         # pack everything via a single pack() call.
+
         for (sub_attr_type, sub_attr_value) in self.value.items():
             sub_attr_pack_layout = ['=', 'HH']
             sub_attr_payload = [0, sub_attr_type]
@@ -3149,8 +3110,7 @@ class AttributeIFLA_PROTINFO(Attribute):
             sub_attr_payload[sub_attr_length_index] = sub_attr_length
 
             # add padding
-            for x in range(self.pad_bytes_needed(sub_attr_length)):
-                sub_attr_pack_layout.append('x')
+            sub_attr_pack_layout[-1] = "%s%s" % (sub_attr_pack_layout[-1], "x" * self.pad_bytes_needed(sub_attr_length))
 
             # The [1:] is to remove the leading = so that when we do the ''.join() later
             # we do not end up with an = in the middle of the pack layout string. There
@@ -3214,7 +3174,7 @@ class AttributeIFLA_PROTINFO(Attribute):
                                      Link.IFLA_BRPORT_PEER_LINK,
                                      Link.IFLA_BRPORT_DUAL_LINK,
                                      Link.IFLA_BRPORT_NEIGH_SUPPRESS):
-                    self.value[sub_attr_type] = unpack('=B', bytes([data[4]]))[0]
+                    self.value[sub_attr_type] = self.decode_one_byte_attribute(data)
 
                 # 2 Byte attributes
                 elif sub_attr_type in (Link.IFLA_BRPORT_PRIORITY,
@@ -3474,7 +3434,7 @@ class NetlinkPacket(object):
         color_end = "\033[0m" if color else ""
         self.dump_buffer.append("  %sNetlink Header%s" % (color_start, color_end))
 
-        for x in range(0, netlink_header_length//4):
+        for x in range(0, netlink_header_length // 4):
             start = x * 4
             end = start + 4
 
@@ -3604,12 +3564,16 @@ class NetlinkPacket(object):
         attrs = bytes()
 
         for attr in self.attributes.values():
-            attrs = attrs + bytes(attr.encode())
+            attrs += attr.encode()
 
         self.length = self.header_LEN + len(self.body) + len(attrs)
         self.header_data = pack(self.header_PACK, self.length, self.msgtype, self.flags, self.seq, self.pid)
 
-        self.msg_data = self.body + attrs
+        if not attrs:
+            self.msg_data = self.body
+        else:
+            self.msg_data = self.body + attrs
+
         self.message = self.header_data + self.msg_data
 
         if self.debug:
