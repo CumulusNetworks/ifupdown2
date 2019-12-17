@@ -6,7 +6,12 @@
 
 import socket
 
-from ipaddr import IPNetwork, IPv4Network, IPv6Network
+from ipaddress import ip_network, IPv4Network, IPv6Network
+
+
+def IPNetwork(ip):
+    return ip_network(ip, False)
+
 
 try:
     from ifupdown2.lib.addon import Addon
@@ -320,6 +325,14 @@ class address(Addon, moduleBase):
             return True
         return False
 
+    @staticmethod
+    def validate_ipv4network(value):
+        return IPv4Network(value, strict=False)
+
+    @staticmethod
+    def validate_ipv6network(value):
+        return IPv6Network(value, strict=False)
+
     def syntax_check_multiple_gateway(self, ifaceobj):
         result = True
         inet = False
@@ -328,10 +341,10 @@ class address(Addon, moduleBase):
         for addr in gateways if gateways else []:
             try:
                 if self._syntax_check_multiple_gateway('inet', inet, addr,
-                                                       IPv4Network):
+                                                       self.validate_ipv4network):
                     inet = True
                 if self._syntax_check_multiple_gateway('inet6', inet6, addr,
-                                                       IPv6Network):
+                                                       self.validate_ipv6network):
                     inet6 = True
             except Exception as e:
                 self.logger.warning('%s: address: %s' % (ifaceobj.name, str(e)))

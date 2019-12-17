@@ -26,7 +26,7 @@
 #
 
 from collections import OrderedDict
-from ipaddr import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address
 from .nlpacket import *
 from select import select
 from struct import pack, unpack

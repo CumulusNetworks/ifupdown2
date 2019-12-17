@@ -31,7 +31,16 @@
 import socket
 import logging
 import struct
-from ipaddr import IPNetwork, IPv4Address, IPv6Address, IPAddress
+
+from ipaddress import ip_network, ip_address, IPv4Address, IPv6Address
+
+def IPNetwork(ip):
+    return ip_network(ip, False)
+
+def IPAddress(ip):
+    return ip_address(ip)
+
+
 from binascii import hexlify
 from pprint import pformat
 from socket import AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE, htons
@@ -1331,8 +1340,6 @@ class AttributeIPAddress(Attribute):
 
     def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
-        self.value_int = None
-        self.value_int_str = None
         self.family = family
 
         if self.family == AF_INET:
@@ -1376,14 +1383,8 @@ class AttributeIPAddress(Attribute):
                     self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
                 except AttributeError:
                     self.value = IPNetwork('%s' % self.value)
-
-            self.value_int = int(self.value)
-            self.value_int_str = str(self.value_int)
-
         except struct.error:
             self.value = None
-            self.value_int = None
-            self.value_int_str = None
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
 
@@ -1393,7 +1394,11 @@ class AttributeIPAddress(Attribute):
         if self.family not in [AF_INET, AF_INET6, AF_BRIDGE]:
             raise Exception("%s is not a supported address family" % self.family)
 
-        raw = pack(self.HEADER_PACK, length, self.atype) + self.value.packed
+        try:
+            raw = pack(self.HEADER_PACK, length, self.atype) + self.value.network_address.packed
+        except:
+            raw = pack(self.HEADER_PACK, length, self.atype) + self.value.packed
+
         raw = self.pad(length, raw)
         return raw
 

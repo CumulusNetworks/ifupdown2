@@ -9,7 +9,10 @@ import glob
 import subprocess
 
 from collections import deque
-from ipaddr import IPNetwork, IPv6Network
+from ipaddress import ip_network, IPv6Network
+
+def IPNetwork(ip):
+    return ip_network(ip, False)
 
 try:
     from ifupdown2.lib.addon import Addon

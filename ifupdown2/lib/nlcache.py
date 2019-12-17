@@ -33,7 +33,11 @@ import logging
 import threading
 import traceback
 
-from ipaddr import IPNetwork
+from ipaddress import ip_network
+
+def IPNetwork(ip):
+    return ip_network(ip, False)
+
 from logging import DEBUG, WARNING
 from collections import OrderedDict
 

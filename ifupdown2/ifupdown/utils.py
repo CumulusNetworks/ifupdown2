@@ -16,7 +16,14 @@ import logging
 import subprocess
 
 from functools import partial
-from ipaddr import IPNetwork, IPAddress
+from ipaddress import ip_network, ip_address
+
+def IPNetwork(ip):
+    return ip_network(ip, False)
+
+def IPAddress(ip):
+    return ip_address(ip)
+
 
 try:
     from ifupdown2.ifupdown.iface import *
