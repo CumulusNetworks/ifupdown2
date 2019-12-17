@@ -95,8 +95,8 @@ case "$1" in
 
 	#### WORK AROUND
 	# We have to manually install pip3
-	apt-get install python3-pip -y
-	sleep 1
+	# apt-get install python3-pip -y
+	echo "Please make sure that python3-pip is installed, run: apt-get install python3-pip -y"
 	pip3 install wheel
 	pip3 install setuptools
 	pip3 install ipaddr
