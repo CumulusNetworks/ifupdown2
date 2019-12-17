@@ -1,8 +1,22 @@
-ifupdown2 (1.2.9-1) unstable; urgency=medium
+ifupdown2 (2.0.0-1) unstable; urgency=medium
 
-  *
+  * Introduction of the live netlink cache
+  * Refactoring and PEP8 fixes
+  * Install systemd ifupdown2.netowrking.service and ifup.service
+  * Addons: bond: bond-primary attributes (closes: #9)
+  * Addons: address-virtual: vrrp support
+  * Addons: address: add arp-accept option
+  * Addons: tunnel: adding "tunnel-" prefix to every attributes
+  * Loopback interface won't go down (unless link-down yes)
+  * Macvlans (address-virtual) can now be configured without ips
+  * Add support for vxlan multicast group (vxlan-mcastgrp)
+  * New sets of poliicies:
+       - bridge polcy for vxlan port: bridge-vxlan-arp-nd-suppres (ON/off)
+       - bridge policy for vxlan port: bridge_vxlan_port_learning (ON/off)
+       - bridge policy for vxlan port:
+               vxlan_bridge_igmp_snooping_enable_port_mcrouter (1/0)
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Thu, 11 Jul 2019 23:42:42 +0200
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 01 Oct 2019 23:42:42 +0200
 
 ifupdown2 (1.2.8-1) unstable; urgency=medium
 

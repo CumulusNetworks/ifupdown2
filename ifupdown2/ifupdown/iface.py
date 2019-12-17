@@ -14,8 +14,11 @@ file. But can be extended to include any other network interface format
 """
 
 import json
+import logging
 
 from collections import OrderedDict
+
+log = logging.getLogger()
 
 
 class ifaceStatusUserStrs():
@@ -47,16 +50,16 @@ class ifaceLinkKind():
         bond have an ifaceobj.role attribute of SLAVE and the bridge or
         bond itself has ifaceobj.role of MASTER.
     """
-    UNKNOWN         = 0x0000000
-    BRIDGE          = 0x0000001
-    BOND            = 0x0000010
-    VLAN            = 0x0000100
-    VXLAN           = 0x0001000
-    VRF             = 0x0010000
-    BATMAN_ADV      = 0x0100000
+    UNKNOWN = 0x000000
+    BRIDGE =  0x000001
+    BOND =    0x000010
+    VLAN =    0x000100
+    VXLAN =   0x001000
+    VRF =     0x010000
+    BATMAN_ADV = 0x0100000
     # to indicate logical interface created by an external entity.
     # the 'kind' of which ifupdown2 does not really understand
-    OTHER           = 0x1000000
+    OTHER =     0x100000
 
     @classmethod
     def to_str(cls, kind):
@@ -70,6 +73,8 @@ class ifaceLinkKind():
             return "vxlan"
         elif kind == cls.VRF:
             return "vrf"
+        else:
+            return "OTHER"
 
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
@@ -86,33 +91,34 @@ class ifaceLinkPrivFlags():
 
     @classmethod
     def get_str(cls, flag):
-        if flag == cls.UNKNOWN:
-            return 'unknown'
-        elif flag == cls.BRIDGE_PORT:
-            return 'bridge port'
-        elif flag == cls.BOND_SLAVE:
-            return 'bond slave'
-        elif flag == cls.VRF_SLAVE:
-            return 'vrf slave'
-        elif flag == cls.BRIDGE_VLAN_AWARE:
-            return 'vlan aware bridge'
-        elif flag == cls.BRIDGE_VXLAN:
-            return 'vxlan bridge'
+        string_list = []
 
-    @classmethod
-    def get_all_str(cls, flags):
-        str = ''
-        if flags & cls.BRIDGE_PORT:
-            str += 'bridgeport '
-        if flags & cls.BOND_SLAVE:
-            str += 'bondslave '
-        if flags & cls.VRF_SLAVE:
-            str += 'vrfslave '
-        if flags & cls.BRIDGE_VLAN_AWARE:
-            str += 'vlanawarebridge '
-        if flags & cls.BRIDGE_VXLAN:
-            str += 'vxlanbridge '
-        return str
+        if flag & cls.BRIDGE_PORT:
+            string_list.append("bridge port")
+
+        if flag & cls.BOND_SLAVE:
+            string_list.append("bond slave")
+
+        if flag & cls.VRF_SLAVE:
+            string_list.append("vrf slave")
+
+        if flag & cls.BRIDGE_VLAN_AWARE:
+            string_list.append("vlan aware bridge")
+
+        if flag & cls.BRIDGE_VXLAN:
+            string_list.append("vxlan bridge")
+
+        if flag & cls.ADDRESS_VIRTUAL_SLAVE:
+            string_list.append("address virtual slave")
+
+        if flag & cls.LOOPBACK:
+            string_list.append("loopback")
+
+        if flag & cls.KEEP_LINK_DOWN:
+            string_list.append("keep ling down")
+
+        return ", ".join(string_list)
+
 
 class ifaceLinkType():
     LINK_UNKNOWN = 0x0
@@ -647,14 +653,13 @@ class iface():
         del odict['env']
         del odict['link_type']
         del odict['link_kind']
-        del odict['link_privflags']
+        #del odict['link_privflags']
         del odict['role']
         del odict['dependency_type']
         del odict['blacklisted']
         return odict
 
     def __setstate__(self, dict):
-        self.__dict__.update(dict)
         self._config_status = {}
         self.state = ifaceState.NEW
         self.status = ifaceStatus.UNKNOWN
@@ -674,6 +679,7 @@ class iface():
         self.link_privflags = ifaceLinkPrivFlags.UNKNOWN
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
+        self.__dict__.update(dict)
 
     def dump_raw(self, logger):
         indent = '  '
@@ -705,6 +711,24 @@ class iface():
             logger.info(indent + 'upperdevs: %s' %str(d))
         else:
             logger.info(indent + 'upperdevs: None')
+
+        logger.info("%srole: %s" % (indent, {
+            ifaceRole.UNKNOWN: "UNKNOWN",
+            ifaceRole.SLAVE: "SLAVE",
+            ifaceRole.MASTER: "MASTER"}.get(self.role)))
+
+        logger.info("%stype: %s" % (indent, {
+            ifaceType.UNKNOWN: "UNKNOWN",
+            ifaceType.IFACE: "IFACE",
+            ifaceType.BRIDGE_VLAN: "BRIDGE_VLAN"}.get(self.type)))
+
+        logger.info("%slink_kind: %s" % (indent, ifaceLinkKind.to_str(self.link_kind)))
+
+        logger.info("%slink_privflags: %s" % (indent, ifaceLinkPrivFlags.get_str(self.link_privflags)))
+
+        if self.priv_flags:
+            if self.priv_flags.BUILTIN:
+                logger.info("%spriv_flags: BUILTIN" % indent)
 
         logger.info(indent + 'config: ')
         config = self.config
@@ -768,7 +792,8 @@ class iface():
                         outbuf += (indent + '{0:55} {1:>10}'.format(
                               '%s %s' %(cname, cv), status_str)) + '\n'
                     else:
-                        outbuf += indent + '%s %s\n' %(cname, cv)
+                        if cv:
+                            outbuf += indent + '%s %s\n' % (cname, cv)
                     idx += 1
         if with_status:
             outbuf = (outbuf.encode('utf8')

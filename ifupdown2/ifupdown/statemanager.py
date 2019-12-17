@@ -63,7 +63,7 @@ class stateManager():
 
     """
 
-    __DEFAULT_STATE_DIR = "/run/network/"
+    __DEFAULT_STATE_DIR = "/var/tmp/network/"
 
     state_filename = 'ifstatenew'
     """name of the satefile """
@@ -84,6 +84,7 @@ class stateManager():
         self.ifaceobjdict = OrderedDict()
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
+        self.logger.info("stateManager init")
 
     def init(self):
         self.state_dir = ifupdownConfig.config.get("state_dir")
@@ -171,6 +172,11 @@ class stateManager():
             if not old_ifaceobjs:
                 return
             if ifaceobj.status != ifaceStatus.SUCCESS:
+                return
+            # ifupdown2 prevents user from bringing the loopback interface
+            # down - to avoid any issue (like wrong error messages) we
+            # shouldn't remove lo ifaceobj from the statemanager
+            if ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
                 return
             # If it matches any of the object, return
             oidx = 0

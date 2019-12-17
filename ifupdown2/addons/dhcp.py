@@ -6,8 +6,11 @@
 
 import re
 import time
+import socket
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
@@ -15,9 +18,10 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -25,46 +29,16 @@ except ImportError:
     from ifupdown.utils import utils
 
     from ifupdownaddons.dhclient import dhclient
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
-class dhcp(moduleBase):
+class dhcp(Addon, moduleBase):
     """ ifupdown2 addon module to configure dhcp on interface """
 
-    _modinfo = {
-        "mhelp": "Configure dhcp",
-        "policies": {
-            "dhcp6-duid": {
-                "help": "Override the default when selecting the type of DUID to use. By default, DHCPv6 dhclient "
-                        "creates an identifier based on the link-layer address (DUID-LL) if it is running in stateless "
-                        "mode (with -S, not requesting an address), or it creates an identifier based on the "
-                        "link-layer address plus a timestamp (DUID-LLT) if it is running in stateful mode (without -S, "
-                        "requesting an  address). When DHCPv4 is configured to use a DUID using -i option the default "
-                        "is to use a DUID-LLT. -D overrides these default, with a value of either LL or LLT.",
-                "validvals": ["LL", "LLT"],
-                "example": ["dhcp6-duid LL"]
-            },
-            "dhcp-wait": {
-                "help": "Wait or not wait and become a daemon immediately (nowait) rather than waiting until an "
-                        "IP address has been acquired. If not specified default value is true, that is to wait.",
-                "validvals": ["true", "false"],
-                "example": ["dhcp-wait false"]
-            },
-            "dhcp6-ll-wait": {
-                "help": "Overrides the default wait time before DHCPv6 client is started. During this wait time, "
-                        "ifupdown2 checks if the interface requesting an address has a valid link-local address. "
-                        "If not specified default value used is 10 seconds.",
-                "validvals": ["whole numbers"],
-                "example": ["dhcp6-ll-wait 0"]
-            }
-        }
-    }
-
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.dhclientcmd = dhclient(**kargs)
-        self.ipcmd = None
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
@@ -99,10 +73,9 @@ class dhcp(moduleBase):
                 pass
             dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                 ifname=ifaceobj.name, attr='dhcp6-duid')
-
             vrf = ifaceobj.get_attr_value_first('vrf')
             if (vrf and self.vrf_exec_cmd_prefix and
-                self.ipcmd.link_exists(vrf)):
+                self.cache.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
 
             if 'inet' in ifaceobj.addr_family:
@@ -140,8 +113,7 @@ class dhcp(moduleBase):
                     #add delay before starting IPv6 dhclient to
                     #make sure the configured interface/link is up.
                     if timeout > 1:
-                       time.sleep(1)
-
+                        time.sleep(1)
                     while timeout:
                         addr_output = utils.exec_command('%s -6 addr show %s'
                                                          %(utils.ip_cmd, ifaceobj.name))
@@ -173,18 +145,20 @@ class dhcp(moduleBase):
         dhclient_cmd_prefix = None
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
-            self.ipcmd.link_exists(vrf)):
+            self.cache.link_exists(vrf)):
             dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
         dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
-            ifname=ifaceobj.name, attr='dhcp6-duid')
+                                                                       ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
+            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
         if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
 
     def _down(self, ifaceobj):
         self._dhcp_down(ifaceobj)
-        self.ipcmd.link_down(ifaceobj.name)
+        self.netlink.link_down(ifaceobj.name)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         status = ifaceStatus.SUCCESS
@@ -210,7 +184,7 @@ class dhcp(moduleBase):
         ifaceobjcurr.status = status
 
     def _query_running(self, ifaceobjrunning):
-        if not self.ipcmd.link_exists(ifaceobjrunning.name):
+        if not self.cache.link_exists(ifaceobjrunning.name):
             return
         if self.dhclientcmd.is_running(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet')
@@ -228,10 +202,6 @@ class dhcp(moduleBase):
     def get_ops(self):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
-
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run dhcp configuration on the interface object passed as argument
@@ -262,7 +232,6 @@ class dhcp(moduleBase):
             return
         if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

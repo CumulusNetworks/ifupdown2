@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__version__ = '1.2.9'
+__version__ = '2.0.0'
 
-# Copyright (C) 2014,2015,2016,2017,2018,219 Cumulus Networks, Inc. All rights reserved
+# Copyright (C) 2014,2015,2016,2017,2018,2019 Cumulus Networks, Inc. All rights reserved
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as

@@ -7,6 +7,8 @@
 import os
 
 try:
+    from ifupdown2.lib.addon import Addon
+
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
 
@@ -15,9 +17,10 @@ try:
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 
     from ifupdown2.ifupdownaddons.utilsbase import *
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
+    from lib.addon import Addon
+
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
@@ -26,50 +29,63 @@ except ImportError:
     from ifupdown.exceptions import moduleNotSupported
 
     from ifupdownaddons.utilsbase import *
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
 
-class ethtool(moduleBase,utilsBase):
+class ethtool(Addon, moduleBase):
     """  ifupdown2 addon module to configure ethtool attributes """
 
-    _modinfo = {'mhelp' : 'ethtool configuration module for interfaces',
-                'attrs': {
-                      'link-speed' :
-                            {'help' : 'set link speed',
-                             'validvals' : ['10',
-                                            '100',
-                                            '1000',
-                                            '10000',
-                                            '25000',
-                                            '40000',
-                                            '50000',
-                                            '100000'],
-                             'example' : ['link-speed 1000'],
-                             'default' : 'varies by platform and port'},
-                      'link-duplex' :
-                            {'help': 'set link duplex',
-                             'example' : ['link-duplex full'],
-                             'validvals' : ['half', 'full'],
-                             'default' : 'full'},
-                      'link-autoneg' :
-                            {'help': 'set autonegotiation',
-                             'example' : ['link-autoneg on'],
-                             'validvals' : ['yes', 'no', 'on', 'off'],
-                             'default' : 'varies by platform and port'},
-                      'link-fec' :
-                            {'help': 'set forward error correction mode',
-                             'example' : ['link-fec rs'],
-                             'validvals' : ['rs', 'baser', 'auto', 'off'],
-                             'default' : 'varies by platform and port'}}}
+    _modinfo = {
+        "mhelp": "ethtool configuration module for interfaces",
+        "attrs": {
+            "link-speed": {
+                "help": "set link speed",
+                "validvals": [
+                    "10",
+                    "100",
+                    "1000",
+                    "10000",
+                    "25000",
+                    "40000",
+                    "50000",
+                    "100000"
+                ],
+                "example": ["link-speed 1000"],
+                "default": "varies by platform and port"
+            },
+            "link-duplex": {
+                "help": "set link duplex",
+                "example": ["link-duplex full"],
+                "validvals": ["half", "full"],
+                "default": "full"
+            },
+            "link-autoneg": {
+                "help": "set autonegotiation",
+                "example": ["link-autoneg on"],
+                "validvals": ["yes", "no", "on", "off"],
+                "default": "varies by platform and port"
+            },
+            "link-fec": {
+                "help": "set forward error correction mode",
+                "example": ["link-fec rs"],
+                "validvals": ["rs", "baser", "auto", "off"],
+                "default": "varies by platform and port"
+            }
+        }
+    }
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         if not os.path.exists(utils.ethtool_cmd):
             raise moduleNotSupported('module init failed: %s: not found' % utils.ethtool_cmd)
-        self.ipcmd = None
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
+
+        self.ethtool_ignore_errors = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr='ethtool_ignore_errors'
+        )
 
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
@@ -94,10 +110,6 @@ class ethtool(moduleBase,utilsBase):
         if default_val:
             default_val = default_val.lower()
 
-        if running_val in ["none", "notsupported"]:
-            # None and NotSupported ethtool FEC values mean "off"
-            running_val = "off"
-
         # check running values
         if config_val and config_val == running_val:
             return
@@ -120,7 +132,8 @@ class ethtool(moduleBase,utilsBase):
                            (utils.ethtool_cmd, ifaceobj.name, feccmd))
                 utils.exec_command(feccmd)
             except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+                if not self.ethtool_ignore_errors:
+                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
 
@@ -214,14 +227,15 @@ class ethtool(moduleBase,utilsBase):
                 cmd = ('%s -s %s %s' % (utils.ethtool_cmd, ifaceobj.name, cmd))
                 utils.exec_command(cmd)
             except Exception, e:
-                self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+                if not self.ethtool_ignore_errors:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _pre_up(self, ifaceobj, operation='post_up'):
         """
         _pre_up and _pre_down will reset the layer 2 attributes to default policy
         settings.
         """
-        if not self.ipcmd.link_exists(ifaceobj.name):
+        if not self.cache.link_exists(ifaceobj.name):
             return
 
         self.do_speed_settings(ifaceobj)
@@ -306,9 +320,9 @@ class ethtool(moduleBase,utilsBase):
         """
         try:
             for attr in ethtool_output.splitlines():
-                if attr.startswith('FEC encodings'):
+                if attr.startswith('Configured FEC encodings:'):
                     fec_attrs = attr.split()
-                    return(fec_attrs[fec_attrs.index(':')+1])
+                    return(fec_attrs[fec_attrs.index('encodings:')+1])
         except Exception as e:
             self.logger.debug('ethtool: problems in ethtool set-fec output'
                                ' %s: %s' %(ethtool_output.splitlines(), str(e)))
@@ -328,13 +342,14 @@ class ethtool(moduleBase,utilsBase):
                                             (utils.ethtool_cmd, ifaceobj.name))
                 running_attr = self.get_fec_encoding(ethtool_output=output)
             else:
-                running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
+                running_attr = self.io.read_file_oneline('/sys/class/net/%s/%s' % \
                                                       (ifaceobj.name, attr))
         except Exception as e:
-            # for nonexistent interfaces, we get an error (rc = 256 or 19200)
-            self.logger.debug('ethtool: problems calling ethtool or reading'
-                              ' /sys/class on iface %s for attr %s: %s' %
-                              (ifaceobj.name, attr, str(e)))
+            if not self.ethtool_ignore_errors:
+                # for nonexistent interfaces, we get an error (rc = 256 or 19200)
+                self.logger.debug('ethtool: problems calling ethtool or reading'
+                                  ' /sys/class on iface %s for attr %s: %s' %
+                                  (ifaceobj.name, attr, str(e)))
         return running_attr
 
 
@@ -347,7 +362,7 @@ class ethtool(moduleBase,utilsBase):
         """
         # do not bother showing swp ifaces that are not up for the speed
         # duplex and autoneg are not reliable.
-        if not self.ipcmd.is_link_up(ifaceobj.name):
+        if not self.cache.link_is_up(ifaceobj.name):
             return
         for attr in ['speed', 'duplex', 'autoneg']:
             default_val = policymanager.policymanager_api.get_iface_default(
@@ -396,10 +411,6 @@ class ethtool(moduleBase,utilsBase):
         """ returns list of ops supported by this module """
         return self._run_ops.keys()
 
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         """ run ethtool configuration on the interface object passed as
             argument
@@ -423,7 +434,6 @@ class ethtool(moduleBase,utilsBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

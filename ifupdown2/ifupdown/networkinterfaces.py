@@ -30,11 +30,12 @@ class networkInterfaces():
 
     _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'ppp', 'tunnel'],
                  'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'ppp', 'tunnel']}
+    # tunnel is part of the address family for backward compatibility but is not required.
 
     def __init__(self, interfacesfile='/etc/network/interfaces',
                  interfacesfileiobuf=None, interfacesfileformat='native',
                  template_enable='0', template_engine=None,
-                 template_lookuppath=None):
+                 template_lookuppath=None, raw=False):
         """This member function initializes the networkinterfaces parser object.
 
         Kwargs:
@@ -54,7 +55,7 @@ class networkInterfaces():
         self.auto_ifaces = []
         self.callbacks = {}
         self.auto_all = False
-
+        self.raw = raw
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
         self.callbacks = {'iface_found' : None,
@@ -257,12 +258,14 @@ class networkInterfaces():
            self._parse_warn(self._currentfile, lineno,
                     '%s: unexpected characters in interface name' %ifacename)
 
-        ifaceobj.raw_config.append(iface_line)
+        if self.raw:
+            ifaceobj.raw_config.append(iface_line)
         iface_config = collections.OrderedDict()
         for line_idx in range(cur_idx + 1, len(lines)):
             l = lines[line_idx].strip(whitespaces)
             if self.ignore_line(l) == 1:
-                ifaceobj.raw_config.append(l)
+                if self.raw:
+                    ifaceobj.raw_config.append(l)
                 continue
             attrs = re.split(self._ws_split_regex, l, 1)
             if self._is_keyword(attrs[0]):
@@ -273,7 +276,8 @@ class networkInterfaces():
                 self._parse_error(self._currentfile, line_idx,
                         'iface %s: invalid syntax \'%s\'' %(ifacename, l))
                 continue
-            ifaceobj.raw_config.append(l)
+            if self.raw:
+                ifaceobj.raw_config.append(l)
             attrname = attrs[0]
             # preprocess vars (XXX: only preprocesses $IFACE for now)
             attrval = re.sub(r'\$IFACE', ifacename, attrs[1])

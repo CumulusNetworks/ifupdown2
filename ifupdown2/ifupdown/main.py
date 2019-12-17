@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2014-2017 Cumulus Networks, Inc. All rights reserved.
+# Copyright 2014-2019 Cumulus Networks, Inc. All rights reserved.
 # Authors:
 #           Roopa Prabhu, roopa@cumulusnetworks.com
 #           Julien Fortin, julien@cumulusnetworks.com
@@ -10,26 +10,26 @@
 
 import os
 import sys
-import signal
+import logging
 import StringIO
 import ConfigParser
 
 try:
-    from ifupdown2.ifupdown.log import log
     from ifupdown2.ifupdown.argv import Parse
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
+
+    from ifupdown2.lib.dry_run import DryRunManager
+
 except ImportError:
-    from ifupdown.log import log
     from ifupdown.argv import Parse
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
 
+    from lib.dry_run import DryRunManager
 
-_SIGINT = signal.getsignal(signal.SIGINT)
-_SIGTERM = signal.getsignal(signal.SIGTERM)
-_SIGQUIT = signal.getsignal(signal.SIGQUIT)
 
+log = logging.getLogger()
 configmap_g = None
 
 
@@ -57,14 +57,6 @@ class Ifupdown2:
         self.args = args_parse.get_args()
         self.op = args_parse.get_op()
 
-    def update_logger(self, socket=None):
-        syslog = self.args.syslog if hasattr(self.args, 'syslog') else False
-        log.update_current_logger(syslog=syslog,
-                                  verbose=self.args.verbose,
-                                  debug=self.args.debug)
-        if socket:
-            log.set_socket(socket)
-
     def main(self, stdin_buffer=None):
         if self.op != 'query' and self.uid != 0:
             raise Exception('must be root to run this command')
@@ -80,7 +72,7 @@ class Ifupdown2:
                 raise
             # else:
             if log:
-                log.error(str(e))
+                log.error('main exception: ' + str(e))
             else:
                 print str(e)
                 # if args and not args.debug:
@@ -89,6 +81,23 @@ class Ifupdown2:
         return 0
 
     def init(self, stdin_buffer):
+        ##############
+        # dry run mode
+        ##############
+        dry_run_mode_on = DryRunManager.get_instance().is_dry_mode_on()
+
+        if hasattr(self.args, 'noact'):
+            if self.args.noact and not dry_run_mode_on:
+                DryRunManager.get_instance().dry_run_mode_on()
+            elif not self.args.noact and dry_run_mode_on:
+                DryRunManager.get_instance().dry_run_mode_off()
+        elif dry_run_mode_on:
+            # if noact is not in self.args we are probably in
+            # ifquery mode so we need to turn off dry run mode.
+            DryRunManager.get_instance().dry_run_mode_off()
+
+        ###
+
         if hasattr(self.args, 'interfacesfile') and self.args.interfacesfile != None:
             # Check to see if -i option is allowed by config file
             # But for ifquery, we will not check this
@@ -269,9 +278,3 @@ class Ifupdown2:
                                    currentlyup=args.currentlyup)
         except:
             raise
-
-    @staticmethod
-    def set_signal_handlers():
-        signal.signal(signal.SIGQUIT, _SIGQUIT)
-        signal.signal(signal.SIGTERM, _SIGTERM)
-        signal.signal(signal.SIGINT, _SIGINT)

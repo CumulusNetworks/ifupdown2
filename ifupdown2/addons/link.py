@@ -10,59 +10,64 @@
 # loopback or dummy.
 
 try:
+    from ifupdown2.lib.addon import Addon
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
 
-    from ifupdown2.ifupdownaddons.LinkUtils import LinkUtils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
 except ImportError:
+    from lib.addon import Addon
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
-    from ifupdownaddons.LinkUtils import LinkUtils
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
 
-class link(moduleBase):
-    _modinfo = {'mhelp' : 'create/configure link types. similar to ip-link',
-                'attrs' : {
-                   'link-type' :
-                        {'help' : 'type of link as in \'ip link\' command.',
-                         'validvals' : ['dummy', 'veth'],
-                         'example' : ['link-type <dummy|veth>']},
-                   'link-down' :
-                        {'help': 'keep link down',
-                         'example' : ['link-down yes/no'],
-                         'default' : 'no',
-                         'validvals' : ['yes', 'no']}}}
+class link(Addon, moduleBase):
+    _modinfo = {
+        "mhelp": "create/configure link types. similar to ip-link",
+        "attrs": {
+            "link-type": {
+                "help": "type of link as in 'ip link' command.",
+                "validvals": ["dummy", "veth"],
+                "example": ["link-type <dummy|veth>"]
+            },
+            "link-down": {
+                "help": "keep link down",
+                "example": ["link-down yes/no"],
+                "default": "no",
+                "validvals": ["yes", "no"]
+            }
+        }
+    }
 
     def __init__(self, *args, **kargs):
+        Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.ipcmd = None
 
-        self.check_physical_port_existance = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(
-            self.__class__.__name__,
-            'warn_on_physdev_not_present'
-        ))
+        self.check_physical_port_existance = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__,
+                'warn_on_physdev_not_present'
+            )
+        )
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self.check_physical_port_existance:
-            if not ifaceobj.link_kind and not LinkUtils.link_exists(ifaceobj.name):
+            if not ifaceobj.link_kind and not self.cache.link_exists(ifaceobj.name):
                 self.logger.warning('%s: interface does not exist' % ifaceobj.name)
                 return False
         return True
 
-    def _is_my_interface(self, ifaceobj):
-        if (ifaceobj.get_attr_value_first('link-type')
-                or ifaceobj.get_attr_value_first('link-down')):
-            return True
-        return False
+    @staticmethod
+    def _is_my_interface(ifaceobj):
+        return ifaceobj.get_attr_value_first('link-type') or ifaceobj.get_attr_value_first('link-down')
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
         if ifaceobj.get_attr_value_first('link-down') == 'yes':
@@ -73,36 +78,32 @@ class link(moduleBase):
     def _up(self, ifaceobj):
         link_type = ifaceobj.get_attr_value_first('link-type')
         if link_type:
-            self.ipcmd.link_create(ifaceobj.name,
-                                   ifaceobj.get_attr_value_first('link-type'))
+            self.netlink.link_add(ifname=ifaceobj.name, kind=link_type)
 
     def _down(self, ifaceobj):
         if not ifaceobj.get_attr_value_first('link-type'):
             return
-        if (not ifupdownflags.flags.PERFMODE and
-            not self.ipcmd.link_exists(ifaceobj.name)):
-           return
+        if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
+            return
         try:
-            self.ipcmd.link_delete(ifaceobj.name)
+            self.netlink.link_del(ifaceobj.name)
         except Exception, e:
             self.log_warn(str(e))
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if ifaceobj.get_attr_value('link-type'):
-            if not self.ipcmd.link_exists(ifaceobj.name):
+            if not self.cache.link_exists(ifaceobj.name):
                 ifaceobjcurr.update_config_with_status('link-type', 'None', 1)
             else:
                 link_type = ifaceobj.get_attr_value_first('link-type')
-                if self.ipcmd.link_get_kind(ifaceobj.name) == link_type:
-                    ifaceobjcurr.update_config_with_status('link-type',
-                                                            link_type, 0)
+                if self.cache.get_link_kind(ifaceobj.name) == link_type:
+                    ifaceobjcurr.update_config_with_status('link-type', link_type, 0)
                 else:
-                    ifaceobjcurr.update_config_with_status('link-type',
-                                                            link_type, 1)
+                    ifaceobjcurr.update_config_with_status('link-type', link_type, 1)
 
         link_down = ifaceobj.get_attr_value_first('link-down')
         if link_down:
-            link_up = self.ipcmd.is_link_up(ifaceobj.name)
+            link_up = self.cache.link_is_up(ifaceobj.name)
             link_should_be_down = utils.get_boolean_from_string(link_down)
 
             if link_should_be_down and link_up:
@@ -117,16 +118,14 @@ class link(moduleBase):
 
             ifaceobjcurr.update_config_with_status('link-down', link_down, status)
 
-    _run_ops = {'pre-up' : _up,
-               'post-down' : _down,
-               'query-checkcurr' : _query_check}
+    _run_ops = {
+        "pre-up": _up,
+        "post-down": _down,
+        "query-checkcurr": _query_check
+    }
 
     def get_ops(self):
         return self._run_ops.keys()
-
-    def _init_command_handlers(self):
-        if not self.ipcmd:
-            self.ipcmd = LinkUtils()
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
         op_handler = self._run_ops.get(operation)
@@ -135,7 +134,6 @@ class link(moduleBase):
         if (operation != 'query-running' and
                 not self._is_my_interface(ifaceobj)):
             return
-        self._init_command_handlers()
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
