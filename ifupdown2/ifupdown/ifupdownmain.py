@@ -1929,8 +1929,8 @@ class ifupdownMain:
             return
         elif ops[0] == 'query-running':
             # create fake devices to all dependents that dont have config
-            map(lambda i: self.create_n_save_ifaceobj(i,
-                                ifacePrivFlags(False, True)), ifacenames)
+            for i in ifacenames:
+                self.create_n_save_ifaceobj(i, ifacePrivFlags(False, True))
         else:
             try:
                 iface_read_ret = self.read_iface_config(raw=ops[0] == "query-raw")
@@ -2383,9 +2383,8 @@ class ifupdownMain:
                 print('%s : %s' %(k, str(v)))
         elif format == 'dot':
             indegrees = {}
-            map(lambda i: indegrees.update({i :
-                self.get_iface_refcnt(i)}),
-                list(self.dependency_graph.keys()))
+            for i in list(self.dependency_graph.keys()):
+                indegrees.update({i: self.get_iface_refcnt(i)})
             graph.generate_dots(self.dependency_graph, indegrees)
 
     def print_ifaceobjs_list(self, ifacenames):
@@ -2484,7 +2483,8 @@ class ifupdownMain:
             print(json.dumps(ifaceobjs, cls=ifaceJsonEncoderWithStatus,
                              indent=2, separators=(',', ': ')))
         else:
-            map(lambda i: i.dump_pretty(with_status=True), ifaceobjs)
+            for ifaceobj in ifaceobjs:
+                ifaceobj.dump_pretty(with_status=True)
         return ret
 
     def print_ifaceobjsrunning_pretty(self, ifacenames, format='native'):
@@ -2497,7 +2497,8 @@ class ifupdownMain:
             print(json.dumps(ifaceobjs, cls=ifaceJsonEncoder, indent=2,
                        separators=(',', ': ')))
         else:
-            map(lambda i: i.dump_pretty(), ifaceobjs)
+            for i in ifaceobjs:
+                i.dump_pretty()
 
     def _dump(self):
         print('ifupdown main object dump')

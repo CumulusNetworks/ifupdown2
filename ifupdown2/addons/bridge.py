@@ -2478,7 +2478,8 @@ class bridge(Addon, moduleBase):
             if running_ports:
                 self.handle_ipv6(running_ports, '0')
                 if ifaceobj.link_type != ifaceLinkType.LINK_NA:
-                    map(lambda p: self.netlink.link_down(p), running_ports)
+                    for p in running_ports:
+                        self.netlink.link_down(p)
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
         try:
