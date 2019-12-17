@@ -44,7 +44,7 @@ try:
     from ifupdown2.lib.exceptions import ExitWithStatus, ExitWithStatusAndError
 
     from ifupdown2.ifupdown.argv import Parse
-except:
+except (ImportError, ModuleNotFoundError):
     from lib.status import Status
     from lib.io import SocketIO
     from lib.log import LogManager, root_logger

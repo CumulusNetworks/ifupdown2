@@ -36,7 +36,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags
     from ifupdown2.nlmanager.nlpacket import Link
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.sysfs import Sysfs
     from lib.base_objects import Cache, Requirements
 

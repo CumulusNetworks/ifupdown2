@@ -20,7 +20,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 

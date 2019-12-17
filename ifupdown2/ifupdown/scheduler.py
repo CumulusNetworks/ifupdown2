@@ -18,7 +18,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from ifupdown.graph import *
     from ifupdown.iface import *
     from ifupdown.utils import utils

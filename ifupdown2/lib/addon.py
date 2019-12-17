@@ -29,7 +29,7 @@ try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.lib.base_objects import Netlink, Cache, Requirements
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.io import IO
     from lib.sysfs import Sysfs
     from lib.iproute2 import IPRoute2

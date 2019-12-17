@@ -13,7 +13,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdownaddons.cache import *

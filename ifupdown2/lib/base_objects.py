@@ -28,7 +28,7 @@ import logging
 try:
     from ifupdown2.lib.dry_run import DryRun
     from ifupdown2.ifupdown.utils import utils
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.dry_run import DryRun
     from ifupdown.utils import utils
 

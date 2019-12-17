@@ -29,7 +29,7 @@ import select
 
 try:
     from ifupdown2.lib.base_objects import BaseObject
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.base_objects import BaseObject
 
 

@@ -33,7 +33,7 @@ try:
     from ifupdown2.ifupdown.exceptions import *
     from ifupdown2.ifupdown.networkinterfaces import *
     from ifupdown2.ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     import lib.nlcache as nlcache
 
     import ifupdownaddons.mstpctlutil

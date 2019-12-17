@@ -19,7 +19,7 @@ try:
     from ifupdown2.ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdown2.ifupdownaddons.systemutils import systemUtils
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
 
     from ifupdown.iface import *

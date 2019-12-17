@@ -10,7 +10,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from ifupdown.utils import utils
 
     from ifupdownaddons.modulebase import moduleBase

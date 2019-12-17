@@ -24,7 +24,7 @@ try:
 
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
 
     import ifupdown.exceptions as exceptions

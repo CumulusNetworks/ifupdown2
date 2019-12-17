@@ -23,7 +23,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from ifupdown.iface import *
 
     import ifupdown.policymanager as policymanager

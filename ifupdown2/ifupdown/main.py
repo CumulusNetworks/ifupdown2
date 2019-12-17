@@ -21,7 +21,7 @@ try:
 
     from ifupdown2.lib.dry_run import DryRunManager
 
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from ifupdown.argv import Parse
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain

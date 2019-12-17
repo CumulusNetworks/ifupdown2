@@ -22,7 +22,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
 

@@ -20,7 +20,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
