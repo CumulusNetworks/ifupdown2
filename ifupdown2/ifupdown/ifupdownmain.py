@@ -379,6 +379,9 @@ class ifupdownMain:
         self._ifaceobj_squash_internal = True if self.config.get(
                             'ifaceobj_squash_internal', '1') == '1' else False
 
+        self.mgmt_iface_default_prefix = self._get_mgmt_iface_default_prefix()
+        self.logger.info('using mgmt iface default prefix %s' %self.mgmt_iface_default_prefix)
+
         self.validate_keywords = {
             '<mac>': self._keyword_mac,
             '<text>': self._keyword_text,
@@ -406,6 +409,23 @@ class ifupdownMain:
             '<interface-yes-no-auto-list>': self._keyword_interface_yes_no_auto_list,
             '<interface-l2protocol-tunnel-list>': self._keyword_interface_l2protocol_tunnel_list
         }
+
+
+    def _get_mgmt_iface_default_prefix(self):
+        mgmt_iface_default_prefix = None
+        try:
+            mgmt_iface_default_prefix = ifupdown2.ifupdown.policymanager.policymanager_api.get_module_globals(
+                                            module_name='main', attr='mgmt_intf_prefix')
+        except:
+            try:
+                mgmt_iface_default_prefix = ifupdown.policymanager.policymanager_api.get_module_globals(
+                                    module_name='main', attr='mgmt_intf_prefix')
+            except:
+                pass
+        if not mgmt_iface_default_prefix:
+	    mgmt_iface_default_prefix = "eth"
+
+        return mgmt_iface_default_prefix
 
     def link_master_slave_ignore_error(self, errorstr):
         # If link master slave flag is set,
@@ -761,6 +781,9 @@ class ifupdownMain:
                not (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
                iobj.name == 'lo'):
                iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
+            if iobj.name.startswith(self.mgmt_iface_default_prefix):
+               self.logger.debug('%s: marking interface with mgmt flag' %iobj.name)
+               iobj.link_privflags |= ifaceLinkPrivFlags.MGMT_INTF
             if iobj.lowerifaces:
                 self.dependency_graph[i] = iobj.lowerifaces
             else:

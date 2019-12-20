@@ -88,6 +88,7 @@ class ifaceLinkPrivFlags():
     ADDRESS_VIRTUAL_SLAVE = 0x100000
     LOOPBACK = 0x1000000
     KEEP_LINK_DOWN = 0x10000000
+    MGMT_INTF = 0x100000000
 
     @classmethod
     def get_str(cls, flag):
