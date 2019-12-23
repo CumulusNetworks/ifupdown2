@@ -159,7 +159,7 @@ class Ifupdown2:
             log.debug('creating ifupdown object ..')
             cachearg = (False if (iflist or args.nocache or args.noact)
                         else True)
-            ifupdown_handle = ifupdownMain(daemon=self.daemon,
+            ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
                                                                  config=configmap_g,
                                                                  force=args.force,
                                                                  withdepends=args.withdepends,
@@ -193,7 +193,7 @@ class Ifupdown2:
         try:
             iflist = args.iflist
             log.debug('creating ifupdown object ..')
-            ifupdown_handle = ifupdownMain(daemon=self.daemon,
+            ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
                                                                  config=configmap_g, force=args.force,
                                                                  withdepends=args.withdepends,
                                                                  perfmode=args.perfmode,
@@ -239,7 +239,7 @@ class Ifupdown2:
                 iflist = [i for i in os.listdir('/sys/class/net/')
                           if os.path.isdir('/sys/class/net/%s' % i)]
             log.debug('creating ifupdown object ..')
-            ifupdown_handle = ifupdownMain(daemon=self.daemon,
+            ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
                                                                  config=configmap_g,
                                                                  withdepends=args.withdepends,
                                                                  perfmode=args.perfmode,
@@ -263,7 +263,7 @@ class Ifupdown2:
 
         try:
             log.debug('creating ifupdown object ..')
-            ifupdown_handle = ifupdownMain(daemon=self.daemon,
+            ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
                                                                  config=configmap_g,
                                                                  interfacesfile=self.interfaces_filename,
                                                                  withdepends=args.withdepends,

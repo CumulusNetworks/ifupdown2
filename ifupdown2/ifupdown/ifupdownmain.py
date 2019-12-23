@@ -219,7 +219,7 @@ class ifupdownMain:
     def link_exists(self, ifacename):
         return os.path.exists('/sys/class/net/%s' %ifacename)
 
-    def __init__(self, config={},
+    def __init__(self, config={}, args=None,
                  daemon=False, force=False, dryrun=False, nowait=False,
                  perfmode=False, withdepends=False, njobs=1,
                  cache=False, addons_enable=True, statemanager_enable=True,
@@ -247,7 +247,7 @@ class ifupdownMain:
             self.reset_ifupdown2()
         else:
             # init nlcache with appropriate log level
-            nlcache.NetlinkListenerWithCache.init(logging.root.level)
+            nlcache.NetlinkListenerWithCache.init(logging.DEBUG if args.nldebug else logging.WARNING)
 
             # start netlink listener and cache link/addr/netconf dumps
             nlcache.NetlinkListenerWithCache.get_instance().start()
