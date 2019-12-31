@@ -148,13 +148,6 @@ class Parse:
                                help='type of interface entry (iface or vlan). '
                                     'This option can be used in case of ambiguity between '
                                     'a vlan interface and an iface interface of the same name')
-        argparser.add_argument(
-            "--nldebug",
-            dest="nldebug",
-            action="store_true",
-            default=False,
-            help="print netlink debug messages"
-        )
 
     def update_ifupdown_argparser(self, argparser):
         """ common arg parser for ifup and ifdown """
@@ -248,3 +241,10 @@ class Parse:
         ''' general parsing rules '''
 
         argparser.add_argument('-V', '--version', action=VersionAction, nargs=0)
+        argparser.add_argument(
+            "--nldebug",
+            dest="nldebug",
+            action="store_true",
+            default=False,
+            help="print netlink debug messages"
+        )
