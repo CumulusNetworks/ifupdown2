@@ -162,7 +162,7 @@ class ethtool(Addon, moduleBase):
                     cmd = ('%s -K %s %s %s' %
                             (utils.ethtool_cmd, ifaceobj.name, eth_name, config_val))
                     utils.exec_command(cmd)
-                except Exception, e:
+                except Exception as e:
                     self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
     def do_fec_settings(self, ifaceobj):
