@@ -10,7 +10,9 @@ try:
     from ifupdown2.lib.addon import Addon
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
+    import ifupdown2.ifupdown.statemanager as statemanager
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
@@ -23,6 +25,7 @@ except (ImportError, ModuleNotFoundError):
 
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
+    import ifupdown.statemanager as statemanager
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
@@ -35,7 +38,7 @@ except (ImportError, ModuleNotFoundError):
 class ethtool(Addon, moduleBase):
     """  ifupdown2 addon module to configure ethtool attributes """
 
-    _modinfo = {
+    modinfo = {
         "mhelp": "ethtool configuration module for interfaces",
         "attrs": {
             "link-speed": {
@@ -70,7 +73,49 @@ class ethtool(Addon, moduleBase):
                 "example": ["link-fec rs"],
                 "validvals": ["rs", "baser", "auto", "off"],
                 "default": "varies by platform and port"
-            }
+            },
+            'gro-offload': {
+                'help': 'Generic Receive Offload',
+                'example': ['gro-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'lro-offload': {
+                'help': 'Large Receive Offload',
+                'example': ['lro-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'gso-offload': {
+                'help': 'Generic Segmentation Offload',
+                'example': ['tso-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'tso-offload': {
+                'help': 'TCP Segmentation Offload',
+                'example': ['tso-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'ufo-offload': {
+                'help': 'UDP Fragmentation Offload',
+                'example': ['ufo-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'tx-offload': {
+                'help': 'TX Checksum Offload',
+                'example': ['tx-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'rx-offload': {
+                'help': 'RX Checksum Offload',
+                'example': ['rx-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
         }
     }
 
@@ -81,11 +126,44 @@ class ethtool(Addon, moduleBase):
             raise moduleNotSupported('module init failed: %s: not found' % utils.ethtool_cmd)
         # keep a list of iface objects who have modified link attributes
         self.ifaceobjs_modified_configs = []
+        # Cache for features
+        self.feature_cache = None
 
         self.ethtool_ignore_errors = policymanager.policymanager_api.get_module_globals(
             module_name=self.__class__.__name__,
             attr='ethtool_ignore_errors'
         )
+
+    def do_offload_settings(self, ifaceobj, attr_name, eth_name):
+        default = 'default_' + eth_name
+        config_val = ifaceobj.get_attr_value_first(attr_name)
+        # Default
+        default_val = None
+        saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
+        if saved_ifaceobjs:
+            default_val = saved_ifaceobjs[0].get_attr_value_first(default)
+        if config_val or default_val:
+
+            # get running value
+            running_val = str(self.get_running_attr(eth_name, ifaceobj)).lower()
+            # Save default value
+            # Load state data
+            if not default_val:
+                ifaceobj.config[default] = [running_val]
+            elif config_val:
+                # resave for state
+                ifaceobj.config[default] = [default_val]
+
+            if not config_val:
+                config_val = default_val
+
+            if config_val and config_val != running_val:
+                try:
+                    cmd = ('%s -K %s %s %s' %
+                            (utils.ethtool_cmd, ifaceobj.name, eth_name, config_val))
+                    utils.exec_command(cmd)
+                except Exception, e:
+                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
@@ -240,6 +318,13 @@ class ethtool(Addon, moduleBase):
 
         self.do_speed_settings(ifaceobj)
         self.do_fec_settings(ifaceobj)
+        self.do_offload_settings(ifaceobj, 'gro-offload', 'gro')
+        self.do_offload_settings(ifaceobj, 'lro-offload', 'lro')
+        self.do_offload_settings(ifaceobj, 'gso-offload', 'gso')
+        self.do_offload_settings(ifaceobj, 'tso-offload', 'tso')
+        self.do_offload_settings(ifaceobj, 'ufo-offload', 'ufo')
+        self.do_offload_settings(ifaceobj, 'tx-offload', 'tx')
+        self.do_offload_settings(ifaceobj, 'rx-offload', 'rx')
 
     def _pre_down(self, ifaceobj):
         pass #self._post_up(ifaceobj,operation="_pre_down")
@@ -329,6 +414,21 @@ class ethtool(Addon, moduleBase):
 
         return(None)
 
+    def get_offload_setting(self, ethtool_output, setting):
+
+        value = None
+
+        for line in ethtool_output.splitlines():
+            if setting in line:
+                if 'on' in line:
+                    value = 'on'
+                elif 'off' in line:
+                    value = 'off'
+
+                break
+
+        return value
+
     def get_running_attr(self,attr='',ifaceobj=None):
         if not ifaceobj or not attr:
             return
@@ -341,6 +441,41 @@ class ethtool(Addon, moduleBase):
                 output = utils.exec_command('%s --show-fec %s'%
                                             (utils.ethtool_cmd, ifaceobj.name))
                 running_attr = self.get_fec_encoding(ethtool_output=output)
+            elif attr == 'gro':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='generic-receive-offload')
+            elif attr == 'lro':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='large-receive-offload')
+            elif attr == 'gso':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='generic-segmentation-offload')
+            elif attr == 'tso':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='tcp-segmentation-offload')
+            elif attr == 'ufo':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='udp-fragmentation-offload')
+            elif attr == 'rx':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='rx-checksumming')
+            elif attr == 'tx':
+                if not self.feature_cache:
+                    self.feature_cache = utils.exec_command('%s --show-features %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_offload_setting(ethtool_output=self.feature_cache, setting='tx-checksumming')
             else:
                 running_attr = self.io.read_file_oneline('/sys/class/net/%s/%s' % \
                                                       (ifaceobj.name, attr))

@@ -2,7 +2,14 @@ ifupdown2 (3.0.0-1) unstable; urgency=medium
 
    * New. Enabled: python3 support
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 01 Oct 2019 23:42:42 +0200
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 31 Dec 2019 23:42:42 +0100
+
+ifupdown2 (2.0.1-1) unstable; urgency=medium
+
+  * New argv option: --nldebug to print netlink debug message
+  * New: ethtool: nics (GRO, LRO GSO, TSO, UFO, TX and RX) offload attributes
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 31 Dec 2019 15:21:06 +0100
 
 ifupdown2 (2.0.0-1) unstable; urgency=medium
 

@@ -241,3 +241,10 @@ class Parse:
         ''' general parsing rules '''
 
         argparser.add_argument('-V', '--version', action=VersionAction, nargs=0)
+        argparser.add_argument(
+            "--nldebug",
+            dest="nldebug",
+            action="store_true",
+            default=False,
+            help="print netlink debug messages"
+        )
