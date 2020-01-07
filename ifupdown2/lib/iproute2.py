@@ -25,13 +25,15 @@
 import re
 import shlex
 import signal
+import ipaddress
 import subprocess
 
-from ipaddr import IPNetwork
 
 try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.base_objects import Cache, Requirements
+
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
 
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags
@@ -39,6 +41,8 @@ try:
 except (ImportError, ModuleNotFoundError):
     from lib.sysfs import Sysfs
     from lib.base_objects import Cache, Requirements
+
+    import nlmanager.ipnetwork as ipnetwork
 
     from ifupdown.utils import utils
     from ifupdown.iface import ifaceLinkPrivFlags
@@ -282,7 +286,7 @@ class IPRoute2(Cache, Requirements):
             ]
 
         if svcnodeip:
-            if svcnodeip.is_multicast:
+            if svcnodeip.ip.is_multicast:
                 cmd.append("group %s" % svcnodeip)
             else:
                 cmd.append("remote %s" % svcnodeip)
@@ -325,7 +329,6 @@ class IPRoute2(Cache, Requirements):
                 self.logger.error(str(e))
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
-
         return cur_peers
 
     ###
@@ -447,27 +450,24 @@ class IPRoute2(Cache, Requirements):
         ip6 = []
 
         for ip in user_addrs or []:
-            obj = IPNetwork(ip)
-
-            if obj.version == 6:
-                ip6.append(str(obj))
+            if ip.version == 6:
+                ip6.append(ip)
             else:
-                ip4.append(str(obj))
+                ip4.append(ip)
 
         running_ipobj = []
         for ip in running_addrs or []:
-            running_ipobj.append(str(ip))
+            running_ipobj.append(ip)
 
         return running_ipobj == (ip4 + ip6)
 
     def add_addresses(self, ifacobj, ifname, address_list, purge_existing=False, metric=None, with_address_virtual=False):
         if purge_existing:
-            running_address_list = self.cache.get_ifupdown2_addresses_list(
-                [ifacobj],
+            running_address_list = self.cache.get_managed_ip_addresses(
                 ifname,
+                [ifacobj],
                 with_address_virtual=with_address_virtual
             )
-            address_list = utils.get_normalized_ip_addr(ifname, address_list)
 
             if self.__compare_user_config_vs_running_state(running_address_list, address_list):
                 return
@@ -695,7 +695,7 @@ class IPRoute2(Cache, Requirements):
 
         ip_route_del = []
         for ip in ips:
-            ip_network_obj = IPNetwork(ip)
+            ip_network_obj = ipaddress.ip_network(ip)
 
             if ip_network_obj.version == 6:
                 route_prefix = '%s/%d' % (ip_network_obj.network, ip_network_obj.prefixlen)

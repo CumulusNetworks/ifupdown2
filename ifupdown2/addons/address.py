@@ -6,8 +6,6 @@
 
 import socket
 
-from ipaddr import IPNetwork, IPv4Network, IPv6Network
-
 try:
     from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
@@ -17,6 +15,8 @@ try:
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
+
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
 
     import ifupdown2.ifupdown.statemanager as statemanager
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -31,6 +31,8 @@ except (ImportError, ModuleNotFoundError):
 
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.modulebase import moduleBase
+
+    import nlmanager.ipnetwork as ipnetwork
 
     import ifupdown.statemanager as statemanager
     import ifupdown.policymanager as policymanager
@@ -189,7 +191,7 @@ class address(Addon, moduleBase):
         self.default_mtu = self.__policy_get_default_mtu()
         self.max_mtu     = self.__policy_get_max_mtu()
 
-        self.default_loopback_addresses = (IPNetwork('127.0.0.1/8'), IPNetwork('::1/128'))
+        self.default_loopback_addresses = (ipnetwork.IPNetwork('127.0.0.1/8'), ipnetwork.IPNetwork('::1/128'))
 
         self.l3_intf_arp_accept = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -312,8 +314,8 @@ class address(Addon, moduleBase):
             return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=syntax_check)
         return True
 
-    def _syntax_check_multiple_gateway(self, family, found, addr, type_obj):
-        if type(IPNetwork(addr)) == type_obj:
+    def _syntax_check_multiple_gateway(self, family, found, addr, version):
+        if ipnetwork.IPNetwork(addr).version == version:
             if found:
                 raise Exception('%s: multiple gateways for %s family'
                                 % (addr, family))
@@ -327,11 +329,9 @@ class address(Addon, moduleBase):
         gateways = ifaceobj.get_attr_value('gateway')
         for addr in gateways if gateways else []:
             try:
-                if self._syntax_check_multiple_gateway('inet', inet, addr,
-                                                       IPv4Network):
+                if self._syntax_check_multiple_gateway('inet', inet, addr, 4):
                     inet = True
-                if self._syntax_check_multiple_gateway('inet6', inet6, addr,
-                                                       IPv6Network):
+                if self._syntax_check_multiple_gateway('inet6', inet6, addr, 6):
                     inet6 = True
             except Exception as e:
                 self.logger.warning('%s: address: %s' % (ifaceobj.name, str(e)))
@@ -389,7 +389,7 @@ class address(Addon, moduleBase):
                 self.iproute2.bridge_fdb_del(bridgename, hwaddress, vlan)
 
     def __get_ip_addr_with_attributes(self, ifaceobj_list, ifname):
-        user_config_ip_addrs_list = list()
+        user_config_ip_addrs_list = []
 
         try:
             for ifaceobj in ifaceobj_list:
@@ -408,14 +408,14 @@ class address(Addon, moduleBase):
 
                     # convert the ip from string to IPNetwork object
                     if "/" in addr:
-                        addr_obj = IPNetwork(addr)
+                        addr_obj = ipnetwork.IPNetwork(addr)
                     else:
                         netmask = ifaceobj.get_attr_value_n("netmask", index)
 
                         if netmask:
-                            addr_obj = IPNetwork("%s/%s" % (addr, netmask))
+                            addr_obj = ipnetwork.IPNetwork(addr, netmask)
                         else:
-                            addr_obj = IPNetwork(addr)
+                            addr_obj = ipnetwork.IPNetwork(addr)
 
                     for attr_name in ("broadcast", "scope", "preferred-lifetime"):
                         attr_value = ifaceobj.get_attr_value_n(attr_name, index)
@@ -425,7 +425,7 @@ class address(Addon, moduleBase):
                     pointopoint = ifaceobj.get_attr_value_n("pointopoint", index)
                     try:
                         if pointopoint:
-                            addr_attributes["pointopoint"] = IPNetwork(pointopoint)
+                            addr_attributes["pointopoint"] = ipnetwork.IPNetwork(pointopoint)
                     except Exception as e:
                         self.logger.warning("%s: pointopoint %s: %s" % (ifaceobj.name, pointopoint, str(e)))
 
@@ -465,9 +465,9 @@ class address(Addon, moduleBase):
         for ifaceobj in ifaceobjlist:
             anycast_addr = ifaceobj.get_attr_value_first("clagd-vxlan-anycast-ip")
             if anycast_addr:
-                anycast_ip_addr = IPNetwork(anycast_addr)
+                anycast_ip_addr = ipnetwork.IPNetwork(anycast_addr)
 
-        return str(anycast_ip_addr) if anycast_ip_addr else None
+        return anycast_ip_addr
 
     def process_addresses(self, ifaceobj, ifaceobj_getfunc=None, force_reapply=False):
         squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
@@ -500,17 +500,12 @@ class address(Addon, moduleBase):
             # lets purge addresses not in the config
             anycast_ip = None
 
-            running_ip_addrs = self.cache.get_ifupdown2_addresses_list(ifaceobj_list, ifname)
+            running_ip_addrs = self.cache.get_managed_ip_addresses(ifname, ifaceobj_list)
 
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
                 anycast_ip = self.__add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobj_list)
 
-            # user_ip4, user_ip6 and ordered_user_configured_ips  IP addresses are now represented
-            # in string format. Comparaisons between IPNetwork object are not reliable, i.e.:
-            #    IPNetwork("2001:aa::2/64") == IPNetwork("2001:aa::150/64")
             user_ip4, user_ip6, ordered_user_configured_ips = self.order_user_configured_addrs(user_config_ip_addrs_list)
-
-            running_ip_addrs_str = self.get_ipnetwork_object_list_in_string_format(running_ip_addrs)
 
             if ordered_user_configured_ips == running_ip_addrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, running_ip_addrs):
                 if force_reapply:
@@ -518,9 +513,9 @@ class address(Addon, moduleBase):
                 return
             try:
                 # if primary address is not same, there is no need to keep any, reset all addresses.
-                if ordered_user_configured_ips and running_ip_addrs_str and ordered_user_configured_ips[0] != running_ip_addrs_str[0]:
+                if ordered_user_configured_ips and running_ip_addrs and ordered_user_configured_ips[0] != running_ip_addrs[0]:
                     self.logger.info("%s: primary ip changed (from %s to %s) we need to purge all ip addresses and re-add them"
-                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs_str[0]))
+                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs[0]))
                     skip_addrs = []
                 else:
                     skip_addrs = ordered_user_configured_ips
@@ -528,20 +523,15 @@ class address(Addon, moduleBase):
                 if anycast_ip:
                     skip_addrs.append(anycast_ip)
 
-                for index, addr in enumerate(running_ip_addrs_str):
+                for addr in running_ip_addrs:
                     if addr in skip_addrs:
                         continue
-                    # we still have to send the IPNetwork object
-                    # to the netlink "addr_del" API
-                    self.netlink.addr_del(ifname, running_ip_addrs[index])
+                    self.netlink.addr_del(ifname, addr)
             except Exception as e:
                 self.log_warn(str(e))
         if not user_config_ip_addrs_list:
             return
         self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
-
-    def get_ipnetwork_object_list_in_string_format(self, obj_list):
-        return [str(obj) for obj in obj_list]
 
     def compare_running_ips_and_user_config(self, user_ip4, user_ip6, running_addrs):
         """
@@ -595,9 +585,9 @@ class address(Addon, moduleBase):
 
         for a, _ in user_config_addrs:
             if a.version == 6:
-                ip6.append(str(a))
+                ip6.append(a)
             else:
-                ip4.append(str(a))
+                ip4.append(a)
 
         return ip4, ip6, ip4 + ip6
 
@@ -1029,7 +1019,7 @@ class address(Addon, moduleBase):
                     else:
                         ifaceobj_list = [ifaceobj]
 
-                    for addr in self.cache.get_ifupdown2_addresses_list(ifaceobj_list, ifaceobj.name):
+                    for addr in self.cache.get_managed_ip_addresses(ifaceobj.name, ifaceobj_list):
                         self.netlink.addr_del(ifaceobj.name, addr)
 
             gateways = ifaceobj.get_attr_value('gateway')
@@ -1062,21 +1052,6 @@ class address(Addon, moduleBase):
         except Exception as e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
             pass
-
-    def _get_iface_addresses(self, ifaceobj):
-        addrlist = ifaceobj.get_attr_value('address')
-        outaddrlist = []
-
-        if not addrlist: return None
-        for addrindex in range(0, len(addrlist)):
-            addr = addrlist[addrindex]
-            netmask = ifaceobj.get_attr_value_n('netmask', addrindex)
-            if netmask:
-                prefixlen = IPNetwork('%s' %addr +
-                                '/%s' %netmask).prefixlen
-                addr = addr + '/%s' %prefixlen
-            outaddrlist.append(addr)
-        return outaddrlist
 
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
@@ -1188,21 +1163,25 @@ class address(Addon, moduleBase):
                        0)
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                     'alias', self.cache.get_link_alias)
+
         self._query_sysctl(ifaceobj, ifaceobjcurr)
-        # compare addresses
-        if addr_method in ["dhcp", "ppp"]:
-           return
+        self._query_check_address(ifaceobj, ifaceobjcurr, ifaceobj_getfunc)
+
+    def _query_check_address(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc):
+        """ ifquery-check: attribute: "address" """
+        if ifaceobj.addr_method in ["dhcp", "ppp"]:
+            return
 
         if ifaceobj_getfunc:
             ifaceobj_list = ifaceobj_getfunc(ifaceobj.name)
         else:
             ifaceobj_list = [ifaceobj]
 
-        intf_running_addrs = self.cache.get_ifupdown2_addresses_list(ifaceobj_list, ifaceobj.name)
-        user_config_addrs = self.cache.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format([ifaceobj], details=False)
+        intf_running_addrs = self.cache.get_managed_ip_addresses(ifaceobj.name, ifaceobj_list)
+        user_config_addrs = self.cache.get_user_configured_addresses([ifaceobj])
 
         try:
-            clagd_vxlan_anycast_ip = IPNetwork(ifaceobj.get_attr_value_first('clagd-vxlan-anycast-ip'))
+            clagd_vxlan_anycast_ip = ipnetwork.IPNetwork(ifaceobj.get_attr_value_first("clagd-vxlan-anycast-ip"))
 
             if clagd_vxlan_anycast_ip in intf_running_addrs:
                 user_config_addrs.append(clagd_vxlan_anycast_ip)
@@ -1225,24 +1204,20 @@ class address(Addon, moduleBase):
             except:
                 pass
 
-        # if any ip address is left in 'intf_running_addrs' it means
-        # that they used to be configured by ifupdown2 but not anymore
-        # but are still on the intf, so we need to mark them as fail
-        # we will only mark them as failure on the first sibling
+        # if any ip address is left in 'intf_running_addrs' it means that they
+        # used to be configured by ifupdown2 but not anymore. The entry was
+        # removed from the configuration file but the IP is still configured on
+        # the device, so we need to mark them as FAIL (we will only mark them
+        # as failure on the first sibling).
         if ifaceobj.flags & iface.HAS_SIBLINGS:
             if not ifaceobj.flags & iface.YOUNGEST_SIBLING:
                 return
 
-        all_stanza_user_config_ip = self.cache.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
-            ifaceobj_list,
-            details=False
-        )
+        all_stanza_user_config_ip = self.cache.get_user_configured_addresses(ifaceobj_list)
 
         for address in intf_running_addrs:
             if address not in all_stanza_user_config_ip:
                 ifaceobjcurr.update_config_with_status('address', str(address), 1)
-
-        return
 
     def query_running_ipv6_addrgen(self, ifaceobjrunning):
         ipv6_addrgen = self.cache.get_link_ipv6_addrgen_mode(ifaceobjrunning.name)
@@ -1263,7 +1238,7 @@ class address(Addon, moduleBase):
             # If dhcp is configured on the interface, we skip it
             return
 
-        intf_running_addrs = self.cache.get_addresses_list(ifaceobjrunning.name) or []
+        intf_running_addrs = self.cache.get_ip_addresses(ifaceobjrunning.name) or []
 
         if self.cache.link_is_loopback(ifaceobjrunning.name):
             for default_addr in self.default_loopback_addresses:
@@ -1275,7 +1250,7 @@ class address(Addon, moduleBase):
             ifaceobjrunning.addr_method = 'loopback'
 
         for addr in intf_running_addrs:
-            ifaceobjrunning.update_config('address', str(addr))
+            ifaceobjrunning.update_config('address', addr)
 
         mtu = self.cache.get_link_mtu_str(ifaceobjrunning.name)
         if (mtu and

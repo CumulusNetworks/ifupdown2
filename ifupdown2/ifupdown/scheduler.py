@@ -106,6 +106,7 @@ class ifaceScheduler():
                     err = 1
                     #import traceback
                     #traceback.print_exc()
+
                     ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
                 pass

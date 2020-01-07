@@ -16,7 +16,6 @@ import logging
 import subprocess
 
 from functools import partial
-from ipaddr import IPNetwork, IPAddress
 
 try:
     from ifupdown2.ifupdown.iface import *
@@ -305,45 +304,6 @@ class utils():
                    (cmd, cmd_returncode, cmd_output)
         else:
             return 'cmd \'%s\' failed: returned %d' % (cmd, cmd_returncode)
-
-    @classmethod
-    def get_normalized_ip_addr(cls, ifacename, ipaddrs):
-        if not ipaddrs: return None
-        if isinstance(ipaddrs, list):
-                addrs = []
-                for ip in ipaddrs:
-                    if not ip:
-                        continue
-                    try:
-                        addrs.append(str(IPNetwork(ip)) if '/' in ip else str(IPAddress(ip)))
-                    except Exception as e:
-                        cls.logger.warning('%s: %s' % (ifacename, e))
-                return addrs
-        else:
-            try:
-                return str(IPNetwork(ipaddrs)) if '/' in ipaddrs else str(IPAddress(ipaddrs))
-            except Exception as e:
-                cls.logger.warning('%s: %s' % (ifacename, e))
-            return ipaddrs
-
-    @classmethod
-    def get_ip_objs(cls, module_name, ifname, addrs_list):
-        addrs_obj_list = []
-        for a in addrs_list or []:
-            try:
-                addrs_obj_list.append(IPNetwork(a) if '/' in a else IPAddress(a))
-            except Exception as e:
-                cls.logger.warning('%s: %s: %s' % (module_name, ifname, str(e)))
-        return addrs_obj_list
-
-    @classmethod
-    def get_ip_obj(cls, module_name, ifname, addr):
-        if addr:
-            try:
-                return IPNetwork(addr) if '/' in addr else IPAddress(addr)
-            except Exception as e:
-                cls.logger.warning('%s: %s: %s' % (module_name, ifname, str(e)))
-        return None
 
     @classmethod
     def is_addr_ip_allowed_on(cls, ifaceobj, syntax_check=False):

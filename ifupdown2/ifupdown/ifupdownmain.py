@@ -15,12 +15,12 @@ import pprint
 
 from collections import OrderedDict
 
-from ipaddr import IPNetwork, IPv4Network, IPv6Network, IPAddress, IPv4Address, IPv6Address
-
 try:
     import ifupdown2.lib.nlcache as nlcache
 
     import ifupdown2.ifupdownaddons.mstpctlutil
+
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
 
     import ifupdown2.ifupdown.policymanager
     import ifupdown2.ifupdown.statemanager as statemanager
@@ -37,6 +37,8 @@ except (ImportError, ModuleNotFoundError):
     import lib.nlcache as nlcache
 
     import ifupdownaddons.mstpctlutil
+
+    import nlmanager.ipnetwork as ipnetwork
 
     import ifupdown.ifupdownflags
     import ifupdown.policymanager
@@ -886,22 +888,22 @@ class ifupdownMain:
             return False
 
     def _keyword_ipv4(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), IPv4Address, limit=1)
+        return self._keyword_check_list(value.split(), ipnetwork.IPv4Address, limit=1)
 
     def _keyword_ipv4_prefixlen(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), IPv4Network, limit=1)
+        return self._keyword_check_list(value.split(), ipnetwork.IPv4Network, limit=1)
 
     def _keyword_ipv6(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), IPv6Address, limit=1)
+        return self._keyword_check_list(value.split(), ipnetwork.IPv6Address, limit=1)
 
     def _keyword_ipv6_prefixlen(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), IPv6Network, limit=1)
+        return self._keyword_check_list(value.split(), ipnetwork.IPv6Network, limit=1)
 
     def _keyword_ip(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), IPAddress, limit=1)
+        return self._keyword_check_list(value.split(), ipnetwork.IPAddress, limit=1)
 
     def _keyword_ip_prefixlen(self, value, validrange=None):
-        return self._keyword_check_list(value.split(), IPNetwork, limit=1)
+        return self._keyword_check_list(value.split(), ipnetwork.IPNetwork, limit=1)
 
     def _keyword_mac_ip_prefixlen_list(self, value, validrange=None):
         """
@@ -933,7 +935,7 @@ class ifupdownMain:
             for elem in elements:
                 v = elem.split('=')
                 int(v[0])
-                IPv4Address(v[1])
+                ipnetwork.IPv4Address(v[1])
             return True
         except Exception as e:
             self.logger.debug('keyword: number ipv4: %s' % str(e))
@@ -953,7 +955,7 @@ class ifupdownMain:
         if size > 3 or size < 1:
             return False
         try:
-            IPv4Address(values[0])
+            ipnetwork.IPv4Address(values[0])
             if size > 1:
                 if values[1] != 'vrf':
                     return False

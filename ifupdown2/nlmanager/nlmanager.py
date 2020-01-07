@@ -26,7 +26,6 @@
 #
 
 from collections import OrderedDict
-from ipaddr import IPv4Address, IPv6Address
 from .nlpacket import *
 from select import select
 from struct import pack, unpack
@@ -371,14 +370,12 @@ class NetlinkManager(object):
                     data = data[length:]
 
     def ip_to_afi(self, ip):
-        type_ip = type(ip)
-
-        if type_ip == IPv4Address:
+        if ip.version == 4:
             return socket.AF_INET
-        elif type_ip == IPv6Address:
+        elif ip.version == 6:
             return socket.AF_INET6
         else:
-            raise Exception("%s is an invalid IP type" % type_ip)
+            raise Exception("%s is an invalid IP type" % type(ip))
 
     def request_dump(self, rtm_type, family, debug):
         """
@@ -498,9 +495,7 @@ class NetlinkManager(object):
 
     def route_get(self, ip, debug=False):
         """
-        ip must be one of the following:
-        - IPv4Address
-        - IPv6Address
+        ip must be ipnetwork.IPNetwork
         """
         # Transmit a RTM_GETROUTE to query for the route we want
         route = Route(RTM_GETROUTE, debug, use_color=self.use_color)

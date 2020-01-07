@@ -31,12 +31,14 @@
 import socket
 import logging
 import struct
-from ipaddr import IPNetwork, IPv4Address, IPv6Address, IPAddress
 from binascii import hexlify
 from pprint import pformat
 from socket import AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE, htons
 from string import printable
 from struct import pack, unpack, calcsize
+
+
+from . import ipnetwork
 
 
 log = logging.getLogger(__name__)
@@ -1036,12 +1038,12 @@ class Attribute(object):
 
     @staticmethod
     def decode_ipv4_address_attribute(data, _=None):
-        return IPv4Address(unpack(">L", data[4:8])[0])
+        return ipnetwork.IPNetwork(unpack(">L", data[4:8])[0])
 
     @staticmethod
     def decode_ipv6_address_attribute(data, _=None):
         (data1, data2) = unpack(">QQ", data[4:20])
-        return IPv6Address(data1 << 64 | data2)
+        return ipnetwork.IPNetwork(data1 << 64 | data2)
 
     @staticmethod
     def decode_bond_ad_info_attribute(data, info_data_end):
@@ -1131,9 +1133,7 @@ class Attribute(object):
         sub_attr_pack_layout.append("BBBB")
 
         if info_data_value:
-            sub_attr_payload.extend(socket.inet_aton(str(info_data_value)))
-            # force concert to string (in case of IPv4Address but really this
-            # should already be in the integer format to save some cycles
+            sub_attr_payload.extend(info_data_value.packed)
         else:
             sub_attr_payload.extend([0, 0, 0, 0])
 
@@ -1331,8 +1331,6 @@ class AttributeIPAddress(Attribute):
 
     def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
-        self.value_int = None
-        self.value_int_str = None
         self.family = family
 
         if self.family == AF_INET:
@@ -1349,41 +1347,37 @@ class AttributeIPAddress(Attribute):
 
         self.LEN = calcsize(self.PACK)
 
-    def set_value(self, value):
-        if value is None:
-            self.value = None
-        else:
-            self.value = IPNetwork(value)
-
     def decode(self, parent_msg, data):
         self.decode_length_type(data)
 
         try:
-            if self.family in (AF_INET, AF_BRIDGE):
-                self.value = IPv4Address(unpack(self.PACK, self.data[4:])[0])
-
-            elif self.family == AF_INET6:
-                (data1, data2) = unpack(self.PACK, self.data[4:])
-                self.value = IPv6Address(data1 << 64 | data2)
+            try:
+                prefixlen = parent_msg.prefixlen
+            except AttributeError:
+                prefixlen = None
+            try:
+                scope = parent_msg.scope
+            except AttributeError:
+                scope = 0
 
             if isinstance(parent_msg, Route):
                 if self.atype == Route.RTA_SRC:
-                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.src_len))
+                    self.value = ipnetwork.IPNetwork(self.value, parent_msg.src_len)
                 elif self.atype == Route.RTA_DST:
-                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.dst_len))
+                    self.value = ipnetwork.IPNetwork(self.value, parent_msg.dst_len)
             else:
-                try:
-                    self.value = IPNetwork('%s/%s' % (self.value, parent_msg.prefixlen))
-                except AttributeError:
-                    self.value = IPNetwork('%s' % self.value)
+                if self.family in (AF_INET, AF_BRIDGE):
+                    self.value = ipnetwork.IPNetwork(unpack(self.PACK, self.data[4:])[0], prefixlen, scope)
 
-            self.value_int = int(self.value)
-            self.value_int_str = str(self.value_int)
+                elif self.family == AF_INET6:
+                    (data1, data2) = unpack(self.PACK, self.data[4:])
+                    self.value = ipnetwork.IPNetwork(data1 << 64 | data2, prefixlen, scope)
+
+                else:
+                   self.log.debug("AttributeIPAddress: decode: unsupported address family ({})".format(self.family))
 
         except struct.error:
             self.value = None
-            self.value_int = None
-            self.value_int_str = None
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
 
@@ -1435,9 +1429,8 @@ class AttributeMACAddress(Attribute):
         try:
             # GRE interface uses a 4-byte IP address for this attribute
             if self.length == 8:
-                self.value = IPv4Address(unpack('>L', self.data[4:])[0])
-                self.value_int = int(self.value)
-                self.value_int_str = str(self.value_int)
+                self.value = ipnetwork.IPNetwork(unpack('>L', self.data[4:])[0])
+
             # MAC Address
             elif self.length == 10:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
@@ -1445,9 +1438,8 @@ class AttributeMACAddress(Attribute):
                 self.value = mac_int_to_str(self.raw)
             # GREv6 interface uses a 16-byte IP address for this attribute
             elif self.length == 20:
-                self.value = IPv6Address(unpack('>L', self.data[16:])[0])
-                self.value_int = int(self.value)
-                self.value_int_str = str(self.value_int)
+                self.value = ipnetwork.IPNetwork(unpack('>L', self.data[16:])[0])
+
             else:
                 raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
 
@@ -1476,8 +1468,6 @@ class AttributeMplsLabel(Attribute):
 
     def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
-        self.value_int = None
-        self.value_int_str = None
         self.family = family
         self.PACK = '>HBB'
 
@@ -1490,13 +1480,9 @@ class AttributeMplsLabel(Attribute):
             self.traffic_class = ((label_low_tc_s & 0xf) >> 1)
             self.label = (label_high << 4) | (label_low_tc_s >> 4)
             self.value = self.label
-            self.value_int = self.value
-            self.value_int_str = str(self.value_int)
 
         except struct.error:
             self.value = None
-            self.value_int = None
-            self.value_int_str = None
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
             raise
 
@@ -1948,14 +1934,14 @@ struct rtnexthop {
             if self.family == AF_INET:
                 if len(data) < self.IPV4_LEN:
                     break
-                nexthop = IPv4Address(unpack('>L', data[:self.IPV4_LEN])[0])
+                nexthop = ipnetwork.IPNetwork(unpack('>L', data[:self.IPV4_LEN])[0])
                 self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
 
             elif self.family == AF_INET6:
                 if len(data) < self.IPV6_LEN:
                     break
                 (data1, data2) = unpack('>QQ', data[:self.IPV6_LEN])
-                nexthop = IPv6Address(data1 << 64 | data2)
+                nexthop = ipnetwork.IPNetwork(data1 << 64 | data2)
                 self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
 
             data = data[(rtnh_len-self.RTNH_LEN-self.HEADER_LEN):]
@@ -4470,10 +4456,10 @@ class AttributeMDBA_MDB(Attribute):
                             info = [ifindex,state,flags,vid]
                             proto = unpack('=H',sub_attr_data[28:30])[0]
                             if proto == htons(ETH_P_IP):
-                                ip_addr = IPv4Address(unpack('>L', sub_attr_data[12:16])[0])
+                                ip_addr = ipnetwork.IPNetwork(unpack('>L', sub_attr_data[12:16])[0])
                             else:
                                 (data1, data2) = unpack('>QQ',sub_attr_data[12:28])
-                                ip_addr        =  IPv6Address(data1 << 64 | data2)
+                                ip_addr        = ipnetwork.IPNetwork(data1 << 64 | data2)
 
                             info.append(ip_addr)
 
@@ -4508,10 +4494,10 @@ class AttributeMDBA_MDB(Attribute):
                         info = list(info)
                         proto = unpack('=H',sub_attr_data[28:30])[0]
                         if proto == 8:
-                            ip_addr = IPv4Address(unpack('>L', sub_attr_data[12:16])[0])
+                            ip_addr = ipnetwork.IPNetwork(unpack('>L', sub_attr_data[12:16])[0])
                         else:
                             (data1, data2) = unpack('>QQ',sub_attr_data[12:28])
-                            ip_addr        =  IPv6Address(data1 << 64 | data2)
+                            ip_addr        = ipnetwork.IPNetwork(data1 << 64 | data2)
 
                         info.append(ip_addr)
                         self.value[MDB.MDBA_MDB_ENTRY][MDB.MDBA_MDB_ENTRY_INFO] = info
@@ -4616,7 +4602,7 @@ class AttributeMDBA_SET_ENTRY(Attribute):
             if proto == htons(ETH_P_IP):
                 self.PACK = '=IBBHLxxxxxxxxxxxxHxx'
                 reorder = unpack('<L', ip.packed)[0]
-                ip = IPv4Address(reorder)
+                ip = ipnetwork.IPv4Address(reorder)
 
                 self.LEN = calcsize(self.PACK)
                 length = self.HEADER_LEN + self.LEN
@@ -4645,7 +4631,7 @@ class AttributeMDBA_SET_ENTRY(Attribute):
             elif proto == htons(ETH_P_IPV6):
                 self.PACK = '=IBBHQQHxx'
                 (ifindex, flags, state,vid, data1,data2, proto) = unpack(self.PACK, self.data[4:])
-                ip = IPv6Address(data1 << 64 | data2)
+                ip = ipnetwork.IPNetwork(data1 << 64 | data2)
             else:
                 raise Exception("%d Invalid Proto" % proto)
             self.LEN = calcsize(self.PACK)

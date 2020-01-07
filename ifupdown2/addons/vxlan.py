@@ -4,10 +4,8 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-
-from ipaddr import IPNetwork, IPAddress, IPv4Address, IPv4Network, AddressValueError
-
 try:
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
@@ -21,6 +19,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except (ImportError, ModuleNotFoundError):
+    import nlmanager.ipnetwork as ipnetwork
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
@@ -148,7 +147,7 @@ class vxlan(Addon, moduleBase):
 
     def syntax_check_localip_anycastip_equal(self, ifname, local_ip, anycast_ip):
         try:
-            if local_ip and anycast_ip and IPNetwork(local_ip) == IPNetwork(anycast_ip):
+            if local_ip and anycast_ip and ipnetwork.IPNetwork(local_ip) == ipnetwork.IPNetwork(anycast_ip):
                 self.logger.warning('%s: vxlan-local-tunnelip and clagd-vxlan-anycast-ip are identical (%s)'
                                     % (ifname, local_ip))
                 return False
@@ -376,7 +375,7 @@ class vxlan(Addon, moduleBase):
             running_localtunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
 
             if self._clagd_vxlan_anycast_ip and running_localtunnelip:
-                anycastip = IPAddress(self._clagd_vxlan_anycast_ip)
+                anycastip = ipnetwork.IPNetwork(self._clagd_vxlan_anycast_ip)
                 if anycastip == running_localtunnelip:
                     local = running_localtunnelip
 
@@ -388,14 +387,13 @@ class vxlan(Addon, moduleBase):
 
         if local:
             try:
-                local = IPv4Address(local)
-            except AddressValueError:
-                try:
-                    local_ip = IPv4Network(local).ip
+                local = ipnetwork.IPv4Address(local)
+
+                if local.initialized_with_prefixlen:
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
-                    local = local_ip
-                except:
-                    raise Exception("%s: invalid vxlan-local-tunnelip %s: must be in ipv4 format" % (ifname, local))
+
+            except Exception as e:
+                raise Exception("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
 
         cached_ifla_vxlan_local = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
 
@@ -469,16 +467,15 @@ class vxlan(Addon, moduleBase):
 
         if group:
             try:
-                group = IPv4Address(group)
-            except AddressValueError:
-                try:
-                    group_ip = IPv4Network(group).ip
-                    self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
-                    group = group_ip
-                except:
-                    raise Exception("%s: invalid vxlan-svcnodeip %s: must be in ipv4 format" % (ifname, group))
+                group = ipnetwork.IPv4Address(group)
 
-            if group.is_multicast:
+                if group.initialized_with_prefixlen:
+                    self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
+
+            except Exception as e:
+                raise Exception("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
+
+            if group.ip.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip %s: invalid group address, "
                                     "for multicast IP please use attribute \"vxlan-mcastgrp\"" % (ifname, group))
                 # if svcnodeip is used instead of mcastgrp we warn the user
@@ -489,16 +486,15 @@ class vxlan(Addon, moduleBase):
 
         elif mcast_grp:
             try:
-                mcast_grp = IPv4Address(mcast_grp)
-            except AddressValueError:
-                try:
-                    group_ip = IPv4Network(mcast_grp).ip
-                    self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
-                    mcast_grp = group_ip
-                except:
-                    raise Exception("%s: invalid vxlan-mcastgrp %s: must be in ipv4 format" % (ifname, mcast_grp))
+                mcast_grp = ipnetwork.IPv4Address(mcast_grp)
 
-            if not mcast_grp.is_multicast:
+                if mcast_grp.initialized_with_prefixlen:
+                    self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
+
+            except Exception as e:
+                raise Exception("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
+
+            if not mcast_grp.ip.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp %s: invalid group address, "
                                     "for non-multicast IP please use attribute \"vxlan-svcnodeip\""
                                     % (ifname, mcast_grp))
@@ -522,7 +518,7 @@ class vxlan(Addon, moduleBase):
         if group != cached_ifla_vxlan_group:
 
             if not group:
-                group = IPAddress("0.0.0.0")
+                group = ipnetwork.IPNetwork("0.0.0.0")
                 attribute_name = "vxlan-svcnodeip/vxlan-mcastgrp"
 
             self.logger.info("%s: set %s %s" % (ifname, attribute_name, group))
@@ -699,7 +695,7 @@ class vxlan(Addon, moduleBase):
         if remoteips:
             try:
                 for remoteip in remoteips:
-                    IPv4Address(remoteip)
+                    ipnetwork.IPv4Address(remoteip)
             except Exception as e:
                 self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
 
@@ -707,9 +703,13 @@ class vxlan(Addon, moduleBase):
             # figure out the diff for remotes and do the bridge fdb updates
             # only if provisioned by user and not by an vxlan external
             # controller.
-            peers = self.iproute2.get_vxlan_peers(ifaceobj.name, group)
-            if local and remoteips and local in remoteips:
-                remoteips.remove(local)
+            local_str = str(local)
+
+            if local_str and remoteips and local_str in remoteips:
+                remoteips.remove(local_str)
+
+            peers = self.iproute2.get_vxlan_peers(ifaceobj.name, str(group.ip) if group else None)
+
             cur_peers = set(peers)
             if remoteips:
                 new_peers = set(remoteips)
@@ -783,8 +783,8 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-ttl', Link.IFLA_VXLAN_TTL, int),
                 ('vxlan-port', Link.IFLA_VXLAN_PORT, int),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, int),
-                ('vxlan-mcastgrp', Link.IFLA_VXLAN_GROUP, IPv4Address),
-                ('vxlan-svcnodeip', Link.IFLA_VXLAN_GROUP, IPv4Address),
+                ('vxlan-mcastgrp', Link.IFLA_VXLAN_GROUP, ipnetwork.IPv4Address),
+                ('vxlan-svcnodeip', Link.IFLA_VXLAN_GROUP, ipnetwork.IPv4Address),
                 ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: self.cache.get_ifindex(x)),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
         ):
@@ -814,7 +814,7 @@ class vxlan(Addon, moduleBase):
         attrval = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
         if not attrval:
             attrval = self._vxlan_local_tunnelip
-            # TODO: vxlan._vxlan_local_tunnelip should be a IPNetwork obj
+            # TODO: vxlan._vxlan_local_tunnelip should be a ipnetwork.IPNetwork obj
             ifaceobj.update_config('vxlan-local-tunnelip', attrval)
 
         if str(running_attrval) == self._clagd_vxlan_anycast_ip:
@@ -826,7 +826,7 @@ class vxlan(Addon, moduleBase):
             ifaceobjcurr,
             'vxlan-local-tunnelip',
             str(attrval),
-            str(running_attrval)
+            str(running_attrval.ip) if running_attrval else None
         )
 
         #
@@ -844,7 +844,7 @@ class vxlan(Addon, moduleBase):
                 ifaceobjcurr,
                 'vxlan-remoteip',
                 ifaceobj.get_attr_value('vxlan-remoteip'),
-                self.iproute2.get_vxlan_peers(ifaceobj.name, str(cached_svcnode))
+                self.iproute2.get_vxlan_peers(ifaceobj.name, str(cached_svcnode.ip) if cached_svcnode else None)
             )
 
     def _query_running(self, ifaceobjrunning):

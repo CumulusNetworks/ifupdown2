@@ -802,15 +802,10 @@ class vrf(Addon, moduleBase):
 
     def _kill_ssh_connections(self, ifacename, ifaceobj):
         try:
-            running_addrs_list = [str(ip) for ip in self.cache.get_ifupdown2_addresses_list(
-                ifaceobj_list=[ifaceobj],
+            iplist = [str(ip.ip) for ip in self.cache.get_managed_ip_addresses(
                 ifname=ifacename,
+                ifaceobj_list=[ifaceobj],
             )]
-
-            if not running_addrs_list:
-                return
-
-            iplist = [i.split('/', 1)[0] for i in running_addrs_list]
 
             if not iplist:
                 return

@@ -30,10 +30,10 @@ import struct
 import signal
 import inspect
 import logging
+import ipaddress
 import threading
 import traceback
 
-from ipaddr import IPNetwork
 from logging import DEBUG, WARNING
 from collections import OrderedDict
 
@@ -62,6 +62,7 @@ try:
         RT_SCOPES, \
         INFINITY_LIFE_TIME
 
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
     import ifupdown2.nlmanager.nlpacket as nlpacket
     import ifupdown2.nlmanager.nllistener as nllistener
     import ifupdown2.nlmanager.nlmanager as nlmanager
@@ -91,6 +92,7 @@ except (ImportError, ModuleNotFoundError):
         RT_SCOPES, \
         INFINITY_LIFE_TIME
 
+    import nlmanager.ipnetwork as ipnetwork
     import nlmanager.nlpacket as nlpacket
     import nlmanager.nllistener as nllistener
     import nlmanager.nlmanager as nlmanager
@@ -1551,7 +1553,8 @@ class _NetlinkCache:
 
         return label, ifindex
 
-    def __check_and_replace_address(self, address_list, new_addr):
+    @staticmethod
+    def __check_and_replace_address(address_list, new_addr):
         """
         Check if new_addr is in address_list, if found we replace the occurrence
         with the new and update object "new_addr"
@@ -1561,10 +1564,10 @@ class _NetlinkCache:
         :param new_addr:
         :return:
         """
-        ip_with_prefix = new_addr.get_attribute_value(Address.IFA_ADDRESS).with_prefixlen
+        ip_with_prefix = new_addr.get_attribute_value(Address.IFA_ADDRESS)
 
         for index, addr in enumerate(address_list):
-            if addr.get_attribute_value(Address.IFA_ADDRESS).with_prefixlen == ip_with_prefix:
+            if addr.get_attribute_value(Address.IFA_ADDRESS) == ip_with_prefix:
                 address_list[index] = new_addr
                 return True
 
@@ -1629,11 +1632,11 @@ class _NetlinkCache:
 
                 for cache_addr in self._addr_cache[ifname][addr.version]:
                     try:
-                        if cache_addr.attributes[Address.IFA_ADDRESS].value.with_prefixlen == addr.with_prefixlen:
+                        if cache_addr.attributes[Address.IFA_ADDRESS].value == addr:
                             obj_to_remove = cache_addr
                     except:
                         try:
-                            if cache_addr.attributes[Address.IFA_LOCAL].value.with_prefixlen == addr.with_prefixlen:
+                            if cache_addr.attributes[Address.IFA_LOCAL].value == addr:
                                 obj_to_remove = cache_addr
                         except:
                             return
@@ -1684,28 +1687,18 @@ class _NetlinkCache:
                 except ValueError as e:
                     log.debug('nlcache: remove_address: exception: %s' % e)
 
-    def get_addresses_list(self, ifname):
+    def get_ip_addresses(self, ifname: str) -> list:
         addresses = []
         try:
             with self._cache_lock:
                 intf_addresses = self._addr_cache[ifname]
-                for addr in intf_addresses.get(4, []):
-                    addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
-                for addr in intf_addresses.get(6, []):
-                    addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
-                return addresses
-        except (KeyError, AttributeError):
-            return addresses
 
-    def get_addresses_objects_list(self, ifname):
-        addresses = []
-        try:
-            with self._cache_lock:
-                intf_addresses = self._addr_cache[ifname]
                 for addr in intf_addresses.get(4, []):
-                    addresses.append(addr)
+                    addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
+
                 for addr in intf_addresses.get(6, []):
-                    addresses.append(addr)
+                    addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
+
                 return addresses
         except (KeyError, AttributeError):
             return addresses
@@ -1773,143 +1766,94 @@ class _NetlinkCache:
     ############################################################################
     ############################################################################
 
-    def get_ifupdown2_addresses_list(self, ifaceobj_list, ifname, with_address_virtual=False):
-        """
-            With the new live cache, we store every intf's addresses even if they
-            werent configured by ifupdown2. We need to filter those out to avoid
-            problems
-
-            To do so we look at the previous configuration made by ifupdown2
-            (with the help of the statemanager) together with the addresses
-            specified by the user in /etc/network/interfaces, these addresses
-            are then compared to the running state of the intf
-        """
-        if not ifaceobj_list:
-            ifaceobj_list = []
-
-        config_addrs = set(
-            self.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
-                ifaceobj_list,
-                with_address_virtual=with_address_virtual,
-                details=False
-            )
-        )
-
-        for previous_state_addr in self.get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(
-                statemanager.statemanager_api.get_ifaceobjs(ifname),
-                with_address_virtual=with_address_virtual,
-                details=False
-        ):
-            config_addrs.add(previous_state_addr)
-
-        ifupdown2_addresses = []
-
-        for addr in self.get_addresses_objects_list(ifname):
-            ip_addr = addr.attributes[Address.IFA_ADDRESS].value
-            if ip_addr in config_addrs:
-                ifupdown2_addresses.append(ip_addr)
-            elif not addr.scope & Route.RT_SCOPE_LINK:
-                ifupdown2_addresses.append(ip_addr)
-
-        return ifupdown2_addresses
-
-    def get_user_config_ip_addrs_with_attrs_in_ipnetwork_format(self, ifaceobj_list, with_address_virtual=False, details=True):
-        """
-            if details=True:
-                This function will return a OrderedDict of user addresses (from /e/n/i)
-                An OrderedDict is necessary because the addresses order is important (primary etc)
-
-            if details=False:
-                Function will return an ordered list of ip4 followed by ip6 as configured in /e/n/i.
-
-            all of the IP object were created by IPNetwork.
-        """
-        if not ifaceobj_list:
-            return {} if details else []
-
+    @staticmethod
+    def get_user_configured_addresses(ifaceobj_list: list, with_address_virtual=False) -> list:
         ip4 = []
         ip6 = []
 
         for ifaceobj in ifaceobj_list:
-            addresses = ifaceobj.get_attr_value('address')
+            addresses = ifaceobj.get_attr_value("address")
 
             if addresses:
                 for addr_index, addr in enumerate(addresses):
-                    if '/' in addr:
-                        ip_network_obj = IPNetwork(addr)
+                    if "/" in addr:
+                        ip_network_obj = ipnetwork.IPNetwork(addr)
                     else:
                         # if netmask is specified under the stanza we need to use to
                         # create the IPNetwork objects, otherwise let IPNetwork figure
                         # out the correct netmask for ip4 & ip6
-                        netmask = ifaceobj.get_attr_value_n('netmask', addr_index)
-
-                        if netmask:
-                            ip_network_obj = IPNetwork('%s/%s' % (addr, netmask))
-                        else:
-                            ip_network_obj = IPNetwork(addr)
-
-                    if not details:
-                        # if no details=False we don't need to go further and our lists
-                        # will only store the IPNetwork object and nothing else
-                        if ip_network_obj.version == 6:
-                            ip6.append(ip_network_obj)
-                        else:
-                            ip4.append(ip_network_obj)
-                        continue
-
-                    addr_attributes = {}
-
-                    for attr in ['broadcast', 'pointopoint', 'scope', 'preferred-lifetime']:
-                        attr_value = ifaceobj.get_attr_value_n(attr, addr_index)
-
-                        if attr_value:
-                            addr_attributes[attr] = attr_value
+                        ip_network_obj = ipnetwork.IPNetwork(addr, ifaceobj.get_attr_value_n("netmask", addr_index))
 
                     if ip_network_obj.version == 6:
-                        ip6.append((ip_network_obj, addr_attributes))
+                        ip6.append(ip_network_obj)
                     else:
-                        ip4.append((ip_network_obj, addr_attributes))
+                        ip4.append(ip_network_obj)
 
             if not with_address_virtual:
                 continue
             #
             # address-virtual and vrrp ips also needs to be accounted for
             #
-            addresses_virtual = ifaceobj.get_attr_value('address-virtual')
-            vrrp              = ifaceobj.get_attr_value('vrrp')
+            addresses_virtual = ifaceobj.get_attr_value("address-virtual")
+            vrrp              = ifaceobj.get_attr_value("vrrp")
 
             for attr_config in (addresses_virtual, vrrp):
                 for addr_virtual_entry in attr_config or []:
                     for addr in addr_virtual_entry.split():
                         try:
-                            ip_network_obj = IPNetwork(addr)
+                            ip_network_obj = ipnetwork.IPNetwork(addr)
 
                             if ip_network_obj.version == 6:
-                                if not details:
-                                    ip6.append(ip_network_obj)
-                                else:
-                                    ip6.append((ip_network_obj, {}))
+                                ip6.append(ip_network_obj)
                             else:
-                                if not details:
-                                    ip4.append(ip_network_obj)
-                                else:
-                                    ip4.append((ip_network_obj, {}))
+                                ip4.append(ip_network_obj)
                         except:
                             continue
 
         # always return ip4 first, followed by ip6
-        if not details:
-            return ip4 + ip6
-        else:
-            user_config_addresses = OrderedDict()
+        return ip4 + ip6
 
-            for addr, addr_details in ip4:
-                user_config_addresses[addr] = addr_details
+    def get_managed_ip_addresses(self, ifname: str, ifaceobj_list: list, with_address_virtual: bool = False):
+        """
+        Get all ip addresses managed by ifupdown2. As a network manager we need
+        to be able to detect manually added ip addresses (with iproute2 for
+        example).
+        We only addressed added by the kernel (scope: link).
 
-            for addr, addr_details in ip6:
-                user_config_addresses[addr] = addr_details
+        Args:
+            ifname: str
+            ifaceobj_list: list of ifaceobj
+            with_address_virtual: boolean (to include vrrp and address-virtual)
 
-            return user_config_addresses
+        Returns: List of ipnetwork.IPNetwork objects
+        """
+        config_addrs = set(
+            self.get_user_configured_addresses(
+                ifaceobj_list,
+                with_address_virtual=with_address_virtual,
+            )
+        )
+
+        previous_state_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifname)
+
+        if previous_state_ifaceobjs:
+            for previous_state_addr in self.get_user_configured_addresses(
+                previous_state_ifaceobjs,
+                with_address_virtual=with_address_virtual,
+            ):
+                config_addrs.add(previous_state_addr)
+
+        managed_addresses = []
+
+        for addr in self.get_ip_addresses(ifname):
+            if addr in config_addrs:
+                managed_addresses.append(addr)
+
+            elif not addr.scope & Route.RT_SCOPE_LINK:
+                managed_addresses.append(addr)
+
+        return managed_addresses
+
     ############################################################################
     ############################################################################
     ############################################################################
@@ -2943,7 +2887,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     info_data[nlpacket.Link.IFLA_VXLAN_AGEING] = int(ageing)
 
                 if group:
-                    if group.is_multicast:
+                    if group.ip.is_multicast:
                         cmd.append("group %s" % group)
                     else:
                         cmd.append("remote %s" % group)
@@ -3199,7 +3143,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
              * errors returned from a flush request
              */
         """
-        for addr in self.cache.get_addresses_list(ifname):
+        for addr in self.cache.get_ip_addresses(ifname):
             try:
                 self.addr_del(ifname, addr)
             except:

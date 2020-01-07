@@ -8,8 +8,6 @@ import os
 import glob
 import socket
 
-from ipaddr import IPNetwork, IPv6Network
-
 try:
     from ifupdown2.lib.addon import Addon
 
