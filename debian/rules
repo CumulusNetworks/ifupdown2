@@ -5,7 +5,7 @@ export PYBUILD_NAME=ifupdown2
 export PYBUILD_INSTALL_ARGS=--install-lib=/usr/share/ --install-scripts=/usr/share/
 
 %:
-	dh $@ --with python2 --with systemd --buildsystem=pybuild
+	dh $@ --with=python3 --with systemd --buildsystem=pybuild
 
 override_dh_installman:
 	./ifupdown2/man/genmanpages.sh ./ifupdown2/man ./man
