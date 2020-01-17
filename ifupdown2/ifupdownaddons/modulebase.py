@@ -429,6 +429,17 @@ class moduleBase(object):
             pass
         return (start, end)
 
+    def _get_vrf_context(self):
+        vrfid = 'default'
+        try:
+            vrfid = utils.exec_command('/usr/sbin/ip vrf id').strip()
+        except Exception, e:
+            self.logger.debug('failed to get vrf id (%s)' %str(e))
+            # ignore errors
+            vrfid = None
+            pass
+        return vrfid
+
     def _handle_reserved_vlan(self, vlanid, logprefix='', end=-1):
         """ Helper function to check and warn if the vlanid falls in the
         reserved vlan range """
