@@ -89,12 +89,13 @@ class LinkUtils(utilsBase):
                 self.logger.info('address metric support: KO')
 
     @classmethod
-    def mac_str_to_int(cls, mac):
-        mac_int = 0
-        if mac:
-            for n in mac.translate(cls.mac_translate_tab).split():
-                mac_int += int(n, 16)
-        return mac_int
+    def mac_str_to_int(cls, hw_address):
+        mac = 0
+        if hw_address:
+            for i in hw_address.translate(cls.mac_translate_tab).split():
+                mac = mac << 8
+                mac += int(i, 16)
+        return mac
 
     @classmethod
     def addr_metric_support(cls):
