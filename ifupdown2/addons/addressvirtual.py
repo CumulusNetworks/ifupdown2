@@ -629,9 +629,9 @@ class addressvirtual(Addon, moduleBase):
                 is_ip6 = ip_network_obj.version == 6
 
                 if is_ip6:
-                    ip6.append(ip_addr)
+                    ip6.append(ip_network_obj)
                 else:
-                    ip4.append(ip_addr)
+                    ip4.append(ip_network_obj)
 
             macvlan_ip4_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "4"), vrrp_id)
             macvlan_ip6_ifname = "%s%s" % (self.get_vrrp_prefix(ifname, "6"), vrrp_id)
