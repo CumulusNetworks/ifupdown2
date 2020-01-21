@@ -946,7 +946,7 @@ class address(Addon, moduleBase):
             # (if intf was moved from static config to dhcp)
             for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
                 for addr in old_ifaceobj.get_attr_value("address") or []:
-                    self.netlink.addr_del(ifaceobj.name, IPNetwork(addr))
+                    self.netlink.addr_del(ifaceobj.name, ipnetwork.IPNetwork(addr))
 
         self.process_mtu(ifaceobj, ifaceobj_getfunc)
 
