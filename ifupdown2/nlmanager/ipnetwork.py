@@ -34,6 +34,9 @@ class IPNetwork:
         if isinstance(ip, int):
             self._ip = ipaddress.ip_address(ip)
             ip = str(self._ip)
+        elif isinstance(ip, IPNetwork):
+            self._ip = ip._ip
+            self.__prefixlen = ip.prefixlen
         else:
             if not prefixlen:
                 try:
