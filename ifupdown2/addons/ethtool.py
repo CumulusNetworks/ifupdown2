@@ -143,6 +143,11 @@ class ethtool(moduleBase,utilsBase):
                 except Exception, e:
                     self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
+        self.ethtool_ignore_errors = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr='ethtool_ignore_errors'
+        )
+
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
 
@@ -192,7 +197,8 @@ class ethtool(moduleBase,utilsBase):
                            (utils.ethtool_cmd, ifaceobj.name, feccmd))
                 utils.exec_command(feccmd)
             except Exception, e:
-                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+                if not self.ethtool_ignore_errors:
+                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
         else:
             pass
 
@@ -286,7 +292,8 @@ class ethtool(moduleBase,utilsBase):
                 cmd = ('%s -s %s %s' % (utils.ethtool_cmd, ifaceobj.name, cmd))
                 utils.exec_command(cmd)
             except Exception, e:
-                self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+                if not self.ethtool_ignore_errors:
+                    self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
     def _pre_up(self, ifaceobj, operation='post_up'):
         """
@@ -460,10 +467,11 @@ class ethtool(moduleBase,utilsBase):
                 running_attr = self.read_file_oneline('/sys/class/net/%s/%s' % \
                                                       (ifaceobj.name, attr))
         except Exception as e:
-            # for nonexistent interfaces, we get an error (rc = 256 or 19200)
-            self.logger.debug('ethtool: problems calling ethtool or reading'
-                              ' /sys/class on iface %s for attr %s: %s' %
-                              (ifaceobj.name, attr, str(e)))
+            if not self.ethtool_ignore_errors:
+                # for nonexistent interfaces, we get an error (rc = 256 or 19200)
+                self.logger.debug('ethtool: problems calling ethtool or reading'
+                                  ' /sys/class on iface %s for attr %s: %s' %
+                                  (ifaceobj.name, attr, str(e)))
         return running_attr
 
 
