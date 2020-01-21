@@ -222,3 +222,6 @@ class LogManager:
             self.disable_console()
 
         self.set_daemon_logging_level(args)
+
+    def write(self, msg):
+        root_logger.info(msg)
