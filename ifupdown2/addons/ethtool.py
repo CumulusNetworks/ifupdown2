@@ -38,7 +38,7 @@ except (ImportError, ModuleNotFoundError):
 class ethtool(Addon, moduleBase):
     """  ifupdown2 addon module to configure ethtool attributes """
 
-    modinfo = {
+    _modinfo = {
         "mhelp": "ethtool configuration module for interfaces",
         "attrs": {
             "link-speed": {
