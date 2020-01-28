@@ -17,7 +17,7 @@ Architecture: all
 Provides: ifupdown
 Conflicts: ifupdown
 Replaces: ifupdown
-Depends: ${python:Depends}, ${misc:Depends}, iproute2, python3-argcomplete
+Depends: ${python3:Depends}, ${misc:Depends}, iproute2, python3-argcomplete
 Suggests: isc-dhcp-client, bridge-utils, ethtool, python3-gvgen, python3-mako
 Description: Network Interface Management tool similar to ifupdown
  ifupdown2 is ifupdown re-written in Python. It replaces ifupdown and provides
