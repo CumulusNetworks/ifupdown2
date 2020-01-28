@@ -2791,6 +2791,18 @@ class AttributeIFLA_LINKINFO(Attribute):
             "dummy",
             "bridge",
             "macvlan",
+            "gre",
+            "gretap",
+            "erspan",
+            "ip6gre",
+            "ip6gretap",
+            "ip6erspan",
+            "vti",
+            "vti6",
+            "ipip",
+            "sit",
+            "ip6tnl",
+
         ):
             self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
             return
