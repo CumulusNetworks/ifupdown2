@@ -1684,7 +1684,6 @@ class ifupdownMain:
                     if not ec:
                         continue
                     else:
-                        ec = ec.encode('ascii','ignore')
                         for ee in ec.split():
                             if ee in new_excludepats:
                                 continue
