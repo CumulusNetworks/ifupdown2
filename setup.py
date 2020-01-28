@@ -8,7 +8,6 @@ from setuptools import find_packages
 
 INSTALL_REQUIRES = [
     'argcomplete',
-    'ipaddr',
 ]
 
 DATA_FILES = [
