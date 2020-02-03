@@ -39,7 +39,9 @@ except (ImportError, ModuleNotFoundError):
 
 
 class xfrm(Addon, moduleBase):
-    """  ifupdown2 addon module to create a xfrm interface """
+    """
+    ifupdown2 addon module to create a xfrm interface
+    """
     _modinfo = {
         'mhelp': 'xfrm module creates a xfrm interface for',
         'attrs': {
@@ -94,7 +96,6 @@ class xfrm(Addon, moduleBase):
         """
         # Create a xfrm device on this device and set the virtual
         # router mac and ip on it
-        link_created = False
         xfrm_ifacename = self._get_xfrm_name(ifaceobj)
         physdev = self._get_parent_ifacename(ifaceobj)
         xfrmid = self._get_xfrmid(ifaceobj)
@@ -135,6 +136,7 @@ class xfrm(Addon, moduleBase):
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.cache.link_exists(ifaceobj.name):
             return
+
         ifaceobjcurr.status = ifaceStatus.SUCCESS
 
     def _query_running(self, ifaceobjrunning):

@@ -333,9 +333,9 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    @staticmethod
-    def link_add_xfrm(ifname, xfrm_name, xfrm_id):
+    def link_add_xfrm(self, ifname, xfrm_name, xfrm_id):
         utils.exec_commandl(['ip', 'link', 'add', xfrm_name, 'type', 'xfrm', 'dev', ifname, 'if_id', xfrm_id])
+        self.__update_cache_after_link_creation(xfrm_name, "xfrm")
 
     ############################################################################
     # TUNNEL
