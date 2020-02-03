@@ -80,7 +80,7 @@ class IPRoute2(Cache, Requirements):
     # WORK-AROUND
     ############################################################################
 
-    def __update_cache_after_link_creation(self, ifname, kind=None):
+    def __update_cache_after_link_creation(self, ifname, kind):
         """
         WORK AROUND - when creating tunnel via iproute2 we still need to fill
         our internal cache to keep track of this interface until we receive the
@@ -95,13 +95,11 @@ class IPRoute2(Cache, Requirements):
         packet.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
         packet.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
         packet.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-        if kind:
-            packet.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
-                nlpacket.Link.IFLA_INFO_KIND: kind,
-                nlpacket.Link.IFLA_INFO_DATA: {}
-            })
+        packet.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
+            nlpacket.Link.IFLA_INFO_KIND: kind,
+            nlpacket.Link.IFLA_INFO_DATA: {}
+        })
         packet.build_message(0, 0)
-
         # When creating a new link via netlink, we don't always wait for the kernel
         # NEWLINK notification to be cached to continue. If our request is ACKed by
         # the OS we assume that the link was successfully created. Since we aren't
@@ -334,7 +332,7 @@ class IPRoute2(Cache, Requirements):
 
     def link_add_xfrm(self, ifname, xfrm_name, xfrm_id):
         utils.exec_commandl(['ip', 'link', 'add', xfrm_name, 'type', 'xfrm', 'dev', ifname, 'if_id', xfrm_id])
-        self.__update_cache_after_link_creation(xfrm_name, None)
+        self.__update_cache_after_link_creation(xfrm_name, "xfrm")
 
     ############################################################################
     # TUNNEL
