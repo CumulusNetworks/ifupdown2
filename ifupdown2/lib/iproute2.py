@@ -358,7 +358,7 @@ class IPRoute2(Cache, Requirements):
                     cmd.append(v)
 
         utils.exec_command("%s %s" % (utils.ip_cmd, " ".join(cmd)))
-        self.__update_cache_after_link_creation(tunnelname, mode)
+        self.__update_cache_after_link_creation(tunnelname, None)
 
     def tunnel_change(self, tunnelname, attrs=None):
         """ tunnel change function """
