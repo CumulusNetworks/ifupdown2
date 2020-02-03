@@ -2736,7 +2736,8 @@ class AttributeIFLA_LINKINFO(Attribute):
             "vti6": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_vti_to_string,
             "ipip": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
             "sit": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
-            "ip6tnl": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string
+            "ip6tnl": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
+            "xfrm": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_xfrm_to_string
         },
         NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
             "bridge": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_brport_to_string,
