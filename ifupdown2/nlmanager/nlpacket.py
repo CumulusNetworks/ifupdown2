@@ -2756,6 +2756,7 @@ class AttributeIFLA_LINKINFO(Attribute):
             "ipip",
             "sit",
             "ip6tnl",
+            "ip6ip6"
 
         ):
             self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
