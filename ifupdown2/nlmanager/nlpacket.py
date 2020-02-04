@@ -2758,6 +2758,7 @@ class AttributeIFLA_LINKINFO(Attribute):
             "sit",
             "ip6tnl",
             "ip6ip6",
+            "ipip6",
             "xfrm"
 
         ):
