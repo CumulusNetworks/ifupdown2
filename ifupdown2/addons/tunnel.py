@@ -12,6 +12,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
@@ -21,6 +22,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdownaddons.modulebase import moduleBase
 
     import ifupdown.ifupdownflags as ifupdownflags
+    import nlmanager.ipnetwork as ipnetwork
 
 
 #
@@ -37,31 +39,36 @@ class tunnel(Addon, moduleBase):
                 'help': 'type of tunnel as in \'ip link\' command.',
                 'validvals': ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6'],
                 'required': True,
-                'example': ['mode gre']
+                'example': ['mode gre'],
+                "aliases": ["mode"]
             },
             'tunnel-local': {
                 'help': 'IP of local tunnel endpoint',
                 'validvals': ['<ipv4>', '<ipv6>'],
                 'required': True,
-                'example': ['local 192.2.0.42']
+                'example': ['local 192.2.0.42'],
+                "aliases": ["local"]
             },
             'tunnel-endpoint': {
                 'help': 'IP of remote tunnel endpoint',
                 'validvals': ['<ipv4>', '<ipv6>'],
                 'required': True,
-                'example': ['endpoint 192.2.0.23']
+                'example': ['endpoint 192.2.0.23'],
+                "aliases": ["endpoint"]
             },
             'tunnel-ttl': {
                 'help': 'TTL for tunnel packets',
                 'validvals': ['<number>'],
                 'required': False,
-                'example': ['ttl 64']
+                'example': ['ttl 64'],
+                "aliases": ["ttl"]
             },
             'tunnel-dev': {
                 'help': 'Physical underlay device to use for tunnel packets',
                 'validvals': ['<interface>'],
                 'required': False,
-                'example': ['tunnel-physdev eth1']
+                'example': ['tunnel-physdev eth1'],
+                "aliases": ["tunnel-physdev"]
             },
         }
     }
@@ -85,8 +92,8 @@ class tunnel(Addon, moduleBase):
         tunnel_link_ifindex = info_data.get(Link.IFLA_GRE_LINK)
 
         return {
-            "tunnel-endpoint": str(info_data.get(Link.IFLA_GRE_REMOTE)),
-            "tunnel-local": str(info_data.get(Link.IFLA_GRE_LOCAL)),
+            "tunnel-endpoint": info_data.get(Link.IFLA_GRE_REMOTE),
+            "tunnel-local": info_data.get(Link.IFLA_GRE_LOCAL),
             "tunnel-ttl": str(info_data.get(Link.IFLA_GRE_TTL)),
             "tunnel-dev": self.cache.get_ifname(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
@@ -95,8 +102,8 @@ class tunnel(Addon, moduleBase):
         tunnel_link_ifindex = info_data.get(Link.IFLA_IPTUN_LINK)
 
         return {
-            "tunnel-endpoint": str(info_data.get(Link.IFLA_IPTUN_REMOTE)),
-            "tunnel-local": str(info_data.get(Link.IFLA_IPTUN_LOCAL)),
+            "tunnel-endpoint": info_data.get(Link.IFLA_IPTUN_REMOTE),
+            "tunnel-local": info_data.get(Link.IFLA_IPTUN_LOCAL),
             "tunnel-ttl": str(info_data.get(Link.IFLA_IPTUN_TTL)),
             "tunnel-dev": self.cache.get_ifname(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
@@ -105,8 +112,8 @@ class tunnel(Addon, moduleBase):
         tunnel_link_ifindex = info_data.get(Link.IFLA_VTI_LINK)
 
         return {
-            "tunnel-endpoint": str(info_data.get(Link.IFLA_VTI_REMOTE)),
-            "tunnel-local": str(info_data.get(Link.IFLA_VTI_LOCAL)),
+            "tunnel-endpoint": info_data.get(Link.IFLA_VTI_REMOTE),
+            "tunnel-local": info_data.get(Link.IFLA_VTI_LOCAL),
             "tunnel-dev": self.cache.get_ifname(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
 
@@ -154,6 +161,9 @@ class tunnel(Addon, moduleBase):
         current_mode = self.cache.get_link_kind(ifaceobj.name)
         current_attrs = self.get_linkinfo_attrs(ifaceobj.name, current_mode)
 
+        self.convert_user_config_to_ipnetwork(attrs, "tunnel-local")
+        self.convert_user_config_to_ipnetwork(attrs, "tunnel-endpoint")
+
         try:
             if current_attrs and current_mode != mode or self._has_config_changed(current_attrs, attrs):
                 # Mode and some other changes are not possible without recreating the interface,
@@ -182,13 +192,21 @@ class tunnel(Addon, moduleBase):
         return None
 
     @staticmethod
-    def _query_check_n_update(ifaceobj, ifaceobjcurr, attrname, attrval, running_attrval):
-        if not ifaceobj.get_attr_value_first(attrname):
-            return
+    def _query_check_n_update(ifaceobjcurr, attrname, attrval, running_attrval):
         if running_attrval and attrval == running_attrval:
             ifaceobjcurr.update_config_with_status(attrname, attrval, 0)
         else:
             ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
+
+    def convert_user_config_to_ipnetwork(self, user_config, attr_name):
+        """
+        Ideally this convertion should be done by ifupdown2 at a lower level
+        (after parsing /e/n/i) and should be done directly on each ifaceobj.
+        """
+        try:
+            user_config[attr_name] = ipnetwork.IPNetwork(user_config[attr_name])
+        except:
+            pass
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         ifname = ifaceobj.name
@@ -209,16 +227,25 @@ class tunnel(Addon, moduleBase):
         if user_config_mode in ('ipip6', 'ip6ip6'):
             ifaceobj.replace_config("tunnel-mode", "ip6tnl")
 
-        for attr in self.get_mod_attrs():
-            if not ifaceobj.get_attr_value_first(attr):
+        for attr, netlink_func in (
+            ("tunnel-mode", None),
+            ("tunnel-local", ipnetwork.IPNetwork),
+            ("tunnel-endpoint", ipnetwork.IPNetwork),
+            ("tunnel-ttl", None),
+            ("tunnel-dev", None),
+        ):
+            attr_value = ifaceobj.get_attr_value_first(attr)
+
+            if not attr_value:
                 continue
+
+            if callable(netlink_func):
+                attr_value = netlink_func(attr_value)
 
             # Validate all interface attributes set in the config.
             # Remote any leading 'tunnel-' prefix in front of the attr name
             # when accessing tunattrs parsed from 'ip -d link'.
-            self._query_check_n_update(ifaceobj, ifaceobjcurr, attr,
-                                       ifaceobj.get_attr_value_first(attr),
-                                       tunattrs.get(attr))
+            self._query_check_n_update(ifaceobjcurr, attr, attr_value, tunattrs.get(attr))
 
     # Operations supported by this addon (yet).
     _run_ops = {
