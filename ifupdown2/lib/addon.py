@@ -24,6 +24,8 @@
 
 import logging
 
+from collections import OrderedDict
+
 try:
     from ifupdown2.lib.io import IO
     from ifupdown2.lib.sysfs import Sysfs
@@ -52,3 +54,29 @@ class Addon(Netlink, Cache):
         self.sysfs = Sysfs
         self.iproute2 = IPRoute2()
         self.requirements = Requirements()
+
+        self.__alias_to_attribute = {}
+
+        for attribute_name, attribute_object in self.__get_modinfo().get("attrs", {}).items():
+            for alias in attribute_object.get("aliases", []):
+                self.__alias_to_attribute[alias] = attribute_name
+
+    def __get_modinfo(self) -> dict:
+        try:
+            return self._modinfo
+        except AttributeError:
+            return {}
+
+    def translate(self, ifaceobjs):
+        """
+        Replace attribute aliases from user configuration with real attribute name
+        """
+        for ifaceobj in ifaceobjs:
+            ifaceobj.config = OrderedDict(
+                [
+                    (self.__alias_to_attribute[user_attr], user_value)
+                    if user_attr in self.__alias_to_attribute
+                    else (user_attr, user_value)
+                    for user_attr, user_value in ifaceobj.config.items()
+                ]
+            )

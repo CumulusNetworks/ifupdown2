@@ -10,6 +10,7 @@
 import re
 import os
 import logging
+import itertools
 import traceback
 import pprint
 
@@ -1484,8 +1485,21 @@ class ifupdownMain:
                 # continue reading
                 pass
 
+
+    def _schedule_addon_translate(self):
+        merged_ifaceobjs = list(itertools.chain.from_iterable(self.ifaceobjdict.values()))
+
+        for addon in self.modules.values():
+            try:
+                addon.translate(merged_ifaceobjs)
+            except AttributeError:
+                pass
+
     def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
                       followdependents=True, sort=False):
+
+        self._schedule_addon_translate()
+
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
