@@ -1362,19 +1362,19 @@ class AttributeIPAddress(Attribute):
 
             if isinstance(parent_msg, Route):
                 if self.atype == Route.RTA_SRC:
-                    self.value = ipnetwork.IPNetwork(self.value, parent_msg.src_len)
+                    prefixlen = parent_msg.src_len
                 elif self.atype == Route.RTA_DST:
-                    self.value = ipnetwork.IPNetwork(self.value, parent_msg.dst_len)
+                    prefixlen = parent_msg.dst_len
+
+            if self.family in (AF_INET, AF_BRIDGE):
+                self.value = ipnetwork.IPNetwork(unpack(self.PACK, self.data[4:])[0], prefixlen, scope)
+
+            elif self.family == AF_INET6:
+                (data1, data2) = unpack(self.PACK, self.data[4:])
+                self.value = ipnetwork.IPNetwork(data1 << 64 | data2, prefixlen, scope)
+
             else:
-                if self.family in (AF_INET, AF_BRIDGE):
-                    self.value = ipnetwork.IPNetwork(unpack(self.PACK, self.data[4:])[0], prefixlen, scope)
-
-                elif self.family == AF_INET6:
-                    (data1, data2) = unpack(self.PACK, self.data[4:])
-                    self.value = ipnetwork.IPNetwork(data1 << 64 | data2, prefixlen, scope)
-
-                else:
-                   self.log.debug("AttributeIPAddress: decode: unsupported address family ({})".format(self.family))
+                self.log.debug("AttributeIPAddress: decode: unsupported address family ({})".format(self.family))
 
         except struct.error:
             self.value = None
