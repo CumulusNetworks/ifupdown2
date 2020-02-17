@@ -162,6 +162,8 @@ class openvswitch(Addon, moduleBase):
             cmd_list.append(cmd)
 
         self._ovs_vsctl(ifaceobj, cmd_list)
+        if not self.cache.link_exists(ifaceobj.name):
+            self.iproute2.link_add_openvswitch(ifaceobj.name, "openvswitch")
 
     def _delbridge (self, ifaceobj):
 

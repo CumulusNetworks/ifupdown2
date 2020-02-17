@@ -337,6 +337,9 @@ class IPRoute2(Cache, Requirements):
         utils.exec_commandl(['ip', 'link', 'add', xfrm_name, 'type', 'xfrm', 'dev', ifname, 'if_id', xfrm_id])
         self.__update_cache_after_link_creation(xfrm_name, "xfrm")
 
+    def link_add_openvswitch(self, ifname, kind):
+        self.__update_cache_after_link_creation(ifname, kind)
+
     ############################################################################
     # TUNNEL
     ############################################################################

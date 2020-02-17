@@ -2759,7 +2759,8 @@ class AttributeIFLA_LINKINFO(Attribute):
             "ip6tnl",
             "ip6ip6",
             "ipip6",
-            "xfrm"
+            "xfrm",
+            "openvswitch"
 
         ):
             self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
