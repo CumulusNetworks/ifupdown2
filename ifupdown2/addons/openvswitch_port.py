@@ -200,8 +200,10 @@ class openvswitch_port(Addon, moduleBase):
             cmd_list.extend(ovsextra)
 
         self._ovs_vsctl(ifaceobj, cmd_list)
-        if not self.cache.link_exists(ifaceobj.name):
-            self.iproute2.link_add_openvswitch(ifaceobj.name, "openvswitch")
+
+        if ovstype != 'OVSTunnel' and ovstype != 'OVSPatchPort':
+            if not self.cache.link_exists(ifaceobj.name):
+                self.iproute2.link_add_openvswitch(ifaceobj.name, "openvswitch")
 
     def _delport (self, ifaceobj):
         iface = ifaceobj.name
