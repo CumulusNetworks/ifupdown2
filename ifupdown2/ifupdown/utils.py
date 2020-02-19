@@ -289,10 +289,11 @@ class utils():
 
     @classmethod
     def _log_command_exec(cls, cmd, stdin):
+        dry_run = "DRY-RUN: " if ifupdownflags.flags.DRYRUN else ""
         if stdin:
-            cls.logger.info('executing %s [%s]' % (cmd, stdin))
+            cls.logger.info('%sexecuting %s [%s]' % (dry_run, cmd, stdin))
         else:
-            cls.logger.info('executing %s' % cmd)
+            cls.logger.info('%sexecuting %s' % (dry_run, cmd))
 
     @classmethod
     def _format_error(cls, cmd, cmd_returncode, cmd_output, stdin):

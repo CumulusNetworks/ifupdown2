@@ -1804,7 +1804,7 @@ class ifupdownMain:
                     auto = False
                     break
 
-            if auto and not os.path.exists("/sys/class/net/%s" % ifname):
+            if not ifupdownflags.flags.DRYRUN and auto and not os.path.exists("/sys/class/net/%s" % ifname):
                 self.logger.warning("%s: interface not recognized - please check interface configuration" % ifname)
 
     def _get_filtered_ifacenames_with_classes(self, auto, allow_classes, excludepats, ifacenames):
