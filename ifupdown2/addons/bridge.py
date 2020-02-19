@@ -1124,7 +1124,7 @@ class bridge(Addon, moduleBase):
                     err += 1
                     continue
                 hwaddress = self.cache.get_link_address(bridgeport)
-                if not self._valid_ethaddr(hwaddress):
+                if not ifupdownflags.flags.DRYRUN and not self._valid_ethaddr(hwaddress):
                     self.log_warn('%s: skipping port %s, ' %(ifaceobj.name,
                                   bridgeport) + 'invalid ether addr %s'
                                   %hwaddress)
