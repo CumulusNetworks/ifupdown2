@@ -1480,7 +1480,8 @@ class AttributeMACAddress(Attribute):
                 self.value_int = int(self.value)
                 self.value_int_str = str(self.value_int)
             else:
-                raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
+                self.log.info("Length of MACAddress attribute not supported: %d" % self.length)
+                self.value = None
 
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
