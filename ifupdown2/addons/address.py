@@ -813,40 +813,42 @@ class address(Addon, moduleBase):
         setting_default_value = False
         if not ipforward:
             setting_default_value = True
-            ipforward = (self.ipforward or
-                         self.get_mod_subattr('ip-forward', 'default'))
-        ipforward = int(utils.get_boolean_from_string(ipforward))
-        running_ipforward = self.cache.get_netconf_forwarding(socket.AF_INET, ifaceobj.name)
-        if ipforward != running_ipforward:
-            try:
-                self.sysctl_set('net.ipv4.conf.%s.forwarding'
-                                %('/'.join(ifaceobj.name.split("."))),
-                                ipforward)
-            except Exception as e:
-                if not setting_default_value:
-                    ifaceobj.status = ifaceStatus.ERROR
-                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+            ipforward = self.ipforward
+        if ipforward:
+            ipforward = int(utils.get_boolean_from_string(ipforward))
+            running_ipforward = self.cache.get_netconf_forwarding(socket.AF_INET, ifaceobj.name)
+            if ipforward != running_ipforward:
+                try:
+                    self.sysctl_set('net.ipv4.conf.%s.forwarding'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    ipforward)
+                except Exception as e:
+                    if not setting_default_value:
+                        ifaceobj.status = ifaceStatus.ERROR
+                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
         setting_default_value = False
+
         if not ip6forward:
             setting_default_value = True
-            ip6forward = (self.ip6forward or
-                          self.get_mod_subattr('ip6-forward', 'default'))
-        ip6forward = int(utils.get_boolean_from_string(ip6forward))
-        running_ip6forward = self.cache.get_netconf_forwarding(socket.AF_INET6, ifaceobj.name)
-        if ip6forward != running_ip6forward:
-            try:
-                self.sysctl_set('net.ipv6.conf.%s.forwarding'
-                                %('/'.join(ifaceobj.name.split("."))),
-                                ip6forward)
-            except Exception as e:
-                # There is chance of ipv6 being removed because of,
-                # for example, setting mtu < 1280
-                # In such cases, log error only if user has configured
-                # ip6-forward
-                if not setting_default_value:
-                    ifaceobj.status = ifaceStatus.ERROR
-                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+            ip6forward = self.ip6forward
+
+        if ip6forward:
+            ip6forward = int(utils.get_boolean_from_string(ip6forward))
+            running_ip6forward = self.cache.get_netconf_forwarding(socket.AF_INET6, ifaceobj.name)
+            if ip6forward != running_ip6forward:
+                try:
+                    self.sysctl_set('net.ipv6.conf.%s.forwarding'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    ip6forward)
+                except Exception as e:
+                    # There is chance of ipv6 being removed because of,
+                    # for example, setting mtu < 1280
+                    # In such cases, log error only if user has configured
+                    # ip6-forward
+                    if not setting_default_value:
+                       ifaceobj.status = ifaceStatus.ERROR
+                       self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
         mtu_str = ifaceobj.get_attr_value_first('mtu')
