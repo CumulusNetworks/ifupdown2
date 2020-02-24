@@ -1441,7 +1441,8 @@ class AttributeMACAddress(Attribute):
                 self.value = ipnetwork.IPNetwork(unpack('>L', self.data[16:])[0])
 
             else:
-                raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
+                self.log.info("Length of MACAddress attribute not supported: %d" % self.length)
+                self.value = None
 
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
