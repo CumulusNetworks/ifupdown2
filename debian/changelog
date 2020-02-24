@@ -1,6 +1,10 @@
 ifupdown2 (3.0.0-1) unstable; urgency=medium
 
    * New. Enabled: python3 support
+   * New. Enabled: support for marking interfaces as mgmt interfaces
+   * Fix: dry-run exceptions
+   * Fix: set bridge MTU after bridge creation
+   * Fix: tunnel configuration compatibility with ifupdown1 (closes: #133)
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 31 Dec 2019 23:42:42 +0100
 
