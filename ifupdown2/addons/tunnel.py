@@ -39,35 +39,35 @@ class tunnel(Addon, moduleBase):
                 'help': 'type of tunnel as in \'ip link\' command.',
                 'validvals': ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6'],
                 'required': True,
-                'example': ['mode gre'],
+                'example': ['tunnel-mode gre'],
                 "aliases": ["mode"]
             },
             'tunnel-local': {
                 'help': 'IP of local tunnel endpoint',
                 'validvals': ['<ipv4>', '<ipv6>'],
                 'required': True,
-                'example': ['local 192.2.0.42'],
+                'example': ['tunnel-local 192.2.0.42'],
                 "aliases": ["local"]
             },
             'tunnel-endpoint': {
                 'help': 'IP of remote tunnel endpoint',
                 'validvals': ['<ipv4>', '<ipv6>'],
                 'required': True,
-                'example': ['endpoint 192.2.0.23'],
+                'example': ['tunnel-endpoint 192.2.0.23'],
                 "aliases": ["endpoint"]
             },
             'tunnel-ttl': {
                 'help': 'TTL for tunnel packets',
                 'validvals': ['<number>'],
                 'required': False,
-                'example': ['ttl 64'],
+                'example': ['tunnel-ttl 64'],
                 "aliases": ["ttl"]
             },
             'tunnel-dev': {
                 'help': 'Physical underlay device to use for tunnel packets',
                 'validvals': ['<interface>'],
                 'required': False,
-                'example': ['tunnel-physdev eth1'],
+                'example': ['tunnel-dev eth1'],
                 "aliases": ["tunnel-physdev"]
             },
         }
