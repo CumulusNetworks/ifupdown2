@@ -3177,6 +3177,7 @@ class bridge(Addon, moduleBase):
         if vids:
            vids = re.split(r'[\s\t]\s*', vids)
            if not running_vids or not self._compare_vids(vids, running_vids, running_pvid, expand_range=False):
+               running_vids = [str(o) for o in running_vids]
                ifaceobjcurr.update_config_with_status(attr_name,
                                             ' '.join(running_vids), 1)
            else:
