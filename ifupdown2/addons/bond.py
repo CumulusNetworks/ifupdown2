@@ -162,6 +162,15 @@ class bond(Addon, moduleBase):
                 "help": "Control which slave interface is "
                         "preferred active member",
                 "example": ["bond-primary swp1"]
+            },
+            "bond-primary-reselect": {
+                "help": "bond primary reselect",
+                "validvals": [
+                    "0", "always",
+                    "1", "better",
+                    "2", "failure",
+                ],
+                "example": ["bond-primary-reselect failure"]
             }
         }
     }
@@ -182,7 +191,9 @@ class bond(Addon, moduleBase):
         'bond-lacp-bypass-allow': Link.IFLA_BOND_AD_LACP_BYPASS,
         'bond-updelay': Link.IFLA_BOND_UPDELAY,
         'bond-downdelay': Link.IFLA_BOND_DOWNDELAY,
-        'bond-primary': Link.IFLA_BOND_PRIMARY
+        'bond-primary': Link.IFLA_BOND_PRIMARY,
+        'bond-primary-reselect': Link.IFLA_BOND_PRIMARY_RESELECT
+
     }
 
     # ifquery-check attr dictionary with callable object to translate user data to netlink format
@@ -199,6 +210,7 @@ class bond(Addon, moduleBase):
         Link.IFLA_BOND_AD_LACP_BYPASS: lambda x: int(utils.get_boolean_from_string(x)),
         Link.IFLA_BOND_UPDELAY: int,
         Link.IFLA_BOND_DOWNDELAY: int,
+        Link.IFLA_BOND_PRIMARY_RESELECT: lambda x: Link.ifla_bond_primary_reselect_tbl[x],
         # Link.IFLA_BOND_PRIMARY: self.netlink.get_ifname is added in __init__()
     }
 
@@ -220,7 +232,8 @@ class bond(Addon, moduleBase):
         ('bond-lacp-rate', Link.IFLA_BOND_AD_LACP_RATE, lambda x: int(utils.get_boolean_from_string(x))),
         ('bond-lacp-bypass-allow', Link.IFLA_BOND_AD_LACP_BYPASS, lambda x: int(utils.get_boolean_from_string(x))),
         ('bond-ad-sys-mac-addr', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
-        ('bond-ad-actor-system', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str)
+        ('bond-ad-actor-system', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
+        ('bond-primary-reselect', Link.IFLA_BOND_PRIMARY_RESELECT, lambda x: Link.ifla_bond_primary_reselect_tbl[x])
         # ('bond-primary', Link.IFLA_BOND_PRIMARY, self.cache.get_ifindex) added in __init__()
     )
 

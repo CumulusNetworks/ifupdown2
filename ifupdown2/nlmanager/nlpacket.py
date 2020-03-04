@@ -542,6 +542,21 @@ class NetlinkPacket_IFLA_LINKINFO_Attributes:
         4: 'encap3+4',
     }
 
+    ifla_bond_primary_reselect_tbl = {
+        'always': 0,
+        'better': 1,
+        'failure': 2,
+        0: 0,
+        1: 1,
+        2: 2,
+    }
+
+    ifla_bond_primary_reselect_pretty_tbl = {
+        0: 'always',
+        1: 'better',
+        2: 'failure',
+    }
+
     # =========================================
     # IFLA_INFO_SLAVE_DATA attributes for bonds
     # =========================================
@@ -1095,6 +1110,15 @@ class Attribute(object):
             sub_attr_payload,
             info_data_type,
             Link.ifla_bond_mode_tbl.get(info_data_value, 0),
+        )
+
+    @staticmethod
+    def encode_bond_primary_reselect_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        return Attribute.encode_one_byte_attribute(
+            sub_attr_pack_layout,
+            sub_attr_payload,
+            info_data_type,
+            Link.ifla_bond_primary_reselect_tbl.get(info_data_value, 0),
         )
 
     @staticmethod
@@ -2017,6 +2041,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_LACP_BYPASS: Attribute.decode_one_byte_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_XMIT_HASH_POLICY: Attribute.decode_one_byte_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_NUM_PEER_NOTIF: Attribute.decode_one_byte_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_PRIMARY_RESELECT: Attribute.decode_one_byte_attribute,
 
                 # 2 bytes attributes ###########################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYS_PRIO: Attribute.decode_two_bytes_attribute,
@@ -2422,6 +2447,9 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                 # bond-xmit-hash-policy attribute ##############################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_XMIT_HASH_POLICY: Attribute.encode_bond_xmit_hash_policy_attribute,
+
+		# bond-primary-reselect attribute ##############################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_PRIMARY_RESELECT: Attribute.encode_bond_primary_reselect_attribute,
 
                 # 2 bytes attributes ###########################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYS_PRIO: Attribute.encode_two_bytes_attribute,
