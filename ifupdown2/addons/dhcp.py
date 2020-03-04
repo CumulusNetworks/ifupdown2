@@ -40,6 +40,13 @@ class dhcp(Addon, moduleBase):
         moduleBase.__init__(self, *args, **kargs)
         self.dhclientcmd = dhclient(**kargs)
 
+        vrf_id = self._get_vrf_context()
+        if vrf_id and vrf_id == 'mgmt':
+            self.mgmt_vrf_context = True
+        else:
+            self.mgmt_vrf_context = False
+        self.logger.info('mgmt vrf_context = %s' %self.mgmt_vrf_context)
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
 
@@ -77,6 +84,9 @@ class dhcp(Addon, moduleBase):
             if (vrf and self.vrf_exec_cmd_prefix and
                 self.cache.link_exists(vrf)):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+            elif self.mgmt_vrf_context:
+                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, 'default')
+                self.logger.info('detected mgmt vrf context starting dhclient in default vrf context')
 
             if 'inet' in ifaceobj.addr_family:
                 if dhclient4_running:
