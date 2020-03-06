@@ -441,6 +441,11 @@ class bridge(Addon, moduleBase):
                     "required": False,
                     "example": ["bridge-ports-condone-regex ^[a-zA-Z0-9]+_v[0-9]{1,4}$"]
             },
+            "bridge-always-up": {
+                "help": "Enabling this attribute on a bridge will enslave a dummy interface to the bridge",
+                "required": False,
+                "validvals": ["yes", "no", "on", "off"]
+            }
         }
     }
 
@@ -1083,6 +1088,17 @@ class bridge(Addon, moduleBase):
         bridgeportscondoneregex = self._get_bridge_port_condone_regex(ifaceobj)
         runningbridgeports = []
 
+        # bridge-always-up #####################################################
+        bridge_always_up = ifaceobj.get_attr_value_first("bridge-always-up")
+        dummy_brport = None
+
+        if utils.get_boolean_from_string(bridge_always_up):
+            # the dummy port will be added to the bridgeports list so the
+            # following code don't de-enslave the dummy device.
+            dummy_brport = self.bridge_always_up(ifaceobj.name, bridgeports)
+
+        ########################################################################
+
         self._process_bridge_waitport(ifaceobj, bridgeports)
         # Delete active ports not in the new port list
         if not ifupdownflags.flags.PERFMODE:
@@ -1112,6 +1128,12 @@ class bridge(Addon, moduleBase):
         for br_port in self._get_bridge_port_list_user_ordered(ifaceobj):
             if br_port in newbridgeports:
                 newbridgeports_ordered.append(br_port)
+
+        if dummy_brport:
+            # add the dummy port to the list of interface to enslave
+            # link_set_master should make sure that the device is not
+            # already enslaved.
+            newbridgeports_ordered.append(dummy_brport)
 
         self.iproute2.batch_start()
 
@@ -1143,7 +1165,33 @@ class bridge(Addon, moduleBase):
         if err:
             self.log_error('bridge configuration failed (missing ports)')
 
+        try:
+            # to avoid any side effect we remove the dummy brport from the
+            # list of supposedly newly configured ports.
+            newly_enslaved_ports.remove(dummy_brport)
+        except:
+            pass
+
         return newly_enslaved_ports
+
+    def get_dummy_brport_name_for_bridge(self, bridge_name):
+        """
+            dummy brport will have pre-formated name: brport-if$BRIDGE_IFINDEX
+            That way we can avoid collision with existing interfaces
+        """
+        # this can raise: NetlinkCacheIfnameNotFoundError
+        return "brport-if%d" % self.cache.get_ifindex(bridge_name)
+
+    def bridge_always_up(self, bridge_name, newbridgeports_ordered):
+        dummy_brport = self.get_dummy_brport_name_for_bridge(bridge_name)
+
+        if not self.cache.link_exists(dummy_brport):
+            self.logger.info("%s: bridge-always-up yes: enslaving dummy port: %s" % (bridge_name, dummy_brport))
+            self.netlink.link_add(ifname=dummy_brport, kind="dummy")
+            self.netlink.link_up_force(dummy_brport)
+
+        newbridgeports_ordered.append(dummy_brport)
+        return dummy_brport
 
     def _process_bridge_maxwait(self, ifaceobj, portlist):
         maxwait = ifaceobj.get_attr_value_first('bridge-maxwait')
@@ -2478,6 +2526,12 @@ class bridge(Addon, moduleBase):
         ifname = ifaceobj.name
         if not self.cache.link_exists(ifname):
             return
+
+        try:
+            self.netlink.link_del(self.get_dummy_brport_name_for_bridge(ifname))
+        except:
+            pass
+
         try:
             running_ports = self.cache.get_slaves(ifname)
             if running_ports:
@@ -2921,6 +2975,24 @@ class bridge(Addon, moduleBase):
         self._query_check_mcqv4src(ifaceobj, ifaceobjcurr)
         self._query_check_l2protocol_tunnel_on_bridge(ifname, ifaceobj, ifaceobjcurr)
 
+    def _query_check_bridge_always_up(self, ifname, ifaceobj, ifaceobjcurr, bridge_config):
+        bridge_always_up = ifaceobj.get_attr_value_first("bridge-always-up")
+
+        if bridge_always_up:
+            bridge_config.remove("bridge-always-up")
+
+        if utils.get_boolean_from_string(bridge_always_up):
+            try:
+                link_exists = self.cache.link_exists(self.get_dummy_brport_name_for_bridge(ifname))
+            except:
+                link_exists = False
+
+            ifaceobjcurr.update_config_with_status(
+                "bridge-always-up",
+                "yes" if link_exists else "no",
+                not link_exists
+            )
+
     def _query_check_bridge_attributes(self, ifaceobj, ifaceobjcurr, bridge_config, cached_ifla_info_data):
         for attr in list(bridge_config):
             query_check_handler, netlink_attr = self._bridge_attribute_query_check_handler.get(attr, (None, None))
@@ -2928,6 +3000,8 @@ class bridge(Addon, moduleBase):
             if callable(query_check_handler):
                 query_check_handler(attr, ifaceobj.get_attr_value_first(attr), ifaceobjcurr, cached_ifla_info_data.get(netlink_attr))
                 bridge_config.remove(attr)
+
+        self._query_check_bridge_always_up(ifaceobj.name, ifaceobj, ifaceobjcurr, bridge_config)
 
     def _query_check_brport_attributes_on_bridge(self, ifname, ifaceobj, ifaceobjcurr, bridge_config):
         brports_info_slave_data = {}
@@ -3046,6 +3120,14 @@ class bridge(Addon, moduleBase):
     ####################################################################################################################
 
     def query_check_bridge_ports(self, ifaceobj, ifaceobjcurr, running_port_list, ifaceobj_getfunc):
+
+        # if bridge-always-up is set we need to remove the dummy brport from the running_port_list
+        if utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-always-up")):
+            try:
+                running_port_list.remove(self.get_dummy_brport_name_for_bridge(ifaceobj.name))
+            except:
+                pass
+
         bridge_all_ports = []
         for obj in ifaceobj_getfunc(ifaceobj.name) or []:
             bridge_all_ports.extend(self._get_bridge_port_list(obj) or [])

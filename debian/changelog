@@ -1,5 +1,6 @@
 ifupdown2 (3.0.1-1) unstable; urgency=medium
 
+   * New. Enabled: bridge-always-up attribute
    * New. Enabled: ES bond with "es-sys-mac" attribute
    * New. Enabled: dhcp policy: dhclient_retry_on_failure
    * Fix: start-networking script is back to handle mgmt & hotplug cases
