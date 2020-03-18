@@ -2774,7 +2774,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge" % ifname)
         return True
 
-    def link_set_bridge_info_data(self, ifname, ifla_info_data, link_just_created):
+    def link_set_bridge_info_data(self, ifname, ifla_info_data):
         self.logger.info(
             "%s: netlink: ip link set dev %s type bridge (with attributes)"
             % (ifname, ifname)
@@ -2794,14 +2794,13 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.build_message(self.sequence.next(), self.pid)
             result = self.tx_nlpacket_get_response_with_error(link)
 
-            if link_just_created:
-                self.cache.update_link_info_data(ifname, ifla_info_data)
+            self.cache.update_link_info_data(ifname, ifla_info_data)
 
             return result
         except Exception as e:
             raise Exception("%s: netlink: cannot create bridge or set attributes: %s" % (ifname, str(e)))
 
-    def link_set_bridge_info_data_dry_run(self, ifname, ifla_info_data, link_just_created):
+    def link_set_bridge_info_data_dry_run(self, ifname, ifla_info_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge (with attributes)" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_data)
 

@@ -728,9 +728,14 @@ class mstpctl(Addon, moduleBase):
             if stp:
                self.set_iface_attr(ifaceobj, 'mstpctl-stp',
                                    self.iproute2.bridge_set_stp)
-               stp = utils.get_boolean_from_string(stp)
             else:
-               stp = self.cache.get_bridge_stp(ifaceobj.name)
+                stp = ifaceobj.get_attr_value_first('bridge-stp')
+
+            if not stp:
+                stp = self.cache.get_bridge_stp(ifaceobj.name)
+            else:
+                stp = utils.get_boolean_from_string(stp)
+
             if self.mstpd_running and stp:
                 self.mstpctlcmd.batch_start()
                 self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)

@@ -1466,7 +1466,7 @@ class bridge(Addon, moduleBase):
             self.logger.warning('%s: bridge stp: %s' % (ifname, str(e)))
 
         if ifla_info_data:
-            self.netlink.link_set_bridge_info_data(ifname, ifla_info_data, link_just_created)
+            self.netlink.link_set_bridge_info_data(ifname, ifla_info_data)
 
     def _check_vids(self, ifaceobj, vids):
         ret = True
