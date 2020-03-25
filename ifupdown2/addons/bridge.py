@@ -2283,18 +2283,18 @@ class bridge(Addon, moduleBase):
 
         if not user_config_mtu:
             user_config_mtu = policymanager.policymanager_api.get_attr_default(
-                module_name=self.__class__.__name__,
+                module_name="address",
                 attr="mtu"
             )
 
         try:
             if user_config_mtu:
-                mtu = int(user_config_mtu)
-                self.logger.info("%s: set bridge mtu %s" % (ifaceobj.name, mtu))
-                return mtu
+                int(user_config_mtu)
+                self.logger.info("%s: set bridge mtu %s" % (ifaceobj.name, user_config_mtu))
+                return user_config_mtu
         except Exception as e:
             self.logger.warning("%s: invalid bridge mtu %s: %s" % (ifaceobj.name, user_config_mtu, str(e)))
-        return 0
+        return None
 
     def up_bridge(self, ifaceobj, ifaceobj_getfunc):
         ifname = ifaceobj.name
@@ -2305,8 +2305,12 @@ class bridge(Addon, moduleBase):
             link_exists = self.cache.link_exists(ifaceobj.name)
 
         if not link_exists:
-            self.netlink.link_add_bridge(ifname, mtu=self.get_bridge_mtu(ifaceobj))
+            self.netlink.link_add_bridge(ifname)
             link_just_created = True
+
+            bridge_mtu = self.get_bridge_mtu(ifaceobj)
+            if bridge_mtu:
+                self.sysfs.link_set_mtu(ifname, bridge_mtu, int(bridge_mtu))
         else:
             link_just_created = False
             self.logger.info('%s: bridge already exists' % ifname)
