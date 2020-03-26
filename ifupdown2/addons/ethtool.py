@@ -165,6 +165,11 @@ class ethtool(Addon, moduleBase):
                 except Exception as e:
                     self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
+        self.ethtool_ignore_errors = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr='ethtool_ignore_errors'
+        )
+
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
 

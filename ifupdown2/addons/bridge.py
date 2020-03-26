@@ -1465,7 +1465,7 @@ class bridge(Addon, moduleBase):
             self.logger.warning('%s: bridge stp: %s' % (ifname, str(e)))
 
         if ifla_info_data:
-            self.netlink.link_set_bridge_info_data(ifname, ifla_info_data, link_just_created)
+            self.netlink.link_set_bridge_info_data(ifname, ifla_info_data)
 
     def _check_vids(self, ifaceobj, vids):
         ret = True
@@ -3178,6 +3178,7 @@ class bridge(Addon, moduleBase):
         if vids:
            vids = re.split(r'[\s\t]\s*', vids)
            if not running_vids or not self._compare_vids(vids, running_vids, running_pvid, expand_range=False):
+               running_vids = [str(o) for o in running_vids]
                ifaceobjcurr.update_config_with_status(attr_name,
                                             ' '.join(running_vids), 1)
            else:

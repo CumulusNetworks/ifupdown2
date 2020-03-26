@@ -971,6 +971,7 @@ class address(Addon, moduleBase):
         except:
             pass
 
+        self.process_mtu(ifaceobj, ifaceobj_getfunc)
         self.up_ipv6_addrgen(ifaceobj)
 
         if addr_method not in ["dhcp", "ppp"]:
@@ -982,7 +983,6 @@ class address(Addon, moduleBase):
                 for addr in old_ifaceobj.get_attr_value("address") or []:
                     self.netlink.addr_del(ifaceobj.name, ipnetwork.IPNetwork(addr))
 
-        self.process_mtu(ifaceobj, ifaceobj_getfunc)
 
         try:
             self.process_hwaddress(ifaceobj)

@@ -8,6 +8,17 @@ ifupdown2 (3.0.0-1) unstable; urgency=medium
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 31 Dec 2019 23:42:42 +0100
 
+ifupdown2 (2.0.2-1) unstable; urgency=medium
+
+  * New: addons: ethtool: add support for "ethtool_ignore_errors" policy
+  * New: addons: dhcp: if mgmt vrf context exec dhclient in default vrf
+  * Fix: nlpacket: don't raise an exception on 24 bytes mac address (#140)
+  * Fix: IFLA_INFO_KIND: decode tunnel data
+  * Fix: XFRM for 2.x release
+  * Fix: addons.conf: remove duplicate entry for tunnel pre-up
+
+ -- Julien Fortin <julien@cumulusnetworks.com>  Wed, 04 Mar 2020 23:42:42 +0100
+
 ifupdown2 (2.0.1-1) unstable; urgency=medium
 
   * New argv option: --nldebug to print netlink debug message

@@ -46,6 +46,13 @@ class dhcp(Addon, moduleBase):
             self.mgmt_vrf_context = False
         self.logger.info('mgmt vrf_context = %s' %self.mgmt_vrf_context)
 
+        vrf_id = self._get_vrf_context()
+        if vrf_id and vrf_id == 'mgmt':
+            self.mgmt_vrf_context = True
+        else:
+            self.mgmt_vrf_context = False
+        self.logger.info('mgmt vrf_context = %s' %self.mgmt_vrf_context)
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
 
