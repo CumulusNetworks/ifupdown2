@@ -915,7 +915,7 @@ class vxlan(Addon, moduleBase):
             vxlan_attr_value = cached_vxlan_ifla_info_data.get(vxlan_attr_nl)
 
             if vxlan_attr_value is not None:
-                vxlan_attr_value_str = callable_netlink_value_to_string(vxlan_attr_nl)
+                vxlan_attr_value_str = callable_netlink_value_to_string(vxlan_attr_value)
 
                 if vxlan_attr_value:
                     ifaceobjrunning.update_config(vxlan_attr_name, vxlan_attr_value_str)
