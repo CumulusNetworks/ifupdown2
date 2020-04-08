@@ -100,7 +100,7 @@ class addressvirtual(Addon, moduleBase):
 
                 process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
-                addressvirtual.ADDR_METRIC_SUPPORT = '[ metric METRIC ]' in stderr or ''
+                addressvirtual.ADDR_METRIC_SUPPORT = '[ metric METRIC ]' in stderr.decode() or ''
                 self.logger.info('address metric support: %s' % ('OK' if addressvirtual.ADDR_METRIC_SUPPORT else 'KO'))
             except Exception:
                 addressvirtual.ADDR_METRIC_SUPPORT = False
