@@ -325,7 +325,13 @@ class bond(Addon, moduleBase):
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
-        for slave in set(slaves).difference(set(runningslaves)):
+        # remove duplicates and devices that are already enslaved
+        devices_to_enslave = []
+        for s in slaves:
+            if s not in runningslaves and s not in devices_to_enslave:
+                devices_to_enslave.append(s)
+
+        for slave in devices_to_enslave:
             if (not ifupdownflags.flags.PERFMODE and
                 not self.cache.link_exists(slave)):
                     self.log_error('%s: skipping slave %s, does not exist'
