@@ -1351,6 +1351,8 @@ class ifupdownMain:
         nifaces.load()
         if nifaces.errors or nifaces.warns:
             ret = False
+
+        self._schedule_addon_translate()
         return ret
 
     def read_old_iface_config(self):
@@ -1521,9 +1523,6 @@ class ifupdownMain:
 
     def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
                       followdependents=True, sort=False):
-
-        self._schedule_addon_translate()
-
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
