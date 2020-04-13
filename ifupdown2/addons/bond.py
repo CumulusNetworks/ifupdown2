@@ -250,12 +250,10 @@ class bond(Addon, moduleBase):
         self._bond_attr_ifquery_check_translate_func[Link.IFLA_BOND_PRIMARY] = self.cache.get_ifindex
         self._bond_attr_set_list = self._bond_attr_set_list + (('bond-primary', Link.IFLA_BOND_PRIMARY, self.cache.get_ifindex),)
 
-    @staticmethod
-    def get_bond_slaves(ifaceobj):
-        slaves = ifaceobj.get_attr_value_first('bond-slaves')
-        if not slaves:
-            slaves = ifaceobj.get_attr_value_first('bond-ports')
-        return slaves
+
+    def get_bond_slaves(self, ifaceobj):
+        # bond-ports aliases should be translated to bond-slaves
+        return ifaceobj.get_attr_value_first('bond-slaves')
 
     def _is_bond(self, ifaceobj):
         # at first link_kind is not set but once ifupdownmain
