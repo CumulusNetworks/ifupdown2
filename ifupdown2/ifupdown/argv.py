@@ -8,7 +8,6 @@
 
 import sys
 import argparse
-import argcomplete
 
 try:
     from ifupdown2.ifupdown.utils import utils
@@ -77,7 +76,6 @@ class Parse:
             elif self.op == 'query':
                 self.update_ifquery_argparser(argparser)
         self.update_common_argparser(argparser)
-        argcomplete.autocomplete(argparser)
 
         try:
             self.args = argparser.parse_args(self.argv)

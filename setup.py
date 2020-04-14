@@ -7,7 +7,6 @@ from setuptools import setup
 from setuptools import find_packages
 
 INSTALL_REQUIRES = [
-    'argcomplete',
 ]
 
 DATA_FILES = [
