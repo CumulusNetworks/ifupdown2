@@ -27,16 +27,25 @@ class IPNetwork:
 
     __INIT_WITH_PREFIXLEN = 0b01
 
-    def __init__(self, ip, prefixlen=None, scope=0):
+    ip_family_handler = {
+        0: ipaddress.ip_address,
+        4: ipaddress.IPv4Address,
+        6: ipaddress.IPv6Address
+    }
+
+    def __init__(self, ip, prefixlen=None, scope=0, family=0):
+
+        if isinstance(ip, IPNetwork):
+            prefixlen = ip.prefixlen
+            scope = ip.scope
+            family = ip.version
+            ip = ip.ip
+
         self.__scope = scope
         self.__flags = 0
 
         if isinstance(ip, int):
-            self._ip = ipaddress.ip_address(ip)
-            ip = str(self._ip)
-        elif isinstance(ip, IPNetwork):
-            self._ip = ip._ip
-            self.__prefixlen = ip.prefixlen
+            self._ip = self.ip_family_handler[family](ip)
         else:
             if not prefixlen:
                 try:
@@ -53,11 +62,12 @@ class IPNetwork:
                 self.__prefixlen = int(prefixlen)
             except ValueError:
                 if isinstance(prefixlen, str) and "." in prefixlen:
-                    self.__prefixlen = ipaddress.ip_network("{}/{}".format(ip, prefixlen), strict=False).prefixlen
+                    self.__prefixlen = ipaddress.ip_network("{}/{}".format(self.ip, prefixlen), strict=False).prefixlen
                 else:
                     raise
 
-            self.__flags |= self.__INIT_WITH_PREFIXLEN
+            if (self.ip.version == 4 and self.prefixlen != 32) or (self.ip.version == 6 and self.prefixlen != 128):
+                self.__flags |= self.__INIT_WITH_PREFIXLEN
 
     def __hash__(self):
         return int(self._ip) ^ self.__prefixlen ^ self.version
@@ -105,7 +115,7 @@ class IPNetwork:
 
 class IPv4Network(IPNetwork):
     def __init__(self, *args, **kwargs):
-        super(IPv4Network, self).__init__(*args, **kwargs)
+        super(IPv4Network, self).__init__(family=4, *args, **kwargs)
 
         if self.version != 4:
             self._ip = ipaddress.IPv4Address(self._ip)
@@ -113,7 +123,7 @@ class IPv4Network(IPNetwork):
 
 class IPv6Network(IPNetwork):
     def __init__(self, *args, **kwargs):
-        super(IPv6Network, self).__init__(*args, **kwargs)
+        super(IPv6Network, self).__init__(family=6, *args, **kwargs)
 
         if self.version != 6:
             self._ip = ipaddress.IPv6Address(self._ip)
@@ -151,3 +161,11 @@ class IPv4Address(IPv4Network):
     def __repr__(self):
         return str(self._ip)
 
+
+class IPv6Address(IPv6Network):
+    def __init__(self, *args, **kwargs):
+        super(IPv6Address, self).__init__(*args, **kwargs)
+        self.ignore_prefixlen()
+
+    def __repr__(self):
+        return str(self._ip)

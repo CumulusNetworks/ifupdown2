@@ -1053,12 +1053,12 @@ class Attribute(object):
 
     @staticmethod
     def decode_ipv4_address_attribute(data, _=None):
-        return ipnetwork.IPNetwork(unpack(">L", data[4:8])[0])
+        return ipnetwork.IPv4Address(unpack(">L", data[4:8])[0])
 
     @staticmethod
     def decode_ipv6_address_attribute(data, _=None):
         (data1, data2) = unpack(">QQ", data[4:20])
-        return ipnetwork.IPNetwork(data1 << 64 | data2)
+        return ipnetwork.IPv6Address(data1 << 64 | data2)
 
     @staticmethod
     def decode_bond_ad_info_attribute(data, info_data_end):
@@ -1391,11 +1391,11 @@ class AttributeIPAddress(Attribute):
                     prefixlen = parent_msg.dst_len
 
             if self.family in (AF_INET, AF_BRIDGE):
-                self.value = ipnetwork.IPNetwork(unpack(self.PACK, self.data[4:])[0], prefixlen, scope)
+                self.value = ipnetwork.IPv4Network(unpack(self.PACK, self.data[4:])[0], prefixlen, scope)
 
             elif self.family == AF_INET6:
                 (data1, data2) = unpack(self.PACK, self.data[4:])
-                self.value = ipnetwork.IPNetwork(data1 << 64 | data2, prefixlen, scope)
+                self.value = ipnetwork.IPv6Network(data1 << 64 | data2, prefixlen, scope)
 
             else:
                 self.log.debug("AttributeIPAddress: decode: unsupported address family ({})".format(self.family))
@@ -1437,6 +1437,12 @@ class AttributeIPAddress(Attribute):
         return line_number
 
 
+class AttributeIPAddressNoMask(AttributeIPAddress):
+    def decode(self, *args, **kwargs):
+        super(AttributeIPAddressNoMask, self).decode(*args, **kwargs)
+        self.value = self.value.ip
+
+
 class AttributeMACAddress(Attribute):
 
     def __init__(self, atype, string, family, logger):
@@ -1453,7 +1459,7 @@ class AttributeMACAddress(Attribute):
         try:
             # GRE interface uses a 4-byte IP address for this attribute
             if self.length == 8:
-                self.value = ipnetwork.IPNetwork(unpack('>L', self.data[4:])[0])
+                self.value = ipnetwork.IPv4Address(unpack('>L', self.data[4:])[0])
 
             # MAC Address
             elif self.length == 10:
@@ -1462,7 +1468,7 @@ class AttributeMACAddress(Attribute):
                 self.value = mac_int_to_str(self.raw)
             # GREv6 interface uses a 16-byte IP address for this attribute
             elif self.length == 20:
-                self.value = ipnetwork.IPNetwork(unpack('>L', self.data[16:])[0])
+                self.value = ipnetwork.IPv6Address(unpack('>L', self.data[16:])[0])
 
             else:
                 self.log.info("Length of MACAddress attribute not supported: %d" % self.length)
@@ -1959,14 +1965,14 @@ struct rtnexthop {
             if self.family == AF_INET:
                 if len(data) < self.IPV4_LEN:
                     break
-                nexthop = ipnetwork.IPNetwork(unpack('>L', data[:self.IPV4_LEN])[0])
+                nexthop = ipnetwork.IPv4Address(unpack('>L', data[:self.IPV4_LEN])[0])
                 self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
 
             elif self.family == AF_INET6:
                 if len(data) < self.IPV6_LEN:
                     break
                 (data1, data2) = unpack('>QQ', data[:self.IPV6_LEN])
-                nexthop = ipnetwork.IPNetwork(data1 << 64 | data2)
+                nexthop = ipnetwork.IPv6Address(data1 << 64 | data2)
                 self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
 
             data = data[(rtnh_len-self.RTNH_LEN-self.HEADER_LEN):]
@@ -2845,8 +2851,7 @@ class AttributeIFLA_LINKINFO(Attribute):
             sub_attr_payload[sub_attr_length_index] = sub_attr_length
 
             # add padding
-            for x in range(self.pad_bytes_needed(sub_attr_length)):
-                sub_attr_pack_layout.append('x')
+            sub_attr_pack_layout[-1] = "%s%s" % (sub_attr_pack_layout[-1], "x" * self.pad_bytes_needed(sub_attr_length))
 
             # The [1:] is to remove the leading = so that when we do the ''.join() later
             # we do not end up with an = in the middle of the pack layout string. There
@@ -3088,7 +3093,6 @@ class AttributeIFLA_PROTINFO(Attribute):
         #
         # Until we cross that bridge though we will keep things nice and simple and
         # pack everything via a single pack() call.
-
         for (sub_attr_type, sub_attr_value) in self.value.items():
             sub_attr_pack_layout = ['=', 'HH']
             sub_attr_payload = [0, sub_attr_type]
@@ -4502,10 +4506,10 @@ class AttributeMDBA_MDB(Attribute):
                             info = [ifindex,state,flags,vid]
                             proto = unpack('=H',sub_attr_data[28:30])[0]
                             if proto == htons(ETH_P_IP):
-                                ip_addr = ipnetwork.IPNetwork(unpack('>L', sub_attr_data[12:16])[0])
+                                ip_addr = ipnetwork.IPv4Address(unpack('>L', sub_attr_data[12:16])[0])
                             else:
                                 (data1, data2) = unpack('>QQ',sub_attr_data[12:28])
-                                ip_addr        = ipnetwork.IPNetwork(data1 << 64 | data2)
+                                ip_addr        = ipnetwork.IPv6Address(data1 << 64 | data2)
 
                             info.append(ip_addr)
 
@@ -4540,10 +4544,10 @@ class AttributeMDBA_MDB(Attribute):
                         info = list(info)
                         proto = unpack('=H',sub_attr_data[28:30])[0]
                         if proto == 8:
-                            ip_addr = ipnetwork.IPNetwork(unpack('>L', sub_attr_data[12:16])[0])
+                            ip_addr = ipnetwork.IPv4Address(unpack('>L', sub_attr_data[12:16])[0])
                         else:
                             (data1, data2) = unpack('>QQ',sub_attr_data[12:28])
-                            ip_addr        = ipnetwork.IPNetwork(data1 << 64 | data2)
+                            ip_addr        = ipnetwork.IPv6Address(data1 << 64 | data2)
 
                         info.append(ip_addr)
                         self.value[MDB.MDBA_MDB_ENTRY][MDB.MDBA_MDB_ENTRY_INFO] = info
@@ -4677,7 +4681,7 @@ class AttributeMDBA_SET_ENTRY(Attribute):
             elif proto == htons(ETH_P_IPV6):
                 self.PACK = '=IBBHQQHxx'
                 (ifindex, flags, state,vid, data1,data2, proto) = unpack(self.PACK, self.data[4:])
-                ip = ipnetwork.IPNetwork(data1 << 64 | data2)
+                ip = ipnetwork.IPv6Address(data1 << 64 | data2)
             else:
                 raise Exception("%d Invalid Proto" % proto)
             self.LEN = calcsize(self.PACK)
@@ -4951,7 +4955,7 @@ class Neighbor(NetlinkPacket):
 
     attribute_to_class = {
         NDA_UNSPEC       : ('NDA_UNSPEC', AttributeGeneric),
-        NDA_DST          : ('NDA_DST', AttributeIPAddress),
+        NDA_DST          : ('NDA_DST', AttributeIPAddressNoMask),
         NDA_LLADDR       : ('NDA_LLADDR', AttributeMACAddress),
         NDA_CACHEINFO    : ('NDA_CACHEINFO', AttributeFourByteList),
         NDA_PROBES       : ('NDA_PROBES', AttributeFourByteValue),
@@ -5300,7 +5304,7 @@ class Route(NetlinkPacket):
         dst = self.get_attribute_value(self.RTA_DST)
 
         if dst:
-            return "%s/%d" % (dst, self.src_len)
+            return "%s" % dst
         else:
             if self.family == AF_INET:
                 return "0.0.0.0/0"
