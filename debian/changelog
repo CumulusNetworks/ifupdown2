@@ -1,12 +1,18 @@
 ifupdown2 (3.0.0-1) unstable; urgency=medium
 
    * New. Enabled: python3 support
+   * New. Enabled: attribute alias support
    * New. Enabled: support for marking interfaces as mgmt interfaces
    * Fix: dry-run exceptions
+   * Fix: bond enslavement ordering
+   * Fix: ifquery-running: incorrect displayed data
    * Fix: set bridge MTU after bridge creation
-   * Fix: tunnel configuration compatibility with ifupdown1 (closes: #133)
+   * Fix: tunnel configuration compatibility with ifupdown1
+   * Fix: process MTU before addrgen
+   * Fix: mstpctl: check mstpctl-stp and bridge-stp and fix bridge cache update
+   * Removing python-argcomplete dependency
 
- -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 31 Dec 2019 23:42:42 +0100
+ -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 14 Apr 2020 19:10:49 +0200
 
 ifupdown2 (2.0.2-1) unstable; urgency=medium
 
