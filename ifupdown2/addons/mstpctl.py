@@ -1207,7 +1207,9 @@ class mstpctl(Addon, moduleBase):
                 bifaceobj = ifaceobj_getfunc(bridge)[0]
                 if (self._is_bridge(bifaceobj) and
                     self.set_default_mstp_vxlan_bridge_config and
-                    (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)):
+                    (bifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE)
+                    and ifaceobj.link_kind & ifaceLinkKind.VXLAN
+                ):
                         for attr in ('mstpctl-portbpdufilter',
                                      'mstpctl-bpduguard',
                                      'mstpctl-portadminedge'):
