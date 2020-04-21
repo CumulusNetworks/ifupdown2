@@ -737,6 +737,7 @@ class address(Addon, moduleBase):
             # bridges don't need mtu set
             if ifaceobj.link_kind & ifaceLinkKind.BOND \
                     or ifaceobj.link_kind & ifaceLinkKind.VXLAN \
+                    or ifaceobj.link_kind & ifaceLinkKind.BRIDGE \
                     or ifaceobj.link_kind & ifaceLinkKind.OTHER:
                 if cached_link_mtu != self.default_mtu_int:
                     self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=self.default_mtu, mtu_int=self.default_mtu_int)
