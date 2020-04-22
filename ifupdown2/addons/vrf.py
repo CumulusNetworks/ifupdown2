@@ -514,13 +514,23 @@ class vrf(Addon, moduleBase):
             else:
                 master_exists = False
             if master_exists:
-                if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                if not ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN and not self.check_link_down_on_vlan_lower_dev(
+                    ifaceobj, ifaceobj_getfunc
+                ):
                     self.netlink.link_up(ifacename)
             else:
                 self.log_error('vrf %s not around, skipping vrf config'
                                %(vrfname), ifaceobj)
         except Exception as e:
             self.log_error('%s: %s' %(ifacename, str(e)), ifaceobj)
+
+    def check_link_down_on_vlan_lower_dev(self, ifaceobj, ifaceobj_getfunc):
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            for obj in ifaceobj_getfunc(ifaceobj.lowerifaces[0]):
+                if obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                    self.logger.info("%s: keeping vlan down (lower device %s has link-down flag set)" % (ifaceobj.name, obj.name))
+                    return True
+        return False
 
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):
         pref = 200
@@ -693,7 +703,9 @@ class vrf(Addon, moduleBase):
             for s in config_slaves:
                 try:
                     for slave_ifaceobj in ifaceobj_getfunc(s) or []:
-                        if slave_ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                        if slave_ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN or self.check_link_down_on_vlan_lower_dev(
+                            slave_ifaceobj, ifaceobj_getfunc
+                        ):
                             raise Exception("link-down yes: keeping VRF slave down")
                     self.netlink.link_up(s)
                 except Exception as e:
