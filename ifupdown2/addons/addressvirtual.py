@@ -286,7 +286,7 @@ class addressvirtual(Addon, moduleBase):
         ]:
             for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % macvlan_prefix):
                 macvlan_ifacename = os.path.basename(macvlan_ifacename)
-                if not self.cache.link_exists(macvlan_ifacename):
+                if not self.cache.link_exists(macvlan_ifacename) or not self.cache.get_link_kind(macvlan_ifacename) == "macvlan":
                     continue
                 hwaddress.append(self.cache.get_link_address(macvlan_ifacename))
                 self.netlink.link_del(os.path.basename(macvlan_ifacename))
