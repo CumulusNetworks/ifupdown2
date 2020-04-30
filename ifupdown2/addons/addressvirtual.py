@@ -1011,8 +1011,8 @@ class addressvirtual(Addon, moduleBase):
                 self.logger.warning('%s: no running addresses'
                                  %ifaceobjrunning.name)
                 raddress = []
-            ifaceobjrunning.update_config('address-virtual',
-                            '%s %s' %(rhwaddress, ' '.join(raddress)))
+
+            ifaceobjrunning.update_config('address-virtual', '%s %s' %(rhwaddress, ' '.join([str(a) for a in raddress])))
 
             macvlans_ipv6_addrgen_list.append((macvlan_ifacename, self.cache.get_link_ipv6_addrgen_mode(macvlan_ifacename)))
 

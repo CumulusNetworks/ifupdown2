@@ -81,6 +81,8 @@ class IPNetwork:
     def __repr__(self):
         return "{}/{}".format(self._ip, self.__prefixlen)
 
+    __str__ = __repr__
+
     @property
     def ip(self):
         return self._ip

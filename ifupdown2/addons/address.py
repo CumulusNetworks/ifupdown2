@@ -1285,7 +1285,7 @@ class address(Addon, moduleBase):
             ifaceobjrunning.addr_method = 'loopback'
 
         for addr in intf_running_addrs:
-            ifaceobjrunning.update_config('address', addr)
+            ifaceobjrunning.update_config('address', str(addr))
 
         mtu = self.cache.get_link_mtu_str(ifaceobjrunning.name)
         if (mtu and
