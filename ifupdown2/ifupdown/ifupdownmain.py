@@ -1048,11 +1048,11 @@ class ifupdownMain:
             if '=' in value:
                 for intf_arg in value.split():
                     intf_arg_split = intf_arg.split('=')
-                    for arg in re.split(',|\s*', intf_arg_split[1]):
+                    for arg in intf_arg_split[1].replace(",", " ").split():
                         if arg not in ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst']:
                             return False
             else:
-                for arg in re.split(',|\s*', value):
+                for arg in value.replace(",", " ").split():
                     if arg not in ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst']:
                         return False
         except:
