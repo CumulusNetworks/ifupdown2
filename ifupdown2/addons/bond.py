@@ -175,7 +175,7 @@ class bond(Addon, moduleBase):
             "es-sys-mac": {
                 "help": "evpn-mh: system mac address",
                 "validvals": ["<mac>", ],
-                "example": ["bond-ad-actor-system 00:00:00:00:00:42"],
+                "example": ["es-sys-mac 00:00:00:00:00:42"],
             }
         }
     }
