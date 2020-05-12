@@ -38,6 +38,8 @@ class Status(object):
         STATUS_NLERROR = 96
         STATUS_EXCEPTION_MAIN = 99
 
+        STATUS_ARGV_ERROR = 90
+
     class Daemon(object):
         STATUS_SUCCESS = 0
         STATUS_INIT = 101

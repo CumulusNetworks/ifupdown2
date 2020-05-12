@@ -46,7 +46,7 @@ try:
     from ifupdown2.lib.exceptions import ExitWithStatus, ExitWithStatusAndError
 
     from ifupdown2.ifupdown.client import Client
-    from ifupdown2.ifupdown.exceptions import ArgvParseHelp
+    from ifupdown2.ifupdown.exceptions import ArgvParseHelp, ArgvParseError
 except:
     import ifupdown.config as config
 
@@ -55,7 +55,7 @@ except:
     from lib.exceptions import ExitWithStatus, ExitWithStatusAndError
 
     from ifupdown.client import Client
-    from ifupdown.exceptions import ArgvParseHelp
+    from ifupdown.exceptions import ArgvParseHelp, ArgvParseError
 
 
 def daemon_mode():
@@ -92,6 +92,9 @@ def stand_alone():
     try:
         ifupdown2.parse_argv(sys.argv)
         LogManager.get_instance().start_standalone_logging(ifupdown2.args)
+    except ArgvParseError as e:
+        LogManager.get_instance().root_logger().error(str(e))
+        return Status.Client.STATUS_ARGV_ERROR
     except ArgvParseHelp:
         # on --help parse_args raises SystemExit, we catch it and raise a
         # custom exception ArgvParseHelp to return 0

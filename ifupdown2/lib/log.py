@@ -228,3 +228,6 @@ class LogManager:
 
     def write(self, msg):
         root_logger.info(msg)
+
+    def root_logger(self):
+        return self.__root_logger
