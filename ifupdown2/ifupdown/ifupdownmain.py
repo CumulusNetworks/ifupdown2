@@ -572,7 +572,7 @@ class ifupdownMain:
             interface with slave dependents.
             example: bond and bridges.
             This function logs such errors """
-        setdlist = Set(dlist)
+        setdlist = set(dlist)
         for ifacename, ifacedlist in list(self.dependency_graph.items()):
             if not ifacedlist:
                 continue
@@ -584,7 +584,7 @@ class ifupdownMain:
                 if (i.dependency_type == ifaceDependencyType.MASTER_SLAVE):
                     check_depends = True
             if check_depends:
-                common = Set(ifacedlist).intersection(setdlist)
+                common = set(ifacedlist).intersection(setdlist)
                 if common:
                     self.logger.error('misconfig..?. iface %s and %s '
                             %(ifaceobj.name, ifacename) +
@@ -1607,8 +1607,7 @@ class ifupdownMain:
             ret = False
             for i in ifaceobjs:
                 if i.classes:
-                    common = Set(allow_classes).intersection(
-                                Set(i.classes))
+                    common = set(allow_classes).intersection(set(i.classes))
                     if common:
                         ret = True
             if not ret:
@@ -2057,9 +2056,9 @@ class ifupdownMain:
             already_up_ifacenames = list(self.statemanager.ifaceobjdict.keys())
 
         # Get already up interfaces that still exist in the interfaces file
-        already_up_ifacenames_not_present = Set(
+        already_up_ifacenames_not_present = set(
                         already_up_ifacenames).difference(ifacenames)
-        already_up_ifacenames_still_present = Set(
+        already_up_ifacenames_still_present = set(
                         already_up_ifacenames).difference(
                         already_up_ifacenames_not_present)
 
