@@ -133,13 +133,16 @@ class LogManager:
 
     def enable_syslog(self):
         """ Add syslog handler to root logger """
-        if self.__syslog_handler:
+        if self.__syslog_handler and self.__syslog_handler not in self.__root_logger.handlers:
             self.__root_logger.addHandler(self.__syslog_handler)
 
     def disable_syslog(self):
         """ Remove syslog handler from root logger """
         if self.__syslog_handler:
             self.__root_logger.removeHandler(self.__syslog_handler)
+
+    def is_syslog_enabled_syslog(self):
+        return self.__syslog_handler in self.__root_logger.handlers
 
     def close_log_stream(self):
         """ Close socket to disconnect client.

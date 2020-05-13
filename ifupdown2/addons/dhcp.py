@@ -10,6 +10,7 @@ import socket
 
 try:
     from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.log import LogManager
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -21,6 +22,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
+    from lib.log import LogManager
 
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -35,6 +37,11 @@ except (ImportError, ModuleNotFoundError):
 class dhcp(Addon, moduleBase):
     """ ifupdown2 addon module to configure dhcp on interface """
 
+    # by default we won't perform any dhcp retry
+    # this can be changed by setting the module global
+    # policy: dhclient_retry_on_failure
+    DHCLIENT_RETRY_ON_FAILURE = 0
+
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
@@ -47,6 +54,21 @@ class dhcp(Addon, moduleBase):
             self.mgmt_vrf_context = False
         self.logger.info('mgmt vrf_context = %s' %self.mgmt_vrf_context)
 
+        try:
+            self.dhclient_retry_on_failure = int(
+                policymanager.policymanager_api.get_module_globals(
+                    module_name=self.__class__.__name__,
+                    attr="dhclient_retry_on_failure"
+                )
+            )
+        except:
+            self.dhclient_retry_on_failure = self.DHCLIENT_RETRY_ON_FAILURE
+
+        if self.dhclient_retry_on_failure < 0:
+            self.dhclient_retry_on_failure = 0
+
+        self.logger.info("dhclient: dhclient_retry_on_failure set to %s" % self.dhclient_retry_on_failure)
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
 
@@ -54,6 +76,58 @@ class dhcp(Addon, moduleBase):
         if ifaceobj.addr_method and 'dhcp' in ifaceobj.addr_method:
             return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=True)
         return True
+
+    def get_current_ip_configured(self, ifname, family):
+        ips = set()
+        try:
+            a = utils.exec_commandl(["ip", "-o", "addr", "show", ifname]).split("\n")
+
+            for entry in a:
+                family_index = entry.find(family)
+
+                if family_index < 0:
+                    continue
+
+                tmp = entry[entry.find(family) + len(family) + 1:]
+                ip = tmp[:tmp.find(" ")]
+
+                if ip:
+                    ips.add(ip)
+        except:
+            pass
+        return ips
+
+    def dhclient_start_and_check(self, ifname, family, handler, **handler_kwargs):
+        ip_config_before = self.get_current_ip_configured(ifname, family)
+        retry = self.dhclient_retry_on_failure
+
+        while retry >= 0:
+            handler(ifname, **handler_kwargs)
+            retry = self.dhclient_check(ifname, family, ip_config_before, retry, handler_kwargs.get("cmd_prefix"))
+
+    def dhclient_check(self, ifname, family, ip_config_before, retry, dhclient_cmd_prefix):
+        retry -= 1
+        diff = self.get_current_ip_configured(ifname, family).difference(ip_config_before)
+
+        if diff:
+            self.logger.info(
+                "%s: dhclient: new address%s detected: %s"
+                % (ifname, "es" if len(diff) > 1 else "", ", ".join(diff))
+            )
+            return -1
+        else:
+            try:
+                if retry > 0:
+                    self.logger.error(
+                        "%s: dhclient: couldn't detect new ip address, retrying %s more times..."
+                        % (ifname, retry)
+                    )
+                else:
+                    raise Exception("%s: dhclient: timeout failed to detect new ip addresses" % ifname)
+            finally:
+                self.logger.info("%s: releasing expired dhcp lease..." % ifname)
+                self.dhclientcmd.release(ifname, dhclient_cmd_prefix)
+        return retry
 
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
@@ -99,8 +173,15 @@ class dhcp(Addon, moduleBase):
                             self.dhclientcmd.stop(ifaceobj.name)
                     except:
                         pass
-                    self.dhclientcmd.start(ifaceobj.name, wait=wait,
-                                           cmd_prefix=dhclient_cmd_prefix)
+
+                    self.dhclient_start_and_check(
+                        ifaceobj.name,
+                        "inet",
+                        self.dhclientcmd.start,
+                        wait=wait,
+                        cmd_prefix=dhclient_cmd_prefix
+                    )
+
             if 'inet6' in ifaceobj.addr_family:
                 if dhclient6_running:
                     self.logger.info('dhclient6 already running on %s. '
@@ -136,9 +217,9 @@ class dhcp(Addon, moduleBase):
                         timeout -= 1
                         if timeout:
                             time.sleep(1)
-
         except Exception as e:
-            self.log_error(str(e), ifaceobj)
+            self.logger.error("%s: %s" % (ifaceobj.name, str(e)))
+            ifaceobj.set_status(ifaceStatus.ERROR)
 
     def _down_stale_dhcp_config(self, ifaceobj, family, dhclientX_running):
         addr_family = ifaceobj.addr_family
@@ -242,7 +323,18 @@ class dhcp(Addon, moduleBase):
             return
         if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
-        if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
-        else:
-            op_handler(self, ifaceobj)
+
+        disable_syslog_on_exit = False
+        try:
+            if not ifupdownflags.flags.PERFMODE:
+                disable_syslog_on_exit = not LogManager.get_instance().is_syslog_enabled_syslog()
+                LogManager.get_instance().enable_syslog()
+                self.logger.info("%s: enabling syslog for dhcp configuration" % ifaceobj.name)
+
+            if operation == 'query-checkcurr':
+                op_handler(self, ifaceobj, query_ifaceobj)
+            else:
+                op_handler(self, ifaceobj)
+        finally:
+            if disable_syslog_on_exit:
+                LogManager.get_instance().disable_syslog()
