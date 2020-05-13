@@ -171,6 +171,11 @@ class bond(Addon, moduleBase):
                     "2", "failure",
                 ],
                 "example": ["bond-primary-reselect failure"]
+            },
+            "es-sys-mac": {
+                "help": "evpn-mh: system mac address",
+                "validvals": ["<mac>", ],
+                "example": ["bond-ad-actor-system 00:00:00:00:00:42"],
             }
         }
     }
@@ -184,6 +189,7 @@ class bond(Addon, moduleBase):
         'bond-min-links': Link.IFLA_BOND_MIN_LINKS,
         'bond-num-grat-arp': Link.IFLA_BOND_NUM_PEER_NOTIF,
         'bond-num-unsol-na': Link.IFLA_BOND_NUM_PEER_NOTIF,
+        'es-sys-mac': Link.IFLA_BOND_AD_ACTOR_SYSTEM,
         'bond-ad-sys-mac-addr': Link.IFLA_BOND_AD_ACTOR_SYSTEM,
         'bond-ad-actor-system': Link.IFLA_BOND_AD_ACTOR_SYSTEM,
         'bond-ad-sys-priority': Link.IFLA_BOND_AD_ACTOR_SYS_PRIO,
@@ -231,6 +237,7 @@ class bond(Addon, moduleBase):
         ('bond-use-carrier', Link.IFLA_BOND_USE_CARRIER, lambda x: int(utils.get_boolean_from_string(x))),
         ('bond-lacp-rate', Link.IFLA_BOND_AD_LACP_RATE, lambda x: int(utils.get_boolean_from_string(x))),
         ('bond-lacp-bypass-allow', Link.IFLA_BOND_AD_LACP_BYPASS, lambda x: int(utils.get_boolean_from_string(x))),
+        ('es-sys-mac', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
         ('bond-ad-sys-mac-addr', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
         ('bond-ad-actor-system', Link.IFLA_BOND_AD_ACTOR_SYSTEM, str),
         ('bond-primary-reselect', Link.IFLA_BOND_PRIMARY_RESELECT, lambda x: Link.ifla_bond_primary_reselect_tbl[x])
@@ -275,6 +282,9 @@ class bond(Addon, moduleBase):
            ifaceobj.link_type = ifaceLinkType.LINK_MASTER
         ifaceobj.link_kind |= ifaceLinkKind.BOND
         ifaceobj.role |= ifaceRole.MASTER
+
+        if ifaceobj.get_attr_value("es-sys-mac"):
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.ES_BOND
 
         return slave_list
 
@@ -340,9 +350,10 @@ class bond(Addon, moduleBase):
             if self.cache.link_is_up(slave):
                 self.netlink.link_down_force(slave)
                 link_up = True
-            # If clag bond place the slave in a protodown state; clagd
-            # will protoup it when it is ready
-            if clag_bond:
+
+            # if clag or ES bond: place the slave in a protodown state;
+            # (clagd will proto-up it when it is ready)
+            if clag_bond or ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND:
                 try:
                     self.netlink.link_set_protodown_on(slave)
                 except Exception as e:
@@ -599,6 +610,12 @@ class bond(Addon, moduleBase):
 
                 for lower_dev in ifaceobj.lowerifaces:
                     self.netlink.link_set_nomaster(lower_dev)
+
+                    # when unslaving a device from an ES bond we need to set
+                    # protodown off
+                    if ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND:
+                        self.netlink.link_set_protodown_off(lower_dev)
+
                     try:
                         bond_slaves.remove(lower_dev)
                     except:
@@ -772,6 +789,7 @@ class bond(Addon, moduleBase):
             'bond-lacp-rate': self.translate_nl_value_slowfast(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_LACP_RATE)),
             'bond-min-links': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MIN_LINKS),
             'bond-ad-actor-system': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_ACTOR_SYSTEM),
+            'es-sys-mac': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_ACTOR_SYSTEM),
             'bond-ad-actor-sys-prio': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_ACTOR_SYS_PRIO),
             'bond-xmit-hash-policy': Link.ifla_bond_xmit_hash_policy_pretty_tbl.get(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_XMIT_HASH_POLICY)),
             'bond-lacp-bypass-allow': self.translate_nl_value_yesno(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_LACP_BYPASS)),

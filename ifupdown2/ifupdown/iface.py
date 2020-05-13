@@ -89,6 +89,7 @@ class ifaceLinkPrivFlags():
     LOOPBACK = 0x1000000
     KEEP_LINK_DOWN = 0x10000000
     MGMT_INTF = 0x100000000
+    ES_BOND = 0x1000000000
 
     @classmethod
     def get_str(cls, flag):
@@ -117,6 +118,9 @@ class ifaceLinkPrivFlags():
 
         if flag & cls.KEEP_LINK_DOWN:
             string_list.append("keep ling down")
+
+        if flag & cls.ES_BOND:
+            string_list.append("es bond")
 
         return ", ".join(string_list)
 

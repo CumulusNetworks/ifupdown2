@@ -694,6 +694,14 @@ class _NetlinkCache:
         """
         return self.get_link_attribute(ifname, Link.IFLA_IFALIAS)
 
+    def get_link_protodown(self, ifname):
+        """
+        Return link IFLA_PROTO_DOWN
+        :param ifname:
+        :return: int
+        """
+        return self.get_link_attribute(ifname, Link.IFLA_PROTO_DOWN)
+
     def get_link_attribute(self, ifname, attr, default=None):
         """
         Return link attribute 'attr'.value
@@ -2486,6 +2494,9 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         """
         Bring ifname up by setting IFLA_PROTO_DOWN on
         """
+        if self.cache.get_link_protodown(ifname) == 1:
+            return True
+
         self.logger.info("%s: netlink: set link %s protodown on" % (ifname, ifname))
         try:
             self.__link_set_protodown(ifname, 1)
@@ -2496,6 +2507,9 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         """
         Take ifname down by setting IFLA_PROTO_DOWN off
         """
+        if self.cache.get_link_protodown(ifname) == 0:
+            return True
+
         self.logger.info("%s: netlink: set link %s protodown off" % (ifname, ifname))
         try:
             self.__link_set_protodown(ifname, 0)
