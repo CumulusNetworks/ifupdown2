@@ -1,0 +1,25 @@
+#
+#
+# Parameters for:
+#		- /etc/init.d/networking script
+#		- systemd networking service
+#
+#
+
+# Change the below to yes if you want verbose logging to be enabled
+VERBOSE="no"
+
+# Change the below to yes if you want debug logging to be enabled
+DEBUG="no"
+
+# Change the below to yes if you want logging to go to syslog
+SYSLOG="no"
+
+# Exclude interfaces
+EXCLUDE_INTERFACES=
+
+# Set to 'yes' if you want to skip ifdown during system reboot
+# and shutdown. This is of interest in large scale interface
+# deployments where you dont want to wait for interface
+# deconfiguration to speed up shutdown/reboot
+SKIP_DOWN_AT_SYSRESET="yes"

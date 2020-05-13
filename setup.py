@@ -10,8 +10,10 @@ INSTALL_REQUIRES = [
 ]
 
 DATA_FILES = [
+    ('/etc/default/', ['etc/default/networking']),
     ('/etc/network/ifupdown2/', ['etc/network/ifupdown2/addons.conf']),
     ('/etc/network/ifupdown2/', ['etc/network/ifupdown2/ifupdown2.conf']),
+    ('/usr/share/ifupdown2/sbin/', ['ifupdown2/sbin/start-networking'])
 ]
 
 SCRIPTS = []

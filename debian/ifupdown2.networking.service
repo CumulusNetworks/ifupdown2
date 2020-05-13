@@ -10,9 +10,10 @@ Type=oneshot
 RemainAfterExit=yes
 SyslogIdentifier=networking
 TimeoutStopSec=30s
-ExecStart=/sbin/ifup -a
-ExecStop=/sbin/ifdown -a
-ExecReload=/sbin/ifreload -a
+EnvironmentFile=/etc/default/networking
+ExecStart=/usr/share/ifupdown2/sbin/start-networking start
+ExecStop=/usr/share/ifupdown2/sbin/start-networking stop
+ExecReload=/usr/share/ifupdown2/sbin/start-networking reload
 
 [Install]
 WantedBy=basic.target network.target shutdown.target

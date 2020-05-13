@@ -1,6 +1,7 @@
 ifupdown2 (3.0.1-1) unstable; urgency=medium
 
    * New. Enabled: ES bond with "es-sys-mac" attribute
+   * Fix: start-networking script is back to handle mgmt & hotplug cases
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 14 Apr 2020 23:42:42 +0200
 
