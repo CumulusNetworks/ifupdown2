@@ -1661,6 +1661,11 @@ class AttributeIFLA_AF_SPEC(Attribute):
         {
             Link.IFLA_BRIDGE_FLAGS: flags,
             Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
+            Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO: [
+                    __u32 tunnel_id;
+                    __u16 tunnel_vid;
+                    __u16 tunnel_flags;
+            ]
         }
 
         FROM: David Ahern
@@ -1722,6 +1727,13 @@ class AttributeIFLA_AF_SPEC(Attribute):
             sub_attr_data = data[4:sub_attr_end]
 
             if self.family == AF_BRIDGE:
+                # /* Bridge management nested attributes
+                #  * [IFLA_AF_SPEC] = {
+                #  *     [IFLA_BRIDGE_FLAGS]
+                #  *     [IFLA_BRIDGE_MODE]
+                #  *     [IFLA_BRIDGE_VLAN_INFO]
+                #  * }
+                #  */
                 if sub_attr_type == Link.IFLA_BRIDGE_FLAGS:
                     self.value[Link.IFLA_BRIDGE_FLAGS] = unpack("=H", sub_attr_data[0:2])[0]
 
@@ -1730,6 +1742,38 @@ class AttributeIFLA_AF_SPEC(Attribute):
                         self.value[Link.IFLA_BRIDGE_VLAN_INFO] = []
                     self.value[Link.IFLA_BRIDGE_VLAN_INFO].append(tuple(unpack("=HH", sub_attr_data[0:4])))
 
+                elif sub_attr_type == Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO:
+                    # Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO: {
+                    #     __u32 tunnel_id;
+                    #     __u16 tunnel_vid;
+                    #     __u16 tunnel_flags;
+                    # }
+                    # all the nested attributes are padded on 8 bytes
+
+                    tunnel_id = 0
+                    tunnel_vid = 0
+                    tunnel_flags = 0
+
+                    while sub_attr_data:
+                        (s_sub_attr_length, s_sub_attr_type) = unpack("=HH", sub_attr_data[:4])
+                        s_sub_attr_end = padded_length(s_sub_attr_length)
+                        d = sub_attr_data[4:s_sub_attr_end]
+
+                        if s_sub_attr_type == Link.IFLA_BRIDGE_VLAN_TUNNEL_ID:
+                            tunnel_id = unpack("=L", d)[0]
+
+                        elif s_sub_attr_type == Link.IFLA_BRIDGE_VLAN_TUNNEL_VID:
+                            tunnel_vid = unpack("=L", d)[0]
+
+                        elif s_sub_attr_type == Link.IFLA_BRIDGE_VLAN_TUNNEL_FLAGS:
+                            tunnel_flags = unpack("=L", d)[0]
+
+                        sub_attr_data = sub_attr_data[s_sub_attr_end:]
+
+                    if Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO not in self.value:
+                        self.value[Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO] = []
+
+                    self.value[Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO].append((tunnel_id, tunnel_vid, tunnel_flags))
                 else:
                     self.log.log(SYSLOG_EXTRA_DEBUG, 'Add support for decoding IFLA_AF_SPEC sub-attribute '
                                                      'type %s (%d), length %d, padded to %d' %
@@ -4291,15 +4335,38 @@ class Link(NetlinkPacket, NetlinkPacket_IFLA_LINKINFO_Attributes):
         IFLA_INET_CONF      : 'IFLA_INET_CONF',
     }
 
+    # /* Bridge Flags */
+    BRIDGE_FLAGS_MASTER = 1  # /* Bridge command to/from master */
+    BRIDGE_FLAGS_SELF = 2  # /* Bridge command to/from lowerdev */
+
+    bridge_flags_to_string = {
+        BRIDGE_FLAGS_MASTER : "BRIDGE_FLAGS_MASTER",
+        BRIDGE_FLAGS_SELF   : "BRIDGE_FLAGS_SELF"
+    }
+
+    BRIDGE_MODE_VEB = 0  # /* Default loopback mode */
+    BRIDGE_MODE_VEPA = 1  # /* 802.1Qbg defined VEPA mode */
+    BRIDGE_MODE_UNDEF = 0xFFFF  # /* mode undefined */
+
+    # /* Bridge management nested attributes
+    #  * [IFLA_AF_SPEC] = {
+    #  *     [IFLA_BRIDGE_FLAGS]
+    #  *     [IFLA_BRIDGE_MODE]
+    #  *     [IFLA_BRIDGE_VLAN_INFO]
+    #  * }
+    #  */
+
     # BRIDGE IFLA_AF_SPEC attributes
     IFLA_BRIDGE_FLAGS     = 0
     IFLA_BRIDGE_MODE      = 1
     IFLA_BRIDGE_VLAN_INFO = 2
+    IFLA_BRIDGE_VLAN_TUNNEL_INFO = 3
 
     ifla_bridge_af_spec_to_string = {
         IFLA_BRIDGE_FLAGS     : 'IFLA_BRIDGE_FLAGS',
         IFLA_BRIDGE_MODE      : 'IFLA_BRIDGE_MODE',
-        IFLA_BRIDGE_VLAN_INFO : 'IFLA_BRIDGE_VLAN_INFO'
+        IFLA_BRIDGE_VLAN_INFO : 'IFLA_BRIDGE_VLAN_INFO',
+        IFLA_BRIDGE_VLAN_TUNNEL_INFO : "IFLA_BRIDGE_VLAN_TUNNEL_INFO"
     }
 
     # BRIDGE_VLAN_INFO flags
@@ -4319,14 +4386,32 @@ class Link(NetlinkPacket, NetlinkPacket_IFLA_LINKINFO_Attributes):
         BRIDGE_VLAN_INFO_BRENTRY     : 'BRIDGE_VLAN_INFO_BRENTRY'
     }
 
-    # Bridge flags
-    BRIDGE_FLAGS_MASTER = 1
-    BRIDGE_FLAGS_SELF   = 2
+    # struct bridge_vlan_info {
+    # 	__u16 flags;
+    # 	__u16 vid;
+    # };
 
-    bridge_flags_to_string = {
-        BRIDGE_FLAGS_MASTER : 'BRIDGE_FLAGS_MASTER',
-        BRIDGE_FLAGS_SELF   : 'BRIDGE_FLAGS_SELF'
+    IFLA_BRIDGE_VLAN_TUNNEL_UNSPEC = 0
+    IFLA_BRIDGE_VLAN_TUNNEL_ID = 1
+    IFLA_BRIDGE_VLAN_TUNNEL_VID = 2
+    IFLA_BRIDGE_VLAN_TUNNEL_FLAGS = 3
+
+    bridge_vlan_tunnel_to_string = {
+        IFLA_BRIDGE_VLAN_TUNNEL_UNSPEC: "IFLA_BRIDGE_VLAN_TUNNEL_UNSPEC",
+        IFLA_BRIDGE_VLAN_TUNNEL_ID: "IFLA_BRIDGE_VLAN_TUNNEL_ID",
+        IFLA_BRIDGE_VLAN_TUNNEL_VID: "IFLA_BRIDGE_VLAN_TUNNEL_VID",
+        IFLA_BRIDGE_VLAN_TUNNEL_FLAGS: "IFLA_BRIDGE_VLAN_TUNNEL_FLAGS",
     }
+
+    # struct bridge_vlan_xstats {
+    # 	__u64 rx_bytes;
+    # 	__u64 rx_packets;
+    # 	__u64 tx_bytes;
+    # 	__u64 tx_packets;
+    # 	__u16 vid;
+    # 	__u16 flags;
+    # 	__u32 pad2;
+    # };
 
     # filters for IFLA_EXT_MASK
     RTEXT_FILTER_VF                = 1 << 0

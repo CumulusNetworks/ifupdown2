@@ -269,6 +269,20 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
+    def link_add_single_vxlan(self, ifname, ip, port):
+        self.logger.info("creating single vxlan device: %s" % ifname)
+
+        cmd = ["link add dev %s type vxlan external" % ifname]
+
+        if ip:
+            cmd.append("local %s" % ip)
+
+        if port:
+            cmd.append("dstport %s" % port)
+
+        self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
+        self.__update_cache_after_link_creation(ifname, "vxlan")
+
     def link_create_vxlan(self, name, vxlanid, localtunnelip=None, svcnodeip=None,
                           remoteips=None, learning='on', ageing=None, ttl=None, physdev=None):
         if svcnodeip and remoteips:
@@ -583,12 +597,18 @@ class IPRoute2(Cache, Requirements):
                 "vlan del vid %s dev %s %s" % (v, ifname, target)
             )
 
-    @staticmethod
-    def bridge_vlan_add_vid_list(ifname, vids):
-        for v in vids:
-            utils.exec_command(
-                "%s vlan add vid %s dev %s" % (utils.bridge_cmd, v, ifname)
-            )
+    def bridge_vlan_add_vlan_tunnel_info(self, ifname, vids, vnis):
+        for i in range(0, len(vids)):
+            try:
+                self.__execute_or_batch(
+                    utils.bridge_cmd,
+                    "vlan add dev %s vid %s tunnel_info id %s" % (
+                        ifname, vids[i], vnis[i]
+                    )
+                )
+            except Exception as e:
+                if "exists" not in str(e).lower():
+                    self.logger.error(e)
 
     def bridge_vlan_add_vid_list_self(self, ifname, vids, is_bridge=True):
         target = "self" if is_bridge else ""

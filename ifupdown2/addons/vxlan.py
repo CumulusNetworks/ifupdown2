@@ -156,6 +156,9 @@ class vxlan(Addon, moduleBase):
         return True
 
     def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
+        if ifaceobj.get_attr_value_first("bridge-vlan-vni-map"):
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.SINGLE_VXLAN
+
         if self._is_vxlan_device(ifaceobj):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
             self._set_global_local_ip(ifaceobj)
@@ -191,7 +194,10 @@ class vxlan(Addon, moduleBase):
 
     @staticmethod
     def _is_vxlan_device(ifaceobj):
-        return ifaceobj.link_kind & ifaceLinkKind.VXLAN or ifaceobj.get_attr_value_first('vxlan-id')
+        return ifaceobj.link_kind & ifaceLinkKind.VXLAN \
+               or ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN \
+               or ifaceobj.get_attr_value_first("vxlan-id") \
+               or ifaceobj.get_attr_value_first("bridge-vlan-vni-map")
 
     def __get_vlxan_purge_remotes(self, ifaceobj):
         if not ifaceobj:
@@ -609,7 +615,8 @@ class vxlan(Addon, moduleBase):
     def _up(self, ifaceobj):
         vxlan_id_str = ifaceobj.get_attr_value_first("vxlan-id")
 
-        if not vxlan_id_str:
+        if not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and not vxlan_id_str:
+            self.logger.warning("%s: missing vxlan-id attribute on vxlan device" % ifaceobj.name)
             return
 
         ifname = ifaceobj.name
@@ -634,7 +641,10 @@ class vxlan(Addon, moduleBase):
 
         user_request_vxlan_info_data = {}
 
-        self.__config_vxlan_id(ifname, ifaceobj, vxlan_id_str, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        if vxlan_id_str:
+            # for single vxlan device we don't have a vxlan-id
+            self.__config_vxlan_id(ifname, ifaceobj, vxlan_id_str, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+
         self.__config_vxlan_learning(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_ageing(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_port(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
@@ -674,20 +684,30 @@ class vxlan(Addon, moduleBase):
                 # element: vxlan-id
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
             else:
-                try:
-                    if flap_vxlan_device:
-                        self.netlink.link_down_force(ifname)
-
-                    self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
-
-                    if flap_vxlan_device:
-                        self.netlink.link_up_force(ifname)
-                except Exception as e:
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
                     if link_exists:
-                        self.log_error("%s: applying vxlan change failed: %s" % (ifname, str(e)), ifaceobj)
+                        self.logger.warning("%s: updating existing single vxlan device is not support yet" % ifname)
                     else:
-                        self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
-                    return
+                        self.iproute2.link_add_single_vxlan(
+                            ifname,
+                            local,
+                            user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT)
+                        )
+                else:
+                    try:
+                        if flap_vxlan_device:
+                            self.netlink.link_down_force(ifname)
+
+                        self.netlink.link_add_vxlan_with_info_data(ifname, user_request_vxlan_info_data)
+
+                        if flap_vxlan_device:
+                            self.netlink.link_up_force(ifname)
+                    except Exception as e:
+                        if link_exists:
+                            self.log_error("%s: applying vxlan change failed: %s" % (ifname, str(e)), ifaceobj)
+                        else:
+                            self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
+                        return
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 

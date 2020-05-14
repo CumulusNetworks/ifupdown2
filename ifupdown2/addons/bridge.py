@@ -441,6 +441,10 @@ class bridge(Addon, moduleBase):
                     "required": False,
                     "example": ["bridge-ports-condone-regex ^[a-zA-Z0-9]+_v[0-9]{1,4}$"]
             },
+            "bridge-vlan-vni-map": {
+                "help": "Single vxlan support",
+                "example": "bridge-vlan-vni-map 1000-1001=1000-1001",
+            },
             "bridge-always-up": {
                 "help": "Enabling this attribute on a bridge will enslave a dummy interface to the bridge",
                 "required": False,
@@ -917,8 +921,7 @@ class bridge(Addon, moduleBase):
     def syntax_check_vxlan_in_vlan_aware_br(self, ifaceobj, ifaceobj_getfunc):
         if not ifaceobj_getfunc:
             return True
-        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN
-                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
             if ifaceobj.get_attr_value('bridge-access'):
                 return True
             for iface in ifaceobj.upperifaces if ifaceobj.upperifaces else []:
@@ -1555,7 +1558,7 @@ class bridge(Addon, moduleBase):
             because kernel does honor vid info flags during deletes.
 
         """
-        if not isbridge and bportifaceobj.link_kind & ifaceLinkKind.VXLAN:
+        if not isbridge and (bportifaceobj.link_kind & ifaceLinkKind.VXLAN and not bportifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN):
             if not vids or not pvid or len(vids) > 1 or vids[0] != pvid:
                 self._error_vxlan_in_vlan_aware_br(bportifaceobj,
                                                    bportifaceobj.upperifaces[0])
@@ -1628,6 +1631,9 @@ class bridge(Addon, moduleBase):
             if vids_to_del:
                if pvid_to_add in vids_to_del:
                    vids_to_del.remove(pvid_to_add)
+
+               vids_to_del = self.remove_bridge_vlans_mapped_to_vnis_from_vids_list(None, bportifaceobj, vids_to_del)
+
                self.iproute2.bridge_vlan_del_vid_list_self(bportifaceobj.name,
                                           self._compress_into_ranges(
                                           vids_to_del), isbridge)
@@ -1661,6 +1667,47 @@ class bridge(Addon, moduleBase):
                 self.log_error('%s: failed to set pvid `%s` (%s)'
                                %(bportifaceobj.name, pvid_to_add, str(e)),
                                bportifaceobj)
+
+    def get_bridge_vlans_mapped_to_vnis_as_integer_list(self, ifaceobj):
+        """
+            Get all vlans that the user wants to configured in vlan-vni maps
+        """
+        try:
+            vids = []
+
+            for vlans_vnis_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
+                vids.extend(self._ranges_to_ints([vlans_vnis_map.split("=")[0]]))
+
+            return vids
+        except Exception as e:
+            self.logger.debug("get_bridge_vlans_mapped_to_vnis_as_integer_list: %s" % str(e))
+            return []
+
+    def remove_bridge_vlans_mapped_to_vnis_from_vids_list(self, bridge_ifaceobj, vxlan_ifaceobj, vids_list):
+        """
+            For single vxlan we need to remove the vlans mapped to vnis
+            from the vids list otherwise they will get removed from the brport
+        """
+        if not (vxlan_ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN):
+            return vids_list
+
+        user_config_vids = []
+
+        if bridge_ifaceobj:
+            for vid in self.get_bridge_vlans_mapped_to_vnis_as_integer_list(bridge_ifaceobj):
+                user_config_vids.append(vid)
+
+        if vxlan_ifaceobj:
+            for vid in self.get_bridge_vlans_mapped_to_vnis_as_integer_list(vxlan_ifaceobj):
+                user_config_vids.append(vid)
+
+        for vlan in user_config_vids:
+            try:
+                vids_list.remove(vlan)
+            except:
+                pass
+
+        return vids_list
 
     def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj,
                                                    bridge_vids=None,
@@ -1916,6 +1963,7 @@ class bridge(Addon, moduleBase):
 
     def up_apply_brports_attributes(self, ifaceobj, ifaceobj_getfunc, bridge_vlan_aware, target_ports=[], newly_enslaved_ports=[]):
         ifname = ifaceobj.name
+        single_vxlan_device_ifaceobj = None
 
         try:
             brports_ifla_info_slave_data    = dict()
@@ -2221,8 +2269,19 @@ class bridge(Addon, moduleBase):
                             pass
 
                     #
+                    # SINGLE VXLAN - enable IFLA_BRPORT_VLAN_TUNNEL
                     #
-                    #
+
+                    if brport_ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+                        single_vxlan_device_ifaceobj = brport_ifaceobj
+                        brport_vlan_tunnel_cached_value = self.cache.get_link_info_slave_data_attribute(
+                            brport_name,
+                            Link.IFLA_BRPORT_VLAN_TUNNEL
+                        )
+
+                        if not brport_vlan_tunnel_cached_value:
+                            self.logger.info("%s: %s: enabling vlan_tunnel on single vxlan device" % (ifname, brport_name))
+                            brport_ifla_info_slave_data[Link.IFLA_BRPORT_VLAN_TUNNEL] = 1
 
                 else:
                     kind = None
@@ -2243,6 +2302,41 @@ class bridge(Addon, moduleBase):
 
         except Exception as e:
             self.log_error(str(e), ifaceobj)
+
+        if single_vxlan_device_ifaceobj:
+            self.apply_bridge_port_vlan_vni_map(single_vxlan_device_ifaceobj)
+
+    def apply_bridge_port_vlan_vni_map(self, ifaceobj):
+        """
+        bridge vlan add vid <vlan-id> dev vxlan0
+        bridge vlan add dev vxlan0 vid <vlan-id> tunnel_info id <vni>
+        """
+        vxlan_name = ifaceobj.name
+        try:
+            self.iproute2.batch_start()
+            for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
+
+                try:
+                    vlans_str, vni_str = vlan_vni_map.split("=")
+                except:
+                    return self.__warn_bridge_vlan_vni_map_syntax_error(vlan_vni_map)
+
+                vlans = self._ranges_to_ints([vlans_str])
+                vnis = self._ranges_to_ints([vni_str])
+
+                if len(vlans) != len(vnis):
+                    return self.__warn_bridge_vlan_vni_map_syntax_error(vlan_vni_map)
+
+                # TODO: query the cache prio to executing those commands
+                self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, vlans, False)
+                self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlans, vnis)
+
+            self.iproute2.batch_commit()
+        except Exception as e:
+            self.log_error("%s: error while processing bridge-vlan-vni-map attribute: %s" % (vxlan_name, str(e)))
+
+    def __warn_bridge_vlan_vni_map_syntax_error(self, user_config_vlan_vni_map):
+        self.logger.warning("%s: syntax error: bridge-vlan-vni-map %s" % user_config_vlan_vni_map)
 
     def is_qinq_bridge(self, ifaceobj, brport_name, running_brports, brport_ifaceobj_dict, ifaceobj_getfunc):
         """ Detect QinQ bridge
@@ -3259,6 +3353,21 @@ class bridge(Addon, moduleBase):
         attr_name, vids = self.get_ifaceobj_bridge_vids(ifaceobj)
         if vids:
            vids = re.split(r'[\s\t]\s*', vids)
+
+           # Special treatment to make sure that the vlans mapped with vnis
+           # (in single-vxlan context) are not mistaken for regular vlans.
+           # We need to proactively remove them from the "running_vids"
+           vlans_mapped_with_vnis = self.get_bridge_vlans_mapped_to_vnis_as_integer_list(ifaceobj)
+           new_running_vids = []
+           user_config_vids = self._ranges_to_ints(vids)
+           for v in running_vids:
+               if v in user_config_vids:
+                   new_running_vids.append(v)
+               elif v not in vlans_mapped_with_vnis:
+                   new_running_vids.append(v)
+           running_vids = new_running_vids
+           #####################################################################
+
            if not running_vids or not self._compare_vids(vids, running_vids, running_pvid, expand_range=False):
                running_vids = [str(o) for o in running_vids]
                ifaceobjcurr.update_config_with_status(attr_name,
@@ -3400,6 +3509,85 @@ class bridge(Addon, moduleBase):
                 raise Exception("%s: %s invalid value: %s" % (ifname, attr_name, str(e)))
 
         self._query_check_l2protocol_tunnel_on_port(ifaceobj, ifaceobjcurr)
+
+        #
+        # bridge-vlan-vni-map
+        #
+        fail = False
+        cached_vlans, cached_vnis = self.get_vlan_vni_ranges(self.cache.get_vlan_vni(ifaceobj.name))
+
+        for bridge_vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
+
+            if fail:
+                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
+                continue
+
+            try:
+                vlans_str, vni_str = bridge_vlan_vni_map.split("=")
+            except:
+                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
+                return self.__warn_bridge_vlan_vni_map_syntax_error(bridge_vlan_vni_map)
+
+            vlans_list = self._ranges_to_ints([vlans_str])   # self.bridge_vlan_vni_map_convert_user_config_to_set(vlans_str)
+            vnis_list = self._ranges_to_ints([vni_str]) #self.bridge_vlan_vni_map_convert_user_config_to_set(vni_str)
+
+            # since there can be multiple entry of bridge-vlan-vni-map
+            # we could simply check that all vlans and vnis are correctly
+            # set on the vxlan but we would probably miss the case where extra
+            # vlans and vnis were added. So we ned to keep a copy of the cache
+            # entry and pop vlans and svis from the cache copy as we iterate
+            # through the user config. After processing only extra vlans and
+            # vnis should be left.
+            try:
+                for vlan in vlans_list:
+                    cached_vlans.remove(vlan)
+            except:
+                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
+                fail = True
+                continue
+
+            try:
+                for vni in vnis_list:
+                    cached_vnis.remove(vni)
+            except:
+                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
+                fail = True
+                continue
+
+            ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 0)
+
+        if not fail and (cached_vlans or cached_vnis):
+            # cached_vlans and cached_vnis are not empty, it means more
+            # vlans-vni maps were configured on the bridge port
+            ifaceobjcurr.update_config_with_status(
+                "bridge-vlan-vni-map",
+                "%s=%s" % (cached_vlans, cached_vnis),
+                1
+            )
+
+    @staticmethod
+    def get_vlan_vni_ranges(bridge_vlan_tunnel):
+        vlans = []
+        vnis = []
+
+        tunnel_vlan_range = None
+        tunnel_vni_range = None
+
+        for tunnel_vlan, tunnel_vni, tunnel_flags in bridge_vlan_tunnel:
+
+            if tunnel_flags & Link.BRIDGE_VLAN_INFO_RANGE_BEGIN:
+                tunnel_vlan_range = tunnel_vlan
+                tunnel_vni_range = tunnel_vni
+
+            elif tunnel_flags & Link.BRIDGE_VLAN_INFO_RANGE_END:
+                vlans.extend(range(tunnel_vlan_range, tunnel_vlan + 1))
+                vnis.extend(range(tunnel_vni_range, tunnel_vni + 1))
+
+            else:
+                vlans.append(tunnel_vlan)
+                vnis.append(tunnel_vni)
+
+        return vlans, vnis
 
     def _query_check_l2protocol_tunnel_on_port(self, ifaceobj, ifaceobjcurr):
         user_config_l2protocol_tunnel = ifaceobj.get_attr_value_first('bridge-l2protocol-tunnel')

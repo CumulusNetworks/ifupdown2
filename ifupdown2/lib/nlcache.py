@@ -161,6 +161,7 @@ class _NetlinkCache:
         self._link_cache = {}
         self._addr_cache = {}
         self._bridge_vlan_cache = {}
+        self._bridge_vlan_vni_cache = {}
 
         # helper dictionaries
         # ifindex: ifname
@@ -303,6 +304,11 @@ class _NetlinkCache:
 
         try:
             del self._bridge_vlan_cache[slave]
+        except KeyError:
+            pass
+
+        try:
+            del self._bridge_vlan_vni_cache[slave]
         except KeyError:
             pass
 
@@ -1022,6 +1028,10 @@ class _NetlinkCache:
         except (KeyError, AttributeError):
             return 0
 
+    def get_vlan_vni(self, ifname):
+        with self._cache_lock:
+            return self._bridge_vlan_vni_cache.get(ifname)
+
     def get_pvid_and_vids(self, ifname):
         """
         vlan-identifiers are stored in:
@@ -1352,6 +1362,7 @@ class _NetlinkCache:
         """
         vlans_list = []
 
+        # Todo: acquire the lock only when really needed
         with self._cache_lock:
             ifla_af_spec = msg.get_attribute_value(Link.IFLA_AF_SPEC)
             ifname = msg.get_attribute_value(Link.IFLA_IFNAME)
@@ -1384,6 +1395,9 @@ class _NetlinkCache:
                         # We store these in the tuple as (vlan, flag) instead
                         # (flag, vlan) so that we can sort the list of tuples
                         vlans_list.append((vlan_id, vlan_flag))
+
+                elif x_type == Link.IFLA_BRIDGE_VLAN_TUNNEL_INFO:
+                    self._bridge_vlan_vni_cache.update({ifname: x_value})
 
             self._bridge_vlan_cache.update({ifname: vlans_list})
 
@@ -1513,6 +1527,11 @@ class _NetlinkCache:
 
             try:
                 del self._bridge_vlan_cache[ifname]
+            except:
+                pass
+
+            try:
+                del self._bridge_vlan_vni_cache[ifname]
             except:
                 pass
 

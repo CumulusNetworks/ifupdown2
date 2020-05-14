@@ -79,6 +79,7 @@ class ifaceLinkKind():
 class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
         and can be BRIDGE_PORT, BOND_SLAVE etc """
+
     UNKNOWN =           0x00000
     BRIDGE_PORT =       0x00001
     BOND_SLAVE =        0x00010
@@ -89,7 +90,8 @@ class ifaceLinkPrivFlags():
     LOOPBACK = 0x1000000
     KEEP_LINK_DOWN = 0x10000000
     MGMT_INTF = 0x100000000
-    ES_BOND = 0x1000000000
+    SINGLE_VXLAN = 0x1000000000
+    ES_BOND = 0x10000000000
 
     @classmethod
     def get_str(cls, flag):
