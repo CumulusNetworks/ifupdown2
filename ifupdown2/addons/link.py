@@ -43,6 +43,11 @@ class link(Addon, moduleBase):
                 "example": ["link-down yes/no"],
                 "default": "no",
                 "validvals": ["yes", "no"]
+            },
+            "veth-peer-name": {
+                "help": "Name of the veth peer interface.",
+                "validvals": "<interface>",
+                "example": ["veth-peer-name veth_ext2int"]
             }
         }
     }
@@ -75,9 +80,26 @@ class link(Addon, moduleBase):
         if ifaceobj.get_attr_value_first('link-type'):
             ifaceobj.link_kind = ifaceLinkKind.OTHER
 
+        link_type = ifaceobj.get_attr_value_first("link-type")
+        # If this interface is one side of a veth link pair and a name for
+        # the peer interface if given, pass it to the link_create call.
+        if link_type == "veth" and ifaceobj.get_attr_value_first("veth-peer-name"):
+            return [ifaceobj.get_attr_value_first("veth-peer-name")]
+
+        return None
+
     def _up(self, ifaceobj):
-        link_type = ifaceobj.get_attr_value_first('link-type')
-        if link_type:
+        link_type = ifaceobj.get_attr_value_first("link-type")
+
+        # If this interface is one side of a veth link pair and a name for
+        # the peer interface if given, pass it to the link_create call.
+        if link_type == "veth":
+            peer_name = ifaceobj.get_attr_value_first("veth-peer-name")
+
+            if peer_name and not self.cache.link_exists(ifaceobj.name):
+                self.iproute2.link_add_veth(ifaceobj.name, peer_name)
+
+        elif link_type:
             self.netlink.link_add(ifname=ifaceobj.name, kind=link_type)
 
     def _down(self, ifaceobj):

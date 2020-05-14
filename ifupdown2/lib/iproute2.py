@@ -269,6 +269,14 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
+    def link_add_veth(self, ifname, peer_name):
+        utils.exec_command(
+            "%s link add %s type veth peer name %s"
+            % (utils.ip_cmd, ifname, peer_name)
+        )
+
+    ###
+
     def link_add_single_vxlan(self, ifname, ip, port):
         self.logger.info("creating single vxlan device: %s" % ifname)
 
