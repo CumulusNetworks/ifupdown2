@@ -3516,7 +3516,7 @@ class bridge(Addon, moduleBase):
         fail = False
         cached_vlans, cached_vnis = self.get_vlan_vni_ranges(self.cache.get_vlan_vni(ifaceobj.name))
 
-        for bridge_vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
+        for bridge_vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map") or []:
 
             if fail:
                 ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
@@ -3569,6 +3569,9 @@ class bridge(Addon, moduleBase):
     def get_vlan_vni_ranges(bridge_vlan_tunnel):
         vlans = []
         vnis = []
+
+        if not bridge_vlan_tunnel:
+            return vlans, vnis
 
         tunnel_vlan_range = None
         tunnel_vni_range = None
