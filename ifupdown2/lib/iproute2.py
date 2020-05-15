@@ -254,6 +254,14 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
+    def link_add(self, ifname, link_type):
+        utils.exec_command(
+            "%s link add %s type %s"
+            % (utils.ip_cmd, ifname, link_type)
+        )
+
+    ###
+
     def link_add_macvlan(self, ifname, macvlan_ifname, macvlan_mode):
         utils.exec_command(
             "%s link add link %s name %s type macvlan mode %s"
