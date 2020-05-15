@@ -55,6 +55,11 @@ class vxlan(Addon, moduleBase):
                 "validvals": ["<ipv4>"],
                 "example": ["vxlan-svcnodeip 172.16.22.125"]
             },
+            "vxlan-svcnodeip6": {
+                "help": "vxlan svc node ip",
+                "validvals": ["<ipv6>"],
+                "example": ["vxlan-svcnodeip6 2001:DB8:8086:6502::"]
+            },
             "vxlan-remoteip": {
                 "help": "vxlan remote ip",
                 "validvals": ["<ipv4>"],
@@ -99,6 +104,11 @@ class vxlan(Addon, moduleBase):
                 "help": "vxlan multicast group",
                 "validvals": ["<ip>"],
                 "example": ["vxlan-mcastgrp 172.16.22.127"],
+            },
+            "vxlan-mcastgrp6": {
+                "help": "vxlan multicast group",
+                "validvals": ["<ip6>"],
+                "example": ["vxlan-mcastgrp ff02::15c"],
             }
         }
     }
@@ -416,37 +426,16 @@ class vxlan(Addon, moduleBase):
 
         return local
 
-    def __get_vxlan_mcast_grp(self, ifaceobj):
-        """
-        Get vxlan-mcastgrp user config or policy
-        :param ifaceobj:
-        :return:
-        """
-        vxlan_mcast_grp = ifaceobj.get_attr_value_first("vxlan-mcastgrp")
+    def __get_vxlan_attribute(self, ifaceobj, attr_name):
+        vxlan_attr_value = ifaceobj.get_attr_value_first(attr_name)
 
-        if not vxlan_mcast_grp:
-            vxlan_mcast_grp = policymanager.policymanager_api.get_attr_default(
+        if not vxlan_attr_value:
+            vxlan_attr_value = policymanager.policymanager_api.get_attr_default(
                 module_name=self.__class__.__name__,
-                attr="vxlan-mcastgrp"
+                attr=attr_name
             )
 
-        return vxlan_mcast_grp
-
-    def __get_vxlan_svcnodeip(self, ifaceobj):
-        """
-        Get vxlan-svcnodeip user config or policy
-        :param ifaceobj:
-        :return:
-        """
-        vxlan_svcnodeip = ifaceobj.get_attr_value_first('vxlan-svcnodeip')
-
-        if not vxlan_svcnodeip:
-            vxlan_svcnodeip = policymanager.policymanager_api.get_attr_default(
-                module_name=self.__class__.__name__,
-                attr="vxlan-svcnodeip"
-            )
-
-        return vxlan_svcnodeip
+        return vxlan_attr_value
 
     def __config_vxlan_group(self, ifname, ifaceobj, link_exists, mcast_grp, group, physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         """
@@ -543,6 +532,107 @@ class vxlan(Addon, moduleBase):
                 else:
                     self.logger.info(
                         "%s: vxlan-mcastgrp configuration changed: flapping vxlan device required" % ifname
+                    )
+
+        return group, multicast_group_change
+
+    def __config_vxlan_group6(self, ifname, ifaceobj, link_exists, mcast_grp, group, physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        vxlan-mcastgrp and vxlan-svcnodeip are mutually exclusive
+        this function validates ip format for both attribute and tries to understand
+        what the user really want (remote or group option).
+
+        :param ifname:
+        :param ifaceobj:
+        :param mcast_grp:
+        :param group:
+        :param physdev:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        if mcast_grp and group:
+            self.log_error("%s: both group (vxlan-mcastgrp6 %s) and "
+                           "remote (vxlan-svcnodeip6 %s) cannot be specified"
+                           % (ifname, mcast_grp, group), ifaceobj)
+
+        attribute_name = "vxlan-svcnodeip6"
+        multicast_group_change = False
+
+        if group:
+            try:
+                group = ipnetwork.IPv6Address(group)
+            except Exception:
+                try:
+                    group_ip = ipnetwork.IPv6Network(group).ip
+                    self.logger.warning("%s: vxlan-svcnodeip6 %s: netmask ignored" % (ifname, group))
+                    group = group_ip
+                except:
+                    raise Exception("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
+
+            if group.is_multicast:
+                self.logger.warning("%s: vxlan-svcnodeip6 %s: invalid group address, "
+                                    "for multicast IP please use attribute \"vxlan-mcastgrp6\"" % (ifname, group))
+                # if svcnodeip is used instead of mcastgrp we warn the user
+                # if mcast_grp is not provided by the user we can instead
+                # use the svcnodeip value
+                if not physdev:
+                    self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp6) requires 'vxlan-physdev' to be specified" % (ifname))
+
+        elif mcast_grp:
+            try:
+                mcast_grp = ipnetwork.IPv6Address(mcast_grp)
+            except Exception:
+                try:
+                    group_ip = ipnetwork.IPv6Network(mcast_grp).ip
+                    self.logger.warning("%s: vxlan-mcastgrp6 %s: netmask ignored" % (ifname, mcast_grp))
+                    mcast_grp = group_ip
+                except:
+                    raise Exception("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
+
+            if not mcast_grp.is_multicast:
+                self.logger.warning("%s: vxlan-mcastgrp6 %s: invalid group address, "
+                                    "for non-multicast IP please use attribute \"vxlan-svcnodeip6\""
+                                    % (ifname, mcast_grp))
+                # if mcastgrp is specified with a non-multicast address
+                # we warn the user. If the svcnodeip wasn't specified by
+                # the user we can use the mcastgrp value as svcnodeip
+                if not group:
+                    group = mcast_grp
+                    mcast_grp = None
+            else:
+                attribute_name = "vxlan-mcastgrp6"
+
+            if mcast_grp:
+                group = mcast_grp
+
+                if not physdev:
+                    self.log_error("%s: vxlan: 'group' (vxlan-mcastgrp6) requires 'vxlan-physdev' to be specified" % (ifname))
+
+        cached_ifla_vxlan_group = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_GROUP6)
+
+        if group != cached_ifla_vxlan_group:
+
+            if not group:
+                group = ipnetwork.IPNetwork("::0", family=6)
+                attribute_name = "vxlan-svcnodeip6/vxlan-mcastgrp6"
+
+            self.logger.info("%s: set %s %s" % (ifname, attribute_name, group))
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP6] = group
+
+            # if the mcastgrp address is changed we need to signal this to the upper function
+            # in this case vxlan needs to be down before applying changes then up'd
+            multicast_group_change = True
+
+            if link_exists:
+                if cached_ifla_vxlan_group:
+                    self.logger.info(
+                        "%s: vxlan-mcastgrp6 configuration changed (cache %s): flapping vxlan device required"
+                        % (ifname, cached_ifla_vxlan_group)
+                    )
+                else:
+                    self.logger.info(
+                        "%s: vxlan-mcastgrp6 configuration changed: flapping vxlan device required" % ifname
                     )
 
         return group, multicast_group_change
@@ -651,8 +741,12 @@ class vxlan(Addon, moduleBase):
         self.__config_vxlan_ttl(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
 
-        vxlan_mcast_grp = self.__get_vxlan_mcast_grp(ifaceobj)
-        vxlan_svcnodeip = self.__get_vxlan_svcnodeip(ifaceobj)
+        vxlan_mcast_grp = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp")
+        vxlan_svcnodeip = self.__get_vxlan_attribute(ifaceobj, "vxlan-svcnodeip")
+
+        vxlan_mcast_grp6 = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp6")
+        vxlan_svcnodeip6 = self.__get_vxlan_attribute(ifaceobj, "vxlan-svcnodeip6")
+
         vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp)
 
         vxlan_physdev_changed = self.__config_vxlan_physdev(
@@ -674,7 +768,18 @@ class vxlan(Addon, moduleBase):
             cached_vxlan_ifla_info_data
         )
 
-        flap_vxlan_device = link_exists and (multicast_group_changed or vxlan_physdev_changed)
+        group6, multicast_group_changed6 = self.__config_vxlan_group6(
+            ifname,
+            ifaceobj,
+            link_exists,
+            vxlan_mcast_grp6,
+            vxlan_svcnodeip6,
+            vxlan_physdev,
+            user_request_vxlan_info_data,
+            cached_vxlan_ifla_info_data
+        )
+
+        flap_vxlan_device = link_exists and (multicast_group_changed or multicast_group_changed6 or vxlan_physdev_changed)
 
         if user_request_vxlan_info_data:
 
@@ -804,7 +909,9 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-port', Link.IFLA_VXLAN_PORT, int),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, int),
                 ('vxlan-mcastgrp', Link.IFLA_VXLAN_GROUP, ipnetwork.IPv4Address),
+                ('vxlan-mcastgrp6', Link.IFLA_VXLAN_GROUP6, ipnetwork.IPv6Address),
                 ('vxlan-svcnodeip', Link.IFLA_VXLAN_GROUP, ipnetwork.IPv4Address),
+                ('vxlan-svcnodeip6', Link.IFLA_VXLAN_GROUP6, ipnetwork.IPv6Address),
                 ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: self.cache.get_ifindex(x)),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
         ):

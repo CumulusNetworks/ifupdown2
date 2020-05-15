@@ -10,6 +10,7 @@ ifupdown2 (3.0.0-1) unstable; urgency=medium
    * New: support for marking interfaces as mgmt interfaces
    * New: bridge-vlan-vni-map attribute (single vxlan device)
    * New: vrf-slave: keep vlan down if lower device has "link-down yes"
+   * New: vxlan: support for vxlan-svcnodeip6 and vxlan-mcastgrp6 (fixes #43)
    * Fix: dry-run exceptions
    * Fix: bond enslavement ordering
    * Fix: process MTU before addrgen
