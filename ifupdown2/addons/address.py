@@ -4,6 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import traceback
 import socket
 
 try:
@@ -461,8 +462,8 @@ class address(Addon, moduleBase):
         return True, user_config_ip_addrs_list
 
     def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs):
-        try:
-            for ip, attributes in user_config_ip_addrs:
+        for ip, attributes in user_config_ip_addrs:
+            try:
                 if attributes:
                     self.netlink.addr_add(
                         ifname, ip,
@@ -473,8 +474,9 @@ class address(Addon, moduleBase):
                     )
                 else:
                     self.netlink.addr_add(ifname, ip)
-        except Exception as e:
-            self.log_error(str(e), ifaceobj)
+            except Exception:
+                self.logger.debug("{}: failed to add address".format(ifname, ip))
+                traceback.print_exc()
 
     @staticmethod
     def __add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobjlist):
