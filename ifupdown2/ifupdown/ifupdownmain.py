@@ -750,7 +750,7 @@ class ifupdownMain:
             difaceobj = self.get_ifaceobj_first(diface)
             # If the dependent iface isn't a veth link - which shouldn't
             # happen - ignore it to be save.
-            if difaceobj and difaceobj.get_attr_value_first('link-type') != "veth":
+            if not difaceobj or (difaceobj and difaceobj.get_attr_value_first('link-type') != "veth"):
                 continue
 
             # If the peer has a desired peer name set and this is us,
