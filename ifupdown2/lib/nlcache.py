@@ -1592,8 +1592,13 @@ class _NetlinkCache:
         :return:
         """
         ip_with_prefix = new_addr.get_attribute_value(Address.IFA_ADDRESS)
+        iplocal_with_prefix = new_addr.get_attribute_value(Address.IFA_LOCAL)
 
         for index, addr in enumerate(address_list):
+            if addr.get_attribute_value(Address.IFA_LOCAL) == iplocal_with_prefix:
+                address_list[index] = new_addr
+                return True
+
             if addr.get_attribute_value(Address.IFA_ADDRESS) == ip_with_prefix:
                 address_list[index] = new_addr
                 return True
@@ -1658,15 +1663,14 @@ class _NetlinkCache:
                 obj_to_remove = None
 
                 for cache_addr in self._addr_cache[ifname][addr.version]:
-                    try:
+                    if cache_addr.attributes[Address.IFA_LOCAL].value is not None:
+                        if cache_addr.attributes[Address.IFA_LOCAL].value == addr:
+                            obj_to_remove = cache_addr
+                    elif cache_addr.attributes[Address.IFA_ADDRESS].value is not None:
                         if cache_addr.attributes[Address.IFA_ADDRESS].value == addr:
                             obj_to_remove = cache_addr
-                    except:
-                        try:
-                            if cache_addr.attributes[Address.IFA_LOCAL].value == addr:
-                                obj_to_remove = cache_addr
-                        except:
-                            return
+                    else:
+                        return
                 if obj_to_remove:
                     self._addr_cache[ifname][addr.version].remove(obj_to_remove)
         except:
@@ -1674,15 +1678,14 @@ class _NetlinkCache:
 
     def remove_address(self, addr_to_remove):
         ifname, _ = self._address_get_ifname_and_ifindex(addr_to_remove)
-
         with self._cache_lock:
             # iterate through the interface addresses
             # to find which one to remove from the cache
             try:
-                ip_version = addr_to_remove.get_attribute_value(Address.IFA_ADDRESS).version
+                ip_version = addr_to_remove.get_attribute_value(Address.IFA_LOCAL).version
             except:
                 try:
-                    ip_version = addr_to_remove.get_attribute_value(Address.IFA_LOCAL).version
+                    ip_version = addr_to_remove.get_attribute_value(Address.IFA_ADDRESS).version
                 except:
                     # print debug error
                     return
@@ -1721,10 +1724,16 @@ class _NetlinkCache:
                 intf_addresses = self._addr_cache[ifname]
 
                 for addr in intf_addresses.get(4, []):
-                    addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
+                    if addr.attributes[Address.IFA_LOCAL].value is not None:
+                        addresses.append(addr.attributes[Address.IFA_LOCAL].value)
+                    elif addr.attributes[Address.IFA_ADDRESS].value is not None: 
+                        addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
 
                 for addr in intf_addresses.get(6, []):
-                    addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
+                    if addr.attributes[Address.IFA_LOCAL].value is not None:
+                        addresses.append(addr.attributes[Address.IFA_LOCAL].value)
+                    elif addr.attributes[Address.IFA_ADDRESS].value is not None: 
+                        addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
 
                 return addresses
         except (KeyError, AttributeError):
@@ -1899,15 +1908,14 @@ class _NetlinkCache:
             with self._cache_lock:
                 for cache_addr in self._addr_cache[ifname][addr.version]:
                     try:
+                        ifa_local = cache_addr.attributes[Address.IFA_LOCAL].value
+                        if ifa_local is not None and ifa_local.ip == addr.ip and ifa_local.prefixlen == addr.prefixlen:
+                            return True
                         ifa_address = cache_addr.attributes[Address.IFA_ADDRESS].value
-                        if ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
+                        if ifa_address is not None and ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
                             return True
                     except:
-                        try:
-                            ifa_local = cache_addr.attributes[Address.IFA_LOCAL].value
-                            return ifa_local.ip == addr.ip and ifa_local.prefixlen == addr.prefixlen
-                        except:
-                            pass
+                        pass
         except (KeyError, AttributeError):
             pass
         return False
@@ -3088,7 +3096,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             packet.flags = NLM_F_CREATE | NLM_F_REQUEST | NLM_F_ACK
             packet.family = self.IPNetwork_version_to_family.get(addr.version)
 
-            packet.add_attribute(Address.IFA_ADDRESS, addr)
             packet.add_attribute(Address.IFA_LOCAL, addr)
 
             if broadcast:
@@ -3118,6 +3125,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 packet.add_attribute(Address.IFA_ADDRESS, peer)
                 packet_prefixlen = peer.prefixlen
             else:
+                packet.add_attribute(Address.IFA_ADDRESS, addr)
                 packet_prefixlen = addr.prefixlen
 
             self.logger.info(" ".join(log_msg))
