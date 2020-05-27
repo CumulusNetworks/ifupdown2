@@ -121,6 +121,7 @@ Contributors
 * Maximilian Wilhelm <max@sdn.clinic>
 * Sven Auhagen <sven.auhagen@voleatech.de>
 * skorpy <magnus@skorpy.space>
+* Alexandre Derumier <aderumier@odiso.com>
 * Sam Tannous <stannous@cumulusnetworks.com>
 * Wilson Kok <wkok@cumulusnetworks.com>
 * John Berezovik <berezovik@gmail.com>
