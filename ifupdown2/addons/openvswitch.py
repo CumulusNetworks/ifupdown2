@@ -37,6 +37,12 @@ class openvswitch(Addon, moduleBase):
                 'help': 'Interfaces to be part of this ovs bridge.',
                 'validvals': ['<interface-list>'],
                 'required': False,
+                "multivalue": True,
+                "example": [
+                    "ovs-ports swp1.100 swp2.100 swp3.100",
+                    "ovs-ports glob swp1-3.100",
+                    "ovs-ports regex (swp[1|2|3].100)"
+                ]
             },
             'ovs-type': {
                 'help': 'ovs interface type',
@@ -87,10 +93,15 @@ class openvswitch(Addon, moduleBase):
         return False
 
     def _get_ovs_ports (self, ifaceobj):
-        ovs_ports = ifaceobj.get_attr_value_first('ovs-ports')
+        ovs_ports = []
+
+        for port in ifaceobj.get_attr_value('ovs-ports') or []:
+            ovs_ports.extend(port.split())
+
         if ovs_ports:
-            return sorted (ovs_ports.split ())
-        return None
+            return self.parse_port_list(ifaceobj.name, ' '.join(ovs_ports))
+        else:
+            return None
 
     def _get_running_ovs_ports (self, iface):
         output = utils.exec_command("/usr/bin/ovs-vsctl list-ports %s" %iface)
@@ -152,6 +163,7 @@ class openvswitch(Addon, moduleBase):
             ovs_ports = self._get_ovs_ports(ifaceobj)
             running_ovs_ports = self._get_running_ovs_ports(iface)
 
+            missingports = []
             if running_ovs_ports is not None and ovs_ports is not None:
                 missingports = list(set(running_ovs_ports) - set(ovs_ports))
 
