@@ -505,10 +505,19 @@ class IPRoute2(Cache, Requirements):
             if self.__compare_user_config_vs_running_state(running_address_list, address_list):
                 return
 
-            try:
-                self.__execute_or_batch(utils.ip_cmd, "addr flush dev %s" % ifname)
-            except Exception as e:
-                self.logger.warning("%s: flushing all ip address failed: %s" % (ifname, str(e)))
+            # if primary address is not same, there is no need to keep any - reset all addresses
+            if running_address_list and address_list and address_list[0] != running_address_list[0]:
+                skip = []
+            else:
+                skip = address_list
+
+            for addr in running_address_list or []:
+                try:
+                    if addr in skip:
+                        continue
+                    self.__execute_or_batch(utils.ip_cmd, "addr del %s dev %s" % (addr, ifname))
+                except Exception as e:
+                    self.logger.warning("%s: removing ip address failed: %s" % (ifname, str(e)))
         for addr in address_list:
             try:
                 if metric:
