@@ -16,6 +16,7 @@ import configparser
 
 try:
     from ifupdown2.ifupdown.argv import Parse
+    from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
 
@@ -23,6 +24,7 @@ try:
 
 except (ImportError, ModuleNotFoundError):
     from ifupdown.argv import Parse
+    from ifupdown.utils import utils
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
 
@@ -31,6 +33,7 @@ except (ImportError, ModuleNotFoundError):
 
 log = logging.getLogger()
 configmap_g = None
+lockfile = "/run/network/.lock"
 
 
 class Ifupdown2:
@@ -64,6 +67,10 @@ class Ifupdown2:
         try:
             self.read_config()
             self.init(stdin_buffer)
+
+            if self.op != 'query' and not utils.lockFile(lockfile):
+                raise Exception("Another instance of this program is already running.")
+
             self.handlers.get(self.op)(self.args)
         except Exception as e:
             if not str(e):
