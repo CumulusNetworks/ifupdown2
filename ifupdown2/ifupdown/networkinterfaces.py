@@ -461,6 +461,11 @@ class networkInterfaces():
                                   % str(e))
                 rendered_filedata = None
             if rendered_filedata:
+
+                if isinstance(rendered_filedata, bytes):
+                    # some template engine might return bytes but we want str
+                    rendered_filedata = rendered_filedata.decode()
+
                 self.process_interfaces(rendered_filedata)
                 return
         self.process_interfaces(filedata)
