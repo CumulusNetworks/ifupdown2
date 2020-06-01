@@ -1424,7 +1424,7 @@ class _NetlinkCache:
                 # structure as well.
                 old_master = self._slaves_master.get(slave)
 
-                if old_master:
+                if old_master and old_master != master:
                     try:
                         self._masters_and_slaves.get(old_master, []).remove(slave)
                     except:
