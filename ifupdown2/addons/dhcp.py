@@ -324,17 +324,36 @@ class dhcp(Addon, moduleBase):
         if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
 
-        disable_syslog_on_exit = False
+        log_manager = LogManager.get_instance()
+
+        syslog_log_level = logging.INFO
+        disable_syslog_on_exit = True
         try:
-            if not ifupdownflags.flags.PERFMODE:
-                disable_syslog_on_exit = not LogManager.get_instance().is_syslog_enabled_syslog()
-                LogManager.get_instance().enable_syslog()
-                self.logger.info("%s: enabling syslog for dhcp configuration" % ifaceobj.name)
+            # if syslog is already enabled we shouldn't disable it
+            if log_manager.is_syslog_enabled():
+                # save current syslog level
+                syslog_log_level = log_manager.get_syslog_log_level()
+                # prevent syslog from being disabled on exit
+                disable_syslog_on_exit = False
+            else:
+                # enabling syslog
+                log_manager.enable_syslog()
+                # syslog will be disabled once we are done
+                disable_syslog_on_exit = True
+
+            # update the current syslog handler log level if higher than INFO
+            if syslog_log_level >= logging.INFO:
+                log_manager.set_level_syslog(logging.INFO)
+
+            self.logger.info("%s: enabling syslog for dhcp configuration" % ifaceobj.name)
 
             if operation == 'query-checkcurr':
                 op_handler(self, ifaceobj, query_ifaceobj)
             else:
                 op_handler(self, ifaceobj)
         finally:
+            # disable syslog handler or re-set the proper log-level
             if disable_syslog_on_exit:
-                LogManager.get_instance().disable_syslog()
+                log_manager.get_instance().disable_syslog()
+            else:
+                log_manager.set_level_syslog(syslog_log_level)
