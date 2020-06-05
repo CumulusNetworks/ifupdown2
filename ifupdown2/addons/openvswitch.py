@@ -201,6 +201,9 @@ class openvswitch(Addon, moduleBase):
         self._ovs_vsctl(ifaceobj, [cmd])
 
     def get_dependent_ifacenames (self, ifaceobj, ifaceobjs_all=None):
+        if not self._is_ovs_bridge(ifaceobj):
+            return None
+        ifaceobj.link_privflags |= ifaceLinkPrivFlags.OPENVSWITCH
         return None
 
     def _up (self, ifaceobj):
