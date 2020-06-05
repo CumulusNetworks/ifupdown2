@@ -880,6 +880,10 @@ class address(Addon, moduleBase):
                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
+
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.OPENVSWITCH:
+            return
+
         mtu_str = ifaceobj.get_attr_value_first('mtu')
         mtu_from_policy = False
 

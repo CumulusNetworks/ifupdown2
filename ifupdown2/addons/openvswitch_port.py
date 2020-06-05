@@ -217,6 +217,8 @@ class openvswitch_port(Addon, moduleBase):
         if not self._is_ovs_port (ifaceobj):
             return None
 
+        ifaceobj.link_privflags |= ifaceLinkPrivFlags.OPENVSWITCH
+
         ovsbridge = ifaceobj.get_attr_value_first ('ovs-bridge')
         return [ovsbridge]
 
