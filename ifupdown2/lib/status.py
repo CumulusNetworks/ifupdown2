@@ -39,6 +39,7 @@ class Status(object):
         STATUS_EXCEPTION_MAIN = 99
 
         STATUS_ARGV_ERROR = 90
+        STATUS_ALREADY_RUNNING = 89
 
     class Daemon(object):
         STATUS_SUCCESS = 0

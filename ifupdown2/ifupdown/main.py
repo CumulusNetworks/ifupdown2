@@ -21,12 +21,14 @@ try:
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
 
     from ifupdown2.lib.dry_run import DryRunManager
+    from ifupdown2.lib.status import Status
 
 except (ImportError, ModuleNotFoundError):
     from ifupdown.argv import Parse
     from ifupdown.utils import utils
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
+    from lib.status import Status
 
     from lib.dry_run import DryRunManager
 
@@ -69,7 +71,8 @@ class Ifupdown2:
             self.init(stdin_buffer)
 
             if self.op != 'query' and not utils.lockFile(lockfile):
-                raise Exception("Another instance of this program is already running.")
+                log.error("Another instance of this program is already running.")
+                return Status.Client.STATUS_ALREADY_RUNNING
 
             self.handlers.get(self.op)(self.args)
         except Exception as e:
