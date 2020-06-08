@@ -103,7 +103,8 @@ def stand_alone():
         status = ifupdown2.main()
     finally:
         try:
-            NetlinkListenerWithCache.get_instance().cleanup()
+            if NetlinkListenerWithCache.is_init():
+                NetlinkListenerWithCache.get_instance().cleanup()
         except NetlinkListenerWithCacheErrorNotInitialized:
             status = Status.Client.STATUS_NLERROR
     LogManager.get_instance().write("exit status %s" % status)

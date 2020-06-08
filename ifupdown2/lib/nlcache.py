@@ -1974,6 +1974,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             raise NetlinkListenerWithCacheErrorNotInitialized("NetlinkListenerWithCache not initialized")
         return NetlinkListenerWithCache.__instance
 
+    @staticmethod
+    def is_init():
+        return bool(NetlinkListenerWithCache.__instance)
+
     def __init__(self, log_level):
         """
 
