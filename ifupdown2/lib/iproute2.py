@@ -635,6 +635,13 @@ class IPRoute2(Cache, Requirements):
                 if "exists" not in str(e).lower():
                     self.logger.error(e)
 
+    @staticmethod
+    def bridge_vlan_add_vid_list(ifname, vids):
+        for v in vids:
+            utils.exec_command(
+                "%s vlan add vid %s dev %s" % (utils.bridge_cmd, v, ifname)
+            )
+
     def bridge_vlan_add_vid_list_self(self, ifname, vids, is_bridge=True):
         target = "self" if is_bridge else ""
         for v in vids:
