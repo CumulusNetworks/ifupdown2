@@ -327,8 +327,9 @@ class dhcp(Addon, moduleBase):
         log_manager = LogManager.get_instance()
 
         syslog_log_level = logging.INFO
-        disable_syslog_on_exit = True
-        try:
+        disable_syslog_on_exit = None
+
+        if operation in ["up", "down"]:
             # if syslog is already enabled we shouldn't disable it
             if log_manager.is_syslog_enabled():
                 # save current syslog level
@@ -347,13 +348,14 @@ class dhcp(Addon, moduleBase):
 
             self.logger.info("%s: enabling syslog for dhcp configuration" % ifaceobj.name)
 
+        try:
             if operation == 'query-checkcurr':
                 op_handler(self, ifaceobj, query_ifaceobj)
             else:
                 op_handler(self, ifaceobj)
         finally:
             # disable syslog handler or re-set the proper log-level
-            if disable_syslog_on_exit:
+            if disable_syslog_on_exit is True:
                 log_manager.get_instance().disable_syslog()
-            else:
+            elif disable_syslog_on_exit is False:
                 log_manager.set_level_syslog(syslog_log_level)
