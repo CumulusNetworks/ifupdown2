@@ -113,7 +113,7 @@ class NetlinkListener(Thread):
                 self.rx_socket.bind((pid | (pid_offset << 22), self.groups))
                 self.pid_offset = pid_offset
                 return
-            except:
+            except Exception:
                 pass
         # if we reach this line it means we've reach NLMANAGER_BIND_RETRY limit
         # and couldn't successfully bind the rx_socket... We will try one more

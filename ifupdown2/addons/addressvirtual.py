@@ -434,7 +434,7 @@ class addressvirtual(Addon, moduleBase):
                 # so for now we should only use the iproute2 API.
                 # try:
                 #    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
-                # except:
+                # except Exception:
                 self.iproute2.link_add_macvlan(ifname, macvlan_ifname, macvlan_mode)
                 link_created = True
 
@@ -708,7 +708,7 @@ class addressvirtual(Addon, moduleBase):
                     for vrr_config in old_ifaceobj.get_attr_value("vrrp") or []:
                         try:
                             old_vrr_ids.add(vrr_config.split()[0])
-                        except:
+                        except Exception:
                             continue
 
                 if old_vrr_ids:

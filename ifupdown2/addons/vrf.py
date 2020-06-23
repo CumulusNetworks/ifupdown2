@@ -465,7 +465,7 @@ class vrf(Addon, moduleBase):
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix,
                                                 vrfname)
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
-        except:
+        except Exception:
             # ignore any dhclient release errors
             pass
 

@@ -54,7 +54,7 @@ class graph():
             for y in dlist:
                 try:
                     indegrees[y] = indegrees.get(y) - 1
-                except:
+                except Exception:
                     cls.logger.debug('topological_sort_graphs_all: did not find %s' %y)
                     indegrees[y] = 0
                     pass

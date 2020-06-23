@@ -112,7 +112,7 @@ class Parse:
                 if self.executable_name.endswith(key):
                     return value
             raise ArgvParseError("Unexpected executable. Should be '%s'" % "' or '".join(list(self.valid_ops.keys())))
-        except:
+        except Exception:
             raise ArgvParseError("Unexpected executable. Should be '%s'" % "' or '".join(list(self.valid_ops.keys())))
 
     def get_args(self):

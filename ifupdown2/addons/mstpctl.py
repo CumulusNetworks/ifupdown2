@@ -424,7 +424,7 @@ class mstpctl(Addon, moduleBase):
                 try:
                     running_val = self.mstpctlcmd.get_bridge_attr(
                                     ifaceobj.name, jsonAttr)
-                except:
+                except Exception:
                     self.logger.info('%s: could not get running %s value'
                                      %(ifaceobj.name, attrname))
                     running_val = None
@@ -612,7 +612,7 @@ class mstpctl(Addon, moduleBase):
             try:
                 running_val = self.mstpctlcmd.get_bridge_port_attr(bridgename,
                                                        ifaceobj.name, jsonAttr)
-            except:
+            except Exception:
                 self.logger.info('%s %s: could not get running %s value'
                                  %(bridgename, ifaceobj.name, attrname))
                 running_val = None
@@ -892,7 +892,7 @@ class mstpctl(Addon, moduleBase):
                         jsonAttr =  self.get_mod_subattr(k, 'jsonAttr')
                         try:
                             running_val = self.mstpctlcmd.get_bridge_port_attr(ifaceobj.name, bport, jsonAttr)
-                        except:
+                        except Exception:
                             self.logger.info('%s %s: could not get running %s value'
                                     %(ifaceobj.name, bport, attr))
                             running_val = None
@@ -1015,7 +1015,7 @@ class mstpctl(Addon, moduleBase):
                             try:
                                 running_val = self.mstpctlcmd.get_bridge_port_attr(bifaceobj.name,
                                                     ifaceobj.name, jsonAttr)
-                            except:
+                            except Exception:
                                 self.logger.info('%s %s: could not get running %s value'
                                         %(bifaceobj.name, ifaceobj.name, attr))
                                 running_val = None

@@ -42,9 +42,9 @@ def get_pci_interfaces():
             try:
                 subprocess.check_call(cmd, shell=True, stdout=FNULL)
                 ports.append(interface)
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
     finally:
         FNULL.close()
@@ -63,7 +63,7 @@ def get_swp_interfaces():
                     ports.append(line.split()[0])
                 except ValueError:
                     continue
-    except:
+    except Exception:
         try:
             ports = get_pci_interfaces()
         except Exception as e:

@@ -29,9 +29,9 @@ class dhclient(utilsBase):
                 try:
                     if e.errno == errno.EACCES:
                         return os.path.exists("/proc/%s" % self.read_file_oneline(pidfilename))
-                except:
+                except Exception:
                     return False
-            except:
+            except Exception:
                 return False
         return False
 

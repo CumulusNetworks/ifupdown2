@@ -205,7 +205,7 @@ class tunnel(Addon, moduleBase):
         """
         try:
             user_config[attr_name] = ipnetwork.IPNetwork(user_config[attr_name])
-        except:
+        except Exception:
             pass
 
     def _query_check(self, ifaceobj, ifaceobjcurr):

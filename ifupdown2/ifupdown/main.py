@@ -196,7 +196,7 @@ class Ifupdown2:
                                    printdependency=args.printdependency,
                                    syntaxcheck=args.syntaxcheck, type=args.type,
                                    skipupperifaces=args.skipupperifaces)
-        except:
+        except Exception:
             raise
 
     def run_down(self, args):
@@ -222,7 +222,7 @@ class Ifupdown2:
                                  printdependency=args.printdependency,
                                  usecurrentconfig=args.usecurrentconfig,
                                  type=args.type)
-        except:
+        except Exception:
             raise
 
     def run_query(self, args):
@@ -267,7 +267,7 @@ class Ifupdown2:
                                   excludepats=args.excludepats,
                                   printdependency=args.printdependency,
                                   format=args.format, type=args.type)
-        except:
+        except Exception:
             raise
 
     def run_reload(self, args):
@@ -288,5 +288,5 @@ class Ifupdown2:
                                    usecurrentconfig=args.usecurrentconfig,
                                    syntaxcheck=args.syntaxcheck,
                                    currentlyup=args.currentlyup)
-        except:
+        except Exception:
             raise

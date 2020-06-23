@@ -542,7 +542,7 @@ class iface():
         if attr_value_list:
             try:
                 return attr_value_list[attr_index]
-            except:
+            except Exception:
                 return None
         return None
 
@@ -576,7 +576,7 @@ class iface():
         """ add attribute name and value to the interface config """
         try:
             del self.config[attr_name]
-        except:
+        except Exception:
             pass
 
     def update_config_dict(self, attrdict):

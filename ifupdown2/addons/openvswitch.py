@@ -13,7 +13,7 @@ try:
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-except:
+except Exception:
     from lib.addon import Addon
 
     from ifupdown.iface import *

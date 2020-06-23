@@ -82,7 +82,7 @@ class networkInterfaces():
     def _currentfile(self):
         try:
             return self._filestack[-1]
-        except:
+        except Exception:
             return self.interfacesfile
 
     def _parse_error(self, filename, lineno, msg):
@@ -209,7 +209,7 @@ class networkInterfaces():
                         'iface %s: unsupported keyword (%s)'
                         %(ifacename, attrname))
                 return
-        except:
+        except Exception:
             pass
         attrvallist = iface_config.get(newattrname, [])
         if newattrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime']:

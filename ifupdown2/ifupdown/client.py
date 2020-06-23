@@ -180,12 +180,12 @@ class Client(SocketIO):
         try:
             self.uds.close()
             self.uds = None
-        except:
+        except Exception:
             pass
         try:
             self.socket_receiver.server_close()
             self.socket_receiver = None
-        except:
+        except Exception:
             pass
 
     def __signal_handler(self, sig, frame):

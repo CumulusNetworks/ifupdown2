@@ -283,7 +283,7 @@ class _NetlinkCache:
         """
         try:
             del self._link_cache[slave].attributes[Link.IFLA_MASTER]
-        except:
+        except Exception:
             pass
 
         try:
@@ -389,7 +389,7 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 self._link_cache[ifname].flags = flags
-        except:
+        except Exception:
             pass
 
     def override_link_mtu(self, ifname, mtu):
@@ -402,7 +402,7 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 self._link_cache[ifname].attributes[Link.IFLA_MTU].value = mtu
-        except:
+        except Exception:
             pass
 
     def override_cache_unslave_link(self, slave, master):
@@ -456,7 +456,7 @@ class _NetlinkCache:
                 #        log.error('-----------')
                 #        log.error('-----------')
                 #        log.error('-----------')
-        except:
+        except Exception:
             traceback.print_exc()
         # TODO: save log_level at entry and re-apply it after the dump
         nllistener.log.setLevel(WARNING)
@@ -485,7 +485,7 @@ class _NetlinkCache:
             msg.debug = True
             msg.dump()
             msg.debug = save_debug
-        except:
+        except Exception:
             traceback.print_exc()
         # TODO: save log_level at entry and re-apply it after the dump
         nllistener.log.setLevel(WARNING)
@@ -1081,7 +1081,7 @@ class _NetlinkCache:
 
                         else:
                             vlans.append(vlan_id)
-        except:
+        except Exception:
             log.exception("get_bridge_vids")
         return pvid, vlans
 
@@ -1103,7 +1103,7 @@ class _NetlinkCache:
 
                         if vlan_flag & Link.BRIDGE_VLAN_INFO_PVID:
                             return vlan_id
-        except:
+        except Exception:
             log.exception("get_pvid")
         return pvid
 
@@ -1209,7 +1209,7 @@ class _NetlinkCache:
             if ifname in self._rtm_newlink_nomasterq:
                 try:
                     del link.attributes[Link.IFLA_MASTER]
-                except:
+                except Exception:
                     self._rtm_newlink_nomasterq.remove(ifname)
 
         # we need to check if the device was previously enslaved
@@ -1347,7 +1347,7 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 self._link_cache[ifname].attributes[Link.IFLA_LINKINFO].value[Link.IFLA_INFO_DATA].update(ifla_info_data)
-        except:
+        except Exception:
             pass
 
     def add_bridge_vlan(self, msg):
@@ -1378,7 +1378,7 @@ class _NetlinkCache:
 
                 if not ifla_master or not ifla_master in self._ifname_by_ifindex:
                     return
-            except:
+            except Exception:
                 pass
 
             # Example IFLA_AF_SPEC
@@ -1427,11 +1427,11 @@ class _NetlinkCache:
                 if old_master and old_master != master:
                     try:
                         self._masters_and_slaves.get(old_master, []).remove(slave)
-                    except:
+                    except Exception:
                         pass
 
                 self._slaves_master[slave] = master
-        except:
+        except Exception:
             # since this is an optimization function we can ignore all error
             pass
 
@@ -1455,7 +1455,7 @@ class _NetlinkCache:
 
                 for slave in slave_list:
                     self._slaves_master[slave] = master
-        except:
+        except Exception:
             # since this is an optimization function we can ignore all error
             pass
 
@@ -1522,17 +1522,17 @@ class _NetlinkCache:
                 # have their bridge-vlans and _slaves_master entries cleared.
                 for slave in list(self._masters_and_slaves[ifname]):
                     self.__unslave_nolock(slave, master=ifname)
-            except:
+            except Exception:
                 pass
 
             try:
                 del self._bridge_vlan_cache[ifname]
-            except:
+            except Exception:
                 pass
 
             try:
                 del self._bridge_vlan_vni_cache[ifname]
-            except:
+            except Exception:
                 pass
 
             try:
@@ -1628,7 +1628,7 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 self._addr_cache[ifname][family] = []
-        except:
+        except Exception:
             pass
 
     def address_flush_link(self, ifname):
@@ -1640,7 +1640,7 @@ class _NetlinkCache:
         try:
             with self._cache_lock:
                 self._addr_cache[ifname] = {4: [], 6: []}
-        except:
+        except Exception:
             pass
 
     def force_remove_addr(self, ifname, addr):
@@ -1661,15 +1661,15 @@ class _NetlinkCache:
                     try:
                         if cache_addr.attributes[Address.IFA_ADDRESS].value == addr:
                             obj_to_remove = cache_addr
-                    except:
+                    except Exception:
                         try:
                             if cache_addr.attributes[Address.IFA_LOCAL].value == addr:
                                 obj_to_remove = cache_addr
-                        except:
+                        except Exception:
                             return
                 if obj_to_remove:
                     self._addr_cache[ifname][addr.version].remove(obj_to_remove)
-        except:
+        except Exception:
             pass
 
     def remove_address(self, addr_to_remove):
@@ -1680,10 +1680,10 @@ class _NetlinkCache:
             # to find which one to remove from the cache
             try:
                 ip_version = addr_to_remove.get_attribute_value(Address.IFA_ADDRESS).version
-            except:
+            except Exception:
                 try:
                     ip_version = addr_to_remove.get_attribute_value(Address.IFA_LOCAL).version
-                except:
+                except Exception:
                     # print debug error
                     return
 
@@ -1735,7 +1735,7 @@ class _NetlinkCache:
             with self._cache_lock:
                 intf_addresses = self._addr_cache[ifname]
                 return bool(intf_addresses.get(4, None) or intf_addresses.get(6, None))
-        except:
+        except Exception:
             return False
 
     ############################################################################
@@ -1755,7 +1755,7 @@ class _NetlinkCache:
         try:
             with self._netconf_cache_lock:
                 self._netconf_cache[msg.family][msg.get_attribute_value(msg.NETCONFA_IFINDEX)] = msg
-        except:
+        except Exception:
             pass
 
     def remove_netconf(self, msg):
@@ -1765,7 +1765,7 @@ class _NetlinkCache:
         try:
             with self._netconf_cache_lock:
                 del self._netconf_cache[msg.family][msg.get_attribute_value(msg.NETCONFA_IFINDEX)]
-        except:
+        except Exception:
             pass
 
     def get_netconf_forwarding(self, family, ifname):
@@ -1775,7 +1775,7 @@ class _NetlinkCache:
         try:
             with self._netconf_cache_lock:
                 return self._netconf_cache[family][self.get_ifindex(ifname)].get_attribute_value(Netconf.NETCONFA_FORWARDING)
-        except:
+        except Exception:
             # if KeyError and family == AF_INET6: ipv6 is probably disabled on this device
             return None
 
@@ -1786,7 +1786,7 @@ class _NetlinkCache:
         try:
             with self._netconf_cache_lock:
                 return self._netconf_cache[AF_MPLS][self.get_ifindex(ifname)].get_attribute_value(Netconf.NETCONFA_INPUT)
-        except:
+        except Exception:
             return None
 
     ############################################################################
@@ -1834,7 +1834,7 @@ class _NetlinkCache:
                                 ip6.append(ip_network_obj)
                             else:
                                 ip4.append(ip_network_obj)
-                        except:
+                        except Exception:
                             continue
 
         # always return ip4 first, followed by ip6
@@ -1902,11 +1902,11 @@ class _NetlinkCache:
                         ifa_address = cache_addr.attributes[Address.IFA_ADDRESS].value
                         if ifa_address.ip == addr.ip and ifa_address.prefixlen == addr.prefixlen:
                             return True
-                    except:
+                    except Exception:
                         try:
                             ifa_local = cache_addr.attributes[Address.IFA_LOCAL].value
                             return ifa_local.ip == addr.ip and ifa_local.prefixlen == addr.prefixlen
-                        except:
+                        except Exception:
                             pass
         except (KeyError, AttributeError):
             pass
@@ -2157,7 +2157,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                         self.logger.error('NetlinkListenerWithCache: WORKQ_SERVICE_ERROR')
                     else:
                         raise Exception("Unsupported workq event %s" % event)
-        except:
+        except Exception:
             raise
         finally:
             # il faut surement mettre un try/except autour de la boucle au dessus
@@ -2283,7 +2283,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             # i.e.: packet.flags shouldn't contain NLM_F_* values but IFF_* (in case of Link object)
             # otherwise call to cache.link_is_up() will probably return True
             packet.decode_service_header()
-        except:
+        except Exception:
             # we can ignore all errors
             pass
 
@@ -2306,7 +2306,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
         try:
             result = self.tx_nlpacket_get_response_with_error(nl_packet)
-        except:
+        except Exception:
             # an error was caught, we need to unregister the event and raise again
             self.cache.unregister_wait_event()
             raise
@@ -2575,7 +2575,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 # any stale value in our cache
                 self.cache.force_remove_link(ifname)
                 return result
-            except:
+            except Exception:
                 # Something went wrong while sending the RTM_DELLINK request
                 # we need to clear ifname from the ignore_rtm_newlinkq list
                 self.cache.remove_from_ignore_rtm_newlinkq(ifname)
@@ -3182,7 +3182,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         for addr in self.cache.get_ip_addresses(ifname):
             try:
                 self.addr_del(ifname, addr)
-            except:
+            except Exception:
                 pass
 
     ########################

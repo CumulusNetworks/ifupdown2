@@ -54,7 +54,7 @@ import socket                                                                  #
                                                                                #
 try:                                                                           #
     import ifupdown2.nlmanager.nlpacket as nlpacket                            #
-except:                                                                        #
+except Exception:                                                                        #
     import nlmanager.nlpacket as nlpacket                                      #
 ################################################################################
 
@@ -119,7 +119,7 @@ class IPRoute2(Cache, Requirements):
             # i.e.: packet.flags shouldn't contain NLM_F_* values but IFF_* (in case of Link object)
             # otherwise call to cache.link_is_up() will probably return True
             packet.decode_service_header()
-        except:
+        except Exception:
             # we can ignore all errors
             pass
 
@@ -168,7 +168,7 @@ class IPRoute2(Cache, Requirements):
                     "%s -force -batch -" % prefix,
                     stdin="\n".join(commands)
                 )
-        except:
+        except Exception:
             raise
         finally:
             self.__batch_mode = False
@@ -352,7 +352,7 @@ class IPRoute2(Cache, Requirements):
                     m = self.VXLAN_PEER_REGEX_PATTERN.search(l)
                     if m and m.group(1) != svcnodeip:
                         cur_peers.append(m.group(1))
-            except:
+            except Exception:
                 self.logger.warning('error parsing ip link output')
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
@@ -545,7 +545,7 @@ class IPRoute2(Cache, Requirements):
                     try:
                         entries = fdb_entry.split()
                         fdbs.setdefault(entries[2], []).append(entries[0])
-                    except:
+                    except Exception:
                         pass
             return fdbs
         except Exception:
@@ -745,7 +745,7 @@ class IPRoute2(Cache, Requirements):
                     vrf_table = self.cache.get_vrf_table(upper_iface)
                     if vrf_table:
                         break
-            except:
+            except Exception:
                 pass
 
         ip_route_del = []

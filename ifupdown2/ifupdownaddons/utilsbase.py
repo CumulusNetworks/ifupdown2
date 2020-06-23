@@ -56,7 +56,7 @@ class utilsBase(object):
             self.logger.debug('reading \'%s\'' %filename)
             with open(filename, 'r') as f:
                 return f.readlines()
-        except:
+        except Exception:
             return None
         return None
 
@@ -65,7 +65,7 @@ class utilsBase(object):
             self.logger.debug('reading \'%s\'' %filename)
             with open(filename, 'r') as f:
                 return f.readline().strip('\n')
-        except:
+        except Exception:
             return None
         return None
 
