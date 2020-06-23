@@ -3,7 +3,6 @@ Section: admin
 Priority: optional
 Maintainer: Julien Fortin <julien@cumulusnetworks.com>
 Build-Depends: debhelper (>=9),
-               dh-systemd,
                dh-python,
                python3,
                python3-all,
