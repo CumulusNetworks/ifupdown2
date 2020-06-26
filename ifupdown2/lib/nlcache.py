@@ -2553,9 +2553,11 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         :param ifname:
         :return:
         """
-        self.logger.info("%s: netlink: ip link del %s" % (ifname, ifname))
         try:
             ifindex = self.cache.get_ifindex(ifname)
+
+            self.logger.info("%s: netlink: ip link del %s" % (ifname, ifname))
+
             debug = RTM_DELLINK in self.debug
 
             link = Link(RTM_DELLINK, debug, use_color=self.use_color)
