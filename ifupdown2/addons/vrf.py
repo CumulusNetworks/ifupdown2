@@ -1009,12 +1009,6 @@ class vrf(Addon, moduleBase):
         try:
             self._handle_existing_connections(ifaceobj, vrfname)
             self.netlink.link_set_nomaster(ifacename)
-            # Down this slave only if it is a slave ifupdown2 manages.
-            # we dont want to down slaves that maybe up'ed by
-            # somebody else. One such example is a macvlan device
-            # which ifupdown2 addressvirtual addon module auto creates
-            if ifaceobj:
-                self.netlink.link_down(ifacename)
         except Exception as e:
             self.logger.warning('%s: %s' %(ifacename, str(e)))
 
