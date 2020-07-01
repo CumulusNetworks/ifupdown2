@@ -1163,7 +1163,21 @@ class Attribute(object):
 
     @staticmethod
     def encode_ipv6_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
-        raise NotImplementedError("ipv6 tunnel local and remote not supported yet")
+        """
+            def decode_ipv6_address_attribute(data, _=None):
+                (data1, data2) = unpack(">QQ", data[4:20])
+                return IPv6Address(data1 << 64 | data2)
+        """
+        sub_attr_pack_layout.append("HH")
+        sub_attr_payload.append(20)  # length
+        sub_attr_payload.append(info_data_type)
+        sub_attr_pack_layout.append("QQ")
+        if info_data_value:
+            data1, data2 = unpack("<QQ", info_data_value.packed)
+            sub_attr_payload.append(data1)
+            sub_attr_payload.append(data2)
+        else:
+            sub_attr_payload.extend([0, 0])
 
     @staticmethod
     def encode_vlan_protocol_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
@@ -2149,6 +2163,10 @@ class AttributeIFLA_LINKINFO(Attribute):
                 # ipv4 attributes ##############################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_GROUP: Attribute.decode_ipv4_address_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LOCAL: Attribute.decode_ipv4_address_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_GROUP6: Attribute.decode_ipv6_address_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LOCAL6: Attribute.decode_ipv6_address_attribute,
             },
             "vrf": {
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VRF_TABLE: Attribute.decode_four_bytes_attribute
@@ -2481,6 +2499,10 @@ class AttributeIFLA_LINKINFO(Attribute):
                 # ipv4 attributes ##############################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_GROUP: Attribute.encode_ipv4_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LOCAL: Attribute.encode_ipv4_attribute,
+
+                # ipv6 attributes ##############################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_GROUP6: Attribute.encode_ipv6_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_LOCAL6: Attribute.encode_ipv6_attribute,
 
                 # vxlan-port attribute #########################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VXLAN_PORT: Attribute.encode_vxlan_port_attribute,
