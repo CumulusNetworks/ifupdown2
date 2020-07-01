@@ -194,7 +194,6 @@ class bridge(Addon, moduleBase):
             },
             "bridge-mcmi": {
                 "help": "set multicast membership interval (in secs)",
-                "validrange": ["0", "255"],
                 "default": "260",
                 "example": ["bridge-mcmi 260"]
             },
