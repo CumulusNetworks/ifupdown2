@@ -29,7 +29,7 @@ import sys
 try:
     from ifupdown2.lib.log import LogManager, root_logger
     from ifupdown2.lib.status import Status
-except:
+except Exception:
     from lib.log import LogManager, root_logger
     from lib.status import Status
 
@@ -47,7 +47,7 @@ try:
 
     from ifupdown2.ifupdown.client import Client
     from ifupdown2.ifupdown.exceptions import ArgvParseHelp, ArgvParseError
-except:
+except Exception:
     import ifupdown.config as config
 
     config.__version__ = __import__("__init__").__version__
@@ -63,7 +63,7 @@ def daemon_mode():
     try:
         with open(config.IFUPDOWN2_CONF_PATH) as f:
             return "use_daemon=yes" in f.read()
-    except:
+    except Exception:
         return False
 
 
@@ -85,7 +85,7 @@ def stand_alone():
     try:
         from ifupdown2.ifupdown.main import Ifupdown2
         from ifupdown2.lib.nlcache import NetlinkListenerWithCache, NetlinkListenerWithCacheErrorNotInitialized
-    except:
+    except Exception:
         from ifupdown.main import Ifupdown2
         from lib.nlcache import NetlinkListenerWithCache, NetlinkListenerWithCacheErrorNotInitialized
     ifupdown2 = Ifupdown2(daemon=False, uid=os.geteuid())
@@ -103,7 +103,8 @@ def stand_alone():
         status = ifupdown2.main()
     finally:
         try:
-            NetlinkListenerWithCache.get_instance().cleanup()
+            if NetlinkListenerWithCache.is_init():
+                NetlinkListenerWithCache.get_instance().cleanup()
         except NetlinkListenerWithCacheErrorNotInitialized:
             status = Status.Client.STATUS_NLERROR
     LogManager.get_instance().write("exit status %s" % status)

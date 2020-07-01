@@ -56,7 +56,7 @@ class IO(BaseObject):
             self.logger.info("reading '%s'" % path)
             with open(path, "r") as f:
                 return f.readline().strip("\n")
-        except:
+        except Exception:
             return None
 
     def read_file_oneline_dry_run(self, path):
@@ -69,7 +69,7 @@ class IO(BaseObject):
             self.logger.info("reading '%s'" % path)
             with open(path, "r") as f:
                 return f.readlines()
-        except:
+        except Exception:
             return None
 
 

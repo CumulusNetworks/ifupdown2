@@ -72,7 +72,7 @@ class bridgevlan(Addon, moduleBase):
         try:
             (bridgename, vlan) = self._get_bridge_n_vlan(ifaceobj)
             vlanid = int(vlan, 10)
-        except:
+        except Exception:
             self.log_error("%s: bridge vlan interface name does not correspond "
                            "to format (eg. br0.100)" % ifaceobj.name, ifaceobj)
             raise
@@ -105,7 +105,7 @@ class bridgevlan(Addon, moduleBase):
         try:
             (bridgename, vlan) = self._get_bridge_n_vlan(ifaceobj)
             vlanid = int(vlan, 10)
-        except:
+        except Exception:
             self.logger.warning("%s: bridge vlan interface name does not "
                              "correspond to format (eg. br0.100)" % ifaceobj.name)
             raise

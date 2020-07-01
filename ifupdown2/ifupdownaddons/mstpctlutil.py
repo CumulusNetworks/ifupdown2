@@ -96,7 +96,7 @@ class mstpctlutil(utilsBase):
                 "%s batch -" % utils.mstpctl_cmd,
                 stdin="\n".join(self.__batch)
             )
-        except:
+        except Exception:
             raise
         finally:
             self.__batch_mode = False
@@ -114,7 +114,7 @@ class mstpctlutil(utilsBase):
     def is_mstpd_running(self):
         try:
             utils.exec_command('%s mstpd'%utils.pidof_cmd)
-        except:
+        except Exception:
             return False
         else:
             return True
@@ -122,7 +122,7 @@ class mstpctlutil(utilsBase):
     def _extract_bridge_port_prio(self, portid):
         try:
             return str(int(portid[0], 16) * 16)
-        except:
+        except Exception:
             return mstpctlutil._DEFAULT_PORT_PRIO
 
     def _get_bridge_and_port_attrs_from_cache(self, bridgename):
@@ -288,5 +288,5 @@ class mstpctlutil(utilsBase):
             utils.exec_command('%s showbridge %s' %
                                (utils.mstpctl_cmd, bridgename))
             return True
-        except:
+        except Exception:
             return False

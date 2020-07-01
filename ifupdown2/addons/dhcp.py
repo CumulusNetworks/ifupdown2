@@ -61,7 +61,7 @@ class dhcp(Addon, moduleBase):
                     attr="dhclient_retry_on_failure"
                 )
             )
-        except:
+        except Exception:
             self.dhclient_retry_on_failure = self.DHCLIENT_RETRY_ON_FAILURE
 
         if self.dhclient_retry_on_failure < 0:
@@ -93,7 +93,7 @@ class dhcp(Addon, moduleBase):
 
                 if ip:
                     ips.add(ip)
-        except:
+        except Exception:
             pass
         return ips
 
@@ -149,7 +149,7 @@ class dhcp(Addon, moduleBase):
                 ifname=ifaceobj.name, attr='dhcp6-ll-wait')
             try:
                 timeout = int(dhcp6_ll_wait)+1
-            except:
+            except Exception:
                 timeout = 10
                 pass
             dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
@@ -171,7 +171,7 @@ class dhcp(Addon, moduleBase):
                     try:
                         if not ifupdownflags.flags.PERFMODE:
                             self.dhclientcmd.stop(ifaceobj.name)
-                    except:
+                    except Exception:
                         pass
 
                     self.dhclient_start_and_check(
@@ -199,7 +199,7 @@ class dhcp(Addon, moduleBase):
                                 '.autoconf', autoconf)
                         try:
                             self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
-                        except:
+                        except Exception:
                             pass
                     #add delay before starting IPv6 dhclient to
                     #make sure the configured interface/link is up.
@@ -227,7 +227,7 @@ class dhcp(Addon, moduleBase):
             if not family in ifaceobj.addr_family and dhclientX_running:
                 ifaceobj.addr_family = [family]
                 self._dhcp_down(ifaceobj)
-        except:
+        except Exception:
             pass
         finally:
             ifaceobj.addr_family = addr_family
@@ -319,22 +319,43 @@ class dhcp(Addon, moduleBase):
                    (ifaceobj.addr_method != 'dhcp' and
                        ifaceobj.addr_method != 'dhcp6')):
                 return
-        except:
+        except Exception:
             return
         if not self.is_dhcp_allowed_on(ifaceobj, syntax_check=False):
             return
 
-        disable_syslog_on_exit = False
-        try:
-            if not ifupdownflags.flags.PERFMODE:
-                disable_syslog_on_exit = not LogManager.get_instance().is_syslog_enabled_syslog()
-                LogManager.get_instance().enable_syslog()
-                self.logger.info("%s: enabling syslog for dhcp configuration" % ifaceobj.name)
+        log_manager = LogManager.get_instance()
 
+        syslog_log_level = logging.INFO
+        disable_syslog_on_exit = None
+
+        if operation in ["up", "down"]:
+            # if syslog is already enabled we shouldn't disable it
+            if log_manager.is_syslog_enabled():
+                # save current syslog level
+                syslog_log_level = log_manager.get_syslog_log_level()
+                # prevent syslog from being disabled on exit
+                disable_syslog_on_exit = False
+            else:
+                # enabling syslog
+                log_manager.enable_syslog()
+                # syslog will be disabled once we are done
+                disable_syslog_on_exit = True
+
+            # update the current syslog handler log level if higher than INFO
+            if syslog_log_level >= logging.INFO:
+                log_manager.set_level_syslog(logging.INFO)
+
+            self.logger.info("%s: enabling syslog for dhcp configuration" % ifaceobj.name)
+
+        try:
             if operation == 'query-checkcurr':
                 op_handler(self, ifaceobj, query_ifaceobj)
             else:
                 op_handler(self, ifaceobj)
         finally:
-            if disable_syslog_on_exit:
-                LogManager.get_instance().disable_syslog()
+            # disable syslog handler or re-set the proper log-level
+            if disable_syslog_on_exit is True:
+                log_manager.get_instance().disable_syslog()
+            elif disable_syslog_on_exit is False:
+                log_manager.set_level_syslog(syslog_log_level)

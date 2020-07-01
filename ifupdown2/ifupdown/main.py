@@ -16,21 +16,26 @@ import configparser
 
 try:
     from ifupdown2.ifupdown.argv import Parse
+    from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown2.ifupdown.ifupdownmain import ifupdownMain
 
     from ifupdown2.lib.dry_run import DryRunManager
+    from ifupdown2.lib.status import Status
 
 except (ImportError, ModuleNotFoundError):
     from ifupdown.argv import Parse
+    from ifupdown.utils import utils
     from ifupdown.config import IFUPDOWN2_CONF_PATH
     from ifupdown.ifupdownmain import ifupdownMain
+    from lib.status import Status
 
     from lib.dry_run import DryRunManager
 
 
 log = logging.getLogger()
 configmap_g = None
+lockfile = "/run/network/.lock"
 
 
 class Ifupdown2:
@@ -64,6 +69,11 @@ class Ifupdown2:
         try:
             self.read_config()
             self.init(stdin_buffer)
+
+            if self.op != 'query' and not utils.lockFile(lockfile):
+                log.error("Another instance of this program is already running.")
+                return Status.Client.STATUS_ALREADY_RUNNING
+
             self.handlers.get(self.op)(self.args)
         except Exception as e:
             if not str(e):
@@ -186,7 +196,7 @@ class Ifupdown2:
                                    printdependency=args.printdependency,
                                    syntaxcheck=args.syntaxcheck, type=args.type,
                                    skipupperifaces=args.skipupperifaces)
-        except:
+        except Exception:
             raise
 
     def run_down(self, args):
@@ -212,7 +222,7 @@ class Ifupdown2:
                                  printdependency=args.printdependency,
                                  usecurrentconfig=args.usecurrentconfig,
                                  type=args.type)
-        except:
+        except Exception:
             raise
 
     def run_query(self, args):
@@ -257,7 +267,7 @@ class Ifupdown2:
                                   excludepats=args.excludepats,
                                   printdependency=args.printdependency,
                                   format=args.format, type=args.type)
-        except:
+        except Exception:
             raise
 
     def run_reload(self, args):
@@ -278,5 +288,5 @@ class Ifupdown2:
                                    usecurrentconfig=args.usecurrentconfig,
                                    syntaxcheck=args.syntaxcheck,
                                    currentlyup=args.currentlyup)
-        except:
+        except Exception:
             raise

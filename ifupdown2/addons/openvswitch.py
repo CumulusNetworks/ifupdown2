@@ -13,7 +13,7 @@ try:
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-except:
+except Exception:
     from lib.addon import Addon
 
     from ifupdown.iface import *
@@ -37,6 +37,12 @@ class openvswitch(Addon, moduleBase):
                 'help': 'Interfaces to be part of this ovs bridge.',
                 'validvals': ['<interface-list>'],
                 'required': False,
+                "multivalue": True,
+                "example": [
+                    "ovs-ports swp1.100 swp2.100 swp3.100",
+                    "ovs-ports glob swp1-3.100",
+                    "ovs-ports regex (swp[1|2|3].100)"
+                ]
             },
             'ovs-type': {
                 'help': 'ovs interface type',
@@ -63,6 +69,11 @@ class openvswitch(Addon, moduleBase):
                 'example': ['ovs_extra set bridge ${IFACE} other-config:hwaddr=00:59:cf:9c:84:3a -- br-set-external-id ${IFACE} bridge-id ${IFACE}']
 
             },
+            'ovs-ports-condone-regex': {
+                    "help": "ovs ports to ignore/condone when reloading config / removing interfaces",
+                    "required": False,
+                    "example": ["ovs-ports-condone-regex ^[a-zA-Z0-9]+_v[0-9]{1,4}$"]
+            },
         }
     }
 
@@ -82,16 +93,29 @@ class openvswitch(Addon, moduleBase):
         return False
 
     def _get_ovs_ports (self, ifaceobj):
-        ovs_ports = ifaceobj.get_attr_value_first('ovs-ports')
+        ovs_ports = []
+
+        for port in ifaceobj.get_attr_value('ovs-ports') or []:
+            ovs_ports.extend(port.split())
+
         if ovs_ports:
-            return sorted (ovs_ports.split ())
-        return None
+            return self.parse_port_list(ifaceobj.name, ' '.join(ovs_ports))
+        else:
+            return None
 
     def _get_running_ovs_ports (self, iface):
         output = utils.exec_command("/usr/bin/ovs-vsctl list-ports %s" %iface)
         if output:
             ovs_ports = sorted(output.splitlines())
             return ovs_ports
+        return None
+
+    def _get_ovs_port_condone_regex(self, ifaceobj, get_string = False):
+        ovs_port_condone_regex = ifaceobj.get_attr_value_first('ovs-ports-condone-regex')
+        if ovs_port_condone_regex:
+            if get_string:
+                return ovs_port_condone_regex
+            return re.compile (r"%s" % ovs_port_condone_regex)
         return None
 
     def _ovs_vsctl(self, ifaceobj, cmdlist):
@@ -122,6 +146,7 @@ class openvswitch(Addon, moduleBase):
         ovsoptions = ifaceobj.get_attr_value_first ('ovs-options')
         ovsextra = ifaceobj.get_attr_value('ovs-extra')
         ovsmtu = ifaceobj.get_attr_value_first ('ovs-mtu')
+        ovsportscondoneregex = self._get_ovs_port_condone_regex(ifaceobj)
 
         cmd_list = []
 
@@ -137,11 +162,16 @@ class openvswitch(Addon, moduleBase):
             # on update, delete active ports not in the new port list
             ovs_ports = self._get_ovs_ports(ifaceobj)
             running_ovs_ports = self._get_running_ovs_ports(iface)
+
+            missingports = []
             if running_ovs_ports is not None and ovs_ports is not None:
                 missingports = list(set(running_ovs_ports) - set(ovs_ports))
 
             if missingports is not None:
                 for port in missingports:
+                    if ovsportscondoneregex and ovsportscondoneregex.match(port):
+                        self.logger.info("%s: port %s will stay enslaved as it matches with ovs-ports-condone-regex" % (ifaceobj.name, port))
+                        continue
                     cmd = "--if-exists del-port %s %s"%(iface, port)
                     cmd_list.append(cmd)
 
@@ -171,6 +201,9 @@ class openvswitch(Addon, moduleBase):
         self._ovs_vsctl(ifaceobj, [cmd])
 
     def get_dependent_ifacenames (self, ifaceobj, ifaceobjs_all=None):
+        if not self._is_ovs_bridge(ifaceobj):
+            return None
+        ifaceobj.link_privflags |= ifaceLinkPrivFlags.OPENVSWITCH
         return None
 
     def _up (self, ifaceobj):

@@ -52,7 +52,7 @@ class vrrpd(moduleBase):
         try:
             cmdl = [utils.pidof_cmd, cmdname]
             pidstr = utils.exec_commandl(cmdl, stderr=None).strip('\n')
-        except:
+        except Exception:
             pass
         if not pidstr:
            return []
@@ -70,7 +70,7 @@ class vrrpd(moduleBase):
                 self.logger.info('(%d) (%d)' %(len(pcmdline), len(tmpcmdline)))
                 if pcmdline and pcmdline == tmpcmdline:
                    targetpids.append(pid)
-            except:
+            except Exception:
                 pass
         return targetpids
 

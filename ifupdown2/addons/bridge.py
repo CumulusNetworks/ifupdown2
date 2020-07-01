@@ -678,7 +678,7 @@ class bridge(Addon, moduleBase):
             self.bridge_allow_multiple_vlans = utils.get_boolean_from_string(
                 self.sysctl_get('net.bridge.bridge-allow-multiple-vlans')
             )
-        except:
+        except Exception:
             # Cumulus Linux specific variable. Failure probably means that
             # ifupdown2 is running a a different system.
             self.bridge_allow_multiple_vlans = True
@@ -1027,7 +1027,7 @@ class bridge(Addon, moduleBase):
             if not waitportvals: return
             try:
                 waitporttime = int(waitportvals[0])
-            except:
+            except Exception:
                 self.log_warn('%s: invalid waitport value \'%s\''
                         %(ifaceobj.name, waitportvals[0]))
                 return
@@ -1172,7 +1172,7 @@ class bridge(Addon, moduleBase):
             # to avoid any side effect we remove the dummy brport from the
             # list of supposedly newly configured ports.
             newly_enslaved_ports.remove(dummy_brport)
-        except:
+        except Exception:
             pass
 
         return newly_enslaved_ports
@@ -1201,7 +1201,7 @@ class bridge(Addon, moduleBase):
         if not maxwait: return
         try:
             maxwait = int(maxwait)
-        except:
+        except Exception:
             self.log_warn('%s: invalid maxwait value \'%s\'' %(ifaceobj.name,
                     maxwait))
             return
@@ -1240,7 +1240,7 @@ class bridge(Addon, moduleBase):
                 else:
                     a = int(part)
                     result.append(a)
-        except:
+        except Exception:
             self.logger.warning('unable to parse vids \'%s\''
                              %''.join(rangelist))
             pass
@@ -1365,7 +1365,7 @@ class bridge(Addon, moduleBase):
         try:
             running_stp_state = self.read_file_oneline(stp_state_file)
             return running_stp_state and running_stp_state != '0'
-        except:
+        except Exception:
             return False
 
     def _is_config_stp_state_on(self, ifaceobj):
@@ -1461,7 +1461,7 @@ class bridge(Addon, moduleBase):
             # i.e. our default value is 31 but the kernel default seems to be 3125
             cached_ifla_info_data[Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL] //= 100
             cached_ifla_info_data[Link.IFLA_BR_MCAST_STARTUP_QUERY_INTVL] *= 100
-        except:
+        except Exception:
             pass
 
         for attr_name, nl_attr in self._ifla_br_attributes_map.items():
@@ -1704,7 +1704,7 @@ class bridge(Addon, moduleBase):
         for vlan in user_config_vids:
             try:
                 vids_list.remove(vlan)
-            except:
+            except Exception:
                 pass
 
         return vids_list
@@ -1929,7 +1929,7 @@ class bridge(Addon, moduleBase):
             # part of ifla_info_slave_data.
             try:
                 del brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING]
-            except:
+            except Exception:
                 pass
 
         #
@@ -2061,7 +2061,7 @@ class bridge(Addon, moduleBase):
                     if '=' in br_config:
                         try:
                             br_config = self.parse_interface_list_value(br_config)
-                        except:
+                        except Exception:
                             self.log_error('error while parsing \'%s %s\'' % (attr_name, br_config))
                             continue
 
@@ -2113,7 +2113,7 @@ class bridge(Addon, moduleBase):
                                 elif self.arp_nd_suppress_only_on_vxlan and brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN:
                                     # ignore the case of VXLAN brport - handled later in the code
                                     continue
-                        except:
+                        except Exception:
                             continue
                     elif nl_attr == Link.IFLA_BRPORT_GROUP_FWD_MASK:
                         # special handking for group_fwd_mask because Cisco proprietary
@@ -2265,7 +2265,7 @@ class bridge(Addon, moduleBase):
                         # we need to remove this attribute from the request dictionary
                         try:
                             del brport_ifla_info_slave_data[Link.IFLA_BRPORT_NEIGH_SUPPRESS]
-                        except:
+                        except Exception:
                             pass
 
                     #
@@ -2318,7 +2318,7 @@ class bridge(Addon, moduleBase):
 
                 try:
                     vlans_str, vni_str = vlan_vni_map.split("=")
-                except:
+                except Exception:
                     return self.__warn_bridge_vlan_vni_map_syntax_error(vlan_vni_map)
 
                 vlans = self._ranges_to_ints([vlans_str])
@@ -2623,7 +2623,7 @@ class bridge(Addon, moduleBase):
 
         try:
             self.netlink.link_del(self.get_dummy_brport_name_for_bridge(ifname))
-        except:
+        except Exception:
             pass
 
         try:
@@ -2794,7 +2794,7 @@ class bridge(Addon, moduleBase):
             bridge_attributes_map = dict(self._ifla_br_attributes_map)
             try:
                 del bridge_attributes_map[Link.IFLA_BR_STP_STATE]
-            except:
+            except Exception:
                 pass
 
         #
@@ -2809,7 +2809,7 @@ class bridge(Addon, moduleBase):
 
         try:
             del bridge_attributes_map[Link.IFLA_BR_VLAN_STATS_ENABLED]
-        except:
+        except Exception:
             pass
 
         lambda_nl_value_int_divide100 = lambda x: str(x // 100)
@@ -3078,7 +3078,7 @@ class bridge(Addon, moduleBase):
         if utils.get_boolean_from_string(bridge_always_up):
             try:
                 link_exists = self.cache.link_exists(self.get_dummy_brport_name_for_bridge(ifname))
-            except:
+            except Exception:
                 link_exists = False
 
             ifaceobjcurr.update_config_with_status(
@@ -3219,7 +3219,7 @@ class bridge(Addon, moduleBase):
         if utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-always-up")):
             try:
                 running_port_list.remove(self.get_dummy_brport_name_for_bridge(ifaceobj.name))
-            except:
+            except Exception:
                 pass
 
         bridge_all_ports = []
@@ -3242,7 +3242,7 @@ class bridge(Addon, moduleBase):
                     if port_list[i] in running_port_list:
                         ordered.append(port_list[i])
                 port_list = ordered
-        except:
+        except Exception:
             port_list = running_port_list
 
         difference = set(running_port_list).symmetric_difference(bridge_all_ports)
@@ -3524,7 +3524,7 @@ class bridge(Addon, moduleBase):
 
             try:
                 vlans_str, vni_str = bridge_vlan_vni_map.split("=")
-            except:
+            except Exception:
                 ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
                 return self.__warn_bridge_vlan_vni_map_syntax_error(bridge_vlan_vni_map)
 
@@ -3541,7 +3541,7 @@ class bridge(Addon, moduleBase):
             try:
                 for vlan in vlans_list:
                     cached_vlans.remove(vlan)
-            except:
+            except Exception:
                 ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
                 fail = True
                 continue
@@ -3549,7 +3549,7 @@ class bridge(Addon, moduleBase):
             try:
                 for vni in vnis_list:
                     cached_vnis.remove(vni)
-            except:
+            except Exception:
                 ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
                 fail = True
                 continue
@@ -3616,7 +3616,7 @@ class bridge(Addon, moduleBase):
                 try:
                     config_per_port_dict = self.parse_interface_list_value(user_config_l2protocol_tunnel)
                     brport_list = list(config_per_port_dict.keys())
-                except:
+                except Exception:
                     ifaceobjcurr.update_config_with_status('bridge-l2protocol-tunnel', user_config_l2protocol_tunnel, 1)
                     return
             else:

@@ -77,7 +77,7 @@ def WeakMethod(f):
 def _weakref_call_back_delete(reference):
     try:
         DryRunManager.get_instance().unregister_dry_run_handler_weakref_callback(reference)
-    except:
+    except Exception:
         pass
 
 
@@ -119,7 +119,7 @@ class DryRun(object):
                         handler_code_weakref=WeakMethod(base_attr_value),
                         dry_run_code_weakref=WeakMethod(attr_value)
                     )
-            except:
+            except Exception:
                 pass
 
     def log_info_ifname_dry_run(self, ifname, string):
@@ -215,7 +215,7 @@ class DryRunManager(object):
         """
         try:
             del self.__entries[reference]
-        except:
+        except Exception:
             pass
 
     def dry_run_mode_on(self):

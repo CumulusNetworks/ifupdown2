@@ -413,13 +413,13 @@ class bond(Addon, moduleBase):
 
         try:
             miimon = int(ifaceobj.get_attr_value_first('bond-miimon'))
-        except:
+        except Exception:
             try:
                 miimon = int(policymanager.policymanager_api.get_iface_default(
                     module_name=self.__class__.__name__,
                     ifname=ifaceobj.name,
                     attr='bond-miimon'))
-            except:
+            except Exception:
                 miimon = 0
 
         if not miimon:
@@ -618,7 +618,7 @@ class bond(Addon, moduleBase):
 
                     try:
                         bond_slaves.remove(lower_dev)
-                    except:
+                    except Exception:
                         pass
 
             else:
@@ -746,7 +746,7 @@ class bond(Addon, moduleBase):
                 running_bond_slaves = self.cache.get_slaves(ifaceobj.name)
 
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-slaves', user_bond_slaves, running_bond_slaves)
-        except:
+        except Exception:
             pass
         try:
             del iface_attrs[iface_attrs.index('bond-ports')]
@@ -757,7 +757,7 @@ class bond(Addon, moduleBase):
                 running_bond_slaves = self.cache.get_slaves(ifaceobj.name)
 
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-ports', user_bond_slaves, running_bond_slaves)
-        except:
+        except Exception:
             pass
 
         for attr in iface_attrs:

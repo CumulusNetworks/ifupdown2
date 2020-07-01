@@ -120,7 +120,7 @@ class moduleBase(object):
         try:
             utils.exec_command('%s -x %s' %
                                (utils.pidof_cmd, procName))
-        except:
+        except Exception:
             return False
         else:
             return True
@@ -132,14 +132,14 @@ class moduleBase(object):
                 lines = f.readlines()
                 for line in lines[2:]:
                     ifacenames.append(line.split()[0].strip(': '))
-            except:
+            except Exception:
                 raise
         return ifacenames
 
     def parse_regex(self, ifacename, expr, ifacenames=None):
         try:
             proc_ifacenames = self.get_ifaces_from_proc()
-        except:
+        except Exception:
             self.logger.warning('%s: error reading ifaces from proc' %ifacename)
 
         for proc_ifacename in proc_ifacenames:
@@ -292,7 +292,7 @@ class moduleBase(object):
             self.logger.info('reading \'%s\'' %filename)
             with open(filename, 'r') as f:
                 return f.readlines()
-        except:
+        except Exception:
             return None
         return None
 
@@ -302,7 +302,7 @@ class moduleBase(object):
             self.logger.info('reading \'%s\'' %filename)
             with open(filename, 'r') as f:
                 return f.readline().strip('\n')
-        except:
+        except Exception:
             return None
         return None
 
@@ -325,7 +325,7 @@ class moduleBase(object):
             return self._bridge_stp_user_space
         try:
             self._bridge_stp_user_space = self.sysctl_get('net.bridge.bridge-stp-user-space')
-        except:
+        except Exception:
             self._bridge_stp_user_space = 0
 
         return self._bridge_stp_user_space
@@ -379,14 +379,14 @@ class moduleBase(object):
                 if 'aliases' in attrvals:
                     retattrs.extend(attrvals['aliases'])
             return retattrs
-        except:
+        except Exception:
             return None
 
     def get_mod_attr(self, attrname):
         """ returns module attr info """
         try:
             return self._modinfo.get('attrs', {}).get(attrname)
-        except:
+        except Exception:
             return None
 
     def get_mod_subattr(self, attrname, subattrname):
@@ -394,14 +394,14 @@ class moduleBase(object):
         try:
             return reduce(lambda d, k: d[k], ['attrs', attrname, subattrname],
                          self._modinfo)
-        except:
+        except Exception:
             return None
 
     def get_modinfo(self):
         """ return module info """
         try:
             return self._modinfo
-        except:
+        except Exception:
             return {}
 
     def get_attr_default_value(self, attrname):
@@ -411,7 +411,7 @@ class moduleBase(object):
         """ return the ifupdown scripts replaced by the current module """
         try:
             return self.overrides_ifupdown_scripts
-        except:
+        except Exception:
             return []
 
     def _get_reserved_vlan_range(self):
@@ -482,7 +482,7 @@ class moduleBase(object):
             return -1
         try:
             vid = int(vid_str)
-        except:
+        except Exception:
             return -1
         return vid
 
@@ -499,7 +499,7 @@ class moduleBase(object):
         vid_str = ifaceobj.get_attr_value_first('vlan-id')
         try:
             if vid_str: return int(vid_str)
-        except:
+        except Exception:
             return -1
 
         return self._get_vlan_id_from_ifacename(ifaceobj.name)

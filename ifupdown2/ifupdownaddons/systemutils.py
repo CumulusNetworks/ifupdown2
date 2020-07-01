@@ -31,7 +31,7 @@ class systemUtils():
             try:
                 utils.exec_command('%s %s' %
                                     (utils.pidof_cmd, procname))
-            except:
+            except Exception:
                 return False
             else:
                 return True
@@ -57,7 +57,7 @@ class systemUtils():
         try:
             utils.exec_command('%s %s' %
                                (utils.pidof_cmd, processname))
-        except:
+        except Exception:
             return False
         else:
             return True

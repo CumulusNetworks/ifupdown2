@@ -33,7 +33,7 @@ class pickling():
             with open(filename, 'wb') as f:
                 for obj in list_of_objects:
                     pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-        except:
+        except Exception:
             raise
 
     @classmethod
@@ -41,7 +41,7 @@ class pickling():
         """ pickle iface object """
         try:
             pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-        except:
+        except Exception:
             raise
 
     @classmethod
@@ -51,7 +51,7 @@ class pickling():
             while True:
                 try: yield pickle.load(f)
                 except EOFError: break
-                except: raise
+                except Exception: raise
 
 class stateManager():
     """ state manager for managing ifupdown iface obj state
@@ -200,7 +200,7 @@ class stateManager():
                 for ifaceobjs in list(self.ifaceobjdict.values()):
                     [pickling.save_obj(f, i) for i in ifaceobjs]
             open('%s/%s' %(self.state_rundir, self.state_runlockfile), 'w').close()
-        except:
+        except Exception:
             raise
 
     def dump_pretty(self, ifacenames, format='native'):

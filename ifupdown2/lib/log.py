@@ -121,7 +121,11 @@ class LogManager:
 
         for handler in self.__root_logger.handlers:
             handler.setLevel(log_level)
-        self.__root_logger.setLevel(log_level)
+
+        # make sure that the root logger has the lowest logging level possible
+        # otherwise some messages might not go through
+        if self.__root_logger.level > log_level:
+            self.__root_logger.setLevel(log_level)
 
     def enable_console(self):
         """ Add console handler to root logger """
@@ -141,8 +145,18 @@ class LogManager:
         if self.__syslog_handler:
             self.__root_logger.removeHandler(self.__syslog_handler)
 
-    def is_syslog_enabled_syslog(self):
+    def is_syslog_enabled(self):
         return self.__syslog_handler in self.__root_logger.handlers
+
+    def get_syslog_log_level(self):
+        return self.__syslog_handler.level if self.__syslog_handler else None
+
+    def set_level_syslog(self, level):
+        if self.__syslog_handler:
+            self.__syslog_handler.setLevel(level)
+
+            if self.__root_logger.level > level:
+                self.__root_logger.setLevel(level)
 
     def close_log_stream(self):
         """ Close socket to disconnect client.

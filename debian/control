@@ -3,13 +3,12 @@ Section: admin
 Priority: optional
 Maintainer: Julien Fortin <julien@cumulusnetworks.com>
 Build-Depends: debhelper (>=9),
-               dh-systemd,
                dh-python,
                python3,
                python3-all,
                python3-setuptools,
                python3-docutils
-Standards-Version: 4.5.0.1
+Standards-Version: 4.5.0.2
 Homepage: https://github.com/cumulusnetworks/ifupdown2
 X-Python-Version: >= 3.7
 

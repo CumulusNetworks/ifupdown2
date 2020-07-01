@@ -92,6 +92,7 @@ class ifaceLinkPrivFlags():
     MGMT_INTF = 0x100000000
     SINGLE_VXLAN = 0x1000000000
     ES_BOND = 0x10000000000
+    OPENVSWITCH = 0x10000000000
 
     @classmethod
     def get_str(cls, flag):
@@ -123,6 +124,9 @@ class ifaceLinkPrivFlags():
 
         if flag & cls.ES_BOND:
             string_list.append("es bond")
+
+        if flag & cls.OPENVSWITCH:
+            string_list.append("openvswitch interface")
 
         return ", ".join(string_list)
 
@@ -538,7 +542,7 @@ class iface():
         if attr_value_list:
             try:
                 return attr_value_list[attr_index]
-            except:
+            except Exception:
                 return None
         return None
 
@@ -572,7 +576,7 @@ class iface():
         """ add attribute name and value to the interface config """
         try:
             del self.config[attr_name]
-        except:
+        except Exception:
             pass
 
     def update_config_dict(self, attrdict):

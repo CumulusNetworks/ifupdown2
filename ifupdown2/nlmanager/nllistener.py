@@ -44,7 +44,7 @@ class NetlinkListener(Thread):
     # As defined in asm/socket.h
     _SO_ATTACH_FILTER = 26
 
-    RECV_BUFFER = 4096  # 1024 * 1024
+    RECV_BUFFER = 65536  # 1024 * 1024
 
     def __init__(self, manager, groups, pid_offset=1, error_notification=False, rcvbuf_sz=10000000, bpf_filter=None):
         """
@@ -113,7 +113,7 @@ class NetlinkListener(Thread):
                 self.rx_socket.bind((pid | (pid_offset << 22), self.groups))
                 self.pid_offset = pid_offset
                 return
-            except:
+            except Exception:
                 pass
         # if we reach this line it means we've reach NLMANAGER_BIND_RETRY limit
         # and couldn't successfully bind the rx_socket... We will try one more

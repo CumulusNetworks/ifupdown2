@@ -79,7 +79,7 @@ class __Sysfs(IO, Requirements):
             if not uppers:
                 return []
             return [os.path.basename(u)[6:] for u in uppers]
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -89,7 +89,7 @@ class __Sysfs(IO, Requirements):
             if not lowers:
                 return []
             return [os.path.basename(l)[6:] for l in lowers]
-        except:
+        except Exception:
             return []
 
     def link_is_up(self, ifname):
@@ -163,7 +163,7 @@ class __Sysfs(IO, Requirements):
         try:
             stp_state_int = int(stp_state)
             return "yes" if stp_state_int > 0 else "no"
-        except:
+        except Exception:
             return "unknown"
 
     def bridge_get_mcqv4src(self, bridge):

@@ -54,7 +54,7 @@ import socket                                                                  #
                                                                                #
 try:                                                                           #
     import ifupdown2.nlmanager.nlpacket as nlpacket                            #
-except:                                                                        #
+except Exception:                                                                        #
     import nlmanager.nlpacket as nlpacket                                      #
 ################################################################################
 
@@ -119,7 +119,7 @@ class IPRoute2(Cache, Requirements):
             # i.e.: packet.flags shouldn't contain NLM_F_* values but IFF_* (in case of Link object)
             # otherwise call to cache.link_is_up() will probably return True
             packet.decode_service_header()
-        except:
+        except Exception:
             # we can ignore all errors
             pass
 
@@ -168,7 +168,7 @@ class IPRoute2(Cache, Requirements):
                     "%s -force -batch -" % prefix,
                     stdin="\n".join(commands)
                 )
-        except:
+        except Exception:
             raise
         finally:
             self.__batch_mode = False
@@ -251,6 +251,14 @@ class IPRoute2(Cache, Requirements):
         )
         if not keep_down:
             self.link_up(ifname)
+
+    ###
+
+    def link_add(self, ifname, link_type):
+        utils.exec_command(
+            "%s link add %s type %s"
+            % (utils.ip_cmd, ifname, link_type)
+        )
 
     ###
 
@@ -344,7 +352,7 @@ class IPRoute2(Cache, Requirements):
                     m = self.VXLAN_PEER_REGEX_PATTERN.search(l)
                     if m and m.group(1) != svcnodeip:
                         cur_peers.append(m.group(1))
-            except:
+            except Exception:
                 self.logger.warning('error parsing ip link output')
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
@@ -497,10 +505,19 @@ class IPRoute2(Cache, Requirements):
             if self.__compare_user_config_vs_running_state(running_address_list, address_list):
                 return
 
-            try:
-                self.__execute_or_batch(utils.ip_cmd, "addr flush dev %s" % ifname)
-            except Exception as e:
-                self.logger.warning("%s: flushing all ip address failed: %s" % (ifname, str(e)))
+            # if primary address is not same, there is no need to keep any - reset all addresses
+            if running_address_list and address_list and address_list[0] != running_address_list[0]:
+                skip = []
+            else:
+                skip = address_list
+
+            for addr in running_address_list or []:
+                try:
+                    if addr in skip:
+                        continue
+                    self.__execute_or_batch(utils.ip_cmd, "addr del %s dev %s" % (addr, ifname))
+                except Exception as e:
+                    self.logger.warning("%s: removing ip address failed: %s" % (ifname, str(e)))
         for addr in address_list:
             try:
                 if metric:
@@ -528,7 +545,7 @@ class IPRoute2(Cache, Requirements):
                     try:
                         entries = fdb_entry.split()
                         fdbs.setdefault(entries[2], []).append(entries[0])
-                    except:
+                    except Exception:
                         pass
             return fdbs
         except Exception:
@@ -617,6 +634,13 @@ class IPRoute2(Cache, Requirements):
             except Exception as e:
                 if "exists" not in str(e).lower():
                     self.logger.error(e)
+
+    @staticmethod
+    def bridge_vlan_add_vid_list(ifname, vids):
+        for v in vids:
+            utils.exec_command(
+                "%s vlan add vid %s dev %s" % (utils.bridge_cmd, v, ifname)
+            )
 
     def bridge_vlan_add_vid_list_self(self, ifname, vids, is_bridge=True):
         target = "self" if is_bridge else ""
@@ -721,7 +745,7 @@ class IPRoute2(Cache, Requirements):
                     vrf_table = self.cache.get_vrf_table(upper_iface)
                     if vrf_table:
                         break
-            except:
+            except Exception:
                 pass
 
         ip_route_del = []

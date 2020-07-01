@@ -194,7 +194,7 @@ class utils():
     def get_int_from_boolean_and_string(value):
         try:
             return int(value)
-        except:
+        except Exception:
             return int(utils.get_boolean_from_string(value))
 
     @staticmethod

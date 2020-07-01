@@ -52,6 +52,12 @@ You might need to manually download dependencies. Mandatory dependencies:
 
     $ apt-get install build-essential devscripts dh-systemd fakeroot python-all python-docutils iproute2 python-ipaddr python-setuptools
 
+To build the deb file successfully, the following additional packages are required:
+
+.. code-block:: console
+
+    $ apt-get install dh-python python3-all python3-setuptools python3-docutils
+
 Suggested dependencies:
 
 .. code-block:: console
@@ -121,6 +127,7 @@ Contributors
 * Maximilian Wilhelm <max@sdn.clinic>
 * Sven Auhagen <sven.auhagen@voleatech.de>
 * skorpy <magnus@skorpy.space>
+* Alexandre Derumier <aderumier@odiso.com>
 * Sam Tannous <stannous@cumulusnetworks.com>
 * Wilson Kok <wkok@cumulusnetworks.com>
 * John Berezovik <berezovik@gmail.com>

@@ -406,7 +406,7 @@ class address(Addon, moduleBase):
                         if old_hwaddress and utils.mac_str_to_int(old_hwaddress) != utils.mac_str_to_int(hwaddress):
                             self.iproute2.bridge_fdb_del(bridgename, old_hwaddress, vlan)
                             break
-                except:
+                except Exception:
                     pass
                 self.iproute2.bridge_fdb_add(bridgename, hwaddress, vlan)
             else:
@@ -880,6 +880,10 @@ class address(Addon, moduleBase):
                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
+
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.OPENVSWITCH:
+            return
+
         mtu_str = ifaceobj.get_attr_value_first('mtu')
         mtu_from_policy = False
 
@@ -969,7 +973,7 @@ class address(Addon, moduleBase):
                     dhclientcmd.release6(ifaceobj.name)
                     self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
                     force_reapply = True
-        except:
+        except Exception:
             pass
 
         self.process_mtu(ifaceobj, ifaceobj_getfunc)
@@ -1220,7 +1224,7 @@ class address(Addon, moduleBase):
 
             if clagd_vxlan_anycast_ip in intf_running_addrs:
                 user_config_addrs.append(clagd_vxlan_anycast_ip)
-        except:
+        except Exception:
             pass
 
         # Set ifaceobjcurr method and family
@@ -1236,7 +1240,7 @@ class address(Addon, moduleBase):
             ifaceobjcurr.update_config_with_status('address', str(address), address not in intf_running_addrs)
             try:
                 intf_running_addrs.remove(address)
-            except:
+            except Exception:
                 pass
 
         # if any ip address is left in 'intf_running_addrs' it means that they
@@ -1279,7 +1283,7 @@ class address(Addon, moduleBase):
             for default_addr in self.default_loopback_addresses:
                 try:
                     intf_running_addrs.remove(default_addr)
-                except:
+                except Exception:
                     pass
             ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'loopback'

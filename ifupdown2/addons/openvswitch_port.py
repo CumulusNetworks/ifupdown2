@@ -13,7 +13,7 @@ try:
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-except:
+except Exception:
     from lib.addon import Addon
 
     from ifupdown.iface import *
@@ -216,6 +216,8 @@ class openvswitch_port(Addon, moduleBase):
 
         if not self._is_ovs_port (ifaceobj):
             return None
+
+        ifaceobj.link_privflags |= ifaceLinkPrivFlags.OPENVSWITCH
 
         ovsbridge = ifaceobj.get_attr_value_first ('ovs-bridge')
         return [ovsbridge]

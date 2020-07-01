@@ -161,7 +161,7 @@ class vxlan(Addon, moduleBase):
                 self.logger.warning('%s: vxlan-local-tunnelip and clagd-vxlan-anycast-ip are identical (%s)'
                                     % (ifname, local_ip))
                 return False
-        except:
+        except Exception:
             pass
         return True
 
@@ -276,7 +276,7 @@ class vxlan(Addon, moduleBase):
 
                 if vxlan_ageing_str:
                     return int(vxlan_ageing_str)
-        except:
+        except Exception:
             self.log_error("%s: invalid vxlan-ageing '%s'" % (ifname, vxlan_ageing_str), ifaceobj)
 
     def __config_vxlan_ageing(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
@@ -334,7 +334,7 @@ class vxlan(Addon, moduleBase):
 
             self.logger.info("%s: set vxlan-port %s" % (ifname, vxlan_port))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_PORT] = vxlan_port
-        except:
+        except Exception:
             self.log_error("%s: invalid vxlan-port '%s'" % (ifname, vxlan_port_str), ifaceobj)
 
     def __config_vxlan_ttl(self, ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
@@ -367,7 +367,7 @@ class vxlan(Addon, moduleBase):
                     self.logger.info("%s: set vxlan-ttl %s" % (ifname, vxlan_ttl_str if vxlan_ttl_str else vxlan_ttl))
 
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TTL] = vxlan_ttl
-        except:
+        except Exception:
             self.log_error("%s: invalid vxlan-ttl '%s'" % (ifname, vxlan_ttl_str), ifaceobj)
 
     def __config_vxlan_local_tunnelip(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
@@ -686,7 +686,7 @@ class vxlan(Addon, moduleBase):
             except NetlinkCacheIfnameNotFoundError:
                 try:
                     vxlan_physdev_ifindex = int(self.sysfs.read_file_oneline("/sys/class/net/%s/ifindex" % vxlan_physdev))
-                except:
+                except Exception:
                     self.logger.error("%s: physdev %s doesn't exists" % (ifaceobj.name, vxlan_physdev))
                     return
 
@@ -851,7 +851,7 @@ class vxlan(Addon, moduleBase):
                         "00:00:00:00:00:00",
                         None, True, addr
                     )
-                except:
+                except Exception:
                     pass
 
             for addr in add_list:
@@ -861,7 +861,7 @@ class vxlan(Addon, moduleBase):
                         "00:00:00:00:00:00",
                         None, True, addr
                     )
-                except:
+                except Exception:
                     pass
 
     def _down(self, ifaceobj):

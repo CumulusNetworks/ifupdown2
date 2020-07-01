@@ -118,7 +118,7 @@ class ifupdownMain:
             return
         try:
             self.netlink.link_up(ifaceobj.name)
-        except:
+        except Exception:
             if ifaceobj.addr_method == 'manual':
                 pass
             else:
@@ -158,7 +158,7 @@ class ifupdownMain:
                 self.netlink.link_down(ifaceobj.name)
             else:
                 self.logger.info("%s: ifupdown2 cannot bring loopback interface down" % ifaceobj.name)
-        except:
+        except Exception:
             if ifaceobj.addr_method == 'manual':
                 pass
             else:
@@ -189,14 +189,14 @@ class ifupdownMain:
             ifupdown2.ifupdown.ifupdownflags.reset()
             ifupdownConfig.reset()
             ifupdown2.ifupdownaddons.mstpctlutil.mstpctlutil.reset()
-        except:
+        except Exception:
             try:
                 ifupdown.statemanager.reset()
                 ifupdown.policymanager.reset()
                 ifupdown.ifupdownflags.reset()
                 ifupdownConfig.reset()
                 ifupdownaddons.mstpctlutil.mstpctlutil.reset()
-            except:
+            except Exception:
                 pass
 
     def ignore_error(self, errmsg):
@@ -421,12 +421,12 @@ class ifupdownMain:
             mgmt_iface_default_prefix = ifupdown2.ifupdown.policymanager.policymanager_api.get_module_globals(
                 module_name='main', attr='mgmt_intf_prefix'
             )
-        except:
+        except Exception:
             try:
                 mgmt_iface_default_prefix = ifupdown.policymanager.policymanager_api.get_module_globals(
                     module_name='main', attr='mgmt_intf_prefix'
                 )
-            except:
+            except Exception:
                 pass
         if not mgmt_iface_default_prefix:
             mgmt_iface_default_prefix = "eth"
@@ -750,7 +750,7 @@ class ifupdownMain:
             difaceobj = self.get_ifaceobj_first(diface)
             # If the dependent iface isn't a veth link - which shouldn't
             # happen - ignore it to be save.
-            if difaceobj and difaceobj.get_attr_value_first('link-type') != "veth":
+            if not difaceobj or (difaceobj and difaceobj.get_attr_value_first('link-type') != "veth"):
                 continue
 
             # If the peer has a desired peer name set and this is us,
@@ -846,7 +846,7 @@ class ifupdownMain:
                             for d in difaceobjs:
                                 d.dec_refcnt()
                                 d.upperifaces.remove(i)
-                        except:
+                        except Exception:
                             self.logger.debug('error removing %s from %s upperifaces' %(i, d))
                             pass
                 self.logger.debug("populate_dependency_info: deleting blacklisted interface %s" %i)
@@ -1082,7 +1082,7 @@ class ifupdownMain:
                 for arg in value.replace(",", " ").split():
                     if arg not in ['all', 'stp', 'lldp', 'lacp', 'cdp', 'pvst']:
                         return False
-        except:
+        except Exception:
             return False
         return True
 
@@ -1215,7 +1215,7 @@ class ifupdownMain:
                     if prev:
                         return False
                     prev = True
-                except:
+                except Exception:
                     prev = False
             return not prev
         except Exception as e:
@@ -1440,14 +1440,14 @@ class ifupdownMain:
                                 self.logger.info('module %s not loaded (%s)'
                                                  %(mname, str(e)))
                                 continue
-                            except:
+                            except Exception:
                                 raise
                             self.modules[mname] = minstance
                             try:
                                 self.module_attrs[mname] = minstance.get_modinfo()
-                            except:
+                            except Exception:
                                 pass
-            except:
+            except Exception:
                 raise
 
         # Assign all modules to query operations
@@ -1512,7 +1512,7 @@ class ifupdownMain:
                         print('%sexample:' %(indent + '  '))
                         for e in examples:
                             print('%s%s' %(indent + '    ', e))
-                except:
+                except Exception:
                     pass
                 print('')
 
@@ -1534,7 +1534,7 @@ class ifupdownMain:
                     if self.modules.get(module) or module in self.overridden_ifupdown_scripts:
                         continue
                     self.script_ops[op].append(msubdir + '/' + module)
-            except:
+            except Exception:
                 # continue reading
                 pass
 
@@ -1731,7 +1731,7 @@ class ifupdownMain:
             return ifupdown2.ifupdown.policymanager.policymanager_api.get_iface_default(
                                     module_name='main', ifname=ifacename,
                                     attr='exclude-companion')
-        except:
+        except Exception:
             return ifupdown.policymanager.policymanager_api.get_iface_default(
                                     module_name='main', ifname=ifacename,
                                     attr='exclude-companion')
@@ -2070,7 +2070,7 @@ class ifupdownMain:
 
         try:
             iface_read_ret = self.read_iface_config()
-        except:
+        except Exception:
             raise
         if not self.ifaceobjdict:
             self.logger.warning("nothing to reload ..exiting.")
@@ -2164,7 +2164,7 @@ class ifupdownMain:
 
         try:
             iface_read_ret = self.read_iface_config()
-        except:
+        except Exception:
             raise
 
         if not self.ifaceobjdict:

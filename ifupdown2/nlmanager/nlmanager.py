@@ -166,13 +166,13 @@ class NetlinkManager(object):
                         )
                     self.pid = self.pid + i
                     return
-                except:
+                except Exception:
                     pass
             # if we reach this code it means all our bind calls failed. We are trying to
             # bind the socket one last time on the original parameters if not we will not
             # be catching the exception
             self.tx_socket.bind((self.pid, 0))
-        except:
+        except Exception:
             if self.tx_socket:
                 self.tx_socket.close()
                 self.tx_socket = None
