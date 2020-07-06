@@ -123,7 +123,8 @@ class dhcp(Addon, moduleBase):
                         % (ifname, retry)
                     )
                 else:
-                    raise Exception("%s: dhclient: timeout failed to detect new ip addresses" % ifname)
+                    self.logger.error("%s: dhclient: timeout failed to detect new ip addresses" % ifname)
+                    return -1
             finally:
                 self.logger.info("%s: releasing expired dhcp lease..." % ifname)
                 self.dhclientcmd.release(ifname, dhclient_cmd_prefix)
