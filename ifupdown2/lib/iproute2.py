@@ -285,13 +285,19 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_add_single_vxlan(self, ifname, ip, port):
+    def link_add_single_vxlan(self, ifname, ip, group, physdev, port):
         self.logger.info("creating single vxlan device: %s" % ifname)
 
         cmd = ["link add dev %s type vxlan external" % ifname]
 
         if ip:
             cmd.append("local %s" % ip)
+
+        if physdev:
+            cmd.append("dev %s" % physdev)
+
+        if group:
+            cmd.append("group %s" % group)
 
         if port:
             cmd.append("dstport %s" % port)
