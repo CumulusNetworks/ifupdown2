@@ -795,7 +795,7 @@ class vxlan(Addon, moduleBase):
                     else:
                         self.iproute2.link_add_single_vxlan(
                             ifname,
-                            local.ip,
+                            local.ip if local else None,
                             user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT)
                         )
                 else:
