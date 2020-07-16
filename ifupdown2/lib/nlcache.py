@@ -2406,6 +2406,30 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error(link)
 
+    def vlan_set_bridge_binding(self, ifname, bridge_binding=True):
+        """
+        Set VLAN_FLAG_BRIDGE_BINDING on vlan interface
+        :param ifname: the vlan interface
+        :param bridge_binding: True to set the flag, False to unset
+        """
+        self.logger.info("%s: netlink: ip link set dev %s type vlan bridge_binding %s" % (ifname, ifname, "on" if bridge_binding else "off"))
+
+        debug = RTM_NEWLINK in self.debug
+
+        link = Link(RTM_NEWLINK, debug, use_color=self.use_color)
+        link.flags = NLM_F_REQUEST | NLM_F_ACK
+        link.body = struct.pack('=BxxxiLL', socket.AF_UNSPEC, 0, 0, 0)
+
+        link.add_attribute(Link.IFLA_IFNAME, ifname)
+        info_data = {Link.IFLA_VLAN_FLAGS: {Link.VLAN_FLAG_BRIDGE_BINDING: bridge_binding}}
+        link.add_attribute(Link.IFLA_LINKINFO, {
+            Link.IFLA_INFO_KIND: "vlan",
+            Link.IFLA_INFO_DATA: info_data
+        })
+
+        link.build_message(next(self.sequence), self.pid)
+        return self.tx_nlpacket_get_response_with_error(link)
+
     #############################################################################################################
     # Netlink API ###############################################################################################
     #############################################################################################################
@@ -2833,7 +2857,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     ###
 
-    def link_add_vlan(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None):
+    def link_add_vlan(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None, bridge_binding=None):
         """
         ifindex is the index of the parent interface that this sub-interface
         is being added to
@@ -2845,13 +2869,18 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         Do this check here so we can provide a more intuitive error
         """
         try:
-            if vlan_protocol:
-                self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s protocol %s"
-                                 % (ifname, vlan_raw_device, ifname, vlan_id, vlan_protocol))
+            vlan_iproute2_cmd = ["ip link add link %s name %s type vlan id %s" % (vlan_raw_device, ifname, vlan_id)]
+            ifla_info_data = {Link.IFLA_VLAN_ID: vlan_id}
 
-            else:
-                self.logger.info("%s: netlink: ip link add link %s name %s type vlan id %s"
-                                 % (ifname, vlan_raw_device, ifname, vlan_id))
+            if vlan_protocol:
+                vlan_iproute2_cmd.append("protocol %s" % vlan_protocol)
+                ifla_info_data[Link.IFLA_VLAN_PROTOCOL] = vlan_protocol
+
+            if bridge_binding is not None:
+                vlan_iproute2_cmd.append("bridge_binding %s" % ("on" if bridge_binding else "off"))
+                ifla_info_data[Link.IFLA_VLAN_FLAGS] = {Link.VLAN_FLAG_BRIDGE_BINDING: bridge_binding}
+
+            self.logger.info("%s: netlink: %s" % (ifname, " ".join(vlan_iproute2_cmd)))
 
             if "." in ifname:
                 ifname_vlanid = int(ifname.split(".")[-1])
@@ -2863,11 +2892,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     )
 
             ifindex = self.cache.get_ifindex(vlan_raw_device)
-
-            ifla_info_data = {Link.IFLA_VLAN_ID: vlan_id}
-
-            if vlan_protocol:
-                ifla_info_data[Link.IFLA_VLAN_PROTOCOL] = vlan_protocol
 
             debug = RTM_NEWLINK in self.debug
 

@@ -9,13 +9,17 @@ try:
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.nlmanager.nlmanager import Link
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
+    from ifupdown2.ifupdown.utils import utils
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown2.ifupdown.policymanager as policymanager
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
     from ifupdown.iface import *
     from nlmanager.nlmanager import Link
     from ifupdownaddons.modulebase import moduleBase
+    from ifupdown.utils import utils
     import ifupdown.ifupdownflags as ifupdownflags
+    import ifupdown.policymanager as policymanager
 
 
 class vlan(Addon, moduleBase):
@@ -41,6 +45,16 @@ class vlan(Addon, moduleBase):
                 "validvals": ["802.1q", "802.1ad"],
                 "example": ["vlan-protocol 802.1q"]
             },
+            "vlan-bridge-binding": {
+                "help": "The link state of the vlan device may need to track only the state of the subset of ports "
+                        "that are also members of the corresponding vlan, rather than that of all ports. Add a flag to "
+                        "specify a vlan bridge binding mode, by which the link state is no longer automatically "
+                        "transferred from the lower device, but is instead determined by the bridge ports that are "
+                        "members of the vlan.",
+                "default": "off",
+                "validvals": ["on", "off"],
+                "example": ["vlan-bridge-binding on"]
+            }
         }
     }
 
@@ -123,6 +137,16 @@ class vlan(Addon, moduleBase):
         else:
             cached_vlan_ifla_info_data = self.cache.get_link_info_data(ifname)
 
+        vlan_bridge_binding = ifaceobj.get_attr_value_first("vlan-bridge-binding")
+
+        if not vlan_bridge_binding:
+            vlan_bridge_binding = policymanager.policymanager_api.get_attr_default(
+                self.__class__.__name__,
+                "vlan-bridge-binding"
+            ) or self.get_attr_default_value("vlan-bridge-binding")
+
+        bool_vlan_bridge_binding = utils.get_boolean_from_string(vlan_bridge_binding)
+
         vlan_protocol = ifaceobj.get_attr_value_first('vlan-protocol')
         cached_vlan_protocol = cached_vlan_ifla_info_data.get(Link.IFLA_VLAN_PROTOCOL)
 
@@ -154,10 +178,16 @@ class vlan(Addon, moduleBase):
                 else:
                     raise Exception('rawdevice %s not present' % vlanrawdevice)
             if vlan_exists:
+
+                # vlan-bridge-binding has changed we need to update it
+                if vlan_bridge_binding is not None and bool_vlan_bridge_binding != cached_vlan_ifla_info_data.get(Link.IFLA_VLAN_FLAGS, {}).get(Link.VLAN_FLAG_BRIDGE_BINDING, False):
+                    self.logger.info("%s: mismatch detected: resetting: vlan-bridge-binding %s" % (ifname, vlan_bridge_binding))
+                    self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol, bool_vlan_bridge_binding)
+
                 self._bridge_vid_add_del(vlanrawdevice, vlanid)
                 return
 
-        self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol)
+        self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol, bool_vlan_bridge_binding if vlan_bridge_binding is not None else None)
         self._bridge_vid_add_del(vlanrawdevice, vlanid)
 
     def _down(self, ifaceobj):
@@ -227,6 +257,20 @@ class vlan(Addon, moduleBase):
                         0
                     )
 
+            #
+            # vlan-bridge-binding
+            #
+            vlan_bridge_binding = ifaceobj.get_attr_value_first("vlan-bridge-binding")
+            if vlan_bridge_binding:
+                cached_vlan_bridge_binding = cached_vlan_info_data.get(Link.IFLA_VLAN_FLAGS, {}).get(
+                    Link.VLAN_FLAG_BRIDGE_BINDING, False)
+
+                ifaceobjcurr.update_config_with_status(
+                    "vlan-bridge-binding",
+                    "on" if cached_vlan_bridge_binding else "off",
+                    cached_vlan_bridge_binding != utils.get_boolean_from_string(vlan_bridge_binding)
+                )
+
             self._bridge_vid_check(ifaceobjcurr, cached_vlan_raw_device, cached_vlan_id)
 
     def _query_running(self, ifaceobjrunning):
@@ -252,6 +296,9 @@ class vlan(Addon, moduleBase):
             ifaceobjrunning.update_config(attr_name, str(cached_vlan_info_data.get(nl_attr)))
 
         ifaceobjrunning.update_config('vlan-raw-device', self.cache.get_lower_device_ifname(ifname))
+
+        if cached_vlan_info_data.get(Link.IFLA_VLAN_FLAGS, {}).get(Link.VLAN_FLAG_BRIDGE_BINDING, False):
+            ifaceobjrunning.update_config("vlan-bridge-binding", "on")
 
     _run_ops = {
         "pre-up": _up,

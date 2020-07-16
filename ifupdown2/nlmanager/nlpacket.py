@@ -298,6 +298,20 @@ class NetlinkPacket_IFLA_LINKINFO_Attributes:
         0x88A8:     '802.1ad'
     }
 
+    VLAN_FLAG_REORDER_HDR    = 0x1
+    VLAN_FLAG_GVRP           = 0x2
+    VLAN_FLAG_LOOSE_BINDING  = 0x4
+    VLAN_FLAG_MVRP           = 0x8
+    VLAN_FLAG_BRIDGE_BINDING = 0x10
+
+    vlan_flags_to_string = {
+        VLAN_FLAG_REORDER_HDR    : "REORDER_HDR",
+        VLAN_FLAG_GVRP           : "GVRP",
+        VLAN_FLAG_LOOSE_BINDING  : "LOOSE_BINDING",
+        VLAN_FLAG_MVRP           : "MVRP",
+        VLAN_FLAG_BRIDGE_BINDING : "BRIDGE_BINDING",
+    }
+
     # =========================================
     # IFLA_INFO_DATA attributes for macvlan
     # =========================================
@@ -1081,6 +1095,26 @@ class Attribute(object):
     def decode_vlan_protocol_attribute(data, _=None):
         return Link.ifla_vlan_protocol_dict.get(unpack(">H", data[4:6])[0])
 
+    @staticmethod
+    def decode_vlan_flags_attribute(data, _=None):
+        vlan_flags = unpack('=I', data[4:8])[0]
+        vlan_flags_dict = {}
+
+        # iterate over bits set to 1
+        def bits(n):
+            while n:
+                b = n & (~n + 1)
+                yield b
+                n ^= b
+
+        for vlan_flag in bits(vlan_flags):
+            if vlan_flag in Link.vlan_flags_to_string:
+                vlan_flags_dict[vlan_flag] = True
+            #else:
+            #    self.log.warning('Unknown vlan flag %d in IFLA_VLAN_FLAGS' % vlan_flag)
+
+        return vlan_flags_dict
+
     ############################################################################
     # encode methods
     ############################################################################
@@ -1215,6 +1249,25 @@ class Attribute(object):
         sub_attr_pack_layout.append("6Bxx")
         for mbyte in info_data_value.replace(".", " ").replace(":", " ").split():
             sub_attr_payload.append(int(mbyte, 16))
+
+    @staticmethod
+    def encode_vlan_flags_attribute(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+        sub_attr_pack_layout.append('HH')
+        sub_attr_payload.append(12)
+        sub_attr_payload.append(info_data_type)
+
+        # vlan flags and mask
+        sub_attr_pack_layout.append('II')
+        vlan_flags = 0
+        vlan_flags_mask = 0
+
+        for (vlan_flag, flag_set) in info_data_value.items():
+            vlan_flags_mask |= vlan_flag
+            if flag_set:
+                vlan_flags |= vlan_flag
+
+        sub_attr_payload.append(vlan_flags)
+        sub_attr_payload.append(vlan_flags_mask)
 
 
 class AttributeCACHEINFO(Attribute):
@@ -2128,7 +2181,9 @@ class AttributeIFLA_LINKINFO(Attribute):
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_ID: Attribute.decode_two_bytes_attribute,
 
                 # vlan-protocol attribute ######################################
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_PROTOCOL: Attribute.decode_vlan_protocol_attribute
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_PROTOCOL: Attribute.decode_vlan_protocol_attribute,
+
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_FLAGS: Attribute.decode_vlan_flags_attribute
             },
             "macvlan": {
                 # 4 bytes attributes ###########################################
@@ -2468,6 +2523,8 @@ class AttributeIFLA_LINKINFO(Attribute):
 
                 # vlan-protocol attribute ######################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_PROTOCOL: Attribute.encode_vlan_protocol_attribute,
+
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VLAN_FLAGS: Attribute.encode_vlan_flags_attribute,
             },
             "macvlan": {
                 # 4 bytes attributes ###########################################
