@@ -141,6 +141,10 @@ class dhcp(Addon, moduleBase):
         self._down_stale_dhcp_config(ifaceobj, 'inet', dhclient4_running)
         self._down_stale_dhcp_config(ifaceobj, 'inet6', dhclient6_running)
 
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+            self.logger.info("%s: skipping dhcp configuration: link-down yes" % ifaceobj.name)
+            return
+
         try:
             dhclient_cmd_prefix = None
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
