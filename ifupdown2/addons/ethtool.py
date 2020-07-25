@@ -51,7 +51,9 @@ class ethtool(Addon, moduleBase):
                     "25000",
                     "40000",
                     "50000",
-                    "100000"
+                    "100000",
+                    "200000",
+                    "400000"
                 ],
                 "example": ["link-speed 1000"],
                 "default": "varies by platform and port"
