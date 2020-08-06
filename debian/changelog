@@ -5,6 +5,7 @@ ifupdown2 (3.0.0-1) unstable; urgency=medium
    * New: bridge-always-up attribute
    * New: set bridge mtu with policy default
    * New: ES bond with "es-sys-mac" attribute
+   * New: vxlan attribute: vxlan-mcastgrp-map
    * New: support for "veth-peer-name" attribute
    * New: dhcp policy: dhclient_retry_on_failure
    * New: support for marking interfaces as mgmt interfaces

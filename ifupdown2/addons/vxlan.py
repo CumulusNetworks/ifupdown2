@@ -109,7 +109,12 @@ class vxlan(Addon, moduleBase):
                 "help": "vxlan multicast group",
                 "validvals": ["<ip6>"],
                 "example": ["vxlan-mcastgrp ff02::15c"],
-            }
+            },
+            "vxlan-mcastgrp-map": {
+                "help": "vxlan multicast group for single-vxlan device",
+                "validvals": ["<number-ipv4-list>"],
+                "example": ["vxlan-mcastgrp-map 1000=239.1.1.100 1001=239.1.1.200"],
+            },
         }
     }
 
@@ -816,6 +821,33 @@ class vxlan(Addon, moduleBase):
                             self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
                         return
 
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+            # check current fdb entries
+            vxlan_fdb_data = utils.exec_command("bridge fdb show dev %s" % ifname)
+            current_fdb = []
+
+            if vxlan_fdb_data:
+                # each entry should look like the following:
+                # 00:00:00:00:00:00 dst 239.1.1.100 src_vni 1000 self permanent
+                for entry in [line for line in vxlan_fdb_data.strip().split("\n") if "src_vni" in line]:
+                    mac, _, dst, _, src_vni = entry.split()[0:5]
+                    current_fdb.append((mac, src_vni, dst))
+
+            user_config_fdb = self.get_vxlan_fdb_src_vni(ifaceobj.get_attr_value("vxlan-mcastgrp-map"))
+
+            fdb_to_remove = set(current_fdb) - set(user_config_fdb)
+
+            for mac, vni, _ in fdb_to_remove:
+                self.iproute2.bridge_fdb_del_src_vni(ifname, mac, vni)
+
+            for mac, src_vni, dst_ip in user_config_fdb:
+                if (mac, src_vni, dst_ip) not in current_fdb:
+                    try:
+                        self.iproute2.bridge_fdb_add_src_vni(ifname, src_vni, dst_ip)
+                    except Exception as e:
+                        ifaceobj.set_status(ifaceStatus.ERROR)
+                        self.log_error("%s: vxlan-mcastgrp-map: %s=%s: %s" % (ifname, src_vni, dst_ip, str(e)), raise_error=False)
+
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
         remoteips = ifaceobj.get_attr_value('vxlan-remoteip')
@@ -865,6 +897,15 @@ class vxlan(Addon, moduleBase):
                     )
                 except Exception:
                     pass
+
+    @staticmethod
+    def get_vxlan_fdb_src_vni(vxlan_mcast_grp_map):
+        fdbs = []
+        for entry in vxlan_mcast_grp_map or []:
+            for vni_ip in entry.split():
+                src_vni, dst_ip = vni_ip.split("=")
+                fdbs.append(("00:00:00:00:00:00", src_vni, dst_ip))
+        return fdbs
 
     def _down(self, ifaceobj):
         try:

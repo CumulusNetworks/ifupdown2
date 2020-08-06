@@ -576,6 +576,21 @@ class IPRoute2(Cache, Requirements):
         )
 
     @staticmethod
+    def bridge_fdb_add_src_vni(dev, src_vni, dst_ip):
+        """
+            bridge fdb add dev $dev 00:00:00:00:00:00 src_vni $src_vni dst $dst_ip
+        """
+        utils.exec_command(
+            "%s fdb add dev %s 00:00:00:00:00:00 src_vni %s dst %s"
+            % (
+                utils.bridge_cmd,
+                dev,
+                src_vni,
+                dst_ip
+            )
+        )
+
+    @staticmethod
     def bridge_fdb_append(dev, address, vlan=None, bridge=True, remote=None):
         target = "self" if bridge else ""
         vlan_str = "vlan %s " % vlan if vlan else ""
@@ -590,6 +605,18 @@ class IPRoute2(Cache, Requirements):
                 vlan_str,
                 target,
                 dst_str
+            )
+        )
+
+    @staticmethod
+    def bridge_fdb_del_src_vni(dev, mac, src_vni):
+        utils.exec_command(
+            "%s fdb del %s dev %s src_vni %s"
+            % (
+                utils.bridge_cmd,
+                mac,
+                dev,
+                src_vni
             )
         )
 
