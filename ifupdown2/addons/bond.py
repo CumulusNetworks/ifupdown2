@@ -679,6 +679,10 @@ class bond(Addon, moduleBase):
         return bond_slaves
 
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
+        if len(ifaceobj.name) > 15:
+            self.log_error("%s: cannot create bond: interface name exceeds max length of 15" % ifaceobj.name, ifaceobj)
+            return
+
         if not self.cache.link_exists(ifaceobj.name):
             self.sysfs.bond_create(ifaceobj.name)
         self.sysfs.bond_set_attrs_nl(ifaceobj.name, ifla_info_data)
