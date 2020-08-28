@@ -146,7 +146,7 @@ class IPAddress(IPNetwork):
         self.ignore_prefixlen()
 
     def __repr__(self):
-        return self._ip
+        return str(self._ip)
 
     def __raise_exception(self, ip):
         raise ValueError(
