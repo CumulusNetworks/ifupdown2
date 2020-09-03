@@ -2625,7 +2625,21 @@ class bridge(Bridge, moduleBase):
         elif self.bridge_set_static_mac_from_port:
             # no policy was provided, we need to get the first physdev or bond ports
             # and use its hwaddress to set the bridge mac
-            for port in self._get_bridge_port_list_user_ordered(ifaceobj) or []:
+
+            # first we need to make sure that the bridge mac is not already inherited from one of it's port
+            bridge_ports = self._get_bridge_port_list_user_ordered(ifaceobj)
+            current_mac = self.cache.get_link_address(ifname)
+
+            for port in bridge_ports or []:
+                if not self.is_vxlan(ifaceobj_getfunc(port)):
+                    port_mac = self.cache.get_link_address(port)
+
+                    if current_mac == port_mac:
+                        self.logger.info("bridge mac is already inherited from %s" % port)
+                        self.bridge_mac_iface = (port, port_mac)
+                        return self.bridge_mac_iface
+
+            for port in bridge_ports or []:
                 # iterate through the bridge-port list
                 for port_obj in ifaceobj_getfunc(port) or []:
                     # check if the port is a physdev (link_kind is null) or a bon
@@ -2645,6 +2659,15 @@ class bridge(Bridge, moduleBase):
                             return self.bridge_mac_iface
 
         return None, None
+
+    @staticmethod
+    def is_vxlan(port_obj_list):
+        # checking if the port is a vxlan by checking the ifaceobjs
+        # instead of checking to cache (saving on locking time)
+        for _port_obj in port_obj_list or []:
+            if _port_obj.link_kind == ifaceLinkKind.VXLAN:
+                return True
+        return False
 
     def _add_bridge_mac_to_fdb(self, ifaceobj, bridge_mac):
         if not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE and bridge_mac and ifaceobj.get_attr_value('address'):
