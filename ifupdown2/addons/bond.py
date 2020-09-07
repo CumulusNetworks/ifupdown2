@@ -387,6 +387,19 @@ class bond(Addon, moduleBase):
                             self.netlink.link_set_protodown_off(s)
                         except Exception as e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+
+                    # ip link set $slave nomaster will set the slave admin down
+                    # if the slave has an auto stanza, we should keep it admin up
+                    # unless link-down yes is set
+                    slave_class_auto = False
+                    slave_link_down = False
+                    for obj in ifaceobj_getfunc(s) or []:
+                        if obj.auto:
+                            slave_class_auto = True
+                        if obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                            slave_link_down = True
+                    if slave_class_auto and not slave_link_down:
+                        self.netlink.link_up_force(s)
                 else:
                     # apply link-down config changes on running slaves
                     try:
