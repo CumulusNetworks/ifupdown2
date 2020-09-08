@@ -41,7 +41,7 @@ class templateEngine():
                                 directories=template_lookuppath.split(':'))
                 except Exception as e:
                     self.logger.warning('unable to set template lookup path'
-                                     ' %s (%s): are you sure \'python-mako\''
+                                     ' %s (%s): are you sure \'python3-mako\''
                                      'is installed?'
                                      % (template_lookuppath, str(e)))
             self.render = self._render_mako
