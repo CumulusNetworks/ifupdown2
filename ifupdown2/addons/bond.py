@@ -376,6 +376,10 @@ class bond(Addon, moduleBase):
 
         if runningslaves:
             for s in runningslaves:
+                # make sure that slaves are not in protodown since we are not in the clag-bond or es-bond case
+                if not clag_bond and not ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND and self.cache.get_link_protodown(s):
+                    self.netlink.link_set_protodown_off(s)
+
                 if s not in slaves:
                     self.sysfs.bond_remove_slave(ifaceobj.name, s)
                     if clag_bond:
