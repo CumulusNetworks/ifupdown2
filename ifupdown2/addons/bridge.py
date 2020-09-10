@@ -2414,13 +2414,13 @@ class bridge(Bridge, moduleBase):
                 try:
                     vlans_str, vni_str = vlan_vni_map.split("=")
                 except Exception:
-                    return self.__warn_bridge_vlan_vni_map_syntax_error(vlan_vni_map)
+                    return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
 
                 vlans = self._ranges_to_ints([vlans_str])
                 vnis = self._ranges_to_ints([vni_str])
 
                 if len(vlans) != len(vnis):
-                    return self.__warn_bridge_vlan_vni_map_syntax_error(vlan_vni_map)
+                    return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
 
                 # TODO: query the cache prio to executing those commands
                 self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, vlans, False)
@@ -2430,8 +2430,8 @@ class bridge(Bridge, moduleBase):
         except Exception as e:
             self.log_error("%s: error while processing bridge-vlan-vni-map attribute: %s" % (vxlan_name, str(e)))
 
-    def __warn_bridge_vlan_vni_map_syntax_error(self, user_config_vlan_vni_map):
-        self.logger.warning("%s: syntax error: bridge-vlan-vni-map %s" % user_config_vlan_vni_map)
+    def __warn_bridge_vlan_vni_map_syntax_error(self, ifname, user_config_vlan_vni_map):
+        self.logger.warning("%s: syntax error: bridge-vlan-vni-map %s" % (ifname, user_config_vlan_vni_map))
 
     def is_qinq_bridge(self, ifaceobj, brport_name, running_brports, brport_ifaceobj_dict, ifaceobj_getfunc):
         """ Detect QinQ bridge
@@ -3644,7 +3644,7 @@ class bridge(Bridge, moduleBase):
                 vlans_str, vni_str = bridge_vlan_vni_map.split("=")
             except Exception:
                 ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
-                return self.__warn_bridge_vlan_vni_map_syntax_error(bridge_vlan_vni_map)
+                return self.__warn_bridge_vlan_vni_map_syntax_error(ifname, bridge_vlan_vni_map)
 
             vlans_list = self._ranges_to_ints([vlans_str])   # self.bridge_vlan_vni_map_convert_user_config_to_set(vlans_str)
             vnis_list = self._ranges_to_ints([vni_str]) #self.bridge_vlan_vni_map_convert_user_config_to_set(vni_str)
