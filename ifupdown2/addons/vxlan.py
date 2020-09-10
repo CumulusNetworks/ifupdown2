@@ -890,7 +890,8 @@ class vxlan(Addon, moduleBase):
             else:
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
                     if link_exists:
-                        self.logger.warning("%s: updating existing single vxlan device is not support yet" % ifname)
+                        self.logger.warning("%s: updating existing single vxlan device is not supported yet "
+                                            "(please run 'ifdown %s; ifup %s'" % (ifname, ifname, ifname))
                     else:
                         self.iproute2.link_add_single_vxlan(
                             ifname,
