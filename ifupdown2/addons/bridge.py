@@ -1763,7 +1763,8 @@ class bridge(Bridge, moduleBase):
             vids = []
 
             for vlans_vnis_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
-                vids.extend(self._ranges_to_ints([vlans_vnis_map.split("=")[0]]))
+                for vlans_vni_map in vlans_vnis_map.split():
+                    vids.extend(self._ranges_to_ints([vlans_vni_map.split("=")[0]]))
 
             return vids
         except Exception as e:
@@ -2409,22 +2410,26 @@ class bridge(Bridge, moduleBase):
         vxlan_name = ifaceobj.name
         try:
             self.iproute2.batch_start()
-            for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
+            for bridge_vlan_vni_map_entry in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
 
-                try:
-                    vlans_str, vni_str = vlan_vni_map.split("=")
-                except Exception:
-                    return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
+                if not bridge_vlan_vni_map_entry:
+                    continue
 
-                vlans = self._ranges_to_ints([vlans_str])
-                vnis = self._ranges_to_ints([vni_str])
+                for vlan_vni_map in bridge_vlan_vni_map_entry.split():
+                    try:
+                        vlans_str, vni_str = vlan_vni_map.split("=")
+                    except:
+                        return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
 
-                if len(vlans) != len(vnis):
-                    return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
+                    vlans = self._ranges_to_ints([vlans_str])
+                    vnis = self._ranges_to_ints([vni_str])
 
-                # TODO: query the cache prio to executing those commands
-                self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, vlans, False)
-                self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlans, vnis)
+                    if len(vlans) != len(vnis):
+                        return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
+
+                    # TODO: query the cache prio to executing those commands
+                    self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, vlans, False)
+                    self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlans, vnis)
 
             self.iproute2.batch_commit()
         except Exception as e:
@@ -3631,57 +3636,37 @@ class bridge(Bridge, moduleBase):
         #
         # bridge-vlan-vni-map
         #
-        fail = False
         cached_vlans, cached_vnis = self.get_vlan_vni_ranges(self.cache.get_vlan_vni(ifaceobj.name))
 
-        for bridge_vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map") or []:
+        for bridge_vlan_vni_map_entry in ifaceobj.get_attr_value("bridge-vlan-vni-map") or []:
+            fail = False
 
-            if fail:
-                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
-                continue
+            for vlan_vni in bridge_vlan_vni_map_entry.split():
+                try:
+                    vlans_str, vni_str = vlan_vni.split("=")
+                except:
+                    fail = True
 
-            try:
-                vlans_str, vni_str = bridge_vlan_vni_map.split("=")
-            except Exception:
-                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
-                return self.__warn_bridge_vlan_vni_map_syntax_error(ifname, bridge_vlan_vni_map)
+                    self.__warn_bridge_vlan_vni_map_syntax_error(ifname, vlan_vni)
 
-            vlans_list = self._ranges_to_ints([vlans_str])   # self.bridge_vlan_vni_map_convert_user_config_to_set(vlans_str)
-            vnis_list = self._ranges_to_ints([vni_str]) #self.bridge_vlan_vni_map_convert_user_config_to_set(vni_str)
+                if fail:
+                    # if we already have detected an error on this entry there's
+                    # no point doing anything else than syntax check on the rest
+                    continue
 
-            # since there can be multiple entry of bridge-vlan-vni-map
-            # we could simply check that all vlans and vnis are correctly
-            # set on the vxlan but we would probably miss the case where extra
-            # vlans and vnis were added. So we ned to keep a copy of the cache
-            # entry and pop vlans and svis from the cache copy as we iterate
-            # through the user config. After processing only extra vlans and
-            # vnis should be left.
-            try:
-                for vlan in vlans_list:
-                    cached_vlans.remove(vlan)
-            except Exception:
-                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
-                fail = True
-                continue
+                vlans_list = self._ranges_to_ints([vlans_str])
+                vnis_list = self._ranges_to_ints([vni_str])
 
-            try:
-                for vni in vnis_list:
-                    cached_vnis.remove(vni)
-            except Exception:
-                ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 1)
-                fail = True
-                continue
+                try:
+                    for i, vlan in enumerate(vlans_list):
+                        index = cached_vnis.index(vlan)
 
-            ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map, 0)
+                        if vlan != cached_vnis[index] or vnis_list[i] != cached_vlans[index]:
+                            fail = True
+                except:
+                    fail = True
 
-        if not fail and (cached_vlans or cached_vnis):
-            # cached_vlans and cached_vnis are not empty, it means more
-            # vlans-vni maps were configured on the bridge port
-            ifaceobjcurr.update_config_with_status(
-                "bridge-vlan-vni-map",
-                "%s=%s" % (cached_vlans, cached_vnis),
-                1
-            )
+            ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map_entry, fail)
 
     @staticmethod
     def get_vlan_vni_ranges(bridge_vlan_tunnel):
