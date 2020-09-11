@@ -188,7 +188,7 @@ class address(Addon, moduleBase):
             )
         )
 
-        self.default_mtu = self.__policy_get_default_mtu()
+        self.default_mtu = str(self.__policy_get_default_mtu())
         self.default_mgmt_intf_mtu = self.__policy_get_mgmt_intf_mtu()
         if not self.default_mgmt_intf_mtu:
             self.default_mgmt_intf_mtu = self.default_mtu
