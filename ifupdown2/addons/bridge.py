@@ -869,7 +869,20 @@ class bridge(Bridge, moduleBase):
                 retval = False
         c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_getfunc)
         c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
-        return retval and c1 #and c2
+        c3 = self.syntax_check_learning_l2_vni_evpn(ifaceobj)
+        return retval and c1 and c3 #and c2
+
+    def syntax_check_learning_l2_vni_evpn(self, ifaceobj):
+        result = True
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            if utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-learning")):
+                self.logger.warning(
+                    "%s: possible mis-configuration detected: l2-vni configured with bridge-learning ON "
+                    "while EVPN is also configured - these two parameters conflict with each other."
+                    % ifaceobj.name
+                )
+                result = False
+        return result
 
     def syntax_check_bridge_allow_multiple_vlans(self, ifaceobj, ifaceobj_getfunc):
         result = True
@@ -1910,6 +1923,9 @@ class bridge(Bridge, moduleBase):
         if not bridge_name:
             # bridge doesn't exist
             return
+
+        # check for bridge-learning on l2 vni in evpn setup
+        self.syntax_check_learning_l2_vni_evpn(ifaceobj)
 
         vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridge_name)
         if vlan_aware_bridge:
