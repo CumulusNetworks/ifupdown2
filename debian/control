@@ -2,7 +2,7 @@ Source: ifupdown2
 Section: admin
 Priority: optional
 Maintainer: Julien Fortin <julien@cumulusnetworks.com>
-Build-Depends: debhelper (>=9),
+Build-Depends: debhelper (>= 9.20160709),
                dh-python,
                python3,
                python3-all,
