@@ -461,8 +461,19 @@ class address(Addon, moduleBase):
         return True, user_config_ip_addrs_list
 
     def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs):
+        ipv6_is_disabled = None
         try:
             for ip, attributes in user_config_ip_addrs:
+
+                if ip.version == 6 and ipv6_is_disabled is None:
+                    # check (only once) if ipv6 is disabled on this device
+                    proc_path = "/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname
+                    ipv6_is_disabled = utils.get_boolean_from_string(self.read_file_oneline(proc_path))
+
+                    if ipv6_is_disabled:
+                        # enable ipv6
+                        self.write_file(proc_path, "0")
+
                 if attributes:
                     self.netlink.addr_add(
                         ifname, ip,
