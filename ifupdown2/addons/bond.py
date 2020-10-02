@@ -257,6 +257,12 @@ class bond(Addon, moduleBase):
         self._bond_attr_ifquery_check_translate_func[Link.IFLA_BOND_PRIMARY] = self.cache.get_ifindex
         self._bond_attr_set_list = self._bond_attr_set_list + (('bond-primary', Link.IFLA_BOND_PRIMARY, self.cache.get_ifindex),)
 
+        self.bond_mac_mgmt = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="bond_mac_mgmt"),
+            True
+        )
 
     def get_bond_slaves(self, ifaceobj):
         # bond-ports aliases should be translated to bond-slaves
@@ -361,6 +367,7 @@ class bond(Addon, moduleBase):
 
             self.enable_ipv6_if_prev_brport(slave)
             self.netlink.link_set_master(slave, ifaceobj.name)
+            runningslaves.append(slave)
             # TODO: if this fail we should switch to iproute2
             # start a batch: down - set master - up
             if link_up or ifaceobj.link_type != ifaceLinkType.LINK_NA:
@@ -369,12 +376,14 @@ class bond(Addon, moduleBase):
                         ifaceLinkPrivFlags.KEEP_LINK_DOWN):
                         self.netlink.link_down_force(slave)
                     else:
-                        self.netlink.link_up(slave)
+                        self.netlink.link_up_force(slave)
                except Exception as e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
                     pass
 
         if runningslaves:
+            removed_slave = []
+
             for s in runningslaves:
                 # make sure that slaves are not in protodown since we are not in the clag-bond or es-bond case
                 if not clag_bond and not ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND and self.cache.get_link_protodown(s):
@@ -382,6 +391,7 @@ class bond(Addon, moduleBase):
 
                 if s not in slaves:
                     self.sysfs.bond_remove_slave(ifaceobj.name, s)
+                    removed_slave.append(s)
                     if clag_bond:
                         try:
                             self.netlink.link_set_protodown_off(s)
@@ -412,6 +422,14 @@ class bond(Addon, moduleBase):
                             self.netlink.link_up_force(s)
                     except Exception as e:
                         self.logger.warning('%s: %s' % (ifaceobj.name, str(e)))
+
+            for s in removed_slave:
+                try:
+                    runningslaves.remove(s)
+                except:
+                    pass
+
+        return  runningslaves
 
     def _check_updown_delay_log(self, ifaceobj, attr_name, value):
         ifaceobj.status = ifaceStatus.ERROR
@@ -693,7 +711,7 @@ class bond(Addon, moduleBase):
         if link_exists and ifla_info_data and not is_link_up:
             self.netlink.link_up_force(ifname)
 
-        return bond_slaves
+        return link_exists, bond_slaves
 
     def create_or_set_bond_config_sysfs(self, ifaceobj, ifla_info_data):
         if len(ifaceobj.name) > 15:
@@ -706,12 +724,54 @@ class bond(Addon, moduleBase):
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         try:
-            bond_slaves = self.create_or_set_bond_config(ifaceobj)
-            self._add_slaves(
+            link_exists, bond_slaves = self.create_or_set_bond_config(ifaceobj)
+            bond_slaves = self._add_slaves(
                 ifaceobj,
                 bond_slaves,
                 ifaceobj_getfunc,
             )
+
+            if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
+                return
+
+            # check if the bond mac address is correctly inherited from it's
+            # first slave. There's a case where that might not be happening:
+            # $ ip link show swp1 | grep ether
+            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+            # $ ip link show swp2 | grep ether
+            #    link/ether 08:00:27:04:d8:02 brd ff:ff:ff:ff:ff:ff
+            # $ ip link add dev bond0 type bond
+            # $ ip link set dev swp1 master bond0
+            # $ ip link set dev swp2 master bond0
+            # $ ip link show bond0 | grep ether
+            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+            # $ ip link add dev bond1 type bond
+            # $ ip link set dev swp1 master bond1
+            # $ ip link show swp1 | grep ether
+            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+            # $ ip link show swp2 | grep ether
+            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+            # $ ip link show bond0 | grep ether
+            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+            # $ ip link show bond1 | grep ether
+            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+            # $
+            # ifupdown2 will automatically correct and fix this unexpected behavior
+            bond_mac = self.cache.get_link_address(ifaceobj.name)
+
+            if bond_slaves:
+                first_slave_ifname = bond_slaves[0]
+                first_slave_mac = self.cache.get_link_info_slave_data_attribute(
+                    first_slave_ifname,
+                    Link.IFLA_BOND_SLAVE_PERM_HWADDR
+                )
+
+                if first_slave_mac and bond_mac != first_slave_mac:
+                    self.logger.info(
+                        "%s: invalid bond mac detected - resetting to %s's mac (%s)"
+                        % (ifaceobj.name, first_slave_ifname, first_slave_mac)
+                    )
+                    self.netlink.link_set_address(ifaceobj.name, first_slave_mac)
         except Exception as e:
             self.log_error(str(e), ifaceobj)
 

@@ -48,7 +48,9 @@ class utils():
         "off": False,
         "no": False,
         "0": False,
-        "slow": False
+        "slow": False,
+        True: True,
+        False: False
     }
 
     _binary_bool = {

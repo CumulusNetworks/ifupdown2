@@ -2509,7 +2509,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_AD_AGGREGATOR_ID: Attribute.decode_two_bytes_attribute,
 
                 # 4 bytes attributes ###########################################
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_PERM_HWADDR: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_PERM_HWADDR: Attribute.decode_mac_address_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_SLAVE_LINK_FAILURE_COUNT: Attribute.decode_four_bytes_attribute,
             }
         }
