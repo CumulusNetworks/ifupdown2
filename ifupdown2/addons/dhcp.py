@@ -106,7 +106,6 @@ class dhcp(Addon, moduleBase):
             retry = self.dhclient_check(ifname, family, ip_config_before, retry, handler_kwargs.get("cmd_prefix"))
 
     def dhclient_check(self, ifname, family, ip_config_before, retry, dhclient_cmd_prefix):
-        retry -= 1
         diff = self.get_current_ip_configured(ifname, family).difference(ip_config_before)
 
         if diff:
@@ -116,18 +115,16 @@ class dhcp(Addon, moduleBase):
             )
             return -1
         else:
-            try:
                 if retry > 0:
                     self.logger.error(
                         "%s: dhclient: couldn't detect new ip address, retrying %s more times..."
                         % (ifname, retry)
                     )
+                    self.dhclientcmd.stop(ifname)
                 else:
                     self.logger.error("%s: dhclient: timeout failed to detect new ip addresses" % ifname)
                     return -1
-            finally:
-                self.logger.info("%s: releasing expired dhcp lease..." % ifname)
-                self.dhclientcmd.release(ifname, dhclient_cmd_prefix)
+        retry -= 1
         return retry
 
     def _up(self, ifaceobj):
