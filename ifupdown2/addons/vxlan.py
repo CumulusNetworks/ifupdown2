@@ -51,7 +51,7 @@ class vxlan(Addon, moduleBase):
                 "example": ["vxlan-local-tunnelip 172.16.20.103"]
             },
             "vxlan-svcnodeip": {
-                "help": "vxlan id",
+                "help": "vxlan svc node id",
                 "validvals": ["<ipv4>"],
                 "example": ["vxlan-svcnodeip 172.16.22.125"]
             },
