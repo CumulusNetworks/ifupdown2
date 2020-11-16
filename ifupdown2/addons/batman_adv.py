@@ -183,7 +183,7 @@ class batman_adv(Addon, moduleBase):
         members = []
         iface_ignore_re = self._get_batman_ifaces_ignore_regex (ifaceobj)
         self.logger.info("batman: executing: %s" % " ".join(["batctl", "-m", ifaceobj.name, "if"]))
-        batctl_fh = subprocess.Popen (["batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE).stdout
+        batctl_fh = subprocess.Popen (["batctl", "-m", ifaceobj.name, "if"], bufsize = 4194304, stdout = subprocess.PIPE, universal_newlines = True).stdout
         for line in batctl_fh.readlines ():
             iface = line.split (':')[0]
             if iface_ignore_re and iface_ignore_re.match (iface) and ignore:
