@@ -775,7 +775,7 @@ class address(Addon, moduleBase):
         netconf_ipv4_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET, ifname)
         netconf_ipv6_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET6, ifname)
 
-        if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address'):
+        if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address') and (ifaceobj.addr_method and "dhcp" not in ifaceobj.addr_method):
             if netconf_ipv4_forwarding:
                 self.sysctl_write_forwarding_value_to_proc(ifname, "ipv4", 0)
             if netconf_ipv6_forwarding:
