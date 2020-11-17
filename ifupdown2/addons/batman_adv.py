@@ -92,13 +92,11 @@ class batman_adv(Addon, moduleBase):
             raise moduleNotSupported('module init failed: no /usr/sbin/batctl found')
 
         for longname, entry in self._modinfo['attrs'].items():
-            if entry.get('batman-attr', False) == False:
-                continue
-
-            attr = longname.replace("batman-", "")
-            self._batman_attrs[attr] = {
-                'filename': attr.replace("-", "_"),
-            }
+            if entry.get('batman-attr', False):
+                attr = longname.replace("batman-", "")
+                self._batman_attrs[attr] = {
+                    'filename': attr.replace("-", "_"),
+                }
 
     def _is_batman_device(self, ifaceobj):
         if ifaceobj.get_attr_value_first('batman-ifaces'):
@@ -174,7 +172,7 @@ class batman_adv(Addon, moduleBase):
 
         try:
             self.logger.debug("Running batctl ra %s" % routing_algo)
-            batctl_output = subprocess.check_output(["batctl", "ra", routing_algo], stderr=subprocess.STDOUT)
+            subprocess.check_output(["batctl", "ra", routing_algo], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as c:
             raise Exception("Command \"batctl ra %s\" failed: %s" % (routing_algo, c.output))
         except Exception as e:
@@ -206,7 +204,7 @@ class batman_adv(Addon, moduleBase):
         return [None]
 
     def _up(self, ifaceobj):
-        if self._get_batman_ifaces(ifaceobj) == None:
+        if self._get_batman_ifaces(ifaceobj) is None:
             raise Exception('could not determine batman interfacaes')
 
         # Verify existance of batman interfaces (should be present already)
@@ -353,7 +351,7 @@ class batman_adv(Addon, moduleBase):
         if not op_handler:
             return
 
-        if (operation != 'query-running' and not self._is_batman_device(ifaceobj)):
+        if operation != 'query-running' and not self._is_batman_device(ifaceobj):
             return
 
         if operation == 'query-checkcurr':
