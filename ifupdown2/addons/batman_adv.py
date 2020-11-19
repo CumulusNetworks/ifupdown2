@@ -7,7 +7,6 @@
 try:
     from ifupdown2.lib.addon import Addon
 
-    from ifupdown2.nlmanager.nlmanager import NetlinkManager
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
@@ -17,7 +16,6 @@ try:
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
 
-    from nlmanager.nlmanager import NetlinkManager
     from ifupdown.iface import *
     from ifupdown.utils import utils
     from ifupdownaddons.modulebase import moduleBase
@@ -247,8 +245,7 @@ class batman_adv(Addon, moduleBase):
                 self._set_batman_attr(ifaceobj, attr, value_cfg)
 
         if ifaceobj.addr_method == 'manual':
-            netlink = NetlinkManager()
-            netlink.link_set_updown(ifaceobj.name, "up")
+            self.netlink.link_up(ifaceobj.name)
 
     def _down(self, ifaceobj):
         if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
