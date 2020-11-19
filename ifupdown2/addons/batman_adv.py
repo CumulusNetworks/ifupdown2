@@ -138,8 +138,6 @@ class batman_adv(Addon, moduleBase):
             return self.read_file_oneline(attr_file_path)
         except IOError as i:
             raise Exception("_read_current_batman_attr (%s) %s" % (attr, i))
-        except ValueError:
-            raise Exception("_read_current_batman_attr: Integer value expected, got: %s" % value)
 
     def _set_batman_attr(self, ifaceobj, attr, value):
         if attr not in self._batman_attrs:
