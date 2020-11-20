@@ -673,6 +673,12 @@ class bridge(Addon, moduleBase):
         )
         self.logger.debug('bridge: init: arp_nd_suppress_only_on_vxlan=%s' % self.arp_nd_suppress_only_on_vxlan)
 
+        self.bridge_always_up_dummy_brport = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr='bridge_always_up_dummy_brport'
+        )
+        self.logger.debug('bridge: init: bridge_always_up_dummy_brport=%s' % self.bridge_always_up_dummy_brport)
+
         try:
             self.bridge_allow_multiple_vlans = utils.get_boolean_from_string(
                 self.sysctl_get('net.bridge.bridge-allow-multiple-vlans')
@@ -1178,9 +1184,12 @@ class bridge(Addon, moduleBase):
 
     def get_dummy_brport_name_for_bridge(self, bridge_name):
         """
-            dummy brport will have pre-formated name: brport-if$BRIDGE_IFINDEX
+            dummy brport will have user provided name if it's defined in 'bridge_always_up_dummy_brport' policy
+            Otherwise dummy brport will have pre-formated name: brport-if$BRIDGE_IFINDEX
             That way we can avoid collision with existing interfaces
         """
+        if self.bridge_always_up_dummy_brport:
+            return self.bridge_always_up_dummy_brport
         # this can raise: NetlinkCacheIfnameNotFoundError
         return "brport-if%d" % self.cache.get_ifindex(bridge_name)
 
