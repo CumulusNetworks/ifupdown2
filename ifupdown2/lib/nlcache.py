@@ -292,9 +292,9 @@ class _NetlinkCache:
 
             self._masters_and_slaves[master].remove(slave)
         except (KeyError, ValueError):
-            for master, slaves_set in self._masters_and_slaves.items():
-                if slave in slaves_set:
-                    slaves_set.remove(slave)
+            for master, slaves_list in self._masters_and_slaves.items():
+                if slave in slaves_list:
+                    slaves_list.remove(slave)
                     break
 
         try:
@@ -1333,9 +1333,11 @@ class _NetlinkCache:
                     master_ifname = os.path.basename(os.path.realpath(master_device_path))
 
             if master_ifname in self._masters_and_slaves:
-                self._masters_and_slaves[master_ifname].add(ifname)
+                slave_list = self._masters_and_slaves[master_ifname]
+                if ifname not in slave_list:
+                    slave_list.append(ifname)
             else:
-                self._masters_and_slaves[master_ifname] = set([ifname])
+                self._masters_and_slaves[master_ifname] = [ifname]
 
             self._slaves_master[ifname] = master_ifname
 
@@ -1415,9 +1417,10 @@ class _NetlinkCache:
                 master_slaves = self._masters_and_slaves.get(master)
 
                 if not master_slaves:
-                    self._masters_and_slaves[master] = {slave}
+                    self._masters_and_slaves[master] = [slave]
                 else:
-                    master_slaves.add(slave)
+                    if slave not in master_slaves:
+                        master_slaves.append(slave)
 
                 # if the slave is already enslaved to another device we should
                 # make sure to remove it from the _masters_and_slaves data
@@ -1449,9 +1452,11 @@ class _NetlinkCache:
                 master_slaves = self._masters_and_slaves.get(master)
 
                 if not master_slaves:
-                    self._masters_and_slaves[master] = set(slave_list)
+                    self._masters_and_slaves[master] = slave_list
                 else:
-                    master_slaves.update(slave_list)
+                    for slave_ifname in slave_list:
+                        if slave_ifname not in master_slaves:
+                            master_slaves.append(slave_ifname)
 
                 for slave in slave_list:
                     self._slaves_master[slave] = master
