@@ -66,6 +66,16 @@ class dhclient(utilsBase):
         self._run_dhclient_cmd(cmd, cmd_prefix)
 
     def start(self, ifacename, wait=True, cmd_prefix=None):
+        retries = 0
+        out = "0"
+
+        # wait if interface isn't up yet
+        while '1' not in out and retries < 5:
+            path = 'sys/class/net/%s/carrier' %ifacename
+            out = self.read_file_oneline(path)
+            retries += 1
+            time.sleep(1)
+
         if os.path.exists('/sbin/dhclient3'):
             cmd = ['/sbin/dhclient3', '-pf',
                    '/run/dhclient.%s.pid' %ifacename,
