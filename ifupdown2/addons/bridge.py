@@ -689,7 +689,8 @@ class bridge(Bridge, moduleBase):
         self.logger.debug('bridge: init: multiple vlans allowed %s' % self.bridge_allow_multiple_vlans)
 
         self.bridge_mac_iface_list = policymanager.policymanager_api.get_module_globals(self.__class__.__name__, 'bridge_mac_iface') or []
-        self.bridge_mac_iface = None, None  # ifname, mac
+        # each bridge should have it's own tuple (ifname, mac)
+        self.bridge_mac_iface = {}
 
         self.bridge_set_static_mac_from_port = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -2601,8 +2602,10 @@ class bridge(Bridge, moduleBase):
             self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
 
     def _get_bridge_mac(self, ifaceobj, ifname, ifaceobj_getfunc):
-        if self.bridge_mac_iface and self.bridge_mac_iface[0] and self.bridge_mac_iface[1]:
-            return self.bridge_mac_iface
+        bridge_mac_iface = self.bridge_mac_iface.get(ifname)
+
+        if bridge_mac_iface and bridge_mac_iface[0] and bridge_mac_iface[1]:
+            return bridge_mac_iface
 
         if self.bridge_mac_iface_list:
             self.logger.debug('bridge mac iface list: %s' % self.bridge_mac_iface_list)
@@ -2625,8 +2628,8 @@ class bridge(Bridge, moduleBase):
                     iface_mac = self.cache.get_link_address(bridge_mac_intf)
                     # if hwaddress attribute is not configured we use the running mac addr
 
-                self.bridge_mac_iface = (bridge_mac_intf, iface_mac)
-                return self.bridge_mac_iface
+                self.bridge_mac_iface[ifname] = (bridge_mac_intf, iface_mac)
+                return self.bridge_mac_iface[ifname]
         elif self.bridge_set_static_mac_from_port:
             # no policy was provided, we need to get the first physdev or bond ports
             # and use its hwaddress to set the bridge mac
@@ -2641,8 +2644,8 @@ class bridge(Bridge, moduleBase):
 
                     if current_mac == port_mac:
                         self.logger.info("bridge mac is already inherited from %s" % port)
-                        self.bridge_mac_iface = (port, port_mac)
-                        return self.bridge_mac_iface
+                        self.bridge_mac_iface[ifname] = (port, port_mac)
+                        return self.bridge_mac_iface[ifname]
 
             for port in bridge_ports or []:
                 # iterate through the bridge-port list
@@ -2660,8 +2663,8 @@ class bridge(Bridge, moduleBase):
                             iface_mac = self.cache.get_link_address(port)
 
                         if iface_mac:
-                            self.bridge_mac_iface = (port, iface_mac)
-                            return self.bridge_mac_iface
+                            self.bridge_mac_iface[ifname] = (port, iface_mac)
+                            return self.bridge_mac_iface[ifname]
 
         return None, None
 
