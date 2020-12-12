@@ -159,6 +159,13 @@ class vlan(Addon, moduleBase):
                             'apply the change.'
                             % (ifaceobj.name, vlan_protocol, ifaceobj.name))
 
+        cached_vlan_id = cached_vlan_ifla_info_data.get(Link.IFLA_VLAN_ID)
+        if cached_vlan_id is not None and vlanid != cached_vlan_id:
+            raise Exception('%s: cannot change vlan-id to %s: operation not supported. '
+                            'Please delete the device with \'ifdown %s\' and recreate it to '
+                            'apply the change.'
+                            % (ifaceobj.name, vlanid, ifaceobj.name))
+
         if not ifupdownflags.flags.PERFMODE:
 
             vlan_exists = self.cache.link_exists(ifaceobj.name)
