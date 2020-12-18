@@ -390,6 +390,15 @@ class addressvirtual(Addon, moduleBase):
                     self.netlink.link_set_master(u, vrfname)
                     self.netlink.link_up(u)
 
+    def sync_macvlan_forwarding_state(self, ifname, macvlan_ifname):
+        try:
+            self.write_file(
+                "/proc/sys/net/ipv4/conf/%s/forwarding" % macvlan_ifname,
+                self.read_file_oneline("/proc/sys/net/ipv4/conf/%s/forwarding" % ifname)
+            )
+        except Exception as e:
+            self.logger.info("%s: syncing macvlan forwarding with lower device forwarding state failed: %s" % str(e))
+
     def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
 
         """
@@ -436,6 +445,7 @@ class addressvirtual(Addon, moduleBase):
                 #    self.netlink.link_add_macvlan(ifname, macvlan_ifname)
                 # except Exception:
                 self.iproute2.link_add_macvlan(ifname, macvlan_ifname, macvlan_mode)
+                self.sync_macvlan_forwarding_state(ifname, macvlan_ifname)
                 link_created = True
 
             # first thing we need to handle vrf enslavement
