@@ -73,6 +73,8 @@ class dhclient(utilsBase):
         while '1' not in out and retries < 5:
             path = 'sys/class/net/%s/carrier' %ifacename
             out = self.read_file_oneline(path)
+            if out is None:
+                break # No sysfs file found for this iface
             retries += 1
             time.sleep(1)
 
