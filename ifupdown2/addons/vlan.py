@@ -97,7 +97,7 @@ class vlan(Addon, moduleBase):
             return vlan_raw_device
         return self._get_vlan_raw_device_from_ifacename(ifaceobj.name)
 
-    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None, old_ifaceobjs=False):
         if not self._is_vlan_device(ifaceobj):
             return None
         ifaceobj.link_kind |= ifaceLinkKind.VLAN

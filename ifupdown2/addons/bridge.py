@@ -971,7 +971,7 @@ class bridge(Bridge, moduleBase):
             return False
         return True
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
         if not self._is_bridge(ifaceobj) or not self.check_valid_bridge(ifaceobj, ifaceobj.name):
             return None
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:

@@ -74,7 +74,7 @@ class link(Addon, moduleBase):
     def _is_my_interface(ifaceobj):
         return ifaceobj.get_attr_value_first('link-type') or ifaceobj.get_attr_value_first('link-down')
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
         if ifaceobj.get_attr_value_first('link-down') == 'yes':
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.KEEP_LINK_DOWN
         if ifaceobj.get_attr_value_first('link-type'):

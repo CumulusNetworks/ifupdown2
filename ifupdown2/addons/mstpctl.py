@@ -336,7 +336,7 @@ class mstpctl(Addon, moduleBase):
                or ifaceobj.get_attr_value_first('mstpctl-ports') \
                or ifaceobj.get_attr_value_first('bridge-ports')
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
         if not self._is_bridge(ifaceobj):
             return None
         return self.parse_port_list(ifaceobj.name,

@@ -181,7 +181,7 @@ class tunnel(Addon, moduleBase):
         except Exception as e:
             self.log_warn(str(e))
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
         if not self._is_my_interface(ifaceobj):
             return None
 

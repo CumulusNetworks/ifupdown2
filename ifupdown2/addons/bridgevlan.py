@@ -63,7 +63,7 @@ class bridgevlan(Addon, moduleBase):
             return vlist[0]
         return None
 
-    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None, old_ifaceobjs=False):
         if not self._is_bridge_vlan_device(ifaceobj):
             return None
         return [self._get_bridgename(ifaceobj)]

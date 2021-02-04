@@ -114,7 +114,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
     def get_default_ip_metric(cls):
         return cls.DEFAULT_IP_METRIC
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
         if ifaceobj.get_attr_value('address-virtual') or ifaceobj.get_attr_value("vrrp"):
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.ADDRESS_VIRTUAL_SLAVE
 

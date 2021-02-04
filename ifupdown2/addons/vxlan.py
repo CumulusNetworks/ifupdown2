@@ -182,7 +182,7 @@ class vxlan(Addon, moduleBase):
             pass
         return True
 
-    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None, old_ifaceobjs=False):
         if ifaceobj.get_attr_value_first("bridge-vlan-vni-map"):
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.SINGLE_VXLAN
 
@@ -195,7 +195,7 @@ class vxlan(Addon, moduleBase):
             if not self.vxlan_mcastgrp_ref and ifaceobj.get_attr_value("vxlan-mcastgrp"):
                 self.vxlan_mcastgrp_ref = True
 
-        elif ifaceobj.name == 'lo':
+        elif ifaceobj.name == 'lo' and not old_ifaceobjs:
             clagd_vxlan_list = ifaceobj.get_attr_value('clagd-vxlan-anycast-ip')
             if clagd_vxlan_list:
                 if len(clagd_vxlan_list) != 1:
@@ -432,6 +432,9 @@ class vxlan(Addon, moduleBase):
         except Exception:
             self.log_error("%s: invalid vxlan-ttl '%s'" % (ifname, vxlan_ttl_str), ifaceobj)
 
+    def is_vxlan_on_a_clag_bridge(self, ifaceobj) -> bool:
+        return bool(ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT and self._clagd_vxlan_anycast_ip and self.is_process_running('clagd'))
+
     def __config_vxlan_local_tunnelip(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         """
         Get vxlan-local-tunnelip user config or policy, validate ip address format and insert in netlink dict
@@ -448,14 +451,23 @@ class vxlan(Addon, moduleBase):
             local = self._vxlan_local_tunnelip
 
         if link_exists:
+            cached_ifla_vxlan_local = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
+
             # on ifreload do not overwrite anycast_ip to individual ip
             # if clagd has modified
-            running_localtunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
-
-            if self._clagd_vxlan_anycast_ip and running_localtunnelip:
+            if self._clagd_vxlan_anycast_ip and cached_ifla_vxlan_local:
                 anycastip = ipnetwork.IPNetwork(self._clagd_vxlan_anycast_ip)
-                if anycastip == running_localtunnelip:
-                    local = running_localtunnelip
+
+                if (
+                    anycastip == cached_ifla_vxlan_local
+                    # there's a change that the cache hasn't been updated in
+                    # time to reflect the new anycast ip set by clagd, extra checks:
+                    or self.is_vxlan_on_a_clag_bridge(ifaceobj)
+                ):
+                    local = cached_ifla_vxlan_local = anycastip
+                    self.logger.info("%s: clagd-vxlan-anycast-ip (%s) inherited from loopback interface" % (ifname, local))
+        else:
+            cached_ifla_vxlan_local = None
 
         if not local:
             local = policymanager.policymanager_api.get_attr_default(
@@ -473,7 +485,6 @@ class vxlan(Addon, moduleBase):
             except Exception as e:
                 raise Exception("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
 
-        cached_ifla_vxlan_local = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
 
         if local:
             if local != cached_ifla_vxlan_local:

@@ -692,10 +692,9 @@ class ifupdownMain:
                     self._set_iface_role_n_kind(lowerifaceobj, ui)
                     ui.add_to_lowerifaces(lowerifaceobj.name)
 
-    def query_lowerifaces(self, ifaceobj, ops, ifacenames, type=None):
+    def query_lowerifaces(self, ifaceobj, ops, ifacenames, old_ifaceobjs):
         """ Gets iface dependents by calling into respective modules """
         ret_dlist = []
-
         # Get dependents for interface by querying respective modules
         for module in list(self.modules.values()):
             try:
@@ -708,7 +707,7 @@ class ifupdownMain:
                     if (not hasattr(module, 'get_dependent_ifacenames')):
                         continue
                     dlist = module.get_dependent_ifacenames(ifaceobj,
-                                        ifacenames)
+                                        ifacenames, old_ifaceobjs)
             except Exception as e:
                 self.logger.warning('%s: error getting dependent interfaces (%s)'
                         %(ifaceobj.name, str(e)))
@@ -767,7 +766,7 @@ class ifupdownMain:
                 if ifaceobj.name in peer_dlist:
                     dlist.remove(difaceobj.name)
 
-    def populate_dependency_info(self, ops, ifacenames=None):
+    def populate_dependency_info(self, ops, ifacenames=None, old_ifaceobjs=False):
         """ recursive function to generate iface dependency info """
 
         if not ifacenames:
@@ -792,7 +791,7 @@ class ifupdownMain:
                 if iobj.lowerifaces:
                     dependents_processed = True
                     break
-                dlist = self.query_lowerifaces(iobj, ops, ifacenames)
+                dlist = self.query_lowerifaces(iobj, ops, ifacenames, old_ifaceobjs)
                 if dlist:
                    break
             if ulist:
@@ -2228,7 +2227,7 @@ class ifupdownMain:
             # have been checked before they became part of saved state.
             try:
                 self.flags.CHECK_SHARED_DEPENDENTS = False
-                self.populate_dependency_info(upops)
+                self.populate_dependency_info(upops, old_ifaceobjs=True)
                 self.flags.CHECK_SHARED_DEPENDENTS = True
             except Exception as e:
                 self.logger.info("error generating dependency graph for "
