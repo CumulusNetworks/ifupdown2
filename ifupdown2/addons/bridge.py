@@ -464,7 +464,7 @@ class bridge(Bridge, moduleBase):
         'bridge-maxage': Link.IFLA_BR_MAX_AGE,
         'bridge-ageing': Link.IFLA_BR_AGEING_TIME,
         'bridge-stp': Link.IFLA_BR_STP_STATE,
-        'bridge-bridgeprio': Link.IFLA_BR_PRIORITY,
+        # 'bridge-bridgeprio': Link.IFLA_BR_PRIORITY,
         'bridge-vlan-aware': Link.IFLA_BR_VLAN_FILTERING,
         'bridge-vlan-protocol': Link.IFLA_BR_VLAN_PROTOCOL,
         # Link.IFLA_BR_GROUP_FWD_MASK,
@@ -1485,6 +1485,29 @@ class bridge(Bridge, moduleBase):
                 attr_name=attr_name,
                 user_config=ifaceobj.get_attr_value_first(attr_name),
                 cached_value=cached_ifla_info_data.get(nl_attr)
+            )
+
+        # special cases ########################################################
+
+        # bridge-bridgeprio
+        # if mstpctl-treeprio is configured on the bridge
+        # do not reset the bridge-bridgeprio to the default value
+        # NOTE: this is the case for every bridge/mstpctl attribute pairs.
+        # TODO: more code should be added to handle this in the future.
+        mstpctl_treeprio = ifaceobj.get_attr_value_first("mstpctl-treeprio")
+        bridge_bridgeprio = ifaceobj.get_attr_value_first("bridge-bridgeprio")
+
+        if mstpctl_treeprio:
+            self.logger.info("%s: mstpctl-treeprio attribute is set - ignorning bridge-bridgeprio" % ifname)
+        else:
+            self.fill_ifla_info_data_with_ifla_br_attribute(
+                ifla_info_data=ifla_info_data,
+                link_just_created=link_just_created,
+                ifname=ifname,
+                nl_attr=Link.IFLA_BR_PRIORITY,
+                attr_name='bridge-bridgeprio',
+                user_config=bridge_bridgeprio,
+                cached_value=cached_ifla_info_data.get(Link.IFLA_BR_PRIORITY)
             )
 
         # bridge-mcsnoop
