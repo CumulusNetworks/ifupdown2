@@ -709,10 +709,8 @@ class ifupdownMain:
                     dlist = module.get_dependent_ifacenames(ifaceobj,
                                         ifacenames, old_ifaceobjs)
             except Exception as e:
-                self.logger.warning('%s: error getting dependent interfaces (%s)'
-                        %(ifaceobj.name, str(e)))
+                self.logger.warning("%s: %s: error getting dependent interfaces (%s)" % (ifaceobj.name, module, str(e)))
                 dlist = None
-                pass
             if dlist: ret_dlist.extend(dlist)
         return list(set(ret_dlist))
 
