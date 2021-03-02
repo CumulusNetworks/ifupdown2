@@ -870,7 +870,37 @@ class bridge(Bridge, moduleBase):
         c1 = self.syntax_check_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_getfunc)
         c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
         c3 = self.syntax_check_learning_l2_vni_evpn(ifaceobj)
-        return retval and c1 and c3 #and c2
+        c4 = self.syntax_check_bridge_arp_vni_vlan(ifaceobj, ifaceobj_getfunc)
+        return retval and c1 and c3 and c4 #and c2
+
+    def syntax_check_bridge_arp_vni_vlan(self, ifaceobj, ifaceobj_getfunc):
+        """
+        Detect and warn when arp suppression is enabled and there is no vlan configured
+
+        :param ifaceobj:
+        :param ifaceobj_getfunc:
+        :return boolean:
+        """
+        if ifaceobj.link_kind & ifaceLinkKind.VXLAN \
+            and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT \
+            and utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-arp-nd-suppress")):
+
+            bridge_access = ifaceobj.get_attr_value_first("bridge-access")
+
+            for obj in ifaceobj_getfunc(ifaceobj.upperifaces[0]) or []:
+                for upper_ifname in obj.upperifaces or []:
+                    for upper_obj in ifaceobj_getfunc(upper_ifname) or []:
+                        if upper_obj.link_kind & ifaceLinkKind.VLAN and upper_obj.get_attr_value_first("vlan-id") == bridge_access:
+                            return True
+
+            self.logger.warning(
+                "ARP suppression configured on %s and associated %s not configured. "
+                "This may result in unexpected behavior"
+                % (ifaceobj.name, bridge_access)
+            )
+            return False
+
+        return True
 
     def syntax_check_learning_l2_vni_evpn(self, ifaceobj):
         result = True
@@ -1926,6 +1956,9 @@ class bridge(Bridge, moduleBase):
 
         # check for bridge-learning on l2 vni in evpn setup
         self.syntax_check_learning_l2_vni_evpn(ifaceobj)
+
+        # detect and warn when arp suppression is enabled and there is no vlan configured
+        self.syntax_check_bridge_arp_vni_vlan(ifaceobj, ifaceobj_getfunc)
 
         vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridge_name)
         if vlan_aware_bridge:
