@@ -180,6 +180,7 @@ class IPRoute2(Cache, Requirements):
     ############################################################################
 
     def link_up(self, ifname):
+        # TODO: if we already in a batch we shouldn't check the cache as the link might be DOWN during the batch
         if not self.cache.link_is_up(ifname):
             self.link_up_force(ifname)
 
@@ -235,13 +236,14 @@ class IPRoute2(Cache, Requirements):
 
     def link_set_address_and_keep_down(self, ifname, address, keep_down=False):
         if utils.mac_str_to_int(address) != self.cache.get_link_address_raw(ifname):
+
             self.link_down(ifname)
             self.__execute_or_batch(
                 utils.ip_cmd,
                 "link set dev %s address %s" % (ifname, address)
             )
             if not keep_down:
-                self.link_up(ifname)
+                self.link_up_force(ifname)
 
     def link_set_address_and_keep_down_dry_run(self, ifname, address, keep_down=False):
         self.link_down(ifname)
