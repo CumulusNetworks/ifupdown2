@@ -192,7 +192,7 @@ class vxlan(Addon, moduleBase):
 
             # if we detect a vxlan we check if mcastgrp is set (if so we set vxlan_mcastgrp_ref)
             # to know when to delete this device.
-            if not self.vxlan_mcastgrp_ref and ifaceobj.get_attr_value("vxlan-mcastgrp"):
+            if not self.vxlan_mcastgrp_ref and (ifaceobj.get_attr_value("vxlan-mcastgrp") or ifaceobj.get_attr_value("vxlan-mcastgrp-map")):
                 self.vxlan_mcastgrp_ref = True
 
         elif ifaceobj.name == 'lo' and not old_ifaceobjs:
@@ -747,7 +747,7 @@ class vxlan(Addon, moduleBase):
             self.logger.info("%s: set vxlan-udp-csum %s" % (ifaceobj.name, "on" if vxlan_udp_csum else "off"))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_UDP_CSUM] = vxlan_udp_csum
 
-    def __get_vxlan_physdev(self, ifaceobj, mcastgrp):
+    def __get_vxlan_physdev(self, ifaceobj, mcastgrp, mcastgrp_map):
         """
         vxlan-physdev wrapper, special handling is required for mcastgrp is provided
         the vxlan needs to use a dummy or real device for tunnel endpoint communication
@@ -762,15 +762,20 @@ class vxlan(Addon, moduleBase):
 
         # if the user provided a physdev we need to honor his config
         # or if mcastgrp wasn't specified we don't need to go further
-        if physdev or not mcastgrp:
+        if physdev or (not mcastgrp and not mcastgrp_map):
             return physdev
 
         physdev = self.vxlan_physdev_mcast
 
         if not self.cache.link_exists(physdev):
-            self.logger.info("%s: needs a dummy device (%s) to use for "
-                             "multicast termination (vxlan-mcastgrp %s)"
-                             % (ifaceobj.name, physdev, mcastgrp))
+            if mcastgrp_map:
+                self.logger.info("%s: needs a dummy device (%s) to use for "
+                                 "multicast termination (vxlan-mcastgrp-map %s)"
+                                 % (ifaceobj.name, physdev, mcastgrp))
+            else:
+                self.logger.info("%s: needs a dummy device (%s) to use for "
+                                 "multicast termination (vxlan-mcastgrp %s)"
+                                 % (ifaceobj.name, physdev, mcastgrp))
             self.netlink.link_add_with_attributes(ifname=physdev, kind="dummy", ifla={Link.IFLA_MTU: 16000, Link.IFLA_LINKMODE: 1})
             self.netlink.link_up(physdev)
 
@@ -846,7 +851,9 @@ class vxlan(Addon, moduleBase):
         vxlan_mcast_grp6 = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp6")
         vxlan_svcnodeip6 = self.__get_vxlan_attribute(ifaceobj, "vxlan-svcnodeip6")
 
-        vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp)
+        vxlan_mcast_grp_map = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp-map")
+
+        vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp, vxlan_mcast_grp_map)
 
         vxlan_physdev_changed = self.__config_vxlan_physdev(
             link_exists,
@@ -928,7 +935,7 @@ class vxlan(Addon, moduleBase):
                     mac, _, dst, _, src_vni = entry.split()[0:5]
                     current_fdb.append((mac, src_vni, dst))
 
-            user_config_fdb = self.get_vxlan_fdb_src_vni(ifaceobj.get_attr_value("vxlan-mcastgrp-map"))
+            user_config_fdb = self.get_vxlan_fdb_src_vni(vxlan_mcast_grp_map)
 
             fdb_to_remove = set(current_fdb) - set(user_config_fdb)
 
