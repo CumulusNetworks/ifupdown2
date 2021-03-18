@@ -919,9 +919,12 @@ class bridge(Bridge, moduleBase):
         return True
 
     def _error_vxlan_in_vlan_aware_br(self, ifaceobj, bridgename):
-        self.log_error('`bridge-access` attribute is mandatory when vxlan '
-                       'device (%s) is part of vlan aware bridge (%s)'
-                       % (ifaceobj.name, bridgename), ifaceobj)
+        if not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+            self.log_error('`bridge-access` attribute is mandatory when vxlan '
+                           'device (%s) is part of vlan aware bridge (%s)'
+                           % (ifaceobj.name, bridgename), ifaceobj)
+            return False
+        return True
 
     def syntax_check_vxlan_in_vlan_aware_br(self, ifaceobj, ifaceobj_getfunc):
         if not ifaceobj_getfunc:
@@ -943,9 +946,8 @@ class bridge(Bridge, moduleBase):
                         or not self._compare_vids(bridge_vids,
                                                   vids,
                                                   pvid=pvid)):
-                        self._error_vxlan_in_vlan_aware_br(ifaceobj,
-                                                           ifaceobj_upper.name)
-                        return False
+                        if not self._error_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_upper.name):
+                            return False
         return True
 
     @staticmethod
