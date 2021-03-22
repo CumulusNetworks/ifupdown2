@@ -16,8 +16,10 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
+
 except (ImportError, ModuleNotFoundError):
     import nlmanager.ipnetwork as ipnetwork
     import ifupdown.policymanager as policymanager
@@ -30,6 +32,7 @@ except (ImportError, ModuleNotFoundError):
 
     from ifupdown.iface import *
     from ifupdown.utils import utils
+    from ifupdown.statemanager import statemanager_api as statemanager
 
     from ifupdownaddons.cache import *
     from ifupdownaddons.modulebase import moduleBase
@@ -118,7 +121,8 @@ class vxlan(Addon, moduleBase):
                 "example": ["vxlan-mcastgrp ff02::15c"],
             },
             "vxlan-mcastgrp-map": {
-                "help": "vxlan multicast group for single-vxlan device",
+                "help": "vxlan multicast group for single-vxlan device -"
+                        "doesn't support multiline attribute",
                 "validvals": ["<number-ipv4-list>"],
                 "example": ["vxlan-mcastgrp-map 1000=239.1.1.100 1001=239.1.1.200"],
             },
@@ -898,7 +902,7 @@ class vxlan(Addon, moduleBase):
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
                     if link_exists:
                         self.logger.warning("%s: updating existing single vxlan device is not supported yet "
-                                            "(please run 'ifdown %s; ifup %s'" % (ifname, ifname, ifname))
+                                            "(please run 'ifdown %s; ifup %s')" % (ifname, ifname, ifname))
                     else:
                         self.iproute2.link_add_single_vxlan(
                             ifname,
@@ -923,32 +927,7 @@ class vxlan(Addon, moduleBase):
                             self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
                         return
 
-        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
-            # check current fdb entries
-            vxlan_fdb_data = utils.exec_command("bridge fdb show dev %s" % ifname)
-            current_fdb = []
-
-            if vxlan_fdb_data:
-                # each entry should look like the following:
-                # 00:00:00:00:00:00 dst 239.1.1.100 src_vni 1000 self permanent
-                for entry in [line for line in vxlan_fdb_data.strip().split("\n") if "src_vni" in line]:
-                    mac, _, dst, _, src_vni = entry.split()[0:5]
-                    current_fdb.append((mac, src_vni, dst))
-
-            user_config_fdb = self.get_vxlan_fdb_src_vni(vxlan_mcast_grp_map)
-
-            fdb_to_remove = set(current_fdb) - set(user_config_fdb)
-
-            for mac, vni, _ in fdb_to_remove:
-                self.iproute2.bridge_fdb_del_src_vni(ifname, mac, vni)
-
-            for mac, src_vni, dst_ip in user_config_fdb:
-                if (mac, src_vni, dst_ip) not in current_fdb:
-                    try:
-                        self.iproute2.bridge_fdb_add_src_vni(ifname, src_vni, dst_ip)
-                    except Exception as e:
-                        ifaceobj.set_status(ifaceStatus.ERROR)
-                        self.log_error("%s: vxlan-mcastgrp-map: %s=%s: %s" % (ifname, src_vni, dst_ip, str(e)), raise_error=False)
+        self.single_vxlan_device_mcast_grp_map_fdb(ifaceobj, ifname, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
@@ -1002,12 +981,66 @@ class vxlan(Addon, moduleBase):
 
     @staticmethod
     def get_vxlan_fdb_src_vni(vxlan_mcast_grp_map):
+        # doesn't support multiline vxlan-mcastgrp-map attribute
         fdbs = []
-        for entry in vxlan_mcast_grp_map or []:
-            for vni_ip in entry.split():
-                src_vni, dst_ip = vni_ip.split("=")
+        if vxlan_mcast_grp_map:
+            for entry in vxlan_mcast_grp_map.split() or []:
+                src_vni, dst_ip = entry.split("=")
                 fdbs.append(("00:00:00:00:00:00", src_vni, dst_ip))
         return fdbs
+
+    @staticmethod
+    def get_svd_running_fdb(ifname):
+        vxlan_fdb_data = utils.exec_command("bridge fdb show dev %s" % ifname)
+        current_fdb = []
+
+        if vxlan_fdb_data:
+            # each entry should look like the following:
+            # 00:00:00:00:00:00 dst 239.1.1.100 src_vni 1000 self permanent
+            for entry in [line for line in vxlan_fdb_data.strip().split("\n") if "src_vni" in line and "00:00:00:00:00:00" in line]:
+                mac, _, dst, _, src_vni = entry.split()[0:5]
+                current_fdb.append((mac, src_vni, dst))
+
+        return current_fdb
+
+    def single_vxlan_device_mcast_grp_map_fdb(self, ifaceobj, ifname, vxlan_mcast_grp_map):
+        # in this piece of code we won't be checking the running state of the fdb table
+        # dumping all fdb entries would cause scalability issues in certain cases.
+
+        # pulling old mcastgrp-map configuration
+        old_user_config_fdb = []
+
+        for old_ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
+            old_user_config_fdb += self.get_vxlan_fdb_src_vni(old_ifaceobj.get_attr_value_first("vxlan-mcastgrp-map"))
+
+        # new user configuration
+        user_config_fdb = self.get_vxlan_fdb_src_vni(vxlan_mcast_grp_map)
+
+        # compare old and new config to know if we should remove any stale fdb entries.
+        fdb_entries_to_remove = set(old_user_config_fdb) - set(user_config_fdb)
+
+        if fdb_entries_to_remove:
+            for mac, src_vni, dst_ip in fdb_entries_to_remove:
+                try:
+                    self.iproute2.bridge_fdb_del_src_vni(ifname, mac, src_vni)
+                except Exception as e:
+                    if "no such file or directory" not in str(e).lower():
+                        self.logger.warning("%s: removing stale fdb entries failed: %s" % (ifname, str(e)))
+
+        if not user_config_fdb:
+            # if vxlan-mcastgrp-map wasn't configure return
+            return
+
+        for mac, src_vni, dst_ip in user_config_fdb:
+            try:
+                self.iproute2.bridge_fdb_add_src_vni(ifname, src_vni, dst_ip)
+            except Exception as e:
+                if "file exists" not in str(e).lower():
+                    ifaceobj.set_status(ifaceStatus.ERROR)
+                    self.log_error(
+                        "%s: vxlan-mcastgrp-map: %s=%s: %s"
+                        % (ifname, src_vni, dst_ip, str(e)), raise_error=False
+                    )
 
     def _down(self, ifaceobj):
         try:
