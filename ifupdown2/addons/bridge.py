@@ -2422,15 +2422,9 @@ class bridge(Bridge, moduleBase):
                     except:
                         return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
 
-                    vlans = self._ranges_to_ints([vlans_str])
-                    vnis = self._ranges_to_ints([vni_str])
-
-                    if len(vlans) != len(vnis):
-                        return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
-
                     # TODO: query the cache prio to executing those commands
-                    self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, vlans, False)
-                    self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlans, vnis)
+                    self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, [vlans_str], False)
+                    self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlans_str, vni_str)
 
             self.iproute2.batch_commit()
         except Exception as e:

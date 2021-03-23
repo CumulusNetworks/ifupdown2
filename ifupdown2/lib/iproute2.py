@@ -662,17 +662,16 @@ class IPRoute2(Cache, Requirements):
             )
 
     def bridge_vlan_add_vlan_tunnel_info(self, ifname, vids, vnis):
-        for i in range(0, len(vids)):
-            try:
-                self.__execute_or_batch(
-                    utils.bridge_cmd,
-                    "vlan add dev %s vid %s tunnel_info id %s" % (
-                        ifname, vids[i], vnis[i]
-                    )
+        try:
+            self.__execute_or_batch(
+                utils.bridge_cmd,
+                "vlan add dev %s vid %s tunnel_info id %s" % (
+                    ifname, vids, vnis
                 )
-            except Exception as e:
-                if "exists" not in str(e).lower():
-                    self.logger.error(e)
+            )
+        except Exception as e:
+            if "exists" not in str(e).lower():
+                self.logger.error(e)
 
     @staticmethod
     def bridge_vlan_add_vid_list(ifname, vids):
