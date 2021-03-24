@@ -14,6 +14,7 @@ import fcntl
 import signal
 import logging
 import subprocess
+import itertools
 
 from functools import partial
 
@@ -424,5 +425,58 @@ class utils():
                                        stdout=stdout,
                                        stdin=stdin,
                                        stderr=stderr)
+
+    @classmethod
+    def ints_to_ranges(cls, ints):
+        for a, b in itertools.groupby(enumerate(ints), lambda x_y: x_y[1] - x_y[0]):
+            b = list(b)
+            yield b[0][1], b[-1][1]
+
+    @classmethod
+    def ranges_to_ints(cls, rangelist):
+        """ returns expanded list of integers given set of string ranges
+        example: ['1', '2-4', '6'] returns [1, 2, 3, 4, 6]
+        """
+        result = []
+        try:
+            for part in rangelist:
+                if '-' in part:
+                    a, b = part.split('-')
+                    a, b = int(a), int(b)
+                    result.extend(list(range(a, b + 1)))
+                else:
+                    a = int(part)
+                    result.append(a)
+        except Exception:
+            cls.logger.warning('unable to parse vids \'%s\'' %''.join(rangelist))
+            pass
+        return result
+
+    @classmethod
+    def compress_into_ranges(cls, ids_ints):
+        return ['%d' %start if start == end else '%d-%d' %(start, end)
+                       for start, end in cls.ints_to_ranges(ids_ints)]
+
+    @classmethod
+    def diff_ids(cls, ids1_ints, ids2_ints):
+        return set(ids2_ints).difference(ids1_ints), set(ids1_ints).difference(ids2_ints)
+
+    @classmethod
+    def compare_ids(cls, ids1, ids2, pvid=None, expand_range=True):
+        """ Returns true if the ids are same else return false """
+
+        if expand_range:
+            ids1_ints = cls.ranges_to_ints(ids1)
+            ids2_ints = cls.ranges_to_ints(ids2)
+        else:
+            ids1_ints = cls.ranges_to_ints(ids1)
+            ids2_ints = ids2
+        set_diff = set(ids1_ints).symmetric_difference(ids2_ints)
+        if pvid and int(pvid) in set_diff:
+            set_diff.remove(int(pvid))
+        if set_diff:
+            return False
+        else:
+            return True
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)

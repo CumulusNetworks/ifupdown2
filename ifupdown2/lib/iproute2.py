@@ -27,7 +27,7 @@ import shlex
 import signal
 import ipaddress
 import subprocess
-
+import json
 
 try:
     from ifupdown2.lib.sysfs import Sysfs
@@ -285,10 +285,13 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_add_single_vxlan(self, ifname, ip, group, physdev, port):
+    def link_add_single_vxlan(self, ifname, ip, group, physdev, port, vnifilter="off"):
         self.logger.info("creating single vxlan device: %s" % ifname)
 
         cmd = ["link add dev %s type vxlan external" % ifname]
+
+        if vnifilter and vnifilter == "on":
+            cmd.append("vnifilter")
 
         if ip:
             cmd.append("local %s" % ip)
@@ -833,4 +836,47 @@ class IPRoute2(Cache, Requirements):
                     return rattrs[rattrs.index("dev") + 1]
         except Exception as e:
             self.logger.debug("ip_route_get_dev: failed .. %s" % str(e))
+        return None
+
+    def bridge_vni_add_list(self, vxlandev, vnis):
+        cmd = "%s vni add dev %s vni %s" % (utils.bridge_cmd, vxlandev, ','.join(vnis))
+        utils.exec_command(cmd)
+
+    def bridge_vni_del_list(self, vxlandev, vnis):
+        cmd = "%s vni del dev %s vni %s" % (utils.bridge_cmd, vxlandev, ','.join(vnis))
+        utils.exec_command(cmd)
+
+    def bridge_link_update_vni_filter(self, vxlandev, vnis):
+        try:
+            rvnis = []
+            cmd = 'bridge -j -p vni show dev %s' %( vxlandev )
+            output = utils.exec_command(cmd)
+            if output:
+                vnishow = json.loads(output.strip("\n"))
+            for s in vnishow:
+                vlist = s.get('vnis')
+                rvnis = []
+                for v in vlist:
+                    vstart = v.get('vni')
+                    vend = v.get('vniEnd')
+                    if vend:
+                        rvnis.extend(['%s-%s' %(vstart,vend)])
+                    else:
+                        rvnis.extend([vstart])
+            vnis_int = utils.ranges_to_ints(vnis)
+            rvnis_int = utils.ranges_to_ints(rvnis)
+            (vnis_to_del, vnis_to_add) = utils.diff_ids(vnis_int,
+                                                        rvnis_int)
+            if vnis_to_del or vnis_to_add:
+                self.link_down(vxlandev)
+            if vnis_to_del:
+                self.bridge_vni_del_list(vxlandev,
+                        utils.compress_into_ranges(vnis_to_del))
+            if vnis_to_add:
+                self.bridge_vni_add_list(vxlandev,
+                        utils.compress_into_ranges(vnis_to_add))
+            if vnis_to_del or vnis_to_add:
+                self.link_up(vxlandev)
+        except Exception as e:
+            self.logger.info("bridge vni show failed .. %s" % str(e))
         return None

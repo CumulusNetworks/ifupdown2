@@ -126,6 +126,12 @@ class vxlan(Addon, moduleBase):
                 "validvals": ["<number-ipv4-list>"],
                 "example": ["vxlan-mcastgrp-map 1000=239.1.1.100 1001=239.1.1.200"],
             },
+            "vxlan-vnifilter": {
+                "help": "vxlan vni filter for single-vxlan device",
+                "validvals": ["on", "off"],
+                "default": "off",
+                "example": ["vxlan-vnifilter yes"],
+            },
             "vxlan-udp-csum": {
                 "help": "whether to perform checksumming or not",
                 "validvals": ["yes", "no"],
@@ -808,6 +814,13 @@ class vxlan(Addon, moduleBase):
 
         return False
 
+    def single_vxlan_device_vni_filter(self, ifaceobj):
+        vnis = []
+        for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
+            for ventry in vlan_vni_map.split():
+                vnis.extend([ventry.split('=')[1]])
+        self.iproute2.bridge_link_update_vni_filter(ifaceobj.name, vnis)
+
     def _up(self, ifaceobj):
         vxlan_id_str = ifaceobj.get_attr_value_first("vxlan-id")
 
@@ -859,6 +872,8 @@ class vxlan(Addon, moduleBase):
 
         vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp, vxlan_mcast_grp_map)
 
+        vxlan_vnifilter = self.__get_vxlan_attribute(ifaceobj, "vxlan-vnifilter")
+
         vxlan_physdev_changed = self.__config_vxlan_physdev(
             link_exists,
             ifaceobj,
@@ -909,7 +924,8 @@ class vxlan(Addon, moduleBase):
                             local.ip if local else None,
                             group.ip if group else None,
                             vxlan_physdev,
-                            user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT)
+                            user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
+                            vxlan_vnifilter
                         )
                 else:
                     try:
@@ -928,6 +944,10 @@ class vxlan(Addon, moduleBase):
                         return
 
         self.single_vxlan_device_mcast_grp_map_fdb(ifaceobj, ifname, vxlan_mcast_grp_map)
+
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+            if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
+                self.single_vxlan_device_vni_filter(ifaceobj)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 

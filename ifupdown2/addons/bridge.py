@@ -994,7 +994,7 @@ class bridge(Bridge, moduleBase):
                     pvid = ifaceobj.get_attr_value_first('bridge-pvid')
                     if (not vids
                         or not pvid
-                        or not self._compare_vids(bridge_vids,
+                        or not utils.compare_ids(bridge_vids,
                                                   vids,
                                                   pvid=pvid)):
                         if not self._error_vxlan_in_vlan_aware_br(ifaceobj, ifaceobj_upper.name):
@@ -1286,55 +1286,6 @@ class bridge(Bridge, moduleBase):
             self.log_warn('%s: unable to process maxwait: %s'
                     %(ifaceobj.name, str(e)))
 
-    def _ints_to_ranges(self, ints):
-        for a, b in itertools.groupby(enumerate(ints), lambda x_y: x_y[1] - x_y[0]):
-            b = list(b)
-            yield b[0][1], b[-1][1]
-
-    def _ranges_to_ints(self, rangelist):
-        """ returns expanded list of integers given set of string ranges
-        example: ['1', '2-4', '6'] returns [1, 2, 3, 4, 6]
-        """
-        result = []
-        try:
-            for part in rangelist:
-                if '-' in part:
-                    a, b = part.split('-')
-                    a, b = int(a), int(b)
-                    result.extend(list(range(a, b + 1)))
-                else:
-                    a = int(part)
-                    result.append(a)
-        except Exception:
-            self.logger.warning('unable to parse vids \'%s\''
-                             %''.join(rangelist))
-            pass
-        return result
-
-    def _compress_into_ranges(self, vids_ints):
-        return ['%d' %start if start == end else '%d-%d' %(start, end)
-                       for start, end in self._ints_to_ranges(vids_ints)]
-
-    def _diff_vids(self, vids1_ints, vids2_ints):
-        return set(vids2_ints).difference(vids1_ints), set(vids1_ints).difference(vids2_ints)
-
-    def _compare_vids(self, vids1, vids2, pvid=None, expand_range=True):
-        """ Returns true if the vids are same else return false """
-
-        if expand_range:
-            vids1_ints = self._ranges_to_ints(vids1)
-            vids2_ints = self._ranges_to_ints(vids2)
-        else:
-            vids1_ints = self._ranges_to_ints(vids1)
-            vids2_ints = vids2
-        set_diff = set(vids1_ints).symmetric_difference(vids2_ints)
-        if pvid and int(pvid) in set_diff:
-            set_diff.remove(int(pvid))
-        if set_diff:
-            return False
-        else:
-            return True
-
     def _set_bridge_mcqv4src_compat(self, ifaceobj):
         #
         # Sets old style igmp querier
@@ -1406,17 +1357,17 @@ class bridge(Bridge, moduleBase):
                 try:
                     (port, val) = p.split('=')
                     vids = val.split(',')
-                    vids_int =  self._ranges_to_ints(vids)
+                    vids_int =  utils.ranges_to_ints(vids)
                     _, running_vids = self.cache.get_pvid_and_vids(port)
                     if running_vids:
                         (vids_to_del, vids_to_add) = \
-                                self._diff_vids(vids_int, running_vids)
+                                utils.diff_ids(vids_int, running_vids)
                         if vids_to_del:
                             self.iproute2.bridge_vlan_del_vid_list(port,
-                                    self._compress_into_ranges(vids_to_del))
+                                    utils.compress_into_ranges(vids_to_del))
                         if vids_to_add:
                             self.iproute2.bridge_vlan_add_vid_list(port,
-                                    self._compress_into_ranges(vids_to_add))
+                                    utils.compress_into_ranges(vids_to_add))
                     else:
                         self.iproute2.bridge_vlan_add_vid_list(port, vids_int)
                 except Exception as e:
@@ -1628,7 +1579,7 @@ class bridge(Bridge, moduleBase):
         pvid, vids = self.cache.get_pvid_and_vids(ifacename)
 
         if vids:
-            ret_vids = self._compress_into_ranges(vids)
+            ret_vids = utils.compress_into_ranges(vids)
         else:
             ret_vids = None
 
@@ -1652,7 +1603,7 @@ class bridge(Bridge, moduleBase):
                                                    bportifaceobj.upperifaces[0])
                 return
 
-        vids_int =  self._ranges_to_ints(vids)
+        vids_int =  utils.ranges_to_ints(vids)
         try:
             pvid_int = int(pvid) if pvid else 0
         except Exception:
@@ -1686,7 +1637,7 @@ class bridge(Bridge, moduleBase):
 
             if running_vids:
                 (vids_to_del, vids_to_add) = \
-                    self._diff_vids(vids_to_add, running_vids)
+                    utils.diff_ids(vids_to_add, running_vids)
 
             if running_pvid:
                 if running_pvid != pvid_int and running_pvid != 0:
@@ -1723,7 +1674,7 @@ class bridge(Bridge, moduleBase):
                vids_to_del = self.remove_bridge_vlans_mapped_to_vnis_from_vids_list(None, bportifaceobj, vids_to_del)
 
                self.iproute2.bridge_vlan_del_vid_list_self(bportifaceobj.name,
-                                          self._compress_into_ranges(
+                                          utils.compress_into_ranges(
                                           vids_to_del), isbridge)
         except Exception as e:
                 self.log_warn('%s: failed to del vid `%s` (%s)'
@@ -1740,7 +1691,7 @@ class bridge(Bridge, moduleBase):
         try:
             if vids_to_add:
                self.iproute2.bridge_vlan_add_vid_list_self(bportifaceobj.name,
-                                          self._compress_into_ranges(
+                                          utils.compress_into_ranges(
                                           vids_to_add), isbridge)
         except Exception as e:
                 self.log_error('%s: failed to set vid `%s` (%s)'
@@ -1765,7 +1716,7 @@ class bridge(Bridge, moduleBase):
 
             for vlans_vnis_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
                 for vlans_vni_map in vlans_vnis_map.split():
-                    vids.extend(self._ranges_to_ints([vlans_vni_map.split("=")[0]]))
+                    vids.extend(utils.ranges_to_ints([vlans_vni_map.split("=")[0]]))
 
             return vids
         except Exception as e:
@@ -2789,7 +2740,7 @@ class bridge(Bridge, moduleBase):
 
         _, running_bridge_vids = self.cache.get_pvid_and_vids(ifaceobjrunning.name)
         if running_bridge_vids:
-            running_attrs['bridge-vids'] = ','.join(self._compress_into_ranges(running_bridge_vids))
+            running_attrs['bridge-vids'] = ','.join(utils.compress_into_ranges(running_bridge_vids))
         return running_attrs
 
     def _query_running_vidinfo(self, ifaceobjrunning, ifaceobj_getfunc,
@@ -3074,7 +3025,7 @@ class bridge(Bridge, moduleBase):
 
                     running_pvid, running_vids = self.cache.get_pvid_and_vids(port)
 
-                    if not self._compare_vids(packed_vids, running_vids, pvid=running_pvid, expand_range=False):
+                    if not utils.compare_ids(packed_vids, running_vids, pvid=running_pvid, expand_range=False):
                         error = True
 
                 except Exception as e:
@@ -3479,7 +3430,7 @@ class bridge(Bridge, moduleBase):
            # We need to proactively remove them from the "running_vids"
            vlans_mapped_with_vnis = self.get_bridge_vlans_mapped_to_vnis_as_integer_list(ifaceobj)
            new_running_vids = []
-           user_config_vids = self._ranges_to_ints(vids)
+           user_config_vids = utils.ranges_to_ints(vids)
            for v in running_vids:
                if v in user_config_vids:
                    new_running_vids.append(v)
@@ -3488,7 +3439,7 @@ class bridge(Bridge, moduleBase):
            running_vids = new_running_vids
            #####################################################################
 
-           if not running_vids or not self._compare_vids(vids, running_vids, running_pvid, expand_range=False):
+           if not running_vids or not utils.compare_ids(vids, running_vids, running_pvid, expand_range=False):
                running_vids = [str(o) for o in running_vids]
                ifaceobjcurr.update_config_with_status(attr_name,
                                             ' '.join(running_vids), 1)
@@ -3505,7 +3456,7 @@ class bridge(Bridge, moduleBase):
            # check if it matches the bridge vids
            bridge_vids = self._get_bridge_vids(bridge_name, ifaceobj_getfunc)
            if (bridge_vids and (not running_vids  or
-                   not self._compare_vids(bridge_vids, running_vids, running_pvid, expand_range=False))):
+                   not utils.compare_ids(bridge_vids, running_vids, running_pvid, expand_range=False))):
               ifaceobjcurr.status = ifaceStatus.ERROR
               ifaceobjcurr.status_str = 'bridge vid error'
 
@@ -3651,8 +3602,8 @@ class bridge(Bridge, moduleBase):
                     # no point doing anything else than syntax check on the rest
                     continue
 
-                vlans_list = self._ranges_to_ints([vlans_str])
-                vnis_list = self._ranges_to_ints([vni_str])
+                vlans_list = utils.ranges_to_ints([vlans_str])
+                vnis_list = utils.ranges_to_ints([vni_str])
 
                 try:
                     for i, vlan in enumerate(vlans_list):
