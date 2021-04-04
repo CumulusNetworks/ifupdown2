@@ -4,6 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+from ipaddress import IPv4Network, IPv4Address, AddressValueError
 try:
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -520,6 +521,114 @@ class vxlan(Addon, moduleBase):
 
         return vxlan_attr_value
 
+    def __syntax_check_vxlan_mcast_vni(self, ifaceobj, m, vni):
+        try:
+            int(vni)
+        except ValueError:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" vni format is invalid' % (ifaceobj.name, m))
+
+    def __syntax_check_vxlan_mcast_vni_range(self, ifaceobj, m, vni_range):
+        if len(vni_range) != 2:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" vni range format is invalid' % (ifaceobj.name, m))
+        for vni in vni_range:
+            self.__syntax_check_vxlan_mcast_vni(ifaceobj, m, vni)
+        if int(vni_range[0]) >= int(vni_range[1]):
+            self.log_error('%s: vxlan-mcastgrp-map "%s" vni range is invalid' % (ifaceobj.name, m))
+
+    def __syntax_check_vxlan_mcast_grp(self, ifaceobj, m, grp):
+        try:
+            ip = IPv4Address(grp)
+        except AddressValueError:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" group format is invalid' % (ifaceobj.name, m))
+        if not ip.is_multicast:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" group is not multicast' % (ifaceobj.name, m))
+
+    def __syntax_check_vxlan_mcast_grp_range(self, ifaceobj, m, grp_range):
+        if len(grp_range) != 2:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" group format is invalid' % (ifaceobj.name, m))
+        for grp in grp_range:
+            self.__syntax_check_vxlan_mcast_grp(ifaceobj, m, grp)
+        if int(IPv4Address(grp_range[0])) >= int(IPv4Address(grp_range[1])):
+            self.log_error('%s: vxlan-mcastgrp-map "%s" group range is invalid' % (ifaceobj.name, m))
+
+    def __syntax_check_vxlan_mcast_network(self, ifaceobj, m, network, len_vni):
+        try:
+            ip = IPv4Network(network)
+            ip[0]
+            ip[len_vni - 1]
+        except IndexError:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" network range is insufficient' % (ifaceobj.name, m))
+        except AddressValueError:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" network format is invalid' % (ifaceobj.name, m))
+        if not ip.is_multicast:
+            self.log_error('%s: vxlan-mcastgrp-map "%s" network is not multicast' % (ifaceobj.name, m))
+
+    def __get_vxlan_mcastgrp_map(self, ifaceobj):
+        maps = ifaceobj.get_attr_value('vxlan-mcastgrp-map')
+        if not maps:
+            maps = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr='vxlan-mcastgrp-map'
+            )
+            return maps
+
+        parsed_maps = {}
+        for m_line in maps:
+            # Cover single-line multi-entry case
+            map = m_line.split()
+            for m in map:
+                m_parts = m.split('=')
+                if len(m_parts) != 2:
+                    self.log_error('%s: vxlan-mcastgrp-map %s format is invalid' % (ifaceobj.name, m))
+                vni = m_parts[0]
+                grp = m_parts[1]
+                _range = "-"
+                _network = "/"
+
+                # One to one mapping case
+                if _range not in vni and _range not in grp:
+                    self.__syntax_check_vxlan_mcast_vni(ifaceobj, m, vni)
+                    self.__syntax_check_vxlan_mcast_grp(ifaceobj, m, grp)
+                    if int(vni) not in parsed_maps:
+                        parsed_maps[int(vni)] = IPv4Address(grp)
+                    else:
+                        self.log_warn('%s: vxlan-mcastgrp-map %s vni %s duplicate' % (ifaceobj.name, vni, m))
+
+                # Many VNI case
+                if _range in vni:
+                    v_parts = vni.split(_range)
+                    self.__syntax_check_vxlan_mcast_vni_range(ifaceobj, m, v_parts)
+                    vnis = list(range(int(v_parts[0]), int(v_parts[1]) + 1))
+
+                    if _range not in grp and _network not in grp:
+                        self.__syntax_check_vxlan_mcast_grp(ifaceobj, m, grp)
+                        for i in vnis:
+                            if i not in parsed_maps:
+                                parsed_maps[i] = IPv4Address(grp)
+                            else:
+                                self.log_warn('%s: vxlan-mcastgrp-map %s vni %s duplicate' % (ifaceobj.name, vni, m))
+                    else:
+                        if _network in grp:
+                            self.__syntax_check_vxlan_mcast_network(ifaceobj, m, grp, len(vnis))
+                            network = IPv4Network(grp)
+                            g_parts = [network[0], network[len(vnis) - 1]]
+                        else:
+                            g_parts = grp.split(_range)
+
+                        self.__syntax_check_vxlan_mcast_grp_range(ifaceobj, m, g_parts)
+                        grp_range = list(range(int(IPv4Address(g_parts[0])), int(IPv4Address(g_parts[1])) + 1))
+                        if len(grp_range) != len(vnis):
+                            self.log_error('%s: vxlan-mcastgrp-map "%s" range lengths do not match.'
+                                           % (ifaceobj.name, m))
+
+                        for v, g in zip(vnis, grp_range):
+                            if v not in parsed_maps:
+                                parsed_maps[v] = IPv4Address(g)
+                            else:
+                                self.log_warn('%s: vxlan-mcastgrp-map %s vni %s duplicate' % (ifaceobj.name, v, m))
+
+        return parsed_maps
+
     def __config_vxlan_group(self, ifname, ifaceobj, link_exists, mcast_grp, group, physdev, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         """
         vxlan-mcastgrp and vxlan-svcnodeip are mutually exclusive
@@ -868,7 +977,7 @@ class vxlan(Addon, moduleBase):
         vxlan_mcast_grp6 = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp6")
         vxlan_svcnodeip6 = self.__get_vxlan_attribute(ifaceobj, "vxlan-svcnodeip6")
 
-        vxlan_mcast_grp_map = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp-map")
+        vxlan_mcast_grp_map = self.__get_vxlan_mcastgrp_map(ifaceobj)
 
         vxlan_physdev = self.__get_vxlan_physdev(ifaceobj, vxlan_mcast_grp, vxlan_mcast_grp_map)
 
@@ -1001,11 +1110,9 @@ class vxlan(Addon, moduleBase):
 
     @staticmethod
     def get_vxlan_fdb_src_vni(vxlan_mcast_grp_map):
-        # doesn't support multiline vxlan-mcastgrp-map attribute
         fdbs = []
         if vxlan_mcast_grp_map:
-            for entry in vxlan_mcast_grp_map.split() or []:
-                src_vni, dst_ip = entry.split("=")
+            for src_vni, dst_ip in vxlan_mcast_grp_map.items():
                 fdbs.append(("00:00:00:00:00:00", src_vni, dst_ip))
         return fdbs
 
@@ -1031,7 +1138,7 @@ class vxlan(Addon, moduleBase):
         old_user_config_fdb = []
 
         for old_ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
-            old_user_config_fdb += self.get_vxlan_fdb_src_vni(old_ifaceobj.get_attr_value_first("vxlan-mcastgrp-map"))
+            old_user_config_fdb += self.get_vxlan_fdb_src_vni(self.__get_vxlan_mcastgrp_map(old_ifaceobj))
 
         # new user configuration
         user_config_fdb = self.get_vxlan_fdb_src_vni(vxlan_mcast_grp_map)
