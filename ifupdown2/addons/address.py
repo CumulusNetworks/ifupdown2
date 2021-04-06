@@ -416,7 +416,7 @@ class address(AddonWithIpBlackList, moduleBase):
         user_config_ip_addrs_list = []
 
         try:
-            for ifaceobj in ifaceobj_list:
+            for ifaceobj in ifaceobj_list or []:
 
                 user_addrs = ifaceobj.get_attr_value("address")
 
@@ -455,7 +455,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
                     user_config_ip_addrs_list.append((addr_obj, addr_attributes))
         except Exception as e:
-            self.logger.warning("%s: convert string ip address into IPNetwork object: %s" % (ifname, str(e)))
+            self.log_error("%s: convert string ip address into IPNetwork object: %s" % (ifname, str(e)), ifaceobj)
             return False, None
 
         return True, user_config_ip_addrs_list
