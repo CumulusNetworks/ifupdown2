@@ -448,7 +448,9 @@ class ifupdownMain:
               return True
         return False
 
-    def get_ifaceobjs(self, ifacename):
+    def get_ifaceobjs(self, ifacename, all=False):
+        if all:
+            return dict(self.ifaceobjdict)
         return self.ifaceobjdict.get(ifacename)
 
     def get_ifaceobjs_saved(self, ifacename):
