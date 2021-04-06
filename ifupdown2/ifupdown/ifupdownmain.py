@@ -1869,8 +1869,14 @@ class ifupdownMain:
                     auto = False
                     break
 
-            if not ifupdownflags.flags.DRYRUN and auto and not os.path.exists("/sys/class/net/%s" % ifname):
+            if not ifupdownflags.flags.DRYRUN and auto and not os.path.exists("/sys/class/net/%s" % ifname) and not self._is_ifaceobj_bridge_vlan(ifaceobj_list):
                 self.logger.warning("%s: interface not recognized - please check interface configuration" % ifname)
+
+    def _is_ifaceobj_bridge_vlan(self, ifaceobj_list):
+        for ifaceobj in ifaceobj_list:
+            if ifaceobj.type == ifaceType.BRIDGE_VLAN:
+                return True
+        return False
 
     def _get_filtered_ifacenames_with_classes(self, auto, allow_classes, excludepats, ifacenames):
         # if user has specified ifacelist and allow_classes
