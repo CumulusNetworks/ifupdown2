@@ -80,3 +80,11 @@ class Addon(Netlink, Cache):
                     for user_attr, user_value in ifaceobj.config.items()
                 ]
             )
+
+
+class Bridge(Addon):
+
+    bridge_vlan_aware_list = []
+
+    def __init__(self):
+        super(Bridge, self).__init__()

@@ -11,7 +11,7 @@ import itertools
 from collections import Counter
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Bridge
 
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -25,7 +25,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+    from lib.addon import Bridge
 
     import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
@@ -45,7 +45,7 @@ class bridgeFlags:
     PORT_PROCESSED_OVERRIDE = 0x2
 
 
-class bridge(Addon, moduleBase):
+class bridge(Bridge, moduleBase):
     """  ifupdown2 addon module to configure linux bridges """
 
     _modinfo = {
@@ -631,7 +631,7 @@ class bridge(Addon, moduleBase):
     )
 
     def __init__(self, *args, **kargs):
-        Addon.__init__(self)
+        Bridge.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.name = self.__class__.__name__
         self._resv_vlan_range =  self._get_reserved_vlan_range()
@@ -979,6 +979,10 @@ class bridge(Addon, moduleBase):
         if utils.get_boolean_from_string(ifaceobj.get_attr_value_first('bridge-vlan-aware')):
             ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
+
+            # store the name of all bridge vlan aware in a global list
+            self.bridge_vlan_aware_list.append(ifaceobj.name)
+
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
         return self.parse_port_list(ifaceobj.name,
