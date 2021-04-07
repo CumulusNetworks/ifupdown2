@@ -2470,7 +2470,7 @@ class bridge(Bridge, moduleBase):
             if user_config_mtu:
                 int(user_config_mtu)
                 self.logger.info("%s: set bridge mtu %s" % (ifaceobj.name, user_config_mtu))
-                return user_config_mtu
+                return str(user_config_mtu)
         except Exception as e:
             self.logger.warning("%s: invalid bridge mtu %s: %s" % (ifaceobj.name, user_config_mtu, str(e)))
         return None
