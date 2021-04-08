@@ -271,7 +271,24 @@ class address(AddonWithIpBlackList, moduleBase):
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
                 and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc)
                 and self.syntax_check_sysctls(ifaceobj)
-                and self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc, syntax_check=True))
+                and self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc, syntax_check=True)
+                and self.syntax_check_l3_svi_ip_forward(ifaceobj))
+
+    def syntax_check_l3_svi_ip_forward(self, ifaceobj):
+        if ifaceobj.link_kind & ifaceLinkKind.VLAN and ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
+            ip_forward = ifaceobj.get_attr_value_first("ip-forward")
+
+            if ip_forward and not utils.get_boolean_from_string(ip_forward):
+                self.log_error("%s: misconfiguration: disabling ip4 forwarding on an l3-svi is not allowed" % ifaceobj.name, ifaceobj)
+                return False
+
+            ip6_forward = ifaceobj.get_attr_value_first("ip6-forward")
+
+            if ip6_forward and not utils.get_boolean_from_string(ip6_forward):
+                self.log_error("%s: misconfiguration: disabling ip6 forwarding on an l3-svi is not allowed" % ifaceobj.name, ifaceobj)
+                return False
+
+        return True
 
     def syntax_check_enable_l3_iface_forwardings(self, ifaceobj, ifaceobj_getfunc, syntax_check=False):
         if (self.enable_l3_iface_forwarding_checks
@@ -832,6 +849,9 @@ class address(AddonWithIpBlackList, moduleBase):
             return
         if not self.syntax_check_sysctls(ifaceobj):
             return
+        if not self.syntax_check_l3_svi_ip_forward(ifaceobj):
+            return
+
         ipforward = ifaceobj.get_attr_value_first('ip-forward')
         ip6forward = ifaceobj.get_attr_value_first('ip6-forward')
         if ifupdownflags.flags.PERFMODE:
