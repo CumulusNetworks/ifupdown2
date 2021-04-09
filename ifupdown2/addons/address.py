@@ -7,7 +7,7 @@
 import socket
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import AddonWithIpBlackList
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import *
@@ -23,7 +23,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+    from lib.addon import AddonWithIpBlackList
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import *
@@ -40,7 +40,7 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.ifupdownconfig as ifupdownconfig
 
 
-class address(Addon, moduleBase):
+class address(AddonWithIpBlackList, moduleBase):
     """  ifupdown2 addon module to configure address, mtu, hwaddress, alias
     (description) on an interface """
 
@@ -175,7 +175,7 @@ class address(Addon, moduleBase):
     DEFAULT_MTU_STRING = "1500"
 
     def __init__(self, *args, **kargs):
-        Addon.__init__(self)
+        AddonWithIpBlackList.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self._bridge_fdb_query_cache = {}
         self.ipforward = policymanager.policymanager_api.get_attr_default(module_name=self.__class__.__name__, attr='ip-forward')
@@ -473,6 +473,9 @@ class address(Addon, moduleBase):
                     if ipv6_is_disabled:
                         # enable ipv6
                         self.write_file(proc_path, "0")
+
+                # check if ip is not blacklisted
+                self.ip_blacklist_check(ifname, ip)
 
                 if attributes:
                     self.netlink.addr_add(

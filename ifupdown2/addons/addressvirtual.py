@@ -12,7 +12,7 @@ import subprocess
 from collections import deque
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import AddonWithIpBlackList
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
 
@@ -27,7 +27,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+    from lib.addon import AddonWithIpBlackList
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
@@ -43,7 +43,7 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.ifupdownconfig as ifupdownconfig
 
 
-class addressvirtual(Addon, moduleBase):
+class addressvirtual(AddonWithIpBlackList, moduleBase):
     """  ifupdown2 addon module to configure virtual addresses """
 
     _modinfo = {
@@ -80,7 +80,7 @@ class addressvirtual(Addon, moduleBase):
     ADDR_METRIC_SUPPORT = None
 
     def __init__(self, *args, **kargs):
-        Addon.__init__(self)
+        AddonWithIpBlackList.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self._bridge_fdb_query_cache = {}
         self.addressvirtual_with_route_metric = utils.get_boolean_from_string(
@@ -436,6 +436,9 @@ class addressvirtual(Addon, moduleBase):
             macvlan_hwaddr = intf_config_dict.get("hwaddress")
             macvlan_mode = intf_config_dict.get("mode")
             ips = intf_config_dict.get("ips")
+
+            for ip in ips:
+                self.ip_blacklist_check(ifname, ip)
 
             if not self.cache.link_exists(macvlan_ifname):
                 # When creating VRRP macvlan with bridge mode, the kernel

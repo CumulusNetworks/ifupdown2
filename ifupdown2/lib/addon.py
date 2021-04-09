@@ -31,11 +31,17 @@ try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.lib.base_objects import Netlink, Cache, Requirements
+
+    import ifupdown2.ifupdown.policymanager as policymanager
+    import ifupdown2.nlmanager.ipnetwork as ipnetwork
 except (ImportError, ModuleNotFoundError):
     from lib.io import IO
     from lib.sysfs import Sysfs
     from lib.iproute2 import IPRoute2
     from lib.base_objects import Netlink, Cache, Requirements
+
+    import ifupdown.policymanager as policymanager
+    import nlmanager.ipnetwork as ipnetwork
 
 
 class Addon(Netlink, Cache):
@@ -88,3 +94,37 @@ class Bridge(Addon):
 
     def __init__(self):
         super(Bridge, self).__init__()
+
+
+class AddonWithIpBlackList(Addon):
+    try:
+        ip_blacklist = [ipnetwork.IPNetwork(ip).ip for ip in policymanager.policymanager_api.get_module_globals(
+            module_name="address",
+            attr="ip_blacklist"
+        ) or []]
+        __ip_blacklist_exception = None
+    except Exception as e:
+        __ip_blacklist_exception = e
+        ip_blacklist = []
+
+    def __init__(self):
+        """
+        If an exception occurred during the ip blacklist parsing we need to display it (once)
+        Also we keep this as a class variable to share it between the address and addressvirtual module
+        """
+        super(AddonWithIpBlackList, self).__init__()
+
+        if AddonWithIpBlackList.__ip_blacklist_exception:
+            self.logger.warning("policy.d: address: 'ip_blacklist': %s" % AddonWithIpBlackList.__ip_blacklist_exception)
+            AddonWithIpBlackList.__ip_blacklist_exception = None
+
+    def ip_blacklist_check(self, ifname, ip):
+        """
+        Check if the ip address is not blacklisted (in ip_blacklist)
+
+        :param ifname:
+        :param ip:
+        :return:
+        """
+        if ip.ip in AddonWithIpBlackList.ip_blacklist:
+            raise Exception("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))
