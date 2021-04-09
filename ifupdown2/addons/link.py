@@ -123,11 +123,22 @@ class link(Addon, moduleBase):
                 else:
                     ifaceobjcurr.update_config_with_status('link-type', link_type, 1)
 
-        link_down = ifaceobj.get_attr_value_first('link-down')
-        if link_down:
-            link_up = self.cache.link_is_up(ifaceobj.name)
-            link_should_be_down = utils.get_boolean_from_string(link_down)
+        self._query_check_link_down(ifaceobj, ifaceobjcurr)
 
+    def _query_check_link_down(self, ifaceobj, ifaceobjcurr):
+        link_down = ifaceobj.get_attr_value_first('link-down')
+
+        if link_down:
+            link_should_be_down = utils.get_boolean_from_string(link_down)
+        else:
+            link_should_be_down = False
+
+        link_up = self.cache.link_is_up(ifaceobj.name)
+
+        if not link_up and not link_should_be_down and not link_down:
+            ifaceobjcurr.status_str = 'link is down'
+            ifaceobjcurr.status = ifaceStatus.ERROR
+        elif link_down:
             if link_should_be_down and link_up:
                 status = 1
                 link_down = 'no'
@@ -153,7 +164,7 @@ class link(Addon, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        if (operation != 'query-running' and
+        if (operation != 'query-running' and operation != 'query-checkcurr' and
                 not self._is_my_interface(ifaceobj)):
             return
         if operation == 'query-checkcurr':
