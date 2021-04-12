@@ -883,9 +883,13 @@ class bridge(Bridge, moduleBase):
         """
         if ifaceobj.link_kind & ifaceLinkKind.VXLAN \
             and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT \
-            and utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-arp-nd-suppress")):
+            and utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-arp-nd-suppress") \
+            and not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN):
 
             bridge_access = ifaceobj.get_attr_value_first("bridge-access")
+
+            if not bridge_access:
+                return True
 
             for obj in ifaceobj_getfunc(ifaceobj.upperifaces[0]) or []:
                 for upper_ifname in obj.upperifaces or []:
@@ -894,9 +898,9 @@ class bridge(Bridge, moduleBase):
                             return True
 
             self.logger.warning(
-                "ARP suppression configured on %s and associated %s not configured. "
+                "%s: ARP suppression configured on %s and associated vlan %s not configured. "
                 "This may result in unexpected behavior"
-                % (ifaceobj.name, bridge_access)
+                % (ifaceobj.name, ifaceobj.name, bridge_access)
             )
             return False
 
