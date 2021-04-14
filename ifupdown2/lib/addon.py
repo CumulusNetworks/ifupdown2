@@ -93,7 +93,7 @@ class Addon(Netlink, Cache):
 
 class Bridge(Addon):
 
-    bridge_vlan_aware_list = []
+    bridge_vlan_aware_list = set()
 
     def __init__(self):
         super(Bridge, self).__init__()
