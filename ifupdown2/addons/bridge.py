@@ -2367,11 +2367,11 @@ class bridge(Bridge, moduleBase):
                 if not bridge_vlan_vni_map_entry:
                     continue
 
-                for vlan_vni_map in bridge_vlan_vni_map_entry.split():
+                for vlan_vni_map_entry in bridge_vlan_vni_map_entry.split():
                     try:
-                        vlans_str, vni_str = vlan_vni_map.split("=")
+                        vlans_str, vni_str = utils.get_vlan_vni_in_map_entry(vlan_vni_map_entry)
                     except:
-                        return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map)
+                        return self.__warn_bridge_vlan_vni_map_syntax_error(vxlan_name, vlan_vni_map_entry)
 
                     # TODO: query the cache prio to executing those commands
                     self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, [vlans_str], False)
@@ -3367,6 +3367,9 @@ class bridge(Bridge, moduleBase):
     def _query_check_bridge_port_vidinfo(self, ifname, bridge_name, ifaceobj, ifaceobjcurr, ifaceobj_getfunc):
         running_pvid, running_vids = self.cache.get_pvid_and_vids(ifname)
 
+        if (ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN):
+            return
+
         #
         # bridge-access
         #
@@ -3591,7 +3594,7 @@ class bridge(Bridge, moduleBase):
 
             for vlan_vni in bridge_vlan_vni_map_entry.split():
                 try:
-                    vlans_str, vni_str = vlan_vni.split("=")
+                    vlans_str, vni_str = utils.get_vlan_vni_in_map_entry(vlan_vni)
                 except:
                     fail = True
 

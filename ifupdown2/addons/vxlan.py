@@ -927,8 +927,12 @@ class vxlan(Addon, moduleBase):
     def single_vxlan_device_vni_filter(self, ifaceobj):
         vnis = []
         for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
-            for ventry in vlan_vni_map.split():
-                vnis.extend([ventry.split('=')[1]])
+            try:
+                (vls, vis) = utils.get_vlan_vnis_in_map(vlan_vni_map)
+                vnis.extend(vis)
+            except Exception as e:
+                self.logger.error("%s: %s (%s)" %(ifaceobj.name, vlan_vni_map, str(e)))
+                return
         self.iproute2.bridge_link_update_vni_filter(ifaceobj.name, vnis)
 
     def _up(self, ifaceobj):

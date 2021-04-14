@@ -41,6 +41,8 @@ class utils():
     DEVNULL = open(os.devnull, 'w')
     vlan_aware_bridge_address_support = None
 
+    vni_max = 16777215
+
     _string_values = {
         "on": True,
         "yes": True,
@@ -478,5 +480,77 @@ class utils():
             return False
         else:
             return True
+
+    @classmethod
+    def get_vlan_vni_in_map_entry(cls, vlan_vni_map_entry):
+        # a good example for map is bridge-vlan-vni-map attribute
+        # format eg: <vlan>=<vni>
+        # 1000-1004=5000-5004
+        # 1000-1004=auto  /* here vni = vlan */
+        # 1000-1004=auto-10 /* here vni = vlan - 10 */
+        # 1000-1004=auto+10 /* here vni = vlan + 10 */
+
+        vlan = None
+        vni = None
+        try:
+            (vlan, vni) = vlan_vni_map_entry.split('=', 1)
+            if vni == 'auto':
+                vni = vlan
+            elif vni.startswith('auto'):
+                vnistart = 0
+                vniend = 0
+                if vni.startswith('auto+'):
+                    vni = vni.split('+', 1)[1]
+                    vint = int(vni)
+                    if vint < 0:
+                        raise Exception("invalid auto vni suffix %d" % (vint))
+                    if '-' in vlan:
+                        (vstart, vend) = vlan.split('-', 1)
+                        vnistart = int(vstart) + vint
+                        vniend = int(vend) + vint
+                    else:
+                        vnistart = int(vlan) + vint
+                elif vni.startswith('auto-'):
+                    vni = vni.split('-', 1)[1]
+                    vint = int(vni)
+                    if vint < 0:
+                        raise Exception("invalid auto vni suffix %d" % (vint))
+                    if '-' in vlan:
+                        (vstart, vend) = vlan.split('-', 1)
+                        vnistart = int(vstart) - vint
+                        vniend = int(vend) - vint
+                    else:
+                        vnistart = int(vlan) - vint
+                if (vnistart <= 0 or (vniend > 0 and (vniend < vnistart)) or
+                    (vnistart > cls.vni_max) or (vniend > cls.vni_max)):
+                        raise Exception("invalid vni - unable to derive auto vni %s" % (vni))
+                if vniend > 0:
+                    vni = '%d-%d' % (vnistart, vniend)
+                else:
+                    vni = '%d' % (vnistart)
+        except Exception as e:
+            raise Exception(str(e))
+            return
+        return (vlan, vni)
+
+    @classmethod
+    def get_vlan_vnis_in_map(cls, vlan_vni_map):
+        # a good example for map is bridge-vlan-vni-map attribute
+        # format eg: <vlan>=<vni>
+        # 1000-1004=5000-5004
+        # 1000-1004=auto  /* here vni = vlan */
+        # 1000-1004=auto-10 /* here vni = vlan - 10 */
+        # 1000-1004=auto+10 /* here vni = vlan + 10 */
+        vnis = []
+        vlans = []
+        for ventry in vlan_vni_map.split():
+            try:
+                (vlan, vni) = cls.get_vlan_vni_in_map_entry(ventry)
+            except Exception as e:
+                cls.logger.error("invalid vlan vni map entry - %s (%s)" % (ventry, str(e)))
+                raise
+            vlans.extend([vlan])
+            vnis.extend([vni])
+        return (vlans, vnis)
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)

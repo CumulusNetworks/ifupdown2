@@ -865,7 +865,7 @@ class IPRoute2(Cache, Requirements):
                     if vend:
                         rvnis.extend(['%s-%s' %(vstart,vend)])
                     else:
-                        rvnis.extend([vstart])
+                        rvnis.extend([str(vstart)])
             vnis_int = utils.ranges_to_ints(vnis)
             rvnis_int = utils.ranges_to_ints(rvnis)
             (vnis_to_del, vnis_to_add) = utils.diff_ids(vnis_int,
