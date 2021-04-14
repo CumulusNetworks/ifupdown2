@@ -440,6 +440,7 @@ class vxlan(Addon, moduleBase):
                     self.logger.info("%s: set vxlan-ttl %s" % (ifname, vxlan_ttl_str if vxlan_ttl_str else vxlan_ttl))
 
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TTL] = vxlan_ttl
+                return vxlan_ttl
         except Exception:
             self.log_error("%s: invalid vxlan-ttl '%s'" % (ifname, vxlan_ttl_str), ifaceobj)
 
@@ -966,7 +967,7 @@ class vxlan(Addon, moduleBase):
         self.__config_vxlan_learning(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_ageing(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_port(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
-        self.__config_vxlan_ttl(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        vxlan_ttl = self.__config_vxlan_ttl(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_tos(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_udp_csum(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
@@ -1034,7 +1035,8 @@ class vxlan(Addon, moduleBase):
                             group.ip if group else None,
                             vxlan_physdev,
                             user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
-                            vxlan_vnifilter
+                            vxlan_vnifilter,
+                            vxlan_ttl
                         )
                 else:
                     try:

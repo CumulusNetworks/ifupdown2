@@ -285,7 +285,7 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_add_single_vxlan(self, ifname, ip, group, physdev, port, vnifilter="off"):
+    def link_add_single_vxlan(self, ifname, ip, group, physdev, port, vnifilter="off", ttl=None):
         self.logger.info("creating single vxlan device: %s" % ifname)
 
         cmd = ["link add dev %s type vxlan external" % ifname]
@@ -304,6 +304,9 @@ class IPRoute2(Cache, Requirements):
 
         if port:
             cmd.append("dstport %s" % port)
+
+        if ttl:
+            cmd.append("ttl %s" % ttl)
 
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
         self.__update_cache_after_link_creation(ifname, "vxlan")
