@@ -31,6 +31,7 @@ try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.lib.base_objects import Netlink, Cache, Requirements
+    from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags, ifaceLinkKind
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
@@ -39,6 +40,8 @@ except (ImportError, ModuleNotFoundError):
     from lib.sysfs import Sysfs
     from lib.iproute2 import IPRoute2
     from lib.base_objects import Netlink, Cache, Requirements
+    from ifupdown.iface import ifaceLinkPrivFlags, ifaceLinkKind
+
 
     import ifupdown.policymanager as policymanager
     import nlmanager.ipnetwork as ipnetwork
@@ -94,6 +97,92 @@ class Bridge(Addon):
 
     def __init__(self):
         super(Bridge, self).__init__()
+
+    def _re_evaluate_bridge_vxlan(self, ifaceobj, ifaceobj_getfunc=None):
+        """
+        Quick fix for BRIDGE_VXLAN
+
+        BRIDGE_VXLAN is not set on the bridge because the VXLAN hasn't been processed yet
+        (because its defined after the bridge in /e/n/i), here is what happens:
+
+        - ifupdownmain:populate_dependency_info()
+        - loops over all the intf from /e/n/i (with the example config:
+            ['lo', 'eth0', 'swp1', 'swp2', 'bridge', 'vni-10', 'bridge.100', 'vlan100'])
+            ----> bridge is first in the list of interface (that we care about)
+
+        - ifupdownmain:query_lowerifaces()
+        - bridge:get_dependent is called (debug: bridge: evaluating port expr '['swp1', 'swp2', 'vni-10']')
+        - ifupdownmain:preprocess_dependency_list()
+        - calls ifupdownmain:_set_iface_role_n_kind() on all the brports:
+
+        in _set_iface_role_n_kind:
+        ifaceobj is the brport
+        upperifaceobj is the bridge
+
+        it tries to see if the bridge has a VXLAN:
+
+        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN) \
+        and (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
+        upperifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
+
+        but because the bridge is first in the /e/n/i ifupdown2 didn't
+        call vxlan:get_dependent_ifacenames so VXLAN is not set on ifaceobj
+
+        :return:
+        """
+        if not ifaceobj_getfunc:
+            return
+
+        if ifaceobj.link_kind & ifaceLinkKind.BRIDGE and not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
+            for port in self._get_bridge_port_list(ifaceobj) or []:
+                for brport_ifaceobj in ifaceobj_getfunc(port):
+                    if brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+                        ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
+                        self.__check_l3vni_bridge(ifaceobj)
+                        return
+
+        elif ifaceobj.link_kind & ifaceLinkKind.BRIDGE:
+            self.__check_l3vni_bridge(ifaceobj)
+
+        elif ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            for iface in ifaceobj.upperifaces if ifaceobj.upperifaces else []:
+                for bridge_ifaceobj in ifaceobj_getfunc(iface) or []:
+                    bridge_ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
+                    self.__check_l3vni_bridge(bridge_ifaceobj)
+
+    def __check_l3vni_bridge(self, ifaceobj):
+        # the calling function needs to make sure that the following checks were performed:
+        # ifaceobj.link_kind & ifaceLinkKind.BRIDGE
+        # ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE \
+                and len(self._get_ifaceobj_bridge_ports(ifaceobj, as_list=True)) == 1:
+            ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_l3VNI
+
+    @staticmethod
+    def _get_ifaceobj_bridge_ports(ifaceobj, as_list=False):
+        bridge_ports = []
+
+        for brport in ifaceobj.get_attr_value('bridge-ports') or []:
+            if brport != 'none':
+                bridge_ports.extend(brport.split())
+
+        if as_list:
+            return bridge_ports
+
+        return ' '.join(bridge_ports)
+
+    def _get_bridge_port_list(self, ifaceobj):
+        # port list is also available in the previously
+        # parsed dependent list. Use that if available, instead
+        # of parsing port expr again
+        port_list = ifaceobj.lowerifaces
+        if port_list:
+            return port_list
+        ports = self._get_ifaceobj_bridge_ports(ifaceobj)
+        if ports:
+            return self.parse_port_list(ifaceobj.name, ports)
+        else:
+            return None
 
 
 class AddonWithIpBlackList(Addon):

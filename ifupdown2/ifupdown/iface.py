@@ -80,19 +80,20 @@ class ifaceLinkPrivFlags():
     """ This corresponds to kernel netdev->priv_flags
         and can be BRIDGE_PORT, BOND_SLAVE etc """
 
-    UNKNOWN =           0x00000
-    BRIDGE_PORT =       0x00001
-    BOND_SLAVE =        0x00010
-    VRF_SLAVE =         0x00100
-    BRIDGE_VLAN_AWARE = 0x01000
-    BRIDGE_VXLAN =      0x10000
-    ADDRESS_VIRTUAL_SLAVE = 0x100000
-    LOOPBACK = 0x1000000
-    KEEP_LINK_DOWN = 0x10000000
-    MGMT_INTF = 0x100000000
-    SINGLE_VXLAN = 0x1000000000
-    ES_BOND = 0x10000000000
-    OPENVSWITCH = 0x10000000000
+    UNKNOWN                                 = 0b000000000000000000000
+    BRIDGE_PORT                             = 0b000000000000000000001
+    BOND_SLAVE                              = 0b000000000000000000010
+    VRF_SLAVE                               = 0b000000000000000000100
+    BRIDGE_VLAN_AWARE                       = 0b000000000000000001000
+    BRIDGE_VXLAN                            = 0b000000000000000010000
+    ADDRESS_VIRTUAL_SLAVE                   = 0b000000000000000100000
+    LOOPBACK                                = 0b000000000000001000000
+    KEEP_LINK_DOWN                          = 0b000000000000010000000
+    MGMT_INTF                               = 0b000000000000100000000
+    SINGLE_VXLAN                            = 0b000000000001000000000
+    ES_BOND                                 = 0b000000000010000000000
+    BRIDGE_l3VNI                            = 0b000000000100000000000
+    OPENVSWITCH                             = 0b000000001000000000000
 
     @classmethod
     def get_str(cls, flag):

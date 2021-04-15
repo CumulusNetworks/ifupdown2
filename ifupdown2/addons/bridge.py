@@ -1006,15 +1006,6 @@ class bridge(Bridge, moduleBase):
                 ifaceobj.get_attr_value_first('bridge-ports') or
                 ifaceobj.get_attr_value_first('bridge-vlan-aware'))
 
-    def _get_ifaceobj_bridge_ports(self, ifaceobj):
-        bridge_ports = []
-
-        for brport in ifaceobj.get_attr_value('bridge-ports') or []:
-            if brport != 'none':
-                bridge_ports.extend(brport.split())
-
-        return ' '.join(bridge_ports)
-
     def check_valid_bridge(self, ifaceobj, ifname):
         if self.cache.link_exists(ifname) and not self.cache.link_is_bridge(ifname):
             self.log_error('misconfiguration of bridge attribute(s) on existing non-bridge interface (%s)' % ifname, ifaceobj=ifaceobj)
@@ -1041,6 +1032,7 @@ class bridge(Bridge, moduleBase):
 
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
+
         return self.parse_port_list(ifaceobj.name,
                                     self._get_ifaceobj_bridge_ports(ifaceobj),
                                     ifacenames_all)
@@ -3896,53 +3888,6 @@ class bridge(Bridge, moduleBase):
         if self.default_stp_on:
             ifaceobj.update_config('bridge-stp', 'yes')
 
-    def __re_evaluate_bridge_vxlan(self, ifaceobj, ifaceobj_getfunc=None):
-        """
-        Quick fix for BRIDGE_VXLAN
-
-        BRIDGE_VXLAN is not set on the bridge because the VXLAN hasn't been processed yet
-        (because its defined after the bridge in /e/n/i), here is what happens:
-
-        - ifupdownmain:populate_dependency_info()
-        - loops over all the intf from /e/n/i (with the example config:
-            ['lo', 'eth0', 'swp1', 'swp2', 'bridge', 'vni-10', 'bridge.100', 'vlan100'])
-            ----> bridge is first in the list of interface (that we care about)
-
-        - ifupdownmain:query_lowerifaces()
-        - bridge:get_dependent is called (debug: bridge: evaluating port expr '['swp1', 'swp2', 'vni-10']')
-        - ifupdownmain:preprocess_dependency_list()
-        - calls ifupdownmain:_set_iface_role_n_kind() on all the brports:
-
-        in _set_iface_role_n_kind:
-        ifaceobj is the brport
-        upperifaceobj is the bridge
-
-        it tries to see if the bridge has a VXLAN:
-
-        if (ifaceobj.link_kind & ifaceLinkKind.VXLAN) \
-        and (upperifaceobj.link_kind & ifaceLinkKind.BRIDGE):
-        upperifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
-
-        but because the bridge is first in the /e/n/i ifupdown2 didn't
-        call vxlan:get_dependent_ifacenames so VXLAN is not set on ifaceobj
-
-        :return:
-        """
-        if not ifaceobj_getfunc:
-            return
-
-        if ifaceobj.link_kind & ifaceLinkKind.BRIDGE and not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
-            for port in self._get_bridge_port_list(ifaceobj) or []:
-                for brport_ifaceobj in ifaceobj_getfunc(port):
-                    if brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN:
-                        ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
-                        return
-
-        elif ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
-            for iface in ifaceobj.upperifaces if ifaceobj.upperifaces else []:
-                for bridge_ifaceobj in ifaceobj_getfunc(iface) or []:
-                    bridge_ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
-
     _run_ops = {
         'pre-up': _up,
         'post-down': _down,
@@ -3985,7 +3930,7 @@ class bridge(Bridge, moduleBase):
             self.bridge_utils_missing_warning = False
 
         # make sure BRIDGE_VXLAN is set if we have a vxlan port
-        self.__re_evaluate_bridge_vxlan(ifaceobj, ifaceobj_getfunc)
+        self._re_evaluate_bridge_vxlan(ifaceobj, ifaceobj_getfunc)
 
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
