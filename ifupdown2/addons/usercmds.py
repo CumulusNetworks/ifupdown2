@@ -43,13 +43,14 @@ class usercmds(moduleBase):
     def _run_command(self, ifaceobj, op):
         cmd_list = ifaceobj.get_attr_value(op)
         if cmd_list:
-            os.environ['IFACE'] = ifaceobj.name if ifaceobj.name else ''
-            os.environ['LOGICAL'] = ifaceobj.name if ifaceobj.name else ''
-            os.environ['METHOD'] = ifaceobj.addr_method if ifaceobj.addr_method else ''
-            os.environ['ADDRFAM'] = ','.join(ifaceobj.addr_family) if ifaceobj.addr_family else ''
+            env = os.environ | {
+                    'LOGICAL': ifaceobj.name if ifaceobj.name else '',
+                    'METHOD': ifaceobj.addr_method if ifaceobj.addr_method else '',
+                    'ADDRFAM': ','.join(ifaceobj.addr_family) if ifaceobj.addr_family else ''
+                } | ifaceobj.get_env()
             for cmd in cmd_list:
                 try:
-                    utils.exec_user_command(cmd)
+                    utils.exec_user_command(cmd, env=env)
                 except Exception as e:
                     if not self.ignore_error(str(e)):
                         self.logger.warning('%s: %s %s' % (ifaceobj.name, op,
