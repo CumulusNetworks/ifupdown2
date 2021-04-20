@@ -392,11 +392,12 @@ class utils():
         return cmd_output_string
 
     @classmethod
-    def exec_user_command(cls, cmd, close_fds=False, stdout=True,
+    def exec_user_command(cls, cmd, env=None, close_fds=False, stdout=True,
                           stdin=None, stderr=subprocess.STDOUT):
         cls._log_command_exec(cmd, stdin)
         return cls._execute_subprocess(cmd,
                                        shell=True,
+                                       env=env,
                                        close_fds=close_fds,
                                        stdout=stdout,
                                        stdin=stdin,
