@@ -610,10 +610,10 @@ class IPRoute2(Cache, Requirements):
     @staticmethod
     def bridge_fdb_add_src_vni(dev, src_vni, dst_ip):
         """
-            bridge fdb add dev $dev 00:00:00:00:00:00 src_vni $src_vni dst $dst_ip static
+            bridge fdb add dev $dev 00:00:00:00:00:00 src_vni $src_vni dst $dst_ip static self
         """
         utils.exec_command(
-            "%s fdb add dev %s 00:00:00:00:00:00 src_vni %s dst %s static"
+            "%s fdb add dev %s 00:00:00:00:00:00 src_vni %s dst %s static self"
             % (
                 utils.bridge_cmd,
                 dev,
