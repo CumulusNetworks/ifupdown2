@@ -442,7 +442,7 @@ class bridge(Bridge, moduleBase):
             },
             "bridge-vlan-vni-map": {
                 "help": "Single vxlan support",
-                "example": "bridge-vlan-vni-map 1000-1001=1000-1001",
+                "example": ["bridge-vlan-vni-map 1000-1001=1000-1001"],
             },
             "bridge-always-up": {
                 "help": "Enabling this attribute on a bridge will enslave a dummy interface to the bridge",
