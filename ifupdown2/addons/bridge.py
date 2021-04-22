@@ -3669,7 +3669,7 @@ class bridge(Bridge, moduleBase):
             ifaceobjcurr.update_config_with_status("bridge-vlan-vni-map", bridge_vlan_vni_map_entry, fail)
 
     @staticmethod
-    def get_vlan_vni_ranges(bridge_vlan_tunnel):
+    def get_vlan_vni_ranges(bridge_vlan_tunnel, compress=False):
         vlans = []
         vnis = []
 
@@ -3686,8 +3686,13 @@ class bridge(Bridge, moduleBase):
                 tunnel_vni_range = tunnel_vni
 
             elif tunnel_flags & Link.BRIDGE_VLAN_INFO_RANGE_END:
-                vlans.extend(range(tunnel_vlan_range, tunnel_vlan + 1))
-                vnis.extend(range(tunnel_vni_range, tunnel_vni + 1))
+
+                if compress:
+                    vlans.append("%s-%s" % (tunnel_vlan_range, tunnel_vlan))
+                    vnis.append("%s-%s" % (tunnel_vni_range, tunnel_vni))
+                else:
+                    vlans.extend(range(tunnel_vlan_range, tunnel_vlan + 1))
+                    vnis.extend(range(tunnel_vni_range, tunnel_vni + 1))
 
             else:
                 vlans.append(tunnel_vlan)
@@ -3878,6 +3883,22 @@ class bridge(Bridge, moduleBase):
             ifaceobjrunning.update_config('bridge-arp-nd-suppress', v)
 
         self._query_running_bridge_port_attrs(ifaceobjrunning, bridgename)
+
+        #
+        # bridge-vlan-vni-map
+        #
+        try:
+            cached_vlans, cached_vnis = self.get_vlan_vni_ranges(
+                self.cache.get_vlan_vni(ifaceobjrunning.name), compress=True
+            )
+
+            if cached_vlans and cached_vnis:
+                ifaceobjrunning.update_config(
+                    "bridge-vlan-vni-map",
+                    " ".join(["%s=%s" % (vlan, vni) for vlan, vni in zip(cached_vlans, cached_vnis)])
+                )
+        except Exception as e:
+            self.logger.debug("bridge-vlan-vni-map: exception: %s" % str(e))
 
     def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         try:
