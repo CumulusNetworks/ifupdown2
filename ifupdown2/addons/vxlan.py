@@ -1283,6 +1283,59 @@ class vxlan(Addon, moduleBase):
                 self.iproute2.get_vxlan_peers(ifaceobj.name, str(cached_svcnode.ip) if cached_svcnode else None)
             )
 
+        #
+        # vxlan-mcastgrp-map
+        #
+        user_mcastgrp_map = self.__get_vxlan_mcastgrp_map(ifaceobj)
+
+        if user_mcastgrp_map:
+            status = True
+            ifquery_mcastgrp_map = dict(user_mcastgrp_map)
+
+            try:
+                svd_fdb = self.get_svd_running_fdb(ifname)
+
+                if svd_fdb:
+                    svd_fdb_map = {}
+
+                    for _, vni, ip in svd_fdb:
+                        svd_fdb_map[int(vni)] = ip
+
+                else:
+                    svd_fdb_map = {}
+
+                saved_running_config = dict(svd_fdb_map)
+
+                for vni, ip in dict(user_mcastgrp_map).items():
+
+                    if vni not in svd_fdb_map or svd_fdb_map[vni] != str(ip):
+                        status = False
+                        break
+
+                    del user_mcastgrp_map[vni]
+                    del svd_fdb_map[vni]
+
+                # if the user config map is not empty it means that not all mcastgrp are configured
+                if user_mcastgrp_map:
+                    status = False
+
+                # if the running config map is not empty it means that we have extra mcastgrp configured
+                if svd_fdb_map:
+                    status = False
+
+                if not status:
+                    ifquery_mcastgrp_map = saved_running_config
+
+            except Exception as e:
+                self.logger.info("vxlan-mcastgrp-map: error: %s" % str(e))
+                status = False
+
+            ifaceobjcurr.update_config_with_status(
+                "vxlan-mcastgrp-map",
+                " ".join(["%s=%s" % (vni, ip) for vni, ip in ifquery_mcastgrp_map.items()]),
+                not status
+            )
+
     def _query_running(self, ifaceobjrunning):
         ifname = ifaceobjrunning.name
 
