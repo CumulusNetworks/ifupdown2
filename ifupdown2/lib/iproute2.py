@@ -941,16 +941,12 @@ class IPRoute2(Cache, Requirements):
             rvnis_int = utils.ranges_to_ints(rvnis)
             (vnis_to_del, vnis_to_add) = utils.diff_ids(vnis_int,
                                                         rvnis_int)
-            if vnis_to_del or vnis_to_add:
-                self.link_down(vxlandev)
             if vnis_to_del:
                 self.bridge_vni_del_list(vxlandev,
                         utils.compress_into_ranges(vnis_to_del))
             if vnis_to_add:
                 self.bridge_vni_add_list(vxlandev,
                         utils.compress_into_ranges(vnis_to_add))
-            if vnis_to_del or vnis_to_add:
-                self.link_up(vxlandev)
         except Exception as e:
             self.logger.info("bridge vni show failed .. %s" % str(e))
         return None
