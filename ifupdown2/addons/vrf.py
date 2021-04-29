@@ -263,13 +263,13 @@ class vrf(Addon, moduleBase):
         if self.warn_on_vrf_map_write_err:
             if not os.path.exists('/etc/iproute2/rt_tables.d/'):
                 self.logger.info('unable to save iproute2 vrf to table ' +
-                                 'map (%s)\n' %errstr)
+                                 'map (%s)' %errstr)
                 self.logger.info('cannot find /etc/iproute2/rt_tables.d.' +
                                  ' pls check if your iproute2 version' +
                                  ' supports rt_tables.d')
             else:
                 self.logger.warning('unable to open iproute2 vrf to table ' +
-                                 'map (%s)\n' %errstr)
+                                 'map (%s)' %errstr)
             self.warn_on_vrf_map_write_err = False
 
     def _iproute2_vrf_map_sync_to_disk(self):
@@ -433,7 +433,7 @@ class vrf(Addon, moduleBase):
                     if not vrf_table:
                         self.log_error('%s: unable to get an auto table id'
                                        %mobj.name, ifaceobj)
-                    self.logger.info('%s: table id auto: selected table id %s\n'
+                    self.logger.info('%s: table id auto: selected table id %s'
                                      %(mobj.name, vrf_table))
                 try:
                     self._up_vrf_dev(mobj, vrf_table, False)
@@ -733,7 +733,7 @@ class vrf(Addon, moduleBase):
                 vrf_table = self._get_avail_vrf_table_id()
                 if not vrf_table:
                     self.log_error('unable to get an auto table id', ifaceobj)
-                self.logger.info('%s: table id auto: selected table id %s\n'
+                self.logger.info('%s: table id auto: selected table id %s'
                                  %(ifaceobj.name, vrf_table))
             else:
                 self._iproute2_is_vrf_tableid_inuse(ifaceobj, vrf_table)
@@ -757,7 +757,7 @@ class vrf(Addon, moduleBase):
             try:
                 self.netlink.link_add_vrf(ifaceobj.name, vrf_table)
             except Exception as e:
-                self.log_error('create failed (%s)\n' % str(e), ifaceobj)
+                self.log_error('create failed (%s)' % str(e), ifaceobj)
             if vrf_table != 'auto':
                 self._iproute2_vrf_table_entry_add(ifaceobj, vrf_table)
         else:
@@ -948,7 +948,7 @@ class vrf(Addon, moduleBase):
                                %(utils.ss_cmd, ifindex))
         except Exception as e:
             self.logger.info('%s: closing socks using ss'
-                             ' failed (%s)\n' %(ifacename, str(e)))
+                             ' failed (%s)' %(ifacename, str(e)))
             pass
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
