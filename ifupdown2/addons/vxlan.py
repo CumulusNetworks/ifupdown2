@@ -1058,11 +1058,10 @@ class vxlan(Addon, moduleBase):
                             self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
                         return
 
-        self.single_vxlan_device_mcast_grp_map_fdb(ifaceobj, ifname, vxlan_mcast_grp_map)
-
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
             if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
                 self.single_vxlan_device_vni_filter(ifaceobj)
+            self.single_vxlan_device_mcast_grp_map_fdb(ifaceobj, ifname, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
