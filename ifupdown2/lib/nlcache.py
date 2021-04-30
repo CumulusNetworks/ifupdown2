@@ -2966,6 +2966,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     cmd.append("nolearning")
                 info_data[nlpacket.Link.IFLA_VXLAN_LEARNING] = int(learning)
 
+                if not udp_csum:
+                    cmd.append("noudpcsum")
+                info_data[nlpacket.Link.IFLA_VXLAN_UDP_CSUM] = int(udp_csum)
+
                 if physdev:
                     cmd.append("dev %s" % physdev)
                     info_data[nlpacket.Link.IFLA_VXLAN_LINK] = self.cache.get_ifindex(physdev)

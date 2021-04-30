@@ -1015,7 +1015,7 @@ class NetlinkManager(object):
         return self.tx_nlpacket_get_response(nbr)
 
     def link_add_vxlan(self, ifname, vxlanid, dstport=None, local=None,
-                       group=None, learning=True, ageing=None, physdev=None, ttl=None):
+                       group=None, learning=True, ageing=None, physdev=None, ttl=None, tos=None, udp_csum=True):
 
         debug = RTM_NEWLINK in self.debug
 
@@ -1026,7 +1026,10 @@ class NetlinkManager(object):
             info_data[Link.IFLA_VXLAN_LOCAL] = local
         if group:
             info_data[Link.IFLA_VXLAN_GROUP] = group
-
+        if tos:
+            info_data[Link.IFLA_VXLAN_TOS] = int(tos)
+        
+        info_data[Link.IFLA_VXLAN_UDP_CSUM] = int(udp_csum)
         info_data[Link.IFLA_VXLAN_LEARNING] = int(learning)
         info_data[Link.IFLA_VXLAN_TTL] = ttl
 

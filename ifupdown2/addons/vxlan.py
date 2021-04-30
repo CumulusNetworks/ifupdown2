@@ -100,6 +100,12 @@ class vxlan(Addon, moduleBase):
                 "validvals": ["0", "255"],
                 "example": ['vxlan-ttl 42'],
             },
+            "vxlan-tos": {
+                "help": "specifies the ToS value (range 0..255), 0=inherit",
+                "default": "0",
+                "validvals": ["inherit", "0", "255"],
+                "example": ['vxlan-tos 42'],
+            },
             "vxlan-mcastgrp": {
                 "help": "vxlan multicast group",
                 "validvals": ["<ip>"],
@@ -115,6 +121,12 @@ class vxlan(Addon, moduleBase):
                 "validvals": ["<number-ipv4-list>"],
                 "example": ["vxlan-mcastgrp-map 1000=239.1.1.100 1001=239.1.1.200"],
             },
+            "vxlan-udp-csum": {
+                "help": "whether to perform checksumming or not",
+                "default": "yes",
+                "validvals": ["yes", "no"],
+                "example": ["vxlan-udp-csum no"]
+            }
         }
     }
 
@@ -233,6 +245,15 @@ class vxlan(Addon, moduleBase):
                 ttl = int(ttl_config)
         return ttl
 
+    def get_vxlan_tos_from_string(self, tos_config):
+        tos = 0
+        if tos_config:
+            if tos_config.lower() == "inherit":
+                tos = 0
+            else:
+                tos = int(tos_config)
+        return tos
+
     def __config_vxlan_id(self, ifname, ifaceobj, vxlan_id_str, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         """
         Get vxlan-id user config and check it's value before inserting it in our netlink dictionary
@@ -341,6 +362,39 @@ class vxlan(Addon, moduleBase):
             user_request_vxlan_info_data[Link.IFLA_VXLAN_PORT] = vxlan_port
         except Exception:
             self.log_error("%s: invalid vxlan-port '%s'" % (ifname, vxlan_port_str), ifaceobj)
+
+    def __config_vxlan_tos(self, ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Get vxlan-tos from user config or policy, validate integer value and insert in netlink dict
+        :param ifname:
+        :param ifaceobj:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        vxlan_tos_str = ifaceobj.get_attr_value_first("vxlan-tos")
+        try:
+            if vxlan_tos_str:
+                vxlan_tos = self.get_vxlan_tos_from_string(vxlan_tos_str)
+            else:
+                vxlan_tos = self.get_vxlan_tos_from_string(
+                    policymanager.policymanager_api.get_attr_default(
+                        module_name=self.__class__.__name__,
+                        attr="vxlan-tos"
+                    )
+                )
+
+            cached_ifla_vxlan_tos = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_TOS)
+            if vxlan_tos != cached_ifla_vxlan_tos:
+
+                if cached_ifla_vxlan_tos is not None:
+                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos, cached_ifla_vxlan_tos))
+                else:
+                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos))
+
+                user_request_vxlan_info_data[Link.IFLA_VXLAN_TOS] = vxlan_tos
+        except Exception:
+            self.log_error("%s: invalid vxlan-tos '%s'" % (ifname, vxlan_tos_str), ifaceobj)
 
     def __config_vxlan_ttl(self, ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
         """
@@ -655,6 +709,19 @@ class vxlan(Addon, moduleBase):
             self.logger.info("%s: set vxlan-learning %s" % (ifaceobj.name, "on" if vxlan_learning else "off"))
             user_request_vxlan_info_data[Link.IFLA_VXLAN_LEARNING] = vxlan_learning
 
+    def __config_vxlan_udp_csum(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        vxlan_udp_csum = ifaceobj.get_attr_value_first('vxlan-udp-csum')
+        if not vxlan_udp_csum:
+            vxlan_udp_csum = self.get_attr_default_value('vxlan-udp-csum')
+        vxlan_udp_csum = utils.get_boolean_from_string(vxlan_udp_csum)
+
+        if vxlan_udp_csum is None:
+            vxlan_udp_csum = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_UDP_CSUM)
+
+        if vxlan_udp_csum != cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_UDP_CSUM):
+            self.logger.info("%s: set vxlan-udp-csum %s" % (ifaceobj.name, "on" if vxlan_udp_csum else "off"))
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_UDP_CSUM] = vxlan_udp_csum
+
     def __get_vxlan_physdev(self, ifaceobj, mcastgrp):
         """
         vxlan-physdev wrapper, special handling is required for mcastgrp is provided
@@ -744,6 +811,8 @@ class vxlan(Addon, moduleBase):
         self.__config_vxlan_ageing(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_port(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_ttl(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        self.__config_vxlan_tos(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        self.__config_vxlan_udp_csum(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
 
         vxlan_mcast_grp = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp")
@@ -949,6 +1018,7 @@ class vxlan(Addon, moduleBase):
         for vxlan_attr_str, vxlan_attr_nl, callable_type in (
                 ('vxlan-id', Link.IFLA_VXLAN_ID, int),
                 ('vxlan-ttl', Link.IFLA_VXLAN_TTL, int),
+                ('vxlan-tos', Link.IFLA_VXLAN_TOS, int),
                 ('vxlan-port', Link.IFLA_VXLAN_PORT, int),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, int),
                 ('vxlan-mcastgrp', Link.IFLA_VXLAN_GROUP, ipnetwork.IPv4Address),
@@ -957,6 +1027,7 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-svcnodeip6', Link.IFLA_VXLAN_GROUP6, ipnetwork.IPv6Address),
                 ('vxlan-physdev', Link.IFLA_VXLAN_LINK, lambda x: self.cache.get_ifindex(x)),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
+                ('vxlan-udp-csum', Link.IFLA_VXLAN_UDP_CSUM, lambda boolean_str: utils.get_boolean_from_string(boolean_str)),
         ):
             vxlan_attr_value = ifaceobj.get_attr_value_first(vxlan_attr_str)
 
@@ -1080,6 +1151,7 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-physdev', Link.IFLA_VXLAN_LINK, self._get_ifname_for_ifindex),
                 ('vxlan-ageing', Link.IFLA_VXLAN_AGEING, str),
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda value: 'on' if value else 'off'),
+                ('vxlan-udp-csum', Link.IFLA_VXLAN_UDP_CSUM, lambda value: 'on' if value else 'off'),
                 ('vxlan-local-tunnelip', Link.IFLA_VXLAN_LOCAL, str),
         ):
             vxlan_attr_value = cached_vxlan_ifla_info_data.get(vxlan_attr_nl)

@@ -306,7 +306,7 @@ class IPRoute2(Cache, Requirements):
         self.__update_cache_after_link_creation(ifname, "vxlan")
 
     def link_create_vxlan(self, name, vxlanid, localtunnelip=None, svcnodeip=None,
-                          remoteips=None, learning='on', ageing=None, ttl=None, physdev=None):
+                          remoteips=None, learning='on', ageing=None, ttl=None, physdev=None, udp_csum='on', tos = None):
         if svcnodeip and remoteips:
             raise Exception("svcnodeip and remoteip are mutually exclusive")
 
@@ -333,8 +333,14 @@ class IPRoute2(Cache, Requirements):
         if learning == 'off':
             cmd.append("nolearning")
 
+        if udp_csum == 'off':
+            cmd.append("noudpcsum")
+
         if ttl is not None:
             cmd.append("ttl %s" % ttl)
+
+        if tos is not None:
+            cmd.append("tos %s" % tos)
 
         if physdev:
             cmd.append("dev %s" % physdev)
