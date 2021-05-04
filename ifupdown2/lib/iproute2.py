@@ -613,7 +613,7 @@ class IPRoute2(Cache, Requirements):
             bridge fdb add dev $dev 00:00:00:00:00:00 src_vni $src_vni dst $dst_ip static self
         """
         utils.exec_command(
-            "%s fdb add dev %s 00:00:00:00:00:00 src_vni %s dst %s static self"
+            "%s fdb add dev %s 00:00:00:00:00:00 src_vni %s dst %s permanent self"
             % (
                 utils.bridge_cmd,
                 dev,
