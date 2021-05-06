@@ -1028,8 +1028,9 @@ class bridge(Bridge, moduleBase):
             ifaceobj.link_kind |= ifaceLinkKind.BRIDGE
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
 
-            # store the name of all bridge vlan aware in a global list
-            self.bridge_vlan_aware_list.add(ifaceobj.name)
+            if not old_ifaceobjs:
+                # store the name of all bridge vlan aware in a global list
+                self.bridge_vlan_aware_list.add(ifaceobj.name)
 
         ifaceobj.role |= ifaceRole.MASTER
         ifaceobj.dependency_type = ifaceDependencyType.MASTER_SLAVE
