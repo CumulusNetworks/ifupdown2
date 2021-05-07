@@ -213,6 +213,11 @@ class address(AddonWithIpBlackList, moduleBase):
             default=True
         )
 
+        self.check_l3_svi_ip_forwarding = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr="check_l3_svi_ip_forwarding")
+        )
+
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
             module_name=self.__class__.__name__,
@@ -267,25 +272,30 @@ class address(AddonWithIpBlackList, moduleBase):
         return default_mgmt_mtu
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc=None):
+        self.syntax_check_l3_svi_ip_forward(ifaceobj)
         return (self.syntax_check_multiple_gateway(ifaceobj)
                 and self.syntax_check_addr_allowed_on(ifaceobj, True)
                 and self.syntax_check_mtu(ifaceobj, ifaceobj_getfunc)
                 and self.syntax_check_sysctls(ifaceobj)
-                and self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc, syntax_check=True)
-                and self.syntax_check_l3_svi_ip_forward(ifaceobj))
+                and self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc, syntax_check=True))
 
     def syntax_check_l3_svi_ip_forward(self, ifaceobj):
+        """ enabled via policy: 'check_l3_svi_ip_forwarding' """
+
+        if not self.check_l3_svi_ip_forwarding:
+            return True
+
         if ifaceobj.link_kind & ifaceLinkKind.VLAN and ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
             ip_forward = ifaceobj.get_attr_value_first("ip-forward")
 
             if ip_forward and not utils.get_boolean_from_string(ip_forward):
-                self.log_error("%s: misconfiguration: disabling ip4 forwarding on an l3-svi is not allowed" % ifaceobj.name, ifaceobj)
+                self.logger.error("%s: misconfiguration: disabling ip4 forwarding on an l3-svi is not allowed" % ifaceobj.name)
                 return False
 
             ip6_forward = ifaceobj.get_attr_value_first("ip6-forward")
 
             if ip6_forward and not utils.get_boolean_from_string(ip6_forward):
-                self.log_error("%s: misconfiguration: disabling ip6 forwarding on an l3-svi is not allowed" % ifaceobj.name, ifaceobj)
+                self.logger.error("%s: misconfiguration: disabling ip6 forwarding on an l3-svi is not allowed" % ifaceobj.name)
                 return False
 
         return True
