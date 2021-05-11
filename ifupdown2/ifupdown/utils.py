@@ -17,6 +17,7 @@ import subprocess
 import itertools
 
 from functools import partial
+from ipaddress import IPv4Address
 
 try:
     from ifupdown2.ifupdown.iface import *
@@ -458,6 +459,13 @@ class utils():
     def compress_into_ranges(cls, ids_ints):
         return ['%d' %start if start == end else '%d-%d' %(start, end)
                        for start, end in cls.ints_to_ranges(ids_ints)]
+
+    @classmethod
+    def compress_into_ip_ranges(cls, ip_list):
+        return [
+            "%s" % IPv4Address(start) if start == end else "%s-%s" % (IPv4Address(start), IPv4Address(end)) for
+            start, end in cls.ints_to_ranges(map(int, ip_list))
+        ]
 
     @classmethod
     def diff_ids(cls, ids1_ints, ids2_ints):

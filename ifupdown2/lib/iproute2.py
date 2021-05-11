@@ -367,6 +367,8 @@ class IPRoute2(Cache, Requirements):
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
             try:
                 for l in output.split('\n'):
+                    if "src_vni" in l:
+                        continue
                     m = self.VXLAN_PEER_REGEX_PATTERN.search(l)
                     if m and m.group(1) != svcnodeip:
                         cur_peers.append(m.group(1))
@@ -570,6 +572,22 @@ class IPRoute2(Cache, Requirements):
             return None
 
     @staticmethod
+    def bridge_fdb_show_dev_raw_with_filters(dev, filters):
+        try:
+            output = utils.exec_command("%s fdb show dev %s" % (utils.bridge_cmd, dev)).splitlines()
+            filtered_output = []
+            for l in output:
+                filter_present = True
+                for f in filters:
+                    if f not in l:
+                        filter_present = False
+                if filter_present:
+                    filtered_output.append(l)
+            return filtered_output
+        except Exception:
+            return None
+
+    @staticmethod
     def bridge_fdb_add(dev, address, vlan=None, bridge=True, remote=None):
         target = "self" if bridge else ""
         vlan_str = "vlan %s " % vlan if vlan else ""
@@ -603,22 +621,22 @@ class IPRoute2(Cache, Requirements):
         )
 
     @staticmethod
-    def bridge_fdb_append(dev, address, vlan=None, bridge=True, remote=None):
-        target = "self" if bridge else ""
-        vlan_str = "vlan %s " % vlan if vlan else ""
-        dst_str = "dst %s " % remote if remote else ""
+    def bridge_fdb_append(dev, address, vlan=None, bridge=True, remote=None, src_vni=None):
+        cmd = ["%s fdb append %s dev %s" % (utils.bridge_cmd, address, dev)]
 
-        utils.exec_command(
-            "%s fdb append %s dev %s %s %s %s"
-            % (
-                utils.bridge_cmd,
-                address,
-                dev,
-                vlan_str,
-                target,
-                dst_str
-            )
-        )
+        if bridge:
+            cmd.append("self")
+
+        if vlan:
+            cmd.append("vlan %s" % vlan)
+
+        if remote:
+            cmd.append("dst %s" % remote)
+
+        if src_vni:
+            cmd.append("src_vni %s" % src_vni)
+
+        utils.exec_command(" ".join(cmd))
 
     @staticmethod
     def bridge_fdb_del_src_vni(dev, mac, src_vni):
@@ -649,6 +667,10 @@ class IPRoute2(Cache, Requirements):
                 dst_str
             )
         )
+
+    @staticmethod
+    def bridge_fdb_del_raw(dev, args):
+        utils.exec_command("%s fdb del dev %s %s" % (utils.bridge_cmd, dev, args))
 
     @staticmethod
     def bridge_vlan_del_vid_list(ifname, vids):

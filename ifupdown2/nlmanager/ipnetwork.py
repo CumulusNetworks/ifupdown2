@@ -81,6 +81,9 @@ class IPNetwork:
     def __repr__(self):
         return "{}/{}".format(self._ip, self.__prefixlen)
 
+    def __int__(self):
+        return int(self._ip)
+
     __str__ = __repr__
 
     @property
@@ -163,6 +166,9 @@ class IPv4Address(IPv4Network):
     def __repr__(self):
         return str(self._ip)
 
+    def __str__(self):
+        return str(self._ip)
+
 
 class IPv6Address(IPv6Network):
     def __init__(self, *args, **kwargs):
@@ -171,3 +177,13 @@ class IPv6Address(IPv6Network):
 
     def __repr__(self):
         return str(self._ip)
+
+    def __str__(self):
+        return str(self._ip)
+
+
+def ip_address(ip):
+    try:
+        return IPv4Address(ip)
+    except:
+        return IPv6Address(ip)

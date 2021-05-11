@@ -4,7 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-from ipaddress import IPv4Network, IPv4Address, AddressValueError
+from ipaddress import IPv4Network, IPv4Address, AddressValueError, ip_address
 try:
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -132,6 +132,10 @@ class vxlan(Addon, moduleBase):
                 "validvals": ["on", "off"],
                 "default": "off",
                 "example": ["vxlan-vnifilter yes"],
+            },
+            "vxlan-remoteip-map": {
+                "help": "static HREP entries for static single vxlan device",
+                "example": ["vxlan-remoteip-map 1000-1002=27.0.0.10-27.0.0.12"],
             },
             "vxlan-udp-csum": {
                 "help": "whether to perform checksumming or not",
@@ -924,6 +928,50 @@ class vxlan(Addon, moduleBase):
 
         return False
 
+    def __get_vxlan_remote_ip_map(self, ifaceobj):
+        attr_name = "vxlan-remoteip-map"
+
+        maps = ifaceobj.get_attr_value(attr_name)
+        if not maps:
+            maps = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr=attr_name
+            )
+            return maps
+
+        parsed_maps = {}
+        for m_line in maps:
+            # Cover single-line multi-entry case
+            map = m_line.split()
+            for m in map:
+                m_parts = m.split('=')
+                if len(m_parts) != 2:
+                    self.log_error('%s: %s %s format is invalid' % (ifaceobj.name, attr_name, m))
+
+                vnis = m_parts[0]
+                _range = "-"
+                remote_ips = []
+
+                for config_remote_ip in m_parts[1].split(","):
+                    if _range in config_remote_ip:
+                        ip_range = config_remote_ip.split("-")
+                        try:
+                            start = ip_address(ip_range[0])
+                            end = ip_address(ip_range[1])
+                        except Exception as e:
+                            self.log_error("%s: %s: invalid ip range '%s': %s" % (ifaceobj.name, attr_name, config_remote_ip, e), ifaceobj)
+                            return
+                        remote_ips.extend([ipnetwork.ip_address(i) for i in range(int(start), int(end) + 1)])
+                    else:
+                        remote_ips.append(ipnetwork.ip_address(config_remote_ip))
+
+                # vxlan-remoteip-map 42,84,1000-1005=10.0.0.1,10.0.0.42-45,222.0.0.1-5
+                # higher priority is the comma
+                for vni in utils.ranges_to_ints(vnis.split(",")) or []:
+                    parsed_maps.setdefault(vni, []).extend(remote_ips)
+
+        return parsed_maps
+
     def single_vxlan_device_vni_filter(self, ifaceobj):
         vnis = []
         for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
@@ -1113,6 +1161,39 @@ class vxlan(Addon, moduleBase):
                 except Exception:
                     pass
 
+        self.vxlan_remote_ip_map(ifaceobj, vxlan_mcast_grp_map)
+
+    def vxlan_remote_ip_map(self, ifaceobj, vxlan_mcast_grp_map):
+        # get user configured remote ip map
+        vxlan_remote_ip_map = self.__get_vxlan_remote_ip_map(ifaceobj) or {}
+
+        # get running fdb config
+        fdb_running_config = self.iproute2.bridge_fdb_show_dev_raw_with_filters(ifaceobj.name, filters=["src_vni", "self permanent"])
+
+        # go through the user config and add new entries while removing existing entries from 'fdb_running_config'
+        for vni, ips in vxlan_remote_ip_map.items():
+            for ip in ips:
+                fdb_entry = "00:00:00:00:00:00 dst %s src_vni %s self permanent" % (ip, vni)
+                if fdb_entry not in fdb_running_config:
+                    self.iproute2.bridge_fdb_append(ifaceobj.name, "00:00:00:00:00:00", remote=ip, src_vni=vni)
+                else:
+                    fdb_running_config.remove(fdb_entry)
+
+        # in fdb_running_config we have the delta between user config and running config. We should delete those extra
+        # fdb entries. But first we need to make sure that those are not added by vxlan-mcastgrp-map
+        if fdb_running_config:
+            for vni, ip in (vxlan_mcast_grp_map or {}).items():
+                try:
+                    fdb_running_config.remove("00:00:00:00:00:00 dst %s src_vni %s self permanent" % (ip, vni))
+                except:
+                    pass
+
+            for fdb_entry in fdb_running_config:
+                try:
+                    self.iproute2.bridge_fdb_del_raw(ifaceobj.name, fdb_entry)
+                except:
+                    pass
+
     @staticmethod
     def get_vxlan_fdb_src_vni(vxlan_mcast_grp_map):
         fdbs = []
@@ -1287,57 +1368,71 @@ class vxlan(Addon, moduleBase):
             )
 
         #
+        # vxlan-mcastgrp-map & vxlan-remoteip-map
+        #
+        fdb_mcast = {}
+        fdb_remote = {}
+
+        for _, src_vni, dst in self.get_svd_running_fdb(ifname):
+            ip = ipnetwork.IPv4Address(dst)
+
+            if ip.is_multicast:
+                # we need to reconvert back to ipaddress.IPv4Address because
+                # the existing code uses this type of obj (namely: __get_vxlan_mcastgrp_map)
+                fdb_mcast[int(src_vni)] = IPv4Address(ip.ip)
+            else:
+                fdb_remote.setdefault(int(src_vni), []).append(ip)
+
+        #
         # vxlan-mcastgrp-map
         #
         user_mcastgrp_map = self.__get_vxlan_mcastgrp_map(ifaceobj)
 
-        if user_mcastgrp_map:
-            status = True
-            ifquery_mcastgrp_map = dict(user_mcastgrp_map)
-
-            try:
-                svd_fdb = self.get_svd_running_fdb(ifname)
-
-                if svd_fdb:
-                    svd_fdb_map = {}
-
-                    for _, vni, ip in svd_fdb:
-                        svd_fdb_map[int(vni)] = ip
-
-                else:
-                    svd_fdb_map = {}
-
-                saved_running_config = dict(svd_fdb_map)
-
-                for vni, ip in dict(user_mcastgrp_map).items():
-
-                    if vni not in svd_fdb_map or svd_fdb_map[vni] != str(ip):
-                        status = False
-                        break
-
-                    del user_mcastgrp_map[vni]
-                    del svd_fdb_map[vni]
-
-                # if the user config map is not empty it means that not all mcastgrp are configured
-                if user_mcastgrp_map:
-                    status = False
-
-                # if the running config map is not empty it means that we have extra mcastgrp configured
-                if svd_fdb_map:
-                    status = False
-
-                if not status:
-                    ifquery_mcastgrp_map = saved_running_config
-
-            except Exception as e:
-                self.logger.info("vxlan-mcastgrp-map: error: %s" % str(e))
-                status = False
-
+        if not user_mcastgrp_map and fdb_mcast:
             ifaceobjcurr.update_config_with_status(
                 "vxlan-mcastgrp-map",
-                " ".join(["%s=%s" % (vni, ip) for vni, ip in ifquery_mcastgrp_map.items()]),
-                not status
+                " ".join(["%s=%s" % (vni, ip) for vni, ip in fdb_mcast.items()]),
+                1
             )
+        elif user_mcastgrp_map and not fdb_mcast:
+            ifaceobjcurr.update_config_with_status("vxlan-mcastgrp-map", "", 1)
+        elif user_mcastgrp_map or fdb_mcast:
+            ifaceobjcurr.update_config_with_status(
+                "vxlan-mcastgrp-map",
+                " ".join(["%s=%s" % (vni, ip) for vni, ip in fdb_mcast.items()]),
+                user_mcastgrp_map != fdb_mcast
+            )
+
+        #
+        # vxlan-remoteip-map
+        #
+        user_remote_ip_map = self.__get_vxlan_remote_ip_map(ifaceobj)
+
+        if not user_remote_ip_map and fdb_remote:
+            ifaceobjcurr.update_config_with_status(
+                "vxlan-remoteip-map",
+                " ".join(["%s=%s" % (vni, ",".join(map(str, ips))) for vni, ips in fdb_remote.items()]),
+                1
+            )
+        elif user_remote_ip_map and not fdb_remote:
+            ifaceobjcurr.update_config_with_status("vxlan-remoteip-map", "", 1)
+        elif user_remote_ip_map or fdb_remote:
+
+            if user_remote_ip_map == fdb_remote:
+                # display the user config with "pass"
+                for config in ifaceobj.get_attr_value("vxlan-remoteip-map"):
+                    ifaceobjcurr.update_config_with_status(
+                        "vxlan-remoteip-map",
+                        config,
+                        0
+                    )
+            else:
+                # display current running state with ip ranges (but no vni ranges yet)
+                ifaceobjcurr.update_config_with_status(
+                    "vxlan-remoteip-map",
+                    " ".join(["%s=%s" % (vni, ",".join(utils.compress_into_ip_ranges(ips))) for vni, ips in fdb_remote.items()]),
+                    1
+                )
 
     def _query_running(self, ifaceobjrunning):
         ifname = ifaceobjrunning.name
@@ -1439,10 +1534,10 @@ class vxlan(Addon, moduleBase):
         if not op_handler:
             return
 
-        if operation != 'query-running':
-            if not self._is_vxlan_device(ifaceobj):
-                return
+        if not self._is_vxlan_device(ifaceobj):
+            return
 
+        if "query" not in operation:
             if not self.vxlan_mcastgrp_ref \
                     and self.vxlan_physdev_mcast \
                     and self.cache.link_exists(self.vxlan_physdev_mcast):
