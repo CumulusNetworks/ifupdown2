@@ -691,6 +691,14 @@ class IPRoute2(Cache, Requirements):
                 "vlan del vid %s dev %s %s" % (v, ifname, target)
             )
 
+    def bridge_vlan_del_vlan_tunnel_info(self, ifname, vids, vnis):
+        self.__execute_or_batch(
+            utils.bridge_cmd,
+            "vlan del dev %s vid %s tunnel_info id %s" % (
+                ifname, vids, vnis
+            )
+        )
+
     def bridge_vlan_add_vlan_tunnel_info(self, ifname, vids, vnis):
         try:
             self.__execute_or_batch(
@@ -702,6 +710,37 @@ class IPRoute2(Cache, Requirements):
         except Exception as e:
             if "exists" not in str(e).lower():
                 self.logger.error(e)
+
+    def bridge_vlan_tunnel_show(self, ifname):
+        tunnel_info = {}
+        try:
+            for entry in utils.exec_command("%s vlan tunnel dev %s" % (utils.bridge_cmd, ifname)).splitlines()[1:]:
+
+                if not entry:
+                    continue
+
+                entry_list = entry.split()
+                length = len(entry_list)
+
+                if length > 2:
+                    # if len == 3, we need to remove the ifname from the list
+                    # $ bridge vlan tunnel show dev vxlan42
+                    # port    vlan ids        tunnel id
+                    # vxlan42   1042    1542
+                    entry_list = entry_list[1:]
+
+                if length < 2:
+                    continue
+
+                vnis = utils.ranges_to_ints([entry_list[0]])
+                tunnel_ids = utils.ranges_to_ints([entry_list[1]])
+
+                for vni, tunnel_id in zip(vnis, tunnel_ids):
+                    tunnel_info[int(vni)] = int(tunnel_id)
+
+        except Exception as e:
+            self.logger.debug("iproute2: bridge vlan tunnel dev %s: %s" % (ifname, str(e)))
+        return tunnel_info
 
     @staticmethod
     def bridge_vlan_add_vid_list(ifname, vids):
@@ -716,6 +755,14 @@ class IPRoute2(Cache, Requirements):
             self.__execute_or_batch(
                 utils.bridge_cmd,
                 "vlan add vid %s dev %s %s" % (v, ifname, target)
+            )
+
+    def bridge_vlan_del_vid_list_self(self, ifname, vids, is_bridge=True):
+        target = "self" if is_bridge else ""
+        for v in vids:
+            self.__execute_or_batch(
+                utils.bridge_cmd,
+                "vlan del vid %s dev %s %s" % (v, ifname, target)
             )
 
     def bridge_vlan_del_pvid(self, ifname, pvid):
