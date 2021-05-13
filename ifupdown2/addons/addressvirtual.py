@@ -437,6 +437,11 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             macvlan_mode = intf_config_dict.get("mode")
             ips = intf_config_dict.get("ips")
 
+            if len(macvlan_ifname) > 15:
+                self.logger.error("%s: macvlan name will exceed the 15 chars limitation - please rename the underlying interface (%s)" % (macvlan_ifname, ifname))
+                ifaceobj.set_status(ifaceStatus.ERROR)
+                continue
+
             for ip in ips:
                 self.ip_blacklist_check(ifname, ip)
 

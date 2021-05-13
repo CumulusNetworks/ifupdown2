@@ -2583,7 +2583,11 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         :return:
         """
         try:
-            ifindex = self.cache.get_ifindex(ifname)
+            try:
+                ifindex = self.cache.get_ifindex(ifname)
+            except NetlinkCacheIfnameNotFoundError:
+                # link doesn't exists on the system
+                return True
 
             self.logger.info("%s: netlink: ip link del %s" % (ifname, ifname))
 
