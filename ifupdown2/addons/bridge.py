@@ -3882,11 +3882,18 @@ class bridge(Bridge, moduleBase):
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
+
+        if self.bridge_vxlan_arp_nd_suppress \
+                and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT \
+                and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            ifaceobj.update_config("bridge-arp-nd-suppress", "on")
+
         if (not (ifaceobj.link_kind & ifaceLinkKind.BRIDGE) or
             ifaceobj.get_attr_value_first('bridge-stp')):
             return
         if self.default_stp_on:
             ifaceobj.update_config('bridge-stp', 'yes')
+
 
     _run_ops = {
         'pre-up': _up,
