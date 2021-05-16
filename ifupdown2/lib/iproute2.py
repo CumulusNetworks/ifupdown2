@@ -912,41 +912,107 @@ class IPRoute2(Cache, Requirements):
             self.logger.debug("ip_route_get_dev: failed .. %s" % str(e))
         return None
 
-    def bridge_vni_add_list(self, vxlandev, vnis):
-        cmd = "%s vni add dev %s vni %s" % (utils.bridge_cmd, vxlandev, ','.join(vnis))
-        utils.exec_command(cmd)
+    def bridge_vni_update(self, vxlandev, vnisd):
+        for vr, g in vnisd.items():
+            cmd = "%s vni add dev %s vni %s" % (utils.bridge_cmd, vxlandev, vr)
+            if g:
+                cmd += ' group %s' %(g)
+            utils.exec_command(cmd)
 
     def bridge_vni_del_list(self, vxlandev, vnis):
         cmd = "%s vni del dev %s vni %s" % (utils.bridge_cmd, vxlandev, ','.join(vnis))
         utils.exec_command(cmd)
 
-    def bridge_link_update_vni_filter(self, vxlandev, vnis):
+    def compress_vnifilter_into_ranges(self, vnis_ints, vnisd):
+        vbegin = 0
+        vend = 0
+        vnisd_ranges = {}
+        for v, g in vnisd.items():
+            if v not in vnis_ints:
+                continue
+            if vbegin == 0:
+                vbegin = v
+                vend = v
+                lastg = g
+                continue
+            elif ((v - vend) == 1 and g == lastg):
+                vend = v
+                continue
+            else:
+                if vend > vbegin:
+                    range = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[range] = lastg
+                else:
+                    vnisd_ranges['%s' %vbegin] = lastg
+            vbegin = v
+            vend = v
+            lastg = g
+
+        if vbegin:
+                if vend > vbegin:
+                    range = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[range] = lastg
+                else:
+                    vnisd_ranges['%s' %vbegin] = lastg
+        return vnisd_ranges
+
+    def print_data(self, lprefix, data):
+        self.logger.info(lprefix)
+        self.logger.info(data)
+
+    def bridge_link_update_vni_filter(self, vxlandev, vnisd):
         try:
-            rvnis = []
+            rvnisd = {}
             cmd = 'bridge -j -p vni show dev %s' %( vxlandev )
             output = utils.exec_command(cmd)
             if output:
                 vnishow = json.loads(output.strip("\n"))
+            self.logger.debug(vnishow)
             for s in vnishow:
                 vlist = s.get('vnis')
-                rvnis = []
                 for v in vlist:
                     vstart = v.get('vni')
                     vend = v.get('vniEnd')
+                    group = v.get('group')
                     if vend:
-                        rvnis.extend(['%s-%s' %(vstart,vend)])
+                        for tv in range(int(vstart), int(vend)+1):
+                            if group:
+                                rvnisd[tv] = group
+                            else:
+                                rvnisd[tv] = None
                     else:
-                        rvnis.extend([str(vstart)])
-            vnis_int = utils.ranges_to_ints(vnis)
-            rvnis_int = utils.ranges_to_ints(rvnis)
+                        if group:
+                            rvnisd[int(vstart)] = group
+                        else:
+                            rvnisd[int(vstart)] = None
+            vnis_int = vnisd.keys()
+            rvnis_int = rvnisd.keys()
             (vnis_to_del, vnis_to_add) = utils.diff_ids(vnis_int,
                                                         rvnis_int)
             if vnis_to_del:
-                self.bridge_vni_del_list(vxlandev,
+                self.bridge_vni_del(vxlandev,
                         utils.compress_into_ranges(vnis_to_del))
             if vnis_to_add:
-                self.bridge_vni_add_list(vxlandev,
-                        utils.compress_into_ranges(vnis_to_add))
+                self.bridge_vni_update(vxlandev,
+                        self.compress_vnifilter_into_ranges(vnis_to_add, vnisd))
+
+            # Do any vnis need group update ?
+            # check remaining vnis
+            vnis_rem = set(vnis_int)
+            if vnis_to_add:
+                vnis_rem = vnis_rem.difference(set(vnis_to_add))
+            if vnis_to_del:
+                vnis_rem = vnis_rem.difference(set(vnis_to_del))
+            vnis_rem = list(vnis_rem)
+            vnis_to_update = []
+            if vnis_rem:
+                for v in vnis_rem:
+                    # check if group is not same
+                    if vnisd.get(v) != rvnisd.get(v):
+                        vnis_to_update.append(v)
+            if vnis_to_update:
+                self.bridge_vni_update(vxlandev,
+                        self.compress_vnifilter_into_ranges(vnis_to_update, vnisd))
         except Exception as e:
             self.logger.info("bridge vni show failed .. %s" % str(e))
         return None

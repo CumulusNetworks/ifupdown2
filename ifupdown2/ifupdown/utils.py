@@ -561,4 +561,18 @@ class utils():
             vnis.extend([vni])
         return (vlans, vnis)
 
+    @classmethod
+    def get_vni_mcastgrp_in_map(cls, vni_mcastgrp_map):
+        vnid = {}
+        for ventry in vni_mcastgrp_map.split():
+            try:
+                (vnis, mcastgrp) = ventry.split('=', 1)
+                vnis_int = utils.ranges_to_ints([vnis])
+                for v in vnis_int:
+                    vnid[v] = mcastgrp
+            except Exception as e:
+                cls.logger.error("invalid vlan mcast grp map entry - %s (%s)" % (ventry, str(e)))
+                raise
+        return vnid
+
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
