@@ -7,7 +7,7 @@
 import re
 import time
 import itertools
-from collections import OrderedDict, Counter
+from collections import Counter
 
 try:
     from ifupdown2.lib.addon import Bridge
@@ -2365,7 +2365,7 @@ class bridge(Bridge, moduleBase):
             self.iproute2.batch_start()
 
             bridge_vlan_tunnel_info_running_config = self.iproute2.bridge_vlan_tunnel_show(vxlan_name)
-            all_user_config = OrderedDict()
+            all_user_config = {}
 
             for bridge_vlan_vni_map_entry in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
                 if not bridge_vlan_vni_map_entry:
@@ -2381,26 +2381,58 @@ class bridge(Bridge, moduleBase):
                     for vlan, vni in zip(utils.ranges_to_ints([vlans_str]), utils.ranges_to_ints([vni_str])):
                         all_user_config[vlan] = vni
 
-            vlan_vni_to_remove = OrderedDict()
+            vlan_vni_to_remove = {}
             for k, v in set(bridge_vlan_tunnel_info_running_config.items()) - set(all_user_config.items()):
                 vlan_vni_to_remove[k] = v
 
-            vlan_vni_to_add = OrderedDict()
+            vlan_vni_to_add = {}
             for k, v in set(all_user_config.items()) - set(bridge_vlan_tunnel_info_running_config.items()):
                 vlan_vni_to_add[k] = v
 
+            # we have to sort the list again because 'sets' dont keep the
+            # original ordering and thats messing with our X-Y ranges
+
+            vlan_to_remove_sorted_list = sorted(vlan_vni_to_remove.keys())
+            vni_to_remove_sorted_list = sorted(vlan_vni_to_remove.values())
+
+            vlan_to_add_sorted_list = sorted(vlan_vni_to_add.keys())
+            vni_to_add_sorted_list = sorted(vlan_vni_to_add.values())
+
             # convert back to ranges to reduce the number of bridge commands
-            for (start_vlan, end_vlan), (start_vni, end_vni) in zip(utils.ints_to_ranges(vlan_vni_to_remove.keys()), utils.ints_to_ranges(vlan_vni_to_remove.values())):
-                vlan_str = ("%s-%s" % (start_vlan, end_vlan)) if start_vlan != end_vlan else start_vlan
-                vni_str = ("%s-%s" % (start_vni, end_vni)) if start_vni != end_vni else start_vni
-                self.iproute2.bridge_vlan_del_vid_list_self(vxlan_name, [vlans_str], False)
+
+            for (start_vlan, end_vlan), (start_vni, end_vni) in zip(
+                utils.ints_to_ranges(vlan_to_remove_sorted_list),
+                utils.ints_to_ranges(vni_to_remove_sorted_list)
+            ):
+                if start_vlan != end_vlan:
+                    vlan_str = "%s-%s" % (start_vlan, end_vlan)
+                else:
+                    vlan_str = start_vlan
+
+                if start_vni != end_vni:
+                    vni_str = "%s-%s" % (start_vni, end_vni)
+                else:
+                    vni_str = start_vni
+
+                self.iproute2.bridge_vlan_del_vid_list_self(vxlan_name, [vlan_str], False)
                 self.iproute2.bridge_vlan_del_vlan_tunnel_info(vxlan_name, vlan_str, vni_str)
 
-            for (start_vlan, end_vlan), (start_vni, end_vni) in zip(utils.ints_to_ranges(vlan_vni_to_add.keys()), utils.ints_to_ranges(vlan_vni_to_add.values())):
-                vlan_str = ("%s-%s" % (start_vlan, end_vlan)) if start_vlan != end_vlan else start_vlan
-                vni_str = ("%s-%s" % (start_vni, end_vni)) if start_vni != end_vni else start_vni
-                self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, [vlans_str], False)
-                self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlans_str, vni_str)
+            for (start_vlan, end_vlan), (start_vni, end_vni) in zip(
+                utils.ints_to_ranges(vlan_to_add_sorted_list),
+                utils.ints_to_ranges(vni_to_add_sorted_list)
+            ):
+                if start_vlan != end_vlan:
+                    vlan_str = "%s-%s" % (start_vlan, end_vlan)
+                else:
+                    vlan_str = start_vlan
+
+                if start_vni != end_vni:
+                    vni_str = "%s-%s" % (start_vni, end_vni)
+                else:
+                    vni_str = start_vni
+
+                self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, [vlan_str], False)
+                self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlan_str, vni_str)
 
             self.iproute2.batch_commit()
         except Exception as e:
