@@ -101,7 +101,7 @@ class vxlan(Addon, moduleBase):
                 "example": ['vxlan-ttl 42'],
             },
             "vxlan-tos": {
-                "help": "specifies the ToS value (range 0..255), 0=inherit",
+                "help": "specifies the ToS value (range 0..255), 1=inherit",
                 "default": "0",
                 "validvals": ["inherit", "0", "255"],
                 "example": ['vxlan-tos 42'],
@@ -249,7 +249,7 @@ class vxlan(Addon, moduleBase):
         tos = 0
         if tos_config:
             if tos_config.lower() == "inherit":
-                tos = 0
+                tos = 1
             else:
                 tos = int(tos_config)
         return tos
