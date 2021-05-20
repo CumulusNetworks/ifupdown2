@@ -1677,11 +1677,13 @@ class bridge(Bridge, moduleBase):
                if pvid_to_add in vids_to_del:
                    vids_to_del.remove(pvid_to_add)
 
-               vids_to_del = self.remove_bridge_vlans_mapped_to_vnis_from_vids_list(None, bportifaceobj, vids_to_del)
+               vids_to_del = sorted(list(self.remove_bridge_vlans_mapped_to_vnis_from_vids_list(None, bportifaceobj, vids_to_del)))
 
+               self.iproute2.batch_start()
                self.iproute2.bridge_vlan_del_vid_list_self(bportifaceobj.name,
                                           utils.compress_into_ranges(
                                           vids_to_del), isbridge)
+               self.iproute2.batch_commit()
         except Exception as e:
                 self.log_warn('%s: failed to del vid `%s` (%s)'
                         %(bportifaceobj.name, str(vids_to_del), str(e)))
@@ -1695,10 +1697,15 @@ class bridge(Bridge, moduleBase):
                         %(bportifaceobj.name, pvid_to_del, str(e)))
 
         try:
+
             if vids_to_add:
-               self.iproute2.bridge_vlan_add_vid_list_self(bportifaceobj.name,
-                                          utils.compress_into_ranges(
-                                          vids_to_add), isbridge)
+                self.iproute2.batch_start()
+                self.iproute2.bridge_vlan_add_vid_list_self(
+                    bportifaceobj.name,
+                    utils.compress_into_ranges(sorted(list(vids_to_add))),
+                    isbridge
+                )
+                self.iproute2.batch_commit()
         except Exception as e:
                 self.log_error('%s: failed to set vid `%s` (%s)'
                                %(bportifaceobj.name, str(vids_to_add),
