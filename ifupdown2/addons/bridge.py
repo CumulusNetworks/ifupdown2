@@ -5,6 +5,7 @@
 #
 
 import re
+import json
 import time
 import itertools
 from collections import Counter
@@ -42,6 +43,10 @@ except (ImportError, ModuleNotFoundError):
 class bridgeFlags:
     PORT_PROCESSED = 0x1
     PORT_PROCESSED_OVERRIDE = 0x2
+
+
+class BridgeVlanVniMapError(Exception):
+    pass
 
 
 class bridge(Bridge, moduleBase):
@@ -2355,6 +2360,51 @@ class bridge(Bridge, moduleBase):
         if single_vxlan_device_ifaceobj:
             self.apply_bridge_port_vlan_vni_map(single_vxlan_device_ifaceobj)
 
+    @staticmethod
+    def range_to_string(range_start, range_end):
+        return "%s" % range_start if range_start == range_end else "%s-%s" % (range_start, range_end)
+
+    def range_list_to_string(self, ifname, vni_list):
+        range_list = [v for v in utils.ints_to_ranges(vni_list)]
+
+        if len(range_list) != 1 and len(range_list[0]) > 0:
+            self.logger.debug("%s: vlan-vni-map has duplicated ranges: %s" % (ifname, json.dumps(range_list, indent=4)))
+            self.log_error("misconfiguration detected - see debug output for details")
+
+        return self.range_to_string(range_list[0][0], range_list[0][1])
+
+    def get_vlan_vni_ranges_from_dict(self, ifname, vlan_vni_dict):
+        vlan_vni_ranges = {}
+
+        start_range = -1
+        end_range = -1
+        last = -1
+        current_vnis = []
+
+        for i in sorted(vlan_vni_dict.keys()):
+            vni = vlan_vni_dict[i]
+
+            if not current_vnis:
+                current_vnis.append(vni)
+                start_range = i
+
+            elif vni == last + 1:
+                current_vnis.append(vni)
+
+            else:
+                # range ends
+                vlan_vni_ranges[self.range_to_string(start_range, end_range)] = self.range_list_to_string(ifname, current_vnis)
+                current_vnis = [vni]
+                start_range = i
+
+            last = vni
+            end_range = i
+
+        if current_vnis:
+            vlan_vni_ranges[self.range_to_string(start_range, end_range)] = self.range_list_to_string(ifname, current_vnis)
+
+        return vlan_vni_ranges
+
     def apply_bridge_port_vlan_vni_map(self, ifaceobj):
         """
         bridge vlan add vid <vlan-id> dev vxlan0
@@ -2379,6 +2429,10 @@ class bridge(Bridge, moduleBase):
 
                     # we need to convert vlan_str and vni_str back to a map {vlan: vni}
                     for vlan, vni in zip(utils.ranges_to_ints([vlans_str]), utils.ranges_to_ints([vni_str])):
+
+                        if vlan in all_user_config:
+                            self.log_error("duplicate vlan found: %s" % vlan, ifaceobj)
+
                         all_user_config[vlan] = vni
 
             vlan_vni_to_remove = {}
@@ -2389,54 +2443,21 @@ class bridge(Bridge, moduleBase):
             for k, v in set(all_user_config.items()) - set(bridge_vlan_tunnel_info_running_config.items()):
                 vlan_vni_to_add[k] = v
 
-            # we have to sort the list again because 'sets' dont keep the
-            # original ordering and thats messing with our X-Y ranges
+            vlan_vni_ranges_to_remove = self.get_vlan_vni_ranges_from_dict(ifaceobj.name, vlan_vni_to_remove)
+            vlan_vni_ranges_to_add = self.get_vlan_vni_ranges_from_dict(ifaceobj.name, vlan_vni_to_add)
 
-            vlan_to_remove_sorted_list = sorted(vlan_vni_to_remove.keys())
-            vni_to_remove_sorted_list = sorted(vlan_vni_to_remove.values())
+            for vlan_range, vni_range in vlan_vni_ranges_to_remove.items():
+                self.iproute2.bridge_vlan_del_vid_list_self(vxlan_name, [vlan_range], False)
+                self.iproute2.bridge_vlan_del_vlan_tunnel_info(vxlan_name, vlan_range, vni_range)
 
-            vlan_to_add_sorted_list = sorted(vlan_vni_to_add.keys())
-            vni_to_add_sorted_list = sorted(vlan_vni_to_add.values())
-
-            # convert back to ranges to reduce the number of bridge commands
-
-            for (start_vlan, end_vlan), (start_vni, end_vni) in zip(
-                utils.ints_to_ranges(vlan_to_remove_sorted_list),
-                utils.ints_to_ranges(vni_to_remove_sorted_list)
-            ):
-                if start_vlan != end_vlan:
-                    vlan_str = "%s-%s" % (start_vlan, end_vlan)
-                else:
-                    vlan_str = start_vlan
-
-                if start_vni != end_vni:
-                    vni_str = "%s-%s" % (start_vni, end_vni)
-                else:
-                    vni_str = start_vni
-
-                self.iproute2.bridge_vlan_del_vid_list_self(vxlan_name, [vlan_str], False)
-                self.iproute2.bridge_vlan_del_vlan_tunnel_info(vxlan_name, vlan_str, vni_str)
-
-            for (start_vlan, end_vlan), (start_vni, end_vni) in zip(
-                utils.ints_to_ranges(vlan_to_add_sorted_list),
-                utils.ints_to_ranges(vni_to_add_sorted_list)
-            ):
-                if start_vlan != end_vlan:
-                    vlan_str = "%s-%s" % (start_vlan, end_vlan)
-                else:
-                    vlan_str = start_vlan
-
-                if start_vni != end_vni:
-                    vni_str = "%s-%s" % (start_vni, end_vni)
-                else:
-                    vni_str = start_vni
-
-                self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, [vlan_str], False)
-                self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlan_str, vni_str)
+            for vlan_range, vni_range in vlan_vni_ranges_to_add.items():
+                self.iproute2.bridge_vlan_add_vid_list_self(vxlan_name, [vlan_range], False)
+                self.iproute2.bridge_vlan_add_vlan_tunnel_info(vxlan_name, vlan_range, vni_range)
 
             self.iproute2.batch_commit()
         except Exception as e:
-            self.log_error("%s: error while processing bridge-vlan-vni-map attribute: %s" % (vxlan_name, str(e)))
+            ifaceobj.set_status(ifaceStatus.ERROR)
+            raise BridgeVlanVniMapError("%s: error while processing bridge-vlan-vni-map: %s" % (vxlan_name, str(e)))
 
     def __warn_bridge_vlan_vni_map_syntax_error(self, ifname, user_config_vlan_vni_map):
         self.logger.warning("%s: syntax error: bridge-vlan-vni-map %s" % (ifname, user_config_vlan_vni_map))
@@ -2568,6 +2589,8 @@ class bridge(Bridge, moduleBase):
             newly_enslaved_ports = self._add_ports(ifaceobj, ifaceobj_getfunc)
             self.up_apply_brports_attributes(ifaceobj, ifaceobj_getfunc, bridge_vlan_aware,
                                              newly_enslaved_ports=newly_enslaved_ports)
+        except BridgeVlanVniMapError:
+            raise
         except Exception as e:
             self.logger.warning('%s: apply bridge ports settings: %s' % (ifname, str(e)))
 
