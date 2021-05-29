@@ -1019,7 +1019,7 @@ class vxlan(Vxlan, moduleBase):
             except Exception as e:
                 self.logger.error("%s: %s (%s)" %(ifaceobj.name, vlan_vni_map, str(e)))
                 return
-        for vni_mcastgrp_map in ifaceobj.get_attr_value("vxlan-mcastgrp-map"):
+        for vni_mcastgrp_map in ifaceobj.get_attr_value("vxlan-mcastgrp-map") or []:
             try:
                 vd = utils.get_vni_mcastgrp_in_map(vni_mcastgrp_map)
                 for v, g in vd.items():
