@@ -3888,7 +3888,11 @@ class bridge(Bridge, moduleBase):
         # bridge-vlan-vni-map
         #
         try:
-            cached_vlans, cached_vnis = self.get_vlan_vni_ranges(
+            # there's a mix-up vlan_vni should return vlans/vnis and not vnis/vlans
+            # ifquery-check is also using this function and has already code to work
+            # around the issue, so to fix our ordering problem we will simply and
+            # temporarily, swap the two return values
+            cached_vnis, cached_vlans = self.get_vlan_vni_ranges(
                 self.cache.get_vlan_vni(ifaceobjrunning.name), compress=True
             )
 
