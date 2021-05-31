@@ -1131,26 +1131,22 @@ class vxlan(Vxlan, moduleBase):
 
         if user_request_vxlan_info_data:
 
-            if link_exists and not len(user_request_vxlan_info_data) > 1:
+            if link_exists and len(user_request_vxlan_info_data) == 1 and Link.IFLA_VXLAN_ID in user_request_vxlan_info_data:
                 # if the vxlan already exists it's already cached
                 # user_request_vxlan_info_data always contains at least one
                 # element: vxlan-id
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
             else:
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
-                    if link_exists:
-                        self.logger.warning("%s: updating existing single vxlan device is not supported yet "
-                                            "(please run 'ifdown %s; ifup %s')" % (ifname, ifname, ifname))
-                    else:
-                        self.iproute2.link_add_single_vxlan(
-                            ifname,
-                            local.ip if local else None,
-                            group.ip if group else None,
-                            vxlan_physdev,
-                            user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
-                            vxlan_vnifilter,
-                            vxlan_ttl
-                        )
+                    self.iproute2.link_add_single_vxlan(
+                        ifname,
+                        local.ip if local else None,
+                        group.ip if group else None,
+                        vxlan_physdev,
+                        user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
+                        vxlan_vnifilter,
+                        vxlan_ttl
+                    )
                 else:
                     try:
                         if flap_vxlan_device:
