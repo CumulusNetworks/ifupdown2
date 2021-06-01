@@ -973,7 +973,8 @@ class vxlan(Vxlan, moduleBase):
                 module_name=self.__class__.__name__,
                 attr=attr_name
             )
-            return maps
+            if not maps:
+                return {}
 
         parsed_maps = {}
         for m_line in maps:
@@ -1223,32 +1224,39 @@ class vxlan(Vxlan, moduleBase):
         # get user configured remote ip map
         vxlan_remote_ip_map = self.__get_vxlan_remote_ip_map(ifaceobj) or {}
 
+        # if we have an older config we need to see what needs to be removed
+        # and not check the running state as FRR or other component can add fdb entries
+        old_vxlan_remote_ip_map = {}
+
+        for old_ifaceobj in statemanager.get_ifaceobjs(ifaceobj.name) or []:
+            old_vxlan_remote_ip_map = {**old_vxlan_remote_ip_map, **self.__get_vxlan_remote_ip_map(old_ifaceobj)}
+
         # get running fdb config
         fdb_running_config = self.iproute2.bridge_fdb_show_dev_raw_with_filters(ifaceobj.name, filters=["src_vni", "self permanent"])
 
         # go through the user config and add new entries while removing existing entries from 'fdb_running_config'
         for vni, ips in vxlan_remote_ip_map.items():
             for ip in ips:
-                fdb_entry = "00:00:00:00:00:00 dst %s src_vni %s self permanent" % (ip, vni)
-                if fdb_entry not in fdb_running_config:
+                if ip not in old_vxlan_remote_ip_map.get(vni, []):
                     self.iproute2.bridge_fdb_append(ifaceobj.name, "00:00:00:00:00:00", remote=ip, src_vni=vni)
                 else:
-                    fdb_running_config.remove(fdb_entry)
+                    old_vxlan_remote_ip_map.get(vni, []).remove(ip)
 
-        # in fdb_running_config we have the delta between user config and running config. We should delete those extra
-        # fdb entries. But first we need to make sure that those are not added by vxlan-mcastgrp-map
-        if fdb_running_config:
+        # in old_vxlan_remote_ip_map we have the delta between user config and running config. We should delete those
+        # extra fdb entries. First we need to make sure that those are not added by vxlan-mcastgrp-map
+        if old_vxlan_remote_ip_map:
             for vni, ip in (vxlan_mcast_grp_map or {}).items():
                 try:
-                    fdb_running_config.remove("00:00:00:00:00:00 dst %s src_vni %s self permanent" % (ip, vni))
+                    old_vxlan_remote_ip_map[vni].remove(ip)
                 except:
                     pass
 
-            for fdb_entry in fdb_running_config:
-                try:
-                    self.iproute2.bridge_fdb_del_raw(ifaceobj.name, fdb_entry)
-                except:
-                    pass
+            for vni, ips in old_vxlan_remote_ip_map.items():
+                for ip in ips:
+                    try:
+                        self.iproute2.bridge_fdb_del_raw(ifaceobj.name, "00:00:00:00:00:00 dst %s src_vni %s" % (ip, vni))
+                    except:
+                        pass
 
     @staticmethod
     def get_vxlan_fdb_src_vni(vxlan_mcast_grp_map):
