@@ -1468,7 +1468,14 @@ class vxlan(Vxlan, moduleBase):
 
         #
         # vxlan-mcastgrp-map & vxlan-remoteip-map
-        #
+        # fdb entries can be added by FRR, so we won't be checking the running
+        # state if there's no record of a user configuration in /e/n/i
+        user_mcastgrp_map = self.__get_vxlan_mcastgrp_map(ifaceobj)
+        user_remote_ip_map = self.__get_vxlan_remote_ip_map(ifaceobj)
+
+        if not user_mcastgrp_map or not user_remote_ip_map:
+            return
+
         fdb_mcast = {}
         fdb_remote = {}
 
@@ -1485,8 +1492,6 @@ class vxlan(Vxlan, moduleBase):
         #
         # vxlan-mcastgrp-map
         #
-        user_mcastgrp_map = self.__get_vxlan_mcastgrp_map(ifaceobj)
-
         if not user_mcastgrp_map and fdb_mcast:
             ifaceobjcurr.update_config_with_status(
                 "vxlan-mcastgrp-map",
@@ -1505,8 +1510,6 @@ class vxlan(Vxlan, moduleBase):
         #
         # vxlan-remoteip-map
         #
-        user_remote_ip_map = self.__get_vxlan_remote_ip_map(ifaceobj)
-
         if not user_remote_ip_map and fdb_remote:
             ifaceobjcurr.update_config_with_status(
                 "vxlan-remoteip-map",
