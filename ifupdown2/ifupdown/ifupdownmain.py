@@ -1224,7 +1224,9 @@ class ifupdownMain:
 
     def _keyword_number(self, value, validrange=None):
         try:
-            int(value)
+            int_value = int(value)
+            if validrange is not None:
+                return int(validrange[0]) <= int_value <= int(validrange[1])
             return True
         except Exception as e:
             self.logger.debug('keyword: number: %s' % str(e))
