@@ -97,12 +97,14 @@ class vxlan(Addon, moduleBase):
                 "help": "specifies the TTL value to use in outgoing packets "
                         "(range 0..255), 0=auto",
                 "default": "0",
-                "validvals": ["0", "255"],
+                "validrange": ["0", "255"],
+                "validvals": ["<number>", "auto"],
                 "example": ['vxlan-ttl 42'],
             },
             "vxlan-tos": {
                 "help": "specifies the ToS value (range 0..255), 1=inherit",
-                "validvals": ["inherit", "0", "255"],
+                "validrange": ["0", "255"],
+                "validvals": ["<number>", "inherit"],
                 "example": ['vxlan-tos 42'],
             },
             "vxlan-mcastgrp": {
