@@ -1009,7 +1009,7 @@ class vxlan(Vxlan, moduleBase):
 
         return parsed_maps
 
-    def single_vxlan_device_vni_filter(self, ifaceobj):
+    def single_vxlan_device_vni_filter(self, ifaceobj, vxlan_mcast_grp):
         vnis = []
         vnisd = {}
         for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
@@ -1020,15 +1020,14 @@ class vxlan(Vxlan, moduleBase):
             except Exception as e:
                 self.logger.error("%s: %s (%s)" %(ifaceobj.name, vlan_vni_map, str(e)))
                 return
-        for vni_mcastgrp_map in ifaceobj.get_attr_value("vxlan-mcastgrp-map") or []:
+        if vxlan_mcast_grp:
             try:
-                vd = utils.get_vni_mcastgrp_in_map(vni_mcastgrp_map)
-                for v, g in vd.items():
+                for v, g in vxlan_mcast_grp.items():
                     if v not in vnisd.keys():
                         self.logger.error("%s: group %s configured for a vni not specified in vlan vni map (%s)"
                                           %(ifaceobj.name, g, vni_mcastgrp_map))
                         return
-                    vnisd[v] = g
+                    vnisd[v] = str(g)
             except Exception as e:
                 self.logger.error("%s: %s (%s)" %(ifaceobj.name, vlan_vni_map, str(e)))
                 return
@@ -1166,7 +1165,7 @@ class vxlan(Vxlan, moduleBase):
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
             if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
-                self.single_vxlan_device_vni_filter(ifaceobj)
+                self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
