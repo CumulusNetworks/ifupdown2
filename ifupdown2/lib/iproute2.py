@@ -914,14 +914,14 @@ class IPRoute2(Cache, Requirements):
 
     def bridge_vni_update(self, vxlandev, vnisd):
         for vr, g in vnisd.items():
-            cmd = "%s vni add dev %s vni %s" % (utils.bridge_cmd, vxlandev, vr)
+            cmd_args = "vni add dev %s vni %s" % (vxlandev, vr)
             if g:
-                cmd += ' group %s' %(g)
-            utils.exec_command(cmd)
+                cmd_args += ' group %s' %(g)
+            self.__execute_or_batch(utils.bridge_cmd, cmd_args)
 
     def bridge_vni_del_list(self, vxlandev, vnis):
-        cmd = "%s vni del dev %s vni %s" % (utils.bridge_cmd, vxlandev, ','.join(vnis))
-        utils.exec_command(cmd)
+        cmd_args = "vni del dev %s vni %s" % (vxlandev, ','.join(vnis))
+        self.__execute_or_batch(utils.bridge_cmd, cmd_args)
 
     def compress_vnifilter_into_ranges(self, vnis_ints, vnisd):
         vbegin = 0
@@ -987,8 +987,10 @@ class IPRoute2(Cache, Requirements):
                             rvnisd[int(vstart)] = None
             vnis_int = vnisd.keys()
             rvnis_int = rvnisd.keys()
+
             (vnis_to_del, vnis_to_add) = utils.diff_ids(vnis_int,
                                                         rvnis_int)
+            self.batch_start()
             if vnis_to_del:
                 self.bridge_vni_del(vxlandev,
                         utils.compress_into_ranges(vnis_to_del))
@@ -1012,7 +1014,8 @@ class IPRoute2(Cache, Requirements):
                         vnis_to_update.append(v)
             if vnis_to_update:
                 self.bridge_vni_update(vxlandev,
-                        self.compress_vnifilter_into_ranges(vnis_to_update, vnisd))
+                       self.compress_vnifilter_into_ranges(vnis_to_update, vnisd))
+            self.batch_commit()
         except Exception as e:
-            self.logger.info("bridge vni show failed .. %s" % str(e))
+            self.logger.error("bridge vni show failed .. %s" % str(e))
         return None
