@@ -1139,6 +1139,7 @@ class vxlan(Vxlan, moduleBase):
             else:
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
                     self.iproute2.link_add_single_vxlan(
+                        link_exists,
                         ifname,
                         local.ip if local else None,
                         group.ip if group else None,
