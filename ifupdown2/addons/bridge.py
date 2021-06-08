@@ -883,8 +883,8 @@ class bridge(Bridge, moduleBase):
         """
         if ifaceobj.link_kind & ifaceLinkKind.VXLAN \
             and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT \
-            and utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-arp-nd-suppress") \
-            and not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN):
+            and utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-arp-nd-suppress")) \
+            and not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
 
             bridge_access = ifaceobj.get_attr_value_first("bridge-access")
 
