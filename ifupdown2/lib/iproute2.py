@@ -302,7 +302,7 @@ class IPRoute2(Cache, Requirements):
             # when changing local ip, if we specify vnifilter we get:
             # Error: vxlan: cannot change flag.
             # So we are only setting this attribute on vxlan creation
-            if vnifilter and vnifilter == "on":
+            if vnifilter and utils.get_boolean_from_string(vnifilter):
                 cmd.append("vnifilter")
 
         if ip:
