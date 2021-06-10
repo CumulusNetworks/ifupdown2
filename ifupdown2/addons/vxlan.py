@@ -124,7 +124,6 @@ class vxlan(Vxlan, moduleBase):
             "vxlan-mcastgrp-map": {
                 "help": "vxlan multicast group for single-vxlan device -"
                         "doesn't support multiline attribute",
-                "validvals": ["<number-ipv4-list>"],
                 "example": ["vxlan-mcastgrp-map 1000=239.1.1.100 1001=239.1.1.200"],
             },
             "vxlan-vnifilter": {
