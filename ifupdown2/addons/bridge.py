@@ -2380,36 +2380,65 @@ class bridge(Bridge, moduleBase):
 
         return self.range_to_string(range_list[0][0], range_list[0][1])
 
+    def check_duplicate_vnis(self, ifaceobj, vlan_vni_dict):
+        rev = {}
+
+        for key, value in vlan_vni_dict.items():
+            rev.setdefault(value, set()).add(key)
+
+        duplicates = [key for key, values in rev.items() if len(values) > 1]
+
+        if duplicates:
+            self.log_error("duplicate vnis detected %s" % duplicates, ifaceobj)
+            return False
+
+        return True
+
     def get_vlan_vni_ranges_from_dict(self, ifname, vlan_vni_dict):
+        """
+        Since bridge-vlan-vni-map is a multiline attribute, we expend all the ranges
+        and have all the vlan-vni mapping in vlan_vni_dict. We need to reconstruct the
+        ranges to execute iproute2 commands.
+
+        i.e. for a multiline vlan-vni configuration:
+            bridge-vlan-vni-map 1=1
+            bridge-vlan-vni-map 2=2
+            bridge-vlan-vni-map 3=3
+            bridge-vlan-vni-map 4=4
+
+        we will only execute a single ranged-command: vlan add dev vxlan48 vid 1-4 tunnel_info id 1-4
+
+        If we find duplicated vlan/vnis in ranges we raise an exception
+        """
         vlan_vni_ranges = {}
 
-        start_range = -1
-        end_range = -1
-        last = -1
-        current_vnis = []
+        def list_to_range(vlan_list, vni_list, range_dict):
+            if not vlan_list and not vni_list:
+                return
+            vlans = self.range_list_to_string(ifname, vlan_list)
+            vnis = self.range_list_to_string(ifname, vni_list)
+            range_dict[vlans] = vnis
 
-        for i in sorted(vlan_vni_dict.keys()):
-            vni = vlan_vni_dict[i]
+        current_vlan_range = []
+        current_vni_range = []
 
-            if not current_vnis:
-                current_vnis.append(vni)
-                start_range = i
+        for vlan in sorted(vlan_vni_dict.keys()):
+            vni = vlan_vni_dict[vlan]
 
-            elif vni == last + 1:
-                current_vnis.append(vni)
+            if not current_vlan_range:
+                current_vlan_range.append(vlan)
+                current_vni_range.append(vni)
 
             else:
-                # range ends
-                vlan_vni_ranges[self.range_to_string(start_range, end_range)] = self.range_list_to_string(ifname, current_vnis)
-                current_vnis = [vni]
-                start_range = i
+                if vlan - 1 == current_vlan_range[-1] and vni - 1 == current_vni_range[-1]:
+                    current_vlan_range.append(vlan)
+                    current_vni_range.append(vni)
+                else:
+                    list_to_range(current_vlan_range, current_vni_range, vlan_vni_ranges)
+                    current_vlan_range = [vlan]
+                    current_vni_range = [vni]
 
-            last = vni
-            end_range = i
-
-        if current_vnis:
-            vlan_vni_ranges[self.range_to_string(start_range, end_range)] = self.range_list_to_string(ifname, current_vnis)
-
+        list_to_range(current_vlan_range, current_vni_range, vlan_vni_ranges)
         return vlan_vni_ranges
 
     def apply_bridge_port_vlan_vni_map(self, ifaceobj):
@@ -2451,6 +2480,10 @@ class bridge(Bridge, moduleBase):
                 vlan_vni_to_add[k] = v
 
             vlan_vni_ranges_to_remove = self.get_vlan_vni_ranges_from_dict(ifaceobj.name, vlan_vni_to_remove)
+
+            # check if we have duplicated vnis in the user configuration
+            self.check_duplicate_vnis(ifaceobj, vlan_vni_to_add)
+
             vlan_vni_ranges_to_add = self.get_vlan_vni_ranges_from_dict(ifaceobj.name, vlan_vni_to_add)
 
             for vlan_range, vni_range in vlan_vni_ranges_to_remove.items():
