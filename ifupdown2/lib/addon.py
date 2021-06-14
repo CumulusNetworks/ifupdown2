@@ -91,6 +91,14 @@ class Addon(Netlink, Cache):
             )
 
 
+class Vxlan(Addon):
+    single_vxlan_configured = set()
+    traditional_vxlan_configured = set()
+
+    def __int__(self):
+        super(Vxlan, self).__int__()
+
+
 class Bridge(Addon):
 
     bridge_vlan_aware_list = set()

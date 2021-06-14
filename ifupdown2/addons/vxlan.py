@@ -26,7 +26,7 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-    from lib.addon import Addon
+    from lib.addon import Vxlan
     from lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from nlmanager.nlmanager import Link
@@ -39,7 +39,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdownaddons.modulebase import moduleBase
 
 
-class vxlan(Addon, moduleBase):
+class vxlan(Vxlan, moduleBase):
     _modinfo = {
         "mhelp": "vxlan module configures vxlan interfaces.",
         "attrs": {
@@ -148,7 +148,7 @@ class vxlan(Addon, moduleBase):
     VXLAN_PHYSDEV_MCASTGRP_DEFAULT = "ipmr-lo"
 
     def __init__(self, *args, **kargs):
-        Addon.__init__(self)
+        Vxlan.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
 
         self._vxlan_purge_remotes = utils.get_boolean_from_string(
@@ -169,6 +169,8 @@ class vxlan(Addon, moduleBase):
             module_name=self.__class__.__name__,
             attr="vxlan-physdev-mcastgrp"
         ) or self.VXLAN_PHYSDEV_MCASTGRP_DEFAULT
+
+        self.svd_tvd_errors = {}
 
     def reset(self):
         # in daemon mode we need to reset mcastgrp_ref for every new command
@@ -204,6 +206,29 @@ class vxlan(Addon, moduleBase):
         if self._is_vxlan_device(ifaceobj):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
             self._set_global_local_ip(ifaceobj)
+
+            if not old_ifaceobjs:
+                # mixing TVD and SVD is not supported - we need to warn the user
+                # we use a dictionary to make sure to only warn once and prevent each
+                # vxlan from being configured on the system
+
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+                    self.single_vxlan_configured.add(ifaceobj.name)
+
+                    if self.traditional_vxlan_configured:
+                        self.svd_tvd_errors[ifaceobj.name] = (
+                            "%s: mixing single-vxlan-device with tradional %s is not supported (TVD: %s)"
+                            % (ifaceobj.name, "vxlans" if len(self.traditional_vxlan_configured) > 1 else "vxlan", ", ".join(self.traditional_vxlan_configured))
+                        )
+                else:
+                    self.traditional_vxlan_configured.add(ifaceobj.name)
+
+                    if self.single_vxlan_configured:
+                        self.svd_tvd_errors[ifaceobj.name] = (
+                            "%s: mixing traditional vxlan with single vxlan %s is not supported (SVD: %s)"
+                            % (ifaceobj.name, "devices" if len(self.single_vxlan_configured) > 1 else "device", ", ".join(self.single_vxlan_configured))
+                        )
+
 
             # if we detect a vxlan we check if mcastgrp is set (if so we set vxlan_mcastgrp_ref)
             # to know when to delete this device.
@@ -999,7 +1024,16 @@ class vxlan(Addon, moduleBase):
         vnis_int = utils.ranges_to_ints(vnis)
         self.iproute2.bridge_link_update_vni_filter(ifaceobj.name, vnisd)
 
+    def check_and_raise_svd_tvd_errors(self, ifaceobj):
+        err = self.svd_tvd_errors.get(ifaceobj.name)
+
+        if err:
+            self.log_error(err, ifaceobj)
+
+
     def _up(self, ifaceobj):
+        self.check_and_raise_svd_tvd_errors(ifaceobj)
+
         vxlan_id_str = ifaceobj.get_attr_value_first("vxlan-id")
 
         if not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and not vxlan_id_str:
