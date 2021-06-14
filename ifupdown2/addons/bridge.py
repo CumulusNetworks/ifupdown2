@@ -2386,10 +2386,15 @@ class bridge(Bridge, moduleBase):
         for key, value in vlan_vni_dict.items():
             rev.setdefault(value, set()).add(key)
 
-        duplicates = [key for key, values in rev.items() if len(values) > 1]
+        duplicates = [(key, values) for key, values in rev.items() if len(values) > 1]
 
         if duplicates:
-            self.log_error("duplicate vnis detected %s" % duplicates, ifaceobj)
+            err_msg = ["duplicate vnis detected - see details below"]
+
+            for vni, vlans in duplicates:
+                err_msg.append("\tvni %s assigned to vlans: %s" % (vni, ", ".join(map(str, vlans))))
+
+            self.log_error("\n".join(err_msg), ifaceobj)
             return False
 
         return True
