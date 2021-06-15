@@ -894,8 +894,9 @@ class bridge(Bridge, moduleBase):
             for obj in ifaceobj_getfunc(ifaceobj.upperifaces[0]) or []:
                 for upper_ifname in obj.upperifaces or []:
                     for upper_obj in ifaceobj_getfunc(upper_ifname) or []:
-                        if upper_obj.link_kind & ifaceLinkKind.VLAN and upper_obj.get_attr_value_first("vlan-id") == bridge_access:
-                            return True
+                        if upper_obj.link_kind & ifaceLinkKind.VLAN:
+                            if str(self._get_vlan_id(upper_obj)) == bridge_access:
+                                return True
 
             self.logger.warning(
                 "%s: ARP suppression configured on %s and associated vlan %s not configured. "
