@@ -170,6 +170,14 @@ class vxlan(Vxlan, moduleBase):
             attr="vxlan-physdev-mcastgrp"
         ) or self.VXLAN_PHYSDEV_MCASTGRP_DEFAULT
 
+        self.tvd_svd_mix_support = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="vxlan-support-mix-dev-types"
+            ),
+            default=True
+        )
+
         self.svd_tvd_errors = {}
 
     def reset(self):
@@ -182,6 +190,9 @@ class vxlan(Vxlan, moduleBase):
             if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip') and not self._vxlan_local_tunnelip:
                 self.logger.warning('%s: missing vxlan-local-tunnelip' % ifaceobj.name)
                 return False
+
+            self.check_and_raise_svd_tvd_errors(ifaceobj)
+
             return self.syntax_check_localip_anycastip_equal(
                 ifaceobj.name,
                 ifaceobj.get_attr_value_first('vxlan-local-tunnelip') or self._vxlan_local_tunnelip,
@@ -207,7 +218,7 @@ class vxlan(Vxlan, moduleBase):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
             self._set_global_local_ip(ifaceobj)
 
-            if not old_ifaceobjs:
+            if not old_ifaceobjs and not self.tvd_svd_mix_support:
                 # mixing TVD and SVD is not supported - we need to warn the user
                 # we use a dictionary to make sure to only warn once and prevent each
                 # vxlan from being configured on the system
