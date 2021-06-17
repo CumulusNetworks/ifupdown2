@@ -790,6 +790,9 @@ class bridge(Bridge, moduleBase):
             default=True
         )
 
+        # To avoid disabling ipv6 on SVD we need to keep track of them
+        self.svd_list = set()
+
     @staticmethod
     def _l2protocol_tunnel_set_pvst(ifla_brport_group_mask, ifla_brport_group_maskhi):
         if not ifla_brport_group_maskhi:
@@ -972,6 +975,10 @@ class bridge(Bridge, moduleBase):
         return True
 
     def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
+
+        if not old_ifaceobjs and (ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN or ifaceobj.get_attr_value_first("bridge-vlan-vni-map")):
+            self.svd_list.add(ifaceobj.name)
+
         if not self._is_bridge(ifaceobj) or not self.check_valid_bridge(ifaceobj, ifaceobj.name):
             return None
         if ifaceobj.link_type != ifaceLinkType.LINK_NA:
@@ -1167,7 +1174,11 @@ class bridge(Bridge, moduleBase):
                     continue
                 self.iproute2.link_set_master(bridgeport, ifaceobj.name)
                 newly_enslaved_ports.append(bridgeport)
-                self.handle_ipv6([bridgeport], '1')
+
+                # dont disable ipv6 for SVD
+                if bridgeport not in self.svd_list:
+                    self.handle_ipv6([bridgeport], '1')
+
                 self.iproute2.addr_flush(bridgeport)
             except Exception as e:
                 self.logger.error(str(e))
@@ -1881,7 +1892,9 @@ class bridge(Bridge, moduleBase):
     def up_bridge_port_vlan_aware_bridge(self, ifaceobj, ifaceobj_getfunc, bridge_name, should_enslave_port):
         if should_enslave_port:
             self.netlink.link_set_master(ifaceobj.name, bridge_name)
-            self.handle_ipv6([ifaceobj.name], '1')
+
+            if ifaceobj.name not in self.svd_list:
+                self.handle_ipv6([ifaceobj.name], '1')
 
         bridge_vids = self._get_bridge_vids(bridge_name, ifaceobj_getfunc)
         bridge_pvid = self._get_bridge_pvid(bridge_name, ifaceobj_getfunc)
