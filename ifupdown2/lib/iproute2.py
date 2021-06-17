@@ -992,7 +992,7 @@ class IPRoute2(Cache, Requirements):
                                                         rvnis_int)
             self.batch_start()
             if vnis_to_del:
-                self.bridge_vni_del(vxlandev,
+                self.bridge_vni_del_list(vxlandev,
                         utils.compress_into_ranges(vnis_to_del))
             if vnis_to_add:
                 self.bridge_vni_update(vxlandev,
