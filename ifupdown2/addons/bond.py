@@ -142,7 +142,7 @@ class bond(Addon, moduleBase):
                 "example": [
                     "bond-slaves swp1 swp2",
                     "bond-slaves glob swp1-2",
-                    "bond-slaves regex (swp[1|2)"
+                    "bond-slaves regex (swp[1|2])"
                 ],
                 "aliases": ["bond-ports"]
             },
