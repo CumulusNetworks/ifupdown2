@@ -3178,7 +3178,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             if broadcast:
                 log_msg.append("broadcast %s" % broadcast)
-                packet.add_attribute(Address.IFA_BROADCAST, broadcast)
+                packet.add_attribute(Address.IFA_BROADCAST, ipnetwork.IPAddress(broadcast))
 
             if preferred_lifetime:
                 # struct ifa_cacheinfo {
@@ -3200,6 +3200,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             if peer:
                 log_msg.append("peer %s" % peer)
+                peer = ipnetwork.IPAddress(peer)
+
                 packet.add_attribute(Address.IFA_ADDRESS, peer)
                 packet_prefixlen = peer.prefixlen
             else:
