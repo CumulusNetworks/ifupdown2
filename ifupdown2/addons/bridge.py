@@ -2446,6 +2446,10 @@ class bridge(Bridge, moduleBase):
         list_to_range(current_vlan_range, current_vni_range, vlan_vni_ranges)
         return vlan_vni_ranges
 
+    def check_bridge_vlan_vni_map_reserved(self, ifaceobj, vlan_to_add):
+        for vlan in sorted(vlan_to_add):
+            self._handle_reserved_vlan(vlan, ifaceobj.name)
+
     def apply_bridge_port_vlan_vni_map(self, ifaceobj):
         """
         bridge vlan add vid <vlan-id> dev vxlan0
@@ -2488,6 +2492,9 @@ class bridge(Bridge, moduleBase):
 
             # check if we have duplicated vnis in the user configuration
             self.check_duplicate_vnis(ifaceobj, vlan_vni_to_add)
+
+            # check reserved vlans
+            self.check_bridge_vlan_vni_map_reserved(ifaceobj, vlan_vni_to_add.keys())
 
             vlan_vni_ranges_to_add = self.get_vlan_vni_ranges_from_dict(ifaceobj.name, vlan_vni_to_add)
 
