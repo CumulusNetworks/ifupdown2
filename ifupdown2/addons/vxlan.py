@@ -50,6 +50,11 @@ class vxlan(Addon, moduleBase):
                 "validvals": ["<ipv4>"],
                 "example": ["vxlan-local-tunnelip 172.16.20.103"]
             },
+            "vxlan-local-tunnelip6": {
+                "help": "vxlan local tunnel ip",
+                "validvals": ["<ipv6>"],
+                "example": ["vxlan-local-tunnelip6 2001:DB8::20:103"]
+            },
             "vxlan-svcnodeip": {
                 "help": "vxlan svc node id",
                 "validvals": ["<ipv4>"],
@@ -143,6 +148,7 @@ class vxlan(Addon, moduleBase):
             )
         )
         self._vxlan_local_tunnelip = None
+        self._vxlan_local_tunnelip6 = None
         self._clagd_vxlan_anycast_ip = ""
 
         # If mcastgrp is specified we need to rely on a user-configred device (via physdev)
@@ -162,14 +168,18 @@ class vxlan(Addon, moduleBase):
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self._is_vxlan_device(ifaceobj):
-            if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip') and not self._vxlan_local_tunnelip:
-                self.logger.warning('%s: missing vxlan-local-tunnelip' % ifaceobj.name)
+            if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip') and not self._vxlan_local_tunnelip \
+                    and not ifaceobj.get_attr_value_first('vxlan-local-tunnelip6') and not self._vxlan_local_tunnelip6:
+                self.logger.warning('%s: missing vxlan-local-tunnelip or vxlan-local-tunnelip6' % ifaceobj.name)
                 return False
             return self.syntax_check_localip_anycastip_equal(
                 ifaceobj.name,
                 ifaceobj.get_attr_value_first('vxlan-local-tunnelip') or self._vxlan_local_tunnelip,
                 self._clagd_vxlan_anycast_ip
-            )
+            ) or self.syntax_check_localip_anycastip_equal(
+                ifaceobj.name,
+                ifaceobj.get_attr_value_first('vxlan-local-tunnelip6') or self._vxlan_local_tunnelip6,
+                self._clagd_vxlan_anycast_ip)
         return True
 
     def syntax_check_localip_anycastip_equal(self, ifname, local_ip, anycast_ip):
@@ -218,6 +228,10 @@ class vxlan(Addon, moduleBase):
         vxlan_local_tunnel_ip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
         if vxlan_local_tunnel_ip and not self._vxlan_local_tunnelip:
             self._vxlan_local_tunnelip = vxlan_local_tunnel_ip
+
+        vxlan_local_tunnel_ip6 = ifaceobj.get_attr_value_first('vxlan-local-tunnelip6')
+        if vxlan_local_tunnel_ip6 and not self._vxlan_local_tunnelip6:
+            self._vxlan_local_tunnelip6 = vxlan_local_tunnel_ip6
 
     @staticmethod
     def _is_vxlan_device(ifaceobj):
@@ -451,6 +465,7 @@ class vxlan(Addon, moduleBase):
             # on ifreload do not overwrite anycast_ip to individual ip
             # if clagd has modified
             running_localtunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
+            running_localtunnelip6 = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6)
 
             if self._clagd_vxlan_anycast_ip and running_localtunnelip:
                 anycastip = ipnetwork.IPNetwork(self._clagd_vxlan_anycast_ip)
@@ -487,6 +502,62 @@ class vxlan(Addon, moduleBase):
             user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = None
 
         return local
+
+    def __config_vxlan_local_tunnelip6(self, ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Get vxlan-local-tunnelip user config or policy, validate ip address format and insert in netlink dict
+        :param ifname:
+        :param ifaceobj:
+        :param link_exists:
+        :param user_request_vxlan_info_data:
+        :param cached_vxlan_ifla_info_data:
+        :return:
+        """
+        local6 = ifaceobj.get_attr_value_first("vxlan-local-tunnelip6")
+
+        if not local6 and self._vxlan_local_tunnelip6:
+            local6 = self._vxlan_local_tunnelip6
+
+        if link_exists:
+            # on ifreload do not overwrite anycast_ip to individual ip
+            # if clagd has modified
+            running_localtunnelip6 = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6)
+
+            if self._clagd_vxlan_anycast_ip and running_localtunnelip6:
+                anycastip = ipnetwork.IPNetwork(self._clagd_vxlan_anycast_ip)
+                if anycastip == running_localtunnelip6:
+                    local6 = running_localtunnelip6
+
+        if not local6:
+            local6 = policymanager.policymanager_api.get_attr_default(
+                module_name=self.__class__.__name__,
+                attr="vxlan-local-tunnelip6"
+            )
+
+        if local6:
+            try:
+                local6 = ipnetwork.IPv6Address(local6)
+
+                if local6.initialized_with_prefixlen:
+                    self.logger.warning("%s: vxlan-local-tunnelip6 %s: netmask ignored" % (ifname, local6))
+
+            except Exception as e:
+                raise Exception("%s: invalid vxlan-local-tunnelip6 %s: %s" % (ifname, local6, str(e)))
+
+        cached_ifla_vxlan_local6 = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6)
+
+        if local6:
+            if local6 != cached_ifla_vxlan_local6:
+                self.logger.info("%s: set vxlan-local-tunnelip6 %s" % (ifname, local6))
+                user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL6] = local6
+
+                # if both local-ip and anycast-ip are identical the function prints a warning
+                self.syntax_check_localip_anycastip_equal(ifname, local6, self._clagd_vxlan_anycast_ip)
+        elif cached_ifla_vxlan_local6:
+            self.logger.info("%s: removing vxlan-local-tunnelip6 (cache %s)" % (ifname, cached_ifla_vxlan_local6))
+            user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL6] = None
+
+        return local6
 
     def __get_vxlan_attribute(self, ifaceobj, attr_name):
         vxlan_attr_value = ifaceobj.get_attr_value_first(attr_name)
@@ -828,6 +899,7 @@ class vxlan(Addon, moduleBase):
         self.__config_vxlan_tos(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_udp_csum(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+        local6 = self.__config_vxlan_local_tunnelip6(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
 
         vxlan_mcast_grp = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp")
         vxlan_svcnodeip = self.__get_vxlan_attribute(ifaceobj, "vxlan-svcnodeip")
@@ -1065,23 +1137,45 @@ class vxlan(Addon, moduleBase):
         #
         # vxlan-local-tunnelip
         #
-        running_attrval = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
-        attrval = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
-        if not attrval:
-            attrval = self._vxlan_local_tunnelip
+        running_local_tunnelip = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
+        local_tunnelip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
+        if not local_tunnelip:
+            local_tunnelip = self._vxlan_local_tunnelip
             # TODO: vxlan._vxlan_local_tunnelip should be a ipnetwork.IPNetwork obj
-            ifaceobj.update_config('vxlan-local-tunnelip', attrval)
+            ifaceobj.update_config('vxlan-local-tunnelip', local_tunnelip)
 
-        if str(running_attrval) == self._clagd_vxlan_anycast_ip:
+        if str(running_local_tunnelip) == self._clagd_vxlan_anycast_ip:
             # if local ip is anycast_ip, then let query_check to go through
-            attrval = self._clagd_vxlan_anycast_ip
+            local_tunnelip = self._clagd_vxlan_anycast_ip
 
         self._query_check_n_update(
             ifaceobj,
             ifaceobjcurr,
             'vxlan-local-tunnelip',
-            str(attrval),
-            str(running_attrval.ip) if running_attrval else None
+            str(local_tunnelip),
+            str(running_local_tunnelip.ip) if running_local_tunnelip else None
+        )
+
+        #
+        # vxlan-local-tunnelip6
+        #
+        running_local_tunnelip6 = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6)
+        local_tunnelip6 = ifaceobj.get_attr_value_first('vxlan-local-tunnelip6')
+        if not local_tunnelip6:
+            local_tunnelip6 = self._vxlan_local_tunnelip6
+            # TODO: vxlan._vxlan_local_tunnelip6 should be a ipnetwork.IPNetwork obj
+            ifaceobj.update_config('vxlan-local-tunnelip6', local_tunnelip6)
+
+        if str(running_local_tunnelip6) == self._clagd_vxlan_anycast_ip:
+            # if local ip is anycast_ip, then let query_check to go through
+            local_tunnelip6 = self._clagd_vxlan_anycast_ip
+
+        self._query_check_n_update(
+            ifaceobj,
+            ifaceobjcurr,
+            'vxlan-local-tunnelip6',
+            str(local_tunnelip6),
+            str(running_local_tunnelip6.ip) if running_local_tunnelip6 else None
         )
 
         #
@@ -1167,6 +1261,7 @@ class vxlan(Addon, moduleBase):
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda value: 'on' if value else 'off'),
                 ('vxlan-udp-csum', Link.IFLA_VXLAN_UDP_CSUM, lambda value: 'on' if value else 'off'),
                 ('vxlan-local-tunnelip', Link.IFLA_VXLAN_LOCAL, str),
+                ('vxlan-local-tunnelip6', Link.IFLA_VXLAN_LOCAL6, str),
         ):
             vxlan_attr_value = cached_vxlan_ifla_info_data.get(vxlan_attr_nl)
 
