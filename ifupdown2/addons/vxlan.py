@@ -1023,8 +1023,8 @@ class vxlan(Vxlan, moduleBase):
             try:
                 for v, g in vxlan_mcast_grp.items():
                     if v not in vnisd.keys():
-                        self.logger.error("%s: group %s configured for a vni not specified in vlan vni map (%s)"
-                                          %(ifaceobj.name, g, vni_mcastgrp_map))
+                        self.logger.error("%s: group %s configured for a vni (%s) not specified in vlan vni map"
+                                          %(ifaceobj.name, g, v))
                         return
                     vnisd[v] = str(g)
             except Exception as e:
