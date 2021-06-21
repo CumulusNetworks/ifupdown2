@@ -1230,10 +1230,7 @@ class vxlan(Vxlan, moduleBase):
         for old_ifaceobj in statemanager.get_ifaceobjs(ifaceobj.name) or []:
             old_vxlan_remote_ip_map = {**old_vxlan_remote_ip_map, **self.__get_vxlan_remote_ip_map(old_ifaceobj)}
 
-        # get running fdb config
-        fdb_running_config = self.iproute2.bridge_fdb_show_dev_raw_with_filters(ifaceobj.name, filters=["src_vni", "self permanent"])
-
-        # go through the user config and add new entries while removing existing entries from 'fdb_running_config'
+        # go through the user config and add new entries while removing existing entries from 'old_vxlan_remote_ip_map'
         for vni, ips in vxlan_remote_ip_map.items():
             for ip in ips:
                 if ip not in old_vxlan_remote_ip_map.get(vni, []):
