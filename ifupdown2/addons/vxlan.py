@@ -1477,21 +1477,30 @@ class vxlan(Vxlan, moduleBase):
         user_mcastgrp_map = self.__get_vxlan_mcastgrp_map(ifaceobj)
         user_remote_ip_map = self.__get_vxlan_remote_ip_map(ifaceobj)
 
-        if not user_mcastgrp_map or not user_remote_ip_map:
+        if not user_mcastgrp_map and not user_remote_ip_map:
             return
 
         fdb_mcast = {}
         fdb_remote = {}
 
-        for _, src_vni, dst in self.get_svd_running_fdb(ifname):
-            ip = ipnetwork.IPv4Address(dst)
+        if user_remote_ip_map:
+            for _, src_vni, dst in self.get_svd_running_fdb(ifname):
+                ip = ipnetwork.IPv4Address(dst)
 
-            if ip.is_multicast:
-                # we need to reconvert back to ipaddress.IPv4Address because
-                # the existing code uses this type of obj (namely: __get_vxlan_mcastgrp_map)
-                fdb_mcast[int(src_vni)] = IPv4Address(ip.ip)
-            else:
-                fdb_remote.setdefault(int(src_vni), []).append(ip)
+                if not ip.is_multicast:
+                    fdb_remote.setdefault(int(src_vni), []).append(ip)
+
+        if user_mcastgrp_map:
+            for obj in json.loads(utils.exec_command("bridge -j -p vni show dev %s" % ifname) or "[]"):
+                for vni in obj.get("vnis", []):
+                    group = vni.get("group")
+
+                    if not group:
+                        continue
+
+                    # we need to reconvert back to ipaddress.IPv4Address because
+                    # the existing code uses this type of obj (namely: __get_vxlan_mcastgrp_map)
+                    fdb_mcast[vni.get("vni")] = IPv4Address(group)
 
         #
         # vxlan-mcastgrp-map
