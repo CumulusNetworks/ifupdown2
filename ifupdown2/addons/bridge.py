@@ -2789,13 +2789,14 @@ class bridge(Bridge, moduleBase):
             # and compare the ints, it will increase perfs and be safer.
             cached_value = self.cache.get_link_address(ifname)
             self.logger.debug('%s: cached hwaddress value: %s' % (ifname, cached_value))
-            if cached_value and utils.mac_str_to_int(cached_value) == utils.mac_str_to_int(bridge_mac):
+            bridge_mac_int = utils.mac_str_to_int(bridge_mac)
+            if cached_value and utils.mac_str_to_int(cached_value) == bridge_mac_int:
                 # the bridge mac is already set to the bridge_mac_intf's mac
                 return
 
             self.logger.info('%s: setting bridge mac to port %s mac' % (ifname, mac_intf))
             try:
-                self.netlink.link_set_address(ifname, bridge_mac)  # force=True
+                self.netlink.link_set_address(ifname, bridge_mac, bridge_mac_int)  # force=True
             except Exception as e:
                 self.logger.info('%s: %s' % (ifname, str(e)))
                 # log info this error because the user didn't explicitly configured this

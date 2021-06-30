@@ -771,7 +771,7 @@ class bond(Addon, moduleBase):
                         "%s: invalid bond mac detected - resetting to %s's mac (%s)"
                         % (ifaceobj.name, first_slave_ifname, first_slave_mac)
                     )
-                    self.netlink.link_set_address(ifaceobj.name, first_slave_mac)
+                    self.netlink.link_set_address(ifaceobj.name, first_slave_mac, utils.mac_str_to_int(first_slave_mac))
         except Exception as e:
             self.log_error(str(e), ifaceobj)
 

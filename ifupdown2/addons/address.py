@@ -1078,7 +1078,9 @@ class address(AddonWithIpBlackList, moduleBase):
 
         old_mac_addr = None
 
-        if utils.mac_str_to_int(hwaddress) != utils.mac_str_to_int(running_hwaddress):
+        hwaddress_int = utils.mac_str_to_int(hwaddress)
+
+        if hwaddress_int != utils.mac_str_to_int(running_hwaddress):
             slave_down = False
             if ifaceobj.link_kind & ifaceLinkKind.BOND:
                 # if bond, down all the slaves
@@ -1087,7 +1089,7 @@ class address(AddonWithIpBlackList, moduleBase):
                         self.netlink.link_down(l)
                     slave_down = True
             try:
-                self.netlink.link_set_address(ifaceobj.name, hwaddress)
+                self.netlink.link_set_address(ifaceobj.name, hwaddress, hwaddress_int)
                 old_mac_addr = running_hwaddress
             finally:
                 if slave_down:

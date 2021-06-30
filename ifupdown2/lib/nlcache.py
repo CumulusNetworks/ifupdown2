@@ -1352,6 +1352,14 @@ class _NetlinkCache:
         except Exception:
             pass
 
+    def update_link_ifla_address(self, ifname, ifla_address_str, ifla_address_int):
+        try:
+            with self._cache_lock:
+                self._link_cache[ifname].attributes[Link.IFLA_ADDRESS].value = ifla_address_str
+                self._link_cache[ifname].attributes[Link.IFLA_ADDRESS].raw = ifla_address_int
+        except Exception:
+            pass
+
     def add_bridge_vlan(self, msg):
         """
         Process AF_BRIDGE family packets (AF_BRIDGE family should be check
@@ -2666,10 +2674,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     ###
 
-    def link_set_address_dry_run(self, ifname, hw_address):
+    def link_set_address_dry_run(self, ifname, hw_address, hw_address_int):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s address %s" % (ifname, hw_address))
 
-    def link_set_address(self, ifname, hw_address):
+    def link_set_address(self, ifname, hw_address, hw_address_int):
         is_link_up = self.cache.link_is_up(ifname)
         # check if the link is already up or not if the link is
         # up we need to down it then make sure we up it again
@@ -2687,7 +2695,13 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.add_attribute(Link.IFLA_ADDRESS, hw_address)
 
             link.build_message(next(self.sequence), self.pid)
-            return self.tx_nlpacket_get_response_with_error(link)
+            result = self.tx_nlpacket_get_response_with_error(link)
+
+            # if we reach that code it means we got an ACK from the kernel, we can pro-actively
+            # update our local cache to reflect the change until the notificate arrives
+            self.cache.update_link_ifla_address(ifname, hw_address, hw_address_int)
+
+            return result
         except Exception as e:
             raise NetlinkError(e, "cannot set dev %s address %s" % (ifname, hw_address), ifname=ifname)
         finally:
