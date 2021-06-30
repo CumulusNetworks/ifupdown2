@@ -2501,7 +2501,6 @@ class ifupdownMain:
 
     def print_ifaceobjs_pretty(self, ifacenames, format='native'):
         """ pretty prints iface in format given by keyword arg format """
-
         ifaceobjs = []
         self._get_ifaceobjs_pretty(ifacenames, ifaceobjs)
         if not ifaceobjs: return
