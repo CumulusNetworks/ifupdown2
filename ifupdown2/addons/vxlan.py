@@ -764,7 +764,7 @@ class vxlan(Addon, moduleBase):
                     group_ip = ipnetwork.IPv6Network(group).ip
                     self.logger.warning("%s: vxlan-svcnodeip6 %s: netmask ignored" % (ifname, group))
                     group = group_ip
-                except:
+                except Exception:
                     raise Exception("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
 
             if group.is_multicast:
@@ -784,7 +784,7 @@ class vxlan(Addon, moduleBase):
                     group_ip = ipnetwork.IPv6Network(mcast_grp).ip
                     self.logger.warning("%s: vxlan-mcastgrp6 %s: netmask ignored" % (ifname, mcast_grp))
                     mcast_grp = group_ip
-                except:
+                except Exception:
                     raise Exception("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
 
             if not mcast_grp.is_multicast:
