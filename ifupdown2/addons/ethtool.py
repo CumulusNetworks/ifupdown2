@@ -10,7 +10,6 @@ try:
     from ifupdown2.lib.addon import Addon
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-    import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.statemanager as statemanager
 

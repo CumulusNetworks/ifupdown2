@@ -3730,8 +3730,8 @@ class bridge(Bridge, moduleBase):
                     vlans_str, vni_str = utils.get_vlan_vni_in_map_entry(vlan_vni)
                 except:
                     fail = True
-
                     self.__warn_bridge_vlan_vni_map_syntax_error(ifname, vlan_vni)
+                    continue
 
                 if fail:
                     # if we already have detected an error on this entry there's

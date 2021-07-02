@@ -1262,6 +1262,7 @@ class address(AddonWithIpBlackList, moduleBase):
                     'alias', self.cache.get_link_alias)
 
         self._query_sysctl(ifaceobj, ifaceobjcurr)
+
         self._query_check_address(ifaceobj, ifaceobjcurr, ifaceobj_getfunc)
 
     def _query_check_address(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc):

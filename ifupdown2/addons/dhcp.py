@@ -46,7 +46,6 @@ class dhcp(Addon, moduleBase):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.dhclientcmd = dhclient(**kargs)
-
         vrf_id = self._get_vrf_context()
         if vrf_id and vrf_id == 'mgmt':
             self.mgmt_vrf_context = True
