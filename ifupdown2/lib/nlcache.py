@@ -2479,34 +2479,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     ###
 
-    def link_add(self, ifname, kind):
-        """
-        Build and TX a RTM_NEWLINK message to add the desired interface
-        """
-        self.logger.info("%s: netlink: ip link add dev %s type %s" % (ifname, ifname, kind))
-        try:
-            debug = nlpacket.RTM_NEWLINK in self.debug
-
-            link = nlpacket.Link(nlpacket.RTM_NEWLINK, debug, use_color=self.use_color)
-            link.flags = nlpacket.NLM_F_CREATE | nlpacket.NLM_F_REQUEST | nlpacket.NLM_F_ACK
-            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
-            link.add_attribute(nlpacket.Link.IFLA_IFNAME, ifname)
-            link.add_attribute(nlpacket.Link.IFLA_LINKINFO, {
-                nlpacket.Link.IFLA_INFO_KIND: kind
-            })
-            link.build_message(self.sequence.next(), self.pid)
-            return self.tx_nlpacket_get_response_with_error_and_wait_for_cache(ifname, link)
-        except Exception as e:
-            raise Exception("%s: cannot create link %s type %s" % (ifname, ifname, kind))
-
-    def link_add_dry_run(self, ifname, kind):
-        """
-        Build and TX a RTM_NEWLINK message to add the desired interface
-        """
-        self.logger.info("%s: dryrun: netlink: ip link add dev %s type %s" % (ifname, ifname, kind))
-
-    ###
-
     def __link_set_flag(self, ifname, flags):
         """
         Bring interface 'ifname' up (raises on error)
