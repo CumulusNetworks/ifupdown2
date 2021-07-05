@@ -2866,7 +2866,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         except Exception as e:
             raise Exception("%s: netlink: cannot create bridge or set attributes: %s" % (ifname, str(e)))
 
-    def link_set_bridge_info_data_dry_run(self, ifname, ifla_info_data, link_just_created):
+    def link_set_bridge_info_data_dry_run(self, ifname, ifla_info_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge (with attributes)" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_data)
 
