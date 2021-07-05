@@ -1,3 +1,57 @@
+ifupdown2 (3.1.0-1) unstable; urgency=medium
+
+   * New: ifquery-check now validates admin state
+   * New: bond: bond mac should always be inherited from it's first slave
+
+   * New: macvlan/addressvirtual features:
+	- check interface name lenght and warn if len > 15
+	- sync macvlan forwarding state with lower-device
+
+   * New: vxlan features:
+	- Single vxlan device support (bridge-vlan-vni-map)
+	New attributes:
+	- vxlan-mcastgrp-map (vxlan multicast group for single-vxlan device)
+	- vxlan-vnifilter (vxlan vni filter for single-vxlan device)
+	- vxlan-remoteip-map (static HREP entries for static single vxlan dev)
+	- vxlan-tos (ToS value)
+	- vxlan-udp-csum (whether to perform checksumming or not)
+	New policy:
+	- vxlan-support-mix-dev-types: allow mix of traditional and single
+	vxlan device (default to yes)
+
+   * New: bridge features:
+	- add multi bridge support for bridge_set_static_mac_from_port=yes
+	- check if bridge mac is already inherited from a port
+	- detect VXLAN mis-config VNI "bridge-learning=on" and warn
+	- detect and warn when arp suppression is enabled but no vlan config
+	- bridge-arp-nd-suppress with ifquery --with-default if policy is set
+	- enable ipv6 on SVD brport
+	- enable forwarding on dhcp bridges (fixes: #179)
+	New attribute:
+	- bridge-vlan-vni-map (single vxlan device support)
+	New policy:
+	- bridge_always_up_dummy_brport
+
+   * New: address features:
+	- warn user if L3-SVI is configured with "ip-forward off"
+	- enable ipv6 before adding new address
+	New policies:
+	- check_l3_svi_ip_forwarding (check ip forward on l3 svi, default off)
+	- ip_blacklist: blacklist specific ip addresses
+
+   * New: vlan features:
+	- check vlan-id misconfiguration and print warning
+	New attribute:
+	- vlan-bridge-binding (if enabled link state is no longer automatically
+	transferred from the lower device)
+
+    * Fix: address: remove stale fdb entry for svi (when hwaddress is used)
+    * Fix: usercmds: Set environment just like the original ifupdown
+    * Fix: update mako template warning (python3-mako)
+    * Fix: batman_adv: fix unresolved reference
+
+ -- Julien Fortin <jfortin@nvidia.com>  Mon, 05 Jul 2021 23:42:42 +0200
+
 ifupdown2 (3.0.0-1) unstable; urgency=medium
 
    * New: python3 support
