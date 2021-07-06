@@ -43,11 +43,13 @@ class usercmds(moduleBase):
     def _run_command(self, ifaceobj, op):
         cmd_list = ifaceobj.get_attr_value(op)
         if cmd_list:
-            env = os.environ | {
+            env = dict(os.environ)
+            env.update({
                     'LOGICAL': ifaceobj.name if ifaceobj.name else '',
                     'METHOD': ifaceobj.addr_method if ifaceobj.addr_method else '',
                     'ADDRFAM': ','.join(ifaceobj.addr_family) if ifaceobj.addr_family else ''
-                } | ifaceobj.get_env()
+                })
+            env.update(ifaceobj.get_env())
             for cmd in cmd_list:
                 try:
                     utils.exec_user_command(cmd, env=env)
