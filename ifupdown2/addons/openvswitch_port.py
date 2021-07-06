@@ -212,7 +212,7 @@ class openvswitch_port(Addon, moduleBase):
 
         self._ovs_vsctl(ifaceobj, [cmd])
 
-    def get_dependent_ifacenames (self, ifaceobj, ifaceobjs_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
 
         if not self._is_ovs_port (ifaceobj):
             return None

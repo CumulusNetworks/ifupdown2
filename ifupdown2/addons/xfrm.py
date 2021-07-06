@@ -61,7 +61,7 @@ class xfrm(Addon, moduleBase):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
 
-    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
 
         parent_int = self._get_parent_ifacename(ifaceobj)
         if parent_int:

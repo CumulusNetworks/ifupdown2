@@ -188,7 +188,7 @@ class batman_adv(Addon, moduleBase):
 
         return sorted(members)
 
-    def get_dependent_ifacenames(self, ifaceobj, ifaceobjs_all=None):
+    def get_dependent_ifacenames(self, ifaceobj, ifacenames_all=None, old_ifaceobjs=False):
         if not self._is_batman_device(ifaceobj):
             return None
 
