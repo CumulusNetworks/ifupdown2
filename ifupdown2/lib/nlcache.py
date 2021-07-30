@@ -3172,8 +3172,8 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             if peer:
                 log_msg.append("peer %s" % peer)
-                peer = ipnetwork.IPAddress(peer)
 
+                # peer is already in nlmanager.ipnetwork.IPNetwork format
                 packet.add_attribute(Address.IFA_ADDRESS, peer)
                 packet_prefixlen = peer.prefixlen
             else:
