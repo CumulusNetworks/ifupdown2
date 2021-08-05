@@ -1465,6 +1465,8 @@ class address(AddonWithIpBlackList, moduleBase):
         if alias:
             ifaceobjrunning.update_config('alias', alias)
 
+        ifaceobjrunning.update_config("hwaddress", self.cache.get_link_address(ifaceobjrunning.name))
+
     _run_ops = {
         'pre-up': _pre_up,
         'up': _up,
