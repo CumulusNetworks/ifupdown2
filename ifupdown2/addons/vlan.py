@@ -64,13 +64,16 @@ class vlan(Addon, moduleBase):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
 
-    @staticmethod
-    def _is_vlan_device(ifaceobj):
+    def _is_vlan_device(self, ifaceobj):
         vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
         if vlan_raw_device:
             return True
         elif '.' in ifaceobj.name:
-            return True
+            try:
+                if self._get_vlan_id(ifaceobj) != -1:
+                    return True
+            except:
+                pass
         return False
 
     @staticmethod
