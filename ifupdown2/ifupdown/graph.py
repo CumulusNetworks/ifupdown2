@@ -12,10 +12,11 @@ import logging
 
 from collections import deque
 
+
 try:
-    from gvgen import *
-except ImportError as e:
-    pass
+    from ifupdown2.lib.gvgen import GvGen
+except (ImportError, ModuleNotFoundError):
+    from lib.gvgen import GvGen
 
 
 class graph():
