@@ -22,10 +22,19 @@
 
 import os
 import sys
+import shutil
 import traceback
 
 import logging
 import logging.handlers
+
+from datetime import date, datetime
+
+try:
+    from ifupdown2.ifupdown.utils import utils
+except:
+    from ifupdown.utils import utils
+
 
 root_logger = logging.getLogger()
 
@@ -33,6 +42,10 @@ root_logger = logging.getLogger()
 class LogManager:
     LOGGER_NAME = "ifupdown2"
     LOGGER_NAME_DAEMON = "ifupdown2d"
+
+    LOGGING_DIRECTORY = "/etc/network/ifupdown2/log"
+    LOGGING_DIRECTORY_PREFIX = "network_config_ifupdown2_"
+    LOGGING_DIRECTORY_LIMIT = 42
 
     DEFAULT_TCP_LOGGING_PORT = 42422
     DEFAULT_LOGGING_LEVEL_DAEMON = logging.INFO
@@ -70,6 +83,7 @@ class LogManager:
         self.__root_logger = logging.getLogger()
         self.__root_logger.name = self.LOGGER_NAME
 
+        self.__debug_handler = None
         self.__socket_handler = None
         self.__syslog_handler = None
         self.__console_handler = None
@@ -80,6 +94,8 @@ class LogManager:
         # the daemon can manually remove this handler on startup
         self.__console_handler = logging.StreamHandler(sys.stderr)
         self.__console_handler.setFormatter(logging.Formatter(self.__fmt))
+        self.__console_handler.setLevel(logging.INFO)
+
         self.__root_logger.addHandler(self.__console_handler)
 
         if os.path.exists("/dev/log"):
@@ -98,6 +114,100 @@ class LogManager:
         logging.addLevelName(logging.ERROR, "error")
         logging.addLevelName(logging.DEBUG, "debug")
         logging.addLevelName(logging.INFO, "info")
+
+        try:
+            self.__init_debug_logging()
+        except Exception as e:
+            self.__root_logger.debug("couldn't initialize persistent debug logging: %s" % str(e))
+
+    def __get_enable_persistent_debug_logging(self):
+        # ifupdownconfig.config is not yet initialized so we need to cat and grep ifupdown2.conf
+        # by default we limit logging to LOGGING_DIRECTORY_LIMIT number of files
+        # the user can specify a different amount in /etc/network/ifupdown2/ifupdown2.conf
+        # or just yes/no to enable/disable the feature.
+        try:
+            user_config_limit_str = (
+                utils.exec_user_command(
+                    "cat /etc/network/ifupdown2/ifupdown2.conf | grep enable_persistent_debug_logging") or ""
+            ).strip().split("=", 1)[1]
+
+            try:
+                # get the integer amount
+                return int(user_config_limit_str)
+            except ValueError:
+                # the user didn't specify an integer but a boolean
+                # if the input is not recognized we are disabling the feature
+                user_config_limit = {
+                    True: self.LOGGING_DIRECTORY_LIMIT,
+                    False: 0,
+                }.get(utils.get_boolean_from_string(user_config_limit_str))
+
+        except Exception:
+            user_config_limit = self.LOGGING_DIRECTORY_LIMIT
+
+        return user_config_limit
+
+    def __init_debug_logging(self):
+        # check if enable_persistent_debug_logging is enabled
+        user_config_limit = self.__get_enable_persistent_debug_logging()
+
+        if not user_config_limit:
+            # user has disabled the feature
+            return
+
+        # create logging directory
+        self.__create_dir(self.LOGGING_DIRECTORY)
+
+        # list all ifupdown2 logging directories
+        ifupdown2_log_dirs = [
+            directory[len(self.LOGGING_DIRECTORY_PREFIX):].split("_", 1) for directory in os.listdir(self.LOGGING_DIRECTORY) if directory.startswith(self.LOGGING_DIRECTORY_PREFIX)
+        ]
+        ifupdown2_log_dirs.sort(key=lambda x: int(x[0]))
+
+        # get the last log id
+        if ifupdown2_log_dirs:
+            last_id = int(ifupdown2_log_dirs[-1][0])
+        else:
+            last_id = 0
+
+        # create new log directory to store eni and debug logs
+        # format: network_config_ifupdown2_1_Aug-17-2021_23:42:00.000000
+        new_dir_path = "%s/%s%s_%s" % (
+            self.LOGGING_DIRECTORY,
+            self.LOGGING_DIRECTORY_PREFIX,
+            last_id + 1,
+            "%s_%s" % (date.today().strftime("%b-%d-%Y"), str(datetime.now()).split(" ", 1)[1])
+        )
+        self.__create_dir(new_dir_path)
+
+        # start logging in the new directory
+        self.__debug_handler = logging.FileHandler("%s/ifupdown2.debug.log" % new_dir_path, mode="w+")
+        self.__debug_handler.setFormatter(logging.Formatter(self.__debug_fmt))
+        self.__debug_handler.setLevel(logging.DEBUG)
+
+        self.__root_logger.addHandler(self.__debug_handler)
+        self.__root_logger.setLevel(logging.DEBUG)
+
+        self.__root_logger.debug("persistent debugging is initialized")
+
+        # cp ENI and ENI.d in the log directory
+        shutil.copy2("/etc/network/interfaces", new_dir_path)
+        try:
+            shutil.copytree("/etc/network/interfaces.d/", new_dir_path)
+        except FileNotFoundError:
+            pass
+
+        # remove extra directory logs if we are reaching the 'user_config_limit'
+        len_ifupdown2_log_dirs = len(ifupdown2_log_dirs)
+        if len_ifupdown2_log_dirs > user_config_limit:
+            for index in range(0, len_ifupdown2_log_dirs - user_config_limit):
+                directory_to_remove = "%s/%s%s_%s" % (self.LOGGING_DIRECTORY, self.LOGGING_DIRECTORY_PREFIX, ifupdown2_log_dirs[index][0], ifupdown2_log_dirs[index][1])
+                shutil.rmtree(directory_to_remove, ignore_errors=True)
+
+    @staticmethod
+    def __create_dir(path):
+        if not os.path.isdir(path):
+            os.mkdir(path, mode=0o400)
 
     def set_level(self, default, error=False, warning=False, info=False, debug=False):
         """
@@ -120,6 +230,8 @@ class LogManager:
             log_level = default
 
         for handler in self.__root_logger.handlers:
+            if handler == self.__debug_handler:
+                continue
             handler.setLevel(log_level)
 
         # make sure that the root logger has the lowest logging level possible

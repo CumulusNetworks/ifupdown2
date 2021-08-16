@@ -84,7 +84,6 @@ class stateManager():
         self.ifaceobjdict = OrderedDict()
         self.logger = logging.getLogger('ifupdown.' +
                     self.__class__.__name__)
-        self.logger.info("stateManager init")
 
     def init(self):
         self.state_dir = ifupdownConfig.config.get("state_dir")
