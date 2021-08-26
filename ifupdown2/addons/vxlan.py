@@ -10,7 +10,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Vxlan
     from ifupdown2.lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from ifupdown2.nlmanager.nlmanager import Link
