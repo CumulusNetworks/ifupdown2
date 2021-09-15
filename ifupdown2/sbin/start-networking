@@ -135,7 +135,12 @@ start)
 	ifup_mgmt
 	ifup -a $EXTRA_ARGS $exclusions $perfoptions --systemd
 	ifup_hotplug $HOTPLUG_ARGS $EXTRA_ARGS $exclusions
+
+    if test -f /var/lib/ifupdown2/hooks.d/start-networking-post-init-hook.sh; then
+         /var/lib/ifupdown2/hooks.d/start-networking-post-init-hook.sh
+    fi
 	;;
+	
 stop)
 	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
         SYSRESET=0
