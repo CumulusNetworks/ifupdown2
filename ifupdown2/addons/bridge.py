@@ -235,6 +235,7 @@ class bridge(Bridge, moduleBase):
             "bridge-portmcrouter": {
                 "help": "Set port multicast routers: 0 - disabled, 1 - automatic (queried), 2 - permanently enabled",
                 "validvals": ["<interface-disabled-automatic-enabled>"],
+                "default": "1",
                 "example": [
                     "under the port (for vlan aware bridge): bridge-portmcrouter 0",
                     "under the port (for vlan aware bridge): bridge-portmcrouter 1",
