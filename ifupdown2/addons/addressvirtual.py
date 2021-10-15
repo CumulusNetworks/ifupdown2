@@ -462,17 +462,18 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 if vrf_ifname:
                     self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
-            # if we are dealing with a VRRP macvlan we need to set addrgenmode
-            # to RANDOM, and protodown on
+            # If we are dealing with a VRRP macvlan we need to set protodown on
+            # and addrgenmode to NONE. A VRRP user only needs the VIP (which is
+            # explicitly configured) so addrgenmode should be NONE.
             if vrrp:
                 try:
                     self.iproute2.link_set_ipv6_addrgen(
                         macvlan_ifname,
-                        Link.IN6_ADDR_GEN_MODE_RANDOM,
+                        Link.IN6_ADDR_GEN_MODE_NONE,
                         link_created
                     )
                 except Exception as e:
-                    self.logger.warning("%s: %s: ip link set dev %s addrgenmode random: "
+                    self.logger.warning("%s: %s: ip link set dev %s addrgenmode none: "
                                      "operation not supported: %s" % (ifname, macvlan_ifname, macvlan_ifname, str(e)))
                 try:
                     if link_created:
