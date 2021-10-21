@@ -186,7 +186,7 @@ class bridge(Bridge, moduleBase):
             },
             "bridge-hashmax": {
                 "help": "set hash max",
-                "validrange": ["0", "4096"],
+                "validrange": ["0", "65536"],
                 "default": "512",
                 "example": ["bridge-hashmax 4096"]
             },
