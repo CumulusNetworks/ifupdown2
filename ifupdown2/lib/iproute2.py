@@ -819,9 +819,9 @@ class IPRoute2(Cache, Requirements):
             return
 
         if not vrf:
-            cmd = "%s route add default via %s proto kernel" % (utils.ip_cmd, gateway)
+            cmd = "%s route replace default via %s proto kernel" % (utils.ip_cmd, gateway)
         else:
-            cmd = "%s route add table %s default via %s proto kernel" % (utils.ip_cmd, vrf, gateway)
+            cmd = "%s route replace table %s default via %s proto kernel" % (utils.ip_cmd, vrf, gateway)
 
         if metric:
             cmd += " metric %s" % metric
