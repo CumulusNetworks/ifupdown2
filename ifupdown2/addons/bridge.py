@@ -2353,6 +2353,22 @@ class bridge(Bridge, moduleBase):
                                     except Exception as e:
                                         self.logger.debug('%s: %s: peerlink check: %s' % (ifname, brport_name, str(e)))
 
+                            if nl_attr == Link.IFLA_BRPORT_MULTICAST_ROUTER:
+
+                                if (brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN
+                                    and brport_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT) \
+                                    and (
+                                    (
+                                        self.vxlan_bridge_igmp_snooping_enable_port_mcrouter and utils.get_boolean_from_string(
+                                        self.get_bridge_mcsnoop_value(ifaceobj))
+                                    ) or cached_bridge_mcsnoop
+                                ):
+                                    # if policy "vxlan_bridge_igmp_snooping_enable_port_mcrouter" is on and mcsnoop is
+                                    # on (or mcsnoop is already enabled on the bridge, keep 'bridge-portmcrouter 2'
+                                    # on vxlan ports (if not set by the user)
+                                    if cached_value == 2:
+                                        continue
+
                             if default_netlink != cached_value:
                                 self.logger.info('%s: %s: %s: no configuration detected, resetting to default %s'
                                                  % (ifname, brport_name, attr_name, default))
