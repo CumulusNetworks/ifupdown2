@@ -43,7 +43,7 @@ class LogManager:
     LOGGER_NAME = "ifupdown2"
     LOGGER_NAME_DAEMON = "ifupdown2d"
 
-    LOGGING_DIRECTORY = "/etc/network/ifupdown2/log"
+    LOGGING_DIRECTORY = "/var/log/ifupdown2"
     LOGGING_DIRECTORY_PREFIX = "network_config_ifupdown2_"
     LOGGING_DIRECTORY_LIMIT = 42
 
