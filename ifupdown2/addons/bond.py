@@ -916,11 +916,20 @@ class bond(Addon, moduleBase):
         except Exception:
             pass
 
+        user_config_translate_func = {
+            "es-sys-mac": lambda x: str(x).lower()
+        }
+
         for attr in iface_attrs:
             nl_attr         = self._bond_attr_netlink_map[attr]
             translate_func  = self._bond_attr_ifquery_check_translate_func[nl_attr]
             current_config  = self.cache.get_link_info_data_attribute(ifaceobj.name, nl_attr)
-            user_config     = ifaceobj.get_attr_value_first(attr)
+            user_config_f   = user_config_translate_func.get(attr)
+
+            if user_config_f:
+                user_config = user_config_f(ifaceobj.get_attr_value_first(attr))
+            else:
+                user_config = ifaceobj.get_attr_value_first(attr)
 
             if current_config == translate_func(user_config):
                 ifaceobjcurr.update_config_with_status(attr, user_config, 0)
