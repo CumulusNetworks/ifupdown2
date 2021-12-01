@@ -57,8 +57,9 @@ class tunnel(Addon, moduleBase):
                 "aliases": ["endpoint"]
             },
             'tunnel-ttl': {
-                'help': 'TTL for tunnel packets',
-                'validvals': ['<number>'],
+                'help': 'TTL for tunnel packets (range 0..255), 0=inherit',
+                "validrange": ["0", "255"],
+                'validvals': ['<number>', 'inherit'],
                 'required': False,
                 'example': ['tunnel-ttl 64'],
                 "aliases": ["ttl"]
@@ -87,6 +88,12 @@ class tunnel(Addon, moduleBase):
             if attrs_present.get(key) != value:
                 return True
         return False
+
+    @staticmethod
+    def _get_tunnel_ttl(ttl_config):
+        if ttl_config and ttl_config == "inherit":
+            return "0"
+        return ttl_config
 
     def __get_info_data_gre_tunnel(self, info_data):
         tunnel_link_ifindex = info_data.get(Link.IFLA_GRE_LINK)
@@ -231,7 +238,7 @@ class tunnel(Addon, moduleBase):
             ("tunnel-mode", None),
             ("tunnel-local", ipnetwork.IPNetwork),
             ("tunnel-endpoint", ipnetwork.IPNetwork),
-            ("tunnel-ttl", None),
+            ("tunnel-ttl", self._get_tunnel_ttl),
             ("tunnel-dev", None),
         ):
             attr_value = ifaceobj.get_attr_value_first(attr)
