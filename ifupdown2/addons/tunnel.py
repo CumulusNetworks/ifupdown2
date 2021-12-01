@@ -64,6 +64,14 @@ class tunnel(Addon, moduleBase):
                 'example': ['tunnel-ttl 64'],
                 "aliases": ["ttl"]
             },
+            'tunnel-tos': {
+                'help': 'TOS for tunnel packets (range 0..255), 1=inherit',
+                "validrange": ["0", "255"],
+                'validvals': ['<number>', 'inherit'],
+                'required': False,
+                'example': ['tunnel-tos inherit'],
+                "aliases": ["tos"]
+            },
             'tunnel-dev': {
                 'help': 'Physical underlay device to use for tunnel packets',
                 'validvals': ['<interface>'],
@@ -95,6 +103,12 @@ class tunnel(Addon, moduleBase):
             return "0"
         return ttl_config
 
+    @staticmethod
+    def _get_tunnel_tos(tos_config):
+        if tos_config and tos_config == "inherit":
+            return "1"
+        return tos_config
+
     def __get_info_data_gre_tunnel(self, info_data):
         tunnel_link_ifindex = info_data.get(Link.IFLA_GRE_LINK)
 
@@ -102,6 +116,7 @@ class tunnel(Addon, moduleBase):
             "tunnel-endpoint": info_data.get(Link.IFLA_GRE_REMOTE),
             "tunnel-local": info_data.get(Link.IFLA_GRE_LOCAL),
             "tunnel-ttl": str(info_data.get(Link.IFLA_GRE_TTL)),
+            "tunnel-tos": str(info_data.get(Link.IFLA_GRE_TOS)),
             "tunnel-dev": self.cache.get_ifname(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
 
@@ -112,6 +127,7 @@ class tunnel(Addon, moduleBase):
             "tunnel-endpoint": info_data.get(Link.IFLA_IPTUN_REMOTE),
             "tunnel-local": info_data.get(Link.IFLA_IPTUN_LOCAL),
             "tunnel-ttl": str(info_data.get(Link.IFLA_IPTUN_TTL)),
+            "tunnel-tos": str(info_data.get(Link.IFLA_IPTUN_TOS)),
             "tunnel-dev": self.cache.get_ifname(tunnel_link_ifindex) if tunnel_link_ifindex else ""
         }
 
@@ -144,6 +160,7 @@ class tunnel(Addon, moduleBase):
             'tunnel-local': 'local',
             'tunnel-endpoint': 'remote',
             'tunnel-ttl': 'ttl',
+            'tunnel-tos': 'tos',
             'tunnel-dev': 'dev',
         }
 
@@ -158,6 +175,11 @@ class tunnel(Addon, moduleBase):
             if attr_val is not None:
                 attrs_mapped[iproute_attr] = attr_val
                 attrs[attr] = attr_val
+
+        # convert ip route 'tos' param into hex format (00..ff)
+        tos = attrs_mapped.get('tos')
+        if tos and tos != 'inherit':
+            attrs_mapped['tos'] = "{:x}".format(int(tos))
 
         # Create the tunnel if it doesn't exist yet...
         if not self.cache.link_exists(ifaceobj.name):
@@ -239,6 +261,7 @@ class tunnel(Addon, moduleBase):
             ("tunnel-local", ipnetwork.IPNetwork),
             ("tunnel-endpoint", ipnetwork.IPNetwork),
             ("tunnel-ttl", self._get_tunnel_ttl),
+            ("tunnel-tos", self._get_tunnel_tos),
             ("tunnel-dev", None),
         ):
             attr_value = ifaceobj.get_attr_value_first(attr)
