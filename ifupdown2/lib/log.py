@@ -193,16 +193,19 @@ class LogManager:
         # cp ENI and ENI.d in the log directory
         shutil.copy2("/etc/network/interfaces", new_dir_path)
         try:
-            shutil.copytree("/etc/network/interfaces.d/", new_dir_path)
-        except FileNotFoundError:
+            shutil.copytree("/etc/network/interfaces.d/", "%s/interfaces.d" % new_dir_path)
+        except Exception:
             pass
 
         # remove extra directory logs if we are reaching the 'user_config_limit'
         len_ifupdown2_log_dirs = len(ifupdown2_log_dirs)
         if len_ifupdown2_log_dirs > user_config_limit:
             for index in range(0, len_ifupdown2_log_dirs - user_config_limit):
-                directory_to_remove = "%s/%s%s_%s" % (self.LOGGING_DIRECTORY, self.LOGGING_DIRECTORY_PREFIX, ifupdown2_log_dirs[index][0], ifupdown2_log_dirs[index][1])
-                shutil.rmtree(directory_to_remove, ignore_errors=True)
+                try:
+                    directory_to_remove = "%s/%s%s_%s" % (self.LOGGING_DIRECTORY, self.LOGGING_DIRECTORY_PREFIX, ifupdown2_log_dirs[index][0], ifupdown2_log_dirs[index][1])
+                    shutil.rmtree(directory_to_remove, ignore_errors=True)
+                except:
+                    pass
 
     @staticmethod
     def __create_dir(path):
