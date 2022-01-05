@@ -163,7 +163,7 @@ class networkInterfaces():
         self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
         sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
         if sourced_file:
-            filenames = glob.glob(sourced_file)
+            filenames = sorted(glob.glob(sourced_file))
             if not filenames:
                 if '*' not in sourced_file:
                     self._parse_warn(self._currentfile, lineno,
