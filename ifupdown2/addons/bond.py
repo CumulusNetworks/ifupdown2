@@ -65,7 +65,8 @@ class bond(Addon, moduleBase):
                     "1", "layer3+4",
                     "2", "layer2+3",
                     "3", "encap2+3",
-                    "4", "encap3+4"
+                    "4", "encap3+4",
+                    "5", "vlan+srcmac"
                 ],
                 "default": "layer2",
                 "example": ["bond-xmit-hash-policy layer2"]
