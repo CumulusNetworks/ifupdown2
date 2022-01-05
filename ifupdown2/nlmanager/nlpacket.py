@@ -536,16 +536,19 @@ class NetlinkPacket_IFLA_LINKINFO_Attributes:
         'layer2+3': 2,
         'encap2+3': 3,
         'encap3+4': 4,
+        'vlan+srcmac': 5,
         '0': 0,
         '1': 1,
         '2': 2,
         '3': 3,
         '4': 4,
+        '5': 5,
         0: 0,
         1: 1,
         2: 2,
         3: 3,
-        4: 4
+        4: 4,
+        5: 5,
     }
 
     ifla_bond_xmit_hash_policy_pretty_tbl = {
@@ -554,6 +557,7 @@ class NetlinkPacket_IFLA_LINKINFO_Attributes:
         2: 'layer2+3',
         3: 'encap2+3',
         4: 'encap3+4',
+        5: 'vlan+srcmac',
     }
 
     ifla_bond_primary_reselect_tbl = {
