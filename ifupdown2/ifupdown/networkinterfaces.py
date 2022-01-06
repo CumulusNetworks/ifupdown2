@@ -161,9 +161,13 @@ class networkInterfaces():
 
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
-        self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
+        self.logger.debug('processing sourced line ..\'%s\'' % lines[cur_idx])
         sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
+
         if sourced_file:
+            if not os.path.isabs(sourced_file):
+                sourced_file = os.path.join(os.path.dirname(self._currentfile), sourced_file)
+
             filenames = sorted(glob.glob(sourced_file))
             if not filenames:
                 if '*' not in sourced_file:
@@ -180,7 +184,11 @@ class networkInterfaces():
     def process_source_directory(self, lines, cur_idx, lineno):
         self.logger.debug('processing source-directory line ..\'%s\'' % lines[cur_idx])
         sourced_directory = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
+
         if sourced_directory:
+            if not os.path.isabs(sourced_directory):
+                sourced_directory = os.path.join(os.path.dirname(self._currentfile), sourced_directory)
+
             folders = glob.glob(sourced_directory)
             for folder in folders:
                 filenames = [file for file in os.listdir(folder) if re.match(r'^[a-zA-Z0-9_-]+$', file)]
