@@ -191,10 +191,8 @@ class networkInterfaces():
 
             folders = glob.glob(sourced_directory)
             for folder in folders:
-                filenames = [file for file in os.listdir(folder) if re.match(r'^[a-zA-Z0-9_-]+$', file)]
-
-                for f in filenames:
-                    self.read_file(os.path.join(folder, f))
+                for file in os.listdir(folder):
+                    self.read_file(os.path.join(folder, file))
         else:
             self._parse_error(self._currentfile, lineno,
                               'unable to read source-directory line')
