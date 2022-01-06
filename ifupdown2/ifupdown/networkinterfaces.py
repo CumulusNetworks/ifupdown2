@@ -7,11 +7,12 @@
 #    ifupdown network interfaces file parser
 #
 
-import re
+import collections
 import copy
 import glob
 import logging
-import collections
+import os
+import re
 
 try:
     from ifupdown2.ifupdown.iface import *
@@ -160,9 +161,13 @@ class networkInterfaces():
 
     def process_source(self, lines, cur_idx, lineno):
         # Support regex
-        self.logger.debug('processing sourced line ..\'%s\'' %lines[cur_idx])
+        self.logger.debug('processing sourced line ..\'%s\'' % lines[cur_idx])
         sourced_file = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
+
         if sourced_file:
+            if not os.path.isabs(sourced_file):
+                sourced_file = os.path.join(os.path.dirname(self._currentfile), sourced_file)
+
             filenames = sorted(glob.glob(sourced_file))
             if not filenames:
                 if '*' not in sourced_file:
@@ -174,6 +179,23 @@ class networkInterfaces():
         else:
             self._parse_error(self._currentfile, lineno,
                     'unable to read source line')
+        return 0
+
+    def process_source_directory(self, lines, cur_idx, lineno):
+        self.logger.debug('processing source-directory line ..\'%s\'' % lines[cur_idx])
+        sourced_directory = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
+
+        if sourced_directory:
+            if not os.path.isabs(sourced_directory):
+                sourced_directory = os.path.join(os.path.dirname(self._currentfile), sourced_directory)
+
+            folders = glob.glob(sourced_directory)
+            for folder in folders:
+                for file in os.listdir(folder):
+                    self.read_file(os.path.join(folder, file))
+        else:
+            self._parse_error(self._currentfile, lineno,
+                              'unable to read source-directory line')
         return 0
 
     def process_auto(self, lines, cur_idx, lineno):
@@ -388,11 +410,14 @@ class networkInterfaces():
 
         return lines_consumed       # Return next index
 
-    network_elems = { 'source'      : process_source,
-                      'allow'      : process_allow,
-                      'auto'        : process_auto,
-                      'iface'       : process_iface,
-                      'vlan'       : process_vlan}
+    network_elems = {
+        'source': process_source,
+        'source-directory': process_source_directory,
+        'allow': process_allow,
+        'auto': process_auto,
+        'iface': process_iface,
+        'vlan': process_vlan
+    }
 
     def _is_keyword(self, str):
         # The additional split here is for allow- keyword
@@ -401,9 +426,12 @@ class networkInterfaces():
             return 1
         return 0
 
-    def _get_keyword_func(self, str):
-        tmp_str = str.split('-')[0]
-        return self.network_elems.get(tmp_str)
+    def _get_keyword_func(self, str_):
+        tmp_str = str_.split('-')[0]
+        if tmp_str == "allow":
+            return self.network_elems.get(tmp_str)
+        else:
+            return self.network_elems.get(str_)
 
     def get_allow_classes_for_iface(self, ifacename):
         classes = []
