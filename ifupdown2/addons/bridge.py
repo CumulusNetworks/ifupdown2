@@ -807,6 +807,17 @@ class bridge(Bridge, moduleBase):
         # To avoid disabling ipv6 on SVD we need to keep track of them
         self.svd_list = set()
 
+        # user defined limit of VNI per vlan on the same bridge
+        # -1 = no limit
+        self.bridge_vni_per_svi = {}
+        try:
+            self.bridge_vni_per_svi_limit = int(policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="bridge_vni_per_svi_limit"
+            ))
+        except:
+            self.bridge_vni_per_svi_limit = -1
+
     @staticmethod
     def _l2protocol_tunnel_set_pvst(ifla_brport_group_mask, ifla_brport_group_maskhi):
         if not ifla_brport_group_maskhi:
@@ -885,7 +896,60 @@ class bridge(Bridge, moduleBase):
         c2 = self.syntax_check_bridge_allow_multiple_vlans(ifaceobj, ifaceobj_getfunc)
         c3 = self.syntax_check_learning_l2_vni_evpn(ifaceobj)
         c4 = self.syntax_check_bridge_arp_vni_vlan(ifaceobj, ifaceobj_getfunc)
-        return retval and c1 and c3 and c4 #and c2
+        c5 = self.syntax_check_bridge_vni_svi_limit(ifaceobj, ifaceobj_getfunc)
+        return retval and c1 and c3 and c4 and c5#and c2
+
+    def syntax_check_bridge_vni_svi_limit(self, ifaceobj, ifaceobj_getfunc):
+        if self.bridge_vni_per_svi_limit > 0 and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
+            vni_name = ifaceobj.name
+            bridge_name = self.__get_vxlan_bridge_name(ifaceobj, ifaceobj_getfunc)
+
+            if not bridge_name:
+                return True
+
+            svi = ifaceobj.get_attr_value_first("bridge-access")
+
+            if not svi:
+                return True
+
+            vni_per_svi = self.bridge_vni_per_svi.get(bridge_name, {}).get(svi)
+
+            def err():
+                self.logger.error(
+                    "%s: misconfiguration detected: maximum vni allowed per bridge (%s) svi (%s) is limited to %s (policy: 'bridge_vni_per_svi_limit')" %
+                    (vni_name,
+                    bridge_name,
+                    svi,
+                    self.bridge_vni_per_svi_limit)
+                )
+
+            if vni_per_svi:
+                err()
+                return False
+            else:
+                if not bridge_name in self.bridge_vni_per_svi:
+                    self.bridge_vni_per_svi[bridge_name] = {
+                        svi: vni_name
+                    }
+
+                elif not svi in self.bridge_vni_per_svi[bridge_name]:
+                    self.bridge_vni_per_svi[bridge_name][svi] = vni_name
+
+                else:
+                    err()
+                    return False
+
+        return True
+
+    def __get_vxlan_bridge_name(self, ifaceobj, ifaceobj_getfunc):
+        try:
+            for intf in ifaceobj.upperifaces:
+                for obj in ifaceobj_getfunc(intf):
+                    if obj.link_kind & ifaceLinkKind.BRIDGE:
+                        return obj.name
+        except:
+            pass
+        return None
 
     def syntax_check_bridge_arp_vni_vlan(self, ifaceobj, ifaceobj_getfunc):
         """
