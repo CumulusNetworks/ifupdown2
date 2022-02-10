@@ -40,6 +40,7 @@ from collections import OrderedDict
 try:
     from ifupdown2.lib.sysfs import Sysfs
     from ifupdown2.lib.base_objects import BaseObject
+    from ifupdown2.lib.exceptions import RetryCMD
 
     from ifupdown2.nlmanager.nlpacket import \
         Address, \
@@ -70,6 +71,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     from lib.sysfs import Sysfs
     from lib.base_objects import BaseObject
+    from lib.exceptions import RetryCMD
 
     from nlmanager.nlpacket import \
         Address, \
@@ -2886,19 +2888,21 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
         Do this check here so we can provide a more intuitive error
         """
+        vlan_iproute2_cmd = ["ip link add link %s name %s type vlan id %s" % (vlan_raw_device, ifname, vlan_id)]
         try:
-            vlan_iproute2_cmd = ["ip link add link %s name %s type vlan id %s" % (vlan_raw_device, ifname, vlan_id)]
             ifla_info_data = {Link.IFLA_VLAN_ID: vlan_id}
 
             if vlan_protocol:
                 vlan_iproute2_cmd.append("protocol %s" % vlan_protocol)
                 ifla_info_data[Link.IFLA_VLAN_PROTOCOL] = vlan_protocol
 
+            bridge_binding_str = ""
+
             if bridge_binding is not None:
-                vlan_iproute2_cmd.append("bridge_binding %s" % ("on" if bridge_binding else "off"))
+                bridge_binding_str = "bridge_binding %s" % ("on" if bridge_binding else "off")
                 ifla_info_data[Link.IFLA_VLAN_FLAGS] = {Link.VLAN_FLAG_BRIDGE_BINDING: bridge_binding}
 
-            self.logger.info("%s: netlink: %s" % (ifname, " ".join(vlan_iproute2_cmd)))
+            self.logger.info("%s: netlink: %s %s" % (ifname, " ".join(vlan_iproute2_cmd), bridge_binding_str))
 
             if "." in ifname:
                 ifname_vlanid = int(ifname.split(".")[-1])
@@ -2926,7 +2930,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
         except Exception as e:
-            raise NetlinkError(e, "cannot create vlan %s %s" % (ifname, vlan_id), ifname=ifname)
+            if "Invalid argument" in str(e) and bridge_binding is not None:
+                raise RetryCMD(cmd=" ".join(vlan_iproute2_cmd))
+            else:
+                raise NetlinkError(e, "cannot create vlan %s %s" % (ifname, vlan_id), ifname=ifname)
 
     def link_add_vlan_dry_run(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None):
         """

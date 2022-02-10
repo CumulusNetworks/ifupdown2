@@ -41,3 +41,9 @@ class ExitWithStatusAndError(ExitWithStatus):
     def __init__(self, status, message):
         ExitWithStatus.__init__(self, status)
         self.message = message
+
+
+class RetryCMD(Ifupdown2Exception):
+    def __init__(self, cmd):
+        Ifupdown2Exception.__init__(self)
+        self.cmd = cmd

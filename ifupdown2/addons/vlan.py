@@ -10,6 +10,7 @@ try:
     from ifupdown2.nlmanager.nlmanager import Link
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.lib.exceptions import RetryCMD
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
 except (ImportError, ModuleNotFoundError):
@@ -18,6 +19,7 @@ except (ImportError, ModuleNotFoundError):
     from nlmanager.nlmanager import Link
     from ifupdownaddons.modulebase import moduleBase
     from ifupdown.utils import utils
+    from lib.exceptions import RetryCMD
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
@@ -194,7 +196,11 @@ class vlan(Addon, moduleBase):
                 self._bridge_vid_add_del(vlanrawdevice, vlanid)
                 return
 
-        self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol, bool_vlan_bridge_binding if vlan_bridge_binding is not None else None)
+        try:
+            self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol, bool_vlan_bridge_binding if vlan_bridge_binding is not None else None)
+        except RetryCMD as e:
+            self.logger.info("%s: attempting to create vlan without bridge_binding (capability not detected on the system)" % ifaceobj.name)
+            utils.exec_command(e.cmd)
         self._bridge_vid_add_del(vlanrawdevice, vlanid)
 
     def _down(self, ifaceobj):
