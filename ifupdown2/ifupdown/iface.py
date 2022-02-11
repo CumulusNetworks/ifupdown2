@@ -121,7 +121,7 @@ class ifaceLinkPrivFlags():
             string_list.append("loopback")
 
         if flag & cls.KEEP_LINK_DOWN:
-            string_list.append("keep ling down")
+            string_list.append("keep link down")
 
         if flag & cls.ES_BOND:
             string_list.append("es bond")
