@@ -962,6 +962,14 @@ class IPRoute2(Cache, Requirements):
             "vni add dev %s vni %s" % (vxlan_device, ','.join(vni.split()))
         )
 
+    def bridge_vni_int_set_del(self, vxlan_device, vni):
+        # bridge vni del understands ranges:
+        # bridge vni del dev vx0 vni 10,11,20-30
+        self.__execute_or_batch(
+            utils.bridge_cmd,
+            "vni del dev %s vni %s" % (vxlan_device, ','.join([str(x) for x in vni]))
+        )
+
     def bridge_vni_del_list(self, vxlandev, vnis):
         cmd_args = "vni del dev %s vni %s" % (vxlandev, ','.join(vnis))
         self.__execute_or_batch(utils.bridge_cmd, cmd_args)

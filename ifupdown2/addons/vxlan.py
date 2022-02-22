@@ -1187,10 +1187,6 @@ class vxlan(Vxlan, moduleBase):
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         vxlan_ttl
                     )
-                    try:
-                        self.iproute2.bridge_vni_add(ifname, vxlan_vni)
-                    except Exception as e:
-                        self.logger.warning("%s: l3 vxlan vni failure: %s" % (ifname, e))
                 else:
                     try:
                         if flap_vxlan_device:
@@ -1206,6 +1202,30 @@ class vxlan(Vxlan, moduleBase):
                         else:
                             self.log_error("%s: vxlan creation failed: %s" % (ifname, str(e)), ifaceobj)
                         return
+
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
+            add_vni = True
+            if link_exists:
+                running_vxlan_vni_set = set()
+
+                for obj in json.loads(utils.exec_command("bridge -j -p vni show dev %s" % ifname) or "[]"):
+                    for vni_obj in obj.get("vnis", []):
+                        start = vni_obj.get("vni")
+                        end = vni_obj.get("vniEnd")
+
+                        for vni in utils.ranges_to_ints(["%s-%s" % (start, end if end else start)]):
+                            running_vxlan_vni_set.add(vni)
+
+                if running_vxlan_vni_set != set(utils.ranges_to_ints([vxlan_vni])):
+                    self.iproute2.bridge_vni_int_set_del(ifname, running_vxlan_vni_set)
+                else:
+                    add_vni = False
+
+            if add_vni:
+                try:
+                    self.iproute2.bridge_vni_add(ifname, vxlan_vni)
+                except Exception as e:
+                    self.logger.warning("%s: l3 vxlan vni failure: %s" % (ifname, e))
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
             if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
