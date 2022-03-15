@@ -920,6 +920,15 @@ class bond(Addon, moduleBase):
             "es-sys-mac": lambda x: str(x).lower()
         }
 
+        if "es-sys-mac" in iface_attrs and os.geteuid() != 0:
+            # for some reason es-sys-mac (IFLA_BOND_AD_ACTOR_SYSTEM) is not part
+            # of the netlink dump if requested by non-root user
+            try:
+                iface_attrs.remove("es-sys-mac")
+                self.logger.info("%s: non-root user can't check attribute \"es-sys-mac\" value" % ifaceobj.name)
+            except:
+                pass
+
         for attr in iface_attrs:
             nl_attr         = self._bond_attr_netlink_map[attr]
             translate_func  = self._bond_attr_ifquery_check_translate_func[nl_attr]
