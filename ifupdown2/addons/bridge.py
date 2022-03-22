@@ -988,7 +988,8 @@ class bridge(Bridge, moduleBase):
     def syntax_check_learning_l2_vni_evpn(self, ifaceobj):
         result = True
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
-            if utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-learning")):
+            if utils.get_boolean_from_string(ifaceobj.get_attr_value_first("bridge-learning")) and \
+                (not ifaceobj.get_attr_value_first("vxlan-remoteip") and not ifaceobj.get_attr_value_first("vxlan-remoteip-map")):
                 self.logger.warning(
                     "%s: possible mis-configuration detected: l2-vni configured with bridge-learning ON "
                     "while EVPN is also configured - these two parameters conflict with each other."
