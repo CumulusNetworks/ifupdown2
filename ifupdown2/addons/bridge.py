@@ -2079,9 +2079,7 @@ class bridge(Bridge, moduleBase):
              before. This is done this way to avoid calling this method on
              non vlan & bridge port interfaces thus wasting a bit less time
         """
-
         kind = None
-        synced = False
         ifla_info_data = {}
 
         if user_config_brport_learning_nl is None:
@@ -2093,8 +2091,6 @@ class bridge(Bridge, moduleBase):
             brport_ifla_info_slave_data[Link.IFLA_BRPORT_LEARNING] \
                 = cached_brport_learning \
                 = user_config_brport_learning_nl
-
-            synced = True
 
             self.logger.info(
                 "%s: %s: set bridge-learning %s"
@@ -2112,36 +2108,40 @@ class bridge(Bridge, moduleBase):
         #
         # vxlan-learning sync:
         #
-        brport_vxlan_learning_config_synced = False
+        user_brport_vxlan_learning_config = brport_ifaceobj.get_attr_value_first("vxlan-learning")
 
-        brport_vxlan_learning_config = brport_ifaceobj.get_attr_value_first("vxlan-learning")
-        # if vxlan-learning is defined by the user or via policy file we need
-        # to honor his config and not sync vxlan-learning with bridge-learning
+        if not user_brport_vxlan_learning_config:
+            # if vxlan-learning is not defined on the brport
 
-        if not brport_vxlan_learning_config and synced:
-            # vxlan-learning is not defined by the user but bridge-learning was set using bridge-vxlan-port-learning
-            # vxlan-learning needs to be synced as well
-            brport_vxlan_learning_config_nl = user_config_brport_learning_nl
-            brport_vxlan_learning_config_synced = True
+            if user_config_brport_learning_nl is not None:
+                # if bridge-learning is defined on the brport use it's value to sync vxlan-learning
+                user_brport_vxlan_learning_config_nl = user_config_brport_learning_nl
 
-        if not brport_vxlan_learning_config:
-            # check policy file
-            brport_vxlan_learning_config = policymanager.policymanager_api.get_attr_default("vxlan", "vxlan-learning")
+            else:
+                # if bridge-learning is not defined, we check for policy and convert it into netlink format
+                brport_vxlan_learning_config = policymanager.policymanager_api.get_attr_default("vxlan", "vxlan-learning")
 
-        if not brport_vxlan_learning_config_synced:
-            # convert vxlan-learning string to netlink value (if None use brport-learning value instead)
-            brport_vxlan_learning_config_nl = utils.get_boolean_from_string(brport_vxlan_learning_config) \
-                if brport_vxlan_learning_config \
-                else cached_brport_learning
+                if brport_vxlan_learning_config is not None:
+                    user_brport_vxlan_learning_config_nl = utils.get_boolean_from_string(brport_vxlan_learning_config)
 
-        if brport_vxlan_learning_config_nl != self.cache.get_link_info_data_attribute(brport_name, Link.IFLA_VXLAN_LEARNING):
+                else:
+                    # None = no policy set, default to the current brport learning
+                    user_brport_vxlan_learning_config_nl = cached_brport_learning
+
+        else:
+            # if vxlan-learning is set we need to honor the user config
+            user_brport_vxlan_learning_config_nl = utils.get_boolean_from_string(user_brport_vxlan_learning_config)
+
+        if user_brport_vxlan_learning_config_nl != self.cache.get_link_info_data_attribute(
+            brport_name,
+            Link.IFLA_VXLAN_LEARNING
+        ):
             self.logger.info(
                 "%s: %s: vxlan learning and bridge learning out of sync: set vxlan-learning %s"
-                % (bridge_name, brport_name, "on" if brport_vxlan_learning_config_nl else "off")
+                % (bridge_name, brport_name, "on" if user_brport_vxlan_learning_config_nl else "off")
             )
-            ifla_info_data = {Link.IFLA_VXLAN_LEARNING: brport_vxlan_learning_config_nl}
+            ifla_info_data = {Link.IFLA_VXLAN_LEARNING: user_brport_vxlan_learning_config_nl}
             kind = "vxlan"
-
         # if kind and ifla_info_data are set they will be added to the
         # netlink request on the VXLAN brport, to sync IFLA_VXLAN_LEARNING
         return kind, ifla_info_data
