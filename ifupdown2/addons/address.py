@@ -5,6 +5,9 @@
 #
 
 import socket
+import json
+import time
+import subprocess
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
@@ -1058,6 +1061,43 @@ class address(AddonWithIpBlackList, moduleBase):
             self._process_bridge(ifaceobj, True, self.process_hwaddress(ifaceobj))
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+
+    def _settle_dad(self, ifaceobj, ips):
+        """ Settle dad for any given ips """
+        def ip_addr_list(what):
+            raw = json.loads(utils.exec_commandl([
+                'ip', '-j', '-o', '-6', 'address', 'list', 'dev',
+                ifaceobj.name, what
+            ]))
+            addr_infos = (x for t in raw for x in t.get('addr_info', []))
+            ip_list = [f'{x["local"]}/{x["prefixlen"]}' for x in addr_infos if x]
+            return ip_list
+
+        def get_param(key, default=None):
+            return (ifaceobj.get_attr_value_first(key)
+                    or policymanager.policymanager_api.get_iface_default(
+                        self.__class__.__name__, ifaceobj.name, key)
+                    or default)
+
+        interval = float(get_param('dad-interval', '0.1'))  # 0.1: ifupdown default value
+        attempts = int(get_param('dad-attempts', '60'))     # 60: ifupdown default value
+        if not attempts or not ips:
+            return
+        try:
+            for _attempt in range(0, attempts):
+                tentative = ip_addr_list('tentative')
+                if all(str(ip) not in tentative for ip in ips):
+                    break
+                time.sleep(interval)
+            else:
+                timeout = ','.join(ip for ip in ips if str(ip) not in tentative)
+                self.logger.warning('address: %s: dad timeout "%s"', ifaceobj.name, timeout)
+                return
+            failure = ip_addr_list('dadfailed')
+            if failure:
+                self.logger.warning('address: %s: dad failure "%s"', ifaceobj.name, ','.join(failure))
+        except subprocess.CalledProcessError as exc:
+            self.logger.error('address: %s: could not settle dad %s', ifaceobj.name, str(exc))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         gateways = ifaceobj.get_attr_value('gateway')
