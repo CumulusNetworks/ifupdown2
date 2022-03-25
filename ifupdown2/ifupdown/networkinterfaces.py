@@ -234,7 +234,7 @@ class networkInterfaces():
         except Exception:
             pass
         attrvallist = iface_config.get(newattrname, [])
-        if newattrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime']:
+        if newattrname in ['scope', 'netmask', 'broadcast', 'preferred-lifetime', 'dad-attempts', 'dad-interval']:
             # For attributes that are related and that can have multiple
             # entries, store them at the same index as their parent attribute.
             # The example of such attributes is 'address' and its related
