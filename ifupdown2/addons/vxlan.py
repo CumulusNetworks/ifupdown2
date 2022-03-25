@@ -1241,7 +1241,11 @@ class vxlan(Vxlan, moduleBase):
             except Exception as e:
                 self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
 
-        if vxlan_purge_remotes or remoteips:
+        # get old remote ips to compare with new user config value and
+        # purge any removed remote ip
+        old_remoteips = self.get_old_remote_ips(ifaceobj.name)
+
+        if vxlan_purge_remotes or remoteips or (remoteips != old_remoteips):
             # figure out the diff for remotes and do the bridge fdb updates
             # only if provisioned by user and not by an vxlan external
             # controller.
@@ -1282,6 +1286,14 @@ class vxlan(Vxlan, moduleBase):
                     pass
 
         self.vxlan_remote_ip_map(ifaceobj, vxlan_mcast_grp_map)
+
+    @staticmethod
+    def get_old_remote_ips(ifname):
+        old_remoteips = []
+        for old_ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
+            for remote in old_ifaceobj.get_attr_value("vxlan-remoteip") or []:
+                old_remoteips.append(remote)
+        return old_remoteips
 
     def vxlan_remote_ip_map(self, ifaceobj, vxlan_mcast_grp_map):
         # get user configured remote ip map
