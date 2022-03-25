@@ -5,6 +5,8 @@
 #
 
 import socket
+import json
+import time
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
@@ -1053,6 +1055,27 @@ class address(AddonWithIpBlackList, moduleBase):
             self._process_bridge(ifaceobj, True, self.process_hwaddress(ifaceobj))
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
+
+    def _settle_dad(self, ifaceobj, ip, attr):
+        def ip_addr_list(what):
+            return json.loads(utils.exec_commandl([
+                'ip', '-j', '-o', '-6', 'address', 'list', 'dev',
+                ifaceobj.name, 'to', str(ip), what
+            ]))
+
+        interval = float(attr.get('dad-interval', '0.1'))  # 0.1: ifupdown default value
+        attempts = int(attr.get('dad-attempts', '60'))     # 60:  ifupdown default value
+        if ip.version == 4 or attempts == 0:
+            return
+        for _attempt in range(0, attempts):
+            if not ip_addr_list('tentative'):
+                break
+            time.sleep(interval)
+        else:
+            self.logger.warning('address: %s: dad timeout %s', ifaceobj.name, ip)
+            return
+        if ip_addr_list('dadfailed'):
+            self.logger.warning('address: %s: dad failure %s', ifaceobj.name, ip)
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         gateways = ifaceobj.get_attr_value('gateway')
