@@ -477,10 +477,15 @@ class address(AddonWithIpBlackList, moduleBase):
                         else:
                             addr_obj = ipnetwork.IPNetwork(addr)
 
-                    for attr_name in ("broadcast", "scope", "preferred-lifetime"):
+                    for attr_name in ("broadcast", "scope", "preferred-lifetime", 'dad-attempts', 'dad-interval'):
                         attr_value = ifaceobj.get_attr_value_n(attr_name, index)
                         if attr_value:
                             addr_attributes[attr_name] = attr_value
+
+                    if addr_obj.version == 4 and any(dad in addr_attributes for dad in ('dad-attempts', 'dad-interval')):
+                        self.logger.warning("%s: dad options is only available for ipv6", ifaceobj.name)
+                        addr_attributes.pop('dad-attempts', None)
+                        addr_attributes.pop('dad-interval', None)
 
                     pointopoint = ifaceobj.get_attr_value_n("pointopoint", index)
                     try:
