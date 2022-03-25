@@ -505,6 +505,9 @@ class address(AddonWithIpBlackList, moduleBase):
 
     def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs):
         ipv6_is_disabled = None
+        nodad = False
+        if self.ipv6_dad_handling_enabled:
+            nodad = ifaceobj.get_attr_value_first('dad-attempts') == '0'
         try:
             for ip, attributes in user_config_ip_addrs:
 
@@ -526,10 +529,11 @@ class address(AddonWithIpBlackList, moduleBase):
                         scope=attributes.get("scope"),
                         peer=attributes.get("pointopoint"),
                         broadcast=attributes.get("broadcast"),
-                        preferred_lifetime=attributes.get("preferred-lifetime")
+                        preferred_lifetime=attributes.get("preferred-lifetime"),
+                        nodad=nodad
                     )
                 else:
-                    self.netlink.addr_add(ifname, ip)
+                    self.netlink.addr_add(ifname, ip, nodad=nodad)
         except Exception as e:
             self.log_error(str(e), ifaceobj)
 
