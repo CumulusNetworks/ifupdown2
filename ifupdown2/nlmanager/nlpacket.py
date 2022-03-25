@@ -3816,7 +3816,7 @@ class Address(NetlinkPacket):
         IFA_ANYCAST   : ('IFA_ANYCAST', AttributeIPAddress),
         IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeCACHEINFO),
         IFA_MULTICAST : ('IFA_MULTICAST', AttributeIPAddress),
-        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric),
+        IFA_FLAGS     : ('IFA_FLAGS', AttributeFourByteValue),
         IFA_RT_PRIORITY : ('IFA_RT_PRIORITY', AttributeFourByteValue)
     }
 
