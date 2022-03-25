@@ -3130,7 +3130,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
         self.log_info_ifname_dry_run(ifname, " ".join(log_msg))
 
-    def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
+    def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None, nodad=False):
         log_msg = ["%s: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
         log_msg_displayed = False
         try:
@@ -3154,6 +3154,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             packet.add_attribute(Address.IFA_ADDRESS, addr)
             packet.add_attribute(Address.IFA_LOCAL, addr)
+
+            if nodad:
+                log_msg.append("nodad")
+                packet.add_attribute(Address.IFA_FLAGS, Address.IFA_F_NODAD)
 
             if broadcast:
                 log_msg.append("broadcast %s" % broadcast)
