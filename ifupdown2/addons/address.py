@@ -1099,12 +1099,31 @@ class address(AddonWithIpBlackList, moduleBase):
         except subprocess.CalledProcessError as exc:
             self.logger.error('address: %s: could not settle dad %s', ifaceobj.name, str(exc))
 
+    def _get_ifaceobjs(self, ifaceobj, ifaceobj_getfunc):
+        squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
+        if not squash_addr_config:
+            return [ifaceobj]  # no squash, returns current ifaceobj
+        if not ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING:
+            return []  # when squash is present, work only on the youngest sibling
+        if ifaceobj.flags & iface.HAS_SIBLINGS:
+            return ifaceobj_getfunc(ifaceobj.name) # get sibling interfaces
+        return [ifaceobj]
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         gateways = ifaceobj.get_attr_value('gateway')
         if not gateways:
             gateways = []
         prev_gw = self._get_prev_gateway(ifaceobj, gateways)
         self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+        # settle dad
+        if not self.ipv6_dad_handling_enabled:
+            return
+        ifname = ifaceobj.name
+        ifaceobjs = self._get_ifaceobjs(ifaceobj, ifaceobj_getfunc)
+        addr_supported, user_addrs_list = self.__get_ip_addr_with_attributes(ifaceobjs, ifname)
+        if not addr_supported:
+            return
+        self._settle_dad(ifaceobj, [ip for ip, _ in user_addrs_list if ip.version == 6])
 
     def process_hwaddress(self, ifaceobj):
         hwaddress = self._get_hwaddress(ifaceobj)
