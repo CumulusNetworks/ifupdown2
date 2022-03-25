@@ -1077,12 +1077,30 @@ class address(AddonWithIpBlackList, moduleBase):
         if ip_addr_list('dadfailed'):
             self.logger.warning('address: %s: dad failure %s', ifaceobj.name, ip)
 
+    def _get_ifaceobjs(self, ifaceobj, ifaceobj_getfunc):
+        squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
+        if not squash_addr_config:
+            return [ifaceobj]  # no squash, returns current ifaceobj
+        if not ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING:
+            return []  # when squash is present, work only on the youngest sibling
+        if ifaceobj.flags & iface.HAS_SIBLINGS:
+            return ifaceobj_getfunc(ifaceobj.name) # get sibling interfaces
+        return [ifaceobj]
+
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         gateways = ifaceobj.get_attr_value('gateway')
         if not gateways:
             gateways = []
         prev_gw = self._get_prev_gateway(ifaceobj, gateways)
         self._add_delete_gateway(ifaceobj, gateways, prev_gw)
+        # settle dad
+        ifname = ifaceobj.name
+        ifaceobjs = self._get_ifaceobjs(ifaceobj, ifaceobj_getfunc)
+        addr_supported, user_addrs_list = self.__get_ip_addr_with_attributes(ifaceobjs, ifname)
+        if not addr_supported:
+            return  # nothing to do
+        for ipv6, attr in user_addrs_list:
+            self._settle_dad(ifaceobj, ipv6, attr)
 
     def process_hwaddress(self, ifaceobj):
         hwaddress = self._get_hwaddress(ifaceobj)
