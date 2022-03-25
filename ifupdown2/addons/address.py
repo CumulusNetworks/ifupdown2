@@ -524,7 +524,8 @@ class address(AddonWithIpBlackList, moduleBase):
                         scope=attributes.get("scope"),
                         peer=attributes.get("pointopoint"),
                         broadcast=attributes.get("broadcast"),
-                        preferred_lifetime=attributes.get("preferred-lifetime")
+                        preferred_lifetime=attributes.get("preferred-lifetime"),
+                        nodad=attributes.get('dad-attempts') == '0'
                     )
                 else:
                     self.netlink.addr_add(ifname, ip)
