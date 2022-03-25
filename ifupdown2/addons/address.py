@@ -68,6 +68,14 @@ class address(AddonWithIpBlackList, moduleBase):
                 'example': ['netmask 255.255.255.0'],
                 'compat': True
             },
+            'dad-attempts': {
+                'help': 'Number of attempts to settle DAD (0 to disable DAD). Default value: "60"',
+                'example': ['dad-attempts 0'],
+            },
+            'dad-interval': {
+                'help': 'DAD state polling interval in seconds. Default value: "0.1"',
+                'example': ['dad-interval 0.5'],
+            },
             'broadcast': {
                 'help': 'The broadcast address on the interface.',
                 'validvals': ['<ipv4>'],
