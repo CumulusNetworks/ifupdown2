@@ -5,8 +5,6 @@
 #
 
 import socket
-import json
-import time
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
@@ -67,14 +65,6 @@ class address(AddonWithIpBlackList, moduleBase):
                 'help': 'Address netmask',
                 'example': ['netmask 255.255.255.0'],
                 'compat': True
-            },
-            'dad-attempts': {
-                'help': 'Number of attempts to settle DAD (0 to disable DAD). Default value: "60"',
-                'example': ['dad-attempts 0'],
-            },
-            'dad-interval': {
-                'help': 'DAD state polling interval in seconds. Default value: "0.1"',
-                'example': ['dad-interval 0.5'],
             },
             'broadcast': {
                 'help': 'The broadcast address on the interface.',
@@ -487,15 +477,10 @@ class address(AddonWithIpBlackList, moduleBase):
                         else:
                             addr_obj = ipnetwork.IPNetwork(addr)
 
-                    for attr_name in ("broadcast", "scope", "preferred-lifetime", 'dad-attempts', 'dad-interval'):
+                    for attr_name in ("broadcast", "scope", "preferred-lifetime"):
                         attr_value = ifaceobj.get_attr_value_n(attr_name, index)
                         if attr_value:
                             addr_attributes[attr_name] = attr_value
-
-                    if addr_obj.version == 4 and any(dad in addr_attributes for dad in ('dad-attempts', 'dad-interval')):
-                        self.logger.warning("%s: dad options is only available for ipv6", ifaceobj.name)
-                        addr_attributes.pop('dad-attempts', None)
-                        addr_attributes.pop('dad-interval', None)
 
                     pointopoint = ifaceobj.get_attr_value_n("pointopoint", index)
                     try:
@@ -534,8 +519,7 @@ class address(AddonWithIpBlackList, moduleBase):
                         scope=attributes.get("scope"),
                         peer=attributes.get("pointopoint"),
                         broadcast=attributes.get("broadcast"),
-                        preferred_lifetime=attributes.get("preferred-lifetime"),
-                        nodad=attributes.get('dad-attempts') == '0'
+                        preferred_lifetime=attributes.get("preferred-lifetime")
                     )
                 else:
                     self.netlink.addr_add(ifname, ip)
@@ -1064,51 +1048,12 @@ class address(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
-    def _settle_dad(self, ifaceobj, ip, attr):
-        def ip_addr_list(what):
-            return json.loads(utils.exec_commandl([
-                'ip', '-j', '-o', '-6', 'address', 'list', 'dev',
-                ifaceobj.name, 'to', str(ip), what
-            ]))
-
-        interval = float(attr.get('dad-interval', '0.1'))  # 0.1: ifupdown default value
-        attempts = int(attr.get('dad-attempts', '60'))     # 60:  ifupdown default value
-        if ip.version == 4 or attempts == 0:
-            return
-        for _attempt in range(0, attempts):
-            if not ip_addr_list('tentative'):
-                break
-            time.sleep(interval)
-        else:
-            self.logger.warning('address: %s: dad timeout %s', ifaceobj.name, ip)
-            return
-        if ip_addr_list('dadfailed'):
-            self.logger.warning('address: %s: dad failure %s', ifaceobj.name, ip)
-
-    def _get_ifaceobjs(self, ifaceobj, ifaceobj_getfunc):
-        squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
-        if not squash_addr_config:
-            return [ifaceobj]  # no squash, returns current ifaceobj
-        if not ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING:
-            return []  # when squash is present, work only on the youngest sibling
-        if ifaceobj.flags & iface.HAS_SIBLINGS:
-            return ifaceobj_getfunc(ifaceobj.name) # get sibling interfaces
-        return [ifaceobj]
-
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
         gateways = ifaceobj.get_attr_value('gateway')
         if not gateways:
             gateways = []
         prev_gw = self._get_prev_gateway(ifaceobj, gateways)
         self._add_delete_gateway(ifaceobj, gateways, prev_gw)
-        # settle dad
-        ifname = ifaceobj.name
-        ifaceobjs = self._get_ifaceobjs(ifaceobj, ifaceobj_getfunc)
-        addr_supported, user_addrs_list = self.__get_ip_addr_with_attributes(ifaceobjs, ifname)
-        if not addr_supported:
-            return  # nothing to do
-        for ipv6, attr in user_addrs_list:
-            self._settle_dad(ifaceobj, ipv6, attr)
 
     def process_hwaddress(self, ifaceobj):
         hwaddress = self._get_hwaddress(ifaceobj)
