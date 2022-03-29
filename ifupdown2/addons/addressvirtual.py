@@ -442,8 +442,11 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 ifaceobj.set_status(ifaceStatus.ERROR)
                 continue
 
+            is_ip6 = False
             for ip in ips:
                 self.ip_blacklist_check(ifname, ip)
+                ip_network_obj = ipnetwork.IPNetwork(ip)
+                is_ip6 |= ip_network_obj.version == 6
 
             if not self.cache.link_exists(macvlan_ifname):
                 # When creating VRRP macvlan with bridge mode, the kernel
@@ -463,13 +466,16 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                     self.iproute2.link_set_master(macvlan_ifname, vrf_ifname)
 
             # If we are dealing with a VRRP macvlan we need to set protodown on
-            # and addrgenmode to NONE. A VRRP user only needs the VIP (which is
-            # explicitly configured) so addrgenmode should be NONE.
+            # and set addrgenmode appropriately. For IPv4, a VRRP user only
+            # needs the VIP (which is explicitly configured) so addrgenmode
+            # should be NONE. For IPv6, a unique link-local address is needed
+            # as the SIP for vrrp6 hellos, so addrgenmode should be RANDOM.
             if vrrp:
                 try:
+                    v6_ag_mode = Link.IN6_ADDR_GEN_MODE_RANDOM if is_ip6 else Link.IN6_ADDR_GEN_MODE_NONE
                     self.iproute2.link_set_ipv6_addrgen(
                         macvlan_ifname,
-                        Link.IN6_ADDR_GEN_MODE_NONE,
+                        v6_ag_mode,
                         link_created
                     )
                 except Exception as e:
