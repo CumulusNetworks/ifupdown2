@@ -421,6 +421,8 @@ class bond(Addon, moduleBase):
                             self.netlink.link_set_protodown_off(s)
                         except Exception as e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+                    elif ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND:
+                        self.netlink.link_set_protodown_off(s)
 
                     # ip link set $slave nomaster will set the slave admin down
                     # if the slave has an auto stanza, we should keep it admin up
