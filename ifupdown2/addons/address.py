@@ -187,6 +187,13 @@ class address(AddonWithIpBlackList, moduleBase):
                 'enable_l3_iface_forwarding_checks'
             )
         )
+        self.ipv6_dad_handling_enabled = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__,
+                'ipv6_dad_handling_enabled'
+            ),
+            default=False
+        )
 
         self.default_mtu = str(self.__policy_get_default_mtu())
         self.default_mgmt_intf_mtu = self.__policy_get_mgmt_intf_mtu()
