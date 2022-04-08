@@ -118,37 +118,36 @@ class policymanager():
         # make sure we have an index
         if (not ifname or not attr or not module_name):
             return None
+        driname = self._get_driver_name(ifname)
 
-        val = None
         # users can specify defaults to override the systemwide settings
         # look for user specific interface attribute iface_defaults first
-        try:
-            # looks for user specified value
-            val = self.user_policy_array[module_name]['iface_defaults'][ifname][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
-        try:
+        with suppress(TypeError, KeyError, IndexError):
+            # looks for user interface name specified value
+            return self.user_policy_array[module_name]['iface_defaults'][ifname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
+            # failing that, there may be a user driver default specified value
+            return self.user_policy_array[module_name]['driver_defaults'][driname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
             # failing that, there may be a user default for all intefaces
-            val = self.user_policy_array[module_name]['defaults'][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
-        try:
+            return self.user_policy_array[module_name]['defaults'][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
             # failing that, look for  system setting for the interface
-            val = self.system_policy_array[module_name]['iface_defaults'][ifname][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
-        try:
+            return self.system_policy_array[module_name]['iface_defaults'][ifname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
+            # failing that, look for system setting for the driver
+            return self.system_policy_array[module_name]['driver_defaults'][driname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
             # failing that, look for  system setting for all interfaces
-            val = self.system_policy_array[module_name]['defaults'][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
+            return self.system_policy_array[module_name]['defaults'][attr]
 
         # could not find any system or user default so return Non
-        return val
+        return None
 
     def _get_driver_name(self, ifname):
         ''' get_driver_name: get the driver name from an interface name '''
