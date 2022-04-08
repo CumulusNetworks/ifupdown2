@@ -28,9 +28,11 @@ Provides: an API to retrieve link attributes based on addon module name,
             )
 '''
 
+import os
 import json
 import glob
 import logging
+from contextlib import suppress
 
 
 class policymanager():
@@ -147,6 +149,13 @@ class policymanager():
 
         # could not find any system or user default so return Non
         return val
+
+    def _get_driver_name(self, ifname):
+        ''' get_driver_name: get the driver name from an interface name '''
+        with suppress(FileNotFoundError):
+            symlink = os.readlink(f'/sys/class/net/{ifname}/device/driver/module')
+            return os.path.basename(symlink)
+        return None
 
     def get_attr_default(self,module_name=None,attr=None):
         '''
