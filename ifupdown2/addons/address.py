@@ -1132,6 +1132,8 @@ class address(AddonWithIpBlackList, moduleBase):
         # settle dad
         if not self.ipv6_dad_handling_enabled:
             return
+        if not self.cache.link_exists(ifaceobj.name):
+            return
         ifname = ifaceobj.name
         ifaceobjs = self._get_ifaceobjs(ifaceobj, ifaceobj_getfunc)
         addr_supported, user_addrs_list = self.__get_ip_addr_with_attributes(ifaceobjs, ifname)
