@@ -157,6 +157,31 @@ class policymanager():
             return os.path.basename(symlink)
         return None
 
+    def get_driver_default(self, module_name=None, ifname=None, attr=None):
+        '''
+        get_driver_default: Addon modules must use one types of access methods to
+        the default configs.   In this method, we expect the default to be in
+
+        [module]['driver_defaults'][driver_name][attr]
+
+        We first check the user_policy_array and return that value. But if
+        the user did not specify an override, we use the system_policy_array.
+        '''
+        driname = self._get_driver_name(ifname)
+        # make sure we have an index
+        if None in (attr, module_name, driname):
+            return None
+
+        # users can specify defaults to override the systemwide settings
+        # look for user specific driver attribute driver_defaults first
+        with suppress(TypeError, KeyError, IndexError):
+            # looks for user specified value
+            return self.user_policy_array[module_name]['driver_defaults'][driname][attr]
+        with suppress(TypeError, KeyError, IndexError):
+            # failing that, look for system setting
+            return self.system_policy_array[module_name]['driver_defaults'][driname][attr]
+        return None
+
     def get_attr_default(self,module_name=None,attr=None):
         '''
         get_attr_default: Addon modules must use one of two types of access methods to
