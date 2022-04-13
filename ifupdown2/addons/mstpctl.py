@@ -111,7 +111,7 @@ class mstpctl(Addon, moduleBase):
             },
             "mstpctl-forcevers": {
                 "help": "bridge force stp version",
-                "validvals": ["rstp", ],
+                "validvals": ["rstp", "stp", "mstp"],
                 "default": "rstp",
                 "required": False,
                 "jsonAttr": "forceProtocolVersion",
