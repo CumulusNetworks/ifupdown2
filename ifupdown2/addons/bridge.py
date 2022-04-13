@@ -1670,7 +1670,43 @@ class bridge(Bridge, moduleBase):
             ret_pvid = None
         return (ret_vids, ret_pvid)
 
-    def _apply_bridge_vids_and_pvid(self, bportifaceobj, vids, pvid,
+    def config_check_bridge_vni_svi_limit(self, vxlan_brport_obj, ifaceobj_getfunc, pvid):
+        """
+        Multiple VXLANs can't be added to the same VLAN
+        """
+        ifname = vxlan_brport_obj.name
+
+        for intf in vxlan_brport_obj.upperifaces:
+            # find the bridge object to access the brport list
+
+            for obj in ifaceobj_getfunc(intf):
+                if obj.link_kind & ifaceLinkKind.BRIDGE:
+
+                    for brport_name in self._get_bridge_port_list(obj):
+                        # loop through the brports
+
+                        if ifname == brport_name:
+                            # ignore current brport
+                            continue
+
+                        for brport_obj in ifaceobj_getfunc(brport_name):
+                            # loop through brport ifaceobjs and check for vxlan bridge-access value
+
+                            if not brport_obj.link_kind & ifaceLinkKind.VXLAN:
+                                continue
+
+                            access = brport_obj.get_attr_value_first("bridge-access")
+                            if access == pvid:
+                                raise Exception(
+                                    "%s: misconfiguration detected: vlan \"%s\" added to two or more VXLANS (%s, %s)" % (
+                                        ifname,
+                                        access,
+                                        ifname,
+                                        brport_obj.name
+                                    )
+                                )
+
+    def _apply_bridge_vids_and_pvid(self, bportifaceobj, ifaceobj_getfunc, vids, pvid,
                                     isbridge):
         """ This method is a combination of methods _apply_bridge_vids and
             _apply_bridge_port_pvids above. A combined function is
@@ -1679,6 +1715,8 @@ class bridge(Bridge, moduleBase):
 
         """
         if not isbridge and (bportifaceobj.link_kind & ifaceLinkKind.VXLAN and not bportifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN):
+            self.config_check_bridge_vni_svi_limit(bportifaceobj, ifaceobj_getfunc, pvid)
+
             if not vids or not pvid or len(vids) > 1 or vids[0] != pvid:
                 self._error_vxlan_in_vlan_aware_br(bportifaceobj,
                                                    bportifaceobj.upperifaces[0])
@@ -1837,7 +1875,7 @@ class bridge(Bridge, moduleBase):
 
         return vids_list
 
-    def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj,
+    def _apply_bridge_vlan_aware_port_settings_all(self, bportifaceobj, ifaceobj_getfunc,
                                                    bridge_vids=None,
                                                    bridge_pvid=None):
         vids = None
@@ -1876,7 +1914,7 @@ class bridge(Bridge, moduleBase):
         else:
             pvid_final = None
 
-        self._apply_bridge_vids_and_pvid(bportifaceobj, vids_final,
+        self._apply_bridge_vids_and_pvid(bportifaceobj, ifaceobj_getfunc, vids_final,
                                          pvid_final, False)
 
     def _apply_bridge_port_settings_all(self, ifaceobj, ifaceobj_getfunc, bridge_vlan_aware):
@@ -1936,7 +1974,7 @@ class bridge(Bridge, moduleBase):
                     # Add attributes specific to the vlan aware bridge
                     if bridge_vlan_aware:
                         self._apply_bridge_vlan_aware_port_settings_all(
-                                bportifaceobj, bridge_vids, bridge_pvid)
+                                bportifaceobj, ifaceobj_getfunc, bridge_vids, bridge_pvid)
                     elif self.warn_on_untagged_bridge_absence:
                         self._check_untagged_bridge(ifaceobj.name, bportifaceobj, ifaceobj_getfunc)
                 except exceptions.ReservedVlanException as e:
@@ -1979,7 +2017,7 @@ class bridge(Bridge, moduleBase):
         bridge_vids = self._get_bridge_vids(bridge_name, ifaceobj_getfunc)
         bridge_pvid = self._get_bridge_pvid(bridge_name, ifaceobj_getfunc)
         try:
-            self._apply_bridge_vlan_aware_port_settings_all(ifaceobj, bridge_vids, bridge_pvid)
+            self._apply_bridge_vlan_aware_port_settings_all(ifaceobj, ifaceobj_getfunc, bridge_vids, bridge_pvid)
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
             return
