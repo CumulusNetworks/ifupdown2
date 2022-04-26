@@ -593,7 +593,7 @@ class _NetlinkCache:
         except (KeyError, TypeError):
             # ifname is not present in the cache
             return False
-        except TypeError as e:
+        except Exception as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
 
     def link_is_loopback(self, ifname):
