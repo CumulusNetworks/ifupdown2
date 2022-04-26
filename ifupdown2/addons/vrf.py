@@ -937,7 +937,7 @@ class vrf(Addon, moduleBase):
         try:
             ifindex = self.cache.get_ifindex(ifacename)
         except Exception as e:
-            self.logger.debug("%s: vrf: close sockets error: %s" % str(e))
+            self.logger.debug("%s: vrf: close sockets error: %s" % (ifacename, str(e)))
             ifindex = 0
 
         if not ifindex:
