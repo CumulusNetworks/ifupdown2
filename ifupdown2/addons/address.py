@@ -1102,6 +1102,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 tentative = ip_addr_list('tentative')
                 if all(str(ip) not in tentative for ip in ips):
                     break
+                self.logger.info("%s: dad-interval: sleeping for %s" % (ifaceobj.name, interval))
                 time.sleep(interval)
             else:
                 timeout = ','.join(ip for ip in ips if str(ip) not in tentative)
