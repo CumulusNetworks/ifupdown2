@@ -9,6 +9,7 @@
 import os
 
 try:
+    from ifupdown2.nlmanager.ipnetwork import IPv4Address
     from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
 
@@ -21,6 +22,7 @@ try:
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except (ImportError, ModuleNotFoundError):
+    from nlmanager.ipnetwork import IPv4Address
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
@@ -76,6 +78,17 @@ class bond(Addon, moduleBase):
                 "validrange": ["0", "255"],
                 "default": "0",
                 "example": ["bond-miimon 0"]
+            },
+            "bond-arp-interval": {
+                "help": "bond arp interval (only mode 0 and 2)",
+                "default": "0",
+                "example": ["bond-arp_interval 0"]
+            },
+            "bond-arp-ip-target": {
+                "help": "ipv4 addresses maximum 16",
+                "validvals": ["<ipv4>"],
+                "multiline": True,
+                "example": ["bond-arp-ip-target 10.0.12.3"]
             },
             "bond-mode": {
                 "help": "bond mode",
@@ -184,6 +197,8 @@ class bond(Addon, moduleBase):
     _bond_attr_netlink_map = {
         'bond-mode': Link.IFLA_BOND_MODE,
         'bond-miimon': Link.IFLA_BOND_MIIMON,
+        'bond-arp-interval': Link.IFLA_BOND_ARP_INTERVAL,
+        'bond-arp-ip-target': Link.IFLA_BOND_ARP_IP_TARGET,
         'bond-use-carrier': Link.IFLA_BOND_USE_CARRIER,
         'bond-lacp-rate': Link.IFLA_BOND_AD_LACP_RATE,
         'bond-xmit-hash-policy': Link.IFLA_BOND_XMIT_HASH_POLICY,
@@ -207,6 +222,8 @@ class bond(Addon, moduleBase):
     _bond_attr_ifquery_check_translate_func = {
         Link.IFLA_BOND_MODE: lambda x: Link.ifla_bond_mode_tbl[x],
         Link.IFLA_BOND_MIIMON: int,
+        Link.IFLA_BOND_ARP_INTERVAL: int,
+        Link.IFLA_BOND_ARP_IP_TARGET: lambda x: [IPv4Address(ip) for ip in x],
         Link.IFLA_BOND_USE_CARRIER: utils.get_boolean_from_string,
         Link.IFLA_BOND_AD_LACP_RATE: lambda x: int(utils.get_boolean_from_string(x)),
         Link.IFLA_BOND_XMIT_HASH_POLICY: lambda x: Link.ifla_bond_xmit_hash_policy_tbl[x],
@@ -228,6 +245,7 @@ class bond(Addon, moduleBase):
         ('bond-mode', Link.IFLA_BOND_MODE, lambda x: Link.ifla_bond_mode_tbl[x]),
         ('bond-xmit-hash-policy', Link.IFLA_BOND_XMIT_HASH_POLICY, lambda x: Link.ifla_bond_xmit_hash_policy_tbl[x]),
         ('bond-miimon', Link.IFLA_BOND_MIIMON, int),
+        ('bond-arp-interval', Link.IFLA_BOND_ARP_INTERVAL, int),
         ('bond-min-links', Link.IFLA_BOND_MIN_LINKS, int),
         ('bond-num-grat-arp', Link.IFLA_BOND_NUM_PEER_NOTIF, int),
         ('bond-num-unsol-na', Link.IFLA_BOND_NUM_PEER_NOTIF, int),
@@ -558,6 +576,7 @@ class bond(Addon, moduleBase):
         # for each bond attribute we fetch the user configuration
         # if no configuration is provided we look for a config in policy files
         for attr_name, netlink_attr, func_ptr in self._bond_attr_set_list:
+
             cached_value        = None
             user_config         = ifaceobj.get_attr_value_first(attr_name)
 
@@ -616,6 +635,60 @@ class bond(Addon, moduleBase):
         self._check_bond_mode_user_config(ifname, link_exists, ifla_info_data)
         return ifla_info_data
 
+    def check_miimon_arp(self, link_exists, ifaceobj, ifla_info_data):
+        """
+            Check bond checks either miimon or arp ip check
+        """
+        # miimon
+        ifla_bond_miimon = ifla_info_data.get(Link.IFLA_BOND_MIIMON)
+        if link_exists and ifla_bond_miimon is None:
+            ifla_bond_miimon = self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_BOND_MIIMON)
+
+        if ifla_bond_miimon:
+            ifla_bond_miimon = str(ifla_bond_miimon)
+
+        # bond mode
+        ifla_bond_mode = ifla_info_data.get(Link.IFLA_BOND_MODE)
+        if link_exists and ifla_bond_mode is None:
+            ifla_bond_mode = self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_BOND_MODE)
+
+        ifla_bond_mode = str(ifla_bond_mode)
+
+        # arp interval
+        ifla_arp_interval = ifla_info_data.get(Link.IFLA_BOND_ARP_INTERVAL)
+        if link_exists and ifla_arp_interval is None:
+            ifla_arp_interval = self.cache.get_link_info_data_attribute(ifaceobj.name, Link.IFLA_BOND_ARP_INTERVAL)
+
+        if ifla_arp_interval:
+            ifla_arp_interval = str(ifla_arp_interval)
+
+        # arp ip target
+        ifla_arp_ip_target = ifaceobj.get_attr_value('bond-arp-ip-target')
+        if ifla_arp_ip_target:
+            ifla_arp_ip_target = [IPv4Address(ip) for ip in ifla_arp_ip_target]
+
+        if ifla_arp_ip_target:
+            ifla_info_data[Link.IFLA_BOND_ARP_IP_TARGET] = ifla_arp_ip_target
+
+        # Only works in mode 0 and 2
+        if ifla_bond_mode not in ['0', '2', 'balance-rr', 'balance-xor']:
+            if Link.IFLA_BOND_ARP_INTERVAL in ifla_info_data:
+                self.logger.info('%s: bond arp interval/ip only works in balance-rr and balance-xor mode. Option bond-arp-interval is ignored' % ifaceobj.name)
+                del ifla_info_data[Link.IFLA_BOND_ARP_INTERVAL]
+            if Link.IFLA_BOND_ARP_IP_TARGET in ifla_info_data:
+                self.logger.info('%s: bond arp interval/ip only works in balance-rr and balance-xor mode. Option bond-arp-ip-target is ignored' % ifaceobj.name)
+                del ifla_info_data[Link.IFLA_BOND_ARP_IP_TARGET]
+
+        if ifla_bond_miimon and ifla_bond_miimon != '0' and Link.IFLA_BOND_ARP_INTERVAL in ifla_info_data:
+            self.logger.info('%s: bond arp interval and bond miimon are set. The options are mutually exclusive and bond-arp-interval is ignored' % ifaceobj.name)
+            del ifla_info_data[Link.IFLA_BOND_ARP_INTERVAL]
+
+        if ifla_arp_interval and ifla_arp_interval != '0' and Link.IFLA_BOND_MIIMON in ifla_info_data:
+            self.logger.info('%s: bond arp interval and bond miimon are set. The options are mutually exclusive and bond-miimon is ignored' % ifaceobj.name)
+            del ifla_info_data[Link.IFLA_BOND_MIIMON]
+
+        return ifla_info_data
+
     _bond_down_nl_attributes_list = (
         Link.IFLA_BOND_MODE,
         Link.IFLA_BOND_XMIT_HASH_POLICY,
@@ -668,6 +741,7 @@ class bond(Addon, moduleBase):
         ifname          = ifaceobj.name
         link_exists, is_link_up = self.cache.link_exists_and_up(ifname)
         ifla_info_data  = self.get_ifla_bond_attr_from_user_config(ifaceobj, link_exists)
+        ifla_info_data = self.check_miimon_arp(link_exists, ifaceobj, ifla_info_data)
 
         remove_delay_from_cache = self.check_updown_delay_nl(link_exists, ifaceobj, ifla_info_data)
 
@@ -867,6 +941,8 @@ class bond(Addon, moduleBase):
         bond_attrs = {
             'bond-mode': Link.ifla_bond_mode_pretty_tbl.get(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MODE)),
             'bond-miimon': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MIIMON),
+            'bond-arp-interval': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_ARP_INTERVAL),
+            'bond-arp-ip-target': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_ARP_IP_TARGET),
             'bond-use-carrier': self.translate_nl_value_yesno(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_USE_CARRIER)),
             'bond-lacp-rate': self.translate_nl_value_slowfast(cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_AD_LACP_RATE)),
             'bond-min-links': cached_vxlan_ifla_info_data.get(Link.IFLA_BOND_MIN_LINKS),
