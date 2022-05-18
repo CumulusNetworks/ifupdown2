@@ -66,7 +66,7 @@ class dhcp(Addon, moduleBase):
         if self.dhclient_retry_on_failure < 0:
             self.dhclient_retry_on_failure = 0
 
-        self.logger.info("dhclient: dhclient_retry_on_failure set to %s" % self.dhclient_retry_on_failure)
+        self.logger.debug("dhclient: dhclient_retry_on_failure set to %s" % self.dhclient_retry_on_failure)
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
