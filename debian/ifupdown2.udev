@@ -2,4 +2,4 @@
 KERNEL=="rfkill", MODE="0664", GROUP="netdev"
 
 # Handle allow-hotplug interfaces
-SUBSYSTEM=="net", ACTION=="add|remove", RUN+="ifupdown-hotplug"
+SUBSYSTEM=="net", ACTION=="add|remove", RUN+="ifupdown2-hotplug"
