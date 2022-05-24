@@ -223,7 +223,7 @@ class bond(Addon, moduleBase):
         Link.IFLA_BOND_MODE: lambda x: Link.ifla_bond_mode_tbl[x],
         Link.IFLA_BOND_MIIMON: int,
         Link.IFLA_BOND_ARP_INTERVAL: int,
-        Link.IFLA_BOND_ARP_IP_TARGET: lambda x: [IPv4Address(ip) for ip in x],
+        Link.IFLA_BOND_ARP_IP_TARGET: lambda x: [IPv4Address(x)],
         Link.IFLA_BOND_USE_CARRIER: utils.get_boolean_from_string,
         Link.IFLA_BOND_AD_LACP_RATE: lambda x: int(utils.get_boolean_from_string(x)),
         Link.IFLA_BOND_XMIT_HASH_POLICY: lambda x: Link.ifla_bond_xmit_hash_policy_tbl[x],
