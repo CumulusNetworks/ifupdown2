@@ -711,6 +711,14 @@ class bridge(Bridge, moduleBase):
             default=True
         )
 
+        self.allow_vlan_sub_interface_in_vlan_aware_bridge = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="allow-vlan-sub-interface-in-vlan-aware-bridge"
+            ),
+            default=True
+        )
+
         self.bridge_vxlan_arp_nd_suppress = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
                 module_name=self.__class__.__name__,
@@ -958,11 +966,12 @@ class bridge(Bridge, moduleBase):
             result = True
             for port_name in ports:
                 port_obj_l = ifaceobj_getfunc(port_name)
-                if port_obj_l and port_obj_l[0].link_kind & ifaceLinkKind.VLAN:
-                    self.logger.error('%s: %s: vlan sub-interface is not '
-                                      'supported in a vlan-aware bridge'
-                                      % (ifaceobj.name, port_name))
-                    result = False
+                if not self.allow_vlan_sub_interface_in_vlan_aware_bridge:
+                    if port_obj_l and port_obj_l[0].link_kind & ifaceLinkKind.VLAN:
+                        self.logger.error('%s: %s: vlan sub-interface is not '
+                                          'supported in a vlan-aware bridge'
+                                          % (ifaceobj.name, port_name))
+                        result = False
                 if (port_obj_l and
                     port_obj_l[0].get_attr_value('bridge-arp-nd-suppress') and
                     self.arp_nd_suppress_only_on_vxlan and
