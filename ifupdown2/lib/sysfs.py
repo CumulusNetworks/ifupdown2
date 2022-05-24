@@ -46,6 +46,8 @@ class __Sysfs(IO, Requirements):
     __bond_netlink_to_sysfs_attr_map = {
         Link.IFLA_BOND_MODE: "mode",
         Link.IFLA_BOND_MIIMON: "miimon",
+        Link.IFLA_BOND_ARP_INTERVAL: 'arp-interval',
+        Link.IFLA_BOND_ARP_IP_TARGET: 'arp-ip-target',
         Link.IFLA_BOND_USE_CARRIER: "use_carrier",
         Link.IFLA_BOND_AD_LACP_RATE: "lacp_rate",
         Link.IFLA_BOND_XMIT_HASH_POLICY: "xmit_hash_policy",

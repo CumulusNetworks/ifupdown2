@@ -163,6 +163,8 @@ RT_SCOPES = {
 
 AF_MPLS = 28
 
+BOND_MAX_ARP_TARGETS = 16
+
 
 AF_FAMILY = dict()
 
@@ -1096,6 +1098,18 @@ class Attribute(object):
         return ifla_bond_ad_info
 
     @staticmethod
+    def decode_bond_ad_arp_ip_target(data, info_data_end):
+        ifla_bond_ad_arp_ip_target = []
+        arp_attr_data = data[4:info_data_end]
+
+        while arp_attr_data and len(arp_attr_data) >= 8:
+            arp_ip = ipnetwork.IPv4Address(unpack('>L', arp_attr_data[4:8])[0])
+            ifla_bond_ad_arp_ip_target.append(arp_ip)
+            arp_attr_data = arp_attr_data[8:]
+
+        return ifla_bond_ad_arp_ip_target
+
+    @staticmethod
     def decode_vlan_protocol_attribute(data, _=None):
         return Link.ifla_vlan_protocol_dict.get(unpack(">H", data[4:6])[0])
 
@@ -1272,6 +1286,28 @@ class Attribute(object):
 
         sub_attr_payload.append(vlan_flags)
         sub_attr_payload.append(vlan_flags_mask)
+
+    @staticmethod
+    def encode_bond_ad_arp_ip_target(sub_attr_pack_layout, sub_attr_payload, info_data_type, info_data_value):
+
+        if len(info_data_value) > BOND_MAX_ARP_TARGETS:
+            info_data_value = info_data_value[:BOND_MAX_ARP_TARGETS]
+
+        sub_attr_pack_layout.append('HH')
+        sub_attr_payload.append(8*len(info_data_value) + 4)  # length
+        sub_attr_payload.append(info_data_type)
+
+        counter = 0
+
+        for ip in info_data_value:
+            # Fix this pack
+            sub_attr_pack_layout.append('HH')
+            sub_attr_payload.append(8)  # length
+            sub_attr_payload.append(counter)
+            # The IP
+            sub_attr_pack_layout.append('4s')
+            sub_attr_payload.append(struct.pack('>L', int(ip.ip)))
+            counter += 1
 
 
 class AttributeCACHEINFO(Attribute):
@@ -2173,12 +2209,16 @@ class AttributeIFLA_LINKINFO(Attribute):
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_DOWNDELAY: Attribute.decode_four_bytes_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MIN_LINKS: Attribute.decode_four_bytes_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_PRIMARY: Attribute.decode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_ARP_INTERVAL: Attribute.decode_four_bytes_attribute,
 
                 # mac address attributes #######################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYSTEM: Attribute.decode_mac_address_attribute,
 
                 # bond ad info attribute #######################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_INFO: Attribute.decode_bond_ad_info_attribute,
+
+                # bond arp ip target attribute #######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_ARP_IP_TARGET: Attribute.decode_bond_ad_arp_ip_target,
             },
             "vlan": {
                 # 2 bytes attributes ###########################################
@@ -2593,9 +2633,13 @@ class AttributeIFLA_LINKINFO(Attribute):
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_DOWNDELAY: Attribute.encode_four_bytes_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_MIN_LINKS: Attribute.encode_four_bytes_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_PRIMARY: Attribute.encode_four_bytes_attribute,
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_ARP_INTERVAL: Attribute.encode_four_bytes_attribute,
 
                 # mac address attribute ########################################
-                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYSTEM: Attribute.encode_mac_address_attribute
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_AD_ACTOR_SYSTEM: Attribute.encode_mac_address_attribute,
+
+                # arp ip target attribute #######################################
+                NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_BOND_ARP_IP_TARGET: Attribute.encode_bond_ad_arp_ip_target
             },
             "vrf": {
                 # 4 bytes attributes ###########################################
