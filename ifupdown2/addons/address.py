@@ -525,9 +525,9 @@ class address(AddonWithIpBlackList, moduleBase):
         nodad = False
         if self.ipv6_dad_handling_enabled:
             nodad = ifaceobj.get_attr_value_first('dad-attempts') == '0'
-        try:
-            for ip, attributes in user_config_ip_addrs:
 
+        for ip, attributes in user_config_ip_addrs:
+            try:
                 if ip.version == 6 and ipv6_is_disabled is None:
                     # check (only once) if ipv6 is disabled on this device
                     proc_path = "/proc/sys/net/ipv6/conf/%s/disable_ipv6" % ifname
@@ -551,8 +551,8 @@ class address(AddonWithIpBlackList, moduleBase):
                     )
                 else:
                     self.netlink.addr_add(ifname, ip, nodad=nodad)
-        except Exception as e:
-            self.log_error(str(e), ifaceobj)
+            except Exception as e:
+                self.log_error(str(e), ifaceobj, raise_error=False)
 
     @staticmethod
     def __add_loopback_anycast_ip_to_running_ip_addr_list(ifaceobjlist):
