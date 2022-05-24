@@ -96,12 +96,16 @@ class dhcp(Addon, moduleBase):
             pass
         return ips
 
-    def dhclient_start_and_check(self, ifname, family, handler, **handler_kwargs):
+    def dhclient_start_and_check(self, ifname, family, handler, wait=True, **handler_kwargs):
         ip_config_before = self.get_current_ip_configured(ifname, family)
         retry = self.dhclient_retry_on_failure
 
         while retry >= 0:
-            handler(ifname, **handler_kwargs)
+            handler(ifname, wait=wait, **handler_kwargs)
+            if not wait:
+                # In most case, the client won't have the time to find anything
+                # with the wait=False param.
+                return
             retry = self.dhclient_check(ifname, family, ip_config_before, retry, handler_kwargs.get("cmd_prefix"))
 
     def dhclient_check(self, ifname, family, ip_config_before, retry, dhclient_cmd_prefix):
