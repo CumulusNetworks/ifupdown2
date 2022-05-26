@@ -210,7 +210,7 @@ class LogManager:
     @staticmethod
     def __create_dir(path):
         if not os.path.isdir(path):
-            os.mkdir(path, mode=0o400)
+            os.mkdir(path)
 
     def set_level(self, default, error=False, warning=False, info=False, debug=False):
         """
