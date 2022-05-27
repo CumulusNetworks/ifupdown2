@@ -9,6 +9,8 @@ import json
 import time
 import subprocess
 
+from distutils.util import strtobool
+
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
     from ifupdown2.nlmanager.nlmanager import Link
@@ -226,8 +228,20 @@ class address(AddonWithIpBlackList, moduleBase):
                 module_name=self.__class__.__name__,
                 attr='l3_intf_arp_accept'
             ),
-            default=False
+            default=0
         )
+
+        try:
+            l3_intf_arp_accept_str = policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="l3_intf_arp_accept"
+            )
+            try:
+                self.l3_intf_arp_accept = int(l3_intf_arp_accept_str)
+            except:
+                self.l3_intf_arp_accept = int(strtobool(l3_intf_arp_accept_str))
+        except:
+            self.l3_intf_arp_accept = 0
 
         self.l3_intf_default_gateway_set_onlink = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -441,7 +455,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 if self.l3_intf_arp_accept:
                     if up:
                         self.write_file('/proc/sys/net/ipv4/conf/%s' % ifaceobj.name +
-                                        '/arp_accept', '1')
+                                        '/arp_accept', str(self.l3_intf_arp_accept))
                     else:
                         self.write_file('/proc/sys/net/ipv4/conf/%s' % ifaceobj.name +
                                         '/arp_accept', '0')
