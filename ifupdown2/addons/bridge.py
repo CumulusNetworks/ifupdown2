@@ -1284,7 +1284,7 @@ class bridge(Bridge, moduleBase):
                 if (not ifupdownflags.flags.DRYRUN and
                     not self.cache.link_exists(bridgeport)):
                     self.log_error('%s: bridge port %s does not exist'
-                                   %(ifaceobj.name, bridgeport), ifaceobj)
+                                   %(ifaceobj.name, bridgeport), ifaceobj, raise_error=False)
                     err += 1
                     continue
                 hwaddress = self.cache.get_link_address(bridgeport)

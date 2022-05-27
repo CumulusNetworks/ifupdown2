@@ -93,26 +93,41 @@ class moduleBase(object):
     def log_warn(self, str, ifaceobj=None):
         """ log a warning if err str is not one of which we should ignore """
         if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
-            if self.logger.getEffectiveLevel() == logging.DEBUG:
-                traceback.print_stack()
-                traceback.print_exc()
-            self.logger.warning(str)
+
             if ifaceobj:
                 ifaceobj.set_status(ifaceStatus.WARNING)
-        pass
 
-    def log_error(self, str, ifaceobj=None, raise_error=True):
+            # we can't use logger.getEffectiveLevel or logger.level because
+            # the root logger has level NOTSET, and each logging handler logs
+            # at different level.
+            stack = traceback.format_stack()
+            format = traceback.format_exc()
+
+            self.logger.debug("%s" % " ".join(stack)[:-1])
+            self.logger.debug("%s" % format[:-1])
+
+            self.logger.warning(str)
+
+    def log_error(self, msg, ifaceobj=None, raise_error=True):
         """ log an err if err str is not one of which we should ignore and raise an exception """
-        if not self.ignore_error(str) and not ifupdownflags.flags.IGNORE_ERRORS:
-            if self.logger.getEffectiveLevel() == logging.DEBUG:
-                traceback.print_stack()
-                traceback.print_exc()
+        if not self.ignore_error(msg) and not ifupdownflags.flags.IGNORE_ERRORS:
+
+            if ifaceobj:
+                ifaceobj.set_status(ifaceStatus.ERROR)
+
+            # we can't use logger.getEffectiveLevel or logger.level because
+            # we have the root logger has level NOTSET, and each logging handler
+            # logs at different level.
+            stack = traceback.format_stack()
+            format = traceback.format_exc()
+
+            self.logger.debug("%s" % " ".join(stack)[:-1])
+            self.logger.debug("%s" % format[:-1])
+
             if raise_error:
-                if ifaceobj:
-                    ifaceobj.set_status(ifaceStatus.ERROR)
-                raise Exception(str)
+                raise Exception(msg)
             else:
-                self.logger.error(str)
+                self.logger.error(msg)
         else:
             pass
 
