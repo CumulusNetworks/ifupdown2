@@ -749,11 +749,16 @@ class bond(Addon, moduleBase):
         link_exists, is_link_up = self.cache.link_exists_and_up(ifname)
         ifla_info_data  = self.get_ifla_bond_attr_from_user_config(ifaceobj, link_exists)
         ifla_info_data = self.check_miimon_arp(link_exists, ifaceobj, ifla_info_data)
+        ifla_master = None
 
         remove_delay_from_cache = self.check_updown_delay_nl(link_exists, ifaceobj, ifla_info_data)
 
         # if link exists: down link if specific attributes are specified
         if link_exists:
+            # if bond already exists we need to set IFLA_MASTER to the cached value otherwise
+            # we might loose some information in the cache due to some optimization.
+            ifla_master = self.cache.get_link_attribute(ifname, Link.IFLA_MASTER)
+
             # did bond-mode changed?
             is_link_up, bond_slaves = self.should_update_bond_mode(
                 ifaceobj,
@@ -777,7 +782,7 @@ class bond(Addon, moduleBase):
             self.logger.info('%s: already exists, no change detected' % ifname)
         else:
             try:
-                self.netlink.link_add_bond_with_info_data(ifname, ifla_info_data)
+                self.netlink.link_add_bond_with_info_data(ifname, ifla_master, ifla_info_data)
             except Exception as e:
                 # defensive code
                 # if anything happens, we try to set up the bond with the sysfs api
