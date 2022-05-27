@@ -223,7 +223,7 @@ class bond(Addon, moduleBase):
         Link.IFLA_BOND_MODE: lambda x: Link.ifla_bond_mode_tbl[x],
         Link.IFLA_BOND_MIIMON: int,
         Link.IFLA_BOND_ARP_INTERVAL: int,
-        Link.IFLA_BOND_ARP_IP_TARGET: lambda x: [IPv4Address(x)],
+        Link.IFLA_BOND_ARP_IP_TARGET: lambda x: [IPv4Address(ip) for ip in x],
         Link.IFLA_BOND_USE_CARRIER: utils.get_boolean_from_string,
         Link.IFLA_BOND_AD_LACP_RATE: lambda x: int(utils.get_boolean_from_string(x)),
         Link.IFLA_BOND_XMIT_HASH_POLICY: lambda x: Link.ifla_bond_xmit_hash_policy_tbl[x],
@@ -915,6 +915,28 @@ class bond(Addon, moduleBase):
             self._query_check_bond_slaves(ifaceobjcurr, 'bond-ports', user_bond_slaves, running_bond_slaves)
         except Exception:
             pass
+        try:
+            attr = 'bond-arp-ip-target'
+            nl_attr         = self._bond_attr_netlink_map[attr]
+            translate_func  = self._bond_attr_ifquery_check_translate_func[nl_attr]
+            current_config  = self.cache.get_link_info_data_attribute(ifaceobj.name, nl_attr)
+            user_config     = ifaceobj.get_attr_value(attr)
+
+            del iface_attrs[iface_attrs.index('bond-arp-ip-target')]
+
+            current_config = [str(c.ip) for c in current_config]
+            user_config = [str(u) for u in user_config]
+
+            difference = list(set(current_config).symmetric_difference(user_config))
+            intersection = list(set(current_config).intersection(user_config))
+
+            for ip in difference:
+                ifaceobjcurr.update_config_with_status(attr, ip, 1)
+
+            for ip in intersection:
+                ifaceobjcurr.update_config_with_status(attr, ip, 0)
+        except Exception:
+            pass
 
         for attr in iface_attrs:
             nl_attr         = self._bond_attr_netlink_map[attr]
@@ -972,6 +994,10 @@ class bond(Addon, moduleBase):
         bond_attrs = self._query_running_attrs(ifaceobjrunning.name)
         if bond_attrs.get('bond-slaves'):
             bond_attrs['bond-slaves'] = ' '.join(bond_attrs.get('bond-slaves'))
+        if bond_attrs.get('bond-arp-ip-target'):
+            for ip in bond_attrs.get('bond-arp-ip-target'):
+                ifaceobjrunning.update_config('bond-arp-ip-target', str(ip.ip))
+            del bond_attrs['bond-arp-ip-target']
 
         [ifaceobjrunning.update_config(k, str(v))
          for k, v in list(bond_attrs.items())
