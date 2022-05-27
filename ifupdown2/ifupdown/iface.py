@@ -93,7 +93,8 @@ class ifaceLinkPrivFlags():
     SINGLE_VXLAN                            = 0b000000000001000000000
     ES_BOND                                 = 0b000000000010000000000
     BRIDGE_l3VNI                            = 0b000000000100000000000
-    OPENVSWITCH                             = 0b000000001000000000000
+    L3VXI                                   = 0b000000001000000000000
+    OPENVSWITCH                             = 0b000000010000000000000
 
     @classmethod
     def get_str(cls, flag):
@@ -128,6 +129,12 @@ class ifaceLinkPrivFlags():
 
         if flag & cls.OPENVSWITCH:
             string_list.append("openvswitch interface")
+
+        if flag & cls.BRIDGE_l3VNI:
+            string_list.append("bridge l3vni")
+
+        if flag & cls.L3VXI:
+            string_list.append("l3vxi")
 
         return ", ".join(string_list)
 

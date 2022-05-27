@@ -140,6 +140,11 @@ class vxlan(Vxlan, moduleBase):
                 "help": "whether to perform checksumming or not",
                 "validvals": ["yes", "no"],
                 "example": ["vxlan-udp-csum no"]
+            },
+            "vxlan-vni": {
+                "help": "L3 VxLAN interface (vni list and range are supported)",
+                "validvals": ["<number>"],
+                "example": ["vxlan-vni 42"]
             }
         }
     }
@@ -217,6 +222,8 @@ class vxlan(Vxlan, moduleBase):
             ifaceobj.link_kind |= ifaceLinkKind.VXLAN
             self._set_global_local_ip(ifaceobj)
 
+            self.__check_and_tag_l3vxi(ifaceobj)
+
             if not old_ifaceobjs and not self.tvd_svd_mix_support:
                 # mixing TVD and SVD is not supported - we need to warn the user
                 # we use a dictionary to make sure to only warn once and prevent each
@@ -230,6 +237,8 @@ class vxlan(Vxlan, moduleBase):
                             "%s: mixing single-vxlan-device with tradional %s is not supported (TVD: %s)"
                             % (ifaceobj.name, "vxlans" if len(self.traditional_vxlan_configured) > 1 else "vxlan", ", ".join(self.traditional_vxlan_configured))
                         )
+                elif ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
+                    pass
                 else:
                     self.traditional_vxlan_configured.add(ifaceobj.name)
 
@@ -264,6 +273,14 @@ class vxlan(Vxlan, moduleBase):
 
         return None
 
+    def __check_and_tag_l3vxi(self, ifaceobj):
+        if ifaceobj.get_attr_value_first("vxlan-vni"):
+            # to validate the l3vxi interface we need to see the vrf attribute
+            if ifaceobj.get_attr_value_first("vrf"):
+                ifaceobj.link_privflags |= ifaceLinkPrivFlags.L3VXI
+            else:
+                self.logger.warning("%s: l3vxi misconfiguration? missing `vrf` attribute" % ifaceobj.name)
+
     def _set_global_local_ip(self, ifaceobj):
         vxlan_local_tunnel_ip = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
         if vxlan_local_tunnel_ip and not self._vxlan_local_tunnelip:
@@ -273,7 +290,9 @@ class vxlan(Vxlan, moduleBase):
     def _is_vxlan_device(ifaceobj):
         return ifaceobj.link_kind & ifaceLinkKind.VXLAN \
                or ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN \
+               or ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI \
                or ifaceobj.get_attr_value_first("vxlan-id") \
+               or ifaceobj.get_attr_value_first("vxlan-vni") \
                or ifaceobj.get_attr_value_first("bridge-vlan-vni-map")
 
     def __get_vlxan_purge_remotes(self, ifaceobj):
@@ -1040,13 +1059,22 @@ class vxlan(Vxlan, moduleBase):
         if err:
             self.log_error(err, ifaceobj)
 
+    def __get_vxlan_vni_list(self, ifaceobj, string=True):
+        vxlan_vni_str = self.__get_vxlan_attribute(ifaceobj, "vxlan-vni")
+
+        if vxlan_vni_str:
+            # validate range but return string to be used in bridge vni add cmd
+            vxlan_vni_range = utils.ranges_to_ints(vxlan_vni_str.split())
+            return vxlan_vni_str if string else vxlan_vni_range
+
+        return None
 
     def _up(self, ifaceobj):
         self.check_and_raise_svd_tvd_errors(ifaceobj)
 
         vxlan_id_str = ifaceobj.get_attr_value_first("vxlan-id")
 
-        if not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and not vxlan_id_str:
+        if not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and not ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI and not vxlan_id_str:
             self.logger.warning("%s: missing vxlan-id attribute on vxlan device" % ifaceobj.name)
             return
 
@@ -1083,6 +1111,8 @@ class vxlan(Vxlan, moduleBase):
         self.__config_vxlan_tos(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_udp_csum(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
+
+        vxlan_vni = self.__get_vxlan_vni_list(ifaceobj)
 
         vxlan_mcast_grp = self.__get_vxlan_attribute(ifaceobj, "vxlan-mcastgrp")
         vxlan_svcnodeip = self.__get_vxlan_attribute(ifaceobj, "vxlan-svcnodeip")
@@ -1147,6 +1177,20 @@ class vxlan(Vxlan, moduleBase):
                         vxlan_vnifilter,
                         vxlan_ttl
                     )
+                elif ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
+                    self.iproute2.link_add_l3vxi(
+                        link_exists,
+                        ifname,
+                        local.ip if local else None,
+                        group.ip if group else None,
+                        vxlan_physdev,
+                        user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
+                        vxlan_ttl
+                    )
+                    try:
+                        self.iproute2.bridge_vni_add(ifname, vxlan_vni)
+                    except Exception as e:
+                        self.logger.warning("%s: l3 vxlan vni failure: %s" % (ifname, e))
                 else:
                     try:
                         if flap_vxlan_device:
@@ -1468,6 +1512,25 @@ class vxlan(Vxlan, moduleBase):
                 'vxlan-remoteip',
                 ifaceobj.get_attr_value('vxlan-remoteip'),
                 self.iproute2.get_vxlan_peers(ifaceobj.name, str(cached_svcnode.ip) if cached_svcnode else None)
+            )
+
+        # not ideal but will work for now, l3vxi dev:
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
+            user_config_vni_list = set(self.__get_vxlan_vni_list(ifaceobj, string=False))
+            vxlan_vni_list = set()
+
+            for obj in json.loads(utils.exec_command("bridge -j -p vni show dev %s" % ifname) or "[]"):
+                for vni_obj in obj.get("vnis", []):
+                    start = vni_obj.get("vni")
+                    end = vni_obj.get("vniEnd")
+
+                    for vni in utils.ranges_to_ints(["%s-%s" % (start, end if end else start)]):
+                        vxlan_vni_list.add(vni)
+
+            ifaceobjcurr.update_config_with_status(
+                "vxlan-vni",
+                " ".join(utils.compress_into_ranges(vxlan_vni_list)),
+                vxlan_vni_list != user_config_vni_list
             )
 
         #
