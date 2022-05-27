@@ -427,6 +427,18 @@ class IPRoute2(Cache, Requirements):
     def link_add_openvswitch(self, ifname, kind):
         self.__update_cache_after_link_creation(ifname, kind)
 
+    def link_set_protodown_reason_clag_on(self, ifname):
+        utils.exec_command("%s link set dev %s protodown_reason clag on" % (utils.ip_cmd, ifname))
+
+    def link_set_protodown_reason_clag_off(self, ifname):
+        utils.exec_command("%s link set dev %s protodown_reason clag off" % (utils.ip_cmd, ifname))
+
+    def link_set_protodown_reason_frr_on(self, ifname):
+        utils.exec_command("%s link set dev %s protodown_reason frr on" % (utils.ip_cmd, ifname))
+
+    def link_set_protodown_reason_frr_off(self, ifname):
+        utils.exec_command("%s link set dev %s protodown_reason frr off" % (utils.ip_cmd, ifname))
+
     ############################################################################
     # TUNNEL
     ############################################################################

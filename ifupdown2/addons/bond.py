@@ -381,6 +381,10 @@ class bond(Addon, moduleBase):
             if clag_bond or ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND:
                 try:
                     self.netlink.link_set_protodown_on(slave)
+                    if clag_bond:
+                        self.iproute2.link_set_protodown_reason_clag_on(slave)
+                    else:
+                        self.iproute2.link_set_protodown_reason_frr_on(slave)
                 except Exception as e:
                     self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
@@ -406,13 +410,14 @@ class bond(Addon, moduleBase):
             for s in runningslaves:
                 # make sure that slaves are not in protodown since we are not in the clag-bond or es-bond case
                 if not clag_bond and not ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND and self.cache.get_link_protodown(s):
+                    self.iproute2.link_set_protodown_reason_clag_off(s)
                     self.netlink.link_set_protodown_off(s)
-
                 if s not in slaves:
                     self.sysfs.bond_remove_slave(ifaceobj.name, s)
                     removed_slave.append(s)
                     if clag_bond:
                         try:
+                            self.iproute2.link_set_protodown_reason_clag_off(s)
                             self.netlink.link_set_protodown_off(s)
                         except Exception as e:
                             self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
