@@ -2814,11 +2814,11 @@ class bridge(Bridge, moduleBase):
                     self.logger.debug("%s: %s" % (ifname, str(e)))
 
         try:
-            self._up_bridge_mac(ifaceobj, ifaceobj_getfunc)
+            self._up_bridge_mac(ifaceobj, link_just_created, ifaceobj_getfunc)
         except Exception as e:
             self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
 
-    def _get_bridge_mac(self, ifaceobj, ifname, ifaceobj_getfunc):
+    def _get_bridge_mac(self, ifaceobj, ifname, link_just_created, ifaceobj_getfunc):
         bridge_mac_iface = self.bridge_mac_iface.get(ifname)
 
         if bridge_mac_iface and bridge_mac_iface[0] and bridge_mac_iface[1]:
@@ -2853,16 +2853,20 @@ class bridge(Bridge, moduleBase):
 
             # first we need to make sure that the bridge mac is not already inherited from one of it's port
             bridge_ports = self._get_bridge_port_list_user_ordered(ifaceobj)
-            current_mac = self.cache.get_link_address(ifname)
 
-            for port in bridge_ports or []:
-                if not self.is_vxlan(ifaceobj_getfunc(port)):
-                    port_mac = self.cache.get_link_address(port)
+            # if the bridge was just created we need to set it's mac address to the first port and not look at the
+            # current bridge mac (the bridge driver probably chose the lowest mac of it's port)
+            if not link_just_created:
+                current_mac = self.cache.get_link_address(ifname)
 
-                    if current_mac == port_mac:
-                        self.logger.info("bridge mac is already inherited from %s" % port)
-                        self.bridge_mac_iface[ifname] = (port, port_mac)
-                        return self.bridge_mac_iface[ifname]
+                for port in bridge_ports or []:
+                    if not self.is_vxlan(ifaceobj_getfunc(port)):
+                        port_mac = self.cache.get_link_address(port)
+
+                        if current_mac == port_mac:
+                            self.logger.info("bridge mac is already inherited from %s" % port)
+                            self.bridge_mac_iface[ifname] = (port, port_mac)
+                            return self.bridge_mac_iface[ifname]
 
             for port in bridge_ports or []:
                 # iterate through the bridge-port list
@@ -2898,7 +2902,7 @@ class bridge(Bridge, moduleBase):
         if not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE and bridge_mac and ifaceobj.get_attr_value('address'):
             self.iproute2.bridge_fdb_add(ifaceobj.name, bridge_mac, vlan=None, bridge=True, remote=None)
 
-    def _up_bridge_mac(self, ifaceobj, ifaceobj_getfunc):
+    def _up_bridge_mac(self, ifaceobj, link_just_created, ifaceobj_getfunc):
         """
         We have a day one bridge mac changing problem with changing ports
         (basically bridge mac changes when the port it inherited the mac from
@@ -2917,7 +2921,7 @@ class bridge(Bridge, moduleBase):
             return
 
         ifname = ifaceobj.name
-        mac_intf, bridge_mac = self._get_bridge_mac(ifaceobj, ifname, ifaceobj_getfunc)
+        mac_intf, bridge_mac = self._get_bridge_mac(ifaceobj, ifname, link_just_created, ifaceobj_getfunc)
         self.logger.debug("%s: _get_bridge_mac returned (%s, %s)"
                           %(ifname, mac_intf, bridge_mac))
 
@@ -2930,7 +2934,9 @@ class bridge(Bridge, moduleBase):
             cached_value = self.cache.get_link_address(ifname)
             self.logger.debug('%s: cached hwaddress value: %s' % (ifname, cached_value))
             bridge_mac_int = utils.mac_str_to_int(bridge_mac)
-            if cached_value and utils.mac_str_to_int(cached_value) == bridge_mac_int:
+
+            # if the bridge was just created (link_just_created) we should force-set the mac address
+            if not link_just_created and cached_value and utils.mac_str_to_int(cached_value) == bridge_mac_int:
                 # the bridge mac is already set to the bridge_mac_intf's mac
                 return
 
