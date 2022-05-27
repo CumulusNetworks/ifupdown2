@@ -443,18 +443,20 @@ class IPRoute2(Cache, Requirements):
     # TUNNEL
     ############################################################################
 
-    def tunnel_create(self, tunnelname, mode, attrs=None):
-        if self.cache.link_exists(tunnelname):
-            return
+    def tunnel_create(self, tunnelname, mode, attrs=None, link_exists=False):
+        if link_exists:
+            op = "change"
+        else:
+            op = "add"
 
         cmd = []
         if "6" in mode:
             cmd.append("-6")
 
         if mode in ["gretap"]:
-            cmd.append("link add %s type %s" % (tunnelname, mode))
+            cmd.append("link %s %s type %s" % (op, tunnelname, mode))
         else:
-            cmd.append("tunnel add %s mode %s" % (tunnelname, mode))
+            cmd.append("tunnel %s %s mode %s" % (op, tunnelname, mode))
 
         if attrs:
             for k, v in attrs.items():

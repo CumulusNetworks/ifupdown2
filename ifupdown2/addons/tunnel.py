@@ -155,6 +155,7 @@ class tunnel(Addon, moduleBase):
         }.get(link_kind, lambda x: {})(self.cache.get_link_info_data(ifname))
 
     def _up(self, ifaceobj):
+        ifname = ifaceobj.name
         attr_map = {
             # attr_name -> ip route param name
             'tunnel-local': 'local',
@@ -181,26 +182,32 @@ class tunnel(Addon, moduleBase):
         if tos and tos != 'inherit':
             attrs_mapped['tos'] = "{:x}".format(int(tos))
 
+        link_exists = self.cache.link_exists(ifname)
+
         # Create the tunnel if it doesn't exist yet...
-        if not self.cache.link_exists(ifaceobj.name):
-            self.iproute2.tunnel_create(ifaceobj.name, mode, attrs_mapped)
+        if not link_exists:
+            self.iproute2.tunnel_create(ifname, mode, attrs_mapped)
             return
 
         # If it's present, check if there were changes
-        current_mode = self.cache.get_link_kind(ifaceobj.name)
-        current_attrs = self.get_linkinfo_attrs(ifaceobj.name, current_mode)
+        current_mode = self.cache.get_link_kind(ifname)
+        current_attrs = self.get_linkinfo_attrs(ifname, current_mode)
 
         self.convert_user_config_to_ipnetwork(attrs, "tunnel-local")
         self.convert_user_config_to_ipnetwork(attrs, "tunnel-endpoint")
 
         try:
             if current_attrs and current_mode != mode or self._has_config_changed(current_attrs, attrs):
-                # Mode and some other changes are not possible without recreating the interface,
-                # so just recreate it IFF there have been changes.
-                self.netlink.link_del(ifaceobj.name)
-                self.iproute2.tunnel_create(ifaceobj.name, mode, attrs_mapped)
+
+                if link_exists and current_mode != mode:
+                    # Mode and some other changes are not possible without recreating the interface,
+                    # so just recreate it IFF there have been changes.
+                    self.netlink.link_del(ifaceobj.name)
+                    link_exists = False
+
+                self.iproute2.tunnel_create(ifaceobj.name, mode, attrs_mapped, link_exists=link_exists)
         except Exception as e:
-            self.log_warn(str(e))
+            self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj):
         if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
