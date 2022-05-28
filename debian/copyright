@@ -1,14 +1,14 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ifupdown2
-Upstream-Contact: Julien Fortin <julien@cumulusnetworks.com>
+Upstream-Contact: Julien Fortin <jfortin@nvidia.com>
 Source: https://github.com/cumulusnetworks/ifupdown2
 
 Files: *
-Copyright: 2014,2015,2016,2017,2018 Cumulus Networks, Inc.
+Copyright: 2014,2015,2016,2017,2018,2019,2020,2021,2022 Cumulus Networks, Inc.
 License: GPL-2
 
 Files: debian/*
-Copyright: 2014,2015,2016,2017,2018 Cumulus Networks, Inc.
+Copyright: 2014,2015,2016,2017,2018,2019,2020,2021,2022 Cumulus Networks, Inc.
 License: GPL-2
 
 License: GPL-2

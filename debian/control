@@ -1,7 +1,7 @@
 Source: ifupdown2
 Section: admin
 Priority: optional
-Maintainer: Julien Fortin <julien@cumulusnetworks.com>
+Maintainer: Julien Fortin <jfortin@nvidia.com>
 Build-Depends: debhelper (>= 9.20160709),
                dh-python,
                python3,

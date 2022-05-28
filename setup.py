@@ -41,9 +41,9 @@ if not build_deb_package():
 
 setup(
     author='Julien Fortin',
-    author_email='julien@cumulusnetworks.com',
+    author_email='jfortin@nvidia.com',
     maintainer='Julien Fortin',
-    maintainer_email='julien@cumulusnetworks.com',
+    maintainer_email='jfortin@nvidia.com',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
