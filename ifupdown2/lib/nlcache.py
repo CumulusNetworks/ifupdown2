@@ -68,7 +68,7 @@ try:
     import ifupdown2.nlmanager.nllistener as nllistener
     import ifupdown2.nlmanager.nlmanager as nlmanager
     import ifupdown2.ifupdown.statemanager as statemanager
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.sysfs import Sysfs
     from lib.base_objects import BaseObject
     from lib.exceptions import RetryCMD

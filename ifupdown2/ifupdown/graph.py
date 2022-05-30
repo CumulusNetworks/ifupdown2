@@ -15,7 +15,7 @@ from collections import deque
 
 try:
     from ifupdown2.lib.gvgen import GvGen
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.gvgen import GvGen
 
 

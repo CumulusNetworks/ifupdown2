@@ -9,7 +9,7 @@
 
 try:
     from ifupdown2.ifupdown.utils import *
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import *
 
 

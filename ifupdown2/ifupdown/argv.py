@@ -12,7 +12,7 @@ import argparse
 try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.exceptions import ArgvParseError, ArgvParseHelp
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import utils
     from ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 

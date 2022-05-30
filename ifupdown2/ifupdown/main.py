@@ -23,7 +23,7 @@ try:
     from ifupdown2.lib.dry_run import DryRunManager
     from ifupdown2.lib.status import Status
 
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.argv import Parse
     from ifupdown.utils import utils
     from ifupdown.config import IFUPDOWN2_CONF_PATH

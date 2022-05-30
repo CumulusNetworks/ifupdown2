@@ -16,7 +16,7 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdownaddons.modulebase import moduleBase

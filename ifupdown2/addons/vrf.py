@@ -25,7 +25,7 @@ try:
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.utilsbase import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import Addon
 
     import ifupdown.policymanager as policymanager

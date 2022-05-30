@@ -17,7 +17,7 @@ try:
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceStatus
     from ifupdown.utils import utils
 

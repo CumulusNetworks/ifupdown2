@@ -16,7 +16,7 @@ try:
 
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import *
 
     import ifupdown.exceptions as exceptions

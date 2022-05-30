@@ -28,7 +28,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import AddonWithIpBlackList
     from nlmanager.nlmanager import Link
 

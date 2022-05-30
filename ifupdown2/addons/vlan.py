@@ -13,7 +13,7 @@ try:
     from ifupdown2.lib.exceptions import RetryCMD
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import Addon
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
     from nlmanager.nlmanager import Link

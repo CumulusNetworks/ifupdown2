@@ -18,7 +18,7 @@ try:
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import Addon
     from ifupdown.iface import ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils

@@ -18,7 +18,7 @@ try:
     from ifupdown2.ifupdown.iface import ifaceType, ifaceJsonDecoder, iface
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.template import templateEngine
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceType, ifaceJsonDecoder, iface
     from ifupdown.utils import utils
     from ifupdown.template import templateEngine

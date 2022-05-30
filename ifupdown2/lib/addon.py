@@ -35,7 +35,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.io import IO
     from lib.sysfs import Sysfs
     from lib.iproute2 import IPRoute2

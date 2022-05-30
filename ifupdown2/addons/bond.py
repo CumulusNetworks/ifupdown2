@@ -25,7 +25,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from nlmanager.ipnetwork import IPv4Address
     from lib.addon import Addon
     from nlmanager.nlmanager import Link

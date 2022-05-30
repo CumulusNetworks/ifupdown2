@@ -24,7 +24,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags
 
     import ifupdown.policymanager as policymanager

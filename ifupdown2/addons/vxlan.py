@@ -21,7 +21,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     import nlmanager.ipnetwork as ipnetwork
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
