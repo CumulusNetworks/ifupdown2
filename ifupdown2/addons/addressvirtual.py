@@ -107,7 +107,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 self.logger.info('address metric support: KO')
 
     @classmethod
-    def addr_metric_support(cls):
+    def get_addr_metric_support(cls):
         return cls.ADDR_METRIC_SUPPORT
 
     @classmethod
@@ -497,7 +497,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 )
                 hw_address_list.append(macvlan_hwaddr)
 
-            if self.addressvirtual_with_route_metric and self.addr_metric_support():
+            if self.addressvirtual_with_route_metric and self.get_addr_metric_support():
                 metric = self.get_default_ip_metric()
             else:
                 metric = None
@@ -517,7 +517,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             # If link existed before, flap the link
             if not link_created:
 
-                if not self.addressvirtual_with_route_metric or not self.addr_metric_support():
+                if not self.addressvirtual_with_route_metric or not self.get_addr_metric_support():
                     # if the system doesn't support ip addr set METRIC
                     # we need to do manually check the ordering of the ip4 routes
                     self._fix_connected_route(ifaceobj, macvlan_ifname, ips[0])
@@ -538,7 +538,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                     self.netlink.link_up(macvlan_ifname)
             else:
                 try:
-                    if not self.addressvirtual_with_route_metric or not self.addr_metric_support():
+                    if not self.addressvirtual_with_route_metric or not self.get_addr_metric_support():
                         # if the system doesn't support ip addr set METRIC
                         # we need to do manually check the ordering of the ip6 routes
                         self.iproute2.fix_ipv6_route_metric(ifaceobj, macvlan_ifname, ips)
