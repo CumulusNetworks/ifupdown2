@@ -420,9 +420,8 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         ifname = ifaceobj.name
 
         update_mtu = lower_iface_mtu = lower_iface_mtu_str = None
-        if ifupdownconfig.config.get("adjust_logical_dev_mtu", "1") != "0":
-            if ifaceobj.lowerifaces and intf_config_list:
-                update_mtu = True
+        if ifupdownconfig.config.get("adjust_logical_dev_mtu", "1") != "0" and ifaceobj.lowerifaces and intf_config_list:
+            update_mtu = True
 
         if update_mtu:
             lower_iface_mtu = self.cache.get_link_mtu(ifaceobj.name)
@@ -686,11 +685,10 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                         "ips": ip4,
                         "id": vrrp_id
                     })
-            elif not ip4 and not ifquery:
+            elif not ip4 and not ifquery and self.cache.link_exists(macvlan_ip4_ifname):
                 # special check to see if all ipv4 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
-                if self.cache.link_exists(macvlan_ip4_ifname):
-                    self.netlink.link_del(macvlan_ip4_ifname)
+                self.netlink.link_del(macvlan_ip4_ifname)
 
             if ip6 or ifquery:
                 merged_with_existing_obj = False
@@ -718,11 +716,10 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                         "ips": ip6,
                         "id": vrrp_id
                     })
-            elif not ip6 and not ifquery:
+            elif not ip6 and not ifquery and self.cache.link_exists(macvlan_ip6_ifname):
                 # special check to see if all ipv6 were removed from the vrrp
                 # configuration, if so we need to remove the associated macvlan
-                if self.cache.link_exists(macvlan_ip6_ifname):
-                    self.netlink.link_del(macvlan_ip6_ifname)
+                self.netlink.link_del(macvlan_ip6_ifname)
 
         if not ifquery:
             # check if vrrp attribute was removed/re-assigned
