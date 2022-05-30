@@ -165,7 +165,6 @@ class dhcp(Addon, moduleBase):
                 timeout = int(dhcp6_ll_wait)+1
             except Exception:
                 timeout = 10
-                pass
             dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                 ifname=ifaceobj.name, attr='dhcp6-duid')
             vrf = ifaceobj.get_attr_value_first('vrf')
