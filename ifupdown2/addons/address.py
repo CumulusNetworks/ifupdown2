@@ -1383,7 +1383,6 @@ class address(AddonWithIpBlackList, moduleBase):
             self._process_bridge(ifaceobj, False, hwaddress, None)
         except Exception as e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
-            pass
 
     def _get_bridge_fdbs(self, bridgename, vlan=None):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
@@ -1448,7 +1447,6 @@ class address(AddonWithIpBlackList, moduleBase):
             ifaceobjcurr.update_config_with_status('mpls-enable',
                                                    running_mpls_enable,
                                             mpls_enable != running_mpls_enable)
-        return
 
     def query_check_ipv6_addrgen(self, ifaceobj, ifaceobjcurr):
         ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
