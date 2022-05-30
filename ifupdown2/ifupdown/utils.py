@@ -20,12 +20,12 @@ from functools import partial
 from ipaddress import IPv4Address
 
 try:
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except (ImportError, ModuleNotFoundError):
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags
 
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags

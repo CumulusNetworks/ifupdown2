@@ -15,11 +15,11 @@ import os
 import re
 
 try:
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceType, ifaceJsonDecoder, iface
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.template import templateEngine
 except (ImportError, ModuleNotFoundError):
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceType, ifaceJsonDecoder, iface
     from ifupdown.utils import utils
     from ifupdown.template import templateEngine
 

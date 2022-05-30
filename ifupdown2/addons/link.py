@@ -11,7 +11,7 @@
 
 try:
     from ifupdown2.lib.addon import Addon
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
@@ -20,7 +20,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
 
     from ifupdownaddons.modulebase import moduleBase

@@ -13,7 +13,7 @@ from collections import deque
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.nlmanager.nlpacket import Link
@@ -28,7 +28,7 @@ try:
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except (ImportError, ModuleNotFoundError):
     from lib.addon import AddonWithIpBlackList
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
 
     from nlmanager.nlpacket import Link

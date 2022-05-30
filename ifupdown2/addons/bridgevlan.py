@@ -7,7 +7,7 @@
 try:
     from ifupdown2.lib.addon import Addon
 
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
@@ -15,7 +15,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
 
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
 
     from ifupdownaddons.modulebase import moduleBase
 

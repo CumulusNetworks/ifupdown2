@@ -15,7 +15,7 @@ try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
     from ifupdown2.nlmanager.nlmanager import Link
 
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
@@ -31,7 +31,7 @@ except (ImportError, ModuleNotFoundError):
     from lib.addon import AddonWithIpBlackList
     from nlmanager.nlmanager import Link
 
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
     from ifupdown.utils import utils
 
     from ifupdownaddons.dhclient import dhclient

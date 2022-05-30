@@ -11,14 +11,14 @@ import traceback
 from functools import reduce
 
 try:
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceStatus
     from ifupdown2.ifupdown.utils import utils
 
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except (ImportError, ModuleNotFoundError):
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceStatus
     from ifupdown.utils import utils
 
     import ifupdown.exceptions as exceptions

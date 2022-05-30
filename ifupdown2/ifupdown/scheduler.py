@@ -10,9 +10,12 @@
 import os
 import sys
 
+from collections import OrderedDict
+
+
 try:
     from ifupdown2.ifupdown.graph import *
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus, ifaceState
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.statemanager import *
 
@@ -20,7 +23,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except (ImportError, ModuleNotFoundError):
     from ifupdown.graph import *
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus, ifaceState
     from ifupdown.utils import utils
     from ifupdown.statemanager import *
 

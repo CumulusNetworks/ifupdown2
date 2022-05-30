@@ -7,13 +7,14 @@
 #
 
 import os
+from collections import OrderedDict
 
 try:
     from ifupdown2.nlmanager.ipnetwork import IPv4Address
     from ifupdown2.lib.addon import Addon
     from ifupdown2.nlmanager.nlmanager import Link
 
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
 
@@ -26,7 +27,7 @@ except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
 
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus
     from ifupdown.utils import utils
     from ifupdown.statemanager import statemanager_api as statemanager
 

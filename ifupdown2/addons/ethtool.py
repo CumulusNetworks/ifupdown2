@@ -13,7 +13,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.statemanager as statemanager
 
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 
@@ -26,7 +26,7 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.policymanager as policymanager
     import ifupdown.statemanager as statemanager
 
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceLinkPrivFlags
     from ifupdown.utils import utils
     from ifupdown.exceptions import moduleNotSupported
 

@@ -7,6 +7,7 @@
 import re
 import time
 import socket
+import logging
 
 try:
     from ifupdown2.lib.addon import Addon
@@ -15,7 +16,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
@@ -27,7 +28,7 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
 
     from ifupdownaddons.dhclient import dhclient

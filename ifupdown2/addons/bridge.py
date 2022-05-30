@@ -19,7 +19,7 @@ try:
 
     from ifupdown2.nlmanager.nlmanager import Link
 
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.cache import *
@@ -33,7 +33,7 @@ except (ImportError, ModuleNotFoundError):
 
     from nlmanager.nlmanager import Link
 
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown.utils import utils
 
     from ifupdownaddons.cache import *

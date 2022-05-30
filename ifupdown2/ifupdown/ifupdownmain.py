@@ -29,7 +29,7 @@ try:
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
 
     from ifupdown2.ifupdown.graph import *
-    from ifupdown2.ifupdown.iface import *
+    from ifupdown2.ifupdown.iface import ifaceStatusUserStrs, ifaceType, ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown2.ifupdown.scheduler import *
     from ifupdown2.ifupdown.exceptions import *
     from ifupdown2.ifupdown.networkinterfaces import *
@@ -48,7 +48,7 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.ifupdownconfig as ifupdownConfig
 
     from ifupdown.graph import *
-    from ifupdown.iface import *
+    from ifupdown.iface import ifaceStatusUserStrs, ifaceType, ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown.scheduler import *
     from ifupdown.exceptions import *
     from ifupdown.networkinterfaces import *
