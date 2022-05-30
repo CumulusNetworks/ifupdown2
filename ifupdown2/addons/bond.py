@@ -488,7 +488,6 @@ class bond(Addon, moduleBase):
                         self.netlink.link_up_force(slave)
                except Exception as e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
-                    pass
 
         if runningslaves:
             removed_slave = []
