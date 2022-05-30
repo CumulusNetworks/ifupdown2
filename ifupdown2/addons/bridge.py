@@ -40,7 +40,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdownaddons.modulebase import moduleBase
 
 
-class bridgeFlags:
+class BridgeFlags:
     PORT_PROCESSED = 0x1
     PORT_PROCESSED_OVERRIDE = 0x2
 
@@ -1635,7 +1635,7 @@ class bridge(Bridge, moduleBase):
                     self.logger.info('%s: stp state reset, reapplying port settings' % ifname)
                     ifaceobj.module_flags[ifaceobj.name] = \
                         ifaceobj.module_flags.setdefault(self.name, 0) | \
-                        bridgeFlags.PORT_PROCESSED_OVERRIDE
+                        BridgeFlags.PORT_PROCESSED_OVERRIDE
             else:
                 # If stp not specified and running stp state on, set it to off
                 if self._is_running_stp_state_on(ifname):
@@ -1955,7 +1955,7 @@ class bridge(Bridge, moduleBase):
            bridge_pvid = None
 
         if (ifaceobj.module_flags.get(self.name, 0x0) &
-                bridgeFlags.PORT_PROCESSED_OVERRIDE):
+                BridgeFlags.PORT_PROCESSED_OVERRIDE):
             port_processed_override = True
         else:
             port_processed_override = False
@@ -1982,7 +1982,7 @@ class bridge(Bridge, moduleBase):
                 # and there is no override on port_processed
                 if (not port_processed_override and
                     (bportifaceobj.module_flags.get(self.name,0x0) &
-                     bridgeFlags.PORT_PROCESSED)):
+                     BridgeFlags.PORT_PROCESSED)):
                     continue
                 try:
                     # Add attributes specific to the vlan aware bridge
@@ -2063,7 +2063,7 @@ class bridge(Bridge, moduleBase):
                                          ifaceobj_getfunc=ifaceobj_getfunc,
                                          bridge_vlan_aware=vlan_aware_bridge)
 
-        ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | bridgeFlags.PORT_PROCESSED
+        ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | BridgeFlags.PORT_PROCESSED
 
     def up_check_bridge_vlan_aware(self, ifaceobj, ifaceobj_getfunc, link_just_created):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE:
@@ -2071,7 +2071,7 @@ class bridge(Bridge, moduleBase):
                 return False
             if not link_just_created and not self.cache.bridge_is_vlan_aware(ifaceobj.name):
                 # if bridge-vlan-aware was added on a existing old-bridge, we need to reprocess all ports
-                ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | bridgeFlags.PORT_PROCESSED_OVERRIDE
+                ifaceobj.module_flags[self.name] = ifaceobj.module_flags.setdefault(self.name, 0) | BridgeFlags.PORT_PROCESSED_OVERRIDE
             return True
         return False
 
@@ -2171,7 +2171,7 @@ class bridge(Bridge, moduleBase):
 
             cache_brports_ifla_info_slave_data = {}
 
-            port_processed_override = ifaceobj.module_flags.get(self.name, 0x0) & bridgeFlags.PORT_PROCESSED_OVERRIDE
+            port_processed_override = ifaceobj.module_flags.get(self.name, 0x0) & BridgeFlags.PORT_PROCESSED_OVERRIDE
 
             running_brports = self.cache.get_slaves(ifname)
 
@@ -2198,7 +2198,7 @@ class bridge(Bridge, moduleBase):
                     if port not in newly_enslaved_ports:
                         # check if brport was already processed
                         for brportifaceobj in brport_list:
-                            if not port_processed_override and brportifaceobj.module_flags.get(self.name, 0x0) & bridgeFlags.PORT_PROCESSED:
+                            if not port_processed_override and brportifaceobj.module_flags.get(self.name, 0x0) & BridgeFlags.PORT_PROCESSED:
                                 # skip port if already processed (probably by `up_bridge_port`)
                                 port_already_processed = True
                                 self.logger.info("%s: port %s: already processed" % (ifname, port))
