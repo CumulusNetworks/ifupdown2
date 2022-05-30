@@ -238,10 +238,10 @@ class dhcp(Addon, moduleBase):
             self.logger.error("%s: %s" % (ifaceobj.name, str(e)))
             ifaceobj.set_status(ifaceStatus.ERROR)
 
-    def _down_stale_dhcp_config(self, ifaceobj, family, dhclientX_running):
+    def _down_stale_dhcp_config(self, ifaceobj, family, dhclient_running):
         addr_family = ifaceobj.addr_family
         try:
-            if not family in ifaceobj.addr_family and dhclientX_running:
+            if not family in ifaceobj.addr_family and dhclient_running:
                 ifaceobj.addr_family = [family]
                 self._dhcp_down(ifaceobj)
         except Exception:
