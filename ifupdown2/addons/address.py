@@ -461,11 +461,10 @@ class address(AddonWithIpBlackList, moduleBase):
         arp_accept = utils.boolean_support_binary(arp_accept)
         is_vlan_dev_on_vlan_aware_bridge = False
         is_bridge = self.cache.get_link_kind(ifaceobj.name) == 'bridge'
-        if not is_bridge:
-            if ifaceobj.link_kind & ifaceLinkKind.VLAN:
-                bridgename = ifaceobj.lowerifaces[0]
-                vlan = self._get_vlan_id(ifaceobj)
-                is_vlan_dev_on_vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridgename)
+        if not is_bridge and ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
+            is_vlan_dev_on_vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridgename)
         if ((is_bridge and not self.cache.bridge_is_vlan_aware(ifaceobj.name))
                         or is_vlan_dev_on_vlan_aware_bridge):
             if self._address_valid(addrs):
