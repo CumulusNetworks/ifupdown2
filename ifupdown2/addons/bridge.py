@@ -1188,7 +1188,6 @@ class bridge(Bridge, moduleBase):
             except IndexError as e:
                 # ignore error and use all bridge ports
                 waitportlist = portlist
-                pass
             if not waitportlist: return
             self.logger.info('%s: waiting for ports %s to exist ...'
                     %(ifaceobj.name, str(waitportlist)))
@@ -1315,7 +1314,6 @@ class bridge(Bridge, moduleBase):
                 self.iproute2.addr_flush(bridgeport)
             except Exception as e:
                 self.logger.error(str(e))
-                pass
 
         self.iproute2.batch_commit()
         self.cache.force_add_slave_list(ifaceobj.name, newly_enslaved_ports)
@@ -1740,7 +1738,6 @@ class bridge(Bridge, moduleBase):
             self.logger.warning('%s: unable to parse pvid \'%s\''
                              %(bportifaceobj.name, pvid))
             pvid_int = 0
-            pass
 
         vids_to_del = []
         vids_to_add = vids_int
@@ -1997,7 +1994,6 @@ class bridge(Bridge, moduleBase):
                 except Exception as e:
                     err = True
                     self.logger.warning('%s: %s' %(ifaceobj.name, str(e)))
-                    pass
         self.iproute2.batch_commit()
         if err:
            raise Exception('%s: errors applying port settings' %ifaceobj.name)
