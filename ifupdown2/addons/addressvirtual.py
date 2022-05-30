@@ -148,14 +148,12 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                         self.iproute2.bridge_fdb_del(bridgename, addr, vlan)
                     except Exception as e:
                         self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
-                        pass
         elif self.cache.link_is_bridge(ifaceobj.name):
             for addr in hwaddress:
                 try:
                     self.iproute2.bridge_fdb_del(ifaceobj.name, addr)
                 except Exception as e:
                     self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
-                    pass
 
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
@@ -228,7 +226,6 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.logger.debug('%s: fixing route entry failed (%s)'
                               % (ifaceobj.name, str(e)))
-            pass
 
     def _get_macs_from_old_config(self, ifaceobj=None):
         """ This method returns a list of the mac addresses
