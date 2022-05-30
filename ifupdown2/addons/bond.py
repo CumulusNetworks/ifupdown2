@@ -688,11 +688,10 @@ class bond(Addon, moduleBase):
                                           'probably not supported on this system'
                                           % (ifname, attr_name, user_config))
                         continue
-                    elif link_exists:
+                    elif link_exists and cached_value == nl_value:
                         # there should be a cached value if the link already exists
-                        if cached_value == nl_value:
-                            # if the user value is already cached: continue
-                            continue
+                        # if the user value is already cached: continue
+                        continue
 
                     # else: the link doesn't exist so we create the bond with
                     # all the user/policy defined values without extra checks
@@ -836,10 +835,9 @@ class bond(Addon, moduleBase):
             )
 
             # if specific attributes need to be set we need to down the bond first
-            if ifla_info_data and is_link_up:
-                if self._should_down_bond(ifla_info_data):
-                    self.netlink.link_down_force(ifname)
-                    is_link_up = False
+            if ifla_info_data and is_link_up and self._should_down_bond(ifla_info_data):
+                self.netlink.link_down_force(ifname)
+                is_link_up = False
         else:
             bond_slaves = []
 
@@ -938,9 +936,8 @@ class bond(Addon, moduleBase):
     def _query_check_bond_slaves(self, ifaceobjcurr, attr, user_bond_slaves, running_bond_slaves):
         query = 1
 
-        if user_bond_slaves and running_bond_slaves:
-            if not set(user_bond_slaves).symmetric_difference(running_bond_slaves):
-                query = 0
+        if user_bond_slaves and running_bond_slaves and not set(user_bond_slaves).symmetric_difference(running_bond_slaves):
+            query = 0
 
         # we want to display the same bond-slaves list as provided
         # in the interfaces file but if this list contains regexes or
