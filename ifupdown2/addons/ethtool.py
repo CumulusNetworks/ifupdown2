@@ -485,9 +485,8 @@ class ethtool(Addon, moduleBase):
         for attr in ['speed', 'duplex', 'autoneg', 'fec']:
             configured = ifaceobj.get_attr_value_first('link-%s'%attr)
             # if there is nothing configured, do not check
-            if not configured:
-                if not ifupdownflags.flags.WITHDEFAULTS:
-                    continue
+            if not configured and not ifupdownflags.flags.WITHDEFAULTS:
+                continue
             default = policymanager.policymanager_api.get_iface_default(
                 module_name='ethtool',
                 ifname=ifaceobj.name,
