@@ -1482,7 +1482,6 @@ class address(AddonWithIpBlackList, moduleBase):
         """
         TODO: Check broadcast address, scope, etc
         """
-        runningaddrsdict = None
         if not self.cache.link_exists(ifaceobj.name):
             self.logger.debug('iface %s not found' %ifaceobj.name)
             return
@@ -1490,7 +1489,6 @@ class address(AddonWithIpBlackList, moduleBase):
         self.query_check_disable_ipv6(ifaceobj, ifaceobjcurr)
         self.query_check_ipv6_addrgen(ifaceobj, ifaceobjcurr)
 
-        addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.cache.get_link_mtu_str)
         hwaddress = self._get_hwaddress(ifaceobj)
