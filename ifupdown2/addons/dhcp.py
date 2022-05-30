@@ -41,7 +41,7 @@ class dhcp(Addon, moduleBase):
     # by default we won't perform any dhcp retry
     # this can be changed by setting the module global
     # policy: dhclient_retry_on_failure
-    DHCLIENT_RETRY_ON_FAILURE = 0
+    DHCLIENT_DEFAULT_RETRY_ON_FAILURE = 0
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
@@ -62,7 +62,7 @@ class dhcp(Addon, moduleBase):
                 )
             )
         except Exception:
-            self.dhclient_retry_on_failure = self.DHCLIENT_RETRY_ON_FAILURE
+            self.dhclient_retry_on_failure = self.DHCLIENT_DEFAULT_RETRY_ON_FAILURE
 
         if self.dhclient_retry_on_failure < 0:
             self.dhclient_retry_on_failure = 0
