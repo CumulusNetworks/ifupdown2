@@ -64,10 +64,9 @@ class link(Addon, moduleBase):
         )
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
-        if self.check_physical_port_existance:
-            if not ifaceobj.link_kind and not self.cache.link_exists(ifaceobj.name):
-                self.logger.warning('%s: interface does not exist' % ifaceobj.name)
-                return False
+        if self.check_physical_port_existance and not ifaceobj.link_kind and not self.cache.link_exists(ifaceobj.name):
+            self.logger.warning('%s: interface does not exist' % ifaceobj.name)
+            return False
         return True
 
     @staticmethod
