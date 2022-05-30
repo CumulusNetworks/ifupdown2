@@ -752,7 +752,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                             self.netlink.link_del(macvlan_ip6_ifname)
 
             except Exception as e:
-                self.logger.debug("%s: vrrp: failure while removing unused macvlan(s)" % ifname)
+                self.logger.debug("%s: vrrp: failure while removing unused macvlan(s): %s" % (ifname, e))
 
         return user_config_list
 
