@@ -75,6 +75,12 @@ class ethtool(Addon, moduleBase):
                 "validvals": ["rs", "baser", "auto", "off"],
                 "default": "varies by platform and port"
             },
+            "link-lanes": {
+                "help": "set lanes",
+                "example": ["link-lanes 4"],
+                "validvals": ["1", "2", "4", "8"],
+                "default": "varies by platform and port"
+            },
             'gro-offload': {
                 'help': 'Generic Receive Offload',
                 'example': ['gro-offload on'],
@@ -221,6 +227,54 @@ class ethtool(Addon, moduleBase):
             module_name=self.__class__.__name__,
             attr='ethtool_ignore_errors'
         )
+
+    def do_lanes_settings(self, ifaceobj):
+        lanescmd = ''
+
+        # attribute existed before but we must reset to default
+        config_val = ifaceobj.get_attr_value_first('link-lanes')
+        default_val = policymanager.policymanager_api.get_iface_default(
+                            module_name='ethtool',
+                            ifname=ifaceobj.name,
+                            attr='link-lanes')
+
+        if not default_val and not config_val:
+            # there is no point in checking the running config
+            # if we have no default and the user did not have settings
+            return
+
+        # use only lowercase values
+        running_val = str(self.get_running_attr('lanes', ifaceobj)).lower()
+
+        if config_val:
+            config_val = config_val.lower()
+        if default_val:
+            default_val = default_val.lower()
+
+        # check running values
+        if config_val and config_val == running_val:
+            return
+
+        if not config_val and default_val and default_val == running_val:
+            # nothing configured but the default is running
+            return
+
+        # if we got this far, we need to change it
+        if config_val and (config_val != running_val):
+            # if the configured value is not set, set it
+            lanescmd = config_val
+        elif default_val and (default_val != running_val):
+            # or if it has a default not equal to running value, set it
+            lanescmd = default_val
+
+        if lanescmd:
+            try:
+                lanescmd = ('%s -s %s lanes %s' %
+                           (utils.ethtool_cmd, ifaceobj.name, lanescmd))
+                utils.exec_command(lanescmd)
+            except Exception as e:
+                if not self.ethtool_ignore_errors:
+                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
@@ -375,6 +429,7 @@ class ethtool(Addon, moduleBase):
 
         self.do_speed_settings(ifaceobj)
         self.do_fec_settings(ifaceobj)
+        self.do_lanes_settings(ifaceobj)
         self.do_ring_settings(ifaceobj, 'ring-rx', 'rx')
         self.do_ring_settings(ifaceobj, 'ring-tx', 'tx')
         self.do_offload_settings(ifaceobj, 'gro-offload', 'gro')
