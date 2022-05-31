@@ -323,14 +323,16 @@ class mstpctl(Addon, moduleBase):
         )
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
-        if self._is_bridge(ifaceobj):
-            if (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
-                    and ifaceobj.get_attr_value_first('mstpctl-portadminedge')):
-                self.logger.error('%s: unsupported use of keyword '
-                                  '\'mstpctl-portadminedge\' when '
-                                  'bridge-vlan-aware is on'
-                                  % ifaceobj.name)
-                return False
+        if (
+            self._is_bridge(ifaceobj)
+            and ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VLAN_AWARE
+            and ifaceobj.get_attr_value_first('mstpctl-portadminedge')
+        ):
+            self.logger.error("%s: unsupported use of keyword "
+                              "\'mstpctl-portadminedge\' when "
+                              "bridge-vlan-aware is on"
+                              % ifaceobj.name)
+            return False
         return True
 
     def _is_bridge(self, ifaceobj):
