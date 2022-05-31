@@ -426,10 +426,7 @@ class vrf(Addon, moduleBase):
                                        %mobj.name, ifaceobj)
                     self.logger.info('%s: table id auto: selected table id %s'
                                      %(mobj.name, vrf_table))
-                try:
-                    self._up_vrf_dev(mobj, vrf_table, False)
-                except Exception:
-                    raise
+                self._up_vrf_dev(mobj, vrf_table, False)
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
         self.enable_ipv6_if_prev_brport(ifacename)
