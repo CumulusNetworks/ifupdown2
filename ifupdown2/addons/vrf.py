@@ -128,12 +128,6 @@ class vrf(Addon, moduleBase):
             self.ip6_rule_cache = []
             self.logger.warning('vrf: cache v6: %s' % str(e))
 
-        #self.logger.debug("vrf: ip rule cache")
-        #self.logger.info(self.ip_rule_cache)
-
-        #self.logger.info("vrf: ip -6 rule cache")
-        #self.logger.info(self.ip6_rule_cache)
-
         self.l3mdev_checked = False
         self.l3mdev4_rule = False
         if self._l3mdev_rule(self.ip_rule_cache):
