@@ -79,7 +79,7 @@ class Parse:
 
         try:
             self.args = argparser.parse_args(self.argv)
-        except SystemExit as e:
+        except SystemExit:
             # on "--help" parse_args will raise SystemExit.
             # We need to catch this behavior and raise a custom
             # exception to return 0 properly
