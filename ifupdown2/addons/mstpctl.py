@@ -1501,7 +1501,6 @@ class mstpctl(Addon, moduleBase):
                         for attr in ('mstpctl-portbpdufilter',
                                      'mstpctl-bpduguard',
                                      'mstpctl-portadminedge'):
-                            jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
                             config_val = ifaceobj.get_attr_value_first(attr)
                             if config_val or not ifupdownflags.flags.WITHDEFAULTS:
                                 continue
