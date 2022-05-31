@@ -42,7 +42,7 @@ except ImportError:
     from ifupdownaddons.modulebase import moduleBase
 
 
-class vrfPrivFlags:
+class VrfPrivFlags:
     PROCESSED = 0x1
 
 
@@ -700,10 +700,10 @@ class vrf(Addon, moduleBase):
     def _set_vrf_dev_processed_flag(self, ifaceobj):
         ifaceobj.module_flags[self.name] = \
                              ifaceobj.module_flags.setdefault(self.name, 0) | \
-                                        vrfPrivFlags.PROCESSED
+                                        VrfPrivFlags.PROCESSED
 
     def _check_vrf_dev_processed_flag(self, ifaceobj):
-        if (ifaceobj.module_flags.get(self.name, 0) & vrfPrivFlags.PROCESSED):
+        if (ifaceobj.module_flags.get(self.name, 0) & VrfPrivFlags.PROCESSED):
             return True
         return False
 
