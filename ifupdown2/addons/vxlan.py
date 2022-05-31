@@ -1234,9 +1234,8 @@ class vxlan(Vxlan, moduleBase):
                 except Exception as e:
                     self.logger.warning("%s: l3 vxlan vni failure: %s" % (ifname, e))
 
-        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
-            if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
-                self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
+            self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
@@ -1756,8 +1755,8 @@ class vxlan(Vxlan, moduleBase):
         if not self._is_vxlan_device(ifaceobj):
             return
 
-        if "query" not in operation:
-            if not self.vxlan_mcastgrp_ref \
+        if "query" not in operation and \
+                    not self.vxlan_mcastgrp_ref \
                     and self.vxlan_physdev_mcast \
                     and self.cache.link_exists(self.vxlan_physdev_mcast):
                 self.netlink.link_del(self.vxlan_physdev_mcast)
