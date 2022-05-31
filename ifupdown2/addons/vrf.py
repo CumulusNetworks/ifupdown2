@@ -434,7 +434,6 @@ class vrf(Addon, moduleBase):
         self._handle_existing_connections(ifaceobj, vrfname)
         self.enable_ipv6_if_prev_brport(ifacename)
         self.netlink.link_set_master(ifacename, vrfname)
-        return
 
     def enable_ipv6_if_prev_brport(self, ifname):
         """
