@@ -1212,7 +1212,6 @@ class mstpctl(Addon, moduleBase):
                 # Now, look at port attributes
                 # derive the mstpctlcmd attr name
                 #mstpctlcmdattrname = k[12:] if k[:12] == 'mstpctl-port' else k[8:]
-                mstpctlcmdattrname = k[8:]
 
                 # for port attributes, the attributes are in a list
                 # <portname>=<portattrvalue>
