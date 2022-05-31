@@ -634,8 +634,7 @@ class vxlan(Vxlan, moduleBase):
         parsed_maps = {}
         for m_line in maps:
             # Cover single-line multi-entry case
-            map = m_line.split()
-            for m in map:
+            for m in m_line.split():
                 m_parts = m.split('=')
                 if len(m_parts) != 2:
                     self.log_error('%s: vxlan-mcastgrp-map %s format is invalid' % (ifaceobj.name, m))
@@ -997,8 +996,7 @@ class vxlan(Vxlan, moduleBase):
         parsed_maps = {}
         for m_line in maps:
             # Cover single-line multi-entry case
-            map = m_line.split()
-            for m in map:
+            for m in m_line.split():
                 m_parts = m.split('=')
                 if len(m_parts) != 2:
                     self.log_error('%s: %s %s format is invalid' % (ifaceobj.name, attr_name, m))
