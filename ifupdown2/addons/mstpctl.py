@@ -381,7 +381,6 @@ class mstpctl(Addon, moduleBase):
                                 '/disable_ipv6', enable)
             except Exception as e:
                 self.logger.info(str(e))
-                pass
 
     def _add_ports(self, ifaceobj):
         bridgeports = self._get_bridge_port_list(ifaceobj)
@@ -448,7 +447,6 @@ class mstpctl(Addon, moduleBase):
                                 dstattrname, config_val, check)
                 except Exception as e:
                     self.logger.warning('%s' %str(e))
-                    pass
 
             if self.cache.bridge_is_vlan_aware(ifaceobj.name):
                 return
@@ -515,7 +513,6 @@ class mstpctl(Addon, moduleBase):
                                        ifaceobj, raise_error=False)
         except Exception as e:
             self.log_warn(str(e))
-            pass
 
     def _get_default_val(self, attr, ifaceobj, bridgeifaceobj):
         if (self.set_default_mstp_vxlan_bridge_config
@@ -669,7 +666,6 @@ class mstpctl(Addon, moduleBase):
                     self._apply_bridge_port_settings(bportifaceobj, bvlan_aware,
                                             ifaceobj.name, ifaceobj)
                 except Exception as e:
-                    pass
                     self.log_warn(str(e))
 
     def _is_running_userspace_stp_state_on(self, bridgename):
@@ -719,7 +715,6 @@ class mstpctl(Addon, moduleBase):
                 except Exception as e:
                     porterr = True
                     porterrstr = str(e)
-                    pass
 
                 running_ports = self.cache.get_slaves(ifaceobj.name)
                 if running_ports:
@@ -973,7 +968,6 @@ class mstpctl(Addon, moduleBase):
                             status = 1
                     except Exception as e:
                         self.log_warn(str(e))
-                        pass
                 ifaceobjcurr.update_config_with_status(k, currstr, status)
             elif not rv:
                 ifaceobjcurr.update_config_with_status(k, '', 1)
@@ -1226,7 +1220,6 @@ class mstpctl(Addon, moduleBase):
                         return
         except Exception as e:
             self.logger.info("%s: %s" %(ifaceobj.name, str(e)))
-            pass
 
     def _query(self, ifaceobj, ifaceobj_getfunc=None, **kwargs):
         """ add default policy attributes supported by the module """
