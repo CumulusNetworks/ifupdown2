@@ -9,7 +9,7 @@ import json
 import time
 import subprocess
 
-from distutils.util import strtobool
+from setuptools.dist import strtobool
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
