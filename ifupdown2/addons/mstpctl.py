@@ -38,7 +38,7 @@ except ImportError:
     from ifupdown.exceptions import moduleNotSupported
 
 
-class mstpctlFlags:
+class MstpctlFlags:
     PORT_PROCESSED = 0x1
 
 class mstpctl(Addon, moduleBase):
@@ -764,7 +764,7 @@ class mstpctl(Addon, moduleBase):
 
                 # Dont process bridge port if it already has been processed
                 if (bportifaceobj.module_flags.get(self.name,0x0) & \
-                    mstpctlFlags.PORT_PROCESSED):
+                    MstpctlFlags.PORT_PROCESSED):
                     continue
                 try:
                     self._apply_bridge_port_settings(bportifaceobj, bvlan_aware,
@@ -799,7 +799,7 @@ class mstpctl(Addon, moduleBase):
             if applied:
                 ifaceobj.module_flags[self.name] = \
                         ifaceobj.module_flags.setdefault(self.name,0) | \
-                        mstpctlFlags.PORT_PROCESSED
+                        MstpctlFlags.PORT_PROCESSED
             return
 
         elif not self._is_bridge(ifaceobj):
@@ -1517,12 +1517,12 @@ class mstpctl(Addon, moduleBase):
         """ add default policy attributes supported by the module """
         if not self._is_bridge(ifaceobj):
             if (ifaceobj.module_flags.get(self.name,0x0) &
-                    mstpctlFlags.PORT_PROCESSED):
+                    MstpctlFlags.PORT_PROCESSED):
                 return
             self._query_bridge_port(ifaceobj, ifaceobj_getfunc)
             ifaceobj.module_flags[self.name] = (
                         ifaceobj.module_flags.setdefault(self.name,0) |
-                        mstpctlFlags.PORT_PROCESSED)
+                        MstpctlFlags.PORT_PROCESSED)
             return
         lowerinfs = ifaceobj.lowerifaces
         if not lowerinfs:
@@ -1549,7 +1549,7 @@ class mstpctl(Addon, moduleBase):
                     bportobjlist = ifaceobj_getfunc(port)
                     for bportobj in bportobjlist:
                         if (bportobj.module_flags.get(self.name,0x0) &
-                            mstpctlFlags.PORT_PROCESSED):
+                            MstpctlFlags.PORT_PROCESSED):
                             continue
                         if bportobj.get_attr_value_first('vxlan-id'):
                             if config:
@@ -1566,7 +1566,7 @@ class mstpctl(Addon, moduleBase):
                                 bportobj.replace_config(attr, 'yes')
                             bportobj.module_flags[self.name] = (
                                 bportobj.module_flags.setdefault(self.name,0) |
-                                mstpctlFlags.PORT_PROCESSED)
+                                MstpctlFlags.PORT_PROCESSED)
                 if config:
                     ifaceobj.replace_config(attr, config)
 
