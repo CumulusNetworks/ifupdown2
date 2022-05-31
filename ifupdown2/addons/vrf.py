@@ -94,9 +94,12 @@ class vrf(Addon, moduleBase):
 
         self.user_reserved_vrf_table = []
 
-        if (ifupdownflags.flags.PERFMODE and
-            not (self.vrf_mgmt_devname and os.path.exists('/sys/class/net/%s'
-            %self.vrf_mgmt_devname))):
+        if (
+            ifupdownflags.flags.PERFMODE
+            and not self.vrf_mgmt_devname
+            and os.path.exists(self.iproute2_vrf_filename)
+            and os.path.exists("/sys/class/net/%s" % self.vrf_mgmt_devname)
+        ):
             # if perf mode is set (PERFMODE is set at boot), and this is the first
             # time we are calling ifup at boot (check for mgmt vrf existance at
             # boot, make sure this is really the first invocation at boot.
@@ -104,14 +107,11 @@ class vrf(Addon, moduleBase):
             # and the second time with all auto interfaces). We want to delete
             # the map file only the first time. This is to avoid accidently
             # deleting map file with a valid mgmt vrf entry
-            if os.path.exists(self.iproute2_vrf_filename):
-                try:
-                    self.logger.info('vrf: removing file %s'
-                                     %self.iproute2_vrf_filename)
-                    os.remove(self.iproute2_vrf_filename)
-                except Exception as e:
-                    self.logger.debug('vrf: removing file failed (%s)'
-                                      %str(e))
+            try:
+                self.logger.info("vrf: removing file %s" % self.iproute2_vrf_filename)
+                os.remove(self.iproute2_vrf_filename)
+            except Exception as e:
+                self.logger.debug("vrf: removing file failed (%s)" % str(e))
         try:
             ip_rules = utils.exec_command('%s rule show'
                                           %utils.ip_cmd).splitlines()
@@ -651,10 +651,7 @@ class vrf(Addon, moduleBase):
         #    format <vrf_slave>-v<int> created by the
         #    address virtual module
         vrfslave_lowers = self.sysfs.link_get_lowers(vrfslave)
-        if vrfslave_lowers:
-            if vrfslave_lowers[0] in config_vrfslaves:
-                return True
-        return False
+        return vrfslave_lowers and vrfslave_lowers[0] in config_vrfslaves
 
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
@@ -829,9 +826,8 @@ class vrf(Addon, moduleBase):
                     addr = citems[3].split(':')[0]
                 if not addr:
                     continue
-                if addr in iplist:
-                    if len(citems) == 6:
-                        proc.append(citems[5].split(',')[1].split('=')[1])
+                if addr in iplist and len(citems) == 6:
+                    proc.append(citems[5].split(',')[1].split('=')[1])
 
             if not proc:
                 return
