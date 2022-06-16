@@ -4,6 +4,8 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import json
+
 from ipaddress import IPv4Network, IPv4Address, AddressValueError, ip_address
 try:
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
