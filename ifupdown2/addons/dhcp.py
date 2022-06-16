@@ -69,6 +69,13 @@ class dhcp(Addon, moduleBase):
 
         self.logger.debug("dhclient: dhclient_retry_on_failure set to %s" % self.dhclient_retry_on_failure)
 
+        self.dhclient_no_wait_on_reload = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="dhclient_no_wait_on_reload"
+            ),
+        )
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
 
@@ -167,6 +174,10 @@ class dhcp(Addon, moduleBase):
             elif self.mgmt_vrf_context:
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, 'default')
                 self.logger.info('detected mgmt vrf context starting dhclient in default vrf context')
+
+            if not ifupdownflags.flags.PERFMODE and self.dhclient_no_wait_on_reload:
+                self.logger.info("%s: dhclient won't wait (-nw): policy dhclient_no_wait_on_reload=true" % (ifaceobj.name))
+                wait = False
 
             if 'inet' in ifaceobj.addr_family:
                 if dhclient4_running:
