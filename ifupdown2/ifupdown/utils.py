@@ -386,7 +386,7 @@ class utils():
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
-        cmd_output_string = cmd_output.decode() if cmd_output else cmd_output
+        cmd_output_string = cmd_output.decode() if cmd_output is not None else cmd_output
 
         if cmd_returncode != 0:
             raise Exception(cls._format_error(cmd,
