@@ -2278,7 +2278,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
         raise Exception(error_str)
 
-    def tx_nlpacket_get_response_with_error_and_cache_on_ack(self, packet):
+    def tx_nlpacket_get_response_with_error_and_cache_on_ack(self, packet, ifname=None):
         """
             TX packet and manually cache the object
         """
@@ -2298,6 +2298,33 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             # i.e.: packet.flags shouldn't contain NLM_F_* values but IFF_* (in case of Link object)
             # otherwise call to cache.link_is_up() will probably return True
             packet.decode_service_header()
+        except Exception:
+            # we can ignore all errors
+            pass
+
+        try:
+            # We might be pre-caching an updated object that is "incomplete".
+            # i.e. say you have an existing bond in the cache, on ifreload only
+            # one attribute is updated. Our object 'packet' here will only have
+            # a couple attributes (but overriding a 'full' object in the cache).
+            # We need to somehow 'merge' some of the attributes that are not
+            # updated, otherwise later calls to the cache might return None for
+            # the missing attributes. MTU is a prime example.
+            if ifname:
+                # To minimize the changes each parent function can decide to
+                # trigger this 'merge' code by provided the optional 'ifname' arg
+
+                # MERGING MTU:
+                # First check if we are not already setting MTU in this packet
+                try:
+                    packet_mtu = packet.attributes[Link.IFLA_MTU].value
+                except Exception:
+                    packet_mtu = None
+                # Then update 'packet' before caching
+                if not packet_mtu:
+                    old_packet_mtu = self.cache.get_link_attribute(ifname, Link.IFLA_MTU)
+                    if old_packet_mtu:
+                        packet.add_attribute(Link.IFLA_MTU, old_packet_mtu)
         except Exception:
             # we can ignore all errors
             pass
@@ -3060,7 +3087,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 Link.IFLA_INFO_DATA: ifla_info_data
             })
             link.build_message(next(self.sequence), self.pid)
-            return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
+            return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link, ifname=ifname)
         except Exception as e:
             raise Exception("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
 
