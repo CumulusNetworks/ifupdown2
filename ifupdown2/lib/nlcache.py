@@ -2955,7 +2955,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 Link.IFLA_INFO_DATA: ifla_info_data
             })
             link.build_message(next(self.sequence), self.pid)
-            return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
+            return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link, ifname)
         except Exception as e:
             if "Invalid argument" in str(e) and bridge_binding is not None:
                 raise RetryCMD(cmd=" ".join(vlan_iproute2_cmd))
@@ -3052,7 +3052,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             Link.IFLA_INFO_DATA: info_data
         })
         link.build_message(next(self.sequence), self.pid)
-        return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
+        return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link, ifname)
 
     def link_add_vxlan_with_info_data_dry_run(self, ifname, info_data):
         self.log_info_ifname_dry_run(
