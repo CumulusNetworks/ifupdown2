@@ -74,6 +74,10 @@ class openvswitch(Addon, moduleBase):
                     "required": False,
                     "example": ["ovs-ports-condone-regex ^[a-zA-Z0-9]+_v[0-9]{1,4}$"]
             },
+            'ovs-bridge': {
+                'help': 'Optional parent bridge for fake bridges',
+                'required': False,
+            },
         }
     }
 
@@ -147,13 +151,17 @@ class openvswitch(Addon, moduleBase):
         ovsextra = ifaceobj.get_attr_value('ovs-extra')
         ovsmtu = ifaceobj.get_attr_value_first ('ovs-mtu')
         ovsportscondoneregex = self._get_ovs_port_condone_regex(ifaceobj)
+        ovsparent = ifaceobj.get_attr_value_first ('ovs-bridge')
 
         cmd_list = []
 
         cmd = "--may-exist add-br %s"%(iface)
+        if ovsparent is not None and ovsoptions:
+            cmd = cmd + " %s" %(ovsoptions)
+
         cmd_list.append(cmd)
 
-        if ovsoptions:
+        if ovsparent is None and ovsoptions:
             cmd = "set bridge %s %s" %(iface, ovsoptions)
             cmd_list.append(cmd)
 
