@@ -2020,7 +2020,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         BaseObject.__init__(self)
 
         signal.signal(signal.SIGTERM, self.signal_term_handler)
-        signal.signal(signal.SIGINT, self.signal_int_handler)
+        #signal.signal(signal.SIGINT, self.signal_int_handler)
 
         self.cache = _NetlinkCache()
 
