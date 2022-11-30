@@ -460,9 +460,9 @@ class vxlan(Vxlan, moduleBase):
             if vxlan_tos != cached_ifla_vxlan_tos:
 
                 if cached_ifla_vxlan_tos is not None:
-                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos, cached_ifla_vxlan_tos))
+                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str, cached_ifla_vxlan_tos))
                 else:
-                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos))
+                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str))
 
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TOS] = vxlan_tos
         except Exception:
