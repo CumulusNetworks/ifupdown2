@@ -326,7 +326,7 @@ class ethtool(Addon, moduleBase):
         else:
             pass
 
-    def do_speed_settings(self, ifaceobj, operation='post_up'):
+    def do_speed_settings(self, ifaceobj, down=False):
         cmd = ''
 
         autoneg_to_configure = None
@@ -354,6 +354,11 @@ class ethtool(Addon, moduleBase):
                 ifname=ifaceobj.name,
                 attr='link-autoneg'
         )
+
+        if down:
+            config_speed = default_speed
+            config_duplex = default_duplex
+            config_autoneg = default_autoneg
 
         # autoneg wins if provided by user and is on
         if config_autoneg and utils.get_boolean_from_string(config_autoneg):
@@ -441,7 +446,9 @@ class ethtool(Addon, moduleBase):
         self.do_offload_settings(ifaceobj, 'rx-offload', 'rx')
 
     def _pre_down(self, ifaceobj):
-        pass #self._post_up(ifaceobj,operation="_pre_down")
+        if not self.cache.link_exists(ifaceobj.name) or not ifaceobj.name.startswith("swp"):
+            return
+        self.do_speed_settings(ifaceobj, down=True)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         """
