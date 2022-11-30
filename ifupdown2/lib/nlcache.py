@@ -1052,7 +1052,7 @@ class _NetlinkCache:
         vlans = []
         try:
             range_begin_vlan_id = None
-            range_flag = None
+            range_flag = 0
 
             with self._cache_lock:
                 bridge_vlans_tuples = self._bridge_vlan_cache.get(ifname)
@@ -1079,7 +1079,7 @@ class _NetlinkCache:
                                 vlans.append(x)
 
                             range_begin_vlan_id = None
-                            range_flag = None
+                            range_flag = 0
 
                         else:
                             vlans.append(vlan_id)
