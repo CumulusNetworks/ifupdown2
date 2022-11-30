@@ -523,7 +523,7 @@ class ethtool(Addon, moduleBase):
                 # PASS since running is default
                 ifaceobjcurr.update_config_with_status('link-%s'%attr,
                                                        running_attr, 0)
-            elif (default or configured):
+            elif configured:
                 # We show a FAIL since it is not the configured or default
                 ifaceobjcurr.update_config_with_status('link-%s'%attr,
                                                        running_attr, 1)
