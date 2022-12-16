@@ -155,6 +155,12 @@ class ifupdownMain:
         if not self.link_exists(ifaceobj.name):
            return
         try:
+            # special case for some logical interfaces:
+            # - downed VLANs will be deleted via netlink no need to set them admin DOWN
+            if ifaceobj.link_kind & ifaceLinkKind.VLAN:
+                self.logger.debug("%s: skipping admin down (vlan will be deleted)" % ifaceobj.name)
+                return
+
             if not ifaceobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK:
                 # set intf down (except loopback)
                 self.netlink.link_down(ifaceobj.name)
