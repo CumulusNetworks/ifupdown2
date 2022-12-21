@@ -199,6 +199,7 @@ class LogManager:
         self.__root_logger.setLevel(logging.DEBUG)
 
         self.__root_logger.debug("persistent debugging is initialized")
+        self.__root_logger.debug("argv: %s" % sys.argv)
 
         # cp ENI and ENI.d in the log directory
         shutil.copy2("/etc/network/interfaces", self.new_dir_path)
