@@ -163,8 +163,8 @@ class wireguard(Addon, moduleBase):
         return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
-        print("wireguard::run(ifaceobj, operation=%s)" % ( operation, ))
-        print("  - ifaceobj=", ifaceobj)
+        self.logger.info("wireguard::run(ifaceobj, operation=%s)" % ( operation, ))
+        self.logger.info("  - ifaceobj=", ifaceobj)
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
