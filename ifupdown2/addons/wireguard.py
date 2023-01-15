@@ -29,6 +29,7 @@ except (ImportError, ModuleNotFoundError):
     import nlmanager.ipnetwork as ipnetwork
 
 import os
+import hashlib
 
 class wireguard(Addon, moduleBase):
     """
@@ -69,17 +70,6 @@ class wireguard(Addon, moduleBase):
             if attrs_present.get(key) != value:
                 return True
         return False
-
-    def __get_info_data(self, info_data):
-        tunnel_link_ifindex = info_data.get(Link.IFLA_GRE_LINK)
-
-        return {
-            "tunnel-endpoint": info_data.get(Link.IFLA_GRE_REMOTE),
-            "tunnel-local": info_data.get(Link.IFLA_GRE_LOCAL),
-            "tunnel-ttl": str(info_data.get(Link.IFLA_GRE_TTL)),
-            "tunnel-tos": str(info_data.get(Link.IFLA_GRE_TOS)),
-            "tunnel-dev": self.cache.get_ifname(tunnel_link_ifindex) if tunnel_link_ifindex else ""
-        }
 
     def _up(self, ifaceobj):
         ifname = ifaceobj.name
@@ -127,47 +117,53 @@ class wireguard(Addon, moduleBase):
         else:
             ifaceobjcurr.update_config_with_status(attrname, running_attrval, 1)
 
+    def _get_wg_config_on_disk(self, ifaceobj):
+        file_path = ifaceobj.get_attr_value_first("wireguard-config-path")
+        file_hash = hashlib.sha256()
+        BLOCK_SIZE = 65536
+
+        with open(file_path, 'rb') as f:
+            fb = f.read(BLOCK_SIZE)
+            while len(fb) > 0:
+                file_hash.update(fb)
+                fb = f.read(BLOCK_SIZE)
+        
+        return file_hash.hexdigest()
+
+    def _get_wg_config_running(self, ifaceobj):
+        ifname = ifaceobj.name
+        x = utils.exec_command("wg showconf %s" % (ifname, ))
+        self.logger.info("Output wg showconf: " + x)
+
     def _query_check(self, ifaceobj, ifaceobjcurr):
+        """Check between desired and current state and report current state back
+
+        Args:
+            ifaceobj (_type_): _description_
+            ifaceobjcurr (_type_): _description_
+        """
         ifname = ifaceobj.name
         self.logger.info("wireguard[%s]: Entering _query_check" % (ifname, ))
 
         if not self.cache.link_exists(ifname):
             return
 
-        link_kind = self.cache.get_link_kind(ifname)
-        tunattrs = self.get_linkinfo_attrs(ifaceobj.name, link_kind)
+        # config path
+        attr = "wireguard-config-path"
+        attr_value = ifaceobj.get_attr_value_first(attr)
+        self._query_check_n_update(ifaceobjcurr, attr, attr_value, attr_value)
+        self.logger.info("wireguard[%s]: attr%s, value=%s" % (ifname, attr, attr_value))
 
+        on_disk_wg_config_hash = self._get_wg_config_on_disk(ifaceobj)
+        self.logger.info("wireguard[%s]: on_disk_wg_config_hash=" % (ifname, on_disk_wg_config_hash))
+        self._get_wg_config_running(ifaceobj)
+
+        # master dev, it's hard to check if is, it's just a hint for bringing up the devs in order
+        attr = "wireguard-dev"
+        attr_value = ifaceobj.get_attr_value_first(attr)
+        self._query_check_n_update(ifaceobjcurr, attr, attr_value, attr_value)
+        self.logger.info("wireguard[%s]: attr%s, value=%s" % (ifname, attr, attr_value))
         self.logger.info("wireguard[%s]: Finished _query_check" % (ifname, ))
-        # if not tunattrs:
-        #     ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj, self.get_mod_attrs(), -1)
-        #     return
-
-        # tunattrs["tunnel-mode"] = link_kind
-
-        # user_config_mode = ifaceobj.get_attr_value_first("tunnel-mode")
-        # if user_config_mode in ('ipip6', 'ip6ip6'):
-        #     ifaceobj.replace_config("tunnel-mode", "ip6tnl")
-
-        # for attr, netlink_func in (
-        #     ("tunnel-mode", None),
-        #     ("tunnel-local", ipnetwork.IPNetwork),
-        #     ("tunnel-endpoint", ipnetwork.IPNetwork),
-        #     ("tunnel-ttl", self._get_tunnel_ttl),
-        #     ("tunnel-tos", self._get_tunnel_tos),
-        #     ("tunnel-dev", None),
-        # ):
-        #     attr_value = ifaceobj.get_attr_value_first(attr)
-
-        #     if not attr_value:
-        #         continue
-
-        #     if callable(netlink_func):
-        #         attr_value = netlink_func(attr_value)
-
-        #     # Validate all interface attributes set in the config.
-        #     # Remote any leading 'tunnel-' prefix in front of the attr name
-        #     # when accessing tunattrs parsed from 'ip -d link'.
-        #     self._query_check_n_update(ifaceobjcurr, attr, attr_value, tunattrs.get(attr))
 
     # Operations supported by this addon (yet).
     _run_ops = {
