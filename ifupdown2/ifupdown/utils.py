@@ -107,6 +107,7 @@ class utils():
     ethtool_cmd     = '/sbin/ethtool'
     systemctl_cmd   = '/bin/systemctl'
     dpkg_cmd        = '/usr/bin/dpkg'
+    wireguard_cmd   = '/usr/bin/wg'
 
     logger.info("utils init command paths")
     for cmd in ['bridge',

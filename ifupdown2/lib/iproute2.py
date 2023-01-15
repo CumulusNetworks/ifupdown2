@@ -480,6 +480,21 @@ class IPRoute2(Cache, Requirements):
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
 
     ############################################################################
+    # Wireguard
+    ############################################################################
+    def wireguard_create(self, tunnelname, wireguard_config_file_path):
+        # create the kernel interface
+        utils.exec_command("%s link add %s type wireguard" % (utils.ip_cmd, tunnelname))
+
+        # configure wireguard 
+        utils.exec_command("%s setconf %s %s" % (utils.wireguard_cmd, tunnelname, wireguard_config_file_path))
+
+        self.__update_cache_after_link_creation(tunnelname, "wireguard")
+
+    def wireguard_update(self, tunnelname, wireguard_config_file_path):
+        utils.exec_command("%s setconf %s %s" % (utils.wireguard_cmd, tunnelname, wireguard_config_file_path))
+
+    ############################################################################
     # ADDRESS
     ############################################################################
 
