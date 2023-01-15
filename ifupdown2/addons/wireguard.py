@@ -85,20 +85,25 @@ class wireguard(Addon, moduleBase):
         ifname = ifaceobj.name
 
         wireguard_config_file_path = ifaceobj.get_attr_value_first('wireguard-config-path')
-        self.logger.debug("Using configuration file '%s'" % (wireguard_config_file_path, ))
+        self.logger.info("Using configuration file '%s'" % (wireguard_config_file_path, ))
 
         link_exists = self.cache.link_exists(ifname)
 
         # Create the tunnel if it doesn't exist yet...
         if not link_exists:
+            self.logger.info("wireguard[%s]: creating new interface" % (ifname, ))
             self.iproute2.wireguard_create(ifname, wireguard_config_file_path)
         else:
+            self.logger.info("wireguard[%s]: changing existing interface" % (ifname, ))
             self.iproute2.wireguard_update(ifname, wireguard_config_file_path)
 
     def _down(self, ifaceobj):
+        ifname = ifaceobj.name
+        self.logger.info("wireguard[%s]: shutting down interface" % (ifname, ))
         if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
             return
         try:
+            self.logger.info("wireguard[%s]: executing interface deletion" % (ifname, ))
             self.netlink.link_del(ifaceobj.name)
         except Exception as e:
             self.log_warn(str(e))
