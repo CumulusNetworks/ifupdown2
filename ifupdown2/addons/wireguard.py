@@ -10,6 +10,8 @@ try:
     from ifupdown2.ifupdown.iface import *
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
+    from ifupdown2.ifupdown.exceptions import moduleNotSupported
+    from ifupdown2.ifupdown.utils import utils
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
@@ -20,10 +22,13 @@ except (ImportError, ModuleNotFoundError):
     from ifupdown.iface import *
 
     from ifupdownaddons.modulebase import moduleBase
+    from ifupdown.exceptions import moduleNotSupported
+    from ifupdown.utils import utils
 
     import ifupdown.ifupdownflags as ifupdownflags
     import nlmanager.ipnetwork as ipnetwork
 
+import os
 
 class wireguard(Addon, moduleBase):
     """
@@ -48,8 +53,11 @@ class wireguard(Addon, moduleBase):
     }
 
     def __init__(self, *args, **kargs):
-        moduleBase.__init__(self, *args, **kargs)
         Addon.__init__(self)
+        moduleBase.__init__(self, *args, **kargs)
+        self.logger.info("Initialized wireguard addon")
+        if not os.path.exists('utils.wireguard_cmd'):
+            raise moduleNotSupported('module init failed: no %s found' % (utils.wireguard_cmd, ))
 
     @staticmethod
     def _is_my_interface(ifaceobj):
