@@ -35,7 +35,7 @@ class wireguard(Addon, moduleBase):
     _modinfo = {
         'mhelp': 'create/configure Wireguard interfaces',
         'attrs': {
-            'wireguard-config': {
+            'wireguard-config-path': {
                 'help': 'Path to wireguard configuration',
                 'validvals': ['<text>'],
                 'required': True,
