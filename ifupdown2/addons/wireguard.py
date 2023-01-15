@@ -97,6 +97,8 @@ class wireguard(Addon, moduleBase):
             self.logger.info("wireguard[%s]: changing existing interface" % (ifname, ))
             self.iproute2.wireguard_update(ifname, wireguard_config_file_path)
 
+        self.logger.info("wireguard[%s]: finished setting up wireguard interface" % (ifname, ))
+
     def _down(self, ifaceobj):
         ifname = ifaceobj.name
         self.logger.info("wireguard[%s]: shutting down interface" % (ifname, ))
@@ -112,7 +114,7 @@ class wireguard(Addon, moduleBase):
         if not self._is_my_interface(ifaceobj):
             return None
 
-        device = ifaceobj.get_attr_value_first('wireguard-config-path')
+        device = ifaceobj.get_attr_value_first('wireguard-dev')
         if device:
             return [device]
 
@@ -127,6 +129,7 @@ class wireguard(Addon, moduleBase):
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         ifname = ifaceobj.name
+        self.logger.info("wireguard[%s]: Entering _query_check" % (ifname, ))
 
         if not self.cache.link_exists(ifname):
             return
@@ -134,7 +137,7 @@ class wireguard(Addon, moduleBase):
         link_kind = self.cache.get_link_kind(ifname)
         tunattrs = self.get_linkinfo_attrs(ifaceobj.name, link_kind)
 
-        print ("Wireguard::_query_check: tunattrs=", tunattrs)
+        self.logger.info("wireguard[%s]: Finished _query_check" % (ifname, ))
         # if not tunattrs:
         #     ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj, self.get_mod_attrs(), -1)
         #     return
@@ -177,14 +180,20 @@ class wireguard(Addon, moduleBase):
         return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+        ifname = ifaceobj.name
+        self.logger.info("wireguard[%s]: Entering run" % (ifname, ))
         op_handler = self._run_ops.get(operation)
         if not op_handler:
+            self.logger.info("wireguard[%s]: Leaving, no op_handler" % (ifname, ))
             return
 
         if operation != 'query-running' and not self._is_my_interface(ifaceobj):
+            self.logger.info("wireguard[%s]: Leaving no query-running and not my interface" % (ifname, ))
             return
 
         if operation == 'query-checkcurr':
+            self.logger.info("wireguard[%s]: query-checkcurr" % (ifname, ))
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
+            self.logger.info("wireguard[%s]: Executing '%s'" % (ifname, operation, ))
             op_handler(self, ifaceobj)

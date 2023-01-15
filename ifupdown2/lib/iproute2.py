@@ -493,7 +493,6 @@ class IPRoute2(Cache, Requirements):
 
     def wireguard_update(self, tunnelname, wireguard_config_file_path):
         cmd = "%s setconf %s %s" % (utils.wireguard_cmd, tunnelname, wireguard_config_file_path)
-        self.logger.info("wireguard[%s]: Changing configuration: %s" %( tunnelname, cmd))
         utils.exec_command(cmd)
 
     ############################################################################
