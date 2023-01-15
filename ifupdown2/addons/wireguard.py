@@ -29,7 +29,7 @@ except (ImportError, ModuleNotFoundError):
     import nlmanager.ipnetwork as ipnetwork
 
 import os
-import hashlib
+import configparser
 
 class wireguard(Addon, moduleBase):
     """
@@ -119,21 +119,35 @@ class wireguard(Addon, moduleBase):
 
     def _get_wg_config_on_disk(self, ifaceobj):
         file_path = ifaceobj.get_attr_value_first("wireguard-config-path")
-        file_hash = hashlib.sha256()
-        BLOCK_SIZE = 65536
-
-        with open(file_path, 'rb') as f:
-            fb = f.read(BLOCK_SIZE)
-            while len(fb) > 0:
-                file_hash.update(fb)
-                fb = f.read(BLOCK_SIZE)
-        
-        return file_hash.hexdigest()
+        config = configparser.ConfigParser()
+        config.read(file_path)
+        return config
 
     def _get_wg_config_running(self, ifaceobj):
         ifname = ifaceobj.name
-        x = utils.exec_command("wg showconf %s" % (ifname, ))
-        self.logger.info("Output wg showconf: " + x)
+        rawTerminal = utils.exec_command("wg showconf %s" % (ifname, ))
+        config = configparser.ConfigParser().encode('utf-8')
+        config.read(rawTerminal)
+        return config
+
+    def _is_wg_config_equal(self, ifacename, this, other):
+        # check interface section
+        this_interface = this['Interface']
+        other_interface = other['Interface']
+
+        # check if same parameter names are provided
+        interface_params_name_diff= (set(this_interface) - set(other_interface)).union(set(other_interface)-set(this_interface))
+        if (len(interface_params_name_diff) > 0):
+            self.logger.Warn("wireguard[%s]: Found mismatch in config keys in interface section between config file and actual active configuration" % (ifacename,))
+            return False
+        
+        # in-depth values
+        for k in this_interface:
+            if this_interface[k] != other_interface[k]:
+                self.logger.Warn("wireguard[%s]: Found mismatch in interface configuration - key=%s, this=%s, other=%s" % (ifacename, this_interface[k], other_interface[k]))
+                return False
+
+        return True
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         """Check between desired and current state and report current state back
@@ -151,8 +165,9 @@ class wireguard(Addon, moduleBase):
         # config path
         attr = "wireguard-config-path"
         attr_value = ifaceobj.get_attr_value_first(attr)
-        self._query_check_n_update(ifaceobjcurr, attr, attr_value, attr_value)
-        self.logger.info("wireguard[%s]: attr%s, value=%s" % (ifname, attr, attr_value))
+        wg_running_config_is_match = self._is_wg_config_equal(ifname, self._get_wg_config_on_disk(ifaceobj), self._get_wg_config_running(ifaceobj))
+        self._query_check_n_update(ifaceobjcurr, attr, attr_value, attr_value if wg_running_config_is_match else "MISMATCH")
+        self.logger.info("wireguard[%s]: attr=%s, value=%s" % (ifname, attr, attr_value))
 
         on_disk_wg_config_hash = self._get_wg_config_on_disk(ifaceobj)
         self.logger.info("wireguard[%s]: on_disk_wg_config_hash=" % (ifname, on_disk_wg_config_hash))
@@ -162,7 +177,7 @@ class wireguard(Addon, moduleBase):
         attr = "wireguard-dev"
         attr_value = ifaceobj.get_attr_value_first(attr)
         self._query_check_n_update(ifaceobjcurr, attr, attr_value, attr_value)
-        self.logger.info("wireguard[%s]: attr%s, value=%s" % (ifname, attr, attr_value))
+        self.logger.info("wireguard[%s]: attr=%s, value=%s" % (ifname, attr, attr_value))
         self.logger.info("wireguard[%s]: Finished _query_check" % (ifname, ))
 
     # Operations supported by this addon (yet).
