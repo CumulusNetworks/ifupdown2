@@ -61,7 +61,7 @@ class wireguard(Addon, moduleBase):
 
     @staticmethod
     def _is_my_interface(ifaceobj):
-        return ifaceobj.get_attr_value_first("wireguard-config")
+        return ifaceobj.get_attr_value_first("wireguard-config-path")
 
     @staticmethod
     def _has_config_changed(attrs_present, attrs_configured):
