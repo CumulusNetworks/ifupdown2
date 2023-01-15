@@ -487,15 +487,13 @@ class IPRoute2(Cache, Requirements):
         utils.exec_command("%s link add %s type wireguard" % (utils.ip_cmd, tunnelname))
 
         # configure wireguard
-        cmd = "%s setconf %s %s" % (utils.wireguard_cmd, tunnelname, wireguard_config_file_path)
-        self.logger.info("Setting up wg: ", cmd)
-        utils.exec_command(cmd)
+        self.wireguard_update(tunnelname, wireguard_config_file_path)
 
         self.__update_cache_after_link_creation(tunnelname, "wireguard")
 
     def wireguard_update(self, tunnelname, wireguard_config_file_path):
         cmd = "%s setconf %s %s" % (utils.wireguard_cmd, tunnelname, wireguard_config_file_path)
-        self.logger.info("Setting up wg: ", cmd)
+        self.logger.info("wireguard[%s]: Changing configuration: %s" %( tunnelname, cmd))
         utils.exec_command(cmd)
 
     ############################################################################
