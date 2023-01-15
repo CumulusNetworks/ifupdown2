@@ -25,9 +25,6 @@ except (ImportError, ModuleNotFoundError):
     import nlmanager.ipnetwork as ipnetwork
 
 
-#
-# TODO: Add checks for ipip tunnels.
-#
 class wireguard(Addon, moduleBase):
     """
     ifupdown2 addon module to configure tunnels
@@ -166,6 +163,8 @@ class wireguard(Addon, moduleBase):
         return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+        print("wireguard::run(ifaceobj, operation=%s)" % ( operation, ))
+        print("  - ifaceobj=", ifaceobj)
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
