@@ -56,7 +56,7 @@ class wireguard(Addon, moduleBase):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
         self.logger.info("Initialized wireguard addon")
-        if not os.path.exists('utils.wireguard_cmd'):
+        if not os.path.exists(utils.wireguard_cmd):
             raise moduleNotSupported('module init failed: no %s found' % (utils.wireguard_cmd, ))
 
     @staticmethod
