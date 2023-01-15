@@ -84,7 +84,8 @@ class wireguard(Addon, moduleBase):
     def _up(self, ifaceobj):
         ifname = ifaceobj.name
 
-        wireguard_config_file_path = ifaceobj.get_attr_value_first('wireguard-config')
+        wireguard_config_file_path = ifaceobj.get_attr_value_first('wireguard-config-path')
+        self.logger.debug("Using configuration file '%s'" % (wireguard_config_file_path, ))
 
         link_exists = self.cache.link_exists(ifname)
 
@@ -106,7 +107,7 @@ class wireguard(Addon, moduleBase):
         if not self._is_my_interface(ifaceobj):
             return None
 
-        device = ifaceobj.get_attr_value_first('wireguard-dev')
+        device = ifaceobj.get_attr_value_first('wireguard-config-path')
         if device:
             return [device]
 
