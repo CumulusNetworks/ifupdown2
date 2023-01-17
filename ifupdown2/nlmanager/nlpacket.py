@@ -2845,7 +2845,7 @@ class AttributeIFLA_LINKINFO(Attribute):
                 # ipv6 attributes ##############################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv6_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv6_attribute,
-            }
+            },
             # wireguard is different and does not have IFLA. Keep empty record to not break global logic
             "wireguard": {
             }
