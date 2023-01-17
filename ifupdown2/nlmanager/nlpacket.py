@@ -922,6 +922,12 @@ class NetlinkPacket_IFLA_LINKINFO_Attributes:
         IFLA_VTI_FWMARK     : "IFLA_VTI_FWMARK",
     }
 
+    # =========================================
+    # IFLA_INFO_DATA attributes for wireguard
+    # =========================================
+    ifla_wireguard_to_string = {
+    }
+
 
 class Attribute(object):
 
@@ -2502,6 +2508,9 @@ class AttributeIFLA_LINKINFO(Attribute):
                 # ipv6 attributes ##############################################
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_LOCAL: Attribute.decode_ipv6_address_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_VTI_REMOTE: Attribute.decode_ipv6_address_attribute
+            },
+            # wireguard is different and does not have IFLA. Keep empty record to not break global logic
+            "wireguard": {
             }
         },
         NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
@@ -2837,6 +2846,9 @@ class AttributeIFLA_LINKINFO(Attribute):
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_LOCAL: Attribute.encode_ipv6_attribute,
                 NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_GRE_REMOTE: Attribute.encode_ipv6_attribute,
             }
+            # wireguard is different and does not have IFLA. Keep empty record to not break global logic
+            "wireguard": {
+            }
         },
         NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
             "bridge": {
@@ -2897,7 +2909,8 @@ class AttributeIFLA_LINKINFO(Attribute):
             "ipip": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
             "sit": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
             "ip6tnl": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_iptun_to_string,
-            "xfrm": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_xfrm_to_string
+            "xfrm": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_xfrm_to_string,
+            "wireguard": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_wireguard_to_string
         },
         NetlinkPacket_IFLA_LINKINFO_Attributes.IFLA_INFO_SLAVE_DATA: {
             "bridge": NetlinkPacket_IFLA_LINKINFO_Attributes.ifla_brport_to_string,
@@ -2966,7 +2979,8 @@ class AttributeIFLA_LINKINFO(Attribute):
             "ip6ip6",
             "ipip6",
             "xfrm",
-            "openvswitch"
+            "openvswitch",
+            "wireguard"
 
         ):
             self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
