@@ -897,7 +897,7 @@ class bridge(Bridge, moduleBase):
         c3 = self.syntax_check_learning_l2_vni_evpn(ifaceobj)
         c4 = self.syntax_check_bridge_arp_vni_vlan(ifaceobj, ifaceobj_getfunc)
         c5 = self.syntax_check_bridge_vni_svi_limit(ifaceobj, ifaceobj_getfunc)
-        return retval and c1 and c3 and c4 and c5#and c2
+        return retval and c1 and c2 and c3 and c4 and c5
 
     def syntax_check_bridge_vni_svi_limit(self, ifaceobj, ifaceobj_getfunc):
         if self.bridge_vni_per_svi_limit > 0 and ifaceobj.link_kind & ifaceLinkKind.VXLAN:

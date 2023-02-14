@@ -310,7 +310,7 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
             for k,v in list(o.config.items()):
                 idx = 0
                 vitem_status = []
-                for vitem in v:
+                for _ in v:
                     s = o.get_config_attr_status(k, idx)
                     if s == 1:
                         status_str = ifaceStatusUserStrs.ERROR

@@ -386,7 +386,7 @@ class bond(Addon, moduleBase):
                 match = self.speed_pattern.search(utils.exec_commandl(["/usr/sbin/ethtool", f"{slave}"]))
                 if match:
                     self.compare_bond_and_slave_speed(ifaceobj, slave, int(match.group(1)))
-            except ValueError as e:
+            except ValueError:
                 # if we can't manage to extract the speed, it's not a big deal lets continue
                 pass
         # validate if we are unable to get a speed (logical interface?)

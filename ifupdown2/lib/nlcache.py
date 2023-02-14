@@ -2472,7 +2472,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             })
             link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
-        except Exception as e:
+        except Exception:
             raise Exception("%s: cannot create link %s type %s" % (ifname, ifname, kind))
 
     def link_add_with_attributes_dry_run(self, ifname, kind, ifla):

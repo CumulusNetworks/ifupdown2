@@ -1028,7 +1028,6 @@ class vxlan(Vxlan, moduleBase):
         return parsed_maps
 
     def single_vxlan_device_vni_filter(self, ifaceobj, vxlan_mcast_grp):
-        vnis = []
         vnisd = {}
         for vlan_vni_map in ifaceobj.get_attr_value("bridge-vlan-vni-map"):
             try:

@@ -177,7 +177,7 @@ class __Sysfs(IO, Requirements):
                     vlan_id, ip = line.split('=')
                     mcqv4src[vlan_id] = ip.strip()
             return mcqv4src
-        except Exception as e:
+        except Exception:
             self.logger.info("%s showmcqv4src: skipping unsupported command" % utils.brctl_cmd)
             self.bridge_get_mcqv4src = self.bridge_get_mcqv4src_dry_run
             return {}
