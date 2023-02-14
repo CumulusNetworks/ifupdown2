@@ -1121,7 +1121,7 @@ class ifupdownMain:
                                                    '-'.join(validrange)))
 
                     if multiple is not None:
-                        if not (n % multiple == 0):
+                        if n % multiple != 0:
                             raise invalidValueError('invalid value %s: must be a multiple of %s' % (n, multiple))
 
                     return True
@@ -1147,7 +1147,7 @@ class ifupdownMain:
                            '-'.join(validrange)))
 
                 if multiple is not None:
-                    if not (number % multiple == 0):
+                    if number % multiple != 0:
                         raise invalidValueError('invalid value %s: must be a multiple of %s' % (number, multiple))
 
             return True

@@ -297,7 +297,7 @@ class vlan(Addon, moduleBase):
         if not self.cache.link_exists(ifname):
             return
 
-        if not self.cache.get_link_kind(ifname) == 'vlan':
+        if self.cache.get_link_kind(ifname) != 'vlan':
             return
 
         # If vlan name is not in the dot format, get the

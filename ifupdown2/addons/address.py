@@ -848,7 +848,7 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=str(lower_iface_mtu_int), mtu_int=lower_iface_mtu_int)
 
         elif (
-            not (ifaceobj.name == 'lo')
+            ifaceobj.name != 'lo'
             and not ifaceobj.link_kind
             and not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE)
             and self.default_mtu

@@ -1650,7 +1650,7 @@ class vxlan(Vxlan, moduleBase):
         if not self.cache.link_exists(ifname):
             return
 
-        if not self.cache.get_link_kind(ifname) == 'vxlan':
+        if self.cache.get_link_kind(ifname) != 'vxlan':
             return
 
         cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname)

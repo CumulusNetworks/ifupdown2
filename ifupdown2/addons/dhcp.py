@@ -149,7 +149,7 @@ class dhcp(Addon, moduleBase):
             dhclient_cmd_prefix = None
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
                 module_name=self.__class__.__name__, attr='dhcp-wait')
-            wait = not str(dhcp_wait).lower() == "no"
+            wait = str(dhcp_wait).lower() != "no"
             dhcp6_ll_wait = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                 ifname=ifaceobj.name, attr='dhcp6-ll-wait')
             try:
