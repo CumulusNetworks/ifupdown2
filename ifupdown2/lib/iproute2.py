@@ -814,14 +814,6 @@ class IPRoute2(Cache, Requirements):
                 "vlan add vid %s dev %s %s" % (v, ifname, target)
             )
 
-    def bridge_vlan_del_vid_list_self(self, ifname, vids, is_bridge=True):
-        target = "self" if is_bridge else ""
-        for v in vids:
-            self.__execute_or_batch(
-                utils.bridge_cmd,
-                "vlan del vid %s dev %s %s" % (v, ifname, target)
-            )
-
     def bridge_vlan_del_pvid(self, ifname, pvid):
         self.__execute_or_batch(
             utils.bridge_cmd,
@@ -1013,8 +1005,8 @@ class IPRoute2(Cache, Requirements):
                 continue
             else:
                 if vend > vbegin:
-                    range = '%d-%d' %(vbegin, vend)
-                    vnisd_ranges[range] = lastg
+                    r = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[r] = lastg
                 else:
                     vnisd_ranges['%s' %vbegin] = lastg
             vbegin = v
@@ -1023,8 +1015,8 @@ class IPRoute2(Cache, Requirements):
 
         if vbegin:
                 if vend > vbegin:
-                    range = '%d-%d' %(vbegin, vend)
-                    vnisd_ranges[range] = lastg
+                    r = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[r] = lastg
                 else:
                     vnisd_ranges['%s' %vbegin] = lastg
         return vnisd_ranges

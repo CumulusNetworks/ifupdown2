@@ -189,13 +189,12 @@ class networkInterfaces():
                 if '*' not in sourced_file:
                     self._parse_warn(self._currentfile, lineno,
                             'cannot find source file %s' %sourced_file)
-                return 0
+                return
             for f in filenames:
                 self.read_file(f)
         else:
             self._parse_error(self._currentfile, lineno,
                     'unable to read source line')
-        return 0
 
     def process_source_directory(self, lines, cur_idx, lineno):
         self.logger.debug('processing source-directory line ..\'%s\'' % lines[cur_idx])

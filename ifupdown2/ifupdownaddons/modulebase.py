@@ -106,10 +106,10 @@ class moduleBase(object):
             # the root logger has level NOTSET, and each logging handler logs
             # at different level.
             stack = traceback.format_stack()
-            format = traceback.format_exc()
+            f = traceback.format_exc()
 
             self.logger.debug("%s" % " ".join(stack)[:-1])
-            self.logger.debug("%s" % format[:-1])
+            self.logger.debug("%s" % f[:-1])
 
             self.logger.warning(str)
 
@@ -124,17 +124,15 @@ class moduleBase(object):
             # we have the root logger has level NOTSET, and each logging handler
             # logs at different level.
             stack = traceback.format_stack()
-            format = traceback.format_exc()
+            f = traceback.format_exc()
 
             self.logger.debug("%s" % " ".join(stack)[:-1])
-            self.logger.debug("%s" % format[:-1])
+            self.logger.debug("%s" % f[:-1])
 
             if raise_error:
                 raise ModuleBaseException(msg)
             else:
                 self.logger.error(msg)
-        else:
-            pass
 
     def is_process_running(self, procName):
         try:

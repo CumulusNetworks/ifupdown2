@@ -307,9 +307,7 @@ class ifaceScheduler():
                                             followdependents,
                                             continueonfailure=False)
                 except Exception as e:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not ifupdownobj.ignore_error(str(e)):
                         # Dont bring the iface up if children did not come up
                         ifaceobj.set_state_n_status(ifaceState.NEW,
                                                 ifaceStatus.ERROR)
@@ -369,9 +367,7 @@ class ifaceScheduler():
                                             followdependents,
                                             continueonfailure=True)
                 except Exception as e:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not ifupdownobj.ignore_error(str(e)):
                         raise
 
     @classmethod

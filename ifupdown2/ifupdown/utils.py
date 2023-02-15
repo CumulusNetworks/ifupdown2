@@ -194,8 +194,7 @@ class utils():
                 value = ifaceobj.get_attr_value_first(attr)
                 if value and not utils.is_binary_bool(value):
                     if attr in attrsdict:
-                        bool = utils.get_boolean_from_string(attrsdict[attr])
-                        attrsdict[attr] = utils.get_yesno_boolean(bool)
+                        attrsdict[attr] = utils.get_yesno_boolean(utils.get_boolean_from_string(attrsdict[attr]))
         else:
             for attr in attrslist:
                 if attr in attrsdict:

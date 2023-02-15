@@ -50,8 +50,8 @@ class systemUtils():
             return False
         return True
 
-    @classmethod
-    def is_process_running(self, processname):
+    @staticmethod
+    def is_process_running(processname):
         if not processname:
             return False
         try:

@@ -129,9 +129,7 @@ class ifupdownMain:
         try:
             self.netlink.link_up(ifaceobj.name)
         except Exception:
-            if ifaceobj.addr_method == 'manual':
-                pass
-            else:
+            if ifaceobj.addr_method != 'manual':
                 raise
 
     def _keep_link_down(self, ifaceobj):
@@ -177,9 +175,7 @@ class ifupdownMain:
             else:
                 self.logger.info("%s: ifupdown2 cannot bring loopback interface down" % ifaceobj.name)
         except Exception:
-            if ifaceobj.addr_method == 'manual':
-                pass
-            else:
+            if ifaceobj.addr_method != 'manual':
                 raise
 
     # ifupdown object interface operation handlers
@@ -1826,7 +1822,7 @@ class ifupdownMain:
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
-            self.print_dependency(filtered_ifacenames, printdependency)
+            self.print_dependency(printdependency)
             return
         else:
             self.populate_dependency_info(ops)
@@ -1970,7 +1966,7 @@ class ifupdownMain:
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
-            self.print_dependency(filtered_ifacenames, printdependency)
+            self.print_dependency(printdependency)
             return
         else:
             self.populate_dependency_info(ops)
@@ -2049,7 +2045,7 @@ class ifupdownMain:
 
         self.populate_dependency_info(ops)
         if ops[0] == 'query-dependency' and printdependency:
-            self.print_dependency(filtered_ifacenames, printdependency)
+            self.print_dependency(printdependency)
             return
 
         if format_list and (ops[0] == 'query' or ops[0] == 'query-raw'):
@@ -2482,11 +2478,8 @@ class ifupdownMain:
             outbuf += '\t%s : %s\n' %(k, str(vlist))
         self.logger.debug(outbuf + '}')
 
-    def print_dependency(self, ifacenames, format):
+    def print_dependency(self, format):
         """ prints iface dependency information """
-
-        if not ifacenames:
-            ifacenames = list(self.ifaceobjdict.keys())
         if format == 'list':
             for k,v in list(self.dependency_graph.items()):
                 print('%s : %s' %(k, str(v)))
