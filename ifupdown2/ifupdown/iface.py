@@ -700,7 +700,7 @@ class iface():
         self.blacklisted = False
         self.__dict__.update(dict)
 
-    def dump_raw(self, logger):
+    def dump_raw(self):
         indent = '  '
         if self.auto:
             print('auto %s' %self.name)

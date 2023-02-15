@@ -649,7 +649,7 @@ class ifupdownMain:
                              str(iobj.upperifaces) if iobj.upperifaces else []))
 
 
-    def preprocess_dependency_list(self, upperifaceobj, dlist, ops):
+    def preprocess_dependency_list(self, upperifaceobj, dlist):
         """ We go through the dependency list and
             delete or add interfaces from the interfaces dict by
             applying the following rules:
@@ -689,7 +689,7 @@ class ifupdownMain:
         for d in del_list:
             dlist.remove(d)
 
-    def preprocess_upperiface(self, lowerifaceobj, ulist, ops):
+    def preprocess_upperiface(self, lowerifaceobj, ulist):
         for u in ulist:
             if (lowerifaceobj.upperifaces and
                 u in lowerifaceobj.upperifaces):
@@ -724,7 +724,7 @@ class ifupdownMain:
             if dlist: ret_dlist.extend(dlist)
         return list(set(ret_dlist))
 
-    def query_upperifaces(self, ifaceobj, ops, ifacenames, type=None):
+    def query_upperifaces(self, ifaceobj, ops, ifacenames):
         """ Gets iface upperifaces by calling into respective modules """
         ret_ulist = []
 
@@ -803,13 +803,13 @@ class ifupdownMain:
                 if dlist:
                    break
             if ulist:
-                self.preprocess_upperiface(ifaceobj, ulist, ops)
+                self.preprocess_upperiface(ifaceobj, ulist)
             if dependents_processed:
                 continue
             if dlist:
                 self._remove_circular_veth_dependencies(ifaceobj, dlist)
                 self.preprocess_dependency_list(ifaceobj,
-                                                dlist, ops)
+                                                dlist)
                 ifaceobj.lowerifaces = dlist
                 [iqueue.append(d) for d in dlist]
             #if not self.dependency_graph.get(i):
@@ -1248,7 +1248,7 @@ class ifupdownMain:
                             ' a valid keyword see `ifquery -s`' % value)
         return keyword_found
 
-    def _check_validvals_value(self, attrname, value, validvals, validrange):
+    def _check_validvals_value(self, value, validvals, validrange):
         if validvals and value not in validvals:
             is_valid = False
             for keyword in validvals:
@@ -1292,8 +1292,7 @@ class ifupdownMain:
                 validvals = attrname_dict.get('validvals', [])
                 validrange = attrname_dict.get('validrange', [])
                 for value in attrvalue:
-                    res = self._check_validvals_value(attrname,
-                                                      value,
+                    res = self._check_validvals_value(value,
                                                       validvals,
                                                       validrange)
                     if not res['result']:
@@ -2483,7 +2482,7 @@ class ifupdownMain:
             for ifaceobj in self.get_ifaceobjs(i):
                 if self.is_ifaceobj_builtin(ifaceobj):
                     continue
-                ifaceobj.dump_raw(self.logger)
+                ifaceobj.dump_raw()
                 if (ifupdownflags.flags.WITH_DEPENDS and
                     not ifupdownflags.flags.ALL):
                     dlist = ifaceobj.lowerifaces
