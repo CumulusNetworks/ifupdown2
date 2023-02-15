@@ -929,12 +929,12 @@ class bridge(Bridge, moduleBase):
                 err()
                 return False
             else:
-                if not bridge_name in self.bridge_vni_per_svi:
+                if bridge_name not in self.bridge_vni_per_svi:
                     self.bridge_vni_per_svi[bridge_name] = {
                         svi: vni_name
                     }
 
-                elif not svi in self.bridge_vni_per_svi[bridge_name]:
+                elif svi not in self.bridge_vni_per_svi[bridge_name]:
                     self.bridge_vni_per_svi[bridge_name][svi] = vni_name
 
                 else:
@@ -3478,7 +3478,7 @@ class bridge(Bridge, moduleBase):
             for port_config in self.parse_port_list(ifname, ifaceobj.get_attr_value_first(attr)) or []:
                 port, config = port_config.split("=")
 
-                if not port in brports_info_slave_data:
+                if port not in brports_info_slave_data:
                     info_slave_data = brports_info_slave_data[port] = self.cache.get_link_info_slave_data(port)
                 else:
                     info_slave_data = brports_info_slave_data[port]

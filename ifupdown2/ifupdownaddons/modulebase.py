@@ -69,7 +69,7 @@ class moduleBase(object):
 
         # first check module_defaults
         for key, value in list(policymanager.policymanager_api.get_module_defaults(self.modulename).items()):
-            if not key in attrs:
+            if key not in attrs:
                 self.logger.warning('%s: %s: %s' % (self.modulename, key, error_msg))
                 continue
             attrs[key]['default'] = value

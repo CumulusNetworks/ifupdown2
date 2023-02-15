@@ -192,7 +192,7 @@ class mstpctlutil(utilsBase):
         attrs = self.get_bridge_ports_attrs(bridgename)
         if not attrs:
             attrs = {}
-        if not portname in attrs:
+        if portname not in attrs:
             attrs[portname] = {}
         attrs[portname][attrname] = value
         MSTPAttrsCache.set(bridgename, attrs)

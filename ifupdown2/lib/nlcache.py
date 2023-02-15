@@ -1388,7 +1388,7 @@ class _NetlinkCache:
                 # those notifications should be ignored.
                 ifla_master = msg.get_attribute_value(Link.IFLA_MASTER)
 
-                if not ifla_master or not ifla_master in self._ifname_by_ifindex:
+                if not ifla_master or ifla_master not in self._ifname_by_ifindex:
                     return
             except Exception:
                 pass

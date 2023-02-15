@@ -241,7 +241,7 @@ class dhcp(Addon, moduleBase):
     def _down_stale_dhcp_config(self, ifaceobj, family, dhclient_running):
         addr_family = ifaceobj.addr_family
         try:
-            if not family in ifaceobj.addr_family and dhclient_running:
+            if family not in ifaceobj.addr_family and dhclient_running:
                 ifaceobj.addr_family = [family]
                 self._dhcp_down(ifaceobj)
         except Exception:

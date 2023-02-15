@@ -1039,7 +1039,7 @@ class ifupdownMain:
                     if iface_value[0] == 'glob' or iface_value[0] == 'regex':
                         continue
                     return False
-                if not iface_value[1] in validvals:
+                if iface_value[1] not in validvals:
                     return False
             return True
         except Exception as e:
@@ -1425,7 +1425,7 @@ class ifupdownMain:
         self._load_addon_modules_config()
 
         for modules_dir in modules_dir_list:
-            if not modules_dir in sys.path:
+            if modules_dir not in sys.path:
                 sys.path.insert(1, modules_dir)
             try:
                 for op, mlist in list(self.module_ops.items()):
