@@ -146,12 +146,9 @@ class moduleBase(object):
     def get_ifaces_from_proc(self):
         ifacenames = []
         with open('/proc/net/dev') as f:
-            try:
                 lines = f.readlines()
                 for line in lines[2:]:
                     ifacenames.append(line.split()[0].strip(': '))
-            except Exception:
-                raise
         return ifacenames
 
     def parse_regex(self, ifacename, expr, ifacenames=None):

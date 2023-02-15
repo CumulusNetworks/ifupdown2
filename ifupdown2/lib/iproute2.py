@@ -173,8 +173,6 @@ class IPRoute2(Cache, Requirements):
                     "%s -force -batch -" % prefix,
                     stdin="\n".join(commands)
                 )
-        except Exception:
-            raise
         finally:
             self.__batch_mode = False
             del self.__batch

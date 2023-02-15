@@ -1424,37 +1424,32 @@ class ifupdownMain:
         for modules_dir in modules_dir_list:
             if modules_dir not in sys.path:
                 sys.path.insert(1, modules_dir)
-            try:
-                for op, mlist in list(self.module_ops.items()):
-                    for mname in mlist:
-                        if self.modules.get(mname):
+            for op, mlist in list(self.module_ops.items()):
+                for mname in mlist:
+                    if self.modules.get(mname):
+                        continue
+                    mpath = modules_dir + '/' + mname + '.py'
+                    if os.path.exists(mpath) and mpath not in failed_import:
+                        try:
+                            m = __import__(mname)
+                            mclass = getattr(m, mname)
+                        except Exception as e:
+                            self.logger.warning('cannot load "%s" module: %s' % (mname, str(e)))
+                            failed_import.append(mpath)
                             continue
-                        mpath = modules_dir + '/' + mname + '.py'
-                        if os.path.exists(mpath) and mpath not in failed_import:
-                            try:
-                                m = __import__(mname)
-                                mclass = getattr(m, mname)
-                            except Exception as e:
-                                self.logger.warning('cannot load "%s" module: %s' % (mname, str(e)))
-                                failed_import.append(mpath)
-                                continue
-                            try:
-                                minstance = mclass()
-                                script_override = minstance.get_overrides_ifupdown_scripts()
-                                self.overridden_ifupdown_scripts.extend(script_override)
-                            except moduleNotSupported as e:
-                                self.logger.info('module %s not loaded (%s)'
-                                                 %(mname, str(e)))
-                                continue
-                            except Exception:
-                                raise
-                            self.modules[mname] = minstance
-                            try:
-                                self.module_attrs[mname] = minstance.get_modinfo()
-                            except Exception:
-                                pass
-            except Exception:
-                raise
+                        try:
+                            minstance = mclass()
+                            script_override = minstance.get_overrides_ifupdown_scripts()
+                            self.overridden_ifupdown_scripts.extend(script_override)
+                        except moduleNotSupported as e:
+                            self.logger.info('module %s not loaded (%s)'
+                                             % (mname, str(e)))
+                            continue
+                        self.modules[mname] = minstance
+                        try:
+                            self.module_attrs[mname] = minstance.get_modinfo()
+                        except Exception:
+                            pass
 
         # Assign all modules to query operations
         self.module_ops['query-checkcurr'] = list(self.modules.keys())

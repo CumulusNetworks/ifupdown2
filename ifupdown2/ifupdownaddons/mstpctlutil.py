@@ -96,8 +96,6 @@ class mstpctlutil(utilsBase):
                 "%s batch -" % utils.mstpctl_cmd,
                 stdin="\n".join(self.__batch)
             )
-        except Exception:
-            raise
         finally:
             self.__batch_mode = False
             del self.__batch
