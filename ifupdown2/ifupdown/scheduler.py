@@ -432,7 +432,6 @@ class ifaceScheduler():
         if upperifacenames:
             cls._get_valid_upperifaces(ifupdownobj, upperifacenames,
                                        allupperifacenames)
-        return
 
     @classmethod
     def run_upperifaces(cls, ifupdownobj, ifacenames, ops,

@@ -103,7 +103,6 @@ class policymanager():
                     self.user_policy_array[module].update(user_array[module])
                 else:
                     self.user_policy_array[module] = user_array[module]
-        return
 
     def get_iface_default(self,module_name=None,ifname=None,attr=None):
         '''
