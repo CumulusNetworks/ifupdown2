@@ -745,9 +745,8 @@ class iface():
 
         logger.info("%slink_privflags: %s" % (indent, ifaceLinkPrivFlags.get_str(self.link_privflags)))
 
-        if self.priv_flags:
-            if self.priv_flags.BUILTIN:
-                logger.info("%spriv_flags: BUILTIN" % indent)
+        if self.priv_flags and self.priv_flags.BUILTIN:
+            logger.info("%spriv_flags: BUILTIN" % indent)
 
         logger.info(indent + 'config: ')
         config = self.config

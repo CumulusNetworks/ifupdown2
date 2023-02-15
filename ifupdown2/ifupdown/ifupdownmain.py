@@ -451,10 +451,7 @@ class ifupdownMain:
         #   bringing up a vlan on a bond interface and the bond
         #   is a LINK_SLAVE of a bridge (in other words the bond is
         #   part of a bridge) which is not up yet
-        if self._link_master_slave:
-           if 'Network is down' in errorstr:
-              return True
-        return False
+        return self._link_master_slave and 'Network is down' in errorstr
 
     def get_ifaceobjs(self, ifacename, all=False):
         if all:
@@ -1018,9 +1015,8 @@ class ifupdownMain:
             if size > 1:
                 if values[1] != 'vrf':
                     return False
-                if size > 2:
-                    if not self._keyword_text(values[2]):
-                        return False
+                if size > 2 and not self._keyword_text(values[2]):
+                    return False
             return True
         except Exception as e:
             self.logger.debug('keyword: ipv4 vrf text: %s' % str(e))
@@ -1029,9 +1025,8 @@ class ifupdownMain:
     def _keyword_interface_list_with_value(self, value, validvals):
         values = value.split()
         try:
-            if len(values) == 1:
-                if values[0] in validvals:
-                    return True
+            if len(values) == 1 and values[0] in validvals:
+                return True
             for v in values:
                 iface_value = v.split('=')
                 size = len(iface_value)
@@ -1128,9 +1123,8 @@ class ifupdownMain:
                                                 % (values[0],
                                                    '-'.join(validrange)))
 
-                    if multiple is not None:
-                        if n % multiple != 0:
-                            raise invalidValueError('invalid value %s: must be a multiple of %s' % (n, multiple))
+                    if multiple is not None and n % multiple != 0:
+                        raise invalidValueError('invalid value %s: must be a multiple of %s' % (n, multiple))
 
                     return True
                 except invalidValueError as e:
@@ -1154,9 +1148,8 @@ class ifupdownMain:
                            iface_value[0],
                            '-'.join(validrange)))
 
-                if multiple is not None:
-                    if number % multiple != 0:
-                        raise invalidValueError('invalid value %s: must be a multiple of %s' % (number, multiple))
+                if multiple is not None and number % multiple != 0:
+                    raise invalidValueError('invalid value %s: must be a multiple of %s' % (number, multiple))
 
             return True
         except invalidValueError as e:
