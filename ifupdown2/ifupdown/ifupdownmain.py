@@ -530,14 +530,14 @@ class ifupdownMain:
 
     def get_iface_refcnt(self, ifacename):
         """ Return iface ref count """
-        max = 0
+        max_ref = 0
         ifaceobjs = self.get_ifaceobjs(ifacename)
         if not ifaceobjs:
             return 0
         for i in ifaceobjs:
-            if i.refcnt > max:
-                max = i.refcnt
-        return max
+            if i.refcnt > max_ref:
+                max_ref = i.refcnt
+        return max_ref
 
     def is_iface_builtin_byname(self, ifacename):
         """ Returns true if iface name is a builtin interface.
@@ -1185,9 +1185,9 @@ class ifupdownMain:
             i = 0
             while i < len(number_list):
                 if '-' in number_list[i]:
-                    range = number_list[i].split('-')
-                    a = int(range[0])
-                    b = int(range[1])
+                    r = number_list[i].split('-')
+                    a = int(r[0])
+                    b = int(r[1])
                     if a > b:
                         return False
                 else:
