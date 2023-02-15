@@ -116,7 +116,6 @@ class ifaceScheduler():
 
                     ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
-                pass
             finally:
                 if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
@@ -186,7 +185,6 @@ class ifaceScheduler():
                     if not ifupdownobj.link_master_slave_ignore_error(str(e)):
                        ifupdownobj.logger.warning('%s: %s'
                                    %(ifaceobjs[0].name, str(e)))
-                    pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
@@ -199,7 +197,6 @@ class ifaceScheduler():
                     for ifaceobj in ifaceobjs]
             except Exception as e:
                 ifupdownobj.logger.warning('%s' %str(e))
-                pass
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
@@ -330,11 +327,8 @@ class ifaceScheduler():
                     if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                         traceback.print_tb(sys.exc_info()[2])
                     ifupdownobj.logger.error('%s : %s' %(ifacename, str(e)))
-                    pass
                 else:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not (ifupdownobj.ignore_error(str(e))):
                         raise Exception('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
@@ -384,7 +378,6 @@ class ifaceScheduler():
                 if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                     traceback.print_tb(sys.exc_info()[2])
                 ifupdownobj.logger.warning('%s : %s' %(ifacename, str(e)))
-                pass
 
     @classmethod
     def _get_valid_upperifaces(cls, ifupdownobj, ifacenames,

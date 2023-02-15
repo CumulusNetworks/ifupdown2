@@ -147,7 +147,6 @@ class utils():
     def mac_str_to_int(cls, hw_address):
         mac = 0
         if hw_address:
-            pass
             for i in hw_address.translate(cls.mac_translate_tab).split():
                 mac = mac << 8
                 mac += int(i, 16)
@@ -450,7 +449,6 @@ class utils():
                     result.append(a)
         except Exception:
             cls.logger.warning('unable to parse vids \'%s\'' %''.join(rangelist))
-            pass
         return result
 
     @classmethod

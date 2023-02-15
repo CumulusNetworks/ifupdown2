@@ -31,7 +31,6 @@ class templateEngine():
             except Exception as e:
                 self.logger.warning('unable to load template engine %s (%s)'
                         %(template_engine, str(e)))
-                pass
             if template_lookuppath:
                 try:
                     self.logger.debug('setting template lookuppath to %s'

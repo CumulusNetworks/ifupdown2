@@ -228,13 +228,10 @@ class ifupdownMain:
                 traceback.print_stack()
                 traceback.print_exc()
             self.logger.warning(str)
-        pass
 
     def log_error(self, str):
         if self.ignore_error(str) == False:
             raise Exception(str)
-        else:
-            pass
 
     def link_exists(self, ifacename):
         return os.path.exists('/sys/class/net/%s' %ifacename)
@@ -753,7 +750,6 @@ class ifupdownMain:
                 self.logger.warning('%s: error getting upper interfaces (%s)'
                                  %(ifaceobj.name, str(e)))
                 ulist = None
-                pass
             if ulist: ret_ulist.extend(ulist)
         return list(set(ret_ulist))
 
@@ -864,7 +860,6 @@ class ifupdownMain:
                                 d.upperifaces.remove(i)
                         except Exception:
                             self.logger.debug('error removing %s from %s upperifaces' %(i, d))
-                            pass
                 self.logger.debug("populate_dependency_info: deleting blacklisted interface %s" %i)
                 del self.dependency_graph[i]
                 continue
@@ -1737,7 +1732,6 @@ class ifupdownMain:
                    func(i)
             except Exception as e:
                 self.logger.warning(str(e))
-                pass
 
     def _get_iface_exclude_companion(self, ifacename):
         try:
@@ -2243,7 +2237,6 @@ class ifupdownMain:
             except Exception as e:
                 self.logger.info("error generating dependency graph for "
                                  "saved interfaces (%s)" %str(e))
-                pass
 
             # make sure we pick up built-in interfaces
             # if config file had 'ifreload_down_changed' variable
@@ -2384,7 +2377,6 @@ class ifupdownMain:
                                        sort=True)
                 except Exception as e:
                     self.logger.error(str(e))
-                    pass
                 finally:
                     self.flags.SCHED_SKIP_CHECK_UPPERIFACES = False
                     self._process_delay_admin_state_queue('down')

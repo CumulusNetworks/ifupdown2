@@ -444,7 +444,6 @@ class moduleBase(object):
         except Exception as e:
             self.logger.debug('%s failed (%s)' %(get_resvvlan, str(e)))
             # ignore errors
-            pass
         return (start, end)
 
     def _get_vrf_context(self):
@@ -455,7 +454,6 @@ class moduleBase(object):
             self.logger.debug('failed to get vrf id (%s)' %str(e))
             # ignore errors
             vrfid = None
-            pass
         return vrfid
 
     def _handle_reserved_vlan(self, vlanid, logprefix='', end=-1):

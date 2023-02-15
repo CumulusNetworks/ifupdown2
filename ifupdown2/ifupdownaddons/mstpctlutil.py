@@ -223,7 +223,6 @@ class mstpctlutil(utilsBase):
         except Exception as e:
             self.logger.debug(bridgeattrs)
             self.logger.debug(str(e))
-            pass
         return bridgeattrs
 
     def get_bridge_attr(self, bridgename, attrname):

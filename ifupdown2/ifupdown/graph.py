@@ -62,7 +62,6 @@ class graph():
                 except Exception:
                     cls.logger.debug('topological_sort_graphs_all: did not find %s' %y)
                     indegrees[y] = 0
-                    pass
                 if indegrees.get(y) == 0:
                     Q.append(y)
 
