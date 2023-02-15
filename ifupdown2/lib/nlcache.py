@@ -2171,7 +2171,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                     elif event == self.WORKQ_SERVICE_ERROR:
                         self.logger.error('NetlinkListenerWithCache: WORKQ_SERVICE_ERROR')
                     else:
-                        raise Exception("Unsupported workq event %s" % event)
+                        raise NetlinkCacheError("Unsupported workq event %s" % event)
         except Exception:
             raise
         finally:
@@ -2276,7 +2276,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         except ValueError:
             error_str = "operation failed with code %s" % error_code
 
-        raise Exception(error_str)
+        raise NetlinkCacheError(error_str)
 
     def tx_nlpacket_get_response_with_error_and_cache_on_ack(self, packet, ifname=None):
         """
@@ -2500,7 +2500,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
         except Exception:
-            raise Exception("%s: cannot create link %s type %s" % (ifname, ifname, kind))
+            raise NetlinkCacheError("%s: cannot create link %s type %s" % (ifname, ifname, kind))
 
     def link_add_with_attributes_dry_run(self, ifname, kind, ifla):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type %s" % (ifname, kind))
@@ -2780,7 +2780,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
 
         except Exception as e:
-            raise Exception(
+            raise NetlinkCacheError(
                 "netlink: %s: cannot create macvlan %s: %s"
                 % (ifname, macvlan_ifname, str(e))
             )
@@ -2867,7 +2867,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
             return result
         except Exception as e:
-            raise Exception("%s: netlink: cannot create bridge or set attributes: %s" % (ifname, str(e)))
+            raise NetlinkCacheError("%s: netlink: cannot create bridge or set attributes: %s" % (ifname, str(e)))
 
     def link_set_bridge_info_data_dry_run(self, ifname, ifla_info_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge (with attributes)" % ifname)
@@ -2937,7 +2937,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                 ifname_vlanid = int(ifname.split(".")[-1])
 
                 if ifname_vlanid != vlan_id:
-                    raise Exception(
+                    raise NetlinkCacheError(
                         "Interface %s must belong to VLAN %d (VLAN %d was requested)"
                         % (ifname, ifname_vlanid, vlan_id)
                     )
@@ -3091,7 +3091,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             link.build_message(next(self.sequence), self.pid)
             return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link, ifname=ifname)
         except Exception as e:
-            raise Exception("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
+            raise NetlinkCacheError("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
 
     def link_add_bond_with_info_data_dry_run(self, ifname, ifla_info_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bond (with attributes)" % ifname)
@@ -3133,7 +3133,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             # wait for the new notification to be cached.
             return self.tx_nlpacket_get_response_with_error(link)
         except Exception as e:
-            raise Exception("netlink: %s: cannot set %s (bridge slave) with options: %s" % (kind, ifname, str(e)))
+            raise NetlinkCacheError("netlink: %s: cannot set %s (bridge slave) with options: %s" % (kind, ifname, str(e)))
 
     def link_set_brport_with_info_slave_data_dry_run(self, ifname, kind, ifla_info_data, ifla_info_slave_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s: bridge port attributes" % ifname)

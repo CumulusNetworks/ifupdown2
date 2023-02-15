@@ -37,6 +37,11 @@ def signal_handler_f(ps, sig, frame):
     if sig == signal.SIGINT:
         raise KeyboardInterrupt
 
+
+class UtilsException(Exception):
+    pass
+
+
 class utils():
     logger = logging.getLogger('ifupdown')
     DEVNULL = open(os.devnull, 'w')
@@ -376,14 +381,14 @@ class utils():
                 cmd_output = ch.communicate(input=stdin.encode() if stdin else stdin)[0]
             cmd_returncode = ch.wait()
         except Exception as e:
-            raise Exception('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
+            raise UtilsException('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         cmd_output_string = cmd_output.decode() if cmd_output is not None else cmd_output
 
         if cmd_returncode != 0:
-            raise Exception(cls._format_error(cmd,
+            raise UtilsException(cls._format_error(cmd,
                                               cmd_returncode,
                                               cmd_output_string,
                                               stdin))
@@ -505,7 +510,7 @@ class utils():
                     vni = vni.split('+', 1)[1]
                     vint = int(vni)
                     if vint < 0:
-                        raise Exception("invalid auto vni suffix %d" % (vint))
+                        raise UtilsException("invalid auto vni suffix %d" % (vint))
                     if '-' in vlan:
                         (vstart, vend) = vlan.split('-', 1)
                         vnistart = int(vstart) + vint
@@ -516,7 +521,7 @@ class utils():
                     vni = vni.split('-', 1)[1]
                     vint = int(vni)
                     if vint < 0:
-                        raise Exception("invalid auto vni suffix %d" % (vint))
+                        raise UtilsException("invalid auto vni suffix %d" % (vint))
                     if '-' in vlan:
                         (vstart, vend) = vlan.split('-', 1)
                         vnistart = int(vstart) - vint
@@ -525,14 +530,13 @@ class utils():
                         vnistart = int(vlan) - vint
                 if (vnistart <= 0 or (vniend > 0 and (vniend < vnistart)) or
                     (vnistart > cls.vni_max) or (vniend > cls.vni_max)):
-                        raise Exception("invalid vni - unable to derive auto vni %s" % (vni))
+                        raise UtilsException("invalid vni - unable to derive auto vni %s" % (vni))
                 if vniend > 0:
                     vni = '%d-%d' % (vnistart, vniend)
                 else:
                     vni = '%d' % (vnistart)
         except Exception as e:
-            raise Exception(str(e))
-            return
+            raise UtilsException(str(e))
         return (vlan, vni)
 
     @classmethod

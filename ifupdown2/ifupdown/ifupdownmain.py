@@ -68,6 +68,11 @@ _crossmark = '\u2717'
 _success_sym = '(%s)' %_tickmark
 _error_sym = '(%s)' %_crossmark
 
+
+class MainException(Exception):
+    pass
+
+
 class ifupdownMainFlags():
     COMPAT_EXEC_SCRIPTS = False
     STATEMANAGER_ENABLE = True
@@ -1237,7 +1242,7 @@ class ifupdownMain:
             return True
         keyword_found = value in self.validate_keywords
         if value.startswith('<') and value.endswith('>') and not keyword_found:
-            raise Exception('%s: invalid keyword, please make sure to use'
+            raise MainException('%s: invalid keyword, please make sure to use'
                             ' a valid keyword see `ifquery -s`' % value)
         return keyword_found
 
@@ -1262,7 +1267,7 @@ class ifupdownMain:
             pass
         elif validrange:
             if len(validrange) != 2:
-                raise Exception('%s: invalid range in addon configuration'
+                raise MainException('%s: invalid range in addon configuration'
                                 % '-'.join(validrange))
             _value = int(value)
             if _value < int(validrange[0]) or _value > int(validrange[1]):
@@ -1601,7 +1606,7 @@ class ifupdownMain:
             else:
                 new_ifacenames.append(i)
         if err_iface:
-            raise Exception('cannot find interfaces:%s' %err_iface)
+            raise MainException('cannot find interfaces:%s' %err_iface)
         return new_ifacenames
 
     def _iface_whitelisted(self, auto, allow_classes, excludepats, ifacename):
@@ -1807,7 +1812,7 @@ class ifupdownMain:
                                                 excludepats, i)]
 
         if not filtered_ifacenames:
-            raise Exception('no ifaces found matching given allow lists')
+            raise MainException('no ifaces found matching given allow lists')
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
@@ -1821,11 +1826,11 @@ class ifupdownMain:
         # errors above are caught and reported.
         if syntaxcheck:
             if not self._module_syntax_check(filtered_ifacenames):
-                raise Exception()
+                raise MainException()
             if not iface_read_ret:
-                raise Exception()
+                raise MainException()
             elif self._any_iface_errors(filtered_ifacenames):
-                raise Exception()
+                raise MainException()
             return
 
         ret = None
@@ -1841,7 +1846,7 @@ class ifupdownMain:
                 self._save_state()
 
         if not iface_read_ret or not ret:
-            raise Exception()
+            raise MainException()
 
         self.check_running_configuration(filtered_ifacenames)
 
@@ -1920,7 +1925,7 @@ class ifupdownMain:
             try:
                 self.read_iface_config()
             except Exception as e:
-                raise Exception('error reading iface config (%s)' %str(e))
+                raise MainException('error reading iface config (%s)' %str(e))
 
         if excludepats:
             excludepats = self._preprocess_excludepats(excludepats)
@@ -1936,7 +1941,7 @@ class ifupdownMain:
                    filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
 
             except Exception as e:
-               raise Exception('%s' %str(e) +
+               raise MainException('%s' %str(e) +
                        ' (interface was probably never up ?)')
 
 
@@ -1950,7 +1955,7 @@ class ifupdownMain:
                                                     excludepats, i)]
 
         if not filtered_ifacenames:
-            raise Exception('no ifaces found matching given allow lists ' +
+            raise MainException('no ifaces found matching given allow lists ' +
                     '(or interfaces were probably never up ?)')
 
         if printdependency:
@@ -2029,7 +2034,7 @@ class ifupdownMain:
             ]
 
         if not filtered_ifacenames:
-                raise Exception('no ifaces found matching ' +
+                raise MainException('no ifaces found matching ' +
                         'given allow lists')
 
         self.populate_dependency_info(ops)
@@ -2054,13 +2059,13 @@ class ifupdownMain:
         elif ops[0] == 'query-checkcurr':
             if self.print_ifaceobjscurr_pretty(filtered_ifacenames, format):
                 # if any of the object has an error, signal that silently
-                raise Exception('')
+                raise MainException('')
         elif ops[0] == 'query-running':
             self.print_ifaceobjsrunning_pretty(filtered_ifacenames, format)
             return
 
         if not iface_read_ret or not ret:
-            raise Exception()
+            raise MainException()
 
     def _reload_currentlyup(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
@@ -2099,11 +2104,11 @@ class ifupdownMain:
         # errors above are caught and reported.
         if syntaxcheck:
             if not self._module_syntax_check(interfaces_to_up):
-                raise Exception()
+                raise MainException()
             if not iface_read_ret:
-                raise Exception()
+                raise MainException()
             elif self._any_iface_errors(interfaces_to_up):
-                raise Exception()
+                raise MainException()
             return
 
         if (already_up_ifacenames_not_present and
@@ -2154,7 +2159,7 @@ class ifupdownMain:
         self._save_state()
 
         if not iface_read_ret or not ret:
-            raise Exception()
+            raise MainException()
 
     def _reload_default(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
@@ -2181,11 +2186,11 @@ class ifupdownMain:
         # errors above are caught and reported.
         if syntaxcheck:
             if not self._module_syntax_check(new_filtered_ifacenames):
-                raise Exception()
+                raise MainException()
             if not iface_read_ret:
-                raise Exception()
+                raise MainException()
             elif self._any_iface_errors(new_filtered_ifacenames):
-                raise Exception()
+                raise MainException()
             return
 
         if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE
@@ -2409,7 +2414,7 @@ class ifupdownMain:
         self._save_state()
 
         if not iface_read_ret or not ret:
-            raise Exception()
+            raise MainException()
 
     def reload(self, *args, **kargs):
         """ reload interface config """

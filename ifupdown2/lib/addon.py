@@ -47,6 +47,10 @@ except ImportError:
     import nlmanager.ipnetwork as ipnetwork
 
 
+class AddonException(Exception):
+    pass
+
+
 class Addon(Netlink, Cache):
     """
     Base class for ifupdown2 addon modules
@@ -224,4 +228,4 @@ class AddonWithIpBlackList(Addon):
         :return:
         """
         if ip.ip in AddonWithIpBlackList.ip_blacklist:
-            raise Exception("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))
+            raise AddonException("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))

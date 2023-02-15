@@ -9,7 +9,7 @@ import os
 from collections import OrderedDict
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Addon, AddonException
 
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
@@ -22,7 +22,7 @@ try:
     from ifupdown2.ifupdownaddons.systemutils import systemUtils
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
 except ImportError:
-    from lib.addon import Addon
+    from lib.addon import Addon, AddonException
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
@@ -742,7 +742,7 @@ class mstpctl(Addon, moduleBase):
         except Exception as e:
             self.log_error(str(e), ifaceobj)
         if porterr:
-            raise Exception(porterrstr)
+            raise AddonException(porterrstr)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):

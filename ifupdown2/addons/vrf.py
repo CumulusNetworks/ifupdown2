@@ -11,7 +11,7 @@ import atexit
 import signal
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Addon, AddonException
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -26,7 +26,7 @@ try:
     from ifupdown2.ifupdownaddons.utilsbase import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
-    from lib.addon import Addon
+    from lib.addon import Addon, AddonException
 
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -688,7 +688,7 @@ class vrf(Addon, moduleBase):
                         if slave_ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN or self.check_link_down_on_vlan_lower_dev(
                             slave_ifaceobj, ifaceobj_getfunc
                         ):
-                            raise Exception("link-down yes: keeping VRF slave down")
+                            raise AddonException("link-down yes: keeping VRF slave down")
                     self.netlink.link_up(s)
                 except Exception as e:
                     self.logger.debug("%s: %s" % (s, str(e)))

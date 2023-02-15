@@ -28,6 +28,9 @@ except ImportError:
 
 whitespaces = '\n\t\r '
 
+class ENIException(Exception):
+    pass
+
 class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
 

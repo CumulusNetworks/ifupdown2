@@ -29,6 +29,11 @@ except ImportError:
 class NotSupported(Exception):
     pass
 
+
+class ModuleBaseException(Exception):
+    pass
+
+
 class moduleBase(object):
     """ Base class for ifupdown addon modules
 
@@ -125,7 +130,7 @@ class moduleBase(object):
             self.logger.debug("%s" % format[:-1])
 
             if raise_error:
-                raise Exception(msg)
+                raise ModuleBaseException(msg)
             else:
                 self.logger.error(msg)
         else:
@@ -162,7 +167,7 @@ class moduleBase(object):
                 if re.search(expr + '$', proc_ifacename):
                     yield proc_ifacename
             except Exception as e:
-                raise Exception('%s: error searching regex \'%s\' in %s (%s)'
+                raise ModuleBaseException('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, proc_ifacename, str(e)))
         if not ifacenames:
             return
@@ -171,7 +176,7 @@ class moduleBase(object):
                 if re.search(expr + '$', ifacename):
                     yield ifacename
             except Exception as e:
-                raise Exception('%s: error searching regex \'%s\' in %s (%s)'
+                raise ModuleBaseException('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, ifacename, str(e)))
 
     def ifname_is_glob(self, ifname):
@@ -203,7 +208,7 @@ class moduleBase(object):
             mlist = m.groups()
             if len(mlist) < 7:
                 # we have problems and should not continue
-                raise Exception('%s: error: unhandled glob expression %s\n%s' % (ifacename, expr,errmsg))
+                raise ModuleBaseException('%s: error: unhandled glob expression %s\n%s' % (ifacename, expr,errmsg))
 
             prefix = mlist[0]
             suffix = mlist[6]
@@ -227,7 +232,7 @@ class moduleBase(object):
                 m = regexs[2].match(expr)
             mlist = m.groups()
             if len(mlist) != 4:
-                raise Exception('%s: ' %ifacename + errmsg + '(unexpected len)')
+                raise ModuleBaseException('%s: ' %ifacename + errmsg + '(unexpected len)')
             prefix = mlist[0]
             suffix = mlist[3]
             start_index = int(mlist[1])

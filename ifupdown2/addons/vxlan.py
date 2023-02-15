@@ -12,7 +12,7 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.lib.addon import Vxlan
+    from ifupdown2.lib.addon import Vxlan, AddonException
     from ifupdown2.lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from ifupdown2.nlmanager.nlmanager import Link
@@ -28,7 +28,7 @@ except ImportError:
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-    from lib.addon import Vxlan
+    from lib.addon import Vxlan, AddonException
     from lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from nlmanager.nlmanager import Link
@@ -555,7 +555,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
+                raise AddonException("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
 
 
         if local:
@@ -720,7 +720,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
+                raise AddonException("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
 
             if group.ip.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip %s: invalid group address, "
@@ -739,7 +739,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
+                raise AddonException("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
 
             if not mcast_grp.ip.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp %s: invalid group address, "
@@ -820,7 +820,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-svcnodeip6 %s: netmask ignored" % (ifname, group))
                     group = group_ip
                 except Exception:
-                    raise Exception("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
+                    raise AddonException("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
 
             if group.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip6 %s: invalid group address, "
@@ -840,7 +840,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-mcastgrp6 %s: netmask ignored" % (ifname, mcast_grp))
                     mcast_grp = group_ip
                 except Exception:
-                    raise Exception("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
+                    raise AddonException("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
 
             if not mcast_grp.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp6 %s: invalid group address, "

@@ -36,6 +36,10 @@ log = logging.getLogger()
 configmap_g = None
 
 
+class MainException(Exception):
+    pass
+
+
 class Ifupdown2:
     def __init__(self, daemon, uid):
         self.daemon = daemon
@@ -62,7 +66,7 @@ class Ifupdown2:
 
     def main(self, stdin_buffer=None):
         if self.op != 'query' and self.uid != 0:
-            raise Exception('must be root to run this command')
+            raise MainException('must be root to run this command')
 
         try:
             self.read_config()
@@ -115,7 +119,7 @@ class Ifupdown2:
                     configmap_g.get('disable_cli_interfacesfile', '0') == '1'):
                 log.error('disable_cli_interfacesfile is set so users '
                           'not allowed to specify interfaces file on cli.')
-                raise Exception("")
+                raise MainException("")
             if self.args.interfacesfile == '-':
                 # If interfaces file is stdin, read
                 if self.daemon:

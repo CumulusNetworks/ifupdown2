@@ -17,6 +17,10 @@ except ImportError:
     from ifupdown.exceptions import ArgvParseError, ArgvParseHelp
 
 
+class ArgvException(Exception):
+    pass
+
+
 class VersionAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
 
@@ -24,12 +28,12 @@ class VersionAction(argparse.Action):
             dpkg = utils.exec_commandl([utils.dpkg_cmd, '-l', 'ifupdown2'])
 
             if not dpkg:
-                raise Exception('dpkg -l ifupdown2 returns without output')
+                raise ArgvException('dpkg -l ifupdown2 returns without output')
 
             dpkg = dpkg.split('\n')
 
             if not dpkg:
-                raise Exception('dpkg -l ifupdown2 returns without output')
+                raise ArgvException('dpkg -l ifupdown2 returns without output')
 
             for line in dpkg:
                 if 'ifupdown2' in line:
@@ -38,7 +42,7 @@ class VersionAction(argparse.Action):
                     sys.stdout.write('ifupdown2:%s\n' % (info[2]))
                     sys.exit(0)
 
-            raise Exception('ifupdown2 package not found using dpkg -l')
+            raise ArgvException('ifupdown2 package not found using dpkg -l')
 
         except Exception as e:
             sys.stderr.write('error: cannot get current version using dpkg: %s\n' % str(e))

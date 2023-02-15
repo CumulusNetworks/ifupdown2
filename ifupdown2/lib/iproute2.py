@@ -59,6 +59,10 @@ except Exception:                                                               
 ################################################################################
 
 
+class IProute2Exception(Exception):
+    pass
+
+
 class IPRoute2(Cache, Requirements):
 
     VXLAN_UDP_PORT = 4789
@@ -354,7 +358,7 @@ class IPRoute2(Cache, Requirements):
     def link_create_vxlan(self, name, vxlanid, localtunnelip=None, svcnodeip=None,
                           remoteips=None, learning='on', ageing=None, ttl=None, physdev=None, udp_csum='on', tos = None):
         if svcnodeip and remoteips:
-            raise Exception("svcnodeip and remoteip are mutually exclusive")
+            raise IProute2Exception("svcnodeip and remoteip are mutually exclusive")
 
         if self.cache.link_exists(name):
             cmd = [

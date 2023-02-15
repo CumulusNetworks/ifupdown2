@@ -32,6 +32,9 @@ except ImportError:
     import ifupdown.policymanager as policymanager
 
 
+class SchedulerException(Exception):
+    pass
+
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
 
@@ -254,7 +257,7 @@ class ifaceScheduler():
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            raise Exception('%s: not found' %ifacename)
+            raise SchedulerException('%s: not found' %ifacename)
 
         # Check state of the dependent. If it is already brought up, return
         if (cls._STATE_CHECK and
@@ -344,7 +347,7 @@ class ifaceScheduler():
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            raise Exception('%s: not found' %ifacename)
+            raise SchedulerException('%s: not found' %ifacename)
 
         if (cls._STATE_CHECK and
             (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):

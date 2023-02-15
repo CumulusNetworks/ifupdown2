@@ -390,7 +390,7 @@ class bond(Addon, moduleBase):
 
         try:
             self.compare_bond_and_slave_speed(ifaceobj, slave, int(self.read_file_oneline(f"/sys/class/net/{slave}/speed")))
-        except:
+        except Exception:
             try:
                 match = self.speed_pattern.search(utils.exec_commandl(["/usr/sbin/ethtool", f"{slave}"]))
                 if match:
@@ -409,7 +409,7 @@ class bond(Addon, moduleBase):
                 continue
             try:
                 slave_speed = int(self.read_file_oneline(f"/sys/class/net/{slave}/speed"))
-            except:
+            except Exception:
                 slave_speed = -1
 
             if bond_speed < 0:

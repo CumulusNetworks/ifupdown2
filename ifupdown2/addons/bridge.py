@@ -11,7 +11,7 @@ import itertools
 from collections import Counter
 
 try:
-    from ifupdown2.lib.addon import Bridge
+    from ifupdown2.lib.addon import Bridge, AddonException
 
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
@@ -25,7 +25,7 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
-    from lib.addon import Bridge
+    from lib.addon import Bridge, AddonException
 
     import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
@@ -1706,7 +1706,7 @@ class bridge(Bridge, moduleBase):
 
                             access = brport_obj.get_attr_value_first("bridge-access")
                             if access == pvid:
-                                raise Exception(
+                                raise AddonException(
                                     "%s: misconfiguration detected: vlan \"%s\" added to two or more VXLANS (%s, %s)" % (
                                         ifname,
                                         access,
@@ -1996,7 +1996,7 @@ class bridge(Bridge, moduleBase):
                     self.logger.warning('%s: %s' %(ifaceobj.name, str(e)))
         self.iproute2.batch_commit()
         if err:
-           raise Exception('%s: errors applying port settings' %ifaceobj.name)
+           raise AddonException('%s: errors applying port settings' %ifaceobj.name)
 
     def _check_untagged_bridge(self, bridgename, bridgeportifaceobj, ifaceobj_getfunc):
         if bridgeportifaceobj.link_kind & ifaceLinkKind.VLAN:
@@ -3669,7 +3669,7 @@ class bridge(Bridge, moduleBase):
                 vid_int = int(brport_vid_access_user_config)
             except ValueError as e:
                 ifaceobjcurr.update_config_with_status("bridge-access", brport_vid_access_user_config, 1)
-                raise Exception("%s: bridge-access invalid value: %s" % (ifname, str(e)))
+                raise AddonException("%s: bridge-access invalid value: %s" % (ifname, str(e)))
 
             ifaceobjcurr.update_config_with_status(
                 "bridge-access",
@@ -3688,7 +3688,7 @@ class bridge(Bridge, moduleBase):
                 pvid = int(brport_pvid_user_config)
             except ValueError as e:
                 ifaceobjcurr.update_config_with_status("bridge-pvid", brport_pvid_user_config, 1)
-                raise Exception("%s: bridge-pvid invalid value: %s" % (ifname, str(e)))
+                raise AddonException("%s: bridge-pvid invalid value: %s" % (ifname, str(e)))
 
             ifaceobjcurr.update_config_with_status(
                 "bridge-pvid",
@@ -3869,7 +3869,7 @@ class bridge(Bridge, moduleBase):
                 )
             except ValueError as e:
                 ifaceobjcurr.update_config_with_status(attr_name, str(cached_value), 1)
-                raise Exception("%s: %s invalid value: %s" % (ifname, attr_name, str(e)))
+                raise AddonException("%s: %s invalid value: %s" % (ifname, attr_name, str(e)))
 
         self._query_check_l2protocol_tunnel_on_port(ifaceobj, ifaceobjcurr)
 
@@ -3991,7 +3991,7 @@ class bridge(Bridge, moduleBase):
             callback = self.query_check_l2protocol_tunnel_callback.get(protocol)
 
             if callable(callback) and not callback(cached_ifla_brport_group_mask, cached_ifla_brport_group_maskhi):
-                raise Exception(
+                raise AddonException(
                     "%s: bridge-l2protocol-tunnel: protocol '%s' not present (cached value: %d | %d)"
                     % (brport_name, protocol, cached_ifla_brport_group_mask, cached_ifla_brport_group_maskhi)
                 )
@@ -4148,7 +4148,7 @@ class bridge(Bridge, moduleBase):
             elif self.cache.link_is_bridge_port(ifaceobjrunning.name):
                 self._query_running_bridge_port(ifaceobjrunning, ifaceobj_getfunc)
         except Exception as e:
-            raise Exception('%s: %s' % (ifaceobjrunning.name, str(e)))
+            raise AddonException('%s: %s' % (ifaceobjrunning.name, str(e)))
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """

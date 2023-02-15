@@ -19,6 +19,10 @@ except ImportError:
     from lib.gvgen import GvGen
 
 
+class GraphException(Exception):
+    pass
+
+
 class graph():
     """ graph functions to sort and print interface graph """
 
@@ -66,7 +70,7 @@ class graph():
 
         for ifname,indegree in list(indegrees.items()):
             if indegree != 0:
-                raise Exception('cycle found involving iface %s' %ifname +
+                raise GraphException('cycle found involving iface %s' %ifname +
                                 ' (indegree %d)' %indegree)
 
         return S

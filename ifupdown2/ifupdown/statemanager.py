@@ -23,6 +23,10 @@ except ImportError:
     import ifupdown.ifupdownconfig as ifupdownConfig
 
 
+class StateManagerException(Exception):
+    pass
+
+
 class pickling():
     """ class with helper methods for pickling/unpickling iface objects """
 
@@ -100,7 +104,7 @@ class stateManager():
             try:
                 self._init_makedirs_state_dir()
             except Exception as e:
-                raise Exception("statemanager: unable to create required directory: %s" % str(e))
+                raise StateManagerException("statemanager: unable to create required directory: %s" % str(e))
 
         if not os.path.exists(self.state_rundir):
             os.makedirs(self.state_rundir)

@@ -411,7 +411,6 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             self.logger.info("%s: syncing macvlan forwarding with lower device forwarding state failed: %s" % (ifname, str(e)))
 
     def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
-
         """
         intf_config_list = [
             {

@@ -13,7 +13,7 @@ import subprocess
 from setuptools.dist import strtobool
 
 try:
-    from ifupdown2.lib.addon import AddonWithIpBlackList
+    from ifupdown2.lib.addon import AddonWithIpBlackList, AddonException
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
@@ -29,7 +29,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
-    from lib.addon import AddonWithIpBlackList
+    from lib.addon import AddonWithIpBlackList, AddonException
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
@@ -377,12 +377,12 @@ class address(AddonWithIpBlackList, moduleBase):
 
                 if vlan_addr and vlan_ipforward_off:
                     if syntax_check:
-                        raise Exception(
+                        raise AddonException(
                             'configuring ip-forward off and ip address(es) (%s) is not compatible'
                             % (', '.join(vlan_addr))
                         )
                     else:
-                        raise Exception(
+                        raise AddonException(
                             '%s: configuring ip-forward off and ip address(es) (%s) is not compatible'
                             % (ifname, ', '.join(vlan_addr))
                         )
@@ -423,7 +423,7 @@ class address(AddonWithIpBlackList, moduleBase):
     def _syntax_check_multiple_gateway(self, family, found, addr, version):
         if ipnetwork.IPNetwork(addr).version == version:
             if found:
-                raise Exception('%s: multiple gateways for %s family'
+                raise AddonException('%s: multiple gateways for %s family'
                                 % (addr, family))
             return True
         return False

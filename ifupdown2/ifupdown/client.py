@@ -97,6 +97,10 @@ class LogRecordSocketReceiver(socketserver.TCPServer):
         socketserver.TCPServer.__init__(self, (host, port), handler)
 
 
+class ClientException(Exception):
+    pass
+
+
 class Client(SocketIO):
     def __init__(self, argv):
         SocketIO.__init__(self)
@@ -163,7 +167,7 @@ class Client(SocketIO):
             self.uds.setsockopt(socket.SOL_SOCKET, self.SO_PASSCRED, 1)
         except Exception as e:
             self.__shutdown()
-            raise Exception("setsockopt: %s" % str(e))
+            raise ClientException("setsockopt: %s" % str(e))
 
         self.daemon_pid, _, _ = self.get_socket_peer_cred(self.uds)
 
