@@ -189,7 +189,7 @@ class networkInterfaces():
                 if '*' not in sourced_file:
                     self._parse_warn(self._currentfile, lineno,
                             'cannot find source file %s' %sourced_file)
-                return
+                return 0
             for f in filenames:
                 self.read_file(f)
         else:
