@@ -41,6 +41,21 @@ class dhcp(Addon, moduleBase):
     # this can be changed by setting the module global
     # policy: dhclient_retry_on_failure
     DHCLIENT_RETRY_ON_FAILURE = 0
+    DHCP_CLIENTS = {c.__name__: c for c in [dhclient]}
+
+    _modinfo = {
+        'mhelp': 'setting for dhcp client',
+        'attrs': {
+            'dhcp-client': {
+                'help': 'Name of dhcp client in use',
+                'validvals': list(DHCP_CLIENTS.values()),
+                'required': False,
+                'exemple': ['dhcp-client dhclient'],
+                'default': 'dhclient',
+            },
+        }
+    }
+
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
