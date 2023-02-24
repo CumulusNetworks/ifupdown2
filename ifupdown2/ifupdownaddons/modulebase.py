@@ -518,3 +518,21 @@ class moduleBase(object):
             return -1
 
         return self._get_vlan_id_from_ifacename(ifaceobj.name)
+
+    def get_param(self, attrname, ifaceobj=None, module_name=None):
+        """
+        Get a parameter with the following priority (first is higher):
+        * first iface attribue value
+        * default policy
+        * modinfo default attribute
+        """
+        module_name = module_name or self.__class__.__name__
+        ifname = ifaceobj.name if ifaceobj else None
+        modinfo = getattr(self, '_modinfo', {})
+        policy_api = policymanager.policymanager_api
+        values = [
+            ifaceobj.get_attr_value_first(attrname) if ifaceobj else None,
+            policy_api.get_iface_default(module_name, ifname, attrname),
+            utils.dig(modinfo, 'attrs', attrname, 'default'),
+        ]
+        return next((v for v in values if v is not None), None)
