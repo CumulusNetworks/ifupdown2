@@ -5,7 +5,6 @@
 #
 
 import os
-import errno
 
 try:
     from ifupdown2.ifupdown.utils import utils
@@ -19,27 +18,11 @@ class dhclient(utilsBase):
     """ This class contains helper methods to interact with the dhclient
     utility """
 
-    def _pid_exists(self, pidfilename):
-        if os.path.exists(pidfilename):
-            try:
-                return os.readlink(
-                    "/proc/%s/exe" % self.read_file_oneline(pidfilename)
-                ).endswith("dhclient")
-            except OSError as e:
-                try:
-                    if e.errno == errno.EACCES:
-                        return os.path.exists("/proc/%s" % self.read_file_oneline(pidfilename))
-                except Exception:
-                    return False
-            except Exception:
-                return False
-        return False
-
     def is_running(self, ifacename):
-        return self._pid_exists('/run/dhclient.%s.pid' %ifacename)
+        return self.pid_exists(f'/run/dhclient.{ifacename}.pid', 'dhclient')
 
     def is_running6(self, ifacename):
-        return self._pid_exists('/run/dhclient6.%s.pid' %ifacename)
+        return self.pid_exists(f'/run/dhclient6.{ifacename}.pid', 'dhclient')
 
     def _run_dhclient_cmd(self, cmd, cmd_prefix=None):
         if not cmd_prefix:
