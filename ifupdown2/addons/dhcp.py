@@ -57,10 +57,21 @@ class dhcp(Addon, moduleBase):
     }
 
 
+    def client_factory(self, **kwargs):
+        def init_client(ifaceobj):
+            client_name = self.get_param('dhcp-client', ifaceobj)
+            if client_name not in self.DHCP_CLIENTS:
+                self.logger.error(f"dhcp: {client_name} not found, falling back to dhclient")
+                client_name = 'dhclient'
+            cls = self.DHCP_CLIENTS[client_name]
+            return cls(**kwargs)
+        return init_client
+
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.dhclientcmd = dhclient(**kargs)
+        self.init_client = self.client_factory(**kargs)
+        self.dhcp_client = None
         vrf_id = self._get_vrf_context()
         if vrf_id and vrf_id == 'mgmt':
             self.mgmt_vrf_context = True
@@ -138,7 +149,7 @@ class dhcp(Addon, moduleBase):
                         "%s: dhclient: couldn't detect new ip address, retrying %s more times..."
                         % (ifname, retry)
                     )
-                    self.dhclientcmd.stop(ifname)
+                    self.dhcp_client.stop(ifname)
                 else:
                     self.logger.error("%s: dhclient: timeout failed to detect new ip addresses" % ifname)
                     return -1
@@ -147,8 +158,8 @@ class dhcp(Addon, moduleBase):
 
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
-        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
-        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
+        dhclient4_running = self.dhcp_client.is_running(ifaceobj.name)
+        dhclient6_running = self.dhcp_client.is_running6(ifaceobj.name)
 
         # today if we have an interface with both inet and inet6, if we
         # remove the inet or inet6 or both then execute ifreload, we need
@@ -190,14 +201,14 @@ class dhcp(Addon, moduleBase):
                     # First release any existing dhclient processes
                     try:
                         if not ifupdownflags.flags.PERFMODE:
-                            self.dhclientcmd.stop(ifaceobj.name)
+                            self.dhcp_client.stop(ifaceobj.name)
                     except Exception:
                         pass
 
                     self.dhclient_start_and_check(
                         ifaceobj.name,
                         "inet",
-                        self.dhclientcmd.start,
+                        self.dhcp_client.start,
                         wait=wait,
                         cmd_prefix=dhclient_cmd_prefix
                     )
@@ -218,7 +229,7 @@ class dhcp(Addon, moduleBase):
                         self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
                                 '.autoconf', autoconf)
                         try:
-                            self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
+                            self.dhcp_client.stop6(ifaceobj.name, duid=dhcp6_duid)
                         except Exception:
                             pass
                     #add delay before starting IPv6 dhclient to
@@ -230,7 +241,7 @@ class dhcp(Addon, moduleBase):
                                                          %(utils.ip_cmd, ifaceobj.name))
                         r = re.search('inet6 .* scope link', addr_output)
                         if r:
-                            self.dhclientcmd.start6(ifaceobj.name,
+                            self.dhcp_client.start6(ifaceobj.name,
                                                     wait=wait,
                                                     cmd_prefix=dhclient_cmd_prefix, duid=dhcp6_duid)
                             return
@@ -261,10 +272,10 @@ class dhcp(Addon, moduleBase):
         dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                                                                        ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
-            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
+            self.dhcp_client.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
             self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
         if 'inet' in ifaceobj.addr_family:
-            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            self.dhcp_client.release(ifaceobj.name, dhclient_cmd_prefix)
             self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
 
     def _down(self, ifaceobj):
@@ -275,8 +286,8 @@ class dhcp(Addon, moduleBase):
         status = ifaceStatus.SUCCESS
         dhcp_running = False
 
-        dhcp_v4 = self.dhclientcmd.is_running(ifaceobjcurr.name)
-        dhcp_v6 = self.dhclientcmd.is_running6(ifaceobjcurr.name)
+        dhcp_v4 = self.dhcp_client.is_running(ifaceobjcurr.name)
+        dhcp_v6 = self.dhcp_client.is_running6(ifaceobjcurr.name)
 
         if dhcp_v4:
             dhcp_running = True
@@ -297,10 +308,10 @@ class dhcp(Addon, moduleBase):
     def _query_running(self, ifaceobjrunning):
         if not self.cache.link_exists(ifaceobjrunning.name):
             return
-        if self.dhclientcmd.is_running(ifaceobjrunning.name):
+        if self.dhcp_client.is_running(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'dhcp'
-        if self.dhclientcmd.is_running6(ifaceobjrunning.name):
+        if self.dhcp_client.is_running6(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet6')
             ifaceobjrunning.addr_method = 'dhcp6'
 
@@ -331,6 +342,7 @@ class dhcp(Addon, moduleBase):
                 of interfaces. status is success if the running state is same
                 as user required state in ifaceobj. error otherwise.
         """
+        self.dhcp_client = self.init_client(ifaceobj)
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
