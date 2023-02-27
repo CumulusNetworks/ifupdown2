@@ -43,11 +43,18 @@ class udhcpc(utilsBase):
             time.sleep(1)
             it += 1
 
-    def _get_send_packets_number(self, timeout_secs=10):
+    def _get_send_packets_number(self, ifacename, timeout_secs=10):
         """ Get sendable number of packets in timeout_sec """
         # We cannot ask udhcpc to send packets until a time is reached,
         # but we can ask udhcpc to send a number of predetermined packets
         # to match our given time.
+        policy_value = policymanager_api.get_iface_default('dhcp', ifacename, 'udhcpc-wait-timeout')
+        if policy_value is not None:
+            try:
+                timeout_sec = int(policy_value)
+            except (ValueError, TypeError):
+                self.logger.warning(f"{ifacename}: ill formatted udhcpc's dhcp-wait-timeout policy, "
+                                    f"falling back to {timeout_sec}")
 
         PACKETS_INTERVAL_SECS = 3  # default udhcpc wait in between packets
         if timeout_secs <= 0:
@@ -64,7 +71,7 @@ class udhcpc(utilsBase):
             # Send one packet then unlimited background discovery.
             cmd += ['-b', '-t', '1', '-A', '0']
         else:
-            packets = self._get_send_packets_number()
+            packets = self._get_send_packets_number(ifacename)
             cmd += ['-n', '-t', str(packets)]
         self._run_udhcpc_cmd(cmd + [
             '-S', '-i', ifacename, '-p', f'/run/udhcpc.{ifacename}.pid'
