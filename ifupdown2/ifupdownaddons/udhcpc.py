@@ -6,10 +6,12 @@ import time
 
 try:
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.policymanager import policymanager_api
     from ifupdown2.ifupdownaddons.utilsbase import utilsBase
 
 except (ImportError, ModuleNotFoundError):
     from ifupdown.utils import utils
+    from ifupdown.policymanager import policymanager_api
     from ifupdownaddons.utilsbase import utilsBase
 
 
@@ -17,11 +19,6 @@ class udhcpc(utilsBase):
     """
     This class contains helper methods to interact with udhcpc
     """
-
-    def __init__(self, ifaceobj, *args, **kwargs):
-        utilsBase.__init__(self, *args, **kwargs)
-        self.ifaceobj = ifaceobj
-        self.hook = 'udhcpc'
 
     def is_running(self, ifacename):
         return self.pid_exists(f'/run/udhcpc.{ifacename}.pid', 'busybox')
@@ -62,8 +59,6 @@ class udhcpc(utilsBase):
             cmd = ['/sbin/udhcpc']
         else:
             cmd = ['/usr/bin/busybox', 'udhcpc']
-        if self.lease:
-            cmd += ['-x', f'lease:{self.lease}']
         if not wait:
             # udhcpc can't fork without sending at least one packet.
             # Send one packet then unlimited background discovery.
@@ -71,11 +66,6 @@ class udhcpc(utilsBase):
         else:
             packets = self._get_send_packets_number()
             cmd += ['-n', '-t', str(packets)]
-        if self.hook:
-            if os.path.basename(self.hook) == self.hook:
-                cmd += ['-s', f'/usr/share/ifupdown2/dhcp_hooks/{self.hook}']
-            else:
-                cmd += ['-s', self.hook]
         self._run_udhcpc_cmd(cmd + [
             '-S', '-i', ifacename, '-p', f'/run/udhcpc.{ifacename}.pid'
         ], cmd_prefix)

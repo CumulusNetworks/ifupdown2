@@ -19,6 +19,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
+    from ifupdown2.ifupdownaddons.udhcpc import udhcpc
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except (ImportError, ModuleNotFoundError):
     from lib.addon import Addon
@@ -31,6 +32,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdown.utils import utils
 
     from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.udhcpc import udhcpc
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -41,7 +43,7 @@ class dhcp(Addon, moduleBase):
     # this can be changed by setting the module global
     # policy: dhclient_retry_on_failure
     DHCLIENT_RETRY_ON_FAILURE = 0
-    DHCP_CLIENTS = {c.__name__: c for c in [dhclient]}
+    DHCP_CLIENTS = {c.__name__: c for c in [dhclient, udhcpc]}
 
     _modinfo = {
         'mhelp': 'setting for dhcp client',
