@@ -18,6 +18,7 @@ try:
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
 
+    from ifupdown2.addons.dhcp import dhcp
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
@@ -34,6 +35,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
+    from addons.dhcp import dhcp
     from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.modulebase import moduleBase
 
@@ -1035,6 +1037,41 @@ class address(AddonWithIpBlackList, moduleBase):
         else:
             self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))
 
+    def _release_stale_dhcp(self, ifaceobj):
+        """ Release any stale dhcp clients.
+
+        This method won't take actions when:
+        * ifupdown2 is running in perf mode.
+        * the interface must be handled by dhcp or ppp addons.
+        * the interface has any sibling.
+
+        Returns:
+            bool: True if a client has been released, False otherwise.
+        """
+        if ifaceobj.addr_method in ["dhcp", "ppp"]:
+            return False
+        if ifupdownflags.flags.PERFMODE:
+            return False
+        if ifaceobj.flags & iface.HAS_SIBLINGS:
+            return False
+
+        ifname = ifaceobj.name
+        released = False
+        for cls in dhcp.DHCP_CLIENTS.values():
+            try:
+                client = cls()
+                if client.is_running(ifname):
+                    client.release(ifname)
+                    self.cache.force_address_flush_family(ifname, socket.AF_INET)
+                    released = True
+                elif client.is_running6(ifname):
+                    client.release6(ifname)
+                    self.cache.force_address_flush_family(ifname, socket.AF_INET6)
+                    released = True
+            except Exception:
+                pass
+        return released
+
     def _pre_up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.cache.link_exists(ifaceobj.name):
             return
@@ -1050,26 +1087,7 @@ class address(AddonWithIpBlackList, moduleBase):
         self._sysctl_config(ifaceobj)
 
         addr_method = ifaceobj.addr_method
-        force_reapply = False
-        try:
-            # release any stale dhcp addresses if present
-            if (addr_method not in ["dhcp", "ppp"]  and not ifupdownflags.flags.PERFMODE and
-                    not (ifaceobj.flags & iface.HAS_SIBLINGS)):
-                # if not running in perf mode and ifaceobj does not have
-                # any sibling iface objects, kill any stale dhclient
-                # processes
-                dhclientcmd = dhclient()
-                if dhclientcmd.is_running(ifaceobj.name):
-                    # release any dhcp leases
-                    dhclientcmd.release(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
-                    force_reapply = True
-                elif dhclientcmd.is_running6(ifaceobj.name):
-                    dhclientcmd.release6(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
-                    force_reapply = True
-        except Exception:
-            pass
+        force_reapply = self._release_stale_dhcp(ifaceobj)
 
         self.process_mtu(ifaceobj, ifaceobj_getfunc)
         self.up_ipv6_addrgen(ifaceobj)
