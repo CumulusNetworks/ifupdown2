@@ -19,7 +19,6 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.addons.dhcp import dhcp
-    from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
@@ -36,7 +35,6 @@ except (ImportError, ModuleNotFoundError):
     from ifupdown.utils import utils
 
     from addons.dhcp import dhcp
-    from ifupdownaddons.dhclient import dhclient
     from ifupdownaddons.modulebase import moduleBase
 
     import nlmanager.ipnetwork as ipnetwork
@@ -1452,9 +1450,9 @@ class address(AddonWithIpBlackList, moduleBase):
 
         self.query_running_ipv6_addrgen(ifaceobjrunning)
 
-        dhclientcmd = dhclient()
-        if (dhclientcmd.is_running(ifaceobjrunning.name) or
-                dhclientcmd.is_running6(ifaceobjrunning.name)):
+        clients = (cls() for cls in dhcp.DHCP_CLIENTS.values())
+        if any(client.is_running(ifaceobjrunning.name) or
+               client.is_running6(ifaceobjrunning.name) for client in clients):
             # If dhcp is configured on the interface, we skip it
             return
 
