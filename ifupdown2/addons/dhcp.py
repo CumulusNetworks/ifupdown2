@@ -58,6 +58,13 @@ class dhcp(Addon, moduleBase):
         }
     }
 
+    _policies = (
+        'dhcp-wait',
+        'dhcp6-duid',
+        'dhcp6-ll-wait',
+        'dhclient_retry_on_failure',
+        'udhcpc-wait-timeout',
+    )
 
     def client_factory(self, **kwargs):
         def init_client(ifaceobj):
