@@ -61,6 +61,7 @@ class moduleBase(object):
             trying to "inject" new attributes to prevent breakages and security issue
         """
         attrs = dict(self.get_modinfo().get('attrs', {}))
+        policies = getattr(self, '_policies', [])
 
         if not attrs:
             return
@@ -68,11 +69,11 @@ class moduleBase(object):
         error_msg = 'this attribute doesn\'t exist or isn\'t supported'
 
         # first check module_defaults
-        for key, value in list(policymanager.policymanager_api.get_module_defaults(self.modulename).items()):
-            if not key in attrs:
-                self.logger.warning('%s: %s: %s' % (self.modulename, key, error_msg))
-                continue
-            attrs[key]['default'] = value
+        for key, value in policymanager.policymanager_api.get_module_defaults(self.modulename).items():
+            if key in attrs:
+                attrs[key]['default'] = value
+            elif key not in policies:
+                self.logger.warning(f'{self.modulename}: {key} {error_msg}')
 
         # then check module_globals (overrides module_defaults)
         policy_modinfo = policymanager.policymanager_api.get_module_globals(self.modulename, '_modinfo')
