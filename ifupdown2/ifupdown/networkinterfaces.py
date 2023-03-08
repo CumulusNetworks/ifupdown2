@@ -195,6 +195,7 @@ class networkInterfaces():
         else:
             self._parse_error(self._currentfile, lineno,
                     'unable to read source line')
+        return 0
 
     def process_source_directory(self, lines, cur_idx, lineno):
         self.logger.debug('processing source-directory line ..\'%s\'' % lines[cur_idx])
