@@ -117,6 +117,18 @@ class ethtool(Addon, moduleBase):
                 'validvals': ['on', 'off'],
                 'default': 'varies by interface'
             },
+            'ring-rx': {
+                'help': 'Ring RX Parameter',
+                'example': ['ring-rx 512'],
+                'validvals': ['<number>'],
+                'default': 'varies by interface'
+            },
+            'ring-tx': {
+                'help': 'Ring TX Parameter',
+                'example': ['ring-tx 512'],
+                'validvals': ['<number>'],
+                'default': 'varies by interface'
+            },
         }
     }
 
@@ -134,6 +146,45 @@ class ethtool(Addon, moduleBase):
             module_name=self.__class__.__name__,
             attr='ethtool_ignore_errors'
         )
+
+    def do_ring_settings(self, ifaceobj, attr_name, option):
+        # Get the current configuration value and default value for the specified attribute
+        config_val = ifaceobj.get_attr_value_first(attr_name)
+        default_val = policymanager.policymanager_api.get_iface_default(
+                            module_name='ethtool',
+                            ifname=ifaceobj.name,
+                            attr=attr_name)
+
+        # If ring options are not set, do nothing
+        if not config_val and not default_val:
+            return
+
+        # Get the current running value
+        running_val = self.get_running_attr(attr_name, ifaceobj)
+
+        # If the configuration value is the same as the running value, do nothing
+        if config_val and config_val == running_val:
+            return
+
+        # If the configuration value is not set and the default value is the same as the running value, do nothing
+        if not config_val and (default_val and default_val == running_val):
+            return
+
+        # Generate the ethtool command
+        if config_val:
+            cmd = ('%s --set-ring %s %s %s' %
+                        (utils.ethtool_cmd, ifaceobj.name, option, config_val))
+        elif default_val:
+            cmd = ('%s --set-ring %s %s %s' %
+                        (utils.ethtool_cmd, ifaceobj.name, option, default_val))
+
+        # Execute the ethtool command
+        if cmd:
+            try:
+                utils.exec_command(cmd)
+            except Exception as e:
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+
 
     def do_offload_settings(self, ifaceobj, attr_name, eth_name):
         default = 'default_' + eth_name
@@ -324,6 +375,8 @@ class ethtool(Addon, moduleBase):
 
         self.do_speed_settings(ifaceobj)
         self.do_fec_settings(ifaceobj)
+        self.do_ring_settings(ifaceobj, 'ring-rx', 'rx')
+        self.do_ring_settings(ifaceobj, 'ring-tx', 'tx')
         self.do_offload_settings(ifaceobj, 'gro-offload', 'gro')
         self.do_offload_settings(ifaceobj, 'lro-offload', 'lro')
         self.do_offload_settings(ifaceobj, 'gso-offload', 'gso')
@@ -435,6 +488,17 @@ class ethtool(Addon, moduleBase):
 
         return value
 
+    def get_ring_setting(self, ethtool_output, setting):
+        value = None
+        current_settings = ethtool_output.split('Current hardware settings:', 1)[1]
+
+        for line in current_settings.splitlines():
+            if line.startswith(setting):
+                value = line.split(':', 1)[1]
+                return value.strip()
+
+        return value
+
     def get_running_attr(self,attr='',ifaceobj=None):
         if not ifaceobj or not attr:
             return
@@ -443,6 +507,14 @@ class ethtool(Addon, moduleBase):
             if attr == 'autoneg':
                 output = utils.exec_commandl([utils.ethtool_cmd, ifaceobj.name])
                 running_attr = self.get_autoneg(ethtool_output=output)
+            elif attr == 'ring-rx':
+                output = utils.exec_command('%s --show-ring %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_ring_setting(ethtool_output=output, setting='RX:')
+            elif attr == 'ring-tx':
+                output = utils.exec_command('%s --show-ring %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                running_attr = self.get_ring_setting(ethtool_output=output, setting='TX:')
             elif attr == 'fec':
                 output = utils.exec_command('%s --show-fec %s'%
                                             (utils.ethtool_cmd, ifaceobj.name))
