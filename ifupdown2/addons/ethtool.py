@@ -185,7 +185,6 @@ class ethtool(Addon, moduleBase):
             except Exception as e:
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
-
     def do_offload_settings(self, ifaceobj, attr_name, eth_name):
         default = 'default_' + eth_name
         config_val = ifaceobj.get_attr_value_first(attr_name)
