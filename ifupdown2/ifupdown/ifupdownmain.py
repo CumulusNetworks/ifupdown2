@@ -134,8 +134,10 @@ class ifupdownMain:
         return False
 
     def run_down(self, ifaceobj):
-        if ((ifaceobj.link_kind & ifaceLinkKind.VRF) or
-            (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE)):
+        if ifaceobj.link_kind & ifaceLinkKind.VRF:
+            return
+        elif ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
+            self.netlink.link_down(ifaceobj.name)
             return
         # Skip link sets on ifaceobjs of type 'vlan' (used for l2 attrs)
         # there is no real interface behind it
