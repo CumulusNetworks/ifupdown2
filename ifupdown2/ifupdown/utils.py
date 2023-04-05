@@ -18,6 +18,7 @@ import itertools
 
 from functools import partial
 from ipaddress import IPv4Address
+from shutil import which
 
 try:
     from ifupdown2.ifupdown.iface import *
@@ -125,6 +126,9 @@ class utils():
                 'systemctl',
                 'dpkg'
                 ]:
+        # If we can find utilities in $PATH we take them.
+        if which(cmd):
+            vars()[cmd + '_cmd'] = which(cmd)
         if os.path.exists(vars()[cmd + '_cmd']):
             continue
         for path in ['/bin/',
