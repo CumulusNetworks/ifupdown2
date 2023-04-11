@@ -109,6 +109,7 @@ class utils():
     systemctl_cmd   = '/bin/systemctl'
     dpkg_cmd        = '/usr/bin/dpkg'
 
+
     logger.info("utils init command paths")
     for cmd in ['bridge',
                 'ip',
@@ -129,6 +130,7 @@ class utils():
         # If we can find utilities in $PATH we take them.
         if which(cmd):
             vars()[cmd + '_cmd'] = which(cmd)
+            logger.debug('%s is set to %s through PATH', cmd + "_cmd", which(cmd))
         if os.path.exists(vars()[cmd + '_cmd']):
             continue
         for path in ['/bin/',
@@ -137,8 +139,9 @@ class utils():
                      '/usr/sbin/',]:
             if os.path.exists(path + cmd):
                 vars()[cmd + '_cmd'] = path + cmd
+                logger.debug('%s is set to %s through common bin paths', cmd + "_cmd", path + cmd)
             else:
-                logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
+                logger.debug('warning: path %s not found: %s won\'t be usable', path + cmd, cmd)
 
     mac_translate_tab = str.maketrans(":.-,", "    ")
 
