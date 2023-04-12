@@ -128,19 +128,27 @@ class utils():
                 'dpkg'
                 ]:
         # If we can find utilities in $PATH we take them.
+        which_cmd = which(cmd)
+        var_name = cmd + '_cmd'
+
+        logger.setLevel(logging.DEBUG)
         if which(cmd):
-            vars()[cmd + '_cmd'] = which(cmd)
-            logger.debug('%s is set to %s through PATH', cmd + "_cmd", which(cmd))
-        if os.path.exists(vars()[cmd + '_cmd']):
+            vars()[var_name] = which_cmd
+            print('ASDF: %s is set to %s through PATH' % (var_name, which_cmd))
+            logger.debug('%s is set to %s through PATH', var_name, which_cmd)
+            continue
+        if os.path.exists(vars()[var_name]):
             continue
         for path in ['/bin/',
                      '/sbin/',
                      '/usr/bin/',
                      '/usr/sbin/',]:
             if os.path.exists(path + cmd):
-                vars()[cmd + '_cmd'] = path + cmd
-                logger.debug('%s is set to %s through common bin paths', cmd + "_cmd", path + cmd)
+                vars()[var_name] = path + cmd
+                print('ASDF: %s is set to %s through common bin paths' % (var_name, path + cmd))
+                logger.debug('%s is set to %s through common bin paths', var_name, path + cmd)
             else:
+                print('ASDF: warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
                 logger.debug('warning: path %s not found: %s won\'t be usable', path + cmd, cmd)
 
     mac_translate_tab = str.maketrans(":.-,", "    ")
