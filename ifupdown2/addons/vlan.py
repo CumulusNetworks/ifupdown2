@@ -224,10 +224,13 @@ class vlan(Addon, moduleBase):
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.cache.link_exists(ifaceobj.name):
             return
+
+        ifname = ifaceobj.name
+        cached_vlan_info_data = self.cache.get_link_info_data(ifname)
+
         if '.' not in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
 
-            ifname = ifaceobj.name
             cached_vlan_raw_device = self.cache.get_lower_device_ifname(ifname)
 
             #
@@ -238,8 +241,6 @@ class vlan(Addon, moduleBase):
                 cached_vlan_raw_device,
                 cached_vlan_raw_device != ifaceobj.get_attr_value_first('vlan-raw-device')
             )
-
-            cached_vlan_info_data = self.cache.get_link_info_data(ifname)
 
             #
             # vlan-id
@@ -252,27 +253,28 @@ class vlan(Addon, moduleBase):
             cached_vlan_id_str = str(cached_vlan_id)
             ifaceobjcurr.update_config_with_status('vlan-id', cached_vlan_id_str, vlanid_config != cached_vlan_id_str)
 
-            #
-            # vlan-protocol
-            #
-            protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
-            if protocol_config:
+        #
+        # vlan-protocol (dot or not dot format)
+        #
+        protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
+        if protocol_config:
 
-                cached_vlan_protocol = cached_vlan_info_data.get(Link.IFLA_VLAN_PROTOCOL)
+            cached_vlan_protocol = cached_vlan_info_data.get(Link.IFLA_VLAN_PROTOCOL)
 
-                if protocol_config.upper() != cached_vlan_protocol.upper():
-                    ifaceobjcurr.update_config_with_status(
-                        'vlan-protocol',
-                        cached_vlan_protocol,
-                        1
-                    )
-                else:
-                    ifaceobjcurr.update_config_with_status(
-                        'vlan-protocol',
-                        protocol_config,
-                        0
-                    )
+            if protocol_config.upper() != cached_vlan_protocol.upper():
+                ifaceobjcurr.update_config_with_status(
+                    'vlan-protocol',
+                    cached_vlan_protocol,
+                    1
+                )
+            else:
+                ifaceobjcurr.update_config_with_status(
+                    'vlan-protocol',
+                    protocol_config,
+                    0
+                 )
 
+        if '.' not in ifaceobj.name:
             #
             # vlan-bridge-binding
             #
