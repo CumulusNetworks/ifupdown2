@@ -194,7 +194,19 @@ class address(AddonWithIpBlackList, moduleBase):
                 "validvals": ['on', 'off', 'yes', 'no', '0', '1'],
                 "default": "no",
                 "aliases": ["disable-ip6"]
-            }
+            },
+            'accept-ra': {
+                'help': 'accept ipv6 router advertisement',
+                'validvals': ['0', '1', '2'],
+                'default': '0',
+                'example': ['accept-ra 1']
+            },
+            'autoconf': {
+                'help': 'enable ipv6 slaac autoconfiguration',
+                'validvals': ['0', '1'],
+                'default': '0',
+                'example': ['autoconf 1']
+            },
         }
     }
 
@@ -1169,6 +1181,31 @@ class address(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
+        if addr_method not in ["auto"]:
+
+            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
+            running_accept_ra = str(inet6conf['accept_ra'])
+            running_autoconf = str(inet6conf['autoconf'])
+
+            try:
+                accept_ra = ifaceobj.get_attr_value_first('accept-ra')
+                if accept_ra is None:
+                    accept_ra = '0'
+
+                if running_accept_ra != accept_ra:
+                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
+                                    '.accept_ra', accept_ra)
+
+                autoconf = ifaceobj.get_attr_value_first('autoconf')
+                if autoconf is None:
+                    autoconf = '0'
+
+                if running_autoconf != autoconf:
+                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
+                                    '.autoconf', autoconf)
+            except Exception:
+                pass
+
         if addr_method not in ["dhcp", "ppp", "auto"]:
             self.process_addresses(ifaceobj, ifaceobj_getfunc, force_reapply)
         else:
@@ -1452,6 +1489,22 @@ class address(AddonWithIpBlackList, moduleBase):
             ifaceobjcurr.update_config_with_status('mpls-enable',
                                                    running_mpls_enable,
                                             mpls_enable != running_mpls_enable)
+
+        accept_ra = ifaceobj.get_attr_value_first('accept-ra')
+        if accept_ra:
+            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
+            running_accept_ra = str(inet6conf['accept_ra'])
+            ifaceobjcurr.update_config_with_status('accept_ra',
+                                                   running_accept_ra,
+                                            accept_ra != running_accept_ra)
+
+        autoconf = ifaceobj.get_attr_value_first('autoconf')
+        if autoconf:
+            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
+            running_autoconf = str(inet6conf['autoconf'])
+            ifaceobjcurr.update_config_with_status('autoconf',
+                                                   running_autoconf,
+                                            autoconf != running_autoconf)
 
     def query_check_ipv6_addrgen(self, ifaceobj, ifaceobjcurr):
         ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
