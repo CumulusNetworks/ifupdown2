@@ -1818,6 +1818,15 @@ class AttributeIFLA_AF_SPEC(Attribute):
          */
 
         """
+        #only first attributes used in any kernel.
+        ipv6_devconf = ['forwarding',
+                        'hop_limit',
+                        'mtu6',
+                        'accept_ra',
+                        'accept_redirects',
+                        'autoconf',
+        ]
+
         self.decode_length_type(data)
         self.value = {}
 
@@ -1896,8 +1905,21 @@ class AttributeIFLA_AF_SPEC(Attribute):
                         (inet6_attr_length, inet6_attr_type) = unpack('=HH', sub_attr_data[:4])
                         inet6_attr_end = padded_length(inet6_attr_length)
 
+                        if inet6_attr_type == Link.IFLA_INET6_CONF:
+                            inet6conf_data = sub_attr_data[4:inet6_attr_end]
+                            index = 0
+                            result = {}
+                            while inet6conf_data:
+                                (value, undef) = unpack('=HH', inet6conf_data[:4])
+                                result[ipv6_devconf[index]] = value
+                                inet6conf_data = inet6conf_data[4:]
+                                index = index + 1
+                                if index >= len(ipv6_devconf):
+                                    inet6_attr[inet6_attr_type] = result
+                                    break
+
                         # 1 byte attr
-                        if inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
+                        elif inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
                             inet6_attr[inet6_attr_type] = self.decode_one_byte_attribute(sub_attr_data)
 
                             # nlmanager doesn't support multiple kernel version
