@@ -872,7 +872,9 @@ class address(AddonWithIpBlackList, moduleBase):
         netconf_ipv4_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET, ifname)
         netconf_ipv6_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET6, ifname)
 
-        if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address') and (ifaceobj.addr_method and "dhcp" not in ifaceobj.addr_method):
+        if ( not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address') and
+             ifaceobj.addr_method and "dhcp" not in ifaceobj.addr_method and "auto" not in ifaceobj.addr_method):
+
             if netconf_ipv4_forwarding:
                 self.sysctl_write_forwarding_value_to_proc(ifname, "ipv4", 0)
             if netconf_ipv6_forwarding:
@@ -1016,7 +1018,7 @@ class address(AddonWithIpBlackList, moduleBase):
             # no need to go further during perfmode (boot)
             return
 
-        if not user_configured_ipv6_addrgen and ifaceobj.addr_method in ["dhcp", "ppp"]:
+        if not user_configured_ipv6_addrgen and ifaceobj.addr_method in ["dhcp", "ppp", "auto"]:
             return
 
         if not user_configured_ipv6_addrgen:
@@ -1084,7 +1086,7 @@ class address(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
-        if addr_method not in ["dhcp", "ppp"]:
+        if addr_method not in ["dhcp", "ppp", "auto"]:
             self.process_addresses(ifaceobj, ifaceobj_getfunc, force_reapply)
         else:
             # remove old addresses added by ifupdown2
@@ -1213,7 +1215,7 @@ class address(AddonWithIpBlackList, moduleBase):
             if not self.cache.link_exists(ifaceobj.name):
                 return
             addr_method = ifaceobj.addr_method
-            if addr_method not in ["dhcp", "ppp"]:
+            if addr_method not in ["dhcp", "ppp", "auto"]:
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist or []:
@@ -1380,7 +1382,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
     def _query_check_address(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc):
         """ ifquery-check: attribute: "address" """
-        if ifaceobj.addr_method in ["dhcp", "ppp"]:
+        if ifaceobj.addr_method in ["dhcp", "ppp", "auto"]:
             return
 
         if ifaceobj_getfunc:
