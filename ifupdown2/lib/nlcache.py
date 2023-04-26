@@ -1179,6 +1179,15 @@ class _NetlinkCache:
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
 
+    def get_link_inet6_conf(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[Link.IFLA_AF_SPEC].value[socket.AF_INET6][Link.IFLA_INET6_CONF]
+        except (KeyError, AttributeError):
+            return False
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
+
     #####################################################
     #####################################################
     #####################################################
