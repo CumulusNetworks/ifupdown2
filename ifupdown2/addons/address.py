@@ -640,6 +640,13 @@ class address(AddonWithIpBlackList, moduleBase):
                 if force_reapply:
                     self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
                 return
+
+            purge_v6_addresses = True
+            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
+            if not squash_addr_config and 'accept_ra' in inet6conf and inet6conf['accept_ra'] == 1:
+                self.logger.warning("%s: interface has ipv6 slaac enabled, skip purging existing ipv6 addresses" % ifname)
+                purge_v6_addresses = False
+
             try:
                 # if primary ipv4 address is not same, there is no need to keep any, reset all ipv4 addresses.
                 if user_ip4 and running_ip_addrs and running_ip_addrs[0].version == 4 and user_ip4[0] != running_ip_addrs[0]:
@@ -654,6 +661,8 @@ class address(AddonWithIpBlackList, moduleBase):
 
                 for addr in running_ip_addrs:
                     if addr in skip_addrs:
+                        continue
+                    if addr.version == 6 and not purge_v6_addresses:
                         continue
                     self.netlink.addr_del(ifname, addr)
             except Exception as e:
@@ -1124,7 +1133,7 @@ class address(AddonWithIpBlackList, moduleBase):
             except Exception:
                 pass
 
-        if addr_method not in ["dhcp", "ppp", "auto"]:
+        if addr_method not in ["dhcp", "ppp"]:
             self.process_addresses(ifaceobj, ifaceobj_getfunc, force_reapply)
         else:
             # remove old addresses added by ifupdown2
