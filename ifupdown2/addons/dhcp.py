@@ -193,20 +193,10 @@ class dhcp(Addon, moduleBase):
                     self.logger.info('dhclient6 already running on %s. '
                                      'Not restarting.' % ifaceobj.name)
                 else:
-                    accept_ra = ifaceobj.get_attr_value_first('accept_ra')
-                    if accept_ra:
-                        # XXX: Validate value
-                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                                '.accept_ra', accept_ra)
-                    autoconf = ifaceobj.get_attr_value_first('autoconf')
-                    if autoconf:
-                        # XXX: Validate value
-                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                                '.autoconf', autoconf)
-                        try:
-                            self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
-                        except Exception:
-                            pass
+                    try:
+                        self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
+                    except Exception:
+                        pass
                     #add delay before starting IPv6 dhclient to
                     #make sure the configured interface/link is up.
                     if timeout > 1:
