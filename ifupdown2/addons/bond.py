@@ -10,6 +10,7 @@ import re
 import os
 
 from collections import OrderedDict
+from contextlib import suppress
 
 try:
     from ifupdown2.nlmanager.ipnetwork import IPv4Address
@@ -928,10 +929,21 @@ class bond(Addon, moduleBase):
             self.log_error(str(e), ifaceobj)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
+        bond_slaves = self.cache.get_slaves(ifaceobj.name)
+
         try:
             self.netlink.link_del(ifaceobj.name)
         except Exception as e:
             self.log_warn('%s: %s' % (ifaceobj.name, str(e)))
+
+        # set protodown (and reason) off bond slaves
+        for slave in bond_slaves:
+            with suppress(Exception):
+                self.iproute2.link_set_protodown_reason_clag_off(slave)
+            with suppress(Exception):
+                self.iproute2.link_set_protodown_reason_frr_off(slave)
+            with suppress(Exception):
+                self.netlink.link_set_protodown_off(slave)
 
     def _query_check_bond_slaves(self, ifaceobjcurr, attr, user_bond_slaves, running_bond_slaves):
         query = 1
