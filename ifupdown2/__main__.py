@@ -108,6 +108,10 @@ def stand_alone():
         except NetlinkListenerWithCacheErrorNotInitialized:
             status = Status.Client.STATUS_NLERROR
     LogManager.get_instance().write("exit status %s" % status)
+
+    if status != 0:
+        LogManager.get_instance().report_error_to_systemd()
+
     return status
 
 

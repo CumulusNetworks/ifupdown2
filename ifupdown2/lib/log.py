@@ -29,6 +29,8 @@ import logging
 import logging.handlers
 
 from datetime import date, datetime
+from systemd.journal import JournalHandler
+
 
 try:
     from ifupdown2.ifupdown.utils import utils
@@ -83,10 +85,13 @@ class LogManager:
         self.__root_logger = logging.getLogger()
         self.__root_logger.name = self.LOGGER_NAME
 
+        self.new_dir_path = None
+
         self.__debug_handler = None
         self.__socket_handler = None
         self.__syslog_handler = None
         self.__console_handler = None
+        self.__journald_handler = None
 
         self.daemon = None
 
@@ -172,16 +177,16 @@ class LogManager:
 
         # create new log directory to store eni and debug logs
         # format: network_config_ifupdown2_1_Aug-17-2021_23:42:00.000000
-        new_dir_path = "%s/%s%s_%s" % (
+        self.new_dir_path = "%s/%s%s_%s" % (
             self.LOGGING_DIRECTORY,
             self.LOGGING_DIRECTORY_PREFIX,
             last_id + 1,
             "%s_%s" % (date.today().strftime("%b-%d-%Y"), str(datetime.now()).split(" ", 1)[1])
         )
-        self.__create_dir(new_dir_path)
+        self.__create_dir(self.new_dir_path)
 
         # start logging in the new directory
-        self.__debug_handler = logging.FileHandler("%s/ifupdown2.debug.log" % new_dir_path, mode="w+")
+        self.__debug_handler = logging.FileHandler("%s/ifupdown2.debug.log" % self.new_dir_path, mode="w+")
         self.__debug_handler.setFormatter(logging.Formatter(self.__debug_fmt))
         self.__debug_handler.setLevel(logging.DEBUG)
 
@@ -191,9 +196,9 @@ class LogManager:
         self.__root_logger.debug("persistent debugging is initialized")
 
         # cp ENI and ENI.d in the log directory
-        shutil.copy2("/etc/network/interfaces", new_dir_path)
+        shutil.copy2("/etc/network/interfaces", self.new_dir_path)
         try:
-            shutil.copytree("/etc/network/interfaces.d/", "%s/interfaces.d" % new_dir_path)
+            shutil.copytree("/etc/network/interfaces.d/", "%s/interfaces.d" % self.new_dir_path)
         except Exception:
             pass
 
@@ -249,6 +254,12 @@ class LogManager:
     def disable_console(self):
         """ Remove console handler from root logger """
         self.__root_logger.removeHandler(self.__console_handler)
+
+    def enable_systemd(self):
+        """ Add journalctl handler to root logger """
+        self.__journald_handler = JournalHandler()
+        self.__journald_handler.setFormatter(logging.Formatter(self.__fmt))
+        self.__root_logger.addHandler(self.__journald_handler)
 
     def enable_syslog(self):
         """ Add syslog handler to root logger """
@@ -322,6 +333,9 @@ class LogManager:
     def start_standalone_logging(self, args):
         self.__root_logger.name = self.LOGGER_NAME
 
+        if hasattr(args, "systemd") and args.systemd:
+            self.enable_systemd()
+
         if hasattr(args, "syslog") and args.syslog:
             self.enable_syslog()
             self.disable_console()
@@ -360,3 +374,8 @@ class LogManager:
 
     def root_logger(self):
         return self.__root_logger
+
+    def report_error_to_systemd(self):
+        if self.__journald_handler:
+            self.__journald_handler.setFormatter(logging.Formatter("%(message)s"))
+            self.__root_logger.error(">>> Full logs available in: %s <<<" % self.new_dir_path)

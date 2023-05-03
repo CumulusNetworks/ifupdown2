@@ -92,7 +92,7 @@ ifup_hotplug () {
 			    done)
 	    if [ -n "$ifaces" ]
 	    then
-		ifup $ifaces "$@" || true
+		ifup $ifaces "$@" --systemd || true
 	    fi
     fi
 }
@@ -101,7 +101,7 @@ ifup_mgmt () {
 	ifaces=$(ifquery --list --allow=mgmt 2>/dev/null)
 	if [ -n "$ifaces" ]; then
 		echo "bringing up mgmt class interfaces"
-		ifup --allow=mgmt
+		ifup --allow=mgmt --systemd
 	fi
 }
 
@@ -127,7 +127,7 @@ start)
 	perfoptions=$(perf_options)
 	echo ${NAME}':' "Configuring network interfaces"
 	ifup_mgmt
-	ifup -a $EXTRA_ARGS $exclusions $perfoptions
+	ifup -a $EXTRA_ARGS $exclusions $perfoptions --systemd
 	ifup_hotplug $HOTPLUG_ARGS $EXTRA_ARGS $exclusions
 	;;
 stop)
@@ -148,7 +148,7 @@ stop)
 	exclusions=$(process_exclusions)
 
 	echo ${NAME}':' "Deconfiguring network interfaces"
-	ifdown -a $EXTRA_ARGS $exclusions
+	ifdown -a $EXTRA_ARGS $exclusions --systemd
 	;;
 
 reload)
@@ -157,7 +157,7 @@ reload)
 	exclusions=$(process_exclusions)
 
 	echo ${NAME}':' "Reloading network interfaces configuration"
-	ifreload -a $EXTRA_ARGS $exclusions
+	ifreload -a $EXTRA_ARGS $exclusions --systemd
 	;;
 
 *)

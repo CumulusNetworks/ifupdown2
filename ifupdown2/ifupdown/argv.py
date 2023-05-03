@@ -151,6 +151,7 @@ class Parse:
         """ common arg parser for ifup and ifdown """
         argparser.add_argument('-f', '--force', dest='force', action='store_true', help='force run all operations')
         argparser.add_argument('-l', '--syslog', dest='syslog', action='store_true')
+        argparser.add_argument('--systemd', dest='systemd', action='store_true', help="enable journalctl logging")
         group = argparser.add_mutually_exclusive_group(required=False)
         group.add_argument('-n', '--no-act', dest='noact', action='store_true',
                            help="print out what would happen, but don't do it")
@@ -231,6 +232,7 @@ class Parse:
                                     'Useful when your state file is corrupted or you want down to use the latest '
                                     'from the interfaces file')
         argparser.add_argument('-l', '--syslog', dest='syslog', action='store_true')
+        argparser.add_argument('--systemd', dest='systemd', action='store_true', help="enable journalctl logging")
         argparser.add_argument('-f', '--force', dest='force', action='store_true', help='force run all operations')
         argparser.add_argument('-s', '--syntax-check', dest='syntaxcheck', action='store_true',
                                help='Only run the interfaces file parser')
