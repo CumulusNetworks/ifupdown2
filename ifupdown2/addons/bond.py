@@ -431,9 +431,12 @@ class bond(Addon, moduleBase):
                                      raise_error=False)
                     continue
 
-            # making sure the slave-to-be has the right speed
-            if not self.valid_slave_speed(ifaceobj, runningslaves, slave):
-                continue
+            try:
+                # making sure the slave-to-be has the right speed
+                if not self.valid_slave_speed(ifaceobj, runningslaves, slave):
+                    continue
+            except Exception as e:
+                self.logger.debug("%s: bond-slave (%s) speed validation failed: %s" % (ifaceobj.name, slave, str(e)))
 
             link_up = False
             if self.cache.link_is_up(slave):
