@@ -72,7 +72,7 @@ class vlan(Addon, moduleBase):
             try:
                 if self._get_vlan_id(ifaceobj) != -1:
                     return True
-            except:
+            except Exception:
                 pass
         return False
 

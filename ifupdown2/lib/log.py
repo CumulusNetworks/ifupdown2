@@ -32,7 +32,7 @@ from datetime import date, datetime
 
 try:
     from ifupdown2.ifupdown.utils import utils
-except:
+except ImportError:
     from ifupdown.utils import utils
 
 
@@ -204,7 +204,7 @@ class LogManager:
                 try:
                     directory_to_remove = "%s/%s%s_%s" % (self.LOGGING_DIRECTORY, self.LOGGING_DIRECTORY_PREFIX, ifupdown2_log_dirs[index][0], ifupdown2_log_dirs[index][1])
                     shutil.rmtree(directory_to_remove, ignore_errors=True)
-                except:
+                except Exception:
                     pass
 
     @staticmethod

@@ -345,7 +345,7 @@ class GvGen:
         try:
             props = node_or_link['properties']
             return props[key]
-        except:
+        except Exception:
             return None
 
     def propertyRemove(self, node_or_link, key):

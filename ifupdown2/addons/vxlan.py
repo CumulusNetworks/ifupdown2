@@ -1320,14 +1320,14 @@ class vxlan(Vxlan, moduleBase):
             for vni, ip in (vxlan_mcast_grp_map or {}).items():
                 try:
                     old_vxlan_remote_ip_map[vni].remove(ip)
-                except:
+                except Exception:
                     pass
 
             for vni, ips in old_vxlan_remote_ip_map.items():
                 for ip in ips:
                     try:
                         self.iproute2.bridge_fdb_del_raw(ifaceobj.name, "00:00:00:00:00:00 dst %s src_vni %s" % (ip, vni))
-                    except:
+                    except Exception:
                         pass
 
     @staticmethod

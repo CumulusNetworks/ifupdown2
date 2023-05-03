@@ -185,5 +185,5 @@ class IPv6Address(IPv6Network):
 def ip_address(ip):
     try:
         return IPv4Address(ip)
-    except:
+    except Exception:
         return IPv6Address(ip)

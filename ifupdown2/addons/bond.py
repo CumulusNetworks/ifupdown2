@@ -452,7 +452,7 @@ class bond(Addon, moduleBase):
             for s in removed_slave:
                 try:
                     runningslaves.remove(s)
-                except:
+                except Exception:
                     pass
 
         return  runningslaves
@@ -960,7 +960,7 @@ class bond(Addon, moduleBase):
             try:
                 iface_attrs.remove("es-sys-mac")
                 self.logger.info("%s: non-root user can't check attribute \"es-sys-mac\" value" % ifaceobj.name)
-            except:
+            except Exception:
                 pass
 
         for attr in iface_attrs:

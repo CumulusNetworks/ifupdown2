@@ -238,9 +238,9 @@ class address(AddonWithIpBlackList, moduleBase):
             )
             try:
                 self.l3_intf_arp_accept = int(l3_intf_arp_accept_str)
-            except:
+            except ValueError:
                 self.l3_intf_arp_accept = int(strtobool(l3_intf_arp_accept_str))
-        except:
+        except Exception:
             self.l3_intf_arp_accept = 0
 
         self.l3_intf_default_gateway_set_onlink = utils.get_boolean_from_string(
@@ -469,7 +469,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 try:
                     if utils.mac_str_to_int(old_mac_addr) != utils.mac_str_to_int(hwaddress):
                         self.iproute2.bridge_fdb_del(bridgename, old_mac_addr, vlan)
-                except:
+                except Exception:
                     pass
             if up:
                 # check statemanager to delete the old entry if necessary

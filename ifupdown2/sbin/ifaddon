@@ -53,7 +53,7 @@ def man_rst_body():
 
     print ('''    ifupdown2 addon modules add incremental functionality to
     core ifupdown2 tool.
-           
+
     All installed addon modules are executed on every interface
     listed in the interfaces file. Addon modules are installed under
     /usr/share/ifupdownaddons. To see the list of active addon
@@ -85,13 +85,13 @@ def get_addon_modinfo(modules_dir):
                     try:
                         m = __import__(mname)
                         mclass = getattr(m, mname)
-                    except:
+                    except Exception:
                         pass
                         continue
                     minstance = mclass()
                     if hasattr(minstance, 'get_modinfo'):
                        modinfo[mname] = minstance.get_modinfo()
-    except: 
+    except Exception:
         raise
 
     return modinfo
@@ -233,7 +233,7 @@ def process_move_cmd(args):
         pos = int(args.position)
         if pos < 0 or pos > len(addon_config.get(op)):
             raise Exception('invalid value for position')
-    except:
+    except Exception:
         raise
 
     if addon_config[op].index(module) == pos:
