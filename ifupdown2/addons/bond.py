@@ -6,7 +6,9 @@
 #           Julien Fortin, julien@cumulusnetworks.com
 #
 
+import re
 import os
+
 from collections import OrderedDict
 
 try:
@@ -284,6 +286,9 @@ class bond(Addon, moduleBase):
             True
         )
 
+        self.current_bond_speed = -1
+        self.speed_pattern = re.compile(r"Speed: (\d+)")
+
     def get_bond_slaves(self, ifaceobj):
         # bond-ports aliases should be translated to bond-slaves
         return ifaceobj.get_attr_value_first('bond-slaves')
@@ -353,7 +358,58 @@ class bond(Addon, moduleBase):
                 return True
         return False
 
+    def compare_bond_and_slave_speed(self, bond_ifaceobj, slave_ifname, slave_speed):
+        if self.current_bond_speed != slave_speed:
+            self.log_error(
+                "%s: ignoring device to due device's speed (%s) mismatching bond (%s) speed (%s)"
+                % (slave_ifname, slave_speed, bond_ifaceobj.name, self.current_bond_speed),
+                ifaceobj=bond_ifaceobj
+            )
+
+    def valid_slave_speed(self, ifaceobj, bond_slaves, slave):
+        if not slave.startswith("swp"):
+            # lazy optimization: only check "swp" interfaces
+            return True
+
+        if self.current_bond_speed < 0:
+            self.current_bond_speed = self.get_bond_speed(bond_slaves)
+
+        if self.current_bond_speed < 0:
+            # if we can't get the speed of the bond there's probably no ports enslaved
+            return True
+
+        try:
+            self.compare_bond_and_slave_speed(ifaceobj, slave, int(self.read_file_oneline(f"/sys/class/net/{slave}/speed")))
+        except:
+            try:
+                match = self.speed_pattern.search(utils.exec_commandl(["/usr/sbin/ethtool", f"{slave}"]))
+                if match:
+                    self.compare_bond_and_slave_speed(ifaceobj, slave, int(match.group(1)))
+            except ValueError as e:
+                # if we can't manage to extract the speed, it's not a big deal lets continue
+                pass
+        # validate if we are unable to get a speed (logical interface?)
+        return True
+
+    def get_bond_speed(self, runningslaves):
+        # check bond slave speed
+        bond_speed = -1
+        for slave in runningslaves:
+            if not slave.startswith("swp"):
+                continue
+            try:
+                slave_speed = int(self.read_file_oneline(f"/sys/class/net/{slave}/speed"))
+            except:
+                slave_speed = -1
+
+            if bond_speed < 0:
+                bond_speed = slave_speed
+        return bond_speed
+
     def _add_slaves(self, ifaceobj, runningslaves, ifaceobj_getfunc=None):
+        # reset the current_bond_speed
+        self.current_bond_speed = -1
+
         slaves = self._get_slave_list(ifaceobj)
         if not slaves:
             self.logger.debug('%s: no slaves found' %ifaceobj.name)
@@ -374,6 +430,11 @@ class bond(Addon, moduleBase):
                                    %(ifaceobj.name, slave), ifaceobj,
                                      raise_error=False)
                     continue
+
+            # making sure the slave-to-be has the right speed
+            if not self.valid_slave_speed(ifaceobj, runningslaves, slave):
+                continue
+
             link_up = False
             if self.cache.link_is_up(slave):
                 self.netlink.link_down_force(slave)
