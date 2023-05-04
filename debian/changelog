@@ -1,3 +1,22 @@
+ifupdown2 (3.2.0) unstable; urgency=medium
+
+  * Fix: Sonarqube issues
+  * Fix: ifquery hangs indefinitely on ^C
+  * Fix: Skipping admin down on deleted vlans
+  * Fix: Merge existing MTU into new netlink object
+  * Fix: scheduler: env variable not properly set for user commands (fixes #218)
+  * Fix: ifquery-check: vlan-protocol for dotted interfaces
+  * Fix: Down ops on vrf-slave should set the slave admin down
+  * New: Allow bond creation without slaves
+  * New: Add `--set-ring` option to ethtool
+  * New: Openvswitch : add support for fakebridge
+  * New: add support for systemd logging (--systemd)
+  * New: Process hwaddress before processing ip addresses
+  * New: Set protodown off on bond slave before bond is deleted
+  * New: Make sure bond speed and slaves (swps) speed are matching
+
+ -- Julien Fortin <jfortin@nvidia.com>  Thu, 04 May 2023 23:42:00 -0700
+
 ifupdown2 (3.1.0-1) unstable; urgency=medium
 
    * New: ifquery-check now validates admin state
