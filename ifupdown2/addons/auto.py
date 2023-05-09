@@ -52,12 +52,13 @@ class auto(Addon, moduleBase):
 
         try:
             if 'inet6' in ifaceobj.addr_family:
-                inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
-                if 'accept_ra' in inet6conf and inet6conf['accept_ra'] != 1:
+                running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+                if running_accept_ra != '1':
                     self.sysctl_set('net.ipv6.conf.%s.accept_ra'
                                     %('/'.join(ifaceobj.name.split("."))),
                                     1)
-                if 'autoconf' in inet6conf and inet6conf['autoconf'] != 1:
+                running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+                if running_autoconf != '1':
                     self.sysctl_set('net.ipv6.conf.%s.autoconf'
                                     %('/'.join(ifaceobj.name.split("."))),
                                     1)

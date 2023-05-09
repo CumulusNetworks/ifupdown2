@@ -1188,6 +1188,22 @@ class _NetlinkCache:
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
 
+    def get_link_inet6_accept_ra(self, ifaceobj):
+        inet6conf = self.get_link_inet6_conf(ifaceobj.name)
+        if inet6conf and 'accept_ra' in inet6conf:
+            accept_ra = str(inet6conf['accept_ra'])
+        else:
+            accept_ra = ''
+        return accept_ra
+
+    def get_link_inet6_autoconf(self, ifaceobj):
+        inet6conf = self.get_link_inet6_conf(ifaceobj.name)
+        if inet6conf and 'autoconf' in inet6conf:
+            autoconf = str(inet6conf['autoconf'])
+        else:
+            autoconf = ''
+        return autoconf
+
     #####################################################
     #####################################################
     #####################################################
