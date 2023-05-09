@@ -683,11 +683,11 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
                 return
             try:
-                # if primary address is not same, there is no need to keep any, reset all addresses.
-                if ordered_user_configured_ips and running_ip_addrs and ordered_user_configured_ips[0] != running_ip_addrs[0]:
-                    self.logger.info("%s: primary ip changed (from %s to %s) we need to purge all ip addresses and re-add them"
-                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs[0]))
-                    skip_addrs = []
+                # if primary ipv4 address is not same, there is no need to keep any, reset all ipv4 addresses.
+                if user_ip4 and running_ip_addrs and running_ip_addrs[0].version == 4 and user_ip4[0] != running_ip_addrs[0]:
+                    self.logger.info("%s: primary ipv4 changed (from %s to %s) we need to purge all ipv4 addresses and re-add them"
+                                     % (ifname, user_ip4[0], running_ip_addrs[0]))
+                    skip_addrs = user_ip6
                 else:
                     skip_addrs = ordered_user_configured_ips
 
