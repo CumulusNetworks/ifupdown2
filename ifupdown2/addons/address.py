@@ -284,6 +284,15 @@ class address(AddonWithIpBlackList, moduleBase):
 
         self.mac_regex = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 
+        try:
+            self.default_accept_ra = str(self.sysctl_get('net.ipv6.conf.all.accept_ra'))
+        except Exception:
+            self.default_accept_ra = 1
+
+        try:
+            self.default_autoconf = str(self.sysctl_get('net.ipv6.conf.all.autoconf'))
+        except Exception:
+            self.default_autoconf = 1
 
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
@@ -1066,9 +1075,11 @@ class address(AddonWithIpBlackList, moduleBase):
 
             try:
                 running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+                if running_accept_ra == '':
+                    running_accept_ra = self.default_accept_ra
                 accept_ra = ifaceobj.get_attr_value_first('accept-ra')
                 if accept_ra is None:
-                    accept_ra = '0'
+                    accept_ra = self.default_accept_ra
 
                 if running_accept_ra != accept_ra:
                     self.sysctl_set('net.ipv6.conf.%s.accept_ra'
@@ -1076,9 +1087,11 @@ class address(AddonWithIpBlackList, moduleBase):
                                     accept_ra)
 
                 running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+                if running_autoconf == '':
+                    running_autoconf = self.default_autoconf
                 autoconf = ifaceobj.get_attr_value_first('autoconf')
                 if autoconf is None:
-                    autoconf = '0'
+                    autoconf = self.default_autoconf
 
                 if running_autoconf != autoconf:
                     self.sysctl_set('net.ipv6.conf.%s.autoconf'
