@@ -641,11 +641,10 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
                 return
 
-            purge_v6_addresses = True
-            running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
-            if running_accept_ra == '1' and not squash_addr_config:
-                self.logger.warning("%s: interface has ipv6 slaac enabled, skip purging existing ipv6 addresses" % ifname)
-                purge_v6_addresses = False
+            purge_dynamic_v6_addresses = True
+            running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+            if running_autoconf == '1' and not squash_addr_config:
+                purge_dynamic_v6_addresses = False
 
             try:
                 # if primary ipv4 address is not same, there is no need to keep any, reset all ipv4 addresses.
@@ -659,10 +658,12 @@ class address(AddonWithIpBlackList, moduleBase):
                 if anycast_ip:
                     skip_addrs.append(anycast_ip)
 
+                ip_flags = self.cache.get_ip_addresses_flags(ifname)
                 for addr in running_ip_addrs:
                     if addr in skip_addrs:
                         continue
-                    if addr.version == 6 and not purge_v6_addresses:
+                    # don't purge dynamic ipv6 ip if autoconf is enabled
+                    if addr.version == 6 and not purge_dynamic_v6_addresses and addr in ip_flags and not ip_flags[addr] & 0x80:
                         continue
                     self.netlink.addr_del(ifname, addr)
             except Exception as e:
