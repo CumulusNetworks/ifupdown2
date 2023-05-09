@@ -1060,6 +1060,36 @@ class address(AddonWithIpBlackList, moduleBase):
                        ifaceobj.status = ifaceStatus.ERROR
                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
+        addr_method = ifaceobj.addr_method
+        if addr_method not in ["auto"]:
+
+            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
+            running_accept_ra = str(inet6conf['accept_ra'])
+            running_autoconf = str(inet6conf['autoconf'])
+
+            try:
+                accept_ra = ifaceobj.get_attr_value_first('accept-ra')
+                if accept_ra is None:
+                    accept_ra = '0'
+
+                if running_accept_ra != accept_ra:
+                    self.sysctl_set('net.ipv6.conf.%s.accept_ra'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    accept_ra)
+
+                autoconf = ifaceobj.get_attr_value_first('autoconf')
+                if autoconf is None:
+                    autoconf = '0'
+
+                if running_autoconf != autoconf:
+                    self.sysctl_set('net.ipv6.conf.%s.autoconf'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    autoconf)
+            except Exception as e:
+                if not setting_default_value:
+                    ifaceobj.status = ifaceStatus.ERROR
+                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.OPENVSWITCH:
@@ -1189,33 +1219,6 @@ class address(AddonWithIpBlackList, moduleBase):
             hwaddress, old_mac_addr = self.process_hwaddress(ifaceobj)
         except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
-
-        if addr_method not in ["auto"]:
-
-            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
-            running_accept_ra = str(inet6conf['accept_ra'])
-            running_autoconf = str(inet6conf['autoconf'])
-
-            try:
-                accept_ra = ifaceobj.get_attr_value_first('accept-ra')
-                if accept_ra is None:
-                    accept_ra = '0'
-
-                if running_accept_ra != accept_ra:
-                    self.sysctl_set('net.ipv6.conf.%s.accept_ra'
-                                    %('/'.join(ifaceobj.name.split("."))),
-                                    accept_ra)
-
-                autoconf = ifaceobj.get_attr_value_first('autoconf')
-                if autoconf is None:
-                    autoconf = '0'
-
-                if running_autoconf != autoconf:
-                    self.sysctl_set('net.ipv6.conf.%s.autoconf'
-                                    %('/'.join(ifaceobj.name.split("."))),
-                                    autoconf)
-            except Exception:
-                pass
 
         if addr_method not in ["dhcp", "ppp"]:
             self.process_addresses(ifaceobj, ifaceobj_getfunc, force_reapply)
