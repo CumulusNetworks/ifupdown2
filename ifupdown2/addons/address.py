@@ -1120,16 +1120,18 @@ class address(AddonWithIpBlackList, moduleBase):
                     accept_ra = '0'
 
                 if running_accept_ra != accept_ra:
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                                    '.accept_ra', accept_ra)
+                    self.sysctl_set('net.ipv6.conf.%s.accept_ra'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    accept_ra)
 
                 autoconf = ifaceobj.get_attr_value_first('autoconf')
                 if autoconf is None:
                     autoconf = '0'
 
                 if running_autoconf != autoconf:
-                    self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                                    '.autoconf', autoconf)
+                    self.sysctl_set('net.ipv6.conf.%s.autoconf'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    autoconf)
             except Exception:
                 pass
 
