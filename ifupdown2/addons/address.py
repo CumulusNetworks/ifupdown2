@@ -696,8 +696,8 @@ class address(AddonWithIpBlackList, moduleBase):
                 return
 
             purge_v6_addresses = True
-            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
-            if not squash_addr_config and 'accept_ra' in inet6conf and inet6conf['accept_ra'] == 1:
+            running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+            if running_accept_ra == '1' and not squash_addr_config:
                 self.logger.warning("%s: interface has ipv6 slaac enabled, skip purging existing ipv6 addresses" % ifname)
                 purge_v6_addresses = False
 
@@ -1063,11 +1063,8 @@ class address(AddonWithIpBlackList, moduleBase):
         addr_method = ifaceobj.addr_method
         if addr_method not in ["auto"]:
 
-            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
-            running_accept_ra = str(inet6conf['accept_ra'])
-            running_autoconf = str(inet6conf['autoconf'])
-
             try:
+                running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
                 accept_ra = ifaceobj.get_attr_value_first('accept-ra')
                 if accept_ra is None:
                     accept_ra = '0'
@@ -1077,6 +1074,7 @@ class address(AddonWithIpBlackList, moduleBase):
                                     %('/'.join(ifaceobj.name.split("."))),
                                     accept_ra)
 
+                running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
                 autoconf = ifaceobj.get_attr_value_first('autoconf')
                 if autoconf is None:
                     autoconf = '0'
@@ -1506,16 +1504,16 @@ class address(AddonWithIpBlackList, moduleBase):
 
         accept_ra = ifaceobj.get_attr_value_first('accept-ra')
         if accept_ra:
-            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
-            running_accept_ra = str(inet6conf['accept_ra'])
+            running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+
             ifaceobjcurr.update_config_with_status('accept_ra',
                                                    running_accept_ra,
                                             accept_ra != running_accept_ra)
 
         autoconf = ifaceobj.get_attr_value_first('autoconf')
         if autoconf:
-            inet6conf = self.cache.get_link_inet6_conf(ifaceobj.name)
-            running_autoconf = str(inet6conf['autoconf'])
+            running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+
             ifaceobjcurr.update_config_with_status('autoconf',
                                                    running_autoconf,
                                             autoconf != running_autoconf)
