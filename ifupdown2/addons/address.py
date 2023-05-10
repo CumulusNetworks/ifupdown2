@@ -1079,9 +1079,9 @@ class address(AddonWithIpBlackList, moduleBase):
         self.process_mtu(ifaceobj, ifaceobj_getfunc)
         self.up_ipv6_addrgen(ifaceobj)
 
-	try:
+        try:
             hwaddress, old_mac_addr = self.process_hwaddress(ifaceobj)
-	except Exception as e:
+        except Exception as e:
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
         if addr_method not in ["dhcp", "ppp"]:
