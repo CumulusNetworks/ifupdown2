@@ -1204,6 +1204,27 @@ class _NetlinkCache:
             autoconf = ''
         return autoconf
 
+    def update_link_inet6_accept_ra(self, ifname, accept_ra):
+        try:
+            with self._cache_lock:
+                try:
+                    self._link_cache[ifname].attributes[Link.IFLA_AF_SPEC].value[socket.AF_INET6][Link.IFLA_INET6_CONF]['accept_ra'] = accept_ra
+                except Exception as e:
+                    pass
+        except Exception:
+            pass
+
+    def update_link_inet6_autoconf(self, ifname, autoconf):
+        try:
+            with self._cache_lock:
+                try:
+                    self._link_cache[ifname].attributes[Link.IFLA_AF_SPEC].value[socket.AF_INET6][Link.IFLA_INET6_CONF]['autoconf'] = autoconf
+                except Exception as e:
+                    pass
+        except Exception:
+            pass
+
+
     #####################################################
     #####################################################
     #####################################################

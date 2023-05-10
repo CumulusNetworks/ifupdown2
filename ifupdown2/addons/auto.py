@@ -54,14 +54,20 @@ class auto(Addon, moduleBase):
             if 'inet6' in ifaceobj.addr_family:
                 running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
                 if running_accept_ra != '2':
+                    accept_ra = '2'
                     self.sysctl_set('net.ipv6.conf.%s.accept_ra'
                                     %('/'.join(ifaceobj.name.split("."))),
-                                    2)
+                                    accept_ra)
+                    self.cache.update_link_inet6_accept_ra(ifaceobj.name, accept_ra)
+
                 running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
                 if running_autoconf != '1':
+                    autoconf = '1'
                     self.sysctl_set('net.ipv6.conf.%s.autoconf'
                                     %('/'.join(ifaceobj.name.split("."))),
-                                    1)
+                                    autoconf)
+                    self.cache.update_link_inet6_autoconf(ifaceobj.name, autoconf)
+
         except Exception as e:
             self.logger.error("%s: %s" % (ifaceobj.name, str(e)))
             ifaceobj.set_status(ifaceStatus.ERROR)
