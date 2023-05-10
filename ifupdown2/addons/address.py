@@ -1029,6 +1029,7 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.sysctl_set('net.ipv6.conf.%s.accept_ra'
                                     %('/'.join(ifaceobj.name.split("."))),
                                     accept_ra)
+                    self.cache.update_link_inet6_accept_ra(ifaceobj.name, accept_ra)
 
                 running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
                 if running_autoconf == '':
@@ -1041,6 +1042,8 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.sysctl_set('net.ipv6.conf.%s.autoconf'
                                     %('/'.join(ifaceobj.name.split("."))),
                                     autoconf)
+                    self.cache.update_link_inet6_autoconf(ifaceobj.name, autoconf)
+
             except Exception as e:
                 if not setting_default_value:
                     ifaceobj.status = ifaceStatus.ERROR
