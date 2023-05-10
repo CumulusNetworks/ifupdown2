@@ -152,7 +152,7 @@ class _NetlinkCache:
         Address.IFA_ANYCAST,
         # Address.IFA_CACHEINFO,
         Address.IFA_MULTICAST,
-        # Address.IFA_FLAGS
+        Address.IFA_FLAGS
     )
 
     def __init__(self):
@@ -1749,6 +1749,21 @@ class _NetlinkCache:
 
                 for addr in intf_addresses.get(6, []):
                     addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
+
+                return addresses
+        except (KeyError, AttributeError):
+            return addresses
+
+    def get_ip_addresses_flags(self, ifname: str) -> dict:
+        addresses = {}
+        try:
+            with self._cache_lock:
+                intf_addresses = self._addr_cache[ifname]
+                for addr in intf_addresses.get(4, []):
+                    addresses[addr.attributes[Address.IFA_ADDRESS].value] = addr.attributes[Address.IFA_FLAGS].value
+
+                for addr in intf_addresses.get(6, []):
+                    addresses[addr.attributes[Address.IFA_ADDRESS].value] = addr.attributes[Address.IFA_FLAGS].value
 
                 return addresses
         except (KeyError, AttributeError):
