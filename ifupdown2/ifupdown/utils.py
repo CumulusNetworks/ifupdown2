@@ -75,6 +75,10 @@ class MetaUtils(type):
         """ predefined class attributes """
         return {f'{prog}_cmd': path for prog, path in default_commands()}
 
+    def __call__(cls, *_a, **_k):
+        """ forbiden call """
+        raise NotImplementedError("This class should not be instanciated")
+
 
 class utils(metaclass=MetaUtils):
     logger = logging.getLogger('ifupdown')
