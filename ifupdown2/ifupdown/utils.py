@@ -10,6 +10,7 @@
 import os
 import re
 import shlex
+from shutil import which
 import fcntl
 import signal
 import logging
@@ -37,7 +38,45 @@ def signal_handler_f(ps, sig, frame):
     if sig == signal.SIGINT:
         raise KeyboardInterrupt
 
-class utils():
+
+def default_commands():
+    """
+    Set debian path as default path for all the commands.
+    If command not present in debian path, search for the
+    commands in the other system directories.
+    This search is carried out to handle different locations
+    on different distros.
+    If the command is not found in any of the system
+    directories, command execution will fail because we have
+    set default path same as debian path.
+    """
+    logger = logging.getLogger('ifupdown')
+    default_cmds = """
+        /sbin/bridge    /bin/ip           /sbin/brctl
+        /bin/pidof      /usr/sbin/service /sbin/sysctl
+        /sbin/modprobe  /usr/bin/pstree   /bin/ss
+        /usr/sbin/vrrpd /usr/sbin/ifplugd /sbin/mstpctl
+        /sbin/ethtool   /bin/systemctl    /usr/bin/dpkg
+    """.split()
+    logger.info("utils init command paths")
+    for cmd in default_cmds:
+        name = os.path.basename(cmd)
+        path = which(name)
+        if path:
+            yield (name, path)
+            continue
+        logger.debug(f"warning: path {cmd} not found: {name} won't be usable")
+        yield (name, cmd)
+
+
+class MetaUtils(type):
+    @classmethod
+    def __prepare__(cls, _name, _bases):
+        """ predefined class attributes """
+        return {f'{prog}_cmd': path for prog, path in default_commands()}
+
+
+class utils(metaclass=MetaUtils):
     logger = logging.getLogger('ifupdown')
     DEVNULL = open(os.devnull, 'w')
     vlan_aware_bridge_address_support = None
@@ -81,60 +120,6 @@ class utils():
         '1' : 'yes',
         '0' : 'no'
     }
-
-    """
-    Set debian path as default path for all the commands.
-    If command not present in debian path, search for the
-    commands in the other system directories.
-    This search is carried out to handle different locations
-    on different distros.
-    If the command is not found in any of the system
-    directories, command execution will fail because we have
-    set default path same as debian path.
-    """
-    bridge_cmd      = '/sbin/bridge'
-    ip_cmd          = '/bin/ip'
-    brctl_cmd       = '/sbin/brctl'
-    pidof_cmd       = '/bin/pidof'
-    service_cmd     = '/usr/sbin/service'
-    sysctl_cmd      = '/sbin/sysctl'
-    modprobe_cmd    = '/sbin/modprobe'
-    pstree_cmd      = '/usr/bin/pstree'
-    ss_cmd          = '/bin/ss'
-    vrrpd_cmd       = '/usr/sbin/vrrpd'
-    ifplugd_cmd     = '/usr/sbin/ifplugd'
-    mstpctl_cmd     = '/sbin/mstpctl'
-    ethtool_cmd     = '/sbin/ethtool'
-    systemctl_cmd   = '/bin/systemctl'
-    dpkg_cmd        = '/usr/bin/dpkg'
-
-    logger.info("utils init command paths")
-    for cmd in ['bridge',
-                'ip',
-                'brctl',
-                'pidof',
-                'service',
-                'sysctl',
-                'modprobe',
-                'pstree',
-                'ss',
-                'vrrpd',
-                'ifplugd',
-                'mstpctl',
-                'ethtool',
-                'systemctl',
-                'dpkg'
-                ]:
-        if os.path.exists(vars()[cmd + '_cmd']):
-            continue
-        for path in ['/bin/',
-                     '/sbin/',
-                     '/usr/bin/',
-                     '/usr/sbin/',]:
-            if os.path.exists(path + cmd):
-                vars()[cmd + '_cmd'] = path + cmd
-            else:
-                logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
 
     mac_translate_tab = str.maketrans(":.-,", "    ")
 
