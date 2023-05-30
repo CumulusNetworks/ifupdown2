@@ -2839,7 +2839,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         link.build_message(next(self.sequence), self.pid)
         return self.tx_nlpacket_get_response_with_error_and_cache_on_ack(link)
 
-    def link_add_bridge_dry_run(self, ifname):
+    def link_add_bridge_dry_run(self, ifname, mtu=None):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bridge" % ifname)
         return True
 
@@ -2964,7 +2964,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
             else:
                 raise NetlinkError(e, "cannot create vlan %s %s" % (ifname, vlan_id), ifname=ifname)
 
-    def link_add_vlan_dry_run(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None):
+    def link_add_vlan_dry_run(self, vlan_raw_device, ifname, vlan_id, vlan_protocol=None, bridge_binding=None):
         """
         ifindex is the index of the parent interface that this sub-interface
         is being added to
@@ -3093,7 +3093,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         except Exception as e:
             raise NetlinkCacheError("%s: netlink: cannot create bond with attributes: %s" % (ifname, str(e)))
 
-    def link_add_bond_with_info_data_dry_run(self, ifname, ifla_info_data):
+    def link_add_bond_with_info_data_dry_run(self, ifname, ifla_master, ifla_info_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link add dev %s type bond (with attributes)" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_data)
 
@@ -3143,7 +3143,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     # ADDRESS
     ############################################################################
 
-    def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None):
+    def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None, nodad=False):
         log_msg = ["netlink: ip addr add %s dev %s" % (addr, ifname)]
 
         if scope:
