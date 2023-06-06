@@ -35,7 +35,6 @@ except (ImportError, ModuleNotFoundError):
 
 log = logging.getLogger()
 configmap_g = None
-lockfile = "/run/network/.lock"
 
 
 class Ifupdown2:
@@ -70,7 +69,7 @@ class Ifupdown2:
             self.read_config()
             self.init(stdin_buffer)
 
-            if self.op != 'query' and not utils.lockFile(lockfile):
+            if self.op != 'query' and not utils.lockFile(self.args.lockfile):
                 log.error("Another instance of this program is already running.")
                 return Status.Client.STATUS_ALREADY_RUNNING
 
