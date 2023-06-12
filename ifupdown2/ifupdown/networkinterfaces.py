@@ -142,6 +142,20 @@ class networkInterfaces():
             return 1
         return 0
 
+    def _add_ifaces_to_class(self, classname, ifaces):
+        if classname not in self.allow_classes:
+            self.allow_classes[classname] = []
+
+        # This is a specific uses case: everything is considered auto if all
+        # is being given to the auto or allow-auto classe.
+        if classname == 'auto' and 'all' in ifaces:
+            self.auto_all = True
+            return  # nothing is to be done.
+
+        for ifname in ifaces:
+            ifnames = utils.expand_iface_range(ifname) or [ifname]
+            self.allow_classes[classname].extend(ifnames)
+
     def process_allow(self, lines, cur_idx, lineno):
         allow_line = lines[cur_idx]
 
@@ -152,12 +166,7 @@ class networkInterfaces():
 
         allow_class = words[0].split('-')[1]
         ifacenames = words[1:]
-
-        if self.allow_classes.get(allow_class):
-            for i in ifacenames:
-                self.allow_classes[allow_class].append(i)
-        else:
-                self.allow_classes[allow_class] = ifacenames
+        self._add_ifaces_to_class(allow_class, ifacenames)
         return 0
 
     def process_source(self, lines, cur_idx, lineno):
@@ -201,25 +210,12 @@ class networkInterfaces():
 
     def process_auto(self, lines, cur_idx, lineno):
         auto_ifaces = re.split(self._ws_split_regex, lines[cur_idx])[1:]
+
         if not auto_ifaces:
             self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
-            return 0
-        for a in auto_ifaces:
-            if a == 'all':
-                self.auto_all = True
-                break
-            r = utils.parse_iface_range(a)
-            if r:
-                if len(r) == 3:
-                    # eg swp1.[2-4], r = "swp1.", 2, 4)
-                    for i in range(r[1], r[2]+1):
-                        self.auto_ifaces.append('%s%d' %(r[0], i))
-                elif len(r) == 4:
-                    for i in range(r[1], r[2]+1):
-                        # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
-                        self.auto_ifaces.append('%s%d%s' %(r[0], i, r[3]))
-            self.auto_ifaces.append(a)
+        else:
+            self._add_ifaces_to_class('auto', auto_ifaces)
         return 0
 
     def _add_to_iface_config(self, ifacename, iface_config, attrname,
