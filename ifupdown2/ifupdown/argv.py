@@ -242,6 +242,10 @@ class Parse:
 
         argparser.add_argument('-V', '--version', action=VersionAction, nargs=0)
         argparser.add_argument(
+            '-L', '--lock', default='/run/network/.lock', dest='lockfile',
+            help='use lock file instead of default /run/network/.lock'
+        )
+        argparser.add_argument(
             "--nldebug",
             dest="nldebug",
             action="store_true",
