@@ -160,12 +160,13 @@ class networkInterfaces():
         allow_line = lines[cur_idx]
 
         words = re.split(self._ws_split_regex, allow_line)
-        if len(words) <= 1:
-            raise Exception('invalid allow line \'%s\' at line %d'
-                            %(allow_line, lineno))
-
-        allow_class = words[0].split('-')[1]
-        ifacenames = words[1:]
+        try:
+            allow_class = words[0].split('-')[1]
+            ifacenames = words[1:]
+            if not ifacenames or not allow_class:
+                raise IndexError()
+        except IndexError:
+            raise Exception(f'invalid allow line {allow_line} at line {lineno}')
         self._add_ifaces_to_class(allow_class, ifacenames)
         return 0
 
