@@ -151,6 +151,8 @@ class networkInterfaces():
 
         allow_class = words[0].split('-')[1]
         ifacenames = words[1:]
+        if allow_class == "auto":
+            self.auto_ifaces.extend(ifacenames)
 
         if self.allow_classes.get(allow_class):
             for i in ifacenames:
@@ -204,21 +206,31 @@ class networkInterfaces():
             self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
             return 0
+
+        if "auto" not in self.allow_classes:
+            self.allow_classes["auto"] = []
+
         for a in auto_ifaces:
             if a == 'all':
                 self.auto_all = True
+                self.allow_classes["allow"].extend(auto_ifaces)
                 break
             r = utils.parse_iface_range(a)
             if r:
                 if len(r) == 3:
                     # eg swp1.[2-4], r = "swp1.", 2, 4)
                     for i in range(r[1], r[2]+1):
-                        self.auto_ifaces.append('%s%d' %(r[0], i))
+                        ifname = '%s%d' %(r[0], i)
+                        self.auto_ifaces.append(ifname)
+                        self.allow_classes["allow"].append(ifname)
                 elif len(r) == 4:
                     for i in range(r[1], r[2]+1):
                         # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
-                        self.auto_ifaces.append('%s%d%s' %(r[0], i, r[3]))
+                        ifname = '%s%d%s' %(r[0], i, r[3])
+                        self.auto_ifaces.append(ifname)
+                        self.allow_classes["auto"].append(ifname)
             self.auto_ifaces.append(a)
+            self.allow_classes["auto"].append(a)
         return 0
 
     def _add_to_iface_config(self, ifacename, iface_config, attrname,
