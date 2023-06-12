@@ -261,7 +261,7 @@ class utils():
             return []
         prefix, start, end = ifrange[0], ifrange[1], ifrange[2]
         suffix = '' if len(ifrange) <= 3 else ifrange[3]
-        return [f'{prefix}{i}{suffix}' for i in range(start, end)]
+        return [f'{prefix}{i}{suffix}' for i in range(start, end + 1)]
 
     @classmethod
     def is_ifname_range(cls, name):
