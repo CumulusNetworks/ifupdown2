@@ -53,7 +53,6 @@ class networkInterfaces():
         Raises:
             AttributeError, KeyError """
 
-        self.auto_ifaces = []
         self.callbacks = {}
         self.auto_all = False
         self.raw = raw
@@ -62,7 +61,9 @@ class networkInterfaces():
         self.callbacks = {'iface_found' : None,
                           'validateifaceattr' : None,
                           'validateifaceobj' : None}
-        self.allow_classes = {}
+        self.allow_classes = {'auto': []}
+        # auto is only an aliases of allow-auto
+        self.auto_ifaces = self.allow_classes['auto']
         self.interfacesfile = interfacesfile
         self.interfacesfileiobuf = interfacesfileiobuf
         self.interfacesfileformat = interfacesfileformat
