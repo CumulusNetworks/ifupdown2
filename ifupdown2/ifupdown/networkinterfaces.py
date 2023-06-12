@@ -341,69 +341,45 @@ class networkInterfaces():
 
         return ifaceobj_new
 
+    def _clone_iface_range(self, iface_range, iface_orig, iftype=None):
+        iftype = iftype or iface_orig.type
+        for name in iface_range:
+            flags = iface.IFACERANGE_ENTRY
+            if name == iface_range[0]:
+                flags |= iface.IFACERANGE_START
+            obj = self._create_ifaceobj_clone(iface_orig, name, iftype, flags)
+            yield obj
+
     def process_iface(self, lines, cur_idx, lineno):
         ifaceobj = iface()
         lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+        found_cb = self.callbacks['iface_found']
+        ifrange = utils.expand_iface_range(ifaceobj.name)
 
-        range_val = utils.parse_iface_range(ifaceobj.name)
-        if range_val:
-            if len(range_val) == 3:
-                for v in range(range_val[1], range_val[2]+1):
-                    ifacename = '%s%d' %(range_val[0], v)
-                    if utils.check_ifname_size_invalid(ifacename):
-                        self._parse_warn(self._currentfile, lineno,
-                                         '%s: interface name too long' %ifacename)
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        ifacename, ifaceobj.type, flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-            elif len(range_val) == 4:
-                for v in range(range_val[1], range_val[2]+1):
-                    ifacename = '%s%d%s' %(range_val[0], v, range_val[3])
-                    if utils.check_ifname_size_invalid(ifacename):
-                        self._parse_warn(self._currentfile, lineno,
-                                         '%s: interface name too long' %ifacename)
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        ifacename, ifaceobj.type, flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-        else:
-            self.callbacks.get('iface_found')(ifaceobj)
+        if not ifrange:
+            found_cb(ifaceobj)
+
+        for ifclone in self._clone_iface_range(ifrange, ifaceobj):
+            if utils.check_ifname_size_invalid(ifclone.name):
+                self._parse_warn(self._currentfile, lineno,
+                                 f'{ifclone.name}: interface name too long')
+            found_cb(ifclone)
 
         return lines_consumed       # Return next index
 
     def process_vlan(self, lines, cur_idx, lineno):
         ifaceobj = iface()
         lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+        found_cb = self.callbacks['iface_found']
+        ifrange = utils.expand_iface_range(ifaceobj.name)
+        iftype = ifaceType.BRIDGE_VLAN
 
-        range_val = utils.parse_iface_range(ifaceobj.name)
-        if range_val:
-            if len(range_val) == 3:
-                for v in range(range_val[1], range_val[2]+1):
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        '%s%d' %(range_val[0], v),
-                                        ifaceType.BRIDGE_VLAN, flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-            elif len(range_val) == 4:
-                for v in range(range_val[1], range_val[2]+1):
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        '%s%d%s' %(range_val[0], v, range_val[3]),
-                                        ifaceType.BRIDGE_VLAN,
-                                        flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-        else:
-            ifaceobj.type = ifaceType.BRIDGE_VLAN
-            self.callbacks.get('iface_found')(ifaceobj)
+        if not ifrange:
+            ifaceobj.type = iftype
+            found_cb(ifaceobj)
+
+        for ifclone in self._clone_iface_range(ifrange, ifaceobj, iftype):
+            found_cb(ifclone)
 
         return lines_consumed       # Return next index
 
