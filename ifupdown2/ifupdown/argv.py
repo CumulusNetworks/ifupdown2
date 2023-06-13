@@ -7,6 +7,7 @@
 #
 
 import sys
+import os
 import argparse
 
 try:
@@ -239,11 +240,18 @@ class Parse:
 
     def update_common_argparser(self, argparser):
         ''' general parsing rules '''
+        def file_or_fd(value):
+            try:
+                fp = os.fdopen(int(value))
+            except ValueError:
+                fp = os.open(value, os.O_CREAT | os.O_TRUNC | os.O_WRONLY)
+            return fp
 
         argparser.add_argument('-V', '--version', action=VersionAction, nargs=0)
         argparser.add_argument(
             '-L', '--lock', default='/run/network/.lock', dest='lockfile',
-            help='use lock file instead of default /run/network/.lock'
+            help='use lock file instead of default /run/network/.lock (can be fd integer)',
+            type=file_or_fd
         )
         argparser.add_argument(
             "--nldebug",
