@@ -13,6 +13,8 @@ else
 	unset LOGGER
 fi
 
+LOCKFILE=/run/network/.lock
+
 # for diagnostics
 if [ -t 1 -a -z "$LOGGER" ] || [ ! -e '/dev/log' ]; then
 	mesg() {
@@ -49,19 +51,21 @@ wait_for_interface() {
 
 net_ifup() {
 
-    # exit if the interface is not configured as allow-hotplug
-    TARGET_IFACE=$(/sbin/ifquery --allow hotplug -l "$INTERFACE" || true)
-    if [ -z "$TARGET_IFACE" ]; then
+    # exit if the interface is not configured as allow-hotplug (querying does not require a lock)
+    if ! $(/sbin/ifquery --allow=hotplug -l 2>/dev/null | grep -w -q "^$INTERFACE$"); then
 	exit 0
     fi
 
     if [ -d /run/systemd/system ]; then
-	exec systemctl --no-block start $(systemd-escape --template ifup@.service $TARGET_IFACE)
+	exec systemctl --no-block start $(systemd-escape --template ifup@.service $INTERFACE)
     fi
 
-    wait_for_interface lo
-
-    exec ifup --allow=hotplug $INTERFACE
+    # Take the lock and wait for lo before exec ifup.
+    (
+	flock 9
+	wait_for_interface lo
+	exec ifup $INTERFACE -L 9
+    ) 9>$LOCKFILE
 }
 
 net_ifdown() {
@@ -72,7 +76,16 @@ net_ifdown() {
 	exit 0
     fi
 
-    exec ifdown --allow=hotplug $INTERFACE
+    # exit if the interface is not configured as allow-hotplug (querying does not require a lock)
+    if ! $(/sbin/ifquery --allow=hotplug -l 2>/dev/null | grep -w -q "^$INTERFACE$"); then
+	exit 0
+    fi
+
+    # Take the lock and exec ifdown.
+    (
+	flock 9
+	exec ifdown $INTERFACE -L 9
+    ) 9>$LOCKFILE
 }
 
 do_everything() {
