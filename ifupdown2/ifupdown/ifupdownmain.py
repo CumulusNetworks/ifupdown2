@@ -1888,16 +1888,22 @@ class ifupdownMain:
                 return True
         return False
 
-    def _get_filtered_ifacenames_with_classes(self, auto, allow_classes, excludepats, ifacenames):
-        # if user has specified ifacelist and allow_classes
-        # append the allow_classes interfaces to user
-        # ifacelist
-        filtered_ifacenames = [i for i in list(self.ifaceobjdict.keys())
-                               if self._iface_whitelisted(auto, allow_classes,
-                                                          excludepats, i)]
-        filtered_ifacenames += ifacenames
+    def _get_filtered_ifacenames_with_classes(self, all_itf, allow_classes, excludepats, ifacenames):
+        """ Return a filtered list of interfaces based on user request """
 
-        for intf in ifacenames:
+        # all_itf or ifacenames are required, but mutually exclusive
+        if all_itf:
+            selected_ifacenames = list(self.ifaceobjdict.keys())
+        else:
+            # Expand interfaces names
+            selected_ifacenames = self._preprocess_ifacenames(ifacenames)
+
+        # Filter with allow_classes and excludepats
+        filtered_ifacenames = [itf for itf in selected_ifacenames
+            if self._iface_whitelisted(False, allow_classes, excludepats, itf)]
+
+        # Ensure selected interfaces are not blacklisted
+        for intf in selected_ifacenames:
             for obj in self.get_ifaceobjs(intf) or []:
                 obj.blacklisted = False
 
