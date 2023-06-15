@@ -118,6 +118,33 @@ class Parse:
     def get_args(self):
         return self.args
 
+    def argparser_interfaces_selection(self, argparser):
+        """
+        Manage interfaces selection like ifupdown1 does
+        * -a/--all and iflist options target a list of interfaces
+        * --allow filter this interfaces list with the specified scope
+        * --allow default value is [auto] when -a/--all option is used
+        Some commands have an implicit -a/--all (ifquery, ifreload)
+        """
+        argparser.add_argument('iflist', metavar='IFACE', nargs='*',
+                help='interface list separated by spaces. ')
+        argparser.add_argument('-a', '--all', action='store_true',
+                help='process all interfaces (limited by  --allow= filter)')
+        argparser.add_argument('--allow', dest='CLASS', action='append',
+                help='ignore non-"allow-CLASS" interfaces (default is [auto] when -a/--all else [])')
+
+    def argparser_interfaces_selection_post_validate(self):
+        """ Set and validate interfaces selection options """
+
+        # Default filter scope is auto/allow-auto when -a/--all option is set
+        if self.args.all and not self.args.CLASS:
+            self.args.CLASS = ['auto']
+
+        if self.args.iflist and self.args.all:
+            raise ArgvParseError("IFACE list is mutually exclusive with -a/--all option")
+        elif not self.args.iflist and not self.args.all:
+            raise ArgvParseError("no interface(s) specified. IFACE list or -a/--all option is required")
+
     def update_argparser(self, argparser):
         """ base parser, common to all commands """
         argparser.add_argument('-a', '--all', action='store_true', required=False,
