@@ -280,7 +280,7 @@ class Ifupdown2:
                                                                  dryrun=args.noact)
             ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                    ['pre-down', 'down', 'post-down'],
-                                   auto=args.all, allow=args.CLASS, ifacenames=None,
+                                   all_itf=args.all, allow_classes=args.CLASS, ifacenames=None,
                                    excludepats=args.excludepats,
                                    usecurrentconfig=args.usecurrentconfig,
                                    syntaxcheck=args.syntaxcheck,
