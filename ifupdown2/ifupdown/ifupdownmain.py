@@ -495,12 +495,13 @@ class ifupdownMain:
         return True
 
     def create_n_save_ifaceobj(self, ifacename, priv_flags=None,
-                               increfcnt=False):
+                               increfcnt=False, classes=None):
         """ creates a iface object and adds it to the iface dictionary """
         ifaceobj = iface()
         ifaceobj.name = ifacename
         ifaceobj.priv_flags = priv_flags
         ifaceobj.auto = True
+        ifaceobj.classes = classes or []
         if not self._link_master_slave:
             ifaceobj.link_type = ifaceLinkType.LINK_NA
         if increfcnt:
@@ -1985,7 +1986,7 @@ class ifupdownMain:
             if not ifupdownflags.flags.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
-    def query(self, ops, auto=False, format_list=False, allow_classes=None,
+    def query(self, ops, all_itf=False, format_list=False, allow_classes=None,
               ifacenames=None,
               excludepats=None, printdependency=None,
               format='native', type=None):
@@ -2000,13 +2001,14 @@ class ifupdownMain:
 
         if allow_classes:
             ifupdownflags.flags.CLASS = True
+
         if self.flags.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
         self.flags.STATEMANAGER_UPDATE = False
 
         iface_read_ret = True
 
-        if auto:
+        if all_itf:
             self.logger.debug('setting flag ALL')
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
@@ -2014,42 +2016,26 @@ class ifupdownMain:
         if ops[0] == 'query-syntax':
             self._modules_help(format)
             return
-        elif ops[0] == 'query-running':
-            # create fake devices to all dependents that dont have config
-            for i in ifacenames:
-                self.create_n_save_ifaceobj(i, ifacePrivFlags(False, True))
         else:
             try:
                 iface_read_ret = self.read_iface_config(raw=ops[0] == "query-raw")
             except Exception:
                 raise
 
-        if ifacenames and ops[0] != 'query-running':
-            # If iface list is given, always check if iface is present
-            ifacenames = self._preprocess_ifacenames(ifacenames)
+        if ops[0] == 'query-running' and ifacenames:
+            # On query-running operation, user can ask for interfaces not configured in ifupdown2
+            for i in ifacenames:
+                ifaceobjs = self.get_ifaceobjs(i)
+                if not ifaceobjs:
+                    # create fake devices to all dependents that dont have config
+                    self.create_n_save_ifaceobj(i, ifacePrivFlags(False, True), classes=allow_classes)
 
-        if allow_classes:
-            filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
-
-        # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
-
-        # filter interfaces based on auto and allow classes
-        if ops[0] == 'query-running':
-            filtered_ifacenames = ifacenames
-        elif not allow_classes:
-            filtered_ifacenames = [
-                i for i in ifacenames
-                if self._iface_whitelisted(
-                    auto,
-                    allow_classes,
-                    excludepats, i
-                )
-            ]
+        # Get a filtered list of interfaces to work on
+        filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                all_itf, allow_classes, excludepats, ifacenames)
 
         if not filtered_ifacenames:
-                raise Exception('no ifaces found matching ' +
-                        'given allow lists')
+            return
 
         self.populate_dependency_info(ops)
         if ops[0] == 'query-dependency' and printdependency:
