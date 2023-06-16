@@ -46,7 +46,8 @@ OPTIONS
 
     -h, --help            show this help message and exit
 
-    -a, --all             process all interfaces marked "auto"
+    -a, --all             process all interfaces marked "auto" or filtered by --allow
+                          (already set by default if no interfaces list is provided)
 
     -v, --verbose         verbose
 
