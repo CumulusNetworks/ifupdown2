@@ -91,20 +91,23 @@ class Parse:
             raise
 
     def validate(self):
-        if self.op == 'query' and (self.args.syntaxhelp or self.args.list):
-            return True
+        # Implicit -a/--all for all query operations
+        if self.op == 'query' and not self.args.iflist:
+            self.args.all = True
 
+        # Implicit -a/--all for reload currentlyup option
         if self.op == 'reload':
-            if not self.args.all and not self.args.currentlyup and not self.args.CLASS:
-                raise ArgvParseError("'-a' or '-c' or '-allow' option is required")
-        elif not self.args.iflist and not self.args.all and not self.args.CLASS:
-            raise ArgvParseError("'-a' option or interface list are required")
+            if self.args.iflist:
+                raise ArgvParseError("Unsupported IFLIST for reload operation")
+            elif not self.args.all and not self.args.currentlyup:
+                raise ArgvParseError("-a/--all or -c/--currently-up option is required")
+            # Early return to prevent interfaces_selection_post_validate to add [auto] in --allow
+            if self.args.currentlyup:
+                self.args.all = True
+                return True
 
-        if self.args.iflist and self.args.all:
-            raise ArgvParseError("'-a' option and interface list are mutually exclusive")
+        self.argparser_interfaces_selection_post_validate()
 
-        if self.op != 'reload' and self.args.CLASS and self.args.all:
-            raise ArgvParseError("'--allow' option is mutually exclusive with '-a'")
         return True
 
     def get_op(self):
@@ -156,15 +159,11 @@ class Parse:
 
     def update_argparser(self, argparser):
         """ base parser, common to all commands """
-        argparser.add_argument('-a', '--all', action='store_true', required=False,
-                               help='process all interfaces marked "auto"')
-        argparser.add_argument('iflist', metavar='IFACE', nargs='*',
-                               help='interface list separated by spaces. '
-                                    'IFACE list is mutually exclusive with -a option.')
+        self.argparser_interfaces_selection(argparser)
+
         argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose')
         argparser.add_argument('-d', '--debug', dest='debug', action='store_true', help='output debug info')
         argparser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help=argparse.SUPPRESS)
-        argparser.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
         argparser.add_argument('-w', '--with-depends', dest='withdepends', action='store_true',
                                help="run with all dependent interfaces. "
                                     "This option is redundant when '-a' is specified. "
@@ -240,14 +239,12 @@ class Parse:
 
     def update_ifreload_argparser(self, argparser):
         """ parser for ifreload """
-        group = argparser.add_mutually_exclusive_group(required=True)
-        group.add_argument('-a', '--all', action='store_true', help='process all interfaces marked "auto"')
-        group.add_argument('-c', '--currently-up', dest='currentlyup', action='store_true',
+        self.argparser_interfaces_selection(argparser)
+
+        argparser.add_argument('-c', '--currently-up', dest='currentlyup', action='store_true',
                            help='Reload the configuration for all interfaces which are '
                                 'currently up regardless of whether an interface has '
                                 '"auto <interface>" configuration within the /etc/network/interfaces file.')
-        group.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
-        argparser.add_argument('iflist', metavar='IFACE', nargs='*', help=argparse.SUPPRESS)
         argparser.add_argument('-n', '--no-act', dest='noact', action='store_true',
                                help='print out what would happen, but don\'t do it')
         argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose')
