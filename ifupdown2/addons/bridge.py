@@ -1237,7 +1237,7 @@ class bridge(Bridge, moduleBase):
         self.log_error(bridgeifaceobj.name + ': ' + errstr, bridgeifaceobj)
 
     def _add_ports(self, ifaceobj, ifaceobj_getfunc):
-        bridgeports = self._get_bridge_port_list(ifaceobj)
+        bridgeports = self._get_bridge_port_list(ifaceobj) or []
         bridgeportscondoneregex = self._get_bridge_port_condone_regex(ifaceobj)
         runningbridgeports = []
 
@@ -1278,7 +1278,7 @@ class bridge(Bridge, moduleBase):
         newly_enslaved_ports = []
 
         newbridgeports_ordered = []
-        for br_port in self._get_bridge_port_list_user_ordered(ifaceobj):
+        for br_port in self._get_bridge_port_list_user_ordered(ifaceobj) or []:
             if br_port in newbridgeports:
                 newbridgeports_ordered.append(br_port)
 
@@ -4208,7 +4208,6 @@ class bridge(Bridge, moduleBase):
 
         # make sure BRIDGE_VXLAN is set if we have a vxlan port
         self._re_evaluate_bridge_vxlan(ifaceobj, ifaceobj_getfunc)
-
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)
