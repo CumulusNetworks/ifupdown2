@@ -78,25 +78,6 @@ check_network_swap() {
     done < /proc/swaps
 }
 
-ifup_hotplug () {
-    if [ -d /sys/class/net ]
-    then
-	    ifaces=$(for iface in $(ifquery --list --allow=hotplug 2>/dev/null)
-			    do
-				    link=${iface##:*}
-				    link=${link##.*}
-				    if [ -e "/sys/class/net/$link" ]
-				    then
-				        echo "$iface"
-				    fi
-			    done)
-	    if [ -n "$ifaces" ]
-	    then
-		ifup $ifaces "$@" --systemd || true
-	    fi
-    fi
-}
-
 ifup_mgmt () {
 	ifaces=$(ifquery --list --allow=mgmt 2>/dev/null)
 	if [ -n "$ifaces" ]; then
@@ -128,7 +109,6 @@ start)
 	echo ${NAME}':' "Configuring network interfaces"
 	ifup_mgmt
 	ifup -a $EXTRA_ARGS $exclusions $perfoptions --systemd
-	ifup_hotplug $HOTPLUG_ARGS $EXTRA_ARGS $exclusions
 	;;
 stop)
 	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
