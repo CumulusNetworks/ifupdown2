@@ -49,10 +49,22 @@ wait_for_interface() {
     done
 }
 
-net_ifup() {
+process_exclusions() {
+    set -- $EXCLUDE_INTERFACES
+    exclusions=""
+    for d; do
+	exclusions="-X $d $exclusions"
+    done
+    echo $exclusions
+}
 
-    # exit if the interface is not configured as allow-hotplug (querying does not require a lock)
-    if ! $(/sbin/ifquery --allow=hotplug -l 2>/dev/null | grep -w -q "^$INTERFACE$"); then
+net_ifup() {
+    . /etc/default/networking 2>/dev/null || true
+
+    exclusions=$(process_exclusions)
+
+    # exit if the interface is not configured as allow-hotplug or excluded (querying does not require a lock)
+    if ! $(/sbin/ifquery --allow=hotplug -l $exclusions 2>/dev/null | grep -w -q "^$INTERFACE$"); then
 	exit 0
     fi
 
@@ -60,11 +72,16 @@ net_ifup() {
 	exec systemctl --no-block start $(systemd-escape --template ifup@.service $INTERFACE)
     fi
 
+    EXTRA_ARGS=
+    [ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+    [ "$DEBUG"   = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+    [ "$SYSLOG"  = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
+
     # Take the lock and wait for lo before exec ifup.
     (
 	flock 9
 	wait_for_interface lo
-	exec ifup $INTERFACE -L 9
+	exec ifup $EXTRA_ARGS $HOTPLUG_ARGS -L 9 $INTERFACE
     ) 9>$LOCKFILE
 }
 
@@ -76,15 +93,24 @@ net_ifdown() {
 	exit 0
     fi
 
-    # exit if the interface is not configured as allow-hotplug (querying does not require a lock)
-    if ! $(/sbin/ifquery --allow=hotplug -l 2>/dev/null | grep -w -q "^$INTERFACE$"); then
+    . /etc/default/networking 2>/dev/null || true
+
+    exclusions=$(process_exclusions)
+
+    # exit if the interface is not configured as allow-hotplug or excluded (querying does not require a lock)
+    if ! $(/sbin/ifquery --allow=hotplug -l $exclusions 2>/dev/null | grep -w -q "^$INTERFACE$"); then
 	exit 0
     fi
+
+    EXTRA_ARGS=
+    [ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+    [ "$DEBUG"   = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+    [ "$SYSLOG"  = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
 
     # Take the lock and exec ifdown.
     (
 	flock 9
-	exec ifdown $INTERFACE -L 9
+	exec ifdown $EXTRA_ARGS $INTERFACE -L 9
     ) 9>$LOCKFILE
 }
 
