@@ -256,18 +256,12 @@ class utils():
 
     @classmethod
     def expand_iface_range(cls, name):
-        ifacenames = []
-        irange = cls.parse_iface_range(name)
-        if irange:
-            if len(irange) == 3:
-                # eg swp1.[2-4], r = "swp1.", 2, 4)
-                for i in range(irange[1], irange[2]):
-                    ifacenames.append('%s%d' %(irange[0], i))
-            elif len(irange) == 4:
-                for i in range(irange[1], irange[2]):
-                    # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
-                    ifacenames.append('%s%d%s' %(irange[0], i, irange[3]))
-        return ifacenames
+        ifrange = cls.parse_iface_range(name)
+        if not ifrange:
+            return []
+        prefix, start, end = ifrange[0], ifrange[1], ifrange[2]
+        suffix = '' if len(ifrange) <= 3 else ifrange[3]
+        return [f'{prefix}{i}{suffix}' for i in range(start, end + 1)]
 
     @classmethod
     def is_ifname_range(cls, name):
