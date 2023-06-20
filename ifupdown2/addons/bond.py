@@ -362,7 +362,7 @@ class bond(Addon, moduleBase):
     def compare_bond_and_slave_speed(self, bond_ifaceobj, slave_ifname, slave_speed):
         if self.current_bond_speed != slave_speed:
             self.log_error(
-                "%s: ignoring device to due device's speed (%s) mismatching bond (%s) speed (%s)"
+                "%s: ignoring device due to device's speed (%s) mismatching bond (%s) speed (%s)"
                 % (slave_ifname, slave_speed, bond_ifaceobj.name, self.current_bond_speed),
                 ifaceobj=bond_ifaceobj
             )
@@ -407,6 +407,19 @@ class bond(Addon, moduleBase):
                 bond_speed = slave_speed
         return bond_speed
 
+    def get_bond_slave_upper_dev_ifaceobj(self, ifname, ifaceobj_getfunc):
+        for ifaceobj in ifaceobj_getfunc(ifname):
+            yield from ifaceobj.upperifaces or []
+
+    def slave_has_no_subinterface(self, bond_ifaceobj, slave, ifaceobj_getfunc):
+        for upper_ifname in self.get_bond_slave_upper_dev_ifaceobj(slave, ifaceobj_getfunc):
+            if upper_ifname != bond_ifaceobj.name:
+                self.log_error(
+                    f"{bond_ifaceobj.name}: sub interfaces are not allowed on bond slave: {slave} ({upper_ifname})",
+                    bond_ifaceobj
+                )
+        return True
+
     def _add_slaves(self, ifaceobj, runningslaves, ifaceobj_getfunc=None):
         # reset the current_bond_speed
         self.current_bond_speed = -1
@@ -438,6 +451,9 @@ class bond(Addon, moduleBase):
                     continue
             except Exception as e:
                 self.logger.debug("%s: bond-slave (%s) speed validation failed: %s" % (ifaceobj.name, slave, str(e)))
+
+            if not self.slave_has_no_subinterface(ifaceobj, slave, ifaceobj_getfunc):
+                continue
 
             link_up = False
             if self.cache.link_is_up(slave):
