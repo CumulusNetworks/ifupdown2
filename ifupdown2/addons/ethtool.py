@@ -123,6 +123,12 @@ class ethtool(Addon, moduleBase):
                 'validvals': ['on', 'off'],
                 'default': 'varies by interface'
             },
+            'rx-vlan-filter': {
+                'help': 'RX Vlan Filter',
+                'example': ['rx-vlan-filter off'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
             'ring-rx': {
                 'help': 'Ring RX Parameter',
                 'example': ['ring-rx 512'],
@@ -444,6 +450,7 @@ class ethtool(Addon, moduleBase):
         self.do_offload_settings(ifaceobj, 'ufo-offload', 'ufo')
         self.do_offload_settings(ifaceobj, 'tx-offload', 'tx')
         self.do_offload_settings(ifaceobj, 'rx-offload', 'rx')
+        self.do_offload_settings(ifaceobj, 'rx-vlan-filter', 'rx-vlan-filter')
 
     def _pre_down(self, ifaceobj):
         if not self.cache.link_exists(ifaceobj.name) or not ifaceobj.name.startswith("swp"):
