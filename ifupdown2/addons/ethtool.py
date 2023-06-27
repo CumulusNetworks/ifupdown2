@@ -75,6 +75,12 @@ class ethtool(Addon, moduleBase):
                 "validvals": ["rs", "baser", "auto", "off"],
                 "default": "varies by platform and port"
             },
+            "link-lanes": {
+                "help": "set lanes",
+                "example": ["link-lanes 4"],
+                "validvals": ["1", "2", "4", "8"],
+                "default": "varies by platform and port"
+            },
             'gro-offload': {
                 'help': 'Generic Receive Offload',
                 'example': ['gro-offload on'],
@@ -114,6 +120,12 @@ class ethtool(Addon, moduleBase):
             'rx-offload': {
                 'help': 'RX Checksum Offload',
                 'example': ['rx-offload on'],
+                'validvals': ['on', 'off'],
+                'default': 'varies by interface'
+            },
+            'rx-vlan-filter': {
+                'help': 'RX Vlan Filter',
+                'example': ['rx-vlan-filter off'],
                 'validvals': ['on', 'off'],
                 'default': 'varies by interface'
             },
@@ -222,6 +234,54 @@ class ethtool(Addon, moduleBase):
             attr='ethtool_ignore_errors'
         )
 
+    def do_lanes_settings(self, ifaceobj):
+        lanescmd = ''
+
+        # attribute existed before but we must reset to default
+        config_val = ifaceobj.get_attr_value_first('link-lanes')
+        default_val = policymanager.policymanager_api.get_iface_default(
+                            module_name='ethtool',
+                            ifname=ifaceobj.name,
+                            attr='link-lanes')
+
+        if not default_val and not config_val:
+            # there is no point in checking the running config
+            # if we have no default and the user did not have settings
+            return
+
+        # use only lowercase values
+        running_val = str(self.get_running_attr('lanes', ifaceobj)).lower()
+
+        if config_val:
+            config_val = config_val.lower()
+        if default_val:
+            default_val = default_val.lower()
+
+        # check running values
+        if config_val and config_val == running_val:
+            return
+
+        if not config_val and default_val and default_val == running_val:
+            # nothing configured but the default is running
+            return
+
+        # if we got this far, we need to change it
+        if config_val and (config_val != running_val):
+            # if the configured value is not set, set it
+            lanescmd = config_val
+        elif default_val and (default_val != running_val):
+            # or if it has a default not equal to running value, set it
+            lanescmd = default_val
+
+        if lanescmd:
+            try:
+                lanescmd = ('%s -s %s lanes %s' %
+                           (utils.ethtool_cmd, ifaceobj.name, lanescmd))
+                utils.exec_command(lanescmd)
+            except Exception as e:
+                if not self.ethtool_ignore_errors:
+                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
 
@@ -272,7 +332,7 @@ class ethtool(Addon, moduleBase):
         else:
             pass
 
-    def do_speed_settings(self, ifaceobj, operation='post_up'):
+    def do_speed_settings(self, ifaceobj, down=False):
         cmd = ''
 
         autoneg_to_configure = None
@@ -300,6 +360,11 @@ class ethtool(Addon, moduleBase):
                 ifname=ifaceobj.name,
                 attr='link-autoneg'
         )
+
+        if down:
+            config_speed = default_speed
+            config_duplex = default_duplex
+            config_autoneg = default_autoneg
 
         # autoneg wins if provided by user and is on
         if config_autoneg and utils.get_boolean_from_string(config_autoneg):
@@ -375,6 +440,7 @@ class ethtool(Addon, moduleBase):
 
         self.do_speed_settings(ifaceobj)
         self.do_fec_settings(ifaceobj)
+        self.do_lanes_settings(ifaceobj)
         self.do_ring_settings(ifaceobj, 'ring-rx', 'rx')
         self.do_ring_settings(ifaceobj, 'ring-tx', 'tx')
         self.do_offload_settings(ifaceobj, 'gro-offload', 'gro')
@@ -384,9 +450,12 @@ class ethtool(Addon, moduleBase):
         self.do_offload_settings(ifaceobj, 'ufo-offload', 'ufo')
         self.do_offload_settings(ifaceobj, 'tx-offload', 'tx')
         self.do_offload_settings(ifaceobj, 'rx-offload', 'rx')
+        self.do_offload_settings(ifaceobj, 'rx-vlan-filter', 'rx-vlan-filter')
 
     def _pre_down(self, ifaceobj):
-        pass #self._post_up(ifaceobj,operation="_pre_down")
+        if not self.cache.link_exists(ifaceobj.name) or not ifaceobj.name.startswith("swp"):
+            return
+        self.do_speed_settings(ifaceobj, down=True)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         """

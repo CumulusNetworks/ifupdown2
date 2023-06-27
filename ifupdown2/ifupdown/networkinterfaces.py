@@ -53,7 +53,6 @@ class networkInterfaces():
         Raises:
             AttributeError, KeyError """
 
-        self.auto_ifaces = []
         self.callbacks = {}
         self.auto_all = False
         self.raw = raw
@@ -62,7 +61,9 @@ class networkInterfaces():
         self.callbacks = {'iface_found' : None,
                           'validateifaceattr' : None,
                           'validateifaceobj' : None}
-        self.allow_classes = {}
+        self.allow_classes = {'auto': []}
+        # auto is only an aliases of allow-auto
+        self.auto_ifaces = self.allow_classes['auto']
         self.interfacesfile = interfacesfile
         self.interfacesfileiobuf = interfacesfileiobuf
         self.interfacesfileformat = interfacesfileformat
@@ -141,22 +142,32 @@ class networkInterfaces():
             return 1
         return 0
 
+    def _add_ifaces_to_class(self, classname, ifaces):
+        if classname not in self.allow_classes:
+            self.allow_classes[classname] = []
+
+        # This is a specific uses case: everything is considered auto if all
+        # is being given to the auto or allow-auto classe.
+        if classname == 'auto' and 'all' in ifaces:
+            self.auto_all = True
+            return  # nothing is to be done.
+
+        for ifname in ifaces:
+            ifnames = utils.expand_iface_range(ifname) or [ifname]
+            self.allow_classes[classname].extend(ifnames)
+
     def process_allow(self, lines, cur_idx, lineno):
         allow_line = lines[cur_idx]
 
         words = re.split(self._ws_split_regex, allow_line)
-        if len(words) <= 1:
-            raise Exception('invalid allow line \'%s\' at line %d'
-                            %(allow_line, lineno))
-
-        allow_class = words[0].split('-')[1]
-        ifacenames = words[1:]
-
-        if self.allow_classes.get(allow_class):
-            for i in ifacenames:
-                self.allow_classes[allow_class].append(i)
-        else:
-                self.allow_classes[allow_class] = ifacenames
+        try:
+            allow_class = words[0].split('-')[1]
+            ifacenames = words[1:]
+            if not ifacenames or not allow_class:
+                raise IndexError()
+        except IndexError:
+            raise Exception(f'invalid allow line {allow_line} at line {lineno}')
+        self._add_ifaces_to_class(allow_class, ifacenames)
         return 0
 
     def process_source(self, lines, cur_idx, lineno):
@@ -200,25 +211,12 @@ class networkInterfaces():
 
     def process_auto(self, lines, cur_idx, lineno):
         auto_ifaces = re.split(self._ws_split_regex, lines[cur_idx])[1:]
+
         if not auto_ifaces:
             self._parse_error(self._currentfile, lineno,
                     'invalid auto line \'%s\''%lines[cur_idx])
-            return 0
-        for a in auto_ifaces:
-            if a == 'all':
-                self.auto_all = True
-                break
-            r = utils.parse_iface_range(a)
-            if r:
-                if len(r) == 3:
-                    # eg swp1.[2-4], r = "swp1.", 2, 4)
-                    for i in range(r[1], r[2]+1):
-                        self.auto_ifaces.append('%s%d' %(r[0], i))
-                elif len(r) == 4:
-                    for i in range(r[1], r[2]+1):
-                        # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
-                        self.auto_ifaces.append('%s%d%s' %(r[0], i, r[3]))
-            self.auto_ifaces.append(a)
+        else:
+            self._add_ifaces_to_class('auto', auto_ifaces)
         return 0
 
     def _add_to_iface_config(self, ifacename, iface_config, attrname,
@@ -344,69 +342,45 @@ class networkInterfaces():
 
         return ifaceobj_new
 
+    def _clone_iface_range(self, iface_range, iface_orig, iftype=None):
+        iftype = iftype or iface_orig.type
+        for name in iface_range:
+            flags = iface.IFACERANGE_ENTRY
+            if name == iface_range[0]:
+                flags |= iface.IFACERANGE_START
+            obj = self._create_ifaceobj_clone(iface_orig, name, iftype, flags)
+            yield obj
+
     def process_iface(self, lines, cur_idx, lineno):
         ifaceobj = iface()
         lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+        found_cb = self.callbacks['iface_found']
+        ifrange = utils.expand_iface_range(ifaceobj.name)
 
-        range_val = utils.parse_iface_range(ifaceobj.name)
-        if range_val:
-            if len(range_val) == 3:
-                for v in range(range_val[1], range_val[2]+1):
-                    ifacename = '%s%d' %(range_val[0], v)
-                    if utils.check_ifname_size_invalid(ifacename):
-                        self._parse_warn(self._currentfile, lineno,
-                                         '%s: interface name too long' %ifacename)
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        ifacename, ifaceobj.type, flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-            elif len(range_val) == 4:
-                for v in range(range_val[1], range_val[2]+1):
-                    ifacename = '%s%d%s' %(range_val[0], v, range_val[3])
-                    if utils.check_ifname_size_invalid(ifacename):
-                        self._parse_warn(self._currentfile, lineno,
-                                         '%s: interface name too long' %ifacename)
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        ifacename, ifaceobj.type, flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-        else:
-            self.callbacks.get('iface_found')(ifaceobj)
+        if not ifrange:
+            found_cb(ifaceobj)
+
+        for ifclone in self._clone_iface_range(ifrange, ifaceobj):
+            if utils.check_ifname_size_invalid(ifclone.name):
+                self._parse_warn(self._currentfile, lineno,
+                                 f'{ifclone.name}: interface name too long')
+            found_cb(ifclone)
 
         return lines_consumed       # Return next index
 
     def process_vlan(self, lines, cur_idx, lineno):
         ifaceobj = iface()
         lines_consumed = self.parse_iface(lines, cur_idx, lineno, ifaceobj)
+        found_cb = self.callbacks['iface_found']
+        ifrange = utils.expand_iface_range(ifaceobj.name)
+        iftype = ifaceType.BRIDGE_VLAN
 
-        range_val = utils.parse_iface_range(ifaceobj.name)
-        if range_val:
-            if len(range_val) == 3:
-                for v in range(range_val[1], range_val[2]+1):
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        '%s%d' %(range_val[0], v),
-                                        ifaceType.BRIDGE_VLAN, flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-            elif len(range_val) == 4:
-                for v in range(range_val[1], range_val[2]+1):
-                    flags = iface.IFACERANGE_ENTRY
-                    if v == range_val[1]:
-                        flags |= iface.IFACERANGE_START
-                    ifaceobj_new = self._create_ifaceobj_clone(ifaceobj,
-                                        '%s%d%s' %(range_val[0], v, range_val[3]),
-                                        ifaceType.BRIDGE_VLAN,
-                                        flags)
-                    self.callbacks.get('iface_found')(ifaceobj_new)
-        else:
-            ifaceobj.type = ifaceType.BRIDGE_VLAN
-            self.callbacks.get('iface_found')(ifaceobj)
+        if not ifrange:
+            ifaceobj.type = iftype
+            found_cb(ifaceobj)
+
+        for ifclone in self._clone_iface_range(ifrange, ifaceobj, iftype):
+            found_cb(ifclone)
 
         return lines_consumed       # Return next index
 
