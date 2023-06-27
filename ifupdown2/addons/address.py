@@ -195,7 +195,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 'example': ['accept-ra 1']
             },
             'autoconf': {
-                'help': 'enable ipv6 slaac autoconfiguratoin',
+                'help': 'enable ipv6 slaac autoconfiguration',
                 'validvals': ['0', '1'],
                 'default': '0',
                 'example': ['autoconf 1']
