@@ -79,6 +79,9 @@ def client():
 
 
 def stand_alone():
+    from datetime import datetime
+    start_time = datetime.now()
+
     if not sys.argv[0].endswith("query") and os.geteuid() != 0:
         sys.stderr.write('must be root to run this command\n')
         return 1
@@ -107,7 +110,25 @@ def stand_alone():
                 NetlinkListenerWithCache.get_instance().cleanup()
         except NetlinkListenerWithCacheErrorNotInitialized:
             status = Status.Client.STATUS_NLERROR
-    LogManager.get_instance().write("exit status %s" % status)
+
+    end_time = datetime.now()
+    time_diff = end_time - start_time
+
+    hours, remainder = divmod(time_diff.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    seconds += time_diff.microseconds / 1E6
+
+    time_components = []
+
+    if hours:
+        time_components.append(f"{hours} hours")
+    if minutes:
+        time_components.append(f"{minutes} minutes")
+    if seconds:
+        time_components.append(f"{seconds} seconds")
+
+    LogManager.get_instance().write(f"exit status {status}")
+    LogManager.get_instance().write(f"running time: {', '.join(time_components)}")
 
     if status != 0:
         LogManager.get_instance().report_error_to_systemd()
