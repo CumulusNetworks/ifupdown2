@@ -12,6 +12,7 @@ try:
     from ifupdown2.lib.addon import Addon, AddonException
 
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
+    from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
     from ifupdown2.ifupdown.utils import utils
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -25,6 +26,7 @@ except ImportError:
     from lib.addon import Addon, AddonException
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
+    from ifupdown.statemanager import statemanager_api as statemanager
     from ifupdown.utils import utils
 
     import ifupdown.ifupdownflags as ifupdownflags
@@ -62,6 +64,7 @@ class mstpctl(Addon, moduleBase):
             "mstpctl-treeprio": {
                 "help": "tree priority",
                 "default": "32768",
+                "jsonAttr": "treeprio",
                 "validvals": [
                     "0", "4096", "8192", "12288", "16384",
                     "20480", "24576", "28672", "32768",
@@ -114,7 +117,6 @@ class mstpctl(Addon, moduleBase):
             "mstpctl-forcevers": {
                 "help": "bridge force stp version",
                 "validvals": ["rstp", "stp", "mstp"],
-                "default": "rstp",
                 "required": False,
                 "jsonAttr": "forceProtocolVersion",
                 "example": ["mstpctl-forcevers rstp"]
@@ -122,7 +124,7 @@ class mstpctl(Addon, moduleBase):
             "mstpctl-portpathcost": {
                 "help": "bridge port path cost",
                 "validvals": ["<interface-range-list>"],
-                "validrange": ["0", "65535"],
+                "validrange": ["0", "200000000"],
                 "default": "0",
                 "jsonAttr": "adminExtPortCost",
                 "required": False,
@@ -252,33 +254,119 @@ class mstpctl(Addon, moduleBase):
                     "under a port: mstpctl-portbpdufilter yes"
                 ]
             },
+            "mstpctl-vlan-priority": {
+                "help": "Configure PVRST per vlan priority",
+                "required": False,
+                "default": 32768,
+                "example": [
+                    "mstpctl-vlan-priority 1-200=4096 201-400=8192",
+                    "bridge-stp-vlan-priority 1-200=4096 201-400=8192"
+                ],
+                "aliases": ["bridge-stp-vlan-priority"]
+            },
+            "mstpctl-vlan-hello": {
+                "help": "Configure PVRST per vlan hello time (1-10)",
+                "required": False,
+                "default": 2,
+                "example": [
+                    "mstpctl-vlan-hello 1-200=10 201-400=5",
+                    "bridge-stp-vlan-hello 1-200=10 201-400=5"
+                ],
+                "aliases": ["bridge-stp-vlan-hello"]
+            },
+            "mstpctl-vlan-fdelay": {
+                "help": "Configure PVRST per vlan forward delay (4-30)",
+                "required": False,
+                "default": 15,
+                "example": [
+                    "mstpctl-vlan-fdelay 1-200=10 201-400=20",
+                    "bridge-stp-vlan-fdelay 1-200=10 201-400=20"
+                ],
+                "aliases": ["bridge-stp-vlan-fdelay"]
+            },
+            "mstpctl-vlan-maxage": {
+                "help": "Configure PVRST per vlan max age (6-40)",
+                "required": False,
+                "default": 20,
+                "example": [
+                    "mstpctl-vlan-maxage 1-200=6 201-400=40",
+                    "bridge-stp-vlan-maxage 1-200=6 201-400=40"
+                ],
+                "aliases": ["bridge-stp-vlan-maxage"]
+            },
+            "mstpctl-port-vlan-path-cost": {
+                "help": "Sets the port cost of the interface. The default is 0. "
+                        "mstpd supports only long mode; 32 bits for the path cost (1-200000000)",
+                "required": False,
+                "default": 0,
+                "example": [
+                    "mstpctl-port-vlan-path-cost 1-200=1000 201-400=4000",
+                ],
+            },
+            "mstpctl-port-vlan-priority": {
+                "help": "Set port priority (0-240) for the given vlan range. Priority should be in multiples of 16",
+                "required": False,
+                "default": 0,
+                "example": [
+                    "mstpctl-port-vlan-priority 1-200=16 201-400=32",
+                ],
+            },
+            "mstpctl-pvrst-mode": {
+                "help": "Configure MSTP PVRST mode",
+                "required": False,
+                "default": "off",
+                "example": [
+                    "mstpctl-pvrst-mode on",
+                    "mstpctl-pvrst-mode off",
+                ]
+            }
         }
     }
 
-    # Maps mstp bridge attribute names to corresponding mstpctl commands
-    # XXX: This can be encoded in the modules dict above
-    _attrs_map = OrderedDict([('mstpctl-treeprio' , 'treeprio'),
-                  ('mstpctl-ageing' , 'ageing'),
-                  ('mstpctl-fdelay' , 'fdelay'),
-                  ('mstpctl-maxage' , 'maxage'),
-                  ('mstpctl-maxhops' , 'maxhops'),
-                  ('mstpctl-txholdcount' , 'txholdcount'),
-                  ('mstpctl-forcevers', 'forcevers'),
-                  ('mstpctl-hello' , 'hello')])
+    def get_attrs_map(self):
+        compatible_attributes = {
+            "mstpctl-ageing": "ageing",
+            "mstpctl-txholdcount": "txholdcount",
+            "mstpctl-forcevers": "forcevers",
+        }
+        if utils.is_pvrst_enabled():
+            return compatible_attributes
+        else:
+            # merge and return compatible attribute dict with rstp attribute dict
+            return {
+                **{
+                    "mstpctl-treeprio": "treeprio",
+                    "mstpctl-fdelay": "fdelay",
+                    "mstpctl-maxage": "maxage",
+                    "mstpctl-maxhops": "maxhops",
+                    "mstpctl-hello": "hello"
+                },
+                **compatible_attributes
+            }
 
-    # Maps mstp port attribute names to corresponding mstpctl commands
-    # XXX: This can be encoded in the modules dict above
-    _port_attrs_map = {'mstpctl-portpathcost' : 'portpathcost',
-                 'mstpctl-portadminedge' : 'portadminedge',
-                 'mstpctl-portautoedge' : 'portautoedge' ,
-                 'mstpctl-portp2p' : 'portp2p',
-                 'mstpctl-portrestrrole' : 'portrestrrole',
-                 'mstpctl-portrestrtcn' : 'portrestrtcn',
-                 'mstpctl-bpduguard' : 'bpduguard',
-                 'mstpctl-treeportprio' : 'treeportprio',
-                 'mstpctl-treeportcost' : 'treeportcost',
-                 'mstpctl-portnetwork' : 'portnetwork',
-                 'mstpctl-portbpdufilter' : 'portbpdufilter'}
+    def get_port_attrs_map(self):
+        compatible_attributes = {
+            "mstpctl-portpathcost": "portpathcost",
+            "mstpctl-portadminedge": "portadminedge",
+            "mstpctl-portautoedge": "portautoedge",
+            "mstpctl-portp2p": "portp2p",
+            "mstpctl-portrestrrole": "portrestrrole",
+            "mstpctl-portrestrtcn": "portrestrtcn",
+            "mstpctl-bpduguard": "bpduguard",
+            "mstpctl-portnetwork": "portnetwork",
+            "mstpctl-portbpdufilter": "portbpdufilter"
+        }
+        if utils.is_pvrst_enabled():
+            return compatible_attributes
+        else:
+            # merge and return compatible attribute dict with rstp attribute dict
+            return {
+                **{
+                    "mstpctl-treeportprio": "treeportprio",
+                    "mstpctl-treeportcost": "treeportcost",
+                },
+                **compatible_attributes
+            }
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
@@ -286,7 +374,7 @@ class mstpctl(Addon, moduleBase):
         if not os.path.exists('/sbin/mstpctl'):
             raise moduleNotSupported('module init failed: no /sbin/mstpctl found')
         self.name = self.__class__.__name__
-        self.mstpctlcmd = None
+        self.mstpctlcmd = mstpctlutil()
         self.mstpd_running = (True if systemUtils.is_process_running('mstpd')
                              else False)
 
@@ -322,6 +410,8 @@ class mstpctl(Addon, moduleBase):
             )
         )
 
+        self.pvrst_mode = None
+
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if (
             self._is_bridge(ifaceobj)
@@ -348,7 +438,6 @@ class mstpctl(Addon, moduleBase):
                                     'mstpctl-ports'), ifacenames_all)
 
     def get_dependent_ifacenames_running(self, ifaceobj):
-        self._init_command_handlers()
         if (self.cache.bridge_exists(ifaceobj.name) and
                 not self.mstpctlcmd.mstpbridge_exists(ifaceobj.name)):
             return None
@@ -356,7 +445,7 @@ class mstpctl(Addon, moduleBase):
 
     def _get_bridge_port_attr_value(self, bridgename, portname, attr):
         json_attr = self.get_mod_subattr(attr, 'jsonAttr')
-        return self.mstpctlcmd.get_bridge_port_attr(bridgename,
+        return self.mstpctlcmd.get_bridge_port_attribute_value(bridgename,
                                                     portname,
                                                     json_attr)
 
@@ -417,15 +506,14 @@ class mstpctl(Addon, moduleBase):
         check = False if ifupdownflags.flags.PERFMODE else True
         try:
             # set bridge attributes
-            for attrname, dstattrname in list(self._attrs_map.items()):
+            for attrname, dstattrname in list(self.get_attrs_map().items()):
                 config_val = ifaceobj.get_attr_value_first(attrname)
                 default_val = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, ifname=ifaceobj.name, attr=attrname)
                 if not default_val:
                     default_val = self.get_mod_subattr(attrname, 'default')
                 jsonAttr = self.get_mod_subattr(attrname, 'jsonAttr')
                 try:
-                    running_val = self.mstpctlcmd.get_bridge_attr(
-                                    ifaceobj.name, jsonAttr)
+                    running_val = self.mstpctlcmd.get_bridge_attribute_value(ifaceobj.name, jsonAttr)
                 except Exception:
                     self.logger.info('%s: could not get running %s value'
                                      %(ifaceobj.name, attrname))
@@ -453,7 +541,7 @@ class mstpctl(Addon, moduleBase):
             if not bridgeports:
                 return
             # set bridge port attributes
-            for attrname, dstattrname in list(self._port_attrs_map.items()):
+            for attrname, dstattrname in list(self.get_port_attrs_map().items()):
                 config_val = ifaceobj.get_attr_value_first(attrname)
                 default_val = self.get_mod_subattr(attrname,'default')
                 if not config_val:
@@ -572,7 +660,7 @@ class mstpctl(Addon, moduleBase):
                         try:
                             self.mstpctlcmd.set_bridge_port_attr(bridgename,
                                                                  ifaceobj.name,
-                                                                 self._port_attrs_map[attr],
+                                                                 self.get_port_attrs_map()[attr],
                                                                  config_val,
                                                                  json_attr=json_attr)
                         except Exception as e:
@@ -593,9 +681,12 @@ class mstpctl(Addon, moduleBase):
                         applied
                     )
                 return applied
+
+        self._apply_port_pvrst_attributes(ifaceobj, bridgename, ifaceobj.name)
+
         # set bridge port attributes
         return self._apply_bridge_port_settings_attributes_list(
-            list(self._port_attrs_map.items()),
+            list(self.get_port_attrs_map().items()),
             ifaceobj,
             bridgeifaceobj,
             bridgename,
@@ -603,6 +694,9 @@ class mstpctl(Addon, moduleBase):
         )
 
     def _apply_bridge_port_settings_attributes_list(self, attributes_list, ifaceobj, bridgeifaceobj, bridgename, applied):
+        # if the brport was just added to an existing bridge it might not be cached.
+        self.mstpctlcmd.cache_port(bridgename, ifaceobj.name)
+
         for attrname, dstattrname in attributes_list:
             config_val = ifaceobj.get_attr_value_first(attrname)
             default_val = self._get_default_val(attrname, ifaceobj, bridgeifaceobj)
@@ -610,7 +704,7 @@ class mstpctl(Addon, moduleBase):
             # to see the running value, stp would have to be on
             # so we would have parsed mstpctl showportdetail json output
             try:
-                running_val = self.mstpctlcmd.get_bridge_port_attr(bridgename,
+                running_val = self.mstpctlcmd.get_bridge_port_attribute_value(bridgename,
                                                        ifaceobj.name, jsonAttr)
             except Exception:
                 self.logger.info('%s %s: could not get running %s value'
@@ -629,9 +723,9 @@ class mstpctl(Addon, moduleBase):
                            ifaceobj.name, dstattrname, config_val, json_attr=jsonAttr)
                applied = True
             except Exception as e:
-               self.log_error('%s: error setting %s (%s)'
-                              %(ifaceobj.name, attrname, str(e)), ifaceobj,
-                               raise_error=False)
+                self.log_error('%s: error setting %s (%s)'
+                                  %(ifaceobj.name, attrname, str(e)), ifaceobj,
+                                   raise_error=False)
         return applied
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
@@ -645,7 +739,6 @@ class mstpctl(Addon, moduleBase):
            return
 
         bvlan_aware = self.cache.bridge_is_vlan_aware(ifaceobj.name)
-
         for bport in bridgeports:
             self.logger.info('%s: processing mstp config for port %s'
                              %(ifaceobj.name, bport))
@@ -689,7 +782,6 @@ class mstpctl(Addon, moduleBase):
         return False
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
-
         # bridge port specific:
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
             bridgename = self.cache.get_master(ifaceobj.name)
@@ -699,9 +791,11 @@ class mstpctl(Addon, moduleBase):
             bvlan_aware = self.cache.bridge_is_vlan_aware(bridgename)
             mstpd_running = self.mstpd_running
             stp_running_on = bool(self.cache.get_bridge_stp(bridgename))
+            self.mstpctlcmd.batch_start()
             applied = self._apply_bridge_port_settings(ifaceobj, bvlan_aware, bridgename,
                                                        None, stp_running_on,
                                                        mstpd_running)
+            self.mstpctlcmd.batch_commit()
             if applied:
                 ifaceobj.module_flags[self.name] = \
                         ifaceobj.module_flags.setdefault(self.name,0) | \
@@ -746,6 +840,7 @@ class mstpctl(Addon, moduleBase):
 
             if self.mstpd_running and stp:
                 self.mstpctlcmd.batch_start()
+                self._apply_bridge_pvrst_settings(ifaceobj, ifaceobj_getfunc)
                 self._apply_bridge_settings(ifaceobj, ifaceobj_getfunc)
                 self._apply_bridge_port_settings_all(ifaceobj,
                             ifaceobj_getfunc=ifaceobj_getfunc)
@@ -754,6 +849,157 @@ class mstpctl(Addon, moduleBase):
             self.log_error(str(e), ifaceobj)
         if porterr:
             raise AddonException(porterrstr)
+
+
+    pvrst_attribute_cache_key = {
+        "mstpctl-vlan-priority": "priority",
+        "mstpctl-vlan-hello": "Hello_Time",
+        "mstpctl-vlan-fdelay": "Forward_Delay",
+        "mstpctl-vlan-maxage": "Max_Age",
+    }
+
+    pvrst_port_attribute_cache_key = {
+        "mstpctl-port-vlan-path-cost": "AdminPortCost[Internal]",
+        "mstpctl-port-vlan-priority": "treeportprio",
+    }
+
+    def get_running_bridge_pvrst_attr_value(self, bridge_name, attribute_name):
+        attr_value = {}
+
+        for vid, data in (self.mstpctlcmd.get_bridge_attribute_value(bridge_name, attribute_name, as_string=False) or {}).items():
+            attr_value[int(vid)] = data[self.pvrst_attribute_cache_key[attribute_name]]
+
+        return attr_value
+
+    def get_running_bridge_port_vlan_pvrst_attr_value(self, bridge_name, ifname, attribute_name):
+        attr_value = {}
+
+        for vid, data in (self.mstpctlcmd.get_bridge_port_attribute_value(bridge_name, ifname, attribute_name, as_string=False) or {}).items():
+            try:
+                attr_value[int(vid)] = data.get(self.pvrst_port_attribute_cache_key[attribute_name])
+            except ValueError:
+                pass
+
+        return attr_value
+
+    def get_pvrst_attr_dict(self, ifaceobj, ifname, attribute_name, attribute_value):
+        if not attribute_value:
+            return {}
+
+        config = {}
+        try:
+            for line in attribute_value:
+                for entry in line.split():
+                    vlans, value = entry.split("=")
+
+                    for vlan in utils.ranges_to_ints([vlans]):
+                        config[vlan] = int(value)
+        except Exception as e:
+            self.log_error(f"{ifname}: {attribute_name}: {e}", ifaceobj=ifaceobj)
+        return config
+
+    PVRST_ATTRIBUTES = (
+        ("mstpctl-vlan-priority", "vlan-priority"),
+        ("mstpctl-vlan-hello", "vlan-hello"),
+        ("mstpctl-vlan-maxage", "vlan-maxage"),
+        ("mstpctl-vlan-fdelay", "vlan-fdelay"),
+    )
+
+    def pvrst_clag_check(self, ifname, ifaceobj_getfunc):
+        for obj in [item for sublist in ifaceobj_getfunc(None, all=True).values() for item in sublist]:
+            if any([attr for attr in obj.config.keys() if attr.startswith("clagd-")]):
+                raise AssertionError(f"{ifname}: 'mstpctl-pvrst-mode on' is conflicting with clag configuration on {obj.name}")
+
+    def reset_pvrst_cache(self, ifname):
+        self.mstpctlcmd.reset_cache(ifname)
+
+    def _apply_bridge_pvrst_settings(self, ifaceobj, ifaceobj_getfunc):
+        ifname = ifaceobj.name
+
+        if not utils.is_pvrst_enabled():
+            return
+
+        if not self.cache.bridge_is_vlan_aware(ifname):
+            raise AssertionError(f"{ifname}: PVRST mode is not supported on traditional bridge")
+
+        self.pvrst_clag_check(ifname, ifaceobj_getfunc)
+        self.reset_pvrst_cache(ifname)
+
+        for attr, mstpctl_attr in self.PVRST_ATTRIBUTES:
+            config_value = self.get_pvrst_attr_dict(
+                ifaceobj,
+                ifname,
+                attr,
+                ifaceobj.get_attr_value(attr)
+            )
+
+            # the default value used when a vlan is removed from the bridge
+            default_value = policymanager.policymanager_api.get_iface_default(
+                module_name=self.__class__.__name__,
+                ifname=ifname, attr=attr
+            )
+            if not default_value:
+                default_value = self.get_mod_subattr(attr, "default")
+
+            running_value = self.get_running_bridge_pvrst_attr_value(ifname, attr)
+
+            # calculate delta between running config and /e/n/i config
+            # then apply the new config and reset what was removed from /e/n/i
+            vlan_delta = self.compute_config_delta(config_value, running_value, default_value)
+
+            for vlan_range, value in utils.group_keys_as_range(vlan_delta).items():
+                self.mstpctlcmd.set_pvrst_attribute(mstpctl_attr, ifname, vlan_range, value)
+
+    PVRST_PORT_ATTRIBUTES = (
+        ("mstpctl-port-vlan-path-cost", "vlantreeportcost"),
+        ("mstpctl-port-vlan-priority", "vlantreeportprio"),
+    )
+
+    def _apply_port_pvrst_attributes(self, ifaceobj, bridge_name, ifname):
+
+        if not utils.is_pvrst_enabled():
+            return
+
+        for attr, mstpctl_attr in self.PVRST_PORT_ATTRIBUTES:
+            config_value = self.get_pvrst_attr_dict(
+                ifaceobj,
+                ifname,
+                attr,
+                ifaceobj.get_attr_value(attr)
+            )
+
+            # the default value used when a vlan is removed from the bridge
+            default_value = policymanager.policymanager_api.get_iface_default(
+                module_name=self.__class__.__name__,
+                ifname=ifname, attr=attr
+            )
+            if not default_value:
+                default_value = self.get_mod_subattr(attr, "default")
+
+            running_value = self.get_running_bridge_port_vlan_pvrst_attr_value(bridge_name, ifname, attr)
+
+            # calculate delta between running config and /e/n/i config
+            # then apply the new config and reset what was removed from /e/n/i
+            vlan_delta = self.compute_config_delta(config_value, running_value, default_value)
+
+            for vlan_range, value in utils.group_keys_as_range(vlan_delta).items():
+                self.mstpctlcmd.set_pvrst_port_attribute(mstpctl_attr, bridge_name, ifname, vlan_range, value)
+
+    @staticmethod
+    def compute_config_delta(config_value, running_value, default_value):
+        delta = {}
+
+        # Check for updates or additions
+        for key, value in config_value.items():
+            if key not in running_value or running_value[key] != value:
+                delta[key] = value
+
+        # Check for deletions
+        for key, value in running_value.items():
+            if key not in config_value and value != default_value:
+                delta[key] = default_value
+
+        return delta
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
@@ -842,6 +1088,16 @@ class mstpctl(Addon, moduleBase):
         # list of attributes that are not supported currently
         blacklistedattrs = ['mstpctl-portpathcost',
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
+
+        if utils.is_pvrst_enabled():
+            blacklistedattrs.extend([
+                "mstpctl-pvrst-mode",
+                "mstpctl-vlan-maxage",
+                "mstpctl-vlan-fdelay",
+                "mstpctl-vlan-hello",
+                "mstpctl-vlan-priority"
+            ])
+
         if not self.cache.bridge_exists(ifaceobj.name):
             self.logger.debug('bridge %s does not exist' %ifaceobj.name)
             return
@@ -901,7 +1157,7 @@ class mstpctl(Addon, moduleBase):
                             conf = config_val[bport]
                         jsonAttr =  self.get_mod_subattr(k, 'jsonAttr')
                         try:
-                            running_val = self.mstpctlcmd.get_bridge_port_attr(ifaceobj.name, bport, jsonAttr)
+                            running_val = self.mstpctlcmd.get_bridge_port_attribute_value(ifaceobj.name, bport, jsonAttr)
                         except Exception:
                             self.logger.info('%s %s: could not get running %s value'
                                     %(ifaceobj.name, bport, attr))
@@ -1022,7 +1278,7 @@ class mstpctl(Addon, moduleBase):
                                     continue
                                 config_val = 'yes'
                             try:
-                                running_val = self.mstpctlcmd.get_bridge_port_attr(bifaceobj.name,
+                                running_val = self.mstpctlcmd.get_bridge_port_attribute_value(bifaceobj.name,
                                                     ifaceobj.name, jsonAttr)
                             except Exception:
                                 self.logger.info('%s %s: could not get running %s value'
@@ -1033,8 +1289,10 @@ class mstpctl(Addon, moduleBase):
                                         0 if running_val == config_val else 1)
                         return
 
-
     def _query_check_bridge_port(self, ifaceobj, ifaceobjcurr):
+        if utils.is_pvrst_enabled():
+            return
+
         if not self.cache.link_exists(ifaceobj.name):
             #self.logger.debug('bridge port %s does not exist' %ifaceobj.name)
             ifaceobjcurr.status = ifaceStatus.NOTFOUND
@@ -1043,14 +1301,14 @@ class mstpctl(Addon, moduleBase):
         if not self.cache.link_is_bridge_port(ifaceobj.name):
             # mark all the bridge attributes as error
             ifaceobjcurr.check_n_update_config_with_status_many(ifaceobj,
-                            list(self._port_attrs_map.keys()), 0)
+                            list(self.get_port_attrs_map().keys()), 0)
             return
         bridgename = self.cache.get_master(ifaceobj.name)
         # list of attributes that are not supported currently
-        blacklistedattrs = ['mstpctl-portpathcost',
+        blacklistedattrs = [
                 'mstpctl-treeportprio', 'mstpctl-treeportcost']
         ifaceattrs = self.dict_key_subset(ifaceobj.config,
-                                          list(self._port_attrs_map.keys()))
+                                          list(self.get_port_attrs_map().keys()))
         if not ifaceattrs:
             return
         runningattrs = self.mstpctlcmd.get_bridge_attrs(ifaceobj.name)
@@ -1076,11 +1334,34 @@ class mstpctl(Addon, moduleBase):
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if self._is_bridge(ifaceobj):
             self._query_check_bridge(ifaceobj, ifaceobjcurr, ifaceobj_getfunc)
+            self._query_bridge_pvrst_attributes(ifaceobj, ifaceobjcurr)
         elif ifaceobj.link_kind & ifaceLinkKind.VXLAN:
             self._query_check_bridge_vxlan_port(ifaceobj, ifaceobjcurr,
                                               ifaceobj_getfunc)
         else:
             self._query_check_bridge_port(ifaceobj, ifaceobjcurr)
+
+    def _query_bridge_pvrst_attributes(self, ifaceobj, ifaceobjcurr):
+
+        if not utils.is_pvrst_enabled():
+            return
+
+        ifname = ifaceobj.name
+
+        for attr, mstpctl_attr in self.PVRST_ATTRIBUTES:
+            config_value = self.get_pvrst_attr_dict(
+                ifaceobj,
+                ifname,
+                attr,
+                ifaceobj.get_attr_value(attr)
+            )
+
+            running_value = self.get_running_bridge_pvrst_attr_value(ifname, attr)
+
+            ifaceobjcurr.update_config_with_status(
+                attr, " ".join([f"{k}={v}" for k, v in utils.group_keys_as_range(running_value).items()]),
+                config_value != running_value
+            )
 
     def _query_bridge_port_attr(self, ifaceobjrunning, bridgename, attr, value_cmp):
         v = self._get_bridge_port_attr_value(bridgename,
@@ -1301,10 +1582,6 @@ class mstpctl(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return list(self._run_ops.keys())
 
-    def _init_command_handlers(self):
-        if not self.mstpctlcmd:
-            self.mstpctlcmd = mstpctlutil()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):
         """ run mstp configuration on the interface object passed as argument
@@ -1323,11 +1600,10 @@ class mstpctl(Addon, moduleBase):
                 as user required state in ifaceobj. error otherwise.
         """
         if ifaceobj.type == ifaceType.BRIDGE_VLAN:
-           return
+            return
         op_handler = self._run_ops.get(operation)
         if not op_handler:
-           return
-        self._init_command_handlers()
+            return
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)

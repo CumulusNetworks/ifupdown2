@@ -152,6 +152,26 @@ class utils():
                 mac += int(i, 16)
         return mac
 
+
+    PVRST_MODE = None
+    @classmethod
+    def is_pvrst_enabled(cls, ifaceobj_getfunc=None, no_act=False):
+        if cls.PVRST_MODE != None:
+            return cls.PVRST_MODE
+
+        for obj_list in (ifaceobj_getfunc(None, all=True) or {}).values():
+            for obj in obj_list:
+                if cls.get_boolean_from_string(obj.get_attr_value_first("mstpctl-pvrst-mode")):
+                    cls.PVRST_MODE = True
+                    if not no_act:
+                        cls.exec_command("mstpctl setmodepvrst")
+                    return cls.PVRST_MODE
+
+        cls.PVRST_MODE = False
+        if not no_act:
+            cls.exec_command("mstpctl clearmodepvrst")
+        return cls.PVRST_MODE
+
     @staticmethod
     def get_onff_from_onezero(value):
         if value in utils._onoff_onezero:
@@ -555,6 +575,37 @@ class utils():
             vlans.extend([vlan])
             vnis.extend([vni])
         return (vlans, vnis)
+
+    @staticmethod
+    def group_keys_as_range(input_dict):
+        output_dict = {}
+
+        if not input_dict:
+            return output_dict
+
+        sorted_items = sorted(input_dict.items())
+
+        current_group_key_start = sorted_items[0][0]
+        current_group_key_end = sorted_items[0][0]
+        current_group_value = sorted_items[0][1]
+
+        for key, value in sorted_items[1:]:
+            if value == current_group_value and key == current_group_key_end + 1:
+                current_group_key_end = key
+            else:
+                group_key = f"{current_group_key_start}-{current_group_key_end}" \
+                    if current_group_key_start != current_group_key_end else str(current_group_key_start)
+                output_dict[group_key] = current_group_value
+
+                current_group_key_start = key
+                current_group_key_end = key
+                current_group_value = value
+
+        group_key = f"{current_group_key_start}-{current_group_key_end}" \
+            if current_group_key_start != current_group_key_end else str(current_group_key_start)
+        output_dict[group_key] = current_group_value
+
+        return output_dict
 
     @classmethod
     def get_vni_mcastgrp_in_map(cls, vni_mcastgrp_map):

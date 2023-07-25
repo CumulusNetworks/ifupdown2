@@ -92,6 +92,10 @@ class ifaceScheduler():
                 query_ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                   ifaceStatus.NOTFOUND)
                 return
+
+        # Very ugly but necessary since we don't support global attributes
+        utils.is_pvrst_enabled(ifupdownobj.get_ifaceobjs, no_act="query" in op or "down" in op)
+
         for mname in ifupdownobj.module_ops.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0

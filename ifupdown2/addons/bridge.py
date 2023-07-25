@@ -820,6 +820,9 @@ class bridge(Bridge, moduleBase):
         except Exception:
             self.bridge_vni_per_svi_limit = -1
 
+        # There can only one vlan-aware bridge if PVRST mode is enabled
+        self.pvrst_vlan_aware_bridge = None
+
         # Cumulus-check
         try:
             self.cumulus = "cumulus" in utils.exec_commandl(["lsb_release", "-a"]).lower()
@@ -2864,6 +2867,15 @@ class bridge(Bridge, moduleBase):
             self.logger.info('%s: bridge already exists' % ifname)
 
         bridge_vlan_aware = self.up_check_bridge_vlan_aware(ifaceobj, ifaceobj_getfunc, link_just_created)
+
+        if utils.is_pvrst_enabled() and bridge_vlan_aware and self.pvrst_vlan_aware_bridge:
+
+            if not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_l3VNI):
+                self.log_error(f"{ifname}: when PVRST is enabled there can only be one vlan-aware "
+                               f"bridge on the system ({self.pvrst_vlan_aware_bridge})", ifaceobj)
+
+        elif bridge_vlan_aware:
+            self.pvrst_vlan_aware_bridge = ifname
 
         self.up_apply_bridge_settings(ifaceobj, link_just_created, bridge_vlan_aware)
 
