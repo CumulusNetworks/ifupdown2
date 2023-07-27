@@ -1052,8 +1052,7 @@ class mstpctl(Addon, moduleBase):
                              'mstpctl-portp2p',
                              'mstpctl-portrestrrole',
                              'mstpctl-portrestrtcn',
-                             'mstpctl-bpduguard',
-                             '']:
+                             'mstpctl-bpduguard']:
                     v = self._get_bridge_port_attr_value(ifaceobjrunning.name,
                                                          p, attr)
                     if v and v != 'no':
