@@ -306,7 +306,7 @@ class mstpctl(Addon, moduleBase):
             "mstpctl-port-vlan-priority": {
                 "help": "Set port priority (0-240) for the given vlan range. Priority should be in multiples of 16",
                 "required": False,
-                "default": 0,
+                "default": 128,
                 "example": [
                     "mstpctl-port-vlan-priority 1-200=16 201-400=32",
                 ],
