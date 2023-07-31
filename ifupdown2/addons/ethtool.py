@@ -141,6 +141,30 @@ class ethtool(Addon, moduleBase):
                 'validvals': ['max', '<number>'],
                 'default': 'varies by interface'
             },
+            'channels-rx': {
+                'help': 'Channels RX Parameter',
+                'example': ['channels-rx 4'],
+                'validvals': ['max', '<number>'],
+                'default': 'varies by interface'
+            },
+            'channels-tx': {
+                'help': 'Channels TX Parameter',
+                'example': ['channels-tx 4'],
+                'validvals': ['max', '<number>'],
+                'default': 'varies by interface'
+            },
+            'channels-other': {
+                'help': 'Channels Other Parameter',
+                'example': ['channels-other 4'],
+                'validvals': ['max', '<number>'],
+                'default': 'varies by interface'
+            },
+            'channels-combined': {
+                'help': 'Channels Combined Parameter',
+                'example': ['channels-combined 4'],
+                'validvals': ['max', '<number>'],
+                'default': 'varies by interface'
+            },
         }
     }
 
@@ -189,6 +213,44 @@ class ethtool(Addon, moduleBase):
 
         # Generate the ethtool command
         cmd = ('%s --set-ring %s %s %s' %
+                    (utils.ethtool_cmd, ifaceobj.name, option, value))
+
+        # Execute the ethtool command if command is generated
+        if cmd:
+            try:
+                utils.exec_command(cmd)
+            except Exception as e:
+                self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+
+    def do_channels_settings(self, ifaceobj, attr_name, option):
+        # Get the current configuration value and default value for the specified attribute
+        config_val = ifaceobj.get_attr_value_first(attr_name)
+        default_val = policymanager.policymanager_api.get_iface_default(
+                            module_name='ethtool',
+                            ifname=ifaceobj.name,
+                            attr=attr_name)
+
+        # Check which variable to use, config_val > default_val. If none are set, return.
+        value = config_val or default_val
+        if not value:
+            return
+
+        if value == "max":
+            # Get the maximum value for the specified attribute
+            max_val = self.get_max_attr(attr_name, ifaceobj)
+            if not max_val:
+                return
+            value = max_val
+
+        # Get the current running value
+        running_val = self.get_running_attr(attr_name, ifaceobj)
+
+        # If the value is the same as the running value, do nothing
+        if value == running_val:
+            return
+
+        # Generate the ethtool command
+        cmd = ('%s --set-channels %s %s %s' %
                     (utils.ethtool_cmd, ifaceobj.name, option, value))
 
         # Execute the ethtool command if command is generated
@@ -443,6 +505,10 @@ class ethtool(Addon, moduleBase):
         self.do_lanes_settings(ifaceobj)
         self.do_ring_settings(ifaceobj, 'ring-rx', 'rx')
         self.do_ring_settings(ifaceobj, 'ring-tx', 'tx')
+        self.do_channels_settings(ifaceobj, 'channels-rx', 'rx')
+        self.do_channels_settings(ifaceobj, 'channels-tx', 'tx')
+        self.do_channels_settings(ifaceobj, 'channels-other', 'other')
+        self.do_channels_settings(ifaceobj, 'channels-combined', 'combined')
         self.do_offload_settings(ifaceobj, 'gro-offload', 'gro')
         self.do_offload_settings(ifaceobj, 'lro-offload', 'lro')
         self.do_offload_settings(ifaceobj, 'gso-offload', 'gso')
@@ -572,6 +638,21 @@ class ethtool(Addon, moduleBase):
 
         return value
 
+    def get_channels_setting(self, ethtool_output, setting, get_channels_max=False):
+        value = None
+
+        if get_channels_max:
+            settings = ethtool_output.split('Current hardware settings:', 1)[0]
+        else:
+            settings = ethtool_output.split('Current hardware settings:', 1)[1]
+
+        for line in settings.splitlines():
+            if line.startswith(setting):
+                value = line.split(':', 1)[1]
+                return value.strip()
+
+        return value
+
     def get_attr_value(self,attr='',ifaceobj=None,get_max=False):
         if not ifaceobj or not attr:
             return
@@ -588,6 +669,22 @@ class ethtool(Addon, moduleBase):
                 output = utils.exec_command('%s --show-ring %s'%
                                             (utils.ethtool_cmd, ifaceobj.name))
                 attr_value = self.get_ring_setting(ethtool_output=output, setting='TX:', get_ring_max=get_max)
+            elif attr == 'channels-rx':
+                output = utils.exec_command('%s --show-channels %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                attr_value = self.get_channels_setting(ethtool_output=output, setting='RX:', get_channels_max=get_max)
+            elif attr == 'channels-tx':
+                output = utils.exec_command('%s --show-channels %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                attr_value = self.get_channels_setting(ethtool_output=output, setting='TX:', get_channels_max=get_max)
+            elif attr == 'channels-other':
+                output = utils.exec_command('%s --show-channels %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                attr_value = self.get_channels_setting(ethtool_output=output, setting='Other:', get_channels_max=get_max)
+            elif attr == 'channels-combined':
+                output = utils.exec_command('%s --show-channels %s'%
+                                            (utils.ethtool_cmd, ifaceobj.name))
+                attr_value = self.get_channels_setting(ethtool_output=output, setting='Combined:', get_channels_max=get_max)
             elif attr == 'fec':
                 output = utils.exec_command('%s --show-fec %s'%
                                             (utils.ethtool_cmd, ifaceobj.name))
