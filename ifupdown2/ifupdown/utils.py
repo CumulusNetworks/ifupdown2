@@ -164,12 +164,18 @@ class utils():
                 if cls.get_boolean_from_string(obj.get_attr_value_first("mstpctl-pvrst-mode")):
                     cls.PVRST_MODE = True
                     if not no_act:
-                        cls.exec_command("mstpctl setmodepvrst")
+                        try:
+                            cls.exec_command("mstpctl setmodepvrst")
+                        except Exception as e:
+                            cls.logger.debug("mstpctl setmodepvrst failed: %s" % str(e))
                     return cls.PVRST_MODE
 
         cls.PVRST_MODE = False
         if not no_act:
-            cls.exec_command("mstpctl clearmodepvrst")
+            try:
+                cls.exec_command("mstpctl clearmodepvrst")
+            except Exception as e:
+                cls.logger.debug("mstpctl clearmodepvrst failed: %s" % str(e))
         return cls.PVRST_MODE
 
     @staticmethod
