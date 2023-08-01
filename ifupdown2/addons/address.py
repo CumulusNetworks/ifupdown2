@@ -188,6 +188,12 @@ class address(AddonWithIpBlackList, moduleBase):
                 'default': 'off',
                 'example': ['arp-accept on']
             },
+            "disable-ipv6": {
+                "help": "disable IPv6",
+                "validvals": ['on', 'off', 'yes', 'no', '0', '1'],
+                "default": "no",
+                "aliases": ["disable-ip6"]
+            }
         }
     }
 
@@ -1059,12 +1065,37 @@ class address(AddonWithIpBlackList, moduleBase):
         else:
             self.logger.warning('%s: invalid value "%s" for attribute ipv6-addrgen' % (ifaceobj.name, user_configured_ipv6_addrgen))
 
+    def disable_ipv6(self, ifaceobj):
+        user_config = ifaceobj.get_attr_value_first("disable-ipv6")
+        sysfs_path = f"/proc/sys/net/ipv6/conf/{ifaceobj.name}/disable_ipv6"
+
+        if not user_config:
+            # check if disable-ipv6 was removed from the stanza
+            for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
+                old_value = old_ifaceobj.get_attr_value_first("disable-ipv6")
+
+                if old_value:
+                    default_bool = utils.get_boolean_from_string(
+                        self.get_mod_subattr("disable-ipv6", "default")
+                    )
+
+                    if default_bool != utils.get_boolean_from_string(old_value):
+                        self.sysfs.write_to_file(sysfs_path, "1" if default_bool else "0")
+                        return
+        else:
+            user_config_bool = utils.get_boolean_from_string(user_config)
+
+            if user_config_bool != utils.get_boolean_from_string(self.sysfs.read_file_oneline(sysfs_path)):
+                self.sysfs.write_to_file(sysfs_path, "1" if user_config_bool else "0")
+
     def _pre_up(self, ifaceobj, ifaceobj_getfunc=None):
         if not self.cache.link_exists(ifaceobj.name):
             return
 
         if not self.syntax_check_enable_l3_iface_forwardings(ifaceobj, ifaceobj_getfunc):
             return
+
+        self.disable_ipv6(ifaceobj)
 
         #
         # alias
@@ -1362,6 +1393,21 @@ class address(AddonWithIpBlackList, moduleBase):
         else:
             ifaceobjcurr.update_config_with_status('ipv6-addrgen', ipv6_addrgen, 1)
 
+    def query_check_disable_ipv6(self, ifaceobj, ifaceobjcurr):
+        user_config = ifaceobj.get_attr_value_first("disable-ipv6")
+
+        if not user_config:
+            return
+
+        user_config_bool = utils.get_boolean_from_string(user_config)
+        sysfs_path = f"/proc/sys/net/ipv6/conf/{ifaceobj.name}/disable_ipv6"
+
+        ifaceobjcurr.update_config_with_status(
+            "disable-ipv6",
+            user_config,
+            user_config_bool != utils.get_boolean_from_string(self.sysfs.read_file_oneline(sysfs_path))
+        )
+
     def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         """
         TODO: Check broadcast address, scope, etc
@@ -1371,6 +1417,7 @@ class address(AddonWithIpBlackList, moduleBase):
             self.logger.debug('iface %s not found' %ifaceobj.name)
             return
 
+        self.query_check_disable_ipv6(ifaceobj, ifaceobjcurr)
         self.query_check_ipv6_addrgen(ifaceobj, ifaceobjcurr)
 
         addr_method = ifaceobj.addr_method
