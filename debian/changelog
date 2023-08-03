@@ -1,5 +1,6 @@
 ifupdown2 (3.2.1) unstable; urgency=medium
 
+  * New: performance improvement: replace glob.glob with os.listdir
   * New: Attribute: "disable-ipv6" to control ipv6 on an interface
   * New: Policy: "default_loopback_scope" control loopback ip scope
   * Fix: keep link down after mac change if 'link-down yes' is specified

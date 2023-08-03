@@ -274,24 +274,33 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
 
         return False, None
 
+    def _get_macvlan_ifnames(self, ifaceobj):
+        macvlan_prefixes = (
+            self._get_macvlan_prefix(ifaceobj),
+            self.get_vrrp_prefix(ifaceobj.name, "4"),
+            self.get_vrrp_prefix(ifaceobj.name, "6")
+        )
+
+        ifnames = set()
+
+        for f in os.listdir("/sys/class/net/"):
+            if f.startswith(macvlan_prefixes):
+                ifnames.add(f)
+
+        return ifnames
+
     def _remove_running_address_config(self, ifaceobj):
         if not self.cache.link_exists(ifaceobj.name):
             return
         hwaddress = []
 
-        for macvlan_prefix in [
-            self._get_macvlan_prefix(ifaceobj),
-            self.get_vrrp_prefix(ifaceobj.name, "4"),
-            self.get_vrrp_prefix(ifaceobj.name, "6")
-        ]:
-            for macvlan_ifacename in glob.glob("/sys/class/net/%s*" % macvlan_prefix):
-                macvlan_ifacename = os.path.basename(macvlan_ifacename)
-                if not self.cache.link_exists(macvlan_ifacename) or self.cache.get_link_kind(macvlan_ifacename) != "macvlan":
-                    continue
-                hwaddress.append(self.cache.get_link_address(macvlan_ifacename))
-                self.netlink.link_del(os.path.basename(macvlan_ifacename))
-                # XXX: Also delete any fdb addresses. This requires, checking mac address
-                # on individual macvlan interfaces and deleting the vlan from that.
+        for macvlan_ifacename in self._get_macvlan_ifnames(ifaceobj):
+            if not self.cache.link_exists(macvlan_ifacename) or self.cache.get_link_kind(macvlan_ifacename) != "macvlan":
+                continue
+            hwaddress.append(self.cache.get_link_address(macvlan_ifacename))
+            self.netlink.link_del(macvlan_ifacename)
+            # XXX: Also delete any fdb addresses. This requires, checking mac address
+            # on individual macvlan interfaces and deleting the vlan from that.
 
         if any(hwaddress):
             self._remove_addresses_from_bridge(ifaceobj, hwaddress)
