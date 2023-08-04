@@ -540,6 +540,9 @@ class mstpctl(Addon, moduleBase):
             bridgeports = self._get_bridge_port_list(ifaceobj)
             if not bridgeports:
                 return
+
+            self.reset_pvrst_cache(ifaceobj.name)
+
             # set bridge port attributes
             for attrname, dstattrname in list(self.get_port_attrs_map().items()):
                 config_val = ifaceobj.get_attr_value_first(attrname)
@@ -562,7 +565,7 @@ class mstpctl(Addon, moduleBase):
                                         if attr_value:
                                             default_val = attr_value
                                             break
-
+                                self.mstpctlcmd.cache_port(ifaceobj.name, port)
                                 self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                                      port,
                                                                      dstattrname,
@@ -589,6 +592,7 @@ class mstpctl(Addon, moduleBase):
                         if not os.path.exists('/sys/class/net/%s/brport' %port):
                             continue
                         json_attr = self.get_mod_subattr(attrname, 'jsonAttr')
+                        self.mstpctlcmd.cache_port(ifaceobj.name, port)
                         self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                              port,
                                                              dstattrname,
@@ -658,6 +662,7 @@ class mstpctl(Addon, moduleBase):
                         config_val = self._get_default_val(attr, ifaceobj,
                                                            bridgeifaceobj)
                         try:
+                            self.mstpctlcmd.cache_port(bridgename, ifaceobj.name)
                             self.mstpctlcmd.set_bridge_port_attr(bridgename,
                                                                  ifaceobj.name,
                                                                  self.get_port_attrs_map()[attr],
@@ -719,9 +724,9 @@ class mstpctl(Addon, moduleBase):
                 continue
 
             try:
-               self.mstpctlcmd.set_bridge_port_attr(bridgename,
+                self.mstpctlcmd.set_bridge_port_attr(bridgename,
                            ifaceobj.name, dstattrname, config_val, json_attr=jsonAttr)
-               applied = True
+                applied = True
             except Exception as e:
                 self.log_error('%s: error setting %s (%s)'
                                   %(ifaceobj.name, attrname, str(e)), ifaceobj,
