@@ -111,24 +111,7 @@ def stand_alone():
         except NetlinkListenerWithCacheErrorNotInitialized:
             status = Status.Client.STATUS_NLERROR
 
-    end_time = datetime.now()
-    time_diff = end_time - start_time
-
-    hours, remainder = divmod(time_diff.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    seconds += time_diff.microseconds / 1E6
-
-    time_components = []
-
-    if hours:
-        time_components.append(f"{hours} hours")
-    if minutes:
-        time_components.append(f"{minutes} minutes")
-    if seconds:
-        time_components.append(f"{seconds} seconds")
-
-    LogManager.get_instance().write(f"exit status {status}")
-    LogManager.get_instance().write(f"running time: {', '.join(time_components)}")
+    LogManager.get_instance().write(f"exit status {status} in {datetime.now() - start_time}")
 
     if status != 0:
         LogManager.get_instance().report_error_to_systemd()
