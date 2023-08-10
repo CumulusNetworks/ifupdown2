@@ -1163,11 +1163,22 @@ class vxlan(Vxlan, moduleBase):
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
             else:
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+
+                    if Link.IFLA_VXLAN_LOCAL in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL]:
+                        local_str = "0"
+                    else:
+                        local_str = local.ip if local else None
+
+                    if Link.IFLA_VXLAN_GROUP in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP]:
+                        group_str = "0"
+                    else:
+                        group_str = group.ip if group else None
+
                     self.iproute2.link_add_single_vxlan(
                         link_exists,
                         ifname,
-                        local.ip if local else None,
-                        group.ip if group else None,
+                        local_str,
+                        group_str,
                         vxlan_physdev,
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         vxlan_vnifilter,
