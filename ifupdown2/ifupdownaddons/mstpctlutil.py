@@ -23,7 +23,8 @@ class mstpctlutil(utilsBase):
     """ This class contains helper methods to interact with mstpd using
     mstputils commands """
 
-    _DEFAULT_PORT_PRIO = '128'
+    _DEFAULT_PORT_PRIO      = "128"
+    _DEFAULT_PORT_PRIO_INT  = 128
 
     _cache_fill_done = False
 
@@ -128,7 +129,10 @@ class mstpctlutil(utilsBase):
             else:
                 return str(int(portid[0], 16) * 16)
         except Exception:
-            return mstpctlutil._DEFAULT_PORT_PRIO
+            if pvrst:
+                return mstpctlutil._DEFAULT_PORT_PRIO_INT
+            else:
+                return mstpctlutil._DEFAULT_PORT_PRIO
 
     def set_bridge_port_attr(self, bridgename, portname, attrname, value, json_attr=None):
         cache_value = self.get_bridge_port_attribute_value(bridgename, portname, json_attr)
@@ -267,11 +271,21 @@ class mstpctlutil(utilsBase):
 
             # Convert portId into treeportprio for backward compatibility
             for port_objects in bridge_port_details.values():
+                treeportprio = None
+
                 for port_data in port_objects.values():
                     port_id = port_data.get("portId")
-
                     if port_id:
-                        port_data["treeportprio"] = self._extract_bridge_port_prio(port_id, pvrst)
+                        port_data["treeportprio"] = treeportprio = self._extract_bridge_port_prio(port_id, pvrst)
+
+                try:
+                    prio = port_objects.get("1", {}).get("treeportprio", treeportprio)
+                    if not prio:
+                       prio = mstpctlutil._DEFAULT_PORT_PRIO_INT
+
+                    port_objects["commonPortInfo"]["treeportprio"] = prio
+                except:
+                    port_objects["commonPortInfo"]["treeportprio"] = mstpctlutil._DEFAULT_PORT_PRIO_INT
 
             bridge_data["ports"] = bridge_port_details
             self.cache[bridge_name] = bridge_data
@@ -335,7 +349,7 @@ class mstpctlutil(utilsBase):
         return str(attr_value) if as_string else attr_value
 
     bridge_port_attribute_to_json_key = {
-        "treeportprio": ["1", "treeportprio"],
+        "treeportprio": ["commonPortInfo", "treeportprio"],
 
         "extPortCost": ["commonPortInfo", "PortCost"],
         "treeportcost": ["commonPortInfo", "PortCost"],

@@ -724,6 +724,7 @@ class mstpctl(Addon, moduleBase):
                 continue
 
             try:
+                self.mstpctlcmd.cache_port(bridgename, ifaceobj.name)
                 self.mstpctlcmd.set_bridge_port_attr(bridgename,
                            ifaceobj.name, dstattrname, config_val, json_attr=jsonAttr)
                 applied = True
