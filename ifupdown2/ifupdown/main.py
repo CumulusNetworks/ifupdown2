@@ -72,9 +72,12 @@ class Ifupdown2:
             self.read_config()
             self.init(stdin_buffer)
 
-            if self.op != 'query' and not utils.lockFile(self.args.lockfile):
-                log.error("Another instance of this program is already running.")
-                return Status.Client.STATUS_ALREADY_RUNNING
+            try:
+                if self.op != 'query' and not utils.lockFile(self.args.lockfile):
+                    log.error("Another instance of this program is already running.")
+                    return Status.Client.STATUS_ALREADY_RUNNING
+            except FileExistsError as e:
+                log.info("%s: lockfile error: %s" % (self.args.lockfile, str(e)))
 
             self.handlers.get(self.op)(self.args)
         except Exception as e:

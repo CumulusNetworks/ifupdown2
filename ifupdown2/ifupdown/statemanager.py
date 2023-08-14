@@ -107,13 +107,13 @@ class stateManager():
                 raise StateManagerException("statemanager: unable to create required directory: %s" % str(e))
 
         if not os.path.exists(self.state_rundir):
-            os.makedirs(self.state_rundir)
+            os.makedirs(self.state_rundir, exist_ok=True)
 
         self.state_file = "%s/%s" % (self.state_dir, self.state_filename)
 
     def _init_makedirs_state_dir(self):
         if not os.path.exists(self.state_dir):
-            os.makedirs(self.state_dir)
+            os.makedirs(self.state_dir, exist_ok=True)
 
 
     def save_ifaceobj(self, ifaceobj):
