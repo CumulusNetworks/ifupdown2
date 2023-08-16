@@ -533,7 +533,7 @@ class mstpctl(Addon, moduleBase):
                        self.mstpctlcmd.set_bridge_attr(ifaceobj.name,
                                 dstattrname, config_val, check)
                 except Exception as e:
-                    self.logger.warning('%s' %str(e))
+                    self.logger.warning('%s: error while setting mstpctl attribute: %s' % (ifaceobj.name, str(e)))
 
             if self.cache.bridge_is_vlan_aware(ifaceobj.name):
                 return
@@ -565,7 +565,6 @@ class mstpctl(Addon, moduleBase):
                                         if attr_value:
                                             default_val = attr_value
                                             break
-                                self.mstpctlcmd.cache_port(ifaceobj.name, port)
                                 self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                                      port,
                                                                      dstattrname,
@@ -592,7 +591,6 @@ class mstpctl(Addon, moduleBase):
                         if not os.path.exists('/sys/class/net/%s/brport' %port):
                             continue
                         json_attr = self.get_mod_subattr(attrname, 'jsonAttr')
-                        self.mstpctlcmd.cache_port(ifaceobj.name, port)
                         self.mstpctlcmd.set_bridge_port_attr(ifaceobj.name,
                                                              port,
                                                              dstattrname,
@@ -602,8 +600,9 @@ class mstpctl(Addon, moduleBase):
                         self.log_error('%s: error setting %s (%s)'
                                        %(ifaceobj.name, attrname, str(e)),
                                        ifaceobj, raise_error=False)
+
         except Exception as e:
-            self.log_warn(str(e))
+            self.log_warn("%s: error while applying bridge config: %s" % (ifaceobj.name, str(e)))
 
     def _get_default_val(self, attr, ifaceobj, bridgeifaceobj):
         if (self.set_default_mstp_vxlan_bridge_config
@@ -653,6 +652,7 @@ class mstpctl(Addon, moduleBase):
                 if (not bvlan_aware and
                     self.set_default_mstp_vxlan_bridge_config and
                     (ifaceobj.link_kind & ifaceLinkKind.VXLAN)):
+                    self.mstpctlcmd.cache_port(bridgename, ifaceobj.name)
                     for attr in (
                             'mstpctl-portbpdufilter',
                             'mstpctl-bpduguard',
@@ -662,7 +662,6 @@ class mstpctl(Addon, moduleBase):
                         config_val = self._get_default_val(attr, ifaceobj,
                                                            bridgeifaceobj)
                         try:
-                            self.mstpctlcmd.cache_port(bridgename, ifaceobj.name)
                             self.mstpctlcmd.set_bridge_port_attr(bridgename,
                                                                  ifaceobj.name,
                                                                  self.get_port_attrs_map()[attr],
@@ -724,7 +723,6 @@ class mstpctl(Addon, moduleBase):
                 continue
 
             try:
-                self.mstpctlcmd.cache_port(bridgename, ifaceobj.name)
                 self.mstpctlcmd.set_bridge_port_attr(bridgename,
                            ifaceobj.name, dstattrname, config_val, json_attr=jsonAttr)
                 applied = True
@@ -732,6 +730,7 @@ class mstpctl(Addon, moduleBase):
                 self.log_error('%s: error setting %s (%s)'
                                   %(ifaceobj.name, attrname, str(e)), ifaceobj,
                                    raise_error=False)
+
         return applied
 
     def _apply_bridge_port_settings_all(self, ifaceobj,
@@ -776,7 +775,7 @@ class mstpctl(Addon, moduleBase):
                     self._apply_bridge_port_settings(bportifaceobj, bvlan_aware,
                                             ifaceobj.name, ifaceobj)
                 except Exception as e:
-                    self.log_warn(str(e))
+                    self.log_warn("%s: processing mstp config: %s" % (ifaceobj.name, str(e)))
 
     def _is_running_userspace_stp_state_on(self, bridgename):
         stp_state_file = '/sys/class/net/%s/bridge/stp_state' %bridgename

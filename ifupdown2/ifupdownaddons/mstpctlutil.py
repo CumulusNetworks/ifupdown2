@@ -254,6 +254,12 @@ class mstpctlutil(utilsBase):
         except:
             return {}
 
+    def _invalid_mstpctl_output(self, bridge_name, bridge_data, bridge_port_details):
+        self.logger.info("%s: mstpctl output is incomplete" % bridge_name)
+        self.logger.debug("bridge_data=%s" % bridge_data)
+        self.logger.debug("bridge_port_details=%s" % bridge_port_details)
+        self.cache[bridge_name] = {"ports": bridge_port_details}
+
     def __get_bridge_data(self, bridge_name):
         bridge_data = self.cache.get(bridge_name)
 
@@ -261,34 +267,46 @@ class mstpctlutil(utilsBase):
             bridge_data = self.__get_showstpbridge_json(bridge_name)
             bridge_port_details = self.__get_showstpportdetail_json(bridge_name)
 
-            pvrst = bridge_data["protocol"] == "rapid-pvst"
+            protocol = bridge_data.get("protocol")
 
-            if not pvrst:
-                # Convert bridgeId into treeprio for backward compatibility
-                bridge_id = bridge_data["BridgeInfo"]["trees"]["cist"]["bridgeId"]
-                bridge_data["BridgeInfo"]["trees"]["cist"][
-                    "treeprio"] = f'{(int(bridge_id.split(".")[0], base=16) * 4096)}'
+            if not protocol:
+                self._invalid_mstpctl_output(bridge_name, bridge_data, bridge_port_details)
+                return
 
-            # Convert portId into treeportprio for backward compatibility
-            for port_objects in bridge_port_details.values():
-                treeportprio = None
+            try:
+                pvrst = protocol == "rapid-pvst"
 
-                for port_data in port_objects.values():
-                    port_id = port_data.get("portId")
-                    if port_id:
-                        port_data["treeportprio"] = treeportprio = self._extract_bridge_port_prio(port_id, pvrst)
+                if not pvrst:
+                    # Convert bridgeId into treeprio for backward compatibility
+                    bridge_id = bridge_data["BridgeInfo"]["trees"]["cist"]["bridgeId"]
+                    bridge_data["BridgeInfo"]["trees"]["cist"][
+                        "treeprio"] = f'{(int(bridge_id.split(".")[0], base=16) * 4096)}'
 
-                try:
-                    prio = port_objects.get("1", {}).get("treeportprio", treeportprio)
-                    if not prio:
-                       prio = mstpctlutil._DEFAULT_PORT_PRIO_INT
 
-                    port_objects["commonPortInfo"]["treeportprio"] = prio
-                except:
-                    port_objects["commonPortInfo"]["treeportprio"] = mstpctlutil._DEFAULT_PORT_PRIO_INT
+                # Convert portId into treeportprio for backward compatibility
+                for port_objects in bridge_port_details.values():
+                    treeportprio = None
 
-            bridge_data["ports"] = bridge_port_details
-            self.cache[bridge_name] = bridge_data
+                    for port_data in port_objects.values():
+                        port_id = port_data.get("portId")
+                        if port_id:
+                            port_data["treeportprio"] = treeportprio = self._extract_bridge_port_prio(port_id, pvrst)
+
+                    try:
+                        prio = port_objects.get("1", {}).get("treeportprio", treeportprio)
+                        if not prio:
+                           prio = mstpctlutil._DEFAULT_PORT_PRIO_INT
+
+                        port_objects["commonPortInfo"]["treeportprio"] = prio
+                    except:
+                        port_objects["commonPortInfo"]["treeportprio"] = mstpctlutil._DEFAULT_PORT_PRIO_INT
+
+                bridge_data["ports"] = bridge_port_details
+                self.cache[bridge_name] = bridge_data
+
+            except KeyError:
+                self._invalid_mstpctl_output(bridge_name, bridge_data, bridge_port_details)
+                return
 
         return bridge_data
 
@@ -336,15 +354,14 @@ class mstpctlutil(utilsBase):
     }
 
     def reduce_cache_get(self, bridge_name, path_list):
-        return reduce(operator.getitem, path_list, self.__get_bridge_data(bridge_name))
+        try:
+            return reduce(operator.getitem, path_list, self.__get_bridge_data(bridge_name))
+        except (TypeError, KeyError):
+            return None
 
     def get_bridge_attribute_value(self, bridge_name, bridge_attr_name, as_string=True):
         path = self.bridge_attribute_to_json_key[bridge_attr_name]
-
-        try:
-            attr_value = self.reduce_cache_get(bridge_name, path)
-        except KeyError:
-            attr_value = None
+        attr_value = self.reduce_cache_get(bridge_name, path)
 
         return str(attr_value) if as_string else attr_value
 
@@ -384,11 +401,7 @@ class mstpctlutil(utilsBase):
 
     def get_bridge_port_attribute_value(self, bridge_name, port_name, attr_name, as_string=True):
         path = self.bridge_port_attribute_to_json_key[attr_name]
-
-        try:
-            attr_value = self.reduce_cache_get(bridge_name, ["ports", port_name, *path])
-        except KeyError:
-            attr_value = None
+        attr_value = self.reduce_cache_get(bridge_name, ["ports", port_name, *path])
 
         if not as_string:
             return attr_value
@@ -401,7 +414,10 @@ class mstpctlutil(utilsBase):
         return attr_value_str
 
     def reduce_cache_set(self, bridge_name, map_list, value):
-        reduce(operator.getitem, map_list[:-1], self.__get_bridge_data(bridge_name))[map_list[-1]] = value
+        try:
+            reduce(operator.getitem, map_list[:-1], self.__get_bridge_data(bridge_name))[map_list[-1]] = value
+        except KeyError:
+            pass
 
     def update_cached_bridge_port_attribute(self, bridge_name, port_name, attr_name, value):
         path = self.bridge_port_attribute_to_json_key[attr_name]
