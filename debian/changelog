@@ -3,6 +3,7 @@ ifupdown2 (3.2.1) unstable; urgency=medium
   * New: Attribute: "disable-ipv6" to control ipv6 on an interface
   * New: Policy: "default_loopback_scope" control loopback ip scope
   * Fix: keep link down after mac change if 'link-down yes' is specified
+  * Fix: addressvirtual stale mac detection is missing vrr without ip
 
  -- Julien Fortin <jfortin@nvidia.com>  Thu, 04 May 2023 23:42:00 -0700
 

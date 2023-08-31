@@ -242,7 +242,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 continue
             for av in oldifaceobj.get_attr_value('address-virtual'):
                 macip = av.split()
-                if len(macip) < 2:
+                if len(macip) < 1:
                     self.logger.debug("%s: incorrect old address-virtual attrs '%s'"
                                       %(oldifaceobj.name,  av))
                     continue
