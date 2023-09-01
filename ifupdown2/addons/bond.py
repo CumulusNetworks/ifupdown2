@@ -884,7 +884,7 @@ class bond(Addon, moduleBase):
                 ifaceobj_getfunc,
             )
 
-            if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
+            if not self.bond_mac_mgmt or ifaceobj.get_attr_value_first("hwaddress"):
                 return
 
             # check if the bond mac address is correctly inherited from it's
