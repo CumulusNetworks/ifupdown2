@@ -1049,7 +1049,6 @@ class vxlan(Vxlan, moduleBase):
                 self.logger.error("%s: %s (%s)" %(ifaceobj.name, vlan_vni_map, str(e)))
                 return
 
-        vnis_int = utils.ranges_to_ints(vnis)
         self.iproute2.bridge_link_update_vni_filter(ifaceobj.name, vnisd)
 
     def check_and_raise_svd_tvd_errors(self, ifaceobj):
