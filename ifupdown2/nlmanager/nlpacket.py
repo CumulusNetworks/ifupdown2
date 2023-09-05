@@ -1578,8 +1578,7 @@ class AttributeMACAddress(Attribute):
                 self.value = ipnetwork.IPv6Address(unpack('>L', self.data[16:])[0])
 
             else:
-                self.log.info("Length of MACAddress attribute not supported: %d" % self.length)
-                self.value = None
+                raise Exception("Length of MACAddress attribute not supported: %d" % self.length)
 
         except struct.error:
             self.log.error("%s unpack of %s failed, data 0x%s" % (self, self.PACK, hexlify(self.data[4:])))
@@ -3054,7 +3053,7 @@ class AttributeIFLA_LINKINFO(Attribute):
         try:
             return tbl[value]
         except KeyError:
-            self.log.debug('unsupported %s value %s (%s)' % (attr, value, tbl.keys()))
+            self.log.debug('unsupported %s value %s (%s)' % (attr, value, list(tbl.keys())))
             return default
 
     def decode_ifla_info_nested_data(self, kind, ifla_info_nested_kind_str, sub_attr_type, sub_attr_type_str, data, sub_attr_end):
@@ -3319,7 +3318,8 @@ class AttributeIFLA_PROTINFO(Attribute):
             sub_attr_payload[sub_attr_length_index] = sub_attr_length
 
             # add padding
-            sub_attr_pack_layout[-1] = "%s%s" % (sub_attr_pack_layout[-1], "x" * self.pad_bytes_needed(sub_attr_length))
+            for x in range(self.pad_bytes_needed(sub_attr_length)):
+                sub_attr_pack_layout.append('x')
 
             # The [1:] is to remove the leading = so that when we do the ''.join() later
             # we do not end up with an = in the middle of the pack layout string. There
@@ -3860,7 +3860,7 @@ class Address(NetlinkPacket):
         IFA_ANYCAST   : ('IFA_ANYCAST', AttributeIPAddress),
         IFA_CACHEINFO : ('IFA_CACHEINFO', AttributeCACHEINFO),
         IFA_MULTICAST : ('IFA_MULTICAST', AttributeIPAddress),
-        IFA_FLAGS     : ('IFA_FLAGS', AttributeFourByteValue),
+        IFA_FLAGS     : ('IFA_FLAGS', AttributeGeneric),
         IFA_RT_PRIORITY : ('IFA_RT_PRIORITY', AttributeFourByteValue)
     }
 

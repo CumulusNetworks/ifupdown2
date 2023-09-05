@@ -10,7 +10,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import utils
 
     from ifupdownaddons.modulebase import moduleBase
@@ -57,7 +57,6 @@ class usercmds(moduleBase):
                     if not self.ignore_error(str(e)):
                         self.logger.warning('%s: %s %s' % (ifaceobj.name, op,
                                                         str(e).strip('\n')))
-                    pass
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if ifaceobj.config:

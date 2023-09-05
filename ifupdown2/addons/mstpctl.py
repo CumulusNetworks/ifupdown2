@@ -9,7 +9,7 @@ import os
 from collections import OrderedDict
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Addon, AddonException
 
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
@@ -21,8 +21,8 @@ try:
     from ifupdown2.ifupdownaddons.mstpctlutil import mstpctlutil
     from ifupdown2.ifupdownaddons.systemutils import systemUtils
     from ifupdown2.ifupdown.exceptions import moduleNotSupported
-except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+except ImportError:
+    from lib.addon import Addon, AddonException
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
@@ -36,7 +36,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdown.exceptions import moduleNotSupported
 
 
-class mstpctlFlags:
+class MstpctlFlags:
     PORT_PROCESSED = 0x1
 
 class mstpctl(Addon, moduleBase):
@@ -381,7 +381,6 @@ class mstpctl(Addon, moduleBase):
                                 '/disable_ipv6', enable)
             except Exception as e:
                 self.logger.info(str(e))
-                pass
 
     def _add_ports(self, ifaceobj):
         bridgeports = self._get_bridge_port_list(ifaceobj)
@@ -448,7 +447,6 @@ class mstpctl(Addon, moduleBase):
                                 dstattrname, config_val, check)
                 except Exception as e:
                     self.logger.warning('%s' %str(e))
-                    pass
 
             if self.cache.bridge_is_vlan_aware(ifaceobj.name):
                 return
@@ -515,7 +513,6 @@ class mstpctl(Addon, moduleBase):
                                        ifaceobj, raise_error=False)
         except Exception as e:
             self.log_warn(str(e))
-            pass
 
     def _get_default_val(self, attr, ifaceobj, bridgeifaceobj):
         if (self.set_default_mstp_vxlan_bridge_config
@@ -528,7 +525,7 @@ class mstpctl(Addon, moduleBase):
         ):
             try:
                 config_val = bridgeifaceobj.get_attr_value_first(attr)
-            except Exception as e:
+            except Exception:
                 config_val = None
             if config_val:
                 if ifaceobj.name not in [v.split('=')[0] for v in config_val.split()]:
@@ -548,7 +545,6 @@ class mstpctl(Addon, moduleBase):
                                     bridgeifaceobj=None,
                                     stp_running_on=True,
                                     mstpd_running=True):
-        check = False if ifupdownflags.flags.PERFMODE else True
         applied = False
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
@@ -663,13 +659,12 @@ class mstpctl(Addon, moduleBase):
             for bportifaceobj in bportifaceobjlist:
                 # Dont process bridge port if it already has been processed
                 if (bportifaceobj.module_flags.get(self.name,0x0) & \
-                    mstpctlFlags.PORT_PROCESSED):
+                    MstpctlFlags.PORT_PROCESSED):
                     continue
                 try:
                     self._apply_bridge_port_settings(bportifaceobj, bvlan_aware,
                                             ifaceobj.name, ifaceobj)
                 except Exception as e:
-                    pass
                     self.log_warn(str(e))
 
     def _is_running_userspace_stp_state_on(self, bridgename):
@@ -698,7 +693,7 @@ class mstpctl(Addon, moduleBase):
             if applied:
                 ifaceobj.module_flags[self.name] = \
                         ifaceobj.module_flags.setdefault(self.name,0) | \
-                        mstpctlFlags.PORT_PROCESSED
+                        MstpctlFlags.PORT_PROCESSED
             return
 
         elif not self._is_bridge(ifaceobj):
@@ -719,7 +714,6 @@ class mstpctl(Addon, moduleBase):
                 except Exception as e:
                     porterr = True
                     porterrstr = str(e)
-                    pass
 
                 running_ports = self.cache.get_slaves(ifaceobj.name)
                 if running_ports:
@@ -747,7 +741,7 @@ class mstpctl(Addon, moduleBase):
         except Exception as e:
             self.log_error(str(e), ifaceobj)
         if porterr:
-            raise Exception(porterrstr)
+            raise AddonException(porterrstr)
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         if not self._is_bridge(ifaceobj):
@@ -775,7 +769,6 @@ class mstpctl(Addon, moduleBase):
             if k == 'stp' or not v:
                 continue
             if k == 'ports':
-                ports = list(v.keys())
                 continue
             attrname = 'mstpctl-' + k
             if (v and v != self.get_mod_subattr(attrname, 'default')
@@ -952,7 +945,6 @@ class mstpctl(Addon, moduleBase):
                 # Now, look at port attributes
                 # derive the mstpctlcmd attr name
                 #mstpctlcmdattrname = k[12:] if k[:12] == 'mstpctl-port' else k[8:]
-                mstpctlcmdattrname = k[8:]
 
                 # for port attributes, the attributes are in a list
                 # <portname>=<portattrvalue>
@@ -973,7 +965,6 @@ class mstpctl(Addon, moduleBase):
                             status = 1
                     except Exception as e:
                         self.log_warn(str(e))
-                        pass
                 ifaceobjcurr.update_config_with_status(k, currstr, status)
             elif not rv:
                 ifaceobjcurr.update_config_with_status(k, '', 1)
@@ -1217,7 +1208,6 @@ class mstpctl(Addon, moduleBase):
                         for attr in ('mstpctl-portbpdufilter',
                                      'mstpctl-bpduguard',
                                      'mstpctl-portadminedge'):
-                            jsonAttr =  self.get_mod_subattr(attr, 'jsonAttr')
                             config_val = ifaceobj.get_attr_value_first(attr)
                             if config_val or not ifupdownflags.flags.WITHDEFAULTS:
                                 continue
@@ -1226,18 +1216,17 @@ class mstpctl(Addon, moduleBase):
                         return
         except Exception as e:
             self.logger.info("%s: %s" %(ifaceobj.name, str(e)))
-            pass
 
     def _query(self, ifaceobj, ifaceobj_getfunc=None, **kwargs):
         """ add default policy attributes supported by the module """
         if not self._is_bridge(ifaceobj):
             if (ifaceobj.module_flags.get(self.name,0x0) &
-                    mstpctlFlags.PORT_PROCESSED):
+                    MstpctlFlags.PORT_PROCESSED):
                 return
             self._query_bridge_port(ifaceobj, ifaceobj_getfunc)
             ifaceobj.module_flags[self.name] = (
                         ifaceobj.module_flags.setdefault(self.name,0) |
-                        mstpctlFlags.PORT_PROCESSED)
+                        MstpctlFlags.PORT_PROCESSED)
             return
         lowerinfs = ifaceobj.lowerifaces
         if not lowerinfs:
@@ -1264,7 +1253,7 @@ class mstpctl(Addon, moduleBase):
                     bportobjlist = ifaceobj_getfunc(port)
                     for bportobj in bportobjlist:
                         if (bportobj.module_flags.get(self.name,0x0) &
-                            mstpctlFlags.PORT_PROCESSED):
+                            MstpctlFlags.PORT_PROCESSED):
                             continue
                         if bportobj.get_attr_value_first('vxlan-id'):
                             if config:
@@ -1281,7 +1270,7 @@ class mstpctl(Addon, moduleBase):
                                 bportobj.replace_config(attr, 'yes')
                             bportobj.module_flags[self.name] = (
                                 bportobj.module_flags.setdefault(self.name,0) |
-                                mstpctlFlags.PORT_PROCESSED)
+                                MstpctlFlags.PORT_PROCESSED)
                 if config:
                     ifaceobj.replace_config(attr, config)
 

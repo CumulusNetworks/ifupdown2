@@ -25,7 +25,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from nlmanager.ipnetwork import IPv4Address
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
@@ -381,7 +381,7 @@ class bond(Addon, moduleBase):
 
         try:
             self.compare_bond_and_slave_speed(ifaceobj, slave, int(self.read_file_oneline(f"/sys/class/net/{slave}/speed")))
-        except:
+        except Exception:
             try:
                 match = self.speed_pattern.search(utils.exec_commandl(["/usr/sbin/ethtool", f"{slave}"]))
                 if match:
@@ -400,7 +400,7 @@ class bond(Addon, moduleBase):
                 continue
             try:
                 slave_speed = int(self.read_file_oneline(f"/sys/class/net/{slave}/speed"))
-            except:
+            except Exception:
                 slave_speed = -1
 
             if bond_speed < 0:
@@ -470,7 +470,6 @@ class bond(Addon, moduleBase):
                         self.netlink.link_up_force(slave)
                except Exception as e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
-                    pass
 
         if runningslaves:
             removed_slave = []

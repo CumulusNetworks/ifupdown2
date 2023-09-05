@@ -5,7 +5,7 @@
 #
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Addon, AddonException
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
     from ifupdown2.nlmanager.nlmanager import Link
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
@@ -13,8 +13,8 @@ try:
     from ifupdown2.lib.exceptions import RetryCMD
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
-except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+except ImportError:
+    from lib.addon import Addon, AddonException
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
     from nlmanager.nlmanager import Link
     from ifupdownaddons.modulebase import moduleBase
@@ -130,10 +130,10 @@ class vlan(Addon, moduleBase):
     def _up(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
-            raise Exception('could not determine vlanid')
+            raise AddonException('could not determine vlanid')
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
-            raise Exception('could not determine vlan raw device')
+            raise AddonException('could not determine vlan raw device')
 
         ifname = ifaceobj.name
 
@@ -159,14 +159,14 @@ class vlan(Addon, moduleBase):
             vlan_protocol = self.get_attr_default_value('vlan-protocol')
 
         if cached_vlan_protocol and vlan_protocol.lower() != cached_vlan_protocol.lower():
-            raise Exception('%s: cannot change vlan-protocol to %s: operation not supported. '
+            raise AddonException('%s: cannot change vlan-protocol to %s: operation not supported. '
                             'Please delete the device with \'ifdown %s\' and recreate it to '
                             'apply the change.'
                             % (ifaceobj.name, vlan_protocol, ifaceobj.name))
 
         cached_vlan_id = cached_vlan_ifla_info_data.get(Link.IFLA_VLAN_ID)
         if cached_vlan_id is not None and vlanid != cached_vlan_id:
-            raise Exception('%s: cannot change vlan-id to %s: operation not supported. '
+            raise AddonException('%s: cannot change vlan-id to %s: operation not supported. '
                             'Please delete the device with \'ifdown %s\' and recreate it to '
                             'apply the change.'
                             % (ifaceobj.name, vlanid, ifaceobj.name))
@@ -180,7 +180,7 @@ class vlan(Addon, moduleBase):
                 cached_vlan_raw_device = self.cache.get_lower_device_ifname(ifname)
 
                 if cached_vlan_raw_device and user_vlan_raw_device and cached_vlan_raw_device != user_vlan_raw_device:
-                    raise Exception('%s: cannot change vlan-raw-device from %s to %s: operation not supported. '
+                    raise AddonException('%s: cannot change vlan-raw-device from %s to %s: operation not supported. '
                                     'Please delete the device with \'ifdown %s\' and recreate it to apply the change.'
                                     % (ifaceobj.name, cached_vlan_raw_device, user_vlan_raw_device, ifaceobj.name))
 
@@ -188,7 +188,7 @@ class vlan(Addon, moduleBase):
                 if ifupdownflags.flags.DRYRUN:
                     return
                 else:
-                    raise Exception('rawdevice %s not present' % vlanrawdevice)
+                    raise AddonException('rawdevice %s not present' % vlanrawdevice)
             if vlan_exists:
 
                 # vlan-bridge-binding has changed we need to update it
@@ -209,10 +209,10 @@ class vlan(Addon, moduleBase):
     def _down(self, ifaceobj):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
-            raise Exception('could not determine vlanid')
+            raise AddonException('could not determine vlanid')
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
-            raise Exception('could not determine vlan raw device')
+            raise AddonException('could not determine vlan raw device')
         if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
             return
         try:
@@ -224,13 +224,10 @@ class vlan(Addon, moduleBase):
     def _query_check(self, ifaceobj, ifaceobjcurr):
         if not self.cache.link_exists(ifaceobj.name):
             return
-
-        ifname = ifaceobj.name
-        cached_vlan_info_data = self.cache.get_link_info_data(ifname)
-
         if '.' not in ifaceobj.name:
             # if vlan name is not in the dot format, check its running state
 
+            ifname = ifaceobj.name
             cached_vlan_raw_device = self.cache.get_lower_device_ifname(ifname)
 
             #
@@ -241,6 +238,8 @@ class vlan(Addon, moduleBase):
                 cached_vlan_raw_device,
                 cached_vlan_raw_device != ifaceobj.get_attr_value_first('vlan-raw-device')
             )
+
+            cached_vlan_info_data = self.cache.get_link_info_data(ifname)
 
             #
             # vlan-id
@@ -253,28 +252,27 @@ class vlan(Addon, moduleBase):
             cached_vlan_id_str = str(cached_vlan_id)
             ifaceobjcurr.update_config_with_status('vlan-id', cached_vlan_id_str, vlanid_config != cached_vlan_id_str)
 
-        #
-        # vlan-protocol (dot or not dot format)
-        #
-        protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
-        if protocol_config:
+            #
+            # vlan-protocol
+            #
+            protocol_config = ifaceobj.get_attr_value_first('vlan-protocol')
+            if protocol_config:
 
-            cached_vlan_protocol = cached_vlan_info_data.get(Link.IFLA_VLAN_PROTOCOL)
+                cached_vlan_protocol = cached_vlan_info_data.get(Link.IFLA_VLAN_PROTOCOL)
 
-            if protocol_config.upper() != cached_vlan_protocol.upper():
-                ifaceobjcurr.update_config_with_status(
-                    'vlan-protocol',
-                    cached_vlan_protocol,
-                    1
-                )
-            else:
-                ifaceobjcurr.update_config_with_status(
-                    'vlan-protocol',
-                    protocol_config,
-                    0
-                 )
+                if protocol_config.upper() != cached_vlan_protocol.upper():
+                    ifaceobjcurr.update_config_with_status(
+                        'vlan-protocol',
+                        cached_vlan_protocol,
+                        1
+                    )
+                else:
+                    ifaceobjcurr.update_config_with_status(
+                        'vlan-protocol',
+                        protocol_config,
+                        0
+                    )
 
-        if '.' not in ifaceobj.name:
             #
             # vlan-bridge-binding
             #

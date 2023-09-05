@@ -4,13 +4,15 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import json
+
 from ipaddress import IPv4Network, IPv4Address, AddressValueError, ip_address
 try:
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.lib.addon import Vxlan
+    from ifupdown2.lib.addon import Vxlan, AddonException
     from ifupdown2.lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from ifupdown2.nlmanager.nlmanager import Link
@@ -21,12 +23,12 @@ try:
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     import nlmanager.ipnetwork as ipnetwork
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-    from lib.addon import Vxlan
+    from lib.addon import Vxlan, AddonException
     from lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from nlmanager.nlmanager import Link
@@ -460,9 +462,9 @@ class vxlan(Vxlan, moduleBase):
             if vxlan_tos != cached_ifla_vxlan_tos:
 
                 if cached_ifla_vxlan_tos is not None:
-                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos, cached_ifla_vxlan_tos))
+                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str, cached_ifla_vxlan_tos))
                 else:
-                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos))
+                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str))
 
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TOS] = vxlan_tos
         except Exception:
@@ -553,7 +555,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
+                raise AddonException("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
 
 
         if local:
@@ -634,8 +636,7 @@ class vxlan(Vxlan, moduleBase):
         parsed_maps = {}
         for m_line in maps:
             # Cover single-line multi-entry case
-            map = m_line.split()
-            for m in map:
+            for m in m_line.split():
                 m_parts = m.split('=')
                 if len(m_parts) != 2:
                     self.log_error('%s: vxlan-mcastgrp-map %s format is invalid' % (ifaceobj.name, m))
@@ -719,7 +720,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
+                raise AddonException("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
 
             if group.ip.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip %s: invalid group address, "
@@ -738,7 +739,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
+                raise AddonException("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
 
             if not mcast_grp.ip.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp %s: invalid group address, "
@@ -819,7 +820,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-svcnodeip6 %s: netmask ignored" % (ifname, group))
                     group = group_ip
                 except Exception:
-                    raise Exception("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
+                    raise AddonException("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
 
             if group.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip6 %s: invalid group address, "
@@ -839,7 +840,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-mcastgrp6 %s: netmask ignored" % (ifname, mcast_grp))
                     mcast_grp = group_ip
                 except Exception:
-                    raise Exception("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
+                    raise AddonException("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
 
             if not mcast_grp.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp6 %s: invalid group address, "
@@ -997,8 +998,7 @@ class vxlan(Vxlan, moduleBase):
         parsed_maps = {}
         for m_line in maps:
             # Cover single-line multi-entry case
-            map = m_line.split()
-            for m in map:
+            for m in m_line.split():
                 m_parts = m.split('=')
                 if len(m_parts) != 2:
                     self.log_error('%s: %s %s format is invalid' % (ifaceobj.name, attr_name, m))
@@ -1225,9 +1225,8 @@ class vxlan(Vxlan, moduleBase):
                 except Exception as e:
                     self.logger.warning("%s: l3 vxlan vni failure: %s" % (ifname, e))
 
-        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
-            if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
-                self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
+            self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
@@ -1745,8 +1744,8 @@ class vxlan(Vxlan, moduleBase):
         if not self._is_vxlan_device(ifaceobj):
             return
 
-        if "query" not in operation:
-            if not self.vxlan_mcastgrp_ref \
+        if "query" not in operation and \
+                    not self.vxlan_mcastgrp_ref \
                     and self.vxlan_physdev_mcast \
                     and self.cache.link_exists(self.vxlan_physdev_mcast):
                 self.netlink.link_del(self.vxlan_physdev_mcast)

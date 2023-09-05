@@ -38,7 +38,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags
     from ifupdown2.nlmanager.nlpacket import Link
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.sysfs import Sysfs
     from lib.base_objects import Cache, Requirements
 
@@ -57,6 +57,10 @@ try:                                                                           #
 except Exception:                                                                        #
     import nlmanager.nlpacket as nlpacket                                      #
 ################################################################################
+
+
+class IProute2Exception(Exception):
+    pass
 
 
 class IPRoute2(Cache, Requirements):
@@ -168,8 +172,6 @@ class IPRoute2(Cache, Requirements):
                     "%s -force -batch -" % prefix,
                     stdin="\n".join(commands)
                 )
-        except Exception:
-            raise
         finally:
             self.__batch_mode = False
             del self.__batch
@@ -351,7 +353,7 @@ class IPRoute2(Cache, Requirements):
     def link_create_vxlan(self, name, vxlanid, localtunnelip=None, svcnodeip=None,
                           remoteips=None, learning='on', ageing=None, ttl=None, physdev=None, udp_csum='on', tos = None):
         if svcnodeip and remoteips:
-            raise Exception("svcnodeip and remoteip are mutually exclusive")
+            raise IProute2Exception("svcnodeip and remoteip are mutually exclusive")
 
         if self.cache.link_exists(name):
             cmd = [
@@ -806,14 +808,6 @@ class IPRoute2(Cache, Requirements):
                 "vlan add vid %s dev %s %s" % (v, ifname, target)
             )
 
-    def bridge_vlan_del_vid_list_self(self, ifname, vids, is_bridge=True):
-        target = "self" if is_bridge else ""
-        for v in vids:
-            self.__execute_or_batch(
-                utils.bridge_cmd,
-                "vlan del vid %s dev %s %s" % (v, ifname, target)
-            )
-
     def bridge_vlan_del_pvid(self, ifname, pvid):
         self.__execute_or_batch(
             utils.bridge_cmd,
@@ -1005,8 +999,8 @@ class IPRoute2(Cache, Requirements):
                 continue
             else:
                 if vend > vbegin:
-                    range = '%d-%d' %(vbegin, vend)
-                    vnisd_ranges[range] = lastg
+                    r = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[r] = lastg
                 else:
                     vnisd_ranges['%s' %vbegin] = lastg
             vbegin = v
@@ -1015,8 +1009,8 @@ class IPRoute2(Cache, Requirements):
 
         if vbegin:
                 if vend > vbegin:
-                    range = '%d-%d' %(vbegin, vend)
-                    vnisd_ranges[range] = lastg
+                    r = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[r] = lastg
                 else:
                     vnisd_ranges['%s' %vbegin] = lastg
         return vnisd_ranges

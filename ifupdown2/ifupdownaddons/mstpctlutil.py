@@ -10,7 +10,7 @@ try:
 
     from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.utilsbase import *
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import *
     from ifupdown.utils import utils
 
@@ -96,8 +96,6 @@ class mstpctlutil(utilsBase):
                 "%s batch -" % utils.mstpctl_cmd,
                 stdin="\n".join(self.__batch)
             )
-        except Exception:
-            raise
         finally:
             self.__batch_mode = False
             del self.__batch
@@ -192,7 +190,7 @@ class mstpctlutil(utilsBase):
         attrs = self.get_bridge_ports_attrs(bridgename)
         if not attrs:
             attrs = {}
-        if not portname in attrs:
+        if portname not in attrs:
             attrs[portname] = {}
         attrs[portname][attrname] = value
         MSTPAttrsCache.set(bridgename, attrs)
@@ -223,7 +221,6 @@ class mstpctlutil(utilsBase):
         except Exception as e:
             self.logger.debug(bridgeattrs)
             self.logger.debug(str(e))
-            pass
         return bridgeattrs
 
     def get_bridge_attr(self, bridgename, attrname):

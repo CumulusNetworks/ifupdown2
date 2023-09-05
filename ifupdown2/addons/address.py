@@ -9,10 +9,10 @@ import json
 import time
 import subprocess
 
-from setuptools.dist import strtobool
+from distutils.util import strtobool
 
 try:
-    from ifupdown2.lib.addon import AddonWithIpBlackList
+    from ifupdown2.lib.addon import AddonWithIpBlackList, AddonException
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
@@ -27,8 +27,8 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
-except (ImportError, ModuleNotFoundError):
-    from lib.addon import AddonWithIpBlackList
+except ImportError:
+    from lib.addon import AddonWithIpBlackList, AddonException
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
@@ -248,7 +248,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 module_name=self.__class__.__name__,
                 attr='l3_intf_default_gateway_set_onlink'
             ),
-            default=True
+            default=False
         )
 
         self.check_l3_svi_ip_forwarding = utils.get_boolean_from_string(policymanager.policymanager_api.get_module_globals(
@@ -360,12 +360,12 @@ class address(AddonWithIpBlackList, moduleBase):
 
                 if vlan_addr and vlan_ipforward_off:
                     if syntax_check:
-                        raise Exception(
+                        raise AddonException(
                             'configuring ip-forward off and ip address(es) (%s) is not compatible'
                             % (', '.join(vlan_addr))
                         )
                     else:
-                        raise Exception(
+                        raise AddonException(
                             '%s: configuring ip-forward off and ip address(es) (%s) is not compatible'
                             % (ifname, ', '.join(vlan_addr))
                         )
@@ -406,7 +406,7 @@ class address(AddonWithIpBlackList, moduleBase):
     def _syntax_check_multiple_gateway(self, family, found, addr, version):
         if ipnetwork.IPNetwork(addr).version == version:
             if found:
-                raise Exception('%s: multiple gateways for %s family'
+                raise AddonException('%s: multiple gateways for %s family'
                                 % (addr, family))
             return True
         return False
@@ -444,11 +444,10 @@ class address(AddonWithIpBlackList, moduleBase):
         arp_accept = utils.boolean_support_binary(arp_accept)
         is_vlan_dev_on_vlan_aware_bridge = False
         is_bridge = self.cache.get_link_kind(ifaceobj.name) == 'bridge'
-        if not is_bridge:
-            if ifaceobj.link_kind & ifaceLinkKind.VLAN:
-                bridgename = ifaceobj.lowerifaces[0]
-                vlan = self._get_vlan_id(ifaceobj)
-                is_vlan_dev_on_vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridgename)
+        if not is_bridge and ifaceobj.link_kind & ifaceLinkKind.VLAN:
+            bridgename = ifaceobj.lowerifaces[0]
+            vlan = self._get_vlan_id(ifaceobj)
+            is_vlan_dev_on_vlan_aware_bridge = self.cache.bridge_is_vlan_aware(bridgename)
         if ((is_bridge and not self.cache.bridge_is_vlan_aware(ifaceobj.name))
                         or is_vlan_dev_on_vlan_aware_bridge):
             if self._address_valid(addrs):
@@ -815,7 +814,6 @@ class address(AddonWithIpBlackList, moduleBase):
                 # ifupdown2 is called on a particular interface and
                 # it is a physical interface
                 self._propagate_mtu_to_upper_devs(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc)
-        return
 
     def _process_mtu_config_mtu_none(self, ifaceobj):
 
@@ -1261,7 +1259,6 @@ class address(AddonWithIpBlackList, moduleBase):
             self._process_bridge(ifaceobj, False, hwaddress, None)
         except Exception as e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
-            pass
 
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
@@ -1326,7 +1323,6 @@ class address(AddonWithIpBlackList, moduleBase):
             ifaceobjcurr.update_config_with_status('mpls-enable',
                                                    running_mpls_enable,
                                             mpls_enable != running_mpls_enable)
-        return
 
     def query_check_ipv6_addrgen(self, ifaceobj, ifaceobjcurr):
         ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
@@ -1347,14 +1343,12 @@ class address(AddonWithIpBlackList, moduleBase):
         """
         TODO: Check broadcast address, scope, etc
         """
-        runningaddrsdict = None
         if not self.cache.link_exists(ifaceobj.name):
             self.logger.debug('iface %s not found' %ifaceobj.name)
             return
 
         self.query_check_ipv6_addrgen(ifaceobj, ifaceobjcurr)
 
-        addr_method = ifaceobj.addr_method
         self.query_n_update_ifaceobjcurr_attr(ifaceobj, ifaceobjcurr,
                 'mtu', self.cache.get_link_mtu_str)
         hwaddress = self._get_hwaddress(ifaceobj)

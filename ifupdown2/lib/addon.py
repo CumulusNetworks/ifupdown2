@@ -35,7 +35,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.io import IO
     from lib.sysfs import Sysfs
     from lib.iproute2 import IPRoute2
@@ -45,6 +45,10 @@ except (ImportError, ModuleNotFoundError):
 
     import ifupdown.policymanager as policymanager
     import nlmanager.ipnetwork as ipnetwork
+
+
+class AddonException(Exception):
+    pass
 
 
 class Addon(Netlink, Cache):
@@ -224,4 +228,4 @@ class AddonWithIpBlackList(Addon):
         :return:
         """
         if ip.ip in AddonWithIpBlackList.ip_blacklist:
-            raise Exception("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))
+            raise AddonException("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))

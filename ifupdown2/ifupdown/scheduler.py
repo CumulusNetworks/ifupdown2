@@ -9,7 +9,6 @@
 
 import os
 import sys
-import traceback
 
 from collections import OrderedDict
 
@@ -22,7 +21,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.graph import *
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus, ifaceState
     from ifupdown.utils import utils
@@ -31,6 +30,9 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
+
+class SchedulerException(Exception):
+    pass
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
@@ -113,7 +115,6 @@ class ifaceScheduler():
 
                     ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
-                pass
             finally:
                 if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
@@ -183,7 +184,6 @@ class ifaceScheduler():
                     if not ifupdownobj.link_master_slave_ignore_error(str(e)):
                        ifupdownobj.logger.warning('%s: %s'
                                    %(ifaceobjs[0].name, str(e)))
-                    pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
@@ -196,7 +196,6 @@ class ifaceScheduler():
                     for ifaceobj in ifaceobjs]
             except Exception as e:
                 ifupdownobj.logger.warning('%s' %str(e))
-                pass
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
@@ -254,7 +253,7 @@ class ifaceScheduler():
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            raise Exception('%s: not found' %ifacename)
+            raise SchedulerException('%s: not found' %ifacename)
 
         # Check state of the dependent. If it is already brought up, return
         if (cls._STATE_CHECK and
@@ -304,9 +303,7 @@ class ifaceScheduler():
                                             followdependents,
                                             continueonfailure=False)
                 except Exception as e:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not ifupdownobj.ignore_error(str(e)):
                         # Dont bring the iface up if children did not come up
                         ifaceobj.set_state_n_status(ifaceState.NEW,
                                                 ifaceStatus.ERROR)
@@ -329,12 +326,9 @@ class ifaceScheduler():
                     if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                         traceback.print_tb(sys.exc_info()[2])
                     ifupdownobj.logger.error('%s : %s' %(ifacename, str(e)))
-                    pass
                 else:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
-                        raise Exception('%s : (%s)' %(ifacename, str(e)))
+                    if not (ifupdownobj.ignore_error(str(e))):
+                        raise SchedulerException('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
     def run_iface_graph_upper(cls, ifupdownobj, ifacename, ops, parent=None,
@@ -344,7 +338,7 @@ class ifaceScheduler():
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            raise Exception('%s: not found' %ifacename)
+            raise SchedulerException('%s: not found' %ifacename)
 
         if (cls._STATE_CHECK and
             (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):
@@ -366,9 +360,7 @@ class ifaceScheduler():
                                             followdependents,
                                             continueonfailure=True)
                 except Exception as e:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not ifupdownobj.ignore_error(str(e)):
                         raise
 
     @classmethod
@@ -385,7 +377,6 @@ class ifaceScheduler():
                 if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                     traceback.print_tb(sys.exc_info()[2])
                 ifupdownobj.logger.warning('%s : %s' %(ifacename, str(e)))
-                pass
 
     @classmethod
     def _get_valid_upperifaces(cls, ifupdownobj, ifacenames,
@@ -429,7 +420,6 @@ class ifaceScheduler():
         if upperifacenames:
             cls._get_valid_upperifaces(ifupdownobj, upperifacenames,
                                        allupperifacenames)
-        return
 
     @classmethod
     def run_upperifaces(cls, ifupdownobj, ifacenames, ops,
