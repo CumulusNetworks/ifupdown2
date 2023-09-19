@@ -428,7 +428,7 @@ class ifupdownMain:
     def _get_mgmt_iface_default_prefix(self):
         attr = 'mgmt_intf_prefix'
         ret = pma.get_module_globals(module_name='main', attr=attr)
-        return ret or 'eth'
+        return ret or ''
 
 
     def link_master_slave_ignore_error(self, errorstr):
@@ -811,7 +811,7 @@ class ifupdownMain:
                     (iobj.link_kind or (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK)):
                 iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
 
-            if iobj.name.startswith(self.mgmt_iface_default_prefix):
+            if self.mgmt_iface_default_prefix and iobj.name.startswith(self.mgmt_iface_default_prefix):
                 self.logger.debug('%s: marking interface with mgmt flag', iobj.name)
                 iobj.link_privflags |= ifaceLinkPrivFlags.MGMT_INTF
 
