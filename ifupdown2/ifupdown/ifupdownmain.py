@@ -815,19 +815,17 @@ class ifupdownMain:
             #if not self.dependency_graph.get(i):
             #    self.dependency_graph[i] = dlist
 
-        for i in list(self.ifaceobjdict.keys()):
-            iobj = self.get_ifaceobj_first(i)
-            if (not iobj.link_kind and
-               not (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
-               iobj.name == 'lo'):
-               iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
+        for ifname in self.ifaceobjdict:
+            iobj = self.get_ifaceobj_first(ifname)
+            if iobj.name == 'lo' and not \
+                    (iobj.link_kind or (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK)):
+                iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
+
             if iobj.name.startswith(self.mgmt_iface_default_prefix):
-               self.logger.debug('%s: marking interface with mgmt flag' %iobj.name)
-               iobj.link_privflags |= ifaceLinkPrivFlags.MGMT_INTF
-            if iobj.lowerifaces:
-                self.dependency_graph[i] = iobj.lowerifaces
-            else:
-                self.dependency_graph[i] = []
+                self.logger.debug('%s: marking interface with mgmt flag', iobj.name)
+                iobj.link_privflags |= ifaceLinkPrivFlags.MGMT_INTF
+
+            self.dependency_graph[ifname] = iobj.lowerifaces or []
 
         if not self.blacklisted_ifaces_present:
             return
