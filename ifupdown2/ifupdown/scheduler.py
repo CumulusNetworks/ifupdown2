@@ -142,7 +142,7 @@ class ifaceScheduler():
             for mname in ifupdownobj.script_ops.get(op, []):
                 ifupdownobj.logger.debug("%s: %s : running script %s" % (ifacename, op, mname))
                 try:
-                    utils.exec_command(mname, env=command_env)
+                    utils.exec_command(mname, env=command_env, stdout=False)
                 except Exception as e:
                     if "permission denied" in str(e).lower():
                         ifupdownobj.logger.warning('%s: %s %s' % (ifacename, op, str(e)))
