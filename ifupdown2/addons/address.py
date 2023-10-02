@@ -256,6 +256,13 @@ class address(AddonWithIpBlackList, moduleBase):
             attr="check_l3_svi_ip_forwarding")
         )
 
+        self.default_loopback_scope = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr="default_loopback_scope"
+        )
+        self.logger.debug(f"policy: default_loopback_scope set to {self.default_loopback_scope}")
+        self.valid_scopes = self.get_mod_subattr("scope", "validvals")
+
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
             module_name=self.__class__.__name__,
@@ -519,6 +526,18 @@ class address(AddonWithIpBlackList, moduleBase):
                         attr_value = ifaceobj.get_attr_value_n(attr_name, index)
                         if attr_value:
                             addr_attributes[attr_name] = attr_value
+
+                    scope = None
+                    if addr_obj.ip.is_loopback and "scope" not in addr_attributes and self.default_loopback_scope:
+                        scope = addr_attributes["scope"] = self.default_loopback_scope
+
+                    if scope and scope not in self.valid_scopes:
+                        self.logger.warning(f"{ifname}: invalid scope ({scope}) for {addr}")
+                        self.logger.warning(f"valid scopes: {self.valid_scopes}")
+                        try:
+                            del addr_attributes["scope"]
+                        except:
+                            pass
 
                     pointopoint = ifaceobj.get_attr_value_n("pointopoint", index)
                     try:
