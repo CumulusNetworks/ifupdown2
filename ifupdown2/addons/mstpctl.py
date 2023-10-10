@@ -905,11 +905,6 @@ class mstpctl(Addon, moduleBase):
         ("mstpctl-vlan-fdelay", "vlan-fdelay"),
     )
 
-    def pvrst_clag_check(self, ifname, ifaceobj_getfunc):
-        for obj in [item for sublist in ifaceobj_getfunc(None, all=True).values() for item in sublist]:
-            if any([attr for attr in obj.config.keys() if attr.startswith("clagd-")]):
-                raise AssertionError(f"{ifname}: 'mstpctl-pvrst-mode on' is conflicting with clag configuration on {obj.name}")
-
     def reset_pvrst_cache(self, ifname):
         self.mstpctlcmd.reset_cache(ifname)
 
@@ -922,7 +917,6 @@ class mstpctl(Addon, moduleBase):
         if not self.cache.bridge_is_vlan_aware(ifname):
             raise AssertionError(f"{ifname}: PVRST mode is not supported on traditional bridge")
 
-        self.pvrst_clag_check(ifname, ifaceobj_getfunc)
         self.reset_pvrst_cache(ifname)
 
         for attr, mstpctl_attr in self.PVRST_ATTRIBUTES:
