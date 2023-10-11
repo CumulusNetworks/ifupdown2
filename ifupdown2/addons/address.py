@@ -1249,7 +1249,12 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.netlink.link_down(l)
                 slave_down = True
             try:
-                self.netlink.link_set_address(ifaceobj.name, hwaddress, hwaddress_int)
+                self.netlink.link_set_address(
+                    ifaceobj.name,
+                    hwaddress,
+                    hwaddress_int,
+                    keep_link_down=ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN
+                )
                 old_mac_addr = running_hwaddress
             finally:
                 if slave_down:

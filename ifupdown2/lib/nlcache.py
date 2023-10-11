@@ -2706,7 +2706,7 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_set_address_dry_run(self, ifname, hw_address, hw_address_int):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s address %s" % (ifname, hw_address))
 
-    def link_set_address(self, ifname, hw_address, hw_address_int):
+    def link_set_address(self, ifname, hw_address, hw_address_int, keep_link_down=False):
         is_link_up = self.cache.link_is_up(ifname)
         # check if the link is already up or not if the link is
         # up we need to down it then make sure we up it again
@@ -2734,8 +2734,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         except Exception as e:
             raise NetlinkError(e, "cannot set dev %s address %s" % (ifname, hw_address), ifname=ifname)
         finally:
-            if is_link_up:
+            if is_link_up and not keep_link_down:
                 self.link_up_force(ifname)
+            else:
+                self.logger.info(f"{ifname}: keeping link down")
 
     ###
 

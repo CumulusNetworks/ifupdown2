@@ -217,14 +217,15 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_set_address(self, ifname, address):
+    def link_set_address(self, ifname, address, keep_link_down=False):
         if utils.mac_str_to_int(address) != self.cache.get_link_address_raw(ifname):
             self.link_down(ifname)
             self.__execute_or_batch(
                 utils.ip_cmd,
                 "link set dev %s address %s" % (ifname, address)
             )
-            self.link_up(ifname)
+            if not keep_link_down:
+                self.link_up(ifname)
 
     def link_set_address_dry_run(self, ifname, address):
         self.link_down(ifname)
