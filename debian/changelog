@@ -6,6 +6,7 @@ ifupdown2 (3.2.1) unstable; urgency=medium
   * Fix: keep link down after mac change if 'link-down yes' is specified
   * Fix: addressvirtual: stale mac detection is missing vrr without ip
   * Fix: bond: warn if sub interface is detected on bond slave
+  * Fix: bridge: update bridge-fd valid range to 2-255
 
  -- Julien Fortin <jfortin@nvidia.com>  Thu, 04 May 2023 23:42:00 -0700
 

@@ -98,7 +98,7 @@ class bridge(Bridge, moduleBase):
             },
             "bridge-fd": {
                 "help": "bridge forward delay",
-                "validrange": ["0", "255"],
+                "validrange": ["2", "255"],
                 "example": ["bridge-fd 15"],
                 "default": "15"
             },
