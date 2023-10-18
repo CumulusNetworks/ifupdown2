@@ -897,7 +897,8 @@ class bridge(Bridge, moduleBase):
         c3 = self.syntax_check_learning_l2_vni_evpn(ifaceobj)
         c4 = self.syntax_check_bridge_arp_vni_vlan(ifaceobj, ifaceobj_getfunc)
         c5 = self.syntax_check_bridge_vni_svi_limit(ifaceobj, ifaceobj_getfunc)
-        return retval and c1 and c2 and c3 and c4 and c5
+        c6 = self.check_bridge_single_vxlan(ifaceobj)
+        return retval and c1 and c2 and c3 and c4 and c5 and c6
 
     def syntax_check_bridge_vni_svi_limit(self, ifaceobj, ifaceobj_getfunc):
         if self.bridge_vni_per_svi_limit > 0 and ifaceobj.link_kind & ifaceLinkKind.VXLAN:
@@ -1022,6 +1023,14 @@ class bridge(Bridge, moduleBase):
             self.logger.warning('%s: bridge-access given, bridge-vids and bridge-pvid '
                              'will be ignored' % ifaceobj.name)
             return False
+        return True
+
+    def check_bridge_single_vxlan(self, ifaceobj):
+        if (ifaceobj.link_privflags &
+            (ifaceLinkPrivFlags.SINGLE_VXLAN | ifaceLinkPrivFlags.L3VXI) and
+                ifaceobj.get_attr_value_first('bridge-pvid')):
+                self.logger.warning("%s: bridge-pvid conflicts with single-vxlan device, bridge-pvid will be ignored" % ifaceobj.name)
+                return False
         return True
 
     def check_bridge_vlan_aware_port(self, ifaceobj, ifaceobj_getfunc):
@@ -1904,7 +1913,12 @@ class bridge(Bridge, moduleBase):
         elif bridge_vids:
             vids_final = bridge_vids
 
-        if allow_untagged == 'yes':
+        self.check_bridge_single_vxlan(bportifaceobj)
+
+        vxlan_in_collect_metadata_mode = (
+            bportifaceobj.link_privflags &
+            (ifaceLinkPrivFlags.SINGLE_VXLAN | ifaceLinkPrivFlags.L3VXI))
+        if allow_untagged == 'yes' and not vxlan_in_collect_metadata_mode:
             if pvids:
                 pvid_final = pvids[0]
             elif bridge_pvid:
