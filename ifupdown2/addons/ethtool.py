@@ -247,7 +247,7 @@ class ethtool(Addon, moduleBase):
         if not default_val and not config_val:
             # there is no point in checking the running config
             # if we have no default and the user did not have settings
-            return
+            return False, None
 
         # use only lowercase values
         running_val = str(self.get_running_attr('lanes', ifaceobj)).lower()
@@ -259,11 +259,11 @@ class ethtool(Addon, moduleBase):
 
         # check running values
         if config_val and config_val == running_val:
-            return
+            return False, None
 
         if not config_val and default_val and default_val == running_val:
             # nothing configured but the default is running
-            return
+            return False, None
 
         # if we got this far, we need to change it
         if config_val and (config_val != running_val):
@@ -273,14 +273,7 @@ class ethtool(Addon, moduleBase):
             # or if it has a default not equal to running value, set it
             lanescmd = default_val
 
-        if lanescmd:
-            try:
-                lanescmd = ('%s -s %s lanes %s' %
-                           (utils.ethtool_cmd, ifaceobj.name, lanescmd))
-                utils.exec_command(lanescmd)
-            except Exception as e:
-                if not self.ethtool_ignore_errors:
-                    self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
+        return (True, f"lanes {lanescmd}") if lanescmd else (False, None)
 
     def do_fec_settings(self, ifaceobj):
         feccmd = ''
@@ -332,8 +325,19 @@ class ethtool(Addon, moduleBase):
         else:
             pass
 
-    def do_speed_settings(self, ifaceobj, down=False):
-        cmd = ''
+    def do_speed_lane_duplex_autoneg_settings(self, ifaceobj, down=False):
+
+        force_speed_apply = False
+        lanes_config_applied, lane_cmd_str = self.do_lanes_settings(ifaceobj)
+
+        cmd_list = []
+
+        if not down and not lanes_config_applied:
+            # if link-lanes is removed from /e/n/i we need to reset it
+            # to do so we reapply the speed
+            for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
+                if old_ifaceobj.get_attr_value_first("link-lanes"):
+                    force_speed_apply = True
 
         autoneg_to_configure = None
         speed_to_configure = None
@@ -399,13 +403,22 @@ class ethtool(Addon, moduleBase):
             running_val = self.get_running_attr('autoneg', ifaceobj)
             if autoneg_to_configure != running_val:
                 # if the configured value is not set, set it
-                cmd += ' autoneg %s' % autoneg_to_configure
+                cmd_list.append(f"autoneg {autoneg_to_configure}")
+
+                if autoneg_to_configure:
+                    force_speed_apply = False
         else:
             force_set = False
+
+            if force_speed_apply:
+                if not speed_to_configure:
+                    speed_to_configure = default_speed
+                force_set = True
+
             if speed_to_configure:
                 # check running values
                 if utils.get_boolean_from_string(self.get_running_attr('autoneg', ifaceobj) or 'off'):
-                    cmd = 'autoneg off'
+                    cmd_list.append("autoneg off")
                     # if we are transitioning from autoneg 'on' to 'off'
                     # don't check running speed
                     force_set = True
@@ -413,19 +426,21 @@ class ethtool(Addon, moduleBase):
                 running_val = self.get_running_attr('speed', ifaceobj)
                 if force_set or (speed_to_configure != running_val):
                     # if the configured value is not set, set it
-                    cmd += ' speed %s' % speed_to_configure
+                    cmd_list.append(f"speed {speed_to_configure}")
 
             if duplex_to_configure:
                 # check running values
                 running_val = self.get_running_attr('duplex', ifaceobj)
                 if force_set or (duplex_to_configure != running_val):
                     # if the configured value is not set, set it
-                    cmd += ' duplex %s' % duplex_to_configure
+                    cmd_list.append(f"duplex {duplex_to_configure}")
 
-        if cmd:
+        if lane_cmd_str:
+            cmd_list.append(lane_cmd_str)
+
+        if cmd_list:
             try:
-                cmd = ('%s -s %s %s' % (utils.ethtool_cmd, ifaceobj.name, cmd))
-                utils.exec_command(cmd)
+                utils.exec_command(f"{utils.ethtool_cmd} -s {ifaceobj.name} {' '.join(cmd_list)}")
             except Exception as e:
                 if not self.ethtool_ignore_errors:
                     self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
@@ -438,7 +453,7 @@ class ethtool(Addon, moduleBase):
         if not self.cache.link_exists(ifaceobj.name):
             return
 
-        self.do_speed_settings(ifaceobj)
+        self.do_speed_lane_duplex_autoneg_settings(ifaceobj)
         self.do_fec_settings(ifaceobj)
         self.do_lanes_settings(ifaceobj)
         self.do_ring_settings(ifaceobj, 'ring-rx', 'rx')
@@ -455,7 +470,7 @@ class ethtool(Addon, moduleBase):
     def _pre_down(self, ifaceobj):
         if not self.cache.link_exists(ifaceobj.name) or not ifaceobj.name.startswith("swp"):
             return
-        self.do_speed_settings(ifaceobj, down=True)
+        self.do_speed_lane_duplex_autoneg_settings(ifaceobj, down=True)
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         """
@@ -725,6 +740,7 @@ class ethtool(Addon, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
+
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:
