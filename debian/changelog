@@ -19,84 +19,84 @@ ifupdown2 (3.2.0) unstable; urgency=medium
 
 ifupdown2 (3.1.0-1) unstable; urgency=medium
 
-   * New: ifquery-check now validates admin state
-   * New: bond: bond mac should always be inherited from it's first slave
+  * New: ifquery-check now validates admin state
+  * New: bond: bond mac should always be inherited from it's first slave
 
-   * New: macvlan/addressvirtual features:
-	- check interface name lenght and warn if len > 15
-	- sync macvlan forwarding state with lower-device
+  * New: macvlan/addressvirtual features:
+    - check interface name lenght and warn if len > 15
+    - sync macvlan forwarding state with lower-device
 
-   * New: vxlan features:
-	- Single vxlan device support (bridge-vlan-vni-map)
-	New attributes:
-	- vxlan-mcastgrp-map (vxlan multicast group for single-vxlan device)
-	- vxlan-vnifilter (vxlan vni filter for single-vxlan device)
-	- vxlan-remoteip-map (static HREP entries for static single vxlan dev)
-	- vxlan-tos (ToS value)
-	- vxlan-udp-csum (whether to perform checksumming or not)
-	New policy:
-	- vxlan-support-mix-dev-types: allow mix of traditional and single
-	vxlan device (default to yes)
+  * New: vxlan features:
+    - Single vxlan device support (bridge-vlan-vni-map)
+    New attributes:
+    - vxlan-mcastgrp-map (vxlan multicast group for single-vxlan device)
+    - vxlan-vnifilter (vxlan vni filter for single-vxlan device)
+    - vxlan-remoteip-map (static HREP entries for static single vxlan dev)
+    - vxlan-tos (ToS value)
+    - vxlan-udp-csum (whether to perform checksumming or not)
+    New policy:
+    - vxlan-support-mix-dev-types: allow mix of traditional and single
+    vxlan device (default to yes)
 
-   * New: bridge features:
-	- add multi bridge support for bridge_set_static_mac_from_port=yes
-	- check if bridge mac is already inherited from a port
-	- detect VXLAN mis-config VNI "bridge-learning=on" and warn
-	- detect and warn when arp suppression is enabled but no vlan config
-	- bridge-arp-nd-suppress with ifquery --with-default if policy is set
-	- enable ipv6 on SVD brport
-	- enable forwarding on dhcp bridges (fixes: #179)
-	New attribute:
-	- bridge-vlan-vni-map (single vxlan device support)
-	New policy:
-	- bridge_always_up_dummy_brport
+  * New: bridge features:
+    - add multi bridge support for bridge_set_static_mac_from_port=yes
+    - check if bridge mac is already inherited from a port
+    - detect VXLAN mis-config VNI "bridge-learning=on" and warn
+    - detect and warn when arp suppression is enabled but no vlan config
+    - bridge-arp-nd-suppress with ifquery --with-default if policy is set
+    - enable ipv6 on SVD brport
+    - enable forwarding on dhcp bridges (fixes: #179)
+    New attribute:
+    - bridge-vlan-vni-map (single vxlan device support)
+    New policy:
+    - bridge_always_up_dummy_brport
 
-   * New: address features:
-	- warn user if L3-SVI is configured with "ip-forward off"
-	- enable ipv6 before adding new address
-	New policies:
-	- check_l3_svi_ip_forwarding (check ip forward on l3 svi, default off)
-	- ip_blacklist: blacklist specific ip addresses
+  * New: address features:
+    - warn user if L3-SVI is configured with "ip-forward off"
+    - enable ipv6 before adding new address
+    New policies:
+    - check_l3_svi_ip_forwarding (check ip forward on l3 svi, default off)
+    - ip_blacklist: blacklist specific ip addresses
 
-   * New: vlan features:
-	- check vlan-id misconfiguration and print warning
-	New attribute:
-	- vlan-bridge-binding (if enabled link state is no longer automatically
-	transferred from the lower device)
+  * New: vlan features:
+    - check vlan-id misconfiguration and print warning
+    New attribute:
+    - vlan-bridge-binding (if enabled link state is no longer automatically
+    transferred from the lower device)
 
-    * Fix: address: remove stale fdb entry for svi (when hwaddress is used)
-    * Fix: usercmds: Set environment just like the original ifupdown
-    * Fix: update mako template warning (python3-mako)
-    * Fix: batman_adv: fix unresolved reference
+  * Fix: address: remove stale fdb entry for svi (when hwaddress is used)
+  * Fix: usercmds: Set environment just like the original ifupdown
+  * Fix: update mako template warning (python3-mako)
+  * Fix: batman_adv: fix unresolved reference
 
  -- Julien Fortin <jfortin@nvidia.com>  Mon, 05 Jul 2021 23:42:42 +0200
 
 ifupdown2 (3.0.0-1) unstable; urgency=medium
 
-   * New: python3 support
-   * New: attribute alias support
-   * New: bridge-always-up attribute
-   * New: set bridge mtu with policy default
-   * New: ES bond with "es-sys-mac" attribute
-   * New: vxlan attribute: vxlan-mcastgrp-map
-   * New: support for "veth-peer-name" attribute
-   * New: dhcp policy: dhclient_retry_on_failure
-   * New: support for marking interfaces as mgmt interfaces
-   * New: bridge-vlan-vni-map attribute (single vxlan device)
-   * New: dhcp: skipping dhcp configuration if link-down yes
-   * New: vrf-slave: keep vlan down if lower device has "link-down yes"
-   * New: vxlan: support for vxlan-svcnodeip6 and vxlan-mcastgrp6 (fixes #43)
-   * New: support for add ovs-ports-condone-regex attribute (openvswitch)
-   * Fix: dry-run exceptions
-   * Fix: bond enslavement ordering
-   * Fix: process MTU before addrgen
-   * Fix: set bridge MTU after bridge creation
-   * Fix: ifquery-running: incorrect displayed data
-   * Fix: tunnel configuration compatibility with ifupdown1
-   * Fix: start-networking script is back to handle mgmt & hotplug cases
-   * Fix: devices matching with ".{0,13}\-v" could get removed by ifreload
-   * Fix: mstpctl: check mstpctl-stp and bridge-stp and fix bridge cache update
-   * Removing python-argcomplete dependency
+  * New: python3 support
+  * New: attribute alias support
+  * New: bridge-always-up attribute
+  * New: set bridge mtu with policy default
+  * New: ES bond with "es-sys-mac" attribute
+  * New: vxlan attribute: vxlan-mcastgrp-map
+  * New: support for "veth-peer-name" attribute
+  * New: dhcp policy: dhclient_retry_on_failure
+  * New: support for marking interfaces as mgmt interfaces
+  * New: bridge-vlan-vni-map attribute (single vxlan device)
+  * New: dhcp: skipping dhcp configuration if link-down yes
+  * New: vrf-slave: keep vlan down if lower device has "link-down yes"
+  * New: vxlan: support for vxlan-svcnodeip6 and vxlan-mcastgrp6 (fixes #43)
+  * New: support for add ovs-ports-condone-regex attribute (openvswitch)
+  * Fix: dry-run exceptions
+  * Fix: bond enslavement ordering
+  * Fix: process MTU before addrgen
+  * Fix: set bridge MTU after bridge creation
+  * Fix: ifquery-running: incorrect displayed data
+  * Fix: tunnel configuration compatibility with ifupdown1
+  * Fix: start-networking script is back to handle mgmt & hotplug cases
+  * Fix: devices matching with ".{0,13}\-v" could get removed by ifreload
+  * Fix: mstpctl: check mstpctl-stp and bridge-stp and fix bridge cache update
+  * Removing python-argcomplete dependency
 
  -- Julien Fortin <julien@cumulusnetworks.com>  Tue, 04 Aug 2020 23:42:42 +0200
 
