@@ -1244,7 +1244,7 @@ class vxlan(Vxlan, moduleBase):
         # purge any removed remote ip
         old_remoteips = self.get_old_remote_ips(ifaceobj.name)
 
-        if vxlan_purge_remotes or remoteips or (remoteips != old_remoteips):
+        if vxlan_purge_remotes or (isinstance(remoteips,list) and remoteips != old_remoteips):
             # figure out the diff for remotes and do the bridge fdb updates
             # only if provisioned by user and not by an vxlan external
             # controller.
