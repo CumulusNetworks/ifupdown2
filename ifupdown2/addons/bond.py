@@ -901,50 +901,56 @@ class bond(Addon, moduleBase):
                 bond_slaves,
                 ifaceobj_getfunc,
             )
-
-            if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
-                return
-
-            # check if the bond mac address is correctly inherited from it's
-            # first slave. There's a case where that might not be happening:
-            # $ ip link show swp1 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show swp2 | grep ether
-            #    link/ether 08:00:27:04:d8:02 brd ff:ff:ff:ff:ff:ff
-            # $ ip link add dev bond0 type bond
-            # $ ip link set dev swp1 master bond0
-            # $ ip link set dev swp2 master bond0
-            # $ ip link show bond0 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link add dev bond1 type bond
-            # $ ip link set dev swp1 master bond1
-            # $ ip link show swp1 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show swp2 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show bond0 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show bond1 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $
-            # ifupdown2 will automatically correct and fix this unexpected behavior
-            bond_mac = self.cache.get_link_address(ifaceobj.name)
-
-            if bond_slaves:
-                first_slave_ifname = bond_slaves[0]
-                first_slave_mac = self.cache.get_link_info_slave_data_attribute(
-                    first_slave_ifname,
-                    Link.IFLA_BOND_SLAVE_PERM_HWADDR
-                )
-
-                if first_slave_mac and bond_mac != first_slave_mac:
-                    self.logger.info(
-                        "%s: invalid bond mac detected - resetting to %s's mac (%s)"
-                        % (ifaceobj.name, first_slave_ifname, first_slave_mac)
-                    )
-                    self.netlink.link_set_address(ifaceobj.name, first_slave_mac, utils.mac_str_to_int(first_slave_mac))
+            self.set_bond_mac(link_exists, ifaceobj, bond_slaves)
         except Exception as e:
             self.log_error(str(e), ifaceobj)
+
+    def set_bond_mac(self, link_exists, ifaceobj, bond_slaves):
+        if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
+            return
+
+        # check if the bond mac address is correctly inherited from it's
+        # first slave. There's a case where that might not be happening:
+        # $ ip link show swp1 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show swp2 | grep ether
+        #    link/ether 08:00:27:04:d8:02 brd ff:ff:ff:ff:ff:ff
+        # $ ip link add dev bond0 type bond
+        # $ ip link set dev swp1 master bond0
+        # $ ip link set dev swp2 master bond0
+        # $ ip link show bond0 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link add dev bond1 type bond
+        # $ ip link set dev swp1 master bond1
+        # $ ip link show swp1 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show swp2 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show bond0 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show bond1 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $
+        # ifupdown2 will automatically correct and fix this unexpected behavior
+        # Although if the bond's mac belongs to any of its slave we won't update it
+        bond_mac = self.cache.get_link_address(ifaceobj.name)
+
+        # Get the list of slave macs
+        bond_slave_macs = map(
+            lambda slave_ifname: self.cache.get_link_info_slave_data_attribute(slave_ifname, Link.IFLA_BOND_SLAVE_PERM_HWADDR),
+            bond_slaves
+        )
+
+        if bond_slaves and bond_mac not in bond_slave_macs:
+            first_slave_ifname = bond_slaves[0]
+            first_slave_mac = list(bond_slave_macs)[0]
+
+            if first_slave_mac and bond_mac != first_slave_mac:
+                self.logger.info(
+                    "%s: invalid bond mac detected - resetting to %s's mac (%s)"
+                    % (ifaceobj.name, first_slave_ifname, first_slave_mac)
+                )
+                self.netlink.link_set_address(ifaceobj.name, first_slave_mac, utils.mac_str_to_int(first_slave_mac))
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         bond_slaves = self.cache.get_slaves(ifaceobj.name)
