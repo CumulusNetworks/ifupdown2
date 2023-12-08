@@ -37,6 +37,7 @@ process_etc_network_interfaces()
         if [ -z "$2" ]; then
             echo "Creating /etc/network/interfaces."
             echo "# interfaces(5) file used by ifup(8) and ifdown(8)" > /etc/network/interfaces
+            echo "source /etc/network/interfaces.d/*" >> /etc/network/interfaces
             echo "auto lo" >> /etc/network/interfaces
             echo "iface lo inet loopback" >> /etc/network/interfaces
         else
