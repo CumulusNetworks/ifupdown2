@@ -2509,7 +2509,7 @@ class bridge(Bridge, moduleBase):
             self.log_error(str(e), ifaceobj)
 
         if single_vxlan_device_ifaceobj:
-            self.apply_bridge_port_vlan_vni_map(single_vxlan_device_ifaceobj)
+            self.apply_bridge_port_vlan_vni_map(ifaceobj, single_vxlan_device_ifaceobj)
 
     @staticmethod
     def range_to_string(range_start, range_end):
@@ -2590,11 +2590,14 @@ class bridge(Bridge, moduleBase):
         list_to_range(current_vlan_range, current_vni_range, vlan_vni_ranges)
         return vlan_vni_ranges
 
-    def check_bridge_vlan_vni_map_reserved(self, ifaceobj, vlan_to_add):
+    def check_bridge_vlan_vni_map_reserved(self, bridge_ifaceobj, ifaceobj, vlan_to_add):
+        if bridge_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_l3VNI or ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_l3VNI:
+            # No need to check for vlan in the reserved range for l3vni bridge
+            return
         for vlan in sorted(vlan_to_add):
             self._handle_reserved_vlan(vlan, ifaceobj.name)
 
-    def apply_bridge_port_vlan_vni_map(self, ifaceobj):
+    def apply_bridge_port_vlan_vni_map(self, bridge_ifaceobj, ifaceobj):
         """
         bridge vlan add vid <vlan-id> dev vxlan0
         bridge vlan add dev vxlan0 vid <vlan-id> tunnel_info id <vni>
@@ -2638,7 +2641,7 @@ class bridge(Bridge, moduleBase):
             self.check_duplicate_vnis(ifaceobj, vlan_vni_to_add)
 
             # check reserved vlans
-            self.check_bridge_vlan_vni_map_reserved(ifaceobj, vlan_vni_to_add.keys())
+            self.check_bridge_vlan_vni_map_reserved(bridge_ifaceobj, ifaceobj, vlan_vni_to_add.keys())
 
             vlan_vni_ranges_to_add = self.get_vlan_vni_ranges_from_dict(ifaceobj.name, vlan_vni_to_add)
 
