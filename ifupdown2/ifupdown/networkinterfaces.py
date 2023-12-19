@@ -30,7 +30,7 @@ class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
 
     _addrfams = {'inet' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'ppp', 'tunnel'],
-                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'ppp', 'tunnel']}
+                 'inet6' : ['static', 'manual', 'loopback', 'dhcp', 'dhcp6', 'ppp', 'tunnel', 'auto']}
     # tunnel is part of the address family for backward compatibility but is not required.
 
     def __init__(self, interfacesfile='/etc/network/interfaces',

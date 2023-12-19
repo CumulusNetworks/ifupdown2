@@ -289,6 +289,8 @@ class ifaceJsonEncoder(json.JSONEncoder):
         if o.addr_method:
             if 'inet' in o.addr_family and 'dhcp' in o.addr_method:
                 retifacedict['addr_method'] = 'dhcp'
+            elif 'inet6' in o.addr_family and 'auto' in o.addr_method:
+                retifacedict['addr_method'] = 'auto'
             else:
                 retifacedict['addr_method'] = o.addr_method
         if o.addr_family:
@@ -843,6 +845,8 @@ class iface():
                 # both inet and inet6 addr_family
                 if addr_method and family == 'inet' and 'dhcp' in addr_method:
                     addr_method = 'dhcp'
+                elif addr_method and family == 'inet6' and 'auto' in addr_method:
+                    addr_method = 'auto'
                 self._dump_pretty(family, first,
                                   addr_method=addr_method,
                                   with_status=with_status,
