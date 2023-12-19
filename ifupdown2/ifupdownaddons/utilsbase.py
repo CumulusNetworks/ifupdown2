@@ -4,7 +4,9 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import os
 import time
+import errno
 import logging
 
 try:
@@ -36,6 +38,21 @@ class utilsBase(object):
     def __init__(self, *args, **kargs):
         modulename = self.__class__.__name__
         self.logger = logging.getLogger('ifupdown.' + modulename)
+
+    def pid_exists(self, pidfilename, progname):
+        if os.path.exists(pidfilename):
+            pid = self.read_file_oneline(pidfilename)
+            try:
+                return os.readlink(f"/proc/{pid}/exe").endswith(progname)
+            except OSError as e:
+                try:
+                    if e.errno == errno.EACCES:
+                        return os.path.exists(f"/proc/{pid}")
+                except Exception:
+                    return False
+            except Exception:
+                return False
+        return False
 
     def write_file(self, filename, strexpr):
         try:

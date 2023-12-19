@@ -16,7 +16,7 @@ import logging
 import subprocess
 import itertools
 
-from functools import partial
+from functools import partial, reduce
 from ipaddress import IPv4Address
 
 try:
@@ -568,5 +568,12 @@ class utils():
                 cls.logger.error("invalid vlan mcast grp map entry - %s (%s)" % (ventry, str(e)))
                 raise
         return vnid
+
+    @staticmethod
+    def dig(data, *args, default=None):
+        NotFoundDict = type('NoneDict', (dict,), {})
+        ret = reduce(lambda d, key: d.get(key, NotFoundDict()), args, data)
+        return default if isinstance(ret, NotFoundDict) else ret
+
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
