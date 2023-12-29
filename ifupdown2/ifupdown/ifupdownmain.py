@@ -1433,6 +1433,10 @@ class ifupdownMain:
                         if self.modules.get(mname):
                             continue
                         mpath = modules_dir + '/' + mname + '.py'
+                        if not os.path.exists(mpath):
+                            mpathc = modules_dir + '/' + mname + '.pyc'
+                            if os.path.exists(mpathc):
+                                mpath = mpathc
                         if os.path.exists(mpath) and mpath not in failed_import:
                             try:
                                 m = __import__(mname)
