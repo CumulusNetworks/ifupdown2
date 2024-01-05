@@ -936,14 +936,18 @@ class bond(Addon, moduleBase):
         bond_mac = self.cache.get_link_address(ifaceobj.name)
 
         # Get the list of slave macs
-        bond_slave_macs = map(
-            lambda slave_ifname: self.cache.get_link_info_slave_data_attribute(slave_ifname, Link.IFLA_BOND_SLAVE_PERM_HWADDR),
+        bond_slave_macs = list(map(
+            lambda slave_ifname: self.cache.get_link_info_slave_data_attribute(
+                slave_ifname,
+                Link.IFLA_BOND_SLAVE_PERM_HWADDR,
+                default=list()
+            ),
             bond_slaves
-        )
+        ))
 
-        if bond_slaves and bond_mac not in bond_slave_macs:
+        if bond_slaves and bond_slave_macs and bond_mac not in bond_slave_macs:
             first_slave_ifname = bond_slaves[0]
-            first_slave_mac = list(bond_slave_macs)[0]
+            first_slave_mac = bond_slave_macs[0]
 
             if first_slave_mac and bond_mac != first_slave_mac:
                 self.logger.info(
