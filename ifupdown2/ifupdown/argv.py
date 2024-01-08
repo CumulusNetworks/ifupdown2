@@ -142,14 +142,21 @@ class Parse:
                 help='interface list separated by spaces. ')
         argparser.add_argument('-a', '--all', action='store_true',
                 help='process all interfaces (limited by  --allow= filter)')
-        argparser.add_argument('--allow', dest='CLASS', action='append',
+        allow_group = argparser.add_mutually_exclusive_group(required=False)
+        allow_group.add_argument('--allow', dest='CLASS', action='append',
                 help='ignore non-"allow-CLASS" interfaces (default is [auto] when -a/--all else [])')
+        # For ifupdown compatibility, '--all' implies '--allow auto'. '--allow-all' parameter offers
+        # a way to have all interfaces without implicit filter.
+        allow_group.add_argument('--allow-all', action='store_true',
+                help='ensure non-"allow-CLASS" is set to []')
 
     def argparser_interfaces_selection_post_validate(self):
         """ Set and validate interfaces selection options """
 
-        # Default filter scope is auto/allow-auto when -a/--all option is set
-        if self.args.all and not self.args.CLASS:
+        if self.args.allow_all:
+            self.args.CLASS = []
+        elif self.args.all and not self.args.CLASS:
+            # Default filter scope is auto/allow-auto when -a/--all option is set
             self.args.CLASS = ['auto']
 
         if self.args.iflist and self.args.all:
