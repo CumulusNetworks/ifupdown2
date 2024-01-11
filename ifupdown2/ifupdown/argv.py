@@ -215,6 +215,7 @@ class Parse:
                                 'currently up regardless of whether an interface has '
                                 '"auto <interface>" configuration within the /etc/network/interfaces file.')
         group.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
+        argparser.add_argument("--diff", action="store_true", help="diff based approach - only up/down what is really necessary")
         argparser.add_argument('iflist', metavar='IFACE', nargs='*', help=argparse.SUPPRESS)
         argparser.add_argument('-n', '--no-act', dest='noact', action='store_true',
                                help='print out what would happen, but don\'t do it')

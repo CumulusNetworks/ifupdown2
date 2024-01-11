@@ -116,7 +116,12 @@ class ifupdownMain:
         # But do allow user to change state of the link if the interface
         # is already with its link master (hence the master check).
         if ifaceobj.link_type == ifaceLinkType.LINK_SLAVE:
-            return
+            if self.diff_based:
+                self.logger.debug(
+                    f"{ifaceobj.name}: diff based approach will try to link-up this slave device"
+                )
+            else:
+                return
         if not self.link_exists(ifaceobj.name):
             return
         if self._keep_link_down(ifaceobj):
@@ -184,7 +189,10 @@ class ifupdownMain:
     def run_sched_ifaceobj_posthook(self, ifaceobj, op):
         if (ifaceobj.priv_flags and (ifaceobj.priv_flags.BUILTIN or
             ifaceobj.priv_flags.NOCONFIG)):
-            return
+            if not self.diff_based:
+                return
+            else:
+                self.logger.debug(f"{ifaceobj.name}: diff based approach will save this empty ifaceobj")
         if self.flags.STATEMANAGER_UPDATE:
             self.statemanager.ifaceobj_sync(ifaceobj, op)
 
@@ -427,6 +435,8 @@ class ifupdownMain:
             '<interface-yes-no-auto-list>': self._keyword_interface_yes_no_auto_list,
             '<interface-l2protocol-tunnel-list>': self._keyword_interface_l2protocol_tunnel_list
         }
+
+        self.diff_based = False
 
     def _get_mgmt_iface_default_prefix(self):
         mgmt_iface_default_prefix = None
@@ -2163,8 +2173,11 @@ class ifupdownMain:
 
     def _reload_default(self, upops, downops, auto=False, allow=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
-            syntaxcheck=False, **extra_args):
+            syntaxcheck=False, diff=False, **extra_args):
         """ reload interface config """
+
+        ifupdownConfig.diff_mode = self.diff_based = diff
+
         new_ifaceobjdict = {}
 
 
@@ -2396,6 +2409,19 @@ class ifupdownMain:
         self.ifaceobjdict = new_ifaceobjdict
         self.dependency_graph = new_dependency_graph
 
+        if diff:
+            new_filtered_ifacenames = list(
+                self.get_diff_ifaceobjs(new_ifaceobjdict)
+            )
+
+        if not new_filtered_ifacenames:
+            self.logger.info(
+                "nothing changed since the last reload, exiting."
+                if self.diff_based else
+                "nothing to reload - exiting."
+            )
+            return 0
+
         self.logger.info('reload: scheduling up on interfaces: %s'
                          %str(new_filtered_ifacenames))
         ifupdownflags.flags.CACHE = True
@@ -2415,6 +2441,20 @@ class ifupdownMain:
 
         if not iface_read_ret or not ret:
             raise MainException()
+
+    def get_diff_ifaceobjs(self, ifaceobj_dict):
+        diff_ifname = set()
+        for ifname, ifaceobjs in ifaceobj_dict.items():
+            old_ifaceobjs = statemanager_api.ifaceobjdict.get(ifname)
+
+            if not old_ifaceobjs:
+                diff_ifname.add(ifname)
+                continue
+
+            for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
+                if new != old:
+                    diff_ifname.add(ifname)
+        return diff_ifname
 
     def reload(self, *args, **kargs):
         """ reload interface config """

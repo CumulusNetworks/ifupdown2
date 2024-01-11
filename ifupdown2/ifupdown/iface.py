@@ -454,6 +454,15 @@ class iface():
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
 
+    def __eq__(self, other):
+        return (
+                isinstance(other, iface) and
+                self.name == other.name and
+                self.config == other.config and
+                self.addr_family == other.addr_family and
+                self.addr_method == other.addr_method
+        )
+
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
         self.name = attrdict.get('name')

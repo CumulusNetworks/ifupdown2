@@ -8,6 +8,7 @@
 class ifupdownConfig():
 
 	def __init__(self):
+		self.diff_mode = False
 		self.conf = {}
 
 config = ifupdownConfig()

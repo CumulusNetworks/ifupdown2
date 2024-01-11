@@ -279,4 +279,5 @@ class Ifupdown2:
                                excludepats=args.excludepats,
                                usecurrentconfig=args.usecurrentconfig,
                                syntaxcheck=args.syntaxcheck,
-                               currentlyup=args.currentlyup)
+                               currentlyup=args.currentlyup,
+                               diff=args.diff)
