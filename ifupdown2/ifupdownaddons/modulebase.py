@@ -447,7 +447,7 @@ class moduleBase(object):
     def _get_vrf_context(self):
         vrfid = 'default'
         try:
-            vrfid = utils.exec_command('/usr/sbin/ip vrf id').strip()
+            vrfid = utils.exec_command('%s vrf id' % utils.ip_cmd).strip()
         except Exception as e:
             self.logger.debug('failed to get vrf id (%s)' %str(e))
             # ignore errors

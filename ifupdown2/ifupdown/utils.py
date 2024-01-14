@@ -18,6 +18,7 @@ import itertools
 
 from functools import partial
 from ipaddress import IPv4Address
+from shutil import which
 
 try:
     from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags
@@ -108,6 +109,7 @@ class utils():
     systemctl_cmd   = '/bin/systemctl'
     dpkg_cmd        = '/usr/bin/dpkg'
 
+
     logger.info("utils init command paths")
     for cmd in ['bridge',
                 'ip',
@@ -125,16 +127,29 @@ class utils():
                 'systemctl',
                 'dpkg'
                 ]:
-        if os.path.exists(vars()[cmd + '_cmd']):
+        # If we can find utilities in $PATH we take them.
+        which_cmd = which(cmd)
+        var_name = cmd + '_cmd'
+
+        logger.setLevel(logging.DEBUG)
+        if which(cmd):
+            vars()[var_name] = which_cmd
+            print('ASDF: %s is set to %s through PATH' % (var_name, which_cmd))
+            logger.debug('%s is set to %s through PATH', var_name, which_cmd)
+            continue
+        if os.path.exists(vars()[var_name]):
             continue
         for path in ['/bin/',
                      '/sbin/',
                      '/usr/bin/',
                      '/usr/sbin/',]:
             if os.path.exists(path + cmd):
-                vars()[cmd + '_cmd'] = path + cmd
+                vars()[var_name] = path + cmd
+                print('ASDF: %s is set to %s through common bin paths' % (var_name, path + cmd))
+                logger.debug('%s is set to %s through common bin paths', var_name, path + cmd)
             else:
-                logger.debug('warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
+                print('ASDF: warning: path %s not found: %s won\'t be usable' % (path + cmd, cmd))
+                logger.debug('warning: path %s not found: %s won\'t be usable', path + cmd, cmd)
 
     mac_translate_tab = str.maketrans(":.-,", "    ")
 
