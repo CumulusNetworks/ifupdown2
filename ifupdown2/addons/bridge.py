@@ -179,10 +179,12 @@ class bridge(Bridge, moduleBase):
                 "example": ["bridge-mcquerier no"]
             },
             "bridge-hashel": {
-                "help": "set hash elasticity",
-                "validrange": ["0", "4096"],
-                "default": "4",
-                "example": ["bridge-hashel 4096"]
+                "help": "Set multicast database hash elasticity, It is the maximum chain length in the "
+                        "multicast hash table. This attribute is deprecated and the value is always 16.",
+                "validval": ["16"],
+                "default": "16",
+                "example": ["bridge-hashel 16"],
+                "deprecated": True
             },
             "bridge-hashmax": {
                 "help": "set hash max",
