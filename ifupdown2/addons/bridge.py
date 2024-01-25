@@ -1228,7 +1228,7 @@ class bridge(Bridge, moduleBase):
         self.log_error(bridgeifaceobj.name + ': ' + errstr, bridgeifaceobj)
 
     def _add_ports(self, ifaceobj, ifaceobj_getfunc):
-        bridgeports = self._get_bridge_port_list(ifaceobj) or []
+        bridgeports = self._get_bridge_port_list(ifaceobj)
         bridgeportscondoneregex = self._get_bridge_port_condone_regex(ifaceobj)
         runningbridgeports = []
 
@@ -3718,14 +3718,14 @@ class bridge(Bridge, moduleBase):
         return self.get_ifaceobj_bridge_vids(ifaceobj)[1]
 
     def _get_bridge_vids(self, bridgename, ifaceobj_getfunc):
-        ifaceobjs = ifaceobj_getfunc(bridgename)
+        ifaceobjs = ifaceobj_getfunc(bridgename) or []
         for ifaceobj in ifaceobjs:
             vids = self.get_ifaceobj_bridge_vids_value(ifaceobj)
             if vids: return re.split(r'[\s\t,]\s*', vids)
         return None
 
     def _get_bridge_pvid(self, bridgename, ifaceobj_getfunc):
-        ifaceobjs = ifaceobj_getfunc(bridgename)
+        ifaceobjs = ifaceobj_getfunc(bridgename) or []
         pvid = None
         for ifaceobj in ifaceobjs:
             pvid = ifaceobj.get_attr_value_first('bridge-pvid')

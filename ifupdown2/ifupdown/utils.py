@@ -625,18 +625,5 @@ class utils():
             return None
         return portlist
 
-    @classmethod
-    def _get_bridge_port_list(cls, ifaceobj):
-        # port list is also available in the previously
-        # parsed dependent list. Use that if available, instead
-        # of parsing port expr again
-        port_list = ifaceobj.lowerifaces
-        if port_list:
-            return port_list
-        ports = utils._get_ifaceobj_bridge_ports(ifaceobj)
-        if ports:
-            return utils.parse_port_list(ifaceobj.name, ports)
-        else:
-            return None
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
