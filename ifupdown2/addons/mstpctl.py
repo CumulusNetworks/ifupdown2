@@ -370,9 +370,8 @@ class mstpctl(Addon, moduleBase):
             return port_list
         ports = ifaceobj.get_attr_value_first('mstpctl-ports')
         if ports:
-            return self.parse_port_list(ifaceobj.name, ports)
-        else:
-            return None
+            ports = self.parse_port_list(ifaceobj.name, ports)
+        return ports or []
 
     def _ports_enable_disable_ipv6(self, ports, enable='1'):
         for p in ports:

@@ -147,7 +147,7 @@ class Bridge(Addon):
 
         if ifaceobj.link_kind & ifaceLinkKind.BRIDGE and not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
             for port in self._get_bridge_port_list(ifaceobj) or []:
-                for brport_ifaceobj in ifaceobj_getfunc(port):
+                for brport_ifaceobj in ifaceobj_getfunc(port) or []:
                     if brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN:
                         ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
                         self.__check_l3vni_bridge(ifaceobj)
@@ -192,9 +192,8 @@ class Bridge(Addon):
             return port_list
         ports = self._get_ifaceobj_bridge_ports(ifaceobj)
         if ports:
-            return self.parse_port_list(ifaceobj.name, ports)
-        else:
-            return None
+            ports = self.parse_port_list(ifaceobj.name, ports)
+        return ports or []
 
 
 class AddonWithIpBlackList(Addon):

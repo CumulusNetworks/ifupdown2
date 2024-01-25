@@ -150,7 +150,7 @@ class vlan(Addon, moduleBase):
 
         bridge_ifaceobjs = ifaceobj_getfunc(vlanrawdevice)
         if any(map(lambda b: b.link_kind == ifaceLinkKind.BRIDGE, bridge_ifaceobjs)):
-            bridge_ports = [ port for b in bridge_ifaceobjs for ports in (self._get_bridge_port_list(b) or []) for port in (ifaceobj_getfunc(ports) or []) ]
+            bridge_ports = [ port for b in bridge_ifaceobjs for ports in (utils._get_bridge_port_list(b) or []) for port in ifaceobj_getfunc(ports) ]
             bridge_is_vxlan = any(map(lambda p: p.link_kind == ifaceLinkKind.VXLAN, bridge_ports))
         else:
             bridge_is_vxlan = False
