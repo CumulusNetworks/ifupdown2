@@ -1,0 +1,127 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge",
+    "auto": true,
+    "config": {
+      "bridge-vlan-aware": "yes",
+      "bridge-ports": "swp_AA_ swp_BB_ vxlan1000 vxlan10200",
+      "bridge-stp": "yes",
+      "bridge-pvid": "1",
+      "bridge-vids": "100 200"
+    },
+    "config_status": {
+      "bridge-vlan-aware": "pass",
+      "bridge-ports": "pass",
+      "bridge-stp": "pass",
+      "bridge-pvid": "",
+      "bridge-vids": ""
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vxlan1000",
+    "auto": true,
+    "config": {
+      "vxlan-id": "1000",
+      "bridge-access": "100",
+      "vxlan-local-tunnelip": "27.0.0.11"
+    },
+    "config_status": {
+      "vxlan-id": "pass",
+      "bridge-access": "pass",
+      "vxlan-local-tunnelip": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vxlan10200",
+    "auto": true,
+    "config": {
+      "bridge-learning": "on",
+      "vxlan-id": "10200",
+      "vxlan-remoteip": "6.0.0.16",
+      "bridge-access": "200",
+      "vxlan-local-tunnelip": "6.0.0.15"
+    },
+    "config_status": {
+      "bridge-learning": "pass",
+      "vxlan-id": "pass",
+      "vxlan-remoteip": "pass",
+      "bridge-access": "pass",
+      "vxlan-local-tunnelip": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.100",
+    "auto": true,
+    "config": {
+      "address": "45.0.0.16/26"
+    },
+    "config_status": {
+      "address": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.200",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "vx0",
+    "auto": true,
+    "config": {
+      "vxlan-ageing": "30",
+      "vxlan-local-tunnelip": "172.16.20.105",
+      "vxlan-svcnodeip": "172.16.22.126",
+      "vxlan-id": "42",
+      "vxlan-learning": "yes",
+      "vxlan-remoteip": "172.16.22.128"
+    },
+    "config_status": {
+      "vxlan-ageing": "pass",
+      "vxlan-local-tunnelip": "pass",
+      "vxlan-svcnodeip": "pass",
+      "vxlan-id": "pass",
+      "vxlan-learning": "pass",
+      "vxlan-remoteip": "pass"
+    },
+    "status": "pass"
+  }
+]

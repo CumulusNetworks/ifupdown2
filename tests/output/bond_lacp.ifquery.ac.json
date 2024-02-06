@@ -1,0 +1,103 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond4",
+    "auto": true,
+    "config": {
+      "bond-lacp-rate": "slow",
+      "bond-lacp-bypass-allow": "yes",
+      "bond-mode": "802.3ad",
+      "bond-slaves": "swp_EE_"
+    },
+    "config_status": {
+      "bond-lacp-rate": "pass",
+      "bond-lacp-bypass-allow": "pass",
+      "bond-mode": "pass",
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond7",
+    "auto": true,
+    "config": {
+      "bond-lacp-rate": "fast",
+      "bond-lacp-bypass-allow": "no",
+      "bond-mode": "802.3ad",
+      "bond-slaves": "swp_HH_"
+    },
+    "config_status": {
+      "bond-lacp-rate": "pass",
+      "bond-lacp-bypass-allow": "pass",
+      "bond-mode": "pass",
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond8",
+    "auto": true,
+    "config": {
+      "bond-lacp-rate": "0",
+      "bond-lacp-bypass-allow": "0",
+      "bond-mode": "802.3ad",
+      "bond-slaves": "swp_II_"
+    },
+    "config_status": {
+      "bond-lacp-rate": "pass",
+      "bond-lacp-bypass-allow": "pass",
+      "bond-mode": "pass",
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond9",
+    "auto": true,
+    "config": {
+      "bond-lacp-rate": "1",
+      "bond-lacp-bypass-allow": "1",
+      "bond-mode": "802.3ad",
+      "bond-slaves": "swp_JJ_"
+    },
+    "config_status": {
+      "bond-lacp-rate": "pass",
+      "bond-lacp-bypass-allow": "pass",
+      "bond-mode": "pass",
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  }
+]

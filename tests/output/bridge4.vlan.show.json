@@ -1,0 +1,51 @@
+[
+  {
+    "ifname": "swp_AA_",
+    "vlans": [
+      {
+        "vlan": 1,
+        "vlanEnd": 3,
+        "flags": []
+      },
+      {
+        "vlan": 4,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      },
+      {
+        "vlan": 5,
+        "vlanEnd": 20,
+        "flags": []
+      }
+    ]
+  },
+  {
+    "ifname": "swp_BB_",
+    "vlans": [
+      {
+        "vlan": 3,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      },
+      {
+        "vlan": 40
+      }
+    ]
+  },
+  {
+    "ifname": "bridge",
+    "vlans": [
+      {
+        "vlan": 1,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      }
+    ]
+  }
+]

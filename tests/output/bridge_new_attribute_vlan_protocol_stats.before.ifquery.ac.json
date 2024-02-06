@@ -1,0 +1,67 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br0",
+    "auto": true,
+    "config": {
+      "bridge-vlan-protocol": "802.1ad",
+      "bridge-vlan-stats": "on",
+      "bridge-vlan-aware": "yes",
+      "bridge-ports": "swp_AA_"
+    },
+    "config_status": {
+      "bridge-vlan-protocol": "pass",
+      "bridge-vlan-stats": "pass",
+      "bridge-vlan-aware": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br1",
+    "auto": true,
+    "config": {
+      "bridge-vlan-protocol": "802.1ad",
+      "bridge-vlan-stats": "off",
+      "bridge-ports": "swp_BB_"
+    },
+    "config_status": {
+      "bridge-vlan-protocol": "pass",
+      "bridge-vlan-stats": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  }
+]

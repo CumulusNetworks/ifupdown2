@@ -1,0 +1,59 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_AA_",
+    "auto": true,
+    "config": {
+      "link-down": "yes"
+    },
+    "config_status": {
+      "link-down": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br1",
+    "auto": true,
+    "config": {
+      "address-virtual": "44:39:39:FF:30:00 10.8.22.1/23 2001:0388:6080:0340::1/64",
+      "bridge-ports": "swp_AA_.3000"
+    },
+    "config_status": {
+      "address-virtual": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  }
+]

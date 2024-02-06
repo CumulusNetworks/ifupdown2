@@ -1,0 +1,51 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto bridge
+iface bridge
+        bridge-vlan-aware yes
+        bridge-ports swp_AA_ swp_BB_ vxlan1000 vxlan10200
+        bridge-stp on
+        bridge-vids 100 200
+        bridge-pvid 1
+
+auto vxlan1000
+iface vxlan1000
+        vxlan-id 1000
+        bridge-access 100
+        vxlan-local-tunnelip 27.0.0.11
+        mstpctl-portbpdufilter yes
+        mstpctl-bpduguard yes
+
+auto vxlan10200
+iface vxlan10200
+        vxlan-id 10200
+        vxlan-local-tunnelip 6.0.0.15
+        vxlan-remoteip 6.0.0.16
+        bridge-learning on
+        bridge-access 200
+
+auto bridge.100
+iface bridge.100
+        address 45.0.0.16/26
+
+auto bridge.200
+iface bridge.200
+
+auto vx0
+iface vx0
+      vxlan-id 42
+      vxlan-ageing 30
+      vxlan-local-tunnelip 172.16.20.105
+      vxlan-svcnodeip 172.16.22.126
+      vxlan-remoteip 172.16.22.128
+      vxlan-learning yes
+      vxlan-purge-remotes yes

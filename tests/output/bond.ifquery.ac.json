@@ -1,0 +1,167 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond0",
+    "auto": true,
+    "config": {
+      "bond-use-carrier": "yes",
+      "bond-miimon": "0",
+      "bond-min-links": "0",
+      "bond-slaves": "swp_AA_",
+      "bond-mode": "balance-rr",
+      "bond-num-unsol-na": "0",
+      "bond-updelay": "0",
+      "bond-xmit-hash-policy": "layer2",
+      "bond-num-grat-arp": "0"
+    },
+    "config_status": {
+      "bond-use-carrier": "pass",
+      "bond-miimon": "pass",
+      "bond-min-links": "pass",
+      "bond-slaves": "pass",
+      "bond-mode": "pass",
+      "bond-num-unsol-na": "pass",
+      "bond-updelay": "pass",
+      "bond-xmit-hash-policy": "pass",
+      "bond-num-grat-arp": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond1",
+    "auto": true,
+    "config": {
+      "bond-use-carrier": "no",
+      "bond-miimon": "255",
+      "bond-min-links": "255",
+      "bond-slaves": "swp_BB_",
+      "bond-mode": "active-backup",
+      "bond-num-unsol-na": "255",
+      "bond-updelay": "65535",
+      "bond-xmit-hash-policy": "layer3+4",
+      "bond-num-grat-arp": "255"
+    },
+    "config_status": {
+      "bond-use-carrier": "pass",
+      "bond-miimon": "pass",
+      "bond-min-links": "pass",
+      "bond-slaves": "pass",
+      "bond-mode": "pass",
+      "bond-num-unsol-na": "pass",
+      "bond-updelay": "pass",
+      "bond-xmit-hash-policy": "pass",
+      "bond-num-grat-arp": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond2",
+    "auto": true,
+    "config": {
+      "bond-use-carrier": "0",
+      "bond-miimon": "1",
+      "bond-min-links": "1",
+      "bond-slaves": "swp_CC_",
+      "bond-mode": "balance-xor",
+      "bond-num-unsol-na": "1",
+      "bond-updelay": "1",
+      "bond-xmit-hash-policy": "layer2+3",
+      "bond-num-grat-arp": "1"
+    },
+    "config_status": {
+      "bond-use-carrier": "pass",
+      "bond-miimon": "pass",
+      "bond-min-links": "pass",
+      "bond-slaves": "pass",
+      "bond-mode": "pass",
+      "bond-num-unsol-na": "pass",
+      "bond-updelay": "pass",
+      "bond-xmit-hash-policy": "pass",
+      "bond-num-grat-arp": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond3",
+    "auto": true,
+    "config": {
+      "bond-use-carrier": "1",
+      "bond-miimon": "42",
+      "bond-min-links": "42",
+      "bond-slaves": "swp_DD_",
+      "bond-mode": "broadcast",
+      "bond-num-unsol-na": "42",
+      "bond-updelay": "42",
+      "bond-num-grat-arp": "42"
+    },
+    "config_status": {
+      "bond-use-carrier": "pass",
+      "bond-miimon": "pass",
+      "bond-min-links": "pass",
+      "bond-slaves": "pass",
+      "bond-mode": "pass",
+      "bond-num-unsol-na": "pass",
+      "bond-updelay": "pass",
+      "bond-num-grat-arp": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond5",
+    "auto": true,
+    "config": {
+      "bond-mode": "balance-tlb",
+      "bond-slaves": "swp_FF_"
+    },
+    "config_status": {
+      "bond-mode": "pass",
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond6",
+    "auto": true,
+    "config": {
+      "bond-mode": "balance-alb",
+      "bond-slaves": "swp_GG_"
+    },
+    "config_status": {
+      "bond-mode": "pass",
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  }
+]

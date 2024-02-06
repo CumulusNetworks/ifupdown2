@@ -1,0 +1,100 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_AA_",
+    "auto": true,
+    "config": {
+      "ip-forward": "off"
+    },
+    "config_status": {
+      "ip-forward": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_BB_",
+    "auto": true,
+    "config": {
+      "ip6-forward": "off"
+    },
+    "config_status": {
+      "ip6-forward": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br2",
+    "auto": true,
+    "config": {
+      "bridge-ports": "swp_DD_ swp_EE_",
+      "bridge-mcstats": "off",
+      "ip-forward": "on"
+    },
+    "config_status": {
+      "bridge-ports": "pass",
+      "bridge-mcstats": "pass",
+      "ip-forward": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vlan100",
+    "auto": true,
+    "config": {
+      "vlan-raw-device": "swp_CC_",
+      "vlan-id": "100",
+      "vlan-protocol": "802.1ad"
+    },
+    "config_status": {
+      "vlan-raw-device": "pass",
+      "vlan-id": "pass",
+      "vlan-protocol": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br3",
+    "auto": true,
+    "config": {
+      "bridge-ports": "swp_FF_",
+      "bridge-mcstats": "off"
+    },
+    "config_status": {
+      "bridge-ports": "pass",
+      "bridge-mcstats": "pass"
+    },
+    "status": "pass"
+  }
+]

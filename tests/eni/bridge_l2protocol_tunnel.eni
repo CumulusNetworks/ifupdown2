@@ -1,0 +1,28 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto br_vlan_unaware
+iface br_vlan_unaware
+      bridge-ports swp_AA_ swp_BB_ swp_CC_ swp_DD_ swp_EE_
+      bridge-l2protocol-tunnel swp_AA_=lacp,pvst swp_BB_=stp,cdp swp_CC_=all swp_DD_=lldp
+
+auto br_vlan_aware
+iface br_vlan_aware
+      bridge-ports swp_FF_ swp_GG_
+      bridge-vlan-aware yes
+
+auto swp_GG_
+iface swp_GG_
+      bridge-l2protocol-tunnel all
+
+auto swp_FF_
+iface swp_FF_
+      bridge-l2protocol-tunnel stp lacp lldp,pvst cdp

@@ -1,0 +1,58 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br0",
+    "auto": true,
+    "config": {
+      "bridge-ports": "vx42"
+    },
+    "config_status": {
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vx42",
+    "auto": true,
+    "config": {
+      "vxlan-id": "42"
+    },
+    "config_status": {
+      "vxlan-id": "pass"
+    },
+    "status": "pass"
+  }
+]
+

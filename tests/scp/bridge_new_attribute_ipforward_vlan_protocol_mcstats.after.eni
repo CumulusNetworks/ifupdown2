@@ -1,0 +1,20 @@
+auto swp_AA_
+iface swp_AA_
+
+auto swp_BB_
+iface swp_BB_
+
+auto br2
+iface br2
+    address 6.0.0.2/32
+    bridge-ports swp_DD_ swp_EE_
+    ip-forward on
+
+auto vlan100
+iface vlan100
+    vlan-raw-device swp_CC_
+    vlan-id 100
+
+auto br3
+iface br3
+    bridge-ports swp_FF_

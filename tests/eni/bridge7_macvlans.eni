@@ -1,0 +1,146 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto bridge
+iface bridge
+      bridge-vlan-aware yes
+      bridge-ports swp_AA_
+      bridge-stp on
+      bridge-vids 1-33
+      bridge-pvid 192
+
+auto bridge.1
+iface bridge.1
+      address-virtual 42:38:39:FF:00:1 10.7.192.1/1
+
+auto bridge.2
+iface bridge.2
+      address-virtual 42:38:39:ff:00:2 10.7.192.2/2
+
+auto bridge.3
+iface bridge.3
+      address-virtual 42:38:39:ff:00:3 10.7.192.3/3
+
+auto bridge.4
+iface bridge.4
+      address-virtual 42:38:39:ff:00:4 10.7.192.4/4
+
+auto bridge.5
+iface bridge.5
+      address-virtual 42:38:39:ff:00:5 10.7.192.5/5
+
+auto bridge.6
+iface bridge.6
+      address-virtual 42:38:39:ff:00:6 10.7.192.6/6
+
+auto bridge.7
+iface bridge.7
+      address-virtual 42:38:39:ff:00:7 10.7.192.7/7
+
+auto bridge.8
+iface bridge.8
+      address-virtual 42:38:39:ff:00:8 10.7.192.8/8
+
+auto bridge.9
+iface bridge.9
+      address-virtual 42:38:39:ff:00:9 10.7.192.9/9
+
+auto bridge.10
+iface bridge.10
+      address-virtual 42:38:39:ff:00:10 10.7.192.10/10
+
+auto bridge.11
+iface bridge.11
+      address-virtual 42:38:39:ff:00:11 10.7.192.11/11
+
+auto bridge.12
+iface bridge.12
+      address-virtual 42:38:39:ff:00:12 10.7.192.12/12
+
+auto bridge.13
+iface bridge.13
+      address-virtual 42:38:39:ff:00:13 10.7.192.13/13
+
+auto bridge.14
+iface bridge.14
+      address-virtual 42:38:39:ff:00:14 10.7.192.14/14
+
+auto bridge.15
+iface bridge.15
+      address-virtual 42:38:39:ff:00:15 10.7.192.15/15
+
+auto bridge.16
+iface bridge.16
+      address-virtual 42:38:39:ff:00:16 10.7.192.16/16
+
+auto bridge.17
+iface bridge.17
+      address-virtual 42:38:39:ff:00:17 10.7.192.17/17
+
+auto bridge.18
+iface bridge.18
+      address-virtual 42:38:39:ff:00:18 10.7.192.18/18
+
+auto bridge.19
+iface bridge.19
+      address-virtual 42:38:39:ff:00:19 10.7.192.19/19
+
+auto bridge.20
+iface bridge.20
+      address-virtual 42:38:39:ff:00:20 10.7.192.20/20
+
+auto bridge.21
+iface bridge.21
+      address-virtual 42:38:39:ff:00:21 10.7.192.21/21
+
+auto bridge.22
+iface bridge.22
+      address-virtual 42:38:39:ff:00:22 10.7.192.22/22
+
+auto bridge.23
+iface bridge.23
+      address-virtual 42:38:39:ff:00:23 10.7.192.23/23
+
+auto bridge.24
+iface bridge.24
+      address-virtual 42:38:39:ff:00:24 10.7.192.24/24
+
+auto bridge.25
+iface bridge.25
+      address-virtual 42:38:39:ff:00:25 10.7.192.25/25
+
+auto bridge.26
+iface bridge.26
+      address-virtual 42:38:39:ff:00:26 10.7.192.26/26
+
+auto bridge.27
+iface bridge.27
+      address-virtual 42:38:39:ff:00:27 10.7.192.27/27
+
+auto bridge.28
+iface bridge.28
+      address-virtual 42:38:39:ff:00:28 10.7.192.28/28
+
+auto bridge.29
+iface bridge.29
+      address-virtual 42:38:39:ff:00:29 10.7.192.29/29
+
+auto bridge.30
+iface bridge.30
+      address-virtual 42:38:39:ff:00:30 10.7.192.30/30
+
+auto bridge.31
+iface bridge.31
+      address-virtual 42:38:39:ff:00:31 10.7.192.31/31
+
+auto bridge.32
+iface bridge.32
+      address-virtual 42:38:39:ff:00:32 10.7.192.32/32

@@ -1,0 +1,28 @@
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto swp_AA_
+iface swp_AA_
+        bridge-pvid 4
+
+auto swp_BB_
+iface swp_BB_
+        bridge-pvid 3
+        bridge-trunk 40
+
+auto bridge
+iface bridge
+        bridge-vlan-aware yes
+        bridge-ports swp_AA_ swp_BB_
+        bridge-pvid 2
+        bridge-trunk 1-20
