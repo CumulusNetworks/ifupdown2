@@ -937,7 +937,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
         if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
             self._set_bridge_forwarding(ifaceobj)
-            return
+
         if not self.syntax_check_sysctls(ifaceobj):
             return
         if not self.syntax_check_l3_svi_ip_forward(ifaceobj):
