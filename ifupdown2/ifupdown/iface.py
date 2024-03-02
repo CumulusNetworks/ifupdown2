@@ -56,7 +56,6 @@ class ifaceLinkKind():
     VLAN =    0x000100
     VXLAN =   0x001000
     VRF =     0x010000
-    BATMAN_ADV = 0x0100000
     # to indicate logical interface created by an external entity.
     # the 'kind' of which ifupdown2 does not really understand
     OTHER =     0x100000
@@ -700,7 +699,7 @@ class iface():
         self.blacklisted = False
         self.__dict__.update(dict)
 
-    def dump_raw(self, logger):
+    def dump_raw(self):
         indent = '  '
         if self.auto:
             print('auto %s' %self.name)
@@ -745,9 +744,8 @@ class iface():
 
         logger.info("%slink_privflags: %s" % (indent, ifaceLinkPrivFlags.get_str(self.link_privflags)))
 
-        if self.priv_flags:
-            if self.priv_flags.BUILTIN:
-                logger.info("%spriv_flags: BUILTIN" % indent)
+        if self.priv_flags and self.priv_flags.BUILTIN:
+            logger.info("%spriv_flags: BUILTIN" % indent)
 
         logger.info(indent + 'config: ')
         config = self.config
