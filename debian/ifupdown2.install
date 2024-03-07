@@ -1,2 +1,3 @@
 etc/network/ifupdown2/addons.conf /etc/network/ifupdown2/
 etc/network/ifupdown2/ifupdown2.conf /etc/network/ifupdown2/
+debian/ifupdown2-hotplug lib/udev
