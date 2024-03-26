@@ -499,7 +499,7 @@ class ifaceScheduler():
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
-                followdependents=True, skipupperifaces=False, sort=False):
+                followdependents=True, skipupperifaces=False, sort=False, diff_mode=False):
         """ runs interface configuration modules on interfaces passed as
             argument. Runs topological sort on interface dependency graph.
 
@@ -560,6 +560,19 @@ class ifaceScheduler():
                                     ops, dependency_graph, indegrees)
                 if run_queue and 'up' in ops[0]:
                     run_queue.reverse()
+        elif diff_mode:
+            # In diff mode followdependents=False, we want to process
+            # 'child interfaces' before processing parents aka the interfaces
+            # with a positive reference count (get_iface_refcnt)
+            for ifacename in ifacenames:
+                if indegrees.get(ifacename):
+                    run_queue.insert(0, ifacename)
+                else:
+                    run_queue.append(ifacename)
+
+            ifupdownobj.logger.debug("diff ref_count=%s" % indegrees)
+            ifupdownobj.logger.debug("diff run_queue=%s" % run_queue)
+
         else:
             # if -a is set, we pick the interfaces
             # that have no parents and use a sorted list of those

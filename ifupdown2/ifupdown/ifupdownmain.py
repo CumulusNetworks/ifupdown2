@@ -1561,7 +1561,7 @@ class ifupdownMain:
                 pass
 
     def _sched_ifaces(self, ifacenames, ops, skipupperifaces=False,
-                      followdependents=True, sort=False):
+                      followdependents=True, sort=False, diff_mode=False):
         self.logger.debug('scheduling \'%s\' for %s'
                           %(str(ops), str(ifacenames)))
         self._pretty_print_ordered_dict('dependency graph',
@@ -1573,7 +1573,7 @@ class ifupdownMain:
                                 else ifaceSchedulerFlags.POSTORDER,
                                     followdependents=followdependents,
                                     skipupperifaces=skipupperifaces,
-                                    sort=True if (sort or ifupdownflags.flags.CLASS) else False)
+                                    sort=True if (sort or ifupdownflags.flags.CLASS) else False, diff_mode=diff_mode)
         return ifaceScheduler.get_sched_status()
 
     def _render_ifacename(self, ifacename):
@@ -2425,7 +2425,7 @@ class ifupdownMain:
             ret = self._sched_ifaces(new_filtered_ifacenames, upops,
                                      followdependents=True
                                      if ifupdownflags.flags.WITH_DEPENDS
-                                     else False)
+                                     else False, diff_mode=self.diff_based)
         except Exception as e:
             ret = None
             self.logger.error(str(e))
@@ -2439,17 +2439,18 @@ class ifupdownMain:
             raise MainException()
 
     def get_diff_ifaceobjs(self, ifaceobj_dict):
-        diff_ifname = set()
+        diff_ifname = []
         for ifname, ifaceobjs in ifaceobj_dict.items():
             old_ifaceobjs = statemanager_api.ifaceobjdict.get(ifname)
 
             if not old_ifaceobjs:
-                diff_ifname.add(ifname)
+                if ifname not in diff_ifname:
+                    diff_ifname.append(ifname)
                 continue
 
             for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
-                if new != old:
-                    diff_ifname.add(ifname)
+                if new != old and ifname not in diff_ifname:
+                    diff_ifname.append(ifname)
         return diff_ifname
 
     def reload(self, *args, **kargs):
