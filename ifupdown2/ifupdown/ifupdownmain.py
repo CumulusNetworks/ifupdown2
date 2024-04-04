@@ -2440,17 +2440,27 @@ class ifupdownMain:
 
     def get_diff_ifaceobjs(self, ifaceobj_dict):
         diff_ifname = []
+
         for ifname, ifaceobjs in ifaceobj_dict.items():
+            if ifname in diff_ifname:
+                continue
+
             old_ifaceobjs = statemanager_api.ifaceobjdict.get(ifname)
 
             if not old_ifaceobjs:
-                if ifname not in diff_ifname:
+                diff_ifname.append(ifname)
+            else:
+                # If for some reason the statemanager has ifaceobjs but the device
+                # doesn't exist in the system (is not cached), then we should no
+                # matter what bring it back up
+                if not self.netlink.cache.link_exists(ifname):
                     diff_ifname.append(ifname)
-                continue
+                    continue
 
-            for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
-                if new != old and ifname not in diff_ifname:
-                    diff_ifname.append(ifname)
+                for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
+                    if new != old and ifname not in diff_ifname:
+                        diff_ifname.append(ifname)
+
         return diff_ifname
 
     def reload(self, *args, **kargs):
