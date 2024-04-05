@@ -53,6 +53,9 @@ class ifaceScheduler():
 
     _SCHED_STATUS = True
 
+    _DIFF_MODE = False
+    _RUN_QUEUE = []
+
     VRF_MGMT_DEVNAME = policymanager.policymanager_api.get_module_globals(
         module_name="vrf",
         attr="vrf-mgmt-devname"
@@ -319,6 +322,11 @@ class ifaceScheduler():
         """ Runs interface list """
 
         for ifacename in ifacenames:
+
+            if cls._DIFF_MODE and ifacename not in cls._RUN_QUEUE:
+                ifupdownobj.logger.debug(f"diff mode: skipping interface {ifacename} - not present in run queue")
+                continue
+
             try:
               cls.run_iface_graph(ifupdownobj, ifacename, ops, parent,
                       order, followdependents)
@@ -435,6 +443,12 @@ class ifaceScheduler():
         # dump valid upperifaces
         ifupdownobj.logger.debug(upperifaces)
         for u in upperifaces:
+
+            if cls._DIFF_MODE and u not in cls._RUN_QUEUE:
+                ifupdownobj.logger.debug(f"diff mode: upperifaces: skipping interface {u} - not present in run queue")
+                continue
+
+
             try:
                 ifaceobjs = ifupdownobj.get_ifaceobjs(u)
                 if not ifaceobjs:
@@ -527,6 +541,12 @@ class ifaceScheduler():
         #
         # Run any upperifaces if available
         #
+
+        cls._DIFF_MODE = diff_mode
+        cls._RUN_QUEUE = list(ifacenames)
+
+        ifupdownobj.logger.debug(f"full run queue: {cls._RUN_QUEUE}")
+
         followupperifaces = False
         run_queue = []
         skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
@@ -553,19 +573,6 @@ class ifaceScheduler():
                                     ops, dependency_graph, indegrees)
                 if run_queue and 'up' in ops[0]:
                     run_queue.reverse()
-        elif diff_mode:
-            # In diff mode followdependents=False, we want to process
-            # 'child interfaces' before processing parents aka the interfaces
-            # with a positive reference count (get_iface_refcnt)
-            for ifacename in ifacenames:
-                if indegrees.get(ifacename):
-                    run_queue.insert(0, ifacename)
-                else:
-                    run_queue.append(ifacename)
-
-            ifupdownobj.logger.debug("diff ref_count=%s" % indegrees)
-            ifupdownobj.logger.debug("diff run_queue=%s" % run_queue)
-
         else:
             # if -a is set, we pick the interfaces
             # that have no parents and use a sorted list of those
@@ -603,9 +610,12 @@ class ifaceScheduler():
         if not cls.get_sched_status():
             return
 
+
+
+
         if (not skipupperifaces and
                 ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
-                ((not ifupdownflags.flags.ALL and followdependents) or
+                ((not ifupdownflags.flags.ALL and (followdependents or cls._DIFF_MODE)) or
                  followupperifaces) and
                 'up' in ops[0]):
             # If user had given a set of interfaces to bring up
