@@ -576,6 +576,8 @@ class ifaceScheduler():
                                     ops, dependency_graph, indegrees)
                 if run_queue and 'up' in ops[0]:
                     run_queue.reverse()
+        elif cls._DIFF_MODE:
+            run_queue = cls._RUN_QUEUE
         else:
             # if -a is set, we pick the interfaces
             # that have no parents and use a sorted list of those
@@ -613,12 +615,9 @@ class ifaceScheduler():
         if not cls.get_sched_status():
             return
 
-
-
-
-        if (not skipupperifaces and
+        if (not cls._DIFF_MODE and not skipupperifaces and
                 ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
-                ((not ifupdownflags.flags.ALL and (followdependents or cls._DIFF_MODE)) or
+                ((not ifupdownflags.flags.ALL and followdependents) or
                  followupperifaces) and
                 'up' in ops[0]):
             # If user had given a set of interfaces to bring up
