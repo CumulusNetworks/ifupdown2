@@ -256,8 +256,8 @@ class SSH(paramiko.SSHClient):
             return
         _, stdout, _, _ = self.run(
             'python -c "import os;'
-            'print \',\'.join(sorted([dev for dev in os.listdir(\'/sys/class/net/\') '
-            'if dev.startswith(\'swp\') and \'.\' not in dev]));"'
+            'print(\',\'.join(sorted([dev for dev in os.listdir(\'/sys/class/net/\') '
+            'if dev.startswith(\'swp\') and \'.\' not in dev])));"'
         )
         for swp in stdout.read().decode("utf-8").strip("\r\n").split(","):
             if swp:
