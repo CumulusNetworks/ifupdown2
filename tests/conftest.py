@@ -69,7 +69,8 @@ class SSH(paramiko.SSHClient):
         super().__init__(*args, **kwargs)
         self.swp_translated_dict = {}
         self.swp_available = []
-        self.coverage_enabled = True
+        self.coverage_enabled = False
+        self.ifreload_diff = True
 
     def translate_swp_xx(self, content: str, with_update: bool = False):
         update = False
@@ -195,13 +196,23 @@ class SSH(paramiko.SSHClient):
         return self.__ifupdown2("ifup", "-a", **kwargs)
 
     def ifreload_a(self, **kwargs) -> str:
-        return self.__ifupdown2("ifreload", "-a", **kwargs)
+        args = "-a"
+
+        if self.ifreload_diff:
+            args += " --diff"
+
+        return self.__ifupdown2("ifreload", args, **kwargs)
 
     def ifreload_av(self, **kwargs) -> str:
         """
         Run ifreload -av and return stderr
         """
-        return self.__ifupdown2("ifreload", "-av", return_stderr=True, **kwargs)
+        args = "-av"
+
+        if self.ifreload_diff:
+            args += " --diff"
+
+        return self.__ifupdown2("ifreload", args, return_stderr=True, **kwargs)
 
     def ifquery(self, args: str, **kwargs) -> str:
         assert args, "ifquery has been called without arguments"

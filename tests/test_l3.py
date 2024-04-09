@@ -96,6 +96,7 @@ def test_interfaces_vrr_vrf(ssh, setup, get_json):
     ssh.ifdown("bond0")
     assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.5.json")
 
+    ssh.ifreload_diff = False
     ssh.ifreload_a()
     assert ssh.ifquery_ac_json() == ifquery_ac_1_json
 
@@ -118,6 +119,7 @@ def test_interfaces_vrr_vrf(ssh, setup, get_json):
 
     ssh.ifreload_a()
     assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    ssh.ifreload_diff = True
 
 
 def test_vxlandev_sanity(ssh, setup, get_json):
