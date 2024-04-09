@@ -33,7 +33,7 @@
     "status": "pass"
   },
   {
-    "name": "swp1",
+    "name": "swp_AA_",
     "addr_method": "manual",
     "addr_family": "inet",
     "auto": true,
@@ -42,7 +42,7 @@
     "status": "pass"
   },
   {
-    "name": "swp10",
+    "name": "swp_BB_",
     "auto": true,
     "config": {
       "link-down": "yes"

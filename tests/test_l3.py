@@ -13,7 +13,7 @@ def test_address(ssh, setup, get_json):
 
 def test_address_gateway(ssh, setup, get_json):
     assert ssh.translate_swp_xx(
-        "error: swp_AA_: cmd '/bin/ip route replace default via 10.1.14.3 proto kernel dev swp1' failed: "
+        "error: swp_AA_: cmd '/bin/ip route replace default via 10.1.14.3 proto kernel dev swp_AA_' failed: "
         "returned 2 (Error: Nexthop has invalid gateway.\n)\nwarning: br1: untagged bridge not found. "
         "Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.\n"
     ) == ssh.ifup_a(return_stderr=True, expected_status=1)
