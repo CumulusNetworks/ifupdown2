@@ -1247,6 +1247,8 @@ class vxlan(Vxlan, moduleBase):
                     ipnetwork.IPv4Address(remoteip)
             except Exception as e:
                 self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
+        else:
+            remoteips = []
 
         # get old remote ips to compare with new user config value and
         # purge any removed remote ip
