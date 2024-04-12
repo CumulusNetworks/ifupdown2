@@ -980,15 +980,15 @@ class IPRoute2(Cache, Requirements):
         )
 
     def bridge_vni_int_set_del(self, vxlan_device, vni):
-        # bridge vni del understands ranges:
-        # bridge vni del dev vx0 vni 10,11,20-30
+        # bridge vni delete understands ranges:
+        # bridge vni delete dev vx0 vni 10,11,20-30
         self.__execute_or_batch(
             utils.bridge_cmd,
-            "vni del dev %s vni %s" % (vxlan_device, ','.join([str(x) for x in vni]))
+            "vni delete dev %s vni %s" % (vxlan_device, ','.join([str(x) for x in vni]))
         )
 
     def bridge_vni_del_list(self, vxlandev, vnis):
-        cmd_args = "vni del dev %s vni %s" % (vxlandev, ','.join(vnis))
+        cmd_args = "vni delete dev %s vni %s" % (vxlandev, ','.join(vnis))
         self.__execute_or_batch(utils.bridge_cmd, cmd_args)
 
     def compress_vnifilter_into_ranges(self, vnis_ints, vnisd):
