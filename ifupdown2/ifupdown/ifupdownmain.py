@@ -2175,8 +2175,7 @@ class ifupdownMain:
         ifupdownConfig.diff_mode = self.diff_based = diff
 
         new_ifaceobjdict = {}
-
-
+        ifacedownlist = []
         iface_read_ret = self.read_iface_config()
 
         if not self.ifaceobjdict:
@@ -2256,7 +2255,6 @@ class ifupdownMain:
             #     present in the new config
             #   - interfaces that were changed between the last and current
             #     config
-            ifacedownlist = []
             for ifname in list(self.ifaceobjdict.keys()):
                 lastifaceobjlist = self.ifaceobjdict.get(ifname)
                 if not self.is_ifaceobj_builtin(lastifaceobjlist[0]):
@@ -2402,13 +2400,14 @@ class ifupdownMain:
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
         # and now, we are back to the current config in ifaceobjdict
-        self.ifaceobjdict = new_ifaceobjdict
-        self.dependency_graph = new_dependency_graph
 
         if diff:
             new_filtered_ifacenames = list(
-                self.get_diff_ifaceobjs(new_ifaceobjdict)
+                self.get_diff_ifaceobjs(new_ifaceobjdict, ifacedownlist, self.dependency_graph)
             )
+
+        self.ifaceobjdict = new_ifaceobjdict
+        self.dependency_graph = new_dependency_graph
 
         if not new_filtered_ifacenames:
             self.logger.info(
@@ -2438,7 +2437,7 @@ class ifupdownMain:
         if not iface_read_ret or not ret:
             raise MainException()
 
-    def get_diff_ifaceobjs(self, ifaceobj_dict):
+    def get_diff_ifaceobjs(self, ifaceobj_dict, ifacedownlist, down_dependency_graph):
         diff_ifname = []
 
         for ifname, ifaceobjs in ifaceobj_dict.items():
@@ -2460,6 +2459,13 @@ class ifupdownMain:
                 for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
                     if new != old and ifname not in diff_ifname:
                         diff_ifname.append(ifname)
+
+        if ifacedownlist and down_dependency_graph:
+            # If an interface is removed / downed we might need to reload lower_interfaces
+            for down_ifname in ifacedownlist:
+                for lower_ifname in down_dependency_graph.get(down_ifname, []):
+                    if lower_ifname in ifaceobj_dict and lower_ifname not in diff_ifname:
+                        diff_ifname.append(lower_ifname)
 
         return diff_ifname
 
