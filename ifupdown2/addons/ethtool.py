@@ -547,7 +547,8 @@ class ethtool(Addon, moduleBase):
         """
         try:
             for attr in ethtool_output.splitlines():
-                if attr.startswith('Configured FEC encodings:'):
+                # ethtool syntax changed. using 'in' check supports both.
+                if "Configured FEC encodings:" in attr:
                     fec_attrs = attr.split()
                     return(fec_attrs[fec_attrs.index('encodings:')+1])
         except Exception as e:
