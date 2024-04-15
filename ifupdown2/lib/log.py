@@ -156,6 +156,11 @@ class LogManager:
         # check if enable_persistent_debug_logging is enabled
         user_config_limit = self.__get_enable_persistent_debug_logging()
 
+        # disable debug logging for ifquery
+        for s in sys.argv:
+            if "ifquery" in s:
+                return
+
         if not user_config_limit:
             # user has disabled the feature
             return
