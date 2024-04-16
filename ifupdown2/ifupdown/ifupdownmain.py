@@ -2416,6 +2416,7 @@ class ifupdownMain:
                 if self.diff_based else
                 "nothing to reload - exiting."
             )
+            self._save_state()
             return 0
 
         self.logger.info('reload: scheduling up on interfaces: %s'
