@@ -10,10 +10,10 @@ def test_bond(ssh, setup, get_json):
     bond_ifquery_ac_json = get_json("bond.ifquery.ac.json")
 
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == bond_ifquery_ac_json
+    assert_identical_json(ssh.ifquery_ac_json(), bond_ifquery_ac_json)
 
     ifreload_output = ssh.ifreload_av()
-    assert ssh.ifquery_ac_json() == bond_ifquery_ac_json
+    assert_identical_json(ssh.ifquery_ac_json(), bond_ifquery_ac_json)
 
     # Check that bonds are not flapped when there's no config change.
     for string in [
@@ -71,10 +71,10 @@ def test_bond_lacp(ssh, setup, get_json):
     bond_lacp_flipped_ifquery_ac_json = get_json("bond_lacp.flipped.values.ifquery.ac.json")
 
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == bond_lacp_ifquery_ac_json
+    assert_identical_json(ssh.ifquery_ac_json(), bond_lacp_ifquery_ac_json)
 
     ifreload_output = ssh.ifreload_av()
-    assert ssh.ifquery_ac_json() == bond_lacp_ifquery_ac_json
+    assert_identical_json(ssh.ifquery_ac_json(), bond_lacp_ifquery_ac_json)
 
     # Check that bonds are not flapped when there's no config change.
     for string in [
@@ -96,10 +96,10 @@ def test_bond_lacp(ssh, setup, get_json):
     ssh.run_assert_success(r'sed -i.back -E "s/\s+802.3ad/ 4/" /etc/network/interfaces')
 
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == bond_lacp_flipped_ifquery_ac_json
+    assert_identical_json(ssh.ifquery_ac_json(), bond_lacp_flipped_ifquery_ac_json)
 
     ifreload_output = ssh.ifreload_av()
-    assert ssh.ifquery_ac_json() == bond_lacp_flipped_ifquery_ac_json
+    assert_identical_json(ssh.ifquery_ac_json(), bond_lacp_flipped_ifquery_ac_json)
 
     # Check that bonds are not flapped when there's no config change.
     for string in [
@@ -113,32 +113,32 @@ def test_bond_lacp(ssh, setup, get_json):
 
 def test_bridge1(ssh, setup, get_json):
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == get_json("bridge1.ifquery.ac.json")
-    assert ssh.bridge_vlan_show_json() == get_json("bridge1.vlan.show.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("bridge1.ifquery.ac.json"))
+    assert_identical_json(ssh.bridge_vlan_show_json(), get_json("bridge1.vlan.show.json"))
 
 
 def test_bridge2(ssh, setup, get_json):
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == get_json("bridge2.ifquery.ac.json")
-    assert ssh.bridge_vlan_show_json() == get_json("bridge2.vlan.show.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("bridge2.ifquery.ac.json"))
+    assert_identical_json(ssh.bridge_vlan_show_json(), get_json("bridge2.vlan.show.json"))
 
 
 def test_bridge3(ssh, setup, get_json):
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == get_json("bridge3.ifquery.ac.json")
-    assert ssh.bridge_vlan_show_json() == get_json("bridge3.vlan.show.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("bridge3.ifquery.ac.json"))
+    assert_identical_json(ssh.bridge_vlan_show_json(), get_json("bridge3.vlan.show.json"))
 
 
 def test_bridge4(ssh, setup, get_json):
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == get_json("bridge4.ifquery.ac.json")
-    assert ssh.bridge_vlan_show_json() == get_json("bridge4.vlan.show.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("bridge4.ifquery.ac.json"))
+    assert_identical_json(ssh.bridge_vlan_show_json(), get_json("bridge4.vlan.show.json"))
 
 
 def test_bridge5(ssh, setup, get_json):
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == get_json("bridge5.ifquery.ac.json")
-    assert ssh.bridge_vlan_show_json() == get_json("bridge5.vlan.show.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("bridge5.ifquery.ac.json"))
+    assert_identical_json(ssh.bridge_vlan_show_json(), get_json("bridge5.vlan.show.json"))
 
 
 def test_bridge6_multiple_bridge_ports_lines(ssh, setup, get_json):
@@ -148,7 +148,7 @@ def test_bridge6_multiple_bridge_ports_lines(ssh, setup, get_json):
 
 def test_bridge7_macvlans(ssh, setup, get_json):
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == get_json("bridge7_macvlans.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("bridge7_macvlans.ifquery.ac.json"))
 
 
 def test_bridge8_reserved_vlans(ssh, setup, get_file):

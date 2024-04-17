@@ -1,4 +1,4 @@
-from .conftest import ENI
+from .conftest import ENI, assert_identical_json
 
 import logging
 
@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def test_address(ssh, setup, get_json):
     ssh.ifup_a()
-    assert ssh.ifquery_ac_json() == get_json("address.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("address.ifquery.ac.json"))
 
 
 def test_address_gateway(ssh, setup, get_json):
@@ -18,7 +18,7 @@ def test_address_gateway(ssh, setup, get_json):
         "Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.\n"
     ) == ssh.ifup_a(return_stderr=True, expected_status=1)
 
-    assert ssh.ifquery_ac_json() == get_json("address_gateway.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("address_gateway.ifquery.ac.json"))
 
     ssh.run(f"sed -i 's/address .*//' {ENI}")
 
@@ -26,13 +26,13 @@ def test_address_gateway(ssh, setup, get_json):
         "info: executing /bin/ip route replace default via 10.1.14.3 proto kernel dev swp_AA_"
     ) in ssh.ifreload_av(expected_status=1)
 
-    assert ssh.ifquery_ac_json() == get_json("address_gateway.empty_addrs.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("address_gateway.empty_addrs.ifquery.ac.json"))
 
 
 def test_evpn_vab_clag_riot_flood_sup_off_config_tors2(ssh, setup, get_json):
     ssh.ifup_a()
 
-    assert ssh.ifquery_ac_json() == get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json"))
 
     ssh.run_assert_success("ip -d -o link show vx-1000 | grep nolearning | grep 'learning off'")
     ssh.run_assert_success("ip -d -o link show vx-1001 | grep nolearning | grep 'learning off'")
@@ -40,14 +40,14 @@ def test_evpn_vab_clag_riot_flood_sup_off_config_tors2(ssh, setup, get_json):
     ssh.ifdown("vx-1000 vx-1001")
     ssh.ifup("vx-1000 vx-1001")
 
-    assert ssh.ifquery_ac_json() == get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json"))
 
     ssh.run_assert_success("ip -d -o link show vx-1000 | grep nolearning | grep 'learning off'")
     ssh.run_assert_success("ip -d -o link show vx-1001 | grep nolearning | grep 'learning off'")
 
     ssh.ifreload_a()
 
-    assert ssh.ifquery_ac_json() == get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json"))
 
     ssh.run_assert_success("ip -d -o link show vx-1000 | grep nolearning | grep 'learning off'")
     ssh.run_assert_success("ip -d -o link show vx-1001 | grep nolearning | grep 'learning off'")
@@ -55,7 +55,7 @@ def test_evpn_vab_clag_riot_flood_sup_off_config_tors2(ssh, setup, get_json):
     ssh.ifup("uplink hostbond3 bridge vlan1000")
     ssh.ifreload_a()
 
-    assert ssh.ifquery_ac_json() == get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json"))
 
     ssh.run_assert_success("ip -d -o link show vx-1000 | grep nolearning | grep 'learning off'")
     ssh.run_assert_success("ip -d -o link show vx-1001 | grep nolearning | grep 'learning off'")
@@ -64,7 +64,7 @@ def test_evpn_vab_clag_riot_flood_sup_off_config_tors2(ssh, setup, get_json):
     ssh.run_assert_success("ip link set dev vx-1001 type vxlan learning")
     ssh.ifup("vx-1001")
 
-    assert ssh.ifquery_ac_json() == get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json"))
 
     ssh.run_assert_success("ip -d -o link show vx-1001 | grep nolearning | grep 'learning off'")
 
@@ -74,57 +74,57 @@ def test_interfaces_vrr_vrf(ssh, setup, get_json):
     ifquery_ac_2_json = get_json("interfaces.vrr_vrf.ifquery.ac.2.json")
 
     ssh.ifup_a()
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
 
     ssh.ifdown("bond0")
-    assert ssh.ifquery_ac_json(expected_status=1) == ifquery_ac_2_json
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), ifquery_ac_2_json)
     ssh.ifup("bond0")
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
 
     ssh.ifdown("peerlink")
-    assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.3.json")
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), get_json("interfaces.vrr_vrf.ifquery.ac.3.json"))
     ssh.ifup("peerlink")
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
 
     ssh.ifdown("myvrf")
-    assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.4.json")
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), get_json("interfaces.vrr_vrf.ifquery.ac.4.json"))
 
     ssh.ifdown("bond0")
-    assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.5.json")
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), get_json("interfaces.vrr_vrf.ifquery.ac.5.json"))
 
     ssh.ifreload_diff = False
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
 
     ssh.ifdown("bridge")
-    assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.6.json")
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), get_json("interfaces.vrr_vrf.ifquery.ac.6.json"))
     ssh.ifup("bridge")
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
 
     ssh.ifdown("bond0")
-    assert ssh.ifquery_ac_json(expected_status=1) == ifquery_ac_2_json
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), ifquery_ac_2_json)
     ssh.ifup("bond0")
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
 
     ssh.ifdown("bridge.901")
-    assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.7.json")
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), get_json("interfaces.vrr_vrf.ifquery.ac.7.json"))
     ssh.ifdown("bond0")
-    assert ssh.ifquery_ac_json(expected_status=1) == get_json("interfaces.vrr_vrf.ifquery.ac.8.json")
+    assert_identical_json(ssh.ifquery_ac_json(expected_status=1), get_json("interfaces.vrr_vrf.ifquery.ac.8.json"))
 
     ssh.ifreload_a()
-    assert ssh.ifquery_ac_json() == ifquery_ac_1_json
+    assert_identical_json(ssh.ifquery_ac_json(), ifquery_ac_1_json)
     ssh.ifreload_diff = True
 
 
 def test_vxlandev_sanity(ssh, setup, get_json):
     ssh.ifup_a()
-    assert ssh.ifquery_ac_json() == get_json("vxlan_sanity.ifquery.ac.json")
+    assert_identical_json(ssh.ifquery_ac_json(), get_json("vxlan_sanity.ifquery.ac.json"))
 
     ssh.run_assert_success("ip -d -o link show vxlan1000 | grep nolearning")
     ssh.run_assert_success("ip -d -o link show vxlan10200 | grep 'learning on'  | wc -l | grep '^1$'")
