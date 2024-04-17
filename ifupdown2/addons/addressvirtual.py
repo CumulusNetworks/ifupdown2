@@ -472,6 +472,24 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 self.sync_macvlan_forwarding_state(ifname, macvlan_ifname)
                 link_created = True
 
+            # Disable IPv6 duplicate address detection on VRR interfaces
+            sysctl_prefix = "net.ipv6.conf.%s" % macvlan_ifname
+
+            try:
+                syskey = "%s.%s" % (sysctl_prefix, "enhanced_dad")
+                if self.sysctl_get(syskey) != "0":
+                    self.sysctl_set(syskey, "0")
+            except Exception as e:
+                self.logger.info("sysctl failure: operation not supported: %s" % str(e))
+
+            for key, sysval in {
+                "accept_dad": "0",
+                "dad_transmits": "0"
+            }.items():
+                syskey = "%s.%s" % (sysctl_prefix, key)
+                if self.sysctl_get(syskey) != sysval:
+                    self.sysctl_set(syskey, sysval)
+
             # first thing we need to handle vrf enslavement
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
                 vrf_ifname = self.cache.get_master(ifaceobj.name)
@@ -557,24 +575,6 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                         self.iproute2.fix_ipv6_route_metric(ifaceobj, macvlan_ifname, ips)
                 except Exception as e:
                     self.logger.debug('fix_vrf_slave_ipv6_route_metric: failed: %s' % e)
-
-            # Disable IPv6 duplicate address detection on VRR interfaces
-            sysctl_prefix = "net.ipv6.conf.%s" % macvlan_ifname
-
-            try:
-                syskey = "%s.%s" % (sysctl_prefix, "enhanced_dad")
-                if self.sysctl_get(syskey) != "0":
-                    self.sysctl_set(syskey, "0")
-            except Exception as e:
-                self.logger.info("sysctl failure: operation not supported: %s" % str(e))
-
-            for key, sysval in {
-                "accept_dad": "0",
-                "dad_transmits": "0"
-            }.items():
-                syskey = "%s.%s" % (sysctl_prefix, key)
-                if self.sysctl_get(syskey) != sysval:
-                    self.sysctl_set(syskey, sysval)
 
         self.iproute2.batch_commit()
         return hw_address_list
