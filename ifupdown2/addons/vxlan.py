@@ -1234,8 +1234,10 @@ class vxlan(Vxlan, moduleBase):
                 except Exception as e:
                     self.logger.warning("%s: l3 vxlan vni failure: %s" % (ifname, e))
 
-        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN and vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
-            self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+            if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
+                self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
+            #self.single_vxlan_device_mcast_grp_map_fdb_vnifilter(ifaceobj, ifname, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
@@ -1360,7 +1362,7 @@ class vxlan(Vxlan, moduleBase):
 
         return current_fdb
 
-    def single_vxlan_device_mcast_grp_map_fdb(self, ifaceobj, ifname, vxlan_mcast_grp_map):
+    def single_vxlan_device_mcast_grp_map_fdb_vnifilter(self, ifaceobj, ifname, vxlan_mcast_grp_map):
         # in this piece of code we won't be checking the running state of the fdb table
         # dumping all fdb entries would cause scalability issues in certain cases.
 
@@ -1375,49 +1377,6 @@ class vxlan(Vxlan, moduleBase):
 
         # compare old and new config to know if we should remove any stale fdb entries.
         fdb_entries_to_remove = set(old_user_config_fdb) - set(user_config_fdb)
-
-        if fdb_entries_to_remove:
-            for mac, src_vni, dst_ip in fdb_entries_to_remove:
-                try:
-                    self.iproute2.bridge_fdb_del_src_vni(ifname, mac, src_vni)
-                except Exception as e:
-                    if "no such file or directory" not in str(e).lower():
-                        self.logger.warning("%s: removing stale fdb entries failed: %s" % (ifname, str(e)))
-
-        if not user_config_fdb:
-            # if vxlan-mcastgrp-map wasn't configure return
-            return
-
-        for mac, src_vni, dst_ip in user_config_fdb:
-            try:
-                self.iproute2.bridge_fdb_add_src_vni(ifname, src_vni, dst_ip)
-            except Exception as e:
-                if "file exists" not in str(e).lower():
-                    ifaceobj.set_status(ifaceStatus.ERROR)
-                    self.log_error(
-                        "%s: vxlan-mcastgrp-map: %s=%s: %s"
-                        % (ifname, src_vni, dst_ip, str(e)), raise_error=False
-                    )
-
-    def single_vxlan_device_mcast_grp_map_vnifilter(self, ifaceobj, ifname, vxlan_mcast_grp_map):
-        # in this piece of code we won't be checking the running state of the fdb table
-        # dumping all fdb entries would cause scalability issues in certain cases.
-
-        # pulling old mcastgrp-map configuration
-        old_user_config_fdb = []
-
-        for old_ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
-            old_user_config_fdb += self.get_vxlan_fdb_src_vni(self.__get_vxlan_mcastgrp_map(old_ifaceobj))
-
-        # new user configuration
-        user_config_fdb = self.get_vxlan_fdb_src_vni(vxlan_mcast_grp_map)
-
-        # compare old and new config to know if we should remove any stale fdb entries.
-        fdb_entries_to_remove = set(old_user_config_fdb) - set(user_config_fdb)
-
-        self.logger.info(old_user_config_fdb)
-        self.logger.info(user_config_fdb)
-        self.logger.info(fdb_entries_to_remove)
 
         if fdb_entries_to_remove:
             for mac, src_vni, dst_ip in fdb_entries_to_remove:
