@@ -1348,7 +1348,10 @@ class bridge(Bridge, moduleBase):
             self.netlink.link_add(ifname=dummy_brport, kind="dummy")
             self.netlink.link_up_force(dummy_brport)
 
-        newbridgeports_ordered.append(dummy_brport)
+        if newbridgeports_ordered is None:
+            newbridgeports_ordered = [dummy_brport]
+        else:
+            newbridgeports_ordered.append(dummy_brport)
         return dummy_brport
 
     def _process_bridge_maxwait(self, ifaceobj, portlist):
