@@ -871,6 +871,7 @@ class vrf(Addon, moduleBase):
             self.logger.info('%s: %s' %(ifacename, str(e)))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
+        ifname = ifaceobj.name
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
@@ -896,8 +897,23 @@ class vrf(Addon, moduleBase):
                         if self._is_vrf_dev(master):
                             self._down_vrf_slave(ifaceobj.name, ifaceobj,
                                                  master)
+
+                            if ifaceobj.get_attr_value_first("address-virtual") or ifaceobj.get_attr_value_first("vrrp"):
+                                # macvlans were created on this interface - we also need to removed them from the vrf
+                                # (ifreload used to take care of that in the ifaceobj:vrf path, but we should in fact
+                                # do this here as ifreload-diff might not process the vrf ifaceobj
+                                [
+                                    self._down_vrf_slave(macvlan, vrfname=master)
+                                    for macvlan in self.sysfs.link_get_uppers(ifname) if self.has_macvlan_prefix(ifname, macvlan)
+                                ]
+
         except Exception as e:
             self.log_error(str(e), ifaceobj)
+
+    @staticmethod
+    def has_macvlan_prefix(ifname, dev):
+        # Look for any of the ifupdown2 macvlan prefixes
+        return any(dev.startswith(prefix) for prefix in (f"{ifname}-v", "vrrp4", "vrrp6"))
 
     def _down_vrf_helper(self, ifaceobj, vrf_table):
         mode = ""
