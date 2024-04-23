@@ -8,10 +8,10 @@
 class ifupdownConfig():
 
 	def __init__(self):
-		self.diff_mode = False
 		self.conf = {}
 
 config = ifupdownConfig()
+diff_mode = False
 
 def reset():
 	global config

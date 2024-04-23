@@ -839,6 +839,16 @@ class address(AddonWithIpBlackList, moduleBase):
         return retval
 
     def _propagate_mtu_to_upper_devs(self, ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc):
+        if not (
+                (not ifupdownflags.flags.ALL or ifupdownconfig.diff_mode) and
+                not ifaceobj.link_kind and
+                ifupdownconfig.config.get('adjust_logical_dev_mtu', '1') != '0'
+        ):
+            # This is additional cost to us, so do it only when
+            # ifupdown2 is called on a particular interface and
+            # it is a physical interface (or diff mode)
+            return
+
         if (not ifaceobj.upperifaces or
             (ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE) or
             (ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE) or
@@ -862,18 +872,9 @@ class address(AddonWithIpBlackList, moduleBase):
 
         if mtu_int != self.cache.get_link_mtu(ifaceobj.name):
             self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=mtu_str, mtu_int=mtu_int)
+            self._propagate_mtu_to_upper_devs(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc)
 
-            if (not ifupdownflags.flags.ALL and
-                    not ifaceobj.link_kind and
-                    ifupdownconfig.config.get('adjust_logical_dev_mtu', '1') != '0'):
-                # This is additional cost to us, so do it only when
-                # ifupdown2 is called on a particular interface and
-                # it is a physical interface
-                self._propagate_mtu_to_upper_devs(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc)
-        return
-
-    def _process_mtu_config_mtu_none(self, ifaceobj):
-
+    def _process_mtu_config_mtu_none(self, ifaceobj, ifaceobj_getfunc):
         if (ifaceobj.link_privflags & ifaceLinkPrivFlags.MGMT_INTF):
             return
 
@@ -918,6 +919,8 @@ class address(AddonWithIpBlackList, moduleBase):
             # on which devices we want to reset mtu to default.
             # essentially only physical interfaces which are not bond slaves
             self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=self.default_mtu, mtu_int=self.default_mtu_int)
+            if ifupdownconfig.diff_mode:
+                self._propagate_mtu_to_upper_devs(ifaceobj, self.default_mtu, self.default_mtu_int, ifaceobj_getfunc)
 
     def _set_bridge_forwarding(self, ifaceobj):
         """ set ip forwarding to 0 if bridge interface does not have a
@@ -1062,7 +1065,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
             self._process_mtu_config_mtu_valid(ifaceobj, ifaceobj_getfunc, mtu_str, mtu_int)
         else:
-            self._process_mtu_config_mtu_none(ifaceobj)
+            self._process_mtu_config_mtu_none(ifaceobj, ifaceobj_getfunc)
 
     def up_ipv6_addrgen(self, ifaceobj):
         user_configured_ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
