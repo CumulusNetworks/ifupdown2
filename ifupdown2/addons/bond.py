@@ -363,13 +363,22 @@ class bond(Addon, moduleBase):
         if self.current_bond_speed != slave_speed:
             self.log_error(
                 "%s: ignoring device due to device's speed (%s) mismatching bond (%s) speed (%s)"
-                % (slave_ifname, slave_speed, bond_ifaceobj.name, self.current_bond_speed),
-                ifaceobj=bond_ifaceobj
+                % (slave_ifname, slave_speed, bond_ifaceobj.name, self.current_bond_speed)
             )
 
-    def valid_slave_speed(self, ifaceobj, bond_slaves, slave):
+    def valid_slave_speed(self, ifaceobj, bond_slaves, slave, ifaceobj_getfunc):
         if not slave.startswith("swp"):
             # lazy optimization: only check "swp" interfaces
+            return True
+
+        try:
+            if ifaceobj_getfunc(slave)[0].link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                return True
+        except:
+            pass
+
+        if not self.sysfs.link_is_up(slave):
+            self.logger.debug(f"{slave}: bond-slave is down - skipping speed validation")
             return True
 
         if self.current_bond_speed < 0:
@@ -447,7 +456,7 @@ class bond(Addon, moduleBase):
 
             try:
                 # making sure the slave-to-be has the right speed
-                if not self.valid_slave_speed(ifaceobj, runningslaves, slave):
+                if not self.valid_slave_speed(ifaceobj, runningslaves, slave, ifaceobj_getfunc):
                     continue
             except Exception as e:
                 self.logger.debug("%s: bond-slave (%s) speed validation failed: %s" % (ifaceobj.name, slave, str(e)))
