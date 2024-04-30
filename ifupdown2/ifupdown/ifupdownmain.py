@@ -433,6 +433,7 @@ class ifupdownMain:
         }
 
         self.diff_based = False
+        self.clagd_change_detected = False
 
     def _get_mgmt_iface_default_prefix(self):
         mgmt_iface_default_prefix = None
@@ -2437,28 +2438,57 @@ class ifupdownMain:
         if not iface_read_ret or not ret:
             raise MainException()
 
+    def is_clag_interface(self, ifaceobjs):
+        for ifaceobj in ifaceobjs or []:
+            for attribute in ifaceobj.config.keys():
+                if attribute.startswith("clagd-"):
+                    return True
+        return False
+
+    def add_diff_interface_with_clag_check(self, diff_list: list, ifname: str, current_clag_interface: bool):
+        diff_list.append(ifname)
+        if current_clag_interface:
+            self.clagd_change_detected = True
+
     def get_diff_ifaceobjs(self, ifaceobj_dict, ifacedownlist, down_dependency_graph):
         diff_ifname = []
 
+        # any changes in clagd attributes will result in all clagd interfaces
+        # to be added to the run queue
+        self.clagd_change_detected = False
+        clag_interfaces = []
+
         for ifname, ifaceobjs in ifaceobj_dict.items():
+            current_clagd_interface = False
+
             if ifname in diff_ifname:
                 continue
+
+            if self.is_clag_interface(ifaceobjs):
+                clag_interfaces.append(ifname)
+                current_clagd_interface = True
 
             old_ifaceobjs = statemanager_api.ifaceobjdict.get(ifname)
 
             if not old_ifaceobjs:
-                diff_ifname.append(ifname)
+                self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
             else:
                 # If for some reason the statemanager has ifaceobjs but the device
                 # doesn't exist in the system (is not cached), then we should no
                 # matter what bring it back up
                 if not self.netlink.cache.link_exists(ifname):
-                    diff_ifname.append(ifname)
+                    self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
                     continue
 
                 for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
                     if new != old and ifname not in diff_ifname:
-                        diff_ifname.append(ifname)
+                        self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
+
+        if self.clagd_change_detected:
+            self.logger.error(f"diff-mode: clagd changes detected, updating run queue with: {clag_interfaces}")
+            for ifname in clag_interfaces:
+                if ifname not in diff_ifname:
+                    diff_ifname.append(ifname)
 
         if ifacedownlist and down_dependency_graph:
             # If an interface is removed / downed we might need to reload lower_interfaces
