@@ -2450,6 +2450,10 @@ class ifupdownMain:
         if current_clag_interface:
             self.clagd_change_detected = True
 
+    def interface_should_be_up(self, ifname, ifaceobjs):
+        # Return True if the link is down and should be up, check for link-down yes on any ifaceobjs
+        return not any([ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN for ifaceobj in ifaceobjs]) and not self.netlink.cache.link_is_up(ifname)
+
     def get_diff_ifaceobjs(self, ifaceobj_dict, ifacedownlist, down_dependency_graph):
         diff_ifname = []
 
@@ -2476,7 +2480,8 @@ class ifupdownMain:
                 # If for some reason the statemanager has ifaceobjs but the device
                 # doesn't exist in the system (is not cached), then we should no
                 # matter what bring it back up
-                if not self.netlink.cache.link_exists(ifname):
+                # We also do a quick check to see if the interface is right admin state
+                if not self.netlink.cache.link_exists(ifname) or self.interface_should_be_up(ifname, ifaceobjs):
                     self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
                     continue
 
