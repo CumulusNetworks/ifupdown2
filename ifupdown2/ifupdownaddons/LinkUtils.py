@@ -852,7 +852,8 @@ class LinkUtils(utilsBase):
                                         '-o', '-d', 'link', 'show'])
 
     def addr_add(self, ifacename, address, broadcast=None,
-                 peer=None, scope=None, preferred_lifetime=None, metric=None):
+                 peer=None, scope=None, preferred_lifetime=None, metric=None,
+                 nodad=False):
         if not address:
             return
         cmd = 'addr add %s' % address
@@ -864,6 +865,8 @@ class LinkUtils(utilsBase):
             cmd += ' scope %s' % scope
         if preferred_lifetime:
             cmd += ' preferred_lft %s' % preferred_lifetime
+        if nodad:
+            cmd += ' nodad'
         cmd += ' dev %s' % ifacename
 
         if metric:
@@ -1022,7 +1025,7 @@ class LinkUtils(utilsBase):
 
         return running_ipobj == (ip4 + ip6)
 
-    def addr_add_multiple(self, ifaceobj, ifacename, addrs, purge_existing=False, metric=None):
+    def addr_add_multiple(self, ifaceobj, ifacename, addrs, purge_existing=False, metric=None, nodad=False):
         # purges address
         if purge_existing:
             # if perfmode is not set and also if iface has no sibling
@@ -1049,7 +1052,7 @@ class LinkUtils(utilsBase):
                 self.logger.warning('%s: %s' % (ifacename, str(e)))
         for a in addrs:
             try:
-                self.addr_add(ifacename, a, metric=metric)
+                self.addr_add(ifacename, a, metric=metric, nodad=nodad)
             except Exception, e:
                 self.logger.error(str(e))
 

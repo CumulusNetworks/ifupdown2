@@ -5,6 +5,9 @@
 #
 
 import socket
+import json
+import time
+import subprocess
 
 from ipaddr import IPNetwork, IPv4Network, IPv6Network, _BaseV6
 
@@ -111,6 +114,20 @@ class address(moduleBase):
                               'validvals': ['yes', 'no'],
                               'default' : 'no',
                               'example' : ['mpls-enable yes']},
+                    'dad-attempts': {
+                        'help': 'Number of attempts to settle DAD (0 to disable DAD). '
+                                'To use this feature, the ipv6_dad_handling_enabled '
+                                'module global must be set to true',
+                        'example': ['dad-attempts 0'],
+                        'default': '60',
+                    },
+                    'dad-interval': {
+                        'help': 'DAD state polling interval in seconds. '
+                                'To use this feature, the ipv6_dad_handling_enabled '
+                                'module global must be set to true',
+                        'example': ['dad-interval 0.5'],
+                        'default': '0.1',
+                    },
                     'ipv6-addrgen': {
                         'help': 'enable disable ipv6 link addrgenmode',
                         'validvals': ['on', 'off'],
@@ -136,6 +153,13 @@ class address(moduleBase):
                 self.__class__.__name__,
                 'enable_l3_iface_forwarding_checks'
             )
+        )
+        self.ipv6_dad_handling_enabled = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                self.__class__.__name__,
+                'ipv6_dad_handling_enabled'
+            ),
+            default=False
         )
 
         if not self.default_mtu:
@@ -338,12 +362,16 @@ class address(moduleBase):
 
                 attrs = {}
                 for a in ['broadcast', 'pointopoint', 'scope',
-                        'preferred-lifetime']:
+                        'preferred-lifetime', 'nodad']:
                     aval = ifaceobj.get_attr_value_n(a, addr_index)
                     if aval:
                         attrs[a] = aval
 
                 if attrs:
+                    try:
+                        attrs['nodad'] = bool(attrs['nodad'])
+                    except KeyError:
+                        pass
                     newaddr_attrs[newaddr]= attrs
         return (True, newaddrs, newaddr_attrs)
 
@@ -359,7 +387,9 @@ class address(moduleBase):
                         newaddr_attrs.get(newaddrs[addr_index],
                                           {}).get('scope'),
                         newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('preferred-lifetime'))
+                                          {}).get('preferred-lifetime'),
+                        newaddr_attrs.get(newaddrs[addr_index],
+                                          {}).get('nodad'))
                 else:
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
             except Exception, e:
@@ -866,6 +896,18 @@ class address(moduleBase):
 
         self.up_hwaddress(ifaceobj)
 
+        # settle dad
+        if not self.ipv6_dad_handling_enabled:
+            return
+        if not self.cache.link_exists(ifaceobj.name):
+            return
+        ifname = ifaceobj.name
+        ifaceobjs = self._get_ifaceobjs(ifaceobj, ifaceobj_getfunc)
+        addr_supported, user_addrs_list = self.__get_ip_addr_with_attributes(ifaceobjs, ifname)
+        if not addr_supported:
+            return
+        self._settle_dad(ifaceobj, [ip for ip, _ in user_addrs_list if ip.version == 6])
+
         gateways = ifaceobj.get_attr_value('gateway')
         if not gateways:
             gateways = []
@@ -1212,3 +1254,50 @@ class address(moduleBase):
         else:
             op_handler(self, ifaceobj,
                        ifaceobj_getfunc=ifaceobj_getfunc)
+
+    def _settle_dad(self, ifaceobj, ips):
+        """ Settle dad for any given ips """
+        def ip_addr_list(what):
+            raw = json.loads(utils.exec_commandl([
+                'ip', '-j', '-o', '-6', 'address', 'list', 'dev',
+                ifaceobj.name, what
+            ]))
+            addr_infos = (x for t in raw for x in t.get('addr_info', []))
+            ip_list = [f'{x["local"]}/{x["prefixlen"]}' for x in addr_infos if x]
+            return ip_list
+
+        def get_param(key, default=None):
+            return (ifaceobj.get_attr_value_first(key)
+                    or policymanager.policymanager_api.get_iface_default(
+                        self.__class__.__name__, ifaceobj.name, key)
+                    or default)
+
+        interval = float(get_param('dad-interval', '0.1'))  # 0.1: ifupdown default value
+        attempts = int(get_param('dad-attempts', '60'))     # 60: ifupdown default value
+        if not attempts or not ips:
+            return
+        try:
+            for _attempt in range(0, attempts):
+                tentative = ip_addr_list('tentative')
+                if all(str(ip) not in tentative for ip in ips):
+                    break
+                time.sleep(interval)
+            else:
+                timeout = ','.join(ip for ip in ips if str(ip) not in tentative)
+                self.logger.warning('address: %s: dad timeout "%s"', ifaceobj.name, timeout)
+                return
+            failure = ip_addr_list('dadfailed')
+            if failure:
+                self.logger.warning('address: %s: dad failure "%s"', ifaceobj.name, ','.join(failure))
+        except subprocess.CalledProcessError as exc:
+            self.logger.error('address: %s: could not settle dad %s', ifaceobj.name, str(exc))
+
+    def _get_ifaceobjs(self, ifaceobj, ifaceobj_getfunc):
+        squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
+        if not squash_addr_config:
+            return [ifaceobj]  # no squash, returns current ifaceobj
+        if not ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING:
+            return []  # when squash is present, work only on the youngest sibling
+        if ifaceobj.flags & iface.HAS_SIBLINGS:
+            return ifaceobj_getfunc(ifaceobj.name) # get sibling interfaces
+        return [ifaceobj]
