@@ -865,12 +865,12 @@ class LinkUtils(utilsBase):
             cmd += ' scope %s' % scope
         if preferred_lifetime:
             cmd += ' preferred_lft %s' % preferred_lifetime
-        if nodad:
-            cmd += ' nodad'
         cmd += ' dev %s' % ifacename
 
         if metric:
             cmd += ' metric %s' % metric
+        if nodad:
+            cmd += ' nodad'
 
         if LinkUtils.ipbatch and not LinkUtils.ipbatch_pause:
             self.add_to_batch(cmd)

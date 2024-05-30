@@ -369,7 +369,7 @@ class address(moduleBase):
 
                 if attrs:
                     try:
-                        attrs['nodad'] = bool(attrs['nodad'])
+                        attrs['nodad'] = bool(int(attrs['nodad']))
                     except KeyError:
                         pass
                     newaddr_attrs[newaddr]= attrs
@@ -379,6 +379,10 @@ class address(moduleBase):
         for addr_index in range(0, len(newaddrs)):
             try:
                 if newaddr_attrs:
+                    if ifaceobj.addr_family[addr_index] == "inet6":
+                        nodad = newaddr_attrs.get(newaddrs[addr_index], {}).get('nodad')
+                    else:
+                        nodad = False
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
                         newaddr_attrs.get(newaddrs[addr_index],
                                           {}).get('broadcast'),
@@ -388,8 +392,7 @@ class address(moduleBase):
                                           {}).get('scope'),
                         newaddr_attrs.get(newaddrs[addr_index],
                                           {}).get('preferred-lifetime'),
-                        newaddr_attrs.get(newaddrs[addr_index],
-                                          {}).get('nodad'))
+                        nodad=nodad)
                 else:
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index])
             except Exception, e:
@@ -1263,7 +1266,7 @@ class address(moduleBase):
                 ifaceobj.name, what
             ]))
             addr_infos = (x for t in raw for x in t.get('addr_info', []))
-            ip_list = [f'{x["local"]}/{x["prefixlen"]}' for x in addr_infos if x]
+            ip_list = ['%s/%s' % (x["local"], {x["prefixlen"]}) for x in addr_infos if x]
             return ip_list
 
         def get_param(key, default=None):
