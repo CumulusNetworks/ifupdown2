@@ -798,7 +798,7 @@ class address(moduleBase):
                     if not setting_default_value:
                         ifaceobj.status = ifaceStatus.ERROR
                         self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
-        
+
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
         mtu = ifaceobj.get_attr_value_first('mtu')
 
