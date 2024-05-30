@@ -853,7 +853,7 @@ class LinkUtils(utilsBase):
 
     def addr_add(self, ifacename, address, broadcast=None,
                  peer=None, scope=None, preferred_lifetime=None, metric=None,
-                 nodad=False):
+                 nodad=None):
         if not address:
             return
         cmd = 'addr add %s' % address
@@ -869,6 +869,7 @@ class LinkUtils(utilsBase):
 
         if metric:
             cmd += ' metric %s' % metric
+
         if nodad:
             cmd += ' nodad'
 

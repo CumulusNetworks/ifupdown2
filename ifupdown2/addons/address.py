@@ -362,16 +362,12 @@ class address(moduleBase):
 
                 attrs = {}
                 for a in ['broadcast', 'pointopoint', 'scope',
-                        'preferred-lifetime', 'nodad']:
+                        'preferred-lifetime', 'dad-attempts', 'dad-interval']:
                     aval = ifaceobj.get_attr_value_n(a, addr_index)
                     if aval:
                         attrs[a] = aval
 
                 if attrs:
-                    try:
-                        attrs['nodad'] = bool(int(attrs['nodad']))
-                    except KeyError:
-                        pass
                     newaddr_attrs[newaddr]= attrs
         return (True, newaddrs, newaddr_attrs)
 
@@ -379,10 +375,11 @@ class address(moduleBase):
         for addr_index in range(0, len(newaddrs)):
             try:
                 if newaddr_attrs:
-                    if ifaceobj.addr_family[addr_index] == "inet6":
-                        nodad = newaddr_attrs.get(newaddrs[addr_index], {}).get('nodad')
-                    else:
-                        nodad = False
+                    nodad = False
+                    if self.ipv6_dad_handling_enabled and ifaceobj.addr_family[addr_index] == "inet6":
+                        dad_attempts = newaddr_attrs.get(newaddrs[addr_index], {}).get('dad-attempts')
+                        if dad_attempts == "0":
+                            nodad = True
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
                         newaddr_attrs.get(newaddrs[addr_index],
                                           {}).get('broadcast'),
@@ -801,7 +798,7 @@ class address(moduleBase):
                     if not setting_default_value:
                         ifaceobj.status = ifaceStatus.ERROR
                         self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
-
+        
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
         mtu = ifaceobj.get_attr_value_first('mtu')
 
@@ -900,16 +897,10 @@ class address(moduleBase):
         self.up_hwaddress(ifaceobj)
 
         # settle dad
-        if not self.ipv6_dad_handling_enabled:
-            return
-        if not self.cache.link_exists(ifaceobj.name):
-            return
-        ifname = ifaceobj.name
-        ifaceobjs = self._get_ifaceobjs(ifaceobj, ifaceobj_getfunc)
-        addr_supported, user_addrs_list = self.__get_ip_addr_with_attributes(ifaceobjs, ifname)
-        if not addr_supported:
-            return
-        self._settle_dad(ifaceobj, [ip for ip, _ in user_addrs_list if ip.version == 6])
+        if self.ipv6_dad_handling_enabled and self.ipcmd.link_exists(ifaceobj.name):
+            addrlist = ifaceobj.get_attr_value('address')
+            if any((":"in ip for ip in addrlist)):
+                self._settle_dad(ifaceobj, [ip for ip in addrlist if ":" in ip])
 
         gateways = ifaceobj.get_attr_value('gateway')
         if not gateways:
@@ -1266,7 +1257,7 @@ class address(moduleBase):
                 ifaceobj.name, what
             ]))
             addr_infos = (x for t in raw for x in t.get('addr_info', []))
-            ip_list = ['%s/%s' % (x["local"], {x["prefixlen"]}) for x in addr_infos if x]
+            ip_list = ['%s/%s' % (x["local"], x["prefixlen"]) for x in addr_infos if x]
             return ip_list
 
         def get_param(key, default=None):
@@ -1280,6 +1271,7 @@ class address(moduleBase):
         if not attempts or not ips:
             return
         try:
+
             for _attempt in range(0, attempts):
                 tentative = ip_addr_list('tentative')
                 if all(str(ip) not in tentative for ip in ips):
@@ -1294,7 +1286,7 @@ class address(moduleBase):
                 self.logger.warning('address: %s: dad failure "%s"', ifaceobj.name, ','.join(failure))
         except subprocess.CalledProcessError as exc:
             self.logger.error('address: %s: could not settle dad %s', ifaceobj.name, str(exc))
-
+        
     def _get_ifaceobjs(self, ifaceobj, ifaceobj_getfunc):
         squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
         if not squash_addr_config:
