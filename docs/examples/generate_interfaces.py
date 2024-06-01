@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import argparse
 import sys
@@ -9,7 +9,7 @@ import os
     requested interfaces.
 
     Currently it supports generation of interfaces(5) section for all
-    swp interfaces on the system. And also an interface section 
+    swp interfaces on the system. And also an interface section
     for a bridge with all swp ports.
 
     Example use of this script:
@@ -131,7 +131,7 @@ def interfaces_print_swp_defaults(swp_intfs):
 
 def interfaces_print_bridge_default(swp_intfs):
     print_bridge_untagged_defaults_header()
-    outbuf = 'auto bridge-untagged\n' 
+    outbuf = 'auto bridge-untagged\n'
     outbuf += 'iface bridge-untagged\n'
     outbuf += '  bridge-ports \\\n'
     linen = 5
