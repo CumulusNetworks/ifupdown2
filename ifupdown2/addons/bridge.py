@@ -457,8 +457,6 @@ class bridge(Bridge, moduleBase):
         }
     }
 
-    bridge_utils_missing_warning = True
-
     # Netlink attributes not associated with ifupdown2
     # attributes are left commented-out for a future use
     # and kept in order :)
@@ -4205,13 +4203,6 @@ class bridge(Bridge, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
            return
-
-        if (not self.requirements.bridge_utils_is_installed
-                and (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT or ifaceobj.link_kind & ifaceLinkKind.BRIDGE)
-                    and self.bridge_utils_missing_warning):
-            self.logger.warning('%s: missing - bridge operation may not work as expected. '
-                                'Please check if \'bridge-utils\' package is installed' % utils.brctl_cmd)
-            self.bridge_utils_missing_warning = False
 
         # make sure BRIDGE_VXLAN is set if we have a vxlan port
         self._re_evaluate_bridge_vxlan(ifaceobj, ifaceobj_getfunc)
