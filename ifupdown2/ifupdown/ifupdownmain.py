@@ -495,12 +495,13 @@ class ifupdownMain:
         return True
 
     def create_n_save_ifaceobj(self, ifacename, priv_flags=None,
-                               increfcnt=False):
+                               increfcnt=False, classes=None):
         """ creates a iface object and adds it to the iface dictionary """
         ifaceobj = iface()
         ifaceobj.name = ifacename
         ifaceobj.priv_flags = priv_flags
         ifaceobj.auto = True
+        ifaceobj.classes = classes or []
         if not self._link_master_slave:
             ifaceobj.link_type = ifaceLinkType.LINK_NA
         if increfcnt:
@@ -1766,7 +1767,7 @@ class ifupdownMain:
         self.logger.info('excludepats after processing companions [%s]' %' '.join(new_excludepats))
         return new_excludepats
 
-    def up(self, ops, auto=False, allow_classes=None, ifacenames=None,
+    def up(self, ops, all_itf=False, allow_classes=None, ifacenames=None,
            excludepats=None, printdependency=None, syntaxcheck=False,
            type=None, skipupperifaces=False):
         """This brings the interface(s) up
@@ -1789,7 +1790,7 @@ class ifupdownMain:
             ifupdownflags.flags.CLASS = True
         if not self.flags.ADDONS_ENABLE:
             self.flags.STATEMANAGER_UPDATE = False
-        if auto:
+        if all_itf:
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
         try:
@@ -1800,24 +1801,12 @@ class ifupdownMain:
         if excludepats:
             excludepats = self._preprocess_excludepats(excludepats)
 
-        filtered_ifacenames = None
-        if ifacenames:
-            ifacenames = self._preprocess_ifacenames(ifacenames)
-
-            if allow_classes:
-                filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
-
-        # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
+        # Get a filtered list of interfaces to work on
+        filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                all_itf, allow_classes, excludepats, ifacenames)
 
         if not filtered_ifacenames:
-            # filter interfaces based on auto and allow classes
-            filtered_ifacenames = [i for i in ifacenames
-                                    if self._iface_whitelisted(auto, allow_classes,
-                                                excludepats, i)]
-
-        if not filtered_ifacenames:
-            raise Exception('no ifaces found matching given allow lists')
+            return
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
@@ -1888,22 +1877,28 @@ class ifupdownMain:
                 return True
         return False
 
-    def _get_filtered_ifacenames_with_classes(self, auto, allow_classes, excludepats, ifacenames):
-        # if user has specified ifacelist and allow_classes
-        # append the allow_classes interfaces to user
-        # ifacelist
-        filtered_ifacenames = [i for i in list(self.ifaceobjdict.keys())
-                               if self._iface_whitelisted(auto, allow_classes,
-                                                          excludepats, i)]
-        filtered_ifacenames += ifacenames
+    def _get_filtered_ifacenames_with_classes(self, all_itf, allow_classes, excludepats, ifacenames):
+        """ Return a filtered list of interfaces based on user request """
 
-        for intf in ifacenames:
+        # all_itf or ifacenames are required, but mutually exclusive
+        if all_itf:
+            selected_ifacenames = list(self.ifaceobjdict.keys())
+        else:
+            # Expand interfaces names
+            selected_ifacenames = self._preprocess_ifacenames(ifacenames)
+
+        # Filter with allow_classes and excludepats
+        filtered_ifacenames = [itf for itf in selected_ifacenames
+            if self._iface_whitelisted(False, allow_classes, excludepats, itf)]
+
+        # Ensure selected interfaces are not blacklisted
+        for intf in selected_ifacenames:
             for obj in self.get_ifaceobjs(intf) or []:
                 obj.blacklisted = False
 
         return filtered_ifacenames
 
-    def down(self, ops, auto=False, allow_classes=None, ifacenames=None,
+    def down(self, ops, all_itf=False, allow_classes=None, ifacenames=None,
              excludepats=None, printdependency=None, usecurrentconfig=False,
              type=None):
         """ down an interface """
@@ -1914,7 +1909,7 @@ class ifupdownMain:
             ifupdownflags.flags.CLASS = True
         if not self.flags.ADDONS_ENABLE:
             self.flags.STATEMANAGER_UPDATE = False
-        if auto:
+        if all_itf:
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
         # For down we need to look at old state, unless usecurrentconfig
@@ -1935,33 +1930,15 @@ class ifupdownMain:
         if excludepats:
             excludepats = self._preprocess_excludepats(excludepats)
 
-        filtered_ifacenames = None
-        if ifacenames:
-            # If iface list is given by the caller, always check if iface
-            # is present
-            try:
-               ifacenames = self._preprocess_ifacenames(ifacenames)
-
-               if allow_classes:
-                   filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
-
-            except Exception as e:
-               raise Exception('%s' %str(e) +
-                       ' (interface was probably never up ?)')
-
-
-        # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
+        try:
+            # Get a filtered list of interfaces to work on
+            filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                    all_itf, allow_classes, excludepats, ifacenames)
+        except Exception as e:
+           raise Exception(f"{e} (interface was probably never up ?)") from e
 
         if not filtered_ifacenames:
-            # filter interfaces based on auto and allow classes
-            filtered_ifacenames = [i for i in ifacenames
-                                   if self._iface_whitelisted(auto, allow_classes,
-                                                    excludepats, i)]
-
-        if not filtered_ifacenames:
-            raise Exception('no ifaces found matching given allow lists ' +
-                    '(or interfaces were probably never up ?)')
+            return
 
         if printdependency:
             self.populate_dependency_info(ops, filtered_ifacenames)
@@ -1979,7 +1956,7 @@ class ifupdownMain:
             if not ifupdownflags.flags.DRYRUN and self.flags.ADDONS_ENABLE:
                 self._save_state()
 
-    def query(self, ops, auto=False, format_list=False, allow_classes=None,
+    def query(self, ops, all_itf=False, format_list=False, allow_classes=None,
               ifacenames=None,
               excludepats=None, printdependency=None,
               format='native', type=None):
@@ -1994,13 +1971,14 @@ class ifupdownMain:
 
         if allow_classes:
             ifupdownflags.flags.CLASS = True
+
         if self.flags.STATEMANAGER_ENABLE and ops[0] == 'query-savedstate':
             return self.statemanager.dump_pretty(ifacenames)
         self.flags.STATEMANAGER_UPDATE = False
 
         iface_read_ret = True
 
-        if auto:
+        if all_itf:
             self.logger.debug('setting flag ALL')
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
@@ -2008,42 +1986,26 @@ class ifupdownMain:
         if ops[0] == 'query-syntax':
             self._modules_help(format)
             return
-        elif ops[0] == 'query-running':
-            # create fake devices to all dependents that dont have config
-            for i in ifacenames:
-                self.create_n_save_ifaceobj(i, ifacePrivFlags(False, True))
         else:
             try:
                 iface_read_ret = self.read_iface_config(raw=ops[0] == "query-raw")
             except Exception:
                 raise
 
-        if ifacenames and ops[0] != 'query-running':
-            # If iface list is given, always check if iface is present
-            ifacenames = self._preprocess_ifacenames(ifacenames)
+        if ops[0] == 'query-running' and ifacenames:
+            # On query-running operation, user can ask for interfaces not configured in ifupdown2
+            for i in ifacenames:
+                ifaceobjs = self.get_ifaceobjs(i)
+                if not ifaceobjs:
+                    # create fake devices to all dependents that dont have config
+                    self.create_n_save_ifaceobj(i, ifacePrivFlags(False, True), classes=allow_classes)
 
-        if allow_classes:
-            filtered_ifacenames = self._get_filtered_ifacenames_with_classes(auto, allow_classes, excludepats, ifacenames)
-
-        # if iface list not given by user, assume all from config file
-        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
-
-        # filter interfaces based on auto and allow classes
-        if ops[0] == 'query-running':
-            filtered_ifacenames = ifacenames
-        elif not allow_classes:
-            filtered_ifacenames = [
-                i for i in ifacenames
-                if self._iface_whitelisted(
-                    auto,
-                    allow_classes,
-                    excludepats, i
-                )
-            ]
+        # Get a filtered list of interfaces to work on
+        filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                all_itf, allow_classes, excludepats, ifacenames)
 
         if not filtered_ifacenames:
-                raise Exception('no ifaces found matching ' +
-                        'given allow lists')
+            return
 
         self.populate_dependency_info(ops)
         if ops[0] == 'query-dependency' and printdependency:
@@ -2075,7 +2037,7 @@ class ifupdownMain:
         if not iface_read_ret or not ret:
             raise Exception()
 
-    def _reload_currentlyup(self, upops, downops, auto=False, allow=None,
+    def _reload_currentlyup(self, upops, downops, all_itf=False, allow_classes=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
             syntaxcheck=False, **extra_args):
         """ reload currently up interfaces """
@@ -2090,16 +2052,23 @@ class ifupdownMain:
         if not self.ifaceobjdict:
             self.logger.warning("nothing to reload ..exiting.")
             return
-        already_up_ifacenames = []
-        if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
 
+        # Get a filtered list of interfaces to work on
+        filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                all_itf, allow_classes, excludepats, ifacenames)
+
+        if not filtered_ifacenames:
+            self.logger.warning("nothing to reload ..exiting.")
+            return
+
+        already_up_ifacenames = []
         if (not usecurrentconfig and self.flags.STATEMANAGER_ENABLE
                 and self.statemanager.ifaceobjdict):
             already_up_ifacenames = list(self.statemanager.ifaceobjdict.keys())
 
         # Get already up interfaces that still exist in the interfaces file
         already_up_ifacenames_not_present = set(
-                        already_up_ifacenames).difference(ifacenames)
+                        already_up_ifacenames).difference(filtered_ifacenames)
         already_up_ifacenames_still_present = set(
                         already_up_ifacenames).difference(
                         already_up_ifacenames_not_present)
@@ -2135,10 +2104,8 @@ class ifupdownMain:
 
            # reinitialize dependency graph
            self.dependency_graph = OrderedDict({})
-           falready_up_ifacenames_not_present = [i for i in
-                                    already_up_ifacenames_not_present
-                                    if self._iface_whitelisted(auto, allow,
-                                    excludepats, i)]
+           falready_up_ifacenames_not_present = self._get_filtered_ifacenames_with_classes(
+                   False, allow_classes, excludepats, already_up_ifacenames_not_present)
            self.populate_dependency_info(downops,
                                          falready_up_ifacenames_not_present)
            self._sched_ifaces(falready_up_ifacenames_not_present, downops,
@@ -2148,7 +2115,7 @@ class ifupdownMain:
 
         # Now, run 'up' with new config dict
         # reset statemanager update flag to default
-        if auto:
+        if all_itf:
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
         if new_ifaceobjdict:
@@ -2171,7 +2138,7 @@ class ifupdownMain:
         if not iface_read_ret or not ret:
             raise Exception()
 
-    def _reload_default(self, upops, downops, auto=False, allow=None,
+    def _reload_default(self, upops, downops, all_itf=False, allow_classes=None,
             ifacenames=None, excludepats=None, usecurrentconfig=False,
             syntaxcheck=False, **extra_args):
         """ reload interface config """
@@ -2187,9 +2154,15 @@ class ifupdownMain:
             return
 
         if not ifacenames: ifacenames = list(self.ifaceobjdict.keys())
-        new_filtered_ifacenames = [i for i in ifacenames
-                               if self._iface_whitelisted(auto, allow,
-                               excludepats, i)]
+
+        # Get a filtered list of interfaces to work on
+        new_filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                all_itf, allow_classes, excludepats, ifacenames)
+
+        if not new_filtered_ifacenames:
+            self.logger.warning("nothing to reload ..exiting.")
+            return
+
         # generate dependency graph of interfaces
         self.populate_dependency_info(upops)
 
@@ -2230,9 +2203,8 @@ class ifupdownMain:
 
         if op == 'reload' and ifacenames:
             ifacenames = list(self.ifaceobjdict.keys())
-            old_filtered_ifacenames = [i for i in ifacenames
-                               if self._iface_whitelisted(auto, allow,
-                               excludepats, i)]
+            old_filtered_ifacenames = self._get_filtered_ifacenames_with_classes(
+                    all_itf, allow_classes, excludepats, ifacenames)
 
             # generate dependency graph of old interfaces,
             # This should make sure built in interfaces are
@@ -2401,7 +2373,7 @@ class ifupdownMain:
             self.logger.debug('no interfaces to up')
             return
 
-        if auto:
+        if all_itf:
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
         # and now, we are back to the current config in ifaceobjdict
