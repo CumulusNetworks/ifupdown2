@@ -138,7 +138,7 @@ class Ifupdown2:
         configStr = '[ifupdown2]\n' + config
         configFP = io.StringIO(configStr)
         parser = configparser.RawConfigParser()
-        parser.readfp(configFP)
+        parser.read_file(configFP)
         configmap_g = dict(parser.items('ifupdown2'))
 
         # Preprocess config map
