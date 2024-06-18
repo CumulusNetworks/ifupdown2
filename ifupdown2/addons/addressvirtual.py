@@ -8,6 +8,7 @@ import os
 import glob
 import ipaddress
 import subprocess
+import re
 
 from collections import deque
 
@@ -328,14 +329,19 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
 
     def check_mac_address(self, ifaceobj, mac):
         if mac == 'none':
+            self.logger.info("%s: The virtual mac address is set as none" %ifaceobj.name)
             return True
         try:
             if int(mac.split(":")[0], 16) & 1 :
-                self.log_error("%s: Multicast bit is set in the virtual mac address '%s'"
-                               % (ifaceobj.name, mac), ifaceobj=ifaceobj)
-                return False
+                raise Exception("Multicast bit is set in the virtual mac address '%s'"
+                               % mac)
+            mac_regex = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
+            if not mac_regex.match(mac):
+               raise Exception("'%s'" % mac)
             return True
-        except ValueError:
+
+        except Exception as e:
+            self.logger.error("%s: Invalid virtual mac address: %s" % (ifaceobj.name, str(e)))
             return False
 
     def _fixup_vrf_enslavements(self, ifaceobj, ifaceobj_getfunc=None):
