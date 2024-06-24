@@ -1257,7 +1257,7 @@ class address(moduleBase):
                 ifaceobj.name, what
             ]))
             addr_infos = (x for t in raw for x in t.get('addr_info', []))
-            ip_list = ['%s/%s' % (x["local"], x["prefixlen"]) for x in addr_infos if x]
+            ip_list = ['{local}/{prefixlen}'.format(**x) for x in addr_infos if x]
             return ip_list
 
         def get_param(key, default=None):
