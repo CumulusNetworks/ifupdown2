@@ -378,8 +378,7 @@ class address(moduleBase):
                     nodad = False
                     if self.ipv6_dad_handling_enabled and ifaceobj.addr_family[addr_index] == "inet6":
                         dad_attempts = newaddr_attrs.get(newaddrs[addr_index], {}).get('dad-attempts')
-                        if dad_attempts == "0":
-                            nodad = True
+                        nodad = dad_attempts == "0"
                     self.ipcmd.addr_add(ifaceobj.name, newaddrs[addr_index],
                         newaddr_attrs.get(newaddrs[addr_index],
                                           {}).get('broadcast'),
