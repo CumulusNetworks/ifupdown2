@@ -898,9 +898,10 @@ class address(moduleBase):
 
         # settle dad
         if self.ipv6_dad_handling_enabled and self.ipcmd.link_exists(ifaceobj.name):
-            addrlist = ifaceobj.get_attr_value('address')
-            if any((":"in ip for ip in addrlist)):
-                self._settle_dad(ifaceobj, [ip for ip in addrlist if ":" in ip])
+            self._settle_dad(
+                ifaceobj,
+                [a for a in ifaceobj.get_attr_value('address') if ':' in a]
+            )
 
         gateways = ifaceobj.get_attr_value('gateway')
         if not gateways:
