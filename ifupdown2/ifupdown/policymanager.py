@@ -177,7 +177,6 @@ class policymanager():
         We first check the user_policy_array and return that value. But if
         the user did not specify an override, we use the system_policy_array.
         '''
-
         if (not attr or not module_name):
             return None
         # users can specify defaults to override the systemwide settings
