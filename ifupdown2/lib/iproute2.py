@@ -867,9 +867,9 @@ class IPRoute2(Cache, Requirements):
             return
 
         if not vrf:
-            cmd = "%s route replace default via %s proto kernel" % (utils.ip_cmd, gateway)
+            cmd = "%s route replace default via %s proto boot" % (utils.ip_cmd, gateway)
         else:
-            cmd = "%s route replace table %s default via %s proto kernel" % (utils.ip_cmd, vrf, gateway)
+            cmd = "%s route replace table %s default via %s proto boot" % (utils.ip_cmd, vrf, gateway)
 
         if metric:
             cmd += " metric %s" % metric
@@ -891,9 +891,9 @@ class IPRoute2(Cache, Requirements):
             return
 
         if not vrf:
-            cmd = "%s route del default via %s proto kernel" % (utils.ip_cmd, gateway)
+            cmd = "%s route del default via %s proto boot" % (utils.ip_cmd, gateway)
         else:
-            cmd = "%s route del table %s default via %s proto kernel" % (utils.ip_cmd, vrf, gateway)
+            cmd = "%s route del table %s default via %s proto boot" % (utils.ip_cmd, vrf, gateway)
 
         if metric:
             cmd += " metric %s" % metric
@@ -937,12 +937,12 @@ class IPRoute2(Cache, Requirements):
             if vrf_table:
                 self.__execute_or_batch(
                     utils.ip_cmd,
-                    "route add %s table %s dev %s proto kernel metric 9999" % (ip, vrf_table, macvlan_ifacename)
+                    "route add %s table %s dev %s proto boot metric 9999" % (ip, vrf_table, macvlan_ifacename)
                 )
             else:
                 self.__execute_or_batch(
                     utils.ip_cmd,
-                    "route add %s dev %s proto kernel metric 9999" % (ip, macvlan_ifacename)
+                    "route add %s dev %s proto boot metric 9999" % (ip, macvlan_ifacename)
                 )
 
     def ip_route_get_dev(self, prefix, vrf_master=None):
