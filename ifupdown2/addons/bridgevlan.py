@@ -12,7 +12,7 @@ try:
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import Addon
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
@@ -136,7 +136,6 @@ class bridgevlan(Addon, moduleBase):
                 ifaceobjcurr.update_config_with_status(
                         'bridge-igmp-querier-src', attrval, 0)
                 ifaceobjcurr.status = ifaceStatus.SUCCESS
-        return
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         ret = True

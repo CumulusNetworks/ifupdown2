@@ -24,7 +24,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags
 
     import ifupdown.policymanager as policymanager
@@ -36,6 +36,11 @@ def signal_handler_f(ps, sig, frame):
         ps.send_signal(sig)
     if sig == signal.SIGINT:
         raise KeyboardInterrupt
+
+
+class UtilsException(Exception):
+    pass
+
 
 class utils():
     logger = logging.getLogger('ifupdown')
@@ -142,7 +147,6 @@ class utils():
     def mac_str_to_int(cls, hw_address):
         mac = 0
         if hw_address:
-            pass
             for i in hw_address.translate(cls.mac_translate_tab).split():
                 mac = mac << 8
                 mac += int(i, 16)
@@ -189,8 +193,7 @@ class utils():
                 value = ifaceobj.get_attr_value_first(attr)
                 if value and not utils.is_binary_bool(value):
                     if attr in attrsdict:
-                        bool = utils.get_boolean_from_string(attrsdict[attr])
-                        attrsdict[attr] = utils.get_yesno_boolean(bool)
+                        attrsdict[attr] = utils.get_yesno_boolean(utils.get_boolean_from_string(attrsdict[attr]))
         else:
             for attr in attrslist:
                 if attr in attrsdict:
@@ -256,12 +259,18 @@ class utils():
 
     @classmethod
     def expand_iface_range(cls, name):
-        ifrange = cls.parse_iface_range(name)
-        if not ifrange:
-            return []
-        prefix, start, end = ifrange[0], ifrange[1], ifrange[2]
-        suffix = '' if len(ifrange) <= 3 else ifrange[3]
-        return [f'{prefix}{i}{suffix}' for i in range(start, end + 1)]
+        ifacenames = []
+        irange = cls.parse_iface_range(name)
+        if irange:
+            if len(irange) == 3:
+                # eg swp1.[2-4], r = "swp1.", 2, 4)
+                for i in range(irange[1], irange[2]):
+                    ifacenames.append('%s%d' %(irange[0], i))
+            elif len(irange) == 4:
+                for i in range(irange[1], irange[2]):
+                    # eg swp[2-4].100, r = ("swp", 2, 4, ".100")
+                    ifacenames.append('%s%d%s' %(irange[0], i, irange[3]))
+        return ifacenames
 
     @classmethod
     def is_ifname_range(cls, name):
@@ -376,14 +385,14 @@ class utils():
                 cmd_output = ch.communicate(input=stdin.encode() if stdin else stdin)[0]
             cmd_returncode = ch.wait()
         except Exception as e:
-            raise Exception('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
+            raise UtilsException('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         cmd_output_string = cmd_output.decode() if cmd_output is not None else cmd_output
 
         if cmd_returncode != 0:
-            raise Exception(cls._format_error(cmd,
+            raise UtilsException(cls._format_error(cmd,
                                               cmd_returncode,
                                               cmd_output_string,
                                               stdin))
@@ -446,7 +455,6 @@ class utils():
                     result.append(a)
         except Exception:
             cls.logger.warning('unable to parse vids \'%s\'' %''.join(rangelist))
-            pass
         return result
 
     @classmethod
@@ -505,7 +513,7 @@ class utils():
                     vni = vni.split('+', 1)[1]
                     vint = int(vni)
                     if vint < 0:
-                        raise Exception("invalid auto vni suffix %d" % (vint))
+                        raise UtilsException("invalid auto vni suffix %d" % (vint))
                     if '-' in vlan:
                         (vstart, vend) = vlan.split('-', 1)
                         vnistart = int(vstart) + vint
@@ -516,7 +524,7 @@ class utils():
                     vni = vni.split('-', 1)[1]
                     vint = int(vni)
                     if vint < 0:
-                        raise Exception("invalid auto vni suffix %d" % (vint))
+                        raise UtilsException("invalid auto vni suffix %d" % (vint))
                     if '-' in vlan:
                         (vstart, vend) = vlan.split('-', 1)
                         vnistart = int(vstart) - vint
@@ -525,14 +533,13 @@ class utils():
                         vnistart = int(vlan) - vint
                 if (vnistart <= 0 or (vniend > 0 and (vniend < vnistart)) or
                     (vnistart > cls.vni_max) or (vniend > cls.vni_max)):
-                        raise Exception("invalid vni - unable to derive auto vni %s" % (vni))
+                        raise UtilsException("invalid vni - unable to derive auto vni %s" % (vni))
                 if vniend > 0:
                     vni = '%d-%d' % (vnistart, vniend)
                 else:
                     vni = '%d' % (vnistart)
         except Exception as e:
-            raise Exception(str(e))
-            return
+            raise UtilsException(str(e))
         return (vlan, vni)
 
     @classmethod

@@ -9,7 +9,7 @@
 
 try:
     from ifupdown2.ifupdown.utils import *
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import *
 
 
@@ -31,7 +31,6 @@ class templateEngine():
             except Exception as e:
                 self.logger.warning('unable to load template engine %s (%s)'
                         %(template_engine, str(e)))
-                pass
             if template_lookuppath:
                 try:
                     self.logger.debug('setting template lookuppath to %s'
