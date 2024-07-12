@@ -1254,6 +1254,10 @@ class address(AddonWithIpBlackList, moduleBase):
         return True
 
     def process_hwaddress_reset_to_default(self, ifaceobj):
+        if not ifaceobj.link_kind and ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE:
+            # if the switch port is part of a bond we shouldn't revert the mac address
+            return None
+
         iface_defaults = policymanager.policymanager_api.get_iface_defaults("address")
 
         if iface_defaults:
