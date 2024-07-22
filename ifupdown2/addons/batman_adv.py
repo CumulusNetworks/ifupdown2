@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #
 # Copyright 2016-2017 Maximilian Wilhelm <max@sdn.clinic>
 # Author: Maximilian Wilhelm, max@sdn.clinic

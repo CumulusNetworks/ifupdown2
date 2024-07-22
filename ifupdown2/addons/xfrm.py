@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #
 # Copyright 2019 Voleatech GmbH. All rights reserved.
 # Author: Sven Auhagen, sven.auhagen@voleatech.de
