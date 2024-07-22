@@ -16,6 +16,7 @@ import logging
 import subprocess
 import itertools
 
+from shutil import which
 from functools import partial
 from ipaddress import IPv4Address
 
@@ -92,21 +93,21 @@ class utils():
     directories, command execution will fail because we have
     set default path same as debian path.
     """
-    bridge_cmd      = '/sbin/bridge'
-    ip_cmd          = '/bin/ip'
-    brctl_cmd       = '/sbin/brctl'
-    pidof_cmd       = '/bin/pidof'
-    service_cmd     = '/usr/sbin/service'
-    sysctl_cmd      = '/sbin/sysctl'
-    modprobe_cmd    = '/sbin/modprobe'
-    pstree_cmd      = '/usr/bin/pstree'
-    ss_cmd          = '/bin/ss'
-    vrrpd_cmd       = '/usr/sbin/vrrpd'
-    ifplugd_cmd     = '/usr/sbin/ifplugd'
-    mstpctl_cmd     = '/sbin/mstpctl'
-    ethtool_cmd     = '/sbin/ethtool'
-    systemctl_cmd   = '/bin/systemctl'
-    dpkg_cmd        = '/usr/bin/dpkg'
+    bridge_cmd = "bridge"
+    ip_cmd = "ip"
+    brctl_cmd = "brctl"
+    pidof_cmd = "pidof"
+    service_cmd = "service"
+    sysctl_cmd = "sysctl"
+    modprobe_cmd = "modprobe"
+    pstree_cmd = "pstree"
+    ss_cmd = "ss"
+    vrrpd_cmd = "vrrpd"
+    ifplugd_cmd = "ifplugd"
+    mstpctl_cmd = "mstpctl"
+    ethtool_cmd = "ethtool"
+    systemctl_cmd = "systemctl"
+    dpkg_cmd = "dpkg"
 
     logger.info("utils init command paths")
     for cmd in ['bridge',
@@ -125,12 +126,18 @@ class utils():
                 'systemctl',
                 'dpkg'
                 ]:
-        if os.path.exists(vars()[cmd + '_cmd']):
+        # Find tool on PATH
+        if which(cmd) is not None:
+            vars()[cmd + '_cmd'] = which(cmd)
             continue
-        for path in ['/bin/',
-                     '/sbin/',
-                     '/usr/bin/',
-                     '/usr/sbin/',]:
+        for path in [
+            "/usr/local/sbin/",
+            "/usr/local/bin/",
+            "/usr/sbin/",
+            "/usr/bin/",
+            "/sbin/",
+            "/bin/",
+        ]:
             if os.path.exists(path + cmd):
                 vars()[cmd + '_cmd'] = path + cmd
             else:
