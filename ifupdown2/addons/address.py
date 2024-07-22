@@ -1303,6 +1303,11 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.netlink.link_down(l)
                 slave_down = True
             try:
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.BOND_SLAVE and ifaceobj.get_attr_value("hwaddress"):
+                    master_ifname = self.cache.get_master(ifaceobj.name)
+                    if master_ifname:
+                        self.log_error("%s: setting hwaddress is not permitted on an existing bond slave" % ifaceobj.name, ifaceobj=ifaceobj)
+
                 self.netlink.link_set_address(
                     ifaceobj.name,
                     hwaddress,
