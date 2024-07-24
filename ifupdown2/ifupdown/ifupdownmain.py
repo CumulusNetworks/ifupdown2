@@ -2490,7 +2490,7 @@ class ifupdownMain:
                         self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
 
         if self.clagd_change_detected:
-            self.logger.error(f"diff-mode: clagd changes detected, updating run queue with: {clag_interfaces}")
+            self.logger.info(f"diff-mode: clagd changes detected, updating run queue with: {clag_interfaces}")
             for ifname in clag_interfaces:
                 if ifname not in diff_ifname:
                     diff_ifname.append(ifname)
