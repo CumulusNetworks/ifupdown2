@@ -92,6 +92,8 @@ class policymanager():
                 self.logger.warning('    exception is %s' % str(e))
             # customer added module attributes
             for module in list(user_array.keys()):
+                if module == "README":
+                    continue
                 if module in self.system_policy_array:
                     # warn user that we are overriding the system module setting
                     self.logger.debug('warning: overwriting system with user module %s from file %s' \
