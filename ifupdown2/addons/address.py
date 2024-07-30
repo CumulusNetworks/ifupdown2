@@ -1360,13 +1360,21 @@ class address(AddonWithIpBlackList, moduleBase):
                 if alias:
                     self.sysfs.link_set_alias(ifaceobj.name, None)  # None to reset alias.
 
-            # XXX hwaddress reset cannot happen because we dont know last
-            # address.
+            hwaddress = self.process_hwaddress_reset_to_default(ifaceobj)
+            if hwaddress != None and not ifaceobj.link_kind:
+                hwaddress_int = utils.mac_str_to_int(hwaddress)
+                self.netlink.link_set_address(
+                    ifaceobj.name,
+                    hwaddress,
+                    hwaddress_int,
+                    keep_link_down=ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN
+                )
+            else:
+              # Handle special things on a bridge
+              hwaddress = self._get_hwaddress(ifaceobj)
+              if not hwaddress:
+                  hwaddress = self.cache.get_link_address(ifaceobj.name)
 
-            # Handle special things on a bridge
-            hwaddress = self._get_hwaddress(ifaceobj)
-            if not hwaddress:
-                hwaddress = self.cache.get_link_address(ifaceobj.name)
             self._process_bridge(ifaceobj, False, hwaddress, None)
         except Exception as e:
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
