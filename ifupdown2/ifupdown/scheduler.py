@@ -96,6 +96,9 @@ class ifaceScheduler():
             m = ifupdownobj.modules.get(mname)
             err = 0
             try:
+                if cls._DIFF_MODE and hasattr(m, "set_runqueue"):
+                    m.set_runqueue(list(cls._RUN_QUEUE))
+
                 if hasattr(m, 'run'):
                     msg = ('%s: %s : running module %s' %(ifacename, op, mname))
                     if op == 'query-checkcurr':

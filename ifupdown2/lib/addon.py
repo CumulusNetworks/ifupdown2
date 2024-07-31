@@ -74,6 +74,13 @@ class Addon(Netlink, Cache):
             for alias in attribute_object.get("aliases", []):
                 self.__alias_to_attribute[alias] = attribute_name
 
+        self._runqueue = []
+        self._diff_mode = False
+
+    def set_runqueue(self, runqueue):
+        self._runqueue = runqueue
+        self._diff_mode = True
+
     def __get_modinfo(self) -> dict:
         try:
             return self._modinfo

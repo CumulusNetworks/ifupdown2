@@ -653,10 +653,22 @@ class mstpctl(Addon, moduleBase):
                 continue
             if not os.path.exists('/sys/class/net/%s/brport' %bport):
                 continue
+
+            if self._diff_mode and bport not in self._runqueue:
+                self.logger.info(f"{bport}: diff-mode: skipping stp configuration on bridge port")
+                flag_skip = True
+            else:
+                flag_skip = False
+
             bportifaceobjlist = ifaceobj_getfunc(bport)
             if not bportifaceobjlist:
                continue
             for bportifaceobj in bportifaceobjlist:
+                if flag_skip:
+                    # We need to flag all ifaceobj as processed if flag_skip is True
+                    bportifaceobj.module_flags[self.name] = bportifaceobj.module_flags.setdefault(self.name, 0) | MstpctlFlags.PORT_PROCESSED
+                    continue
+
                 # Dont process bridge port if it already has been processed
                 if (bportifaceobj.module_flags.get(self.name,0x0) & \
                     mstpctlFlags.PORT_PROCESSED):
