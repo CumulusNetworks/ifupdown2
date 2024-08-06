@@ -1389,7 +1389,7 @@ class address(AddonWithIpBlackList, moduleBase):
         if not fdbs:
            fdbs = self.iproute2.bridge_fdb_show_dev(bridgename)
            if not fdbs:
-              return
+              return {}
            self._bridge_fdb_query_cache[bridgename] = fdbs
         return fdbs.get(vlan) if vlan else fdbs
 
