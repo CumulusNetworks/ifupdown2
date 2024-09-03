@@ -831,7 +831,15 @@ class IPRoute2(Cache, Requirements):
             self.logger.info("%s: del mcqv4src vlan: invalid parameter %s: %s"
                              % (bridge, vlan, str(e)))
             return
+
         utils.exec_command("%s delmcqv4src %s %d" % (utils.brctl_cmd, bridge, vlan))
+
+        # Disable igmp snooping on specified vlan with {VID}
+        utils.exec_command("%s vlan global set vid %d dev %s mcast_snooping 0" % (utils.bridge_cmd, vlan,  bridge))
+
+        # Disable per vlan snooping
+        utils.exec_command( "%s link set %s type bridge mcast_vlan_snooping 0" % (utils.ip_cmd, bridge))
+
 
     def bridge_set_mcqv4src(self, bridge, vlan, mcquerier):
         try:
@@ -853,6 +861,13 @@ class IPRoute2(Cache, Requirements):
                 return
 
         utils.exec_command("%s setmcqv4src %s %d %s" % (utils.brctl_cmd, bridge, vlan, mcquerier))
+
+        # Enable per vlan snooping
+        utils.exec_command( "%s link set %s type bridge mcast_vlan_snooping 1" % (utils.ip_cmd, bridge))
+
+        # Enable igmp snooping on specified vlan with {VID}
+        utils.exec_command("%s vlan global set vid %d dev %s mcast_snooping 1 mcast_querier 1" % (utils.bridge_cmd, vlan,  bridge))
+
 
     ############################################################################
     # ROUTE
