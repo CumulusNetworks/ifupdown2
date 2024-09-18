@@ -150,7 +150,8 @@ class dhcp(Addon, moduleBase):
         self._down_stale_dhcp_config(ifaceobj, 'inet6', dhclient6_running)
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-            self.logger.info("%s: skipping dhcp configuration: link-down yes" % ifaceobj.name)
+            self.logger.info("%s: bringing dhcp configuration down due to: link-down yes" % ifaceobj.name)
+            self._dhcp_down(ifaceobj)
             return
 
         try:
