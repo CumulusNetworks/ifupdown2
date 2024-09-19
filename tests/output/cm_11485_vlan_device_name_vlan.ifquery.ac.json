@@ -54,7 +54,7 @@
     "config_status": {
       "address": "pass"
     },
-    "status": "fail"
+    "status": "pass"
   },
   {
     "name": "bond0",
