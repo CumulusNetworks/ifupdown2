@@ -91,7 +91,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             ),
             default=True
         )
-
+        self.mac_regex = re.compile(r"^([0-9A-Fa-f]{1,2}[:-]){5}([0-9A-Fa-f]{1,2})$")
         self.address_virtual_ipv6_addrgen_value_dict = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}
 
         if addressvirtual.ADDR_METRIC_SUPPORT is None:
@@ -335,8 +335,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             if int(mac.split(":")[0], 16) & 1 :
                 raise Exception("Multicast bit is set in the virtual mac address '%s'"
                                % mac)
-            mac_regex = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
-            if not mac_regex.match(mac):
+            if not self.mac_regex.match(mac):
                raise Exception("'%s'" % mac)
             return True
 
