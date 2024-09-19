@@ -34,7 +34,6 @@ iface br0
       bridge-mcqi 42
       bridge-mcqri 42
       bridge-mcsqi 42
-      bridge-mcqv4src 100=172.16.100.1 200=10.10.10.1
       bridge-portmcfl vx42=yes
       bridge-learning vx42=off
       bridge-igmp-version 3
