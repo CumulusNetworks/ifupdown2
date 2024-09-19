@@ -2,6 +2,7 @@ import os
 import re
 import time
 import json
+import pprint
 import pytest
 import logging
 import paramiko
@@ -46,7 +47,11 @@ def assert_identical_json(json1, json2):
     :return: True if JSON objects are identical, False otherwise.
     """
     if diff := DeepDiff(json1, json2, ignore_order=True):
-        logger.error(f"JSON objects are not identical - deepdiff: {json.dumps(diff, indent=4)}")
+        try:
+            logger.error(f"JSON objects are not identical - deepdiff: {json.dumps(diff, indent=4)}")
+        except:
+            logging.error(f"JSON objects are not identical - deepdiff: {pprint.pformat(diff)}")
+
         assert json1 == json2
 
 
