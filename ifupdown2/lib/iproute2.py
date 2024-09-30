@@ -454,7 +454,7 @@ class IPRoute2(Cache, Requirements):
         if "6" in mode:
             cmd.append("-6")
 
-        if mode in ["gretap"]:
+        if mode in ["gretap", "ip6gretap"]:
             cmd.append("link %s %s type %s" % (op, tunnelname, mode))
         else:
             cmd.append("tunnel %s %s mode %s" % (op, tunnelname, mode))
