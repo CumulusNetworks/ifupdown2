@@ -819,6 +819,12 @@ class bridge(Bridge, moduleBase):
         except Exception:
             self.bridge_vni_per_svi_limit = -1
 
+        # Cumulus-check
+        try:
+            self.cumulus = "cumulus" in utils.exec_commandl(["lsb_release", "-a"]).lower()
+        except:
+            self.cumulus = False
+
     @staticmethod
     def _l2protocol_tunnel_set_pvst(ifla_brport_group_mask, ifla_brport_group_maskhi):
         if not ifla_brport_group_maskhi:
@@ -2025,6 +2031,9 @@ class bridge(Bridge, moduleBase):
             # bridge doesn't exist
             return
 
+        if not should_enslave_port and not self.cumulus:
+            self.cycle_vxlan_brport_on_vni_change(bridge_name, ifaceobj)
+
         # check for bridge-learning on l2 vni in evpn setup
         self.syntax_check_learning_l2_vni_evpn(ifaceobj)
 
@@ -2785,6 +2794,51 @@ class bridge(Bridge, moduleBase):
             if "Unterminated quoted string" not in str(e):
                 raise
             self.logger.debug(f"tc quote failure: {str(e)}")
+
+    def cycle_vxlan_brport_on_vni_change(self, bridge_name: str, ifaceobj: iface):
+        """
+        Cycle VXLAN bridge port if VNI-to-VLAN mapping has changed.
+
+        This function checks if any VNIs are reused with different VLANs in the new configuration.
+        If so, it cycles the VXLAN port (removes it from the bridge and re-adds it) to ensure
+        proper updating of the VNI-VLAN mappings.
+
+        Args:
+            bridge_name (str): Name of the bridge
+            ifaceobj (object): Interface object containing new configuration
+        Returns:
+            None
+        """
+        if not ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+            return
+
+        ifname: str = ifaceobj.name
+        old_vlan_vni_map: dict = {}
+        new_vlan_vni_map: dict = {}
+
+        # Get old vlan-vni map from statemanager
+        for old_obj in statemanager.get_ifaceobjs(ifname) or []:
+            for mapping in old_obj.get_attr_value("bridge-vlan-vni-map") or []:
+                for entry in mapping.split():
+                    vlan, vni = entry.split("=")
+                    old_vlan_vni_map[vni.strip()] = vlan.strip()
+
+        # Get new vlan-vni map from current ifaceobj
+        for mapping in ifaceobj.get_attr_value("bridge-vlan-vni-map") or []:
+            for entry in mapping.split():
+                vlan, vni = entry.split("=")
+                new_vlan_vni_map[vni.strip()] = vlan.strip()
+
+        # Find VNIs that are reused with different VLANs
+        reused_vnis: list = []
+        for vni, new_vlan in new_vlan_vni_map.items():
+            if vni in old_vlan_vni_map and old_vlan_vni_map[vni] != new_vlan:
+                reused_vnis.append(vni)
+
+        if reused_vnis:
+            self.logger.info(f"{ifname}: cycling VXLAN port from bridge '{bridge_name}' due to VNI reuse ({', '.join(reused_vnis)})")
+            self.netlink.link_set_nomaster(ifname)
+            self.netlink.link_set_master(ifname, bridge_name)
 
     def up_bridge(self, ifaceobj, ifaceobj_getfunc):
         ifname = ifaceobj.name
