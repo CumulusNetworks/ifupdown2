@@ -502,6 +502,33 @@ class address(AddonWithIpBlackList, moduleBase):
             else:
                 self.iproute2.bridge_fdb_del(bridgename, hwaddress, vlan)
 
+        if is_bridge:
+            # Get the link hwaddress of bridge if we cannot find it in defaults
+            if not hwaddress:
+                hwaddress = self.cache.get_link_address(ifaceobj.name)
+
+            # we need to do an fdb check during bridge processing and purge stale macs
+            fdbs = self._get_bridge_fdbs(ifaceobj.name)
+
+            # Save the permanent MACs for comparison too, as this can be used to preserve
+            # perm entries for VRR interfaces.
+            valid_macs = set([utils.mac_str_to_int(i) for i in fdbs.get('permanent', [])])
+            # Add the actual bridge MAC to this set too.
+            valid_macs.add(utils.mac_str_to_int(hwaddress))
+
+            # Now iterate and purge if it's not a valid mac.
+            for vlan, macs in fdbs.items():
+                for mac in macs:
+                    if utils.mac_str_to_int(mac) not in valid_macs:
+                        self.logger.info(f"{ifaceobj.name}: stale fdb entry ({mac}) detected on vlan {vlan}")
+                        try:
+                            if vlan == 'permanent':
+                                self.iproute2.bridge_fdb_del(ifaceobj.name, mac)
+                            else:
+                                self.iproute2.bridge_fdb_del(ifaceobj.name, mac, vlan)
+                        except Exception as e:
+                            self.logger.debug(f"{ifaceobj.name}: bridge_fdb_del failed: {str(e)}")
+
     def __get_ip_addr_with_attributes(self, ifaceobj_list, ifname):
         user_config_ip_addrs_list = []
 
@@ -1341,14 +1368,14 @@ class address(AddonWithIpBlackList, moduleBase):
             self.logger.debug('%s : %s' %(ifaceobj.name, str(e)))
             pass
 
-    def _get_bridge_fdbs(self, bridgename, vlan):
+    def _get_bridge_fdbs(self, bridgename, vlan=None):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
         if not fdbs:
            fdbs = self.iproute2.bridge_fdb_show_dev(bridgename)
            if not fdbs:
               return
            self._bridge_fdb_query_cache[bridgename] = fdbs
-        return fdbs.get(vlan)
+        return fdbs.get(vlan) if vlan else fdbs
 
     def _check_addresses_in_bridge(self, ifaceobj, hwaddress):
         """ If the device is a bridge, make sure the addresses
