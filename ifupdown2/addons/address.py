@@ -4,6 +4,7 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import re
 import socket
 import json
 import time
@@ -268,6 +269,9 @@ class address(AddonWithIpBlackList, moduleBase):
         )
         self.logger.debug(f"policy: default_loopback_scope set to {self.default_loopback_scope}")
         self.valid_scopes = self.get_mod_subattr("scope", "validvals")
+
+        self.mac_regex = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
+
 
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
@@ -1216,6 +1220,24 @@ class address(AddonWithIpBlackList, moduleBase):
             return
         self._settle_dad(ifaceobj, [ip for ip, _ in user_addrs_list if ip.version == 6])
 
+    def validate_mac(self, mac):
+        if not mac:
+            return False
+        if not bool(self.mac_regex.match(mac)):
+            raise Exception("Invalid MAC address from policy: %s" % mac)
+        return True
+
+    def process_hwaddress_reset_to_default(self, ifaceobj):
+        iface_defaults = policymanager.policymanager_api.get_iface_defaults("address")
+
+        if iface_defaults:
+            interface_mac_default = iface_defaults.get(ifaceobj.name, {}).get("hwaddress")
+
+            if self.validate_mac(interface_mac_default):
+                return interface_mac_default
+
+        return None
+
     def process_hwaddress(self, ifaceobj):
         hwaddress = self._get_hwaddress(ifaceobj)
 
@@ -1230,7 +1252,9 @@ class address(AddonWithIpBlackList, moduleBase):
                 if not hwaddress:
                     return None, None
             else:
-                return None, None
+                hwaddress = self.process_hwaddress_reset_to_default(ifaceobj)
+                if not hwaddress:
+                    return None, None
 
         if not ifupdownflags.flags.PERFMODE:  # system is clean
             running_hwaddress = self.cache.get_link_address(ifaceobj.name)
