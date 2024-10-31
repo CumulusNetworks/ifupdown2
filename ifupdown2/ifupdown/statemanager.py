@@ -29,20 +29,16 @@ class pickling():
     @classmethod
     def save(cls, filename, list_of_objects):
         """ pickle a list of iface objects """
-        try:
-            with open(filename, 'wb') as f:
-                for obj in list_of_objects:
-                    pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-        except Exception:
-            raise
+        with open(filename, 'wb') as f:
+            for obj in list_of_objects:
+                pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
 
     @classmethod
     def save_obj(cls, f, obj):
         """ pickle iface object """
-        try:
-            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-        except Exception:
-            raise
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
 
     @classmethod
     def load(cls, filename):
@@ -51,7 +47,6 @@ class pickling():
             while True:
                 try: yield pickle.load(f)
                 except EOFError: break
-                except Exception: raise
 
 class stateManager():
     """ state manager for managing ifupdown iface obj state
@@ -190,17 +185,15 @@ class stateManager():
     def save_state(self):
         """ saves state (ifaceobjects) to persistent state file """
 
-        try:
-            with open(self.state_file, 'wb') as f:
-                if not len(self.ifaceobjdict):
-                    f.truncate(0)
-                    return
-                self.logger.debug('saving state ..')
-                for ifaceobjs in list(self.ifaceobjdict.values()):
-                    [pickling.save_obj(f, i) for i in ifaceobjs]
-            open('%s/%s' %(self.state_rundir, self.state_runlockfile), 'w').close()
-        except Exception:
-            raise
+        with open(self.state_file, 'wb') as f:
+            if not len(self.ifaceobjdict):
+                f.truncate(0)
+                return
+            self.logger.debug('saving state ..')
+            for ifaceobjs in list(self.ifaceobjdict.values()):
+                [pickling.save_obj(f, i) for i in ifaceobjs]
+        open('%s/%s' % (self.state_rundir, self.state_runlockfile), 'w').close()
+
 
     def dump_pretty(self, ifacenames, format='native'):
         if not ifacenames:
