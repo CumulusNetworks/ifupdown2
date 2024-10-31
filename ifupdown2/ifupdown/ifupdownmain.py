@@ -1784,10 +1784,8 @@ class ifupdownMain:
         if auto:
             ifupdownflags.flags.ALL = True
             ifupdownflags.flags.WITH_DEPENDS = True
-        try:
-            iface_read_ret = self.read_iface_config()
-        except Exception:
-            raise
+
+        iface_read_ret = self.read_iface_config()
 
         if excludepats:
             excludepats = self._preprocess_excludepats(excludepats)
