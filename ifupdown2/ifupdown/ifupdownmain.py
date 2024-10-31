@@ -2003,10 +2003,7 @@ class ifupdownMain:
             for i in ifacenames:
                 self.create_n_save_ifaceobj(i, ifacePrivFlags(False, True))
         else:
-            try:
-                iface_read_ret = self.read_iface_config(raw=ops[0] == "query-raw")
-            except Exception:
-                raise
+            iface_read_ret = self.read_iface_config(raw=ops[0] == "query-raw")
 
         if ifacenames and ops[0] != 'query-running':
             # If iface list is given, always check if iface is present
@@ -2073,10 +2070,8 @@ class ifupdownMain:
 
         self.logger.info('reloading interfaces that are currently up ..')
 
-        try:
-            iface_read_ret = self.read_iface_config()
-        except Exception:
-            raise
+        iface_read_ret = self.read_iface_config()
+
         if not self.ifaceobjdict:
             self.logger.warning("nothing to reload ..exiting.")
             return
@@ -2167,10 +2162,8 @@ class ifupdownMain:
         """ reload interface config """
         new_ifaceobjdict = {}
 
-        try:
-            iface_read_ret = self.read_iface_config()
-        except Exception:
-            raise
+
+        iface_read_ret = self.read_iface_config()
 
         if not self.ifaceobjdict:
             self.logger.warning("nothing to reload ..exiting.")
