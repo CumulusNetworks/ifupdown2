@@ -32,7 +32,6 @@ except ImportError:
 
     from lib.dry_run import DryRunManager
 
-
 log = logging.getLogger()
 configmap_g = None
 
@@ -82,8 +81,8 @@ class Ifupdown2:
             # else:
             if log:
                 log.error('main exception: ' + str(e))
-                #import traceback
-                #traceback.print_exc()
+                # import traceback
+                # traceback.print_exc()
             else:
                 print(str(e))
                 # if args and not args.debug:
@@ -113,7 +112,7 @@ class Ifupdown2:
             # Check to see if -i option is allowed by config file
             # But for ifquery, we will not check this
             if (self.op != 'query' and
-                        configmap_g.get('disable_cli_interfacesfile', '0') == '1'):
+                    configmap_g.get('disable_cli_interfacesfile', '0') == '1'):
                 log.error('disable_cli_interfacesfile is set so users '
                           'not allowed to specify interfaces file on cli.')
                 raise Exception("")
@@ -171,17 +170,17 @@ class Ifupdown2:
             cachearg = (False if (iflist or args.nocache or args.noact)
                         else True)
             ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
-                                                                 config=configmap_g,
-                                                                 force=args.force,
-                                                                 withdepends=args.withdepends,
-                                                                 perfmode=args.perfmode,
-                                                                 dryrun=args.noact,
-                                                                 cache=cachearg,
-                                                                 addons_enable=not args.noaddons,
-                                                                 statemanager_enable=not args.noaddons,
-                                                                 interfacesfile=self.interfaces_filename,
-                                                                 interfacesfileiobuf=self.interfaces_file_iobuf,
-                                                                 interfacesfileformat=args.interfacesfileformat)
+                                           config=configmap_g,
+                                           force=args.force,
+                                           withdepends=args.withdepends,
+                                           perfmode=args.perfmode,
+                                           dryrun=args.noact,
+                                           cache=cachearg,
+                                           addons_enable=not args.noaddons,
+                                           statemanager_enable=not args.noaddons,
+                                           interfacesfile=self.interfaces_filename,
+                                           interfacesfileiobuf=self.interfaces_file_iobuf,
+                                           interfacesfileformat=args.interfacesfileformat)
             if args.noaddons:
                 ifupdown_handle.up(['up'], args.all, args.CLASS, iflist,
                                    excludepats=args.excludepats,
@@ -205,15 +204,15 @@ class Ifupdown2:
             iflist = args.iflist
             log.debug('creating ifupdown object ..')
             ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
-                                                                 config=configmap_g, force=args.force,
-                                                                 withdepends=args.withdepends,
-                                                                 perfmode=args.perfmode,
-                                                                 dryrun=args.noact,
-                                                                 addons_enable=not args.noaddons,
-                                                                 statemanager_enable=not args.noaddons,
-                                                                 interfacesfile=self.interfaces_filename,
-                                                                 interfacesfileiobuf=self.interfaces_file_iobuf,
-                                                                 interfacesfileformat=args.interfacesfileformat)
+                                           config=configmap_g, force=args.force,
+                                           withdepends=args.withdepends,
+                                           perfmode=args.perfmode,
+                                           dryrun=args.noact,
+                                           addons_enable=not args.noaddons,
+                                           statemanager_enable=not args.noaddons,
+                                           interfacesfile=self.interfaces_filename,
+                                           interfacesfileiobuf=self.interfaces_file_iobuf,
+                                           interfacesfileformat=args.interfacesfileformat)
 
             ifupdown_handle.down(['pre-down', 'down', 'post-down'],
                                  args.all, args.CLASS, iflist,
@@ -251,14 +250,14 @@ class Ifupdown2:
                           if os.path.isdir('/sys/class/net/%s' % i)]
             log.debug('creating ifupdown object ..')
             ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
-                                                                 config=configmap_g,
-                                                                 withdepends=args.withdepends,
-                                                                 perfmode=args.perfmode,
-                                                                 cache=cachearg,
-                                                                 interfacesfile=self.interfaces_filename,
-                                                                 interfacesfileiobuf=self.interfaces_file_iobuf,
-                                                                 interfacesfileformat=args.interfacesfileformat,
-                                                                 withdefaults=args.withdefaults)
+                                           config=configmap_g,
+                                           withdepends=args.withdepends,
+                                           perfmode=args.perfmode,
+                                           cache=cachearg,
+                                           interfacesfile=self.interfaces_filename,
+                                           interfacesfileiobuf=self.interfaces_file_iobuf,
+                                           interfacesfileformat=args.interfacesfileformat,
+                                           withdefaults=args.withdefaults)
             # list implies all auto interfaces (this is how ifupdown behaves)
             if args.list:
                 args.all = True
@@ -275,11 +274,11 @@ class Ifupdown2:
         try:
             log.debug('creating ifupdown object ..')
             ifupdown_handle = ifupdownMain(daemon=self.daemon, args=args,
-                                                                 config=configmap_g,
-                                                                 interfacesfile=self.interfaces_filename,
-                                                                 withdepends=args.withdepends,
-                                                                 perfmode=args.perfmode,
-                                                                 dryrun=args.noact)
+                                           config=configmap_g,
+                                           interfacesfile=self.interfaces_filename,
+                                           withdepends=args.withdepends,
+                                           perfmode=args.perfmode,
+                                           dryrun=args.noact)
             ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                    ['pre-down', 'down', 'post-down'],
                                    auto=args.all, allow=args.CLASS, ifacenames=None,
