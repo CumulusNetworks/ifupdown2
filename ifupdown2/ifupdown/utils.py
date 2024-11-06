@@ -573,4 +573,57 @@ class utils():
                 raise
         return vnid
 
+    @classmethod
+    def _get_ifaceobj_bridge_ports(cls, ifaceobj, as_list=False):
+        bridge_ports = []
+
+        for brport in ifaceobj.get_attr_value('bridge-ports') or []:
+            if brport != 'none':
+                bridge_ports.extend(brport.split())
+
+        if as_list:
+            return bridge_ports
+
+        return ' '.join(bridge_ports)
+
+    @classmethod
+    def parse_port_list(cls, ifacename, port_expr, ifacenames=None):
+        """ parse port list containing glob and regex
+
+        Args:
+            port_expr (str): expression
+            ifacenames (list): list of interface names. This needs to be specified if the expression has a regular expression
+        """
+        regex = 0
+        glob = 0
+        portlist = []
+
+        if not port_expr:
+            return None
+        exprs = re.split(r'[\s\t]\s*', port_expr)
+        for expr in exprs:
+            if expr == 'noregex':
+                regex = 0
+            elif expr == 'noglob':
+                glob = 0
+            elif expr == 'regex':
+                regex = 1
+            elif expr == 'glob':
+                glob = 1
+            elif regex:
+                for port in self.parse_regex(ifacename, expr, ifacenames):
+                    if port not in portlist:
+                        portlist.append(port)
+                regex = 0
+            elif glob:
+                for port in self.parse_glob(ifacename, expr):
+                    portlist.append(port)
+                glob = 0
+            else:
+                portlist.append(expr)
+        if not portlist:
+            return None
+        return portlist
+
+
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)

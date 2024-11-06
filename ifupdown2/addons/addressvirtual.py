@@ -14,6 +14,7 @@ from collections import deque
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
+    from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
 
@@ -29,6 +30,7 @@ try:
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
 except ImportError:
     from lib.addon import AddonWithIpBlackList
+    from lib.iproute2 import IPRoute2
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
 
@@ -83,6 +85,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
     def __init__(self, *args, **kargs):
         AddonWithIpBlackList.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
+        self.iproute2 = IPRoute2()
         self._bridge_fdb_query_cache = {}
         self.addressvirtual_with_route_metric = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -410,7 +413,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.logger.info("%s: syncing macvlan forwarding with lower device forwarding state failed: %s" % (ifname, str(e)))
 
-    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
+    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False, ifaceobj_getfunc=None):
         """
         intf_config_list = [
             {
@@ -602,7 +605,8 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             self.translate_addrvirtual_user_config_to_list(
                 ifaceobj,
                 address_virtual_list
-            )
+            ),
+            ifaceobj_getfunc=ifaceobj_getfunc
         )
 
         vrr_macs = self.create_macvlan_and_apply_config(
@@ -611,7 +615,8 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 ifaceobj,
                 vrr_config_list
             ),
-            vrrp=True
+            vrrp=True,
+            ifaceobj_getfunc=ifaceobj_getfunc
         )
 
         hw_address_list = addr_virtual_macs + vrr_macs

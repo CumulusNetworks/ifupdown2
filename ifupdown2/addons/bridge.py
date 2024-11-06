@@ -16,13 +16,13 @@ try:
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
 
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown2.ifupdown.utils import utils
 
-    from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     from lib.addon import Bridge, AddonException
@@ -36,7 +36,6 @@ except ImportError:
     from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown.utils import utils
 
-    from ifupdownaddons.cache import *
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -2764,6 +2763,43 @@ class bridge(Bridge, moduleBase):
             self.logger.warning("%s: invalid bridge mtu %s: %s" % (ifaceobj.name, user_config_mtu, str(e)))
         return None
 
+    def vxlan_hopping_filter(self, ifaceobj , ifaceobj_getfunc):
+        bridge_ports = [
+            port
+            for ports in self._get_bridge_port_list(ifaceobj) for port in (ifaceobj_getfunc(ports) or [])
+        ]
+
+        vxlan_devs = list(filter(lambda p: p.link_kind == ifaceLinkKind.VXLAN, bridge_ports))
+        bridge_is_vxlan = len(vxlan_devs) > 0
+
+        vxlan_ports = set()
+        if bridge_is_vxlan:
+            vxlan_ports = set([self.netlink.VXLAN_UDP_PORT])
+            vxlan_ports = vxlan_ports.union(map(lambda vx: vx.get_attr_value_first("vxlan-port"), vxlan_devs))
+            vxlan_ports = set([p for p in vxlan_ports if p is not None ])
+
+            desired_filters = [ (vxlan_port, None, 'drop') for vxlan_port in vxlan_ports ]
+        else:
+            desired_filters = []
+
+        filters_to_add, filters_to_delete = self.iproute2.check_tc_filters(ifaceobj.name, desired_filters)
+
+        try:
+            self.iproute2.batch_start()
+
+            for (vxlan_port, vid, _) in filters_to_delete:
+                if vid == None:
+                    self.iproute2.del_vxlan_hopping_tc_filter(ifaceobj.name, vxlan_port)
+
+            for (vxlan_port, _, _) in filters_to_add:
+                self.iproute2.add_vxlan_hopping_tc_filter(ifaceobj.name, vxlan_port)
+
+            self.iproute2.batch_commit()
+        except Exception as e:
+            if "Unterminated quoted string" not in str(e):
+                raise
+            self.logger.debug(f"tc quote failure: {str(e)}")
+
     def up_bridge(self, ifaceobj, ifaceobj_getfunc):
         ifname = ifaceobj.name
 
@@ -2804,6 +2840,7 @@ class bridge(Bridge, moduleBase):
             self._apply_bridge_port_settings_all(ifaceobj,
                                                  ifaceobj_getfunc=ifaceobj_getfunc,
                                                  bridge_vlan_aware=bridge_vlan_aware)
+            self.vxlan_hopping_filter(ifaceobj, ifaceobj_getfunc)
         except exceptions.ReservedVlanException as e:
             raise e
         except Exception as e:

@@ -28,6 +28,7 @@ import signal
 import ipaddress
 import subprocess
 import json
+from functools import lru_cache
 
 try:
     from ifupdown2.lib.sysfs import Sysfs
@@ -1091,3 +1092,102 @@ class IPRoute2(Cache, Requirements):
         except Exception as e:
             self.logger.error("bridge vni show failed .. %s" % str(e))
         return None
+
+    def add_clsact_qdisc(self, ifname):
+        existing_qdiscs_cmd = ['tc', 'qdisc', 'show', 'dev', ifname]
+        existing_qdiscs = subprocess.Popen(existing_qdiscs_cmd, stdout=subprocess.PIPE)
+        check_for_qdisc_cmd = ['grep', '--quiet', 'clsact']
+        qdisc_found = subprocess.call(check_for_qdisc_cmd, stdin=existing_qdiscs.stdout) == 0
+
+        if not qdisc_found:
+            add_qdisc_cmd = 'tc qdisc add dev %s clsact' % (ifname)
+            utils.exec_command(add_qdisc_cmd)
+
+    def _vxlan_hopping_tc_filter(self, ifname, add, vxlan_port):
+        if add:
+            action = 'add'
+            self.add_clsact_qdisc(ifname)
+        else:
+            action = 'del'
+
+        add_filter_ipv4 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_ethtype ipv4 ip_proto udp dst_port %s action drop' % (action, ifname, 10000 + 2 * int(vxlan_port), vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv4)
+        add_filter_ipv6 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_ethtype ipv6 ip_proto udp dst_port %s action drop' % (action, ifname, 10000 + 2 * int(vxlan_port) + 1, vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv6)
+
+    def add_vxlan_hopping_tc_filter(self, ifname, vxlan_port):
+        self._vxlan_hopping_tc_filter(ifname, True, vxlan_port)
+
+    def del_vxlan_hopping_tc_filter(self, ifname, vxlan_port):
+        self._vxlan_hopping_tc_filter(ifname, False, vxlan_port)
+
+    def _vxlan_hopping_tc_filter_bypass(self, ifname, add, vid, vxlan_port):
+        if add:
+            action = 'add'
+            self.add_clsact_qdisc(ifname)
+        else:
+            action = 'del'
+
+        add_filter_ipv4 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_id %s vlan_ethtype ipv4 ip_proto udp dst_port %s action pass' % (action, ifname, 2*int(vid), vid, vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv4)
+        add_filter_ipv6 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_id %s vlan_ethtype ipv6 ip_proto udp dst_port %s action pass' % (action, ifname, 2*int(vid)+1, vid, vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv6)
+
+    def add_vxlan_hopping_tc_filter_bypass(self, ifname, vid, vxlan_port):
+        self._vxlan_hopping_tc_filter_bypass(ifname, True, vid, vxlan_port)
+
+    def del_vxlan_hopping_tc_filter_bypass(self, ifname, vid, vxlan_port):
+        self._vxlan_hopping_tc_filter_bypass(ifname, False, vid, vxlan_port)
+
+    @lru_cache(maxsize=128)
+    def fetch_tc_filters(self, br_ifname):
+        cmd = 'tc -j filter show dev %s ingress' % br_ifname
+        try:
+            result = utils.exec_command(cmd)
+            return json.loads(result)
+        except subprocess.CalledProcessError as e:
+            self.logger.error("Error running command: %s" % cmd)
+            return []
+
+    def check_tc_filter_exists(self, br_ifname, dst_port, vlan_id=None, eth_type='ipv4', ip_proto='udp', action='drop'):
+        filters = self.fetch_tc_filters(br_ifname)
+
+        for filter_entry in filters:
+            options = filter_entry.get('options', {})
+            keys = options.get('keys', {})
+            actions = options.get('actions', [])
+
+            if (keys.get('eth_type') == eth_type
+                and keys.get('ip_proto') == ip_proto
+                and keys.get('dst_port') == dst_port
+                and keys.get('vlan_id') == vlan_id):
+                for act in actions:
+                    if act.get('kind') == 'gact' and act.get('control_action', {}).get('type') == action:
+                        return True
+        return False
+
+    def check_tc_filters(self, br_ifname, desired_filters):
+        filters_to_add = []
+        filters_to_delete = []
+
+        # Checking filters to add
+        for filter in desired_filters:
+            dst_port, vlan_id, action = filter
+            if not self.check_tc_filter_exists(br_ifname, dst_port, vlan_id, action=action):
+                filters_to_add.append(filter)
+
+        # Checking filters to delete
+        system_filters = self.fetch_tc_filters(br_ifname)
+        for filter_entry in system_filters:
+            options = filter_entry.get('options', {})
+            keys = options.get('keys', {})
+            actions = options.get('actions', [])
+            for act in actions:
+                port = keys.get('dst_port')
+                vlan = keys.get('vlan_id')
+                if act.get('kind') == 'gact':
+                    action = act.get('control_action', {}).get('type')
+                    if (port, vlan, action) not in desired_filters:
+                        filters_to_delete.append((port, vlan, action))
+
+        return set(filters_to_add), set(filters_to_delete)
