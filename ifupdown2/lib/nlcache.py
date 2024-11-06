@@ -2172,8 +2172,6 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
                         self.logger.error('NetlinkListenerWithCache: WORKQ_SERVICE_ERROR')
                     else:
                         raise NetlinkCacheError("Unsupported workq event %s" % event)
-        except Exception:
-            raise
         finally:
             # il faut surement mettre un try/except autour de la boucle au dessus
             # car s'il y a une exception on ne quitte pas le listener thread
