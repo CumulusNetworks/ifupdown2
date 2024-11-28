@@ -231,7 +231,7 @@ class ifupdownMain:
 
     def log_error(self, str):
         if self.ignore_error(str) == False:
-            raise Exception(str)
+            raise MainException(str)
 
     def link_exists(self, ifacename):
         return os.path.exists('/sys/class/net/%s' %ifacename)
@@ -862,7 +862,6 @@ class ifupdownMain:
                             self.logger.debug('error removing %s from %s upperifaces' %(i, d))
                 self.logger.debug("populate_dependency_info: deleting blacklisted interface %s" %i)
                 del self.dependency_graph[i]
-                continue
 
     def _check_config_no_repeats(self, ifaceobj):
         """ check if object has an attribute that is
@@ -1362,7 +1361,6 @@ class ifupdownMain:
                 ret = False
                 self.logger.warning('%s: unsupported attribute \'%s\'' \
                                  % (ifaceobj.name, attrname))
-                continue
         return ret
 
     def read_iface_config(self, raw=False):
@@ -2350,7 +2348,6 @@ class ifupdownMain:
                     newobj = newifaceobjlist[objidx]
                     if not newobj.compare(oldobj):
                         ifacedownlist.append(ifname)
-                        continue
 
             if ifacedownlist:
                 self.logger.info('reload: scheduling down on interfaces: %s'
