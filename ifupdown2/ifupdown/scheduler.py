@@ -340,7 +340,7 @@ class ifaceScheduler():
                     ifupdownobj.logger.error('%s : %s' %(ifacename, str(e)))
                 else:
                     if not (ifupdownobj.ignore_error(str(e))):
-                        raise Exception('%s : (%s)' %(ifacename, str(e)))
+                        raise SchedulerException('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
     def run_iface_graph_upper(cls, ifupdownobj, ifacename, ops, parent=None,
