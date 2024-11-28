@@ -37,12 +37,10 @@ class pickling():
             for obj in list_of_objects:
                 pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-
     @classmethod
     def save_obj(cls, f, obj):
         """ pickle iface object """
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-
 
     @classmethod
     def load(cls, filename):
@@ -188,7 +186,6 @@ class stateManager():
 
     def save_state(self):
         """ saves state (ifaceobjects) to persistent state file """
-
         with open(self.state_file, 'wb') as f:
             if not len(self.ifaceobjdict):
                 f.truncate(0)
@@ -197,7 +194,6 @@ class stateManager():
             for ifaceobjs in list(self.ifaceobjdict.values()):
                 [pickling.save_obj(f, i) for i in ifaceobjs]
         open('%s/%s' % (self.state_rundir, self.state_runlockfile), 'w').close()
-
 
     def dump_pretty(self, ifacenames, format='native'):
         if not ifacenames:
