@@ -30,6 +30,7 @@ except ImportError:
     import ifupdown.exceptions as exceptions
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
+    from ifupdown.statemanager import statemanager_api as statemanager
 
     from nlmanager.nlmanager import Link
 
