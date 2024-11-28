@@ -413,6 +413,6 @@ class vlan(Addon, moduleBase):
                 not self._is_vlan_device(ifaceobj)):
             return
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
