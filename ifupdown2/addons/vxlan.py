@@ -20,7 +20,6 @@ try:
     from ifupdown2.ifupdown.iface import ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
-    from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
 except ImportError:
@@ -37,7 +36,6 @@ except ImportError:
     from ifupdown.utils import utils
     from ifupdown.statemanager import statemanager_api as statemanager
 
-    from ifupdownaddons.cache import *
     from ifupdownaddons.modulebase import moduleBase
 
 
