@@ -198,6 +198,7 @@ class ethtool(Addon, moduleBase):
             except Exception as e:
                 self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
 
+
     def do_offload_settings(self, ifaceobj, attr_name, eth_name):
         default = 'default_' + eth_name
         config_val = ifaceobj.get_attr_value_first(attr_name)
@@ -322,8 +323,6 @@ class ethtool(Addon, moduleBase):
             except Exception as e:
                 if not self.ethtool_ignore_errors:
                     self.log_error('%s: %s' %(ifaceobj.name, str(e)), ifaceobj)
-        else:
-            pass
 
     def do_speed_lane_duplex_autoneg_settings(self, ifaceobj, down=False):
 
@@ -455,7 +454,6 @@ class ethtool(Addon, moduleBase):
 
         self.do_speed_lane_duplex_autoneg_settings(ifaceobj)
         self.do_fec_settings(ifaceobj)
-        self.do_lanes_settings(ifaceobj)
         self.do_ring_settings(ifaceobj, 'ring-rx', 'rx')
         self.do_ring_settings(ifaceobj, 'ring-tx', 'tx')
         self.do_offload_settings(ifaceobj, 'gro-offload', 'gro')
@@ -527,7 +525,6 @@ class ethtool(Addon, moduleBase):
                 # We show a FAIL since it is not the configured or default
                 ifaceobjcurr.update_config_with_status('link-%s'%attr,
                                                        running_attr, 1)
-        return
 
     def get_autoneg(self,ethtool_output=None):
         """
@@ -691,8 +688,6 @@ class ethtool(Addon, moduleBase):
                 return
             if running_attr:
                 ifaceobj.update_config('link-%s'%attr, running_attr)
-
-        return
 
     def _query(self, ifaceobj, **kwargs):
         """ add default policy attributes supported by the module """
