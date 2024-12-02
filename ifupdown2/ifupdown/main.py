@@ -84,7 +84,7 @@ class Ifupdown2:
             if not str(e):
                 return 1
                 # if args and args.debug:
-                raise
+                # raise
             # else:
             if log:
                 log.error('main exception: ' + str(e))

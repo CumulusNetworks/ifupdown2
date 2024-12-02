@@ -7,13 +7,13 @@ from setuptools import setup
 from setuptools import find_packages
 
 INSTALL_REQUIRES = [
+    'daemon'
 ]
 
 DATA_FILES = [
     ('/etc/default/', ['etc/default/networking']),
     ('/etc/network/ifupdown2/', ['etc/network/ifupdown2/addons.conf']),
     ('/etc/network/ifupdown2/', ['etc/network/ifupdown2/ifupdown2.conf']),
-    ('/usr/share/ifupdown2/sbin/', ['ifupdown2/sbin/start-networking'])
 ]
 
 SCRIPTS = []
@@ -29,7 +29,10 @@ def build_deb_package():
     return False
 
 
-if not build_deb_package():
+if build_deb_package():
+    DATA_FILES.append(('/usr/share/ifupdown2/', ['ifupdown2/ifupdown2d']))
+    DATA_FILES.append(('/usr/share/ifupdown2/sbin/', ['ifupdown2/sbin/start-networking']))
+else:
     ENTRY_POINTS = {
         'console_scripts': [
             'ifup = ifupdown2.__main__:main',

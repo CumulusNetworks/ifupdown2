@@ -140,7 +140,7 @@ start)
          /var/lib/ifupdown2/hooks.d/start-networking-post-init-hook.sh
     fi
 	;;
-	
+
 stop)
 	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
         SYSRESET=0
