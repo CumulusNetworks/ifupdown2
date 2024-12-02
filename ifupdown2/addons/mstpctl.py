@@ -615,7 +615,7 @@ class mstpctl(Addon, moduleBase):
         ):
             try:
                 config_val = bridgeifaceobj.get_attr_value_first(attr)
-            except Exception as e:
+            except Exception:
                 config_val = None
             if config_val:
                 if ifaceobj.name not in [v.split('=')[0] for v in config_val.split()]:
@@ -635,7 +635,6 @@ class mstpctl(Addon, moduleBase):
                                     bridgeifaceobj=None,
                                     stp_running_on=True,
                                     mstpd_running=True):
-        check = False if ifupdownflags.flags.PERFMODE else True
         applied = False
         if not bridgename and bridgeifaceobj:
             bridgename = bridgeifaceobj.name
@@ -1026,7 +1025,6 @@ class mstpctl(Addon, moduleBase):
             if k == 'stp' or not v:
                 continue
             if k == 'ports':
-                ports = list(v.keys())
                 continue
             attrname = 'mstpctl-' + k
             if (v and v != self.get_mod_subattr(attrname, 'default')
