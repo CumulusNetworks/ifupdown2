@@ -283,7 +283,7 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_add_single_vxlan(self, link_exists, ifname, ip, group, physdev, port, vnifilter="off", ttl=None):
+    def link_add_single_vxlan(self, link_exists, ifname, ip, group, physdev, port, ageing, vnifilter="off", ttl=None):
         if link_exists:
             self.logger.info("updating single vxlan device: %s" % ifname)
 
@@ -318,10 +318,13 @@ class IPRoute2(Cache, Requirements):
         if ttl:
             cmd.append("ttl %s" % ttl)
 
+        if ageing:
+            cmd.append("ageing %s" % ageing)
+
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
         self.__update_cache_after_link_creation(ifname, "vxlan")
 
-    def link_add_l3vxi(self, link_exists, ifname, ip, group, physdev, port, ttl=None):
+    def link_add_l3vxi(self, link_exists, ifname, ip, group, physdev, port, ageing, ttl=None):
         self.logger.info("creating l3vxi device: %s" % ifname)
 
         if link_exists:
@@ -350,6 +353,9 @@ class IPRoute2(Cache, Requirements):
 
         if ttl:
             cmd.append("ttl %s" % ttl)
+
+        if ageing:
+            cmd.append("ageing %s" % ageing)
 
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
         self.__update_cache_after_link_creation(ifname, "vxlan")

@@ -46,7 +46,8 @@ def assert_identical_json(json1, json2):
     :param json2: Second JSON object to compare.
     :return: True if JSON objects are identical, False otherwise.
     """
-    if diff := DeepDiff(json1, json2, ignore_order=True):
+    diff = DeepDiff(json1, json2, ignore_order=True)
+    if diff:
         try:
             logger.error(f"JSON objects are not identical - deepdiff: {json.dumps(diff, indent=4)}")
         except:
@@ -76,7 +77,8 @@ class SSH(paramiko.SSHClient):
         update = False
 
         for match in self.SWP_REGEX.findall(content):
-            if not (swp := self.swp_translated_dict.get(match)):
+            swp = self.swp_translated_dict.get(match)
+            if not swp:
                 if not self.swp_available:
                     raise NotEnoughPhysDevException(
                         f"Device does not have enough physical ports (swp) for this test - {self.swp_translated_dict}"
