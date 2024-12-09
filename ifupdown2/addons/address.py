@@ -197,6 +197,8 @@ class address(AddonWithIpBlackList, moduleBase):
     }
 
     DEFAULT_MTU_STRING = "1500"
+    IPV6_MINIMUM_MTU = 1280
+    INVALID_MTU = -1
 
     def __init__(self, *args, **kargs):
         AddonWithIpBlackList.__init__(self)
@@ -225,6 +227,7 @@ class address(AddonWithIpBlackList, moduleBase):
             self.default_mgmt_intf_mtu = self.default_mtu
             self.default_mgmt_intf_mtu_int = self.default_mtu_int
         self.max_mtu    = self.__policy_get_max_mtu()
+        self.v6_min_mtu = self.__policy_get_v6_min_mtu()
 
         self.default_loopback_addresses = (ipnetwork.IPNetwork('127.0.0.1/8'), ipnetwork.IPNetwork('::1/128'))
 
@@ -267,7 +270,6 @@ class address(AddonWithIpBlackList, moduleBase):
 
         self.mac_regex = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 
-
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
             module_name=self.__class__.__name__,
@@ -300,6 +302,23 @@ class address(AddonWithIpBlackList, moduleBase):
         else:
             self.logger.info("address: max_mtu undefined")
         return 0
+
+    def __policy_get_v6_min_mtu(self) -> int:
+        min_mtu = policymanager.policymanager_api.get_module_globals(
+            module_name=self.__class__.__name__,
+            attr="ipv6_minimum_mtu"
+        )
+
+        if min_mtu:
+            try:
+                min_mtu_int = int(min_mtu)
+                self.logger.info(f'address: minimum ipv6 set to {min_mtu_int} (policy "ipv6_minimum_mtu")')
+                return min_mtu_int
+            except ValueError as e:
+                self.logger.warning(f"address: policy ipv6_minimum_mtu: {str(e)}")
+        else:
+            self.logger.info(f"address: policy ipv6_minimum_mtu undefined - applying default minimum ipv6 mtu {self.IPV6_MINIMUM_MTU}")
+        return self.IPV6_MINIMUM_MTU
 
     def __policy_get_mgmt_intf_mtu(self):
         default_mgmt_mtu = policymanager.policymanager_api.get_module_globals(
@@ -635,7 +654,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
         return anycast_ip_addr
 
-    def process_addresses(self, ifaceobj, ifaceobj_getfunc=None, force_reapply=False):
+    def process_addresses(self, ifaceobj, mtu, ifaceobj_getfunc=None, force_reapply=False):
         squash_addr_config = ifupdownconfig.config.get("addr_config_squash", "0") == "1"
 
         if squash_addr_config and not ifaceobj.flags & ifaceobj.YOUNGEST_SIBLING:
@@ -659,6 +678,11 @@ class address(AddonWithIpBlackList, moduleBase):
         addr_supported, user_config_ip_addrs_list = self.__get_ip_addr_with_attributes(ifaceobj_list, ifname)
 
         if not addr_supported:
+            return
+
+        #V6 mtu check
+        if not self._process_ipv6_mtu_config_valid(user_config_ip_addrs_list, mtu):
+            self.logger.error(f"{ifname}: ipv6 configuration is not allowed with MTU lower than {self.v6_min_mtu}")
             return
 
         if not ifupdownflags.flags.PERFMODE and purge_addresses:
@@ -861,17 +885,37 @@ class address(AddonWithIpBlackList, moduleBase):
                 if not running_mtu or running_mtu != mtu_int:
                     self.sysfs.link_set_mtu(u, mtu_str=mtu_str, mtu_int=mtu_int)
 
+    def _process_ipv6_mtu_config_valid(self, user_config_ip_addrs_list: list, mtu: int) -> bool:
+        for ip, _ in user_config_ip_addrs_list or []:
+            if ip.version == 6 and mtu < self.v6_min_mtu:
+                return False
+        return True
+
+    def _process_mtu_ipv6_config_valid(self, ifaceobj, mtu: int) -> bool:
+        if mtu < self.v6_min_mtu:
+            for addr in ifaceobj.get_attr_value("address") or []:
+                if ipnetwork.IPNetwork(addr).version == 6:
+                    self.log_error(f"{ifaceobj.name}: the minimum allowed MTU is {self.v6_min_mtu} for ipv6 configuration", ifaceobj)
+        return True
+
     def _process_mtu_config_mtu_valid(self, ifaceobj, ifaceobj_getfunc, mtu_str, mtu_int):
         if not self._check_mtu_config(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc):
-            return
+            return self.INVALID_MTU
 
         if mtu_int != self.cache.get_link_mtu(ifaceobj.name):
+
+            # ipv6 minimum MTU check
+            if not self._process_mtu_ipv6_config_valid(ifaceobj, mtu_int):
+                return self.INVALID_MTU
+
             self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=mtu_str, mtu_int=mtu_int)
             self._propagate_mtu_to_upper_devs(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc)
 
+        return mtu_int
+
     def _process_mtu_config_mtu_none(self, ifaceobj, ifaceobj_getfunc):
         if (ifaceobj.link_privflags & ifaceLinkPrivFlags.MGMT_INTF):
-            return
+            return self.INVALID_MTU
 
         cached_link_mtu = self.cache.get_link_mtu(ifaceobj.name)
 
@@ -884,7 +928,7 @@ class address(AddonWithIpBlackList, moduleBase):
                     or ifaceobj.link_kind & ifaceLinkKind.OTHER:
                 if cached_link_mtu != self.default_mtu_int:
                     self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=self.default_mtu, mtu_int=self.default_mtu_int)
-                return
+                return self.default_mtu_int
 
             # set vlan interface mtu to lower device mtu
             if (
@@ -897,6 +941,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
                 if lower_iface_mtu_int != cached_link_mtu:
                     self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=str(lower_iface_mtu_int), mtu_int=lower_iface_mtu_int)
+                    return lower_iface_mtu_int
 
         elif (
             ifaceobj.name != 'lo'
@@ -916,6 +961,9 @@ class address(AddonWithIpBlackList, moduleBase):
             self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=self.default_mtu, mtu_int=self.default_mtu_int)
             if ifupdownconfig.diff_mode:
                 self._propagate_mtu_to_upper_devs(ifaceobj, self.default_mtu, self.default_mtu_int, ifaceobj_getfunc)
+            return self.default_mtu_int
+
+        return cached_link_mtu
 
     def _set_bridge_forwarding(self, ifaceobj):
         """ set ip forwarding to 0 if bridge interface does not have a
@@ -1033,9 +1081,10 @@ class address(AddonWithIpBlackList, moduleBase):
                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
+        cache_mtu = self.cache.get_link_mtu(ifaceobj.name)
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.OPENVSWITCH:
-            return
+            return cache_mtu
 
         mtu_str = ifaceobj.get_attr_value_first('mtu')
         mtu_from_policy = False
@@ -1056,11 +1105,16 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.logger.warning("%s: invalid MTU value from policy file (iface_defaults): %s" % (ifaceobj.name, str(e)))
                 else:
                     self.logger.warning("%s: invalid MTU value: %s" % (ifaceobj.name, str(e)))
-                return
+                return cache_mtu
 
-            self._process_mtu_config_mtu_valid(ifaceobj, ifaceobj_getfunc, mtu_str, mtu_int)
+            mtu_int = self._process_mtu_config_mtu_valid(ifaceobj, ifaceobj_getfunc, mtu_str, mtu_int)
         else:
-            self._process_mtu_config_mtu_none(ifaceobj, ifaceobj_getfunc)
+            mtu_int = self._process_mtu_config_mtu_none(ifaceobj, ifaceobj_getfunc)
+
+        if mtu_int == self.INVALID_MTU:
+            return cache_mtu
+
+        return mtu_int
 
     def up_ipv6_addrgen(self, ifaceobj):
         user_configured_ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
@@ -1154,7 +1208,7 @@ class address(AddonWithIpBlackList, moduleBase):
         except Exception:
             pass
 
-        self.process_mtu(ifaceobj, ifaceobj_getfunc)
+        mtu = self.process_mtu(ifaceobj, ifaceobj_getfunc)
         self.up_ipv6_addrgen(ifaceobj)
 
         try:
@@ -1163,7 +1217,7 @@ class address(AddonWithIpBlackList, moduleBase):
             self.log_error('%s: %s' % (ifaceobj.name, str(e)), ifaceobj)
 
         if addr_method not in ["dhcp", "ppp"]:
-            self.process_addresses(ifaceobj, ifaceobj_getfunc, force_reapply)
+            self.process_addresses(ifaceobj, mtu, ifaceobj_getfunc, force_reapply)
         else:
             # remove old addresses added by ifupdown2
             # (if intf was moved from static config to dhcp)
