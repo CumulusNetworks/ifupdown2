@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = '3.0.0'
+__version__ = '3.9.0'
 
 # Copyright (C) 2014,2015,2016,2017,2018,2019,2020 Cumulus Networks, Inc. All rights reserved
 #

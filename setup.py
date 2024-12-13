@@ -65,7 +65,7 @@ setup(
     name='ifupdown2',
     packages=find_packages(),
     url='https://github.com/CumulusNetworks/ifupdown2',
-    version='3.0.0',
+    version='3.9.0',
     data_files=DATA_FILES,
     setup_requires=['setuptools'],
     scripts=SCRIPTS,
