@@ -2003,6 +2003,12 @@ class bridge(Bridge, moduleBase):
 
     def bridge_port_get_bridge_name(self, ifaceobj):
         bridgename = self.cache.get_bridge_name_from_port(ifaceobj.name)
+        # When the bridge port is moved from one bridge to another
+        # the order of bridge configuration will determine if the cache gives correct bridge name
+        # Fetch the bridge name from the ifaceobj.upperfaces if nlcache returns incorrect bridge
+        if bridgename and bridgename not in ifaceobj.upperifaces:
+            bridgename = None
+
         if not bridgename:
             # bridge port is not enslaved to a bridge we need to find
             # the bridge in it's upper ifaces then enslave it

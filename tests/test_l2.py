@@ -1,4 +1,7 @@
 import logging
+import json
+
+import pytest
 
 from .conftest import assert_identical_json, ENI, ENI_D
 
@@ -153,6 +156,47 @@ def test_bridge7_macvlans(ssh, setup, get_json):
 
 def test_bridge8_reserved_vlans(ssh, setup, get_file):
     assert "reserved vlan 3725 being used (reserved vlan range 3725-3999)" in ssh.ifreload_a(return_stderr=True, expected_status=1)
+
+
+def test_bridge9_multiple_vlan_aware_bridge(ssh, get_json):
+    multiple_bridge_support = ssh.run_assert_success(
+        "sed -n "
+        "'s/^multiple_vlan_aware_bridge_support=//p' "
+        "/etc/network/ifupdown2/ifupdown2.conf"
+    ).strip()
+    if multiple_bridge_support != "1":
+        pytest.skip(
+            "requires multiple_vlan_aware_bridge_support=1; "
+            "the public Debian default remains 0"
+        )
+
+    # Apply the fixture only after the host capability check. The generic
+    # setup fixture would otherwise copy an unsupported config before skip.
+    ssh.ifdown_x_eth0_x_mgmt()
+    ssh.scp("tests/eni/bridge9_multiple_vlan_aware_bridge.eni", ENI)
+    ssh.run(f"rm -f {ENI_D}/*")
+
+    ssh.ifreload_diff = False
+    ssh.ifreload_a()
+    _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_AA_")
+    stdout_str: str = stdout.read().decode("utf-8")
+    assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_AA_1.json"))
+    _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_BB_")
+    stdout_str: str = stdout.read().decode("utf-8")
+    assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_BB_1.json"))
+
+    # Replace "bridge-ports swp_AA_" with "bridge-ports swp_BB_" and vice-versa
+    ssh.run_assert_success(f"sed -i 's/\<bridge-ports swp_AA_\>/bridge-ports swp_CC_/g' {ENI}")
+    ssh.run_assert_success(f"sed -i 's/\<bridge-ports swp_BB_\>/bridge-ports swp_AA_/g' {ENI}")
+    ssh.run_assert_success(f"sed -i 's/\<bridge-ports swp_CC_\>/bridge-ports swp_BB_/g' {ENI}")
+    ssh.ifreload_diff = False
+    ssh.ifreload_a()
+    _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_AA_")
+    stdout_str: str = stdout.read().decode("utf-8")
+    assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_AA_2.json"))
+    _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_BB_")
+    stdout_str: str = stdout.read().decode("utf-8")
+    assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_BB_2.json"))
 
 
 def test_bridge_access(ssh, setup, get_json):
