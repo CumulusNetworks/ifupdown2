@@ -954,6 +954,10 @@ class vrf(Addon, moduleBase):
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
 
+        # Closing sockets on main VRF device before VRF slaves go down
+        # Slaves going down can prevent correct TCP termination exchanges
+        self._close_sockets(ifaceobj.name)
+
         running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
         if running_slaves:
             for s in running_slaves:
@@ -981,6 +985,8 @@ class vrf(Addon, moduleBase):
         except Exception as e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
 
+        # Closing sockets on main VRF device again in case any TCP
+        # connection re-opened since last close
         self._close_sockets(ifaceobj.name)
 
         try:
