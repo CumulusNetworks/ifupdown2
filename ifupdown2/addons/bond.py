@@ -377,10 +377,6 @@ class bond(Addon, moduleBase):
         except:
             pass
 
-        if not self.sysfs.link_is_up(slave):
-            self.logger.debug(f"{slave}: bond-slave is down - skipping speed validation")
-            return True
-
         if self.current_bond_speed < 0:
             self.current_bond_speed = self.get_bond_speed(bond_slaves)
 
@@ -414,6 +410,11 @@ class bond(Addon, moduleBase):
 
             if bond_speed < 0:
                 bond_speed = slave_speed
+
+            # Got speed bond, so break here.
+            if bond_speed > 0:
+                break
+
         return bond_speed
 
     def get_bond_slave_upper_dev_ifaceobj(self, ifname, ifaceobj_getfunc):
@@ -446,6 +447,12 @@ class bond(Addon, moduleBase):
             if s not in runningslaves and s not in devices_to_enslave:
                 devices_to_enslave.append(s)
 
+        # Get a list of common running slave interfaces from both the previous and current
+        # configuration to get their bond speed
+        common_slaves = list(set(runningslaves) & set(slaves))
+        if not common_slaves:
+            common_slaves = list(set(slaves))
+
         for slave in devices_to_enslave:
             if (not ifupdownflags.flags.PERFMODE and
                 not self.cache.link_exists(slave)):
@@ -453,6 +460,9 @@ class bond(Addon, moduleBase):
                                    %(ifaceobj.name, slave), ifaceobj,
                                      raise_error=False)
                     continue
+
+            if not self.valid_slave_speed(ifaceobj, common_slaves, slave, ifaceobj_getfunc):
+                continue
 
             if not self.slave_has_no_subinterface(ifaceobj, slave, ifaceobj_getfunc):
                 continue
