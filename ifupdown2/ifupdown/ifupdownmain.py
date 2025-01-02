@@ -2446,6 +2446,13 @@ class ifupdownMain:
                     return True
         return False
 
+    @staticmethod
+    def get_ifaceobjs_attribute_values(ifaceobjs, attribute):
+        values = []
+        for ifaceobj in ifaceobjs or []:
+            values.extend(ifaceobj.get_attr_value(attribute) or [])
+        return tuple(sorted(values))
+
     def add_diff_interface_with_clag_check(self, diff_list: list, ifname: str, current_clag_interface: bool):
         diff_list.append(ifname)
         if current_clag_interface:
@@ -2460,7 +2467,16 @@ class ifupdownMain:
 
         # any changes in clagd attributes will result in all clagd interfaces
         # to be added to the run queue
-        self.clagd_change_detected = False
+        self.clagd_change_detected = (
+            self.get_ifaceobjs_attribute_values(
+                ifaceobj_dict.get("lo"),
+                "clagd-vxlan-anycast-ip",
+            )
+            != self.get_ifaceobjs_attribute_values(
+                statemanager_api.ifaceobjdict.get("lo"),
+                "clagd-vxlan-anycast-ip",
+            )
+        )
         clag_interfaces = []
 
         for ifname, ifaceobjs in ifaceobj_dict.items():
