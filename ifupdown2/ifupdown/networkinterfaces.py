@@ -495,8 +495,15 @@ class networkInterfaces():
 
     def read_file_json(self, filename, fileiobuf=None):
         if fileiobuf:
-            ifacedicts = loads(fileiobuf, encoding="utf-8")
-                              #object_hook=ifaceJsonDecoder.json_object_hook)
+            # json.loads() accepts str/bytes directly; malformed buffers should
+            # be handled like malformed JSON read from a file.
+            try:
+                ifacedicts = loads(fileiobuf)
+            except JSONDecodeError as e:
+                self.logger.warning(
+                    'error loading JSON content from buffer (%s)', str(e)
+                )
+                return
         elif filename:
             self.logger.info('processing JSON formatted interfaces file %s' % filename)
 
