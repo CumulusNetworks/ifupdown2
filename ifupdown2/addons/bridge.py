@@ -1307,6 +1307,12 @@ class bridge(Bridge, moduleBase):
                                            ifaceLinkPrivFlags.get_str(bport_objs[0].link_privflags)))
                     continue
 
+                # When adding a port to a bridge - the port gets put into VLAN 1 this
+                # can cause packets to get leaked in VLAN 1 if the port is up and sends
+                # traffic before being put in the correct VLAN (if different than 1).
+                # To prevent this we need to set the port admin down
+                self.netlink.link_down(bridgeport)
+
                 self.iproute2.link_set_master(bridgeport, ifaceobj.name)
                 newly_enslaved_ports.append(bridgeport)
 
@@ -1795,6 +1801,13 @@ class bridge(Bridge, moduleBase):
                            %bportifaceobj.name + ' vids = %s' %str(vids) +
                            'pvid = %s ' %pvid + '(%s)' %str(e),
                            bportifaceobj, raise_error=False)
+
+        # Port needs to be down before updating vlans - the port can be added to
+        # VLAN 1 by the kernel this can cause packets to get leaked in VLAN 1 if
+        # the port is up and sends traffic before being put in the correct VLAN
+        # (if different than 1). To prevent this we need to set the port admin down
+        self.netlink.link_down(bportifaceobj.name)
+
         try:
             if vids_to_del:
                if pvid_to_add in vids_to_del:

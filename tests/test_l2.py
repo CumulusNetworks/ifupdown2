@@ -467,6 +467,21 @@ def test_mac1(ssh, setup, get_json):
     assert_identical_json(ssh.ifquery_ac_json(), get_json("mac1.ifquery.ac.json"))
 
 
+def test_bridge_new_port_admin_l2(ssh, setup):
+    """A newly enslaved bridge port is held down during initial setup."""
+    ssh.ifup_a()
+    ssh.run_assert_success(
+        "ip -o link show dummy_new | grep -w 'master br_new'"
+    )
+    assert ssh.run(
+        "ip -o link show dummy_new | grep -w UP"
+    )[3] != 0
+
+    ssh.ifdown("br_new dummy_new")
+    assert ssh.run("ip link show br_new")[3] != 0
+    assert ssh.run("ip link show dummy_new")[3] != 0
+
+
 def test_bond_dummy_mac_l2(ssh, setup):
     """Missing slave state and dummy permanent-MAC data remain non-fatal."""
     ssh.ifup_a()
