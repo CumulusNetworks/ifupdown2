@@ -793,6 +793,8 @@ class address(AddonWithIpBlackList, moduleBase):
         metric = ifaceobj.get_attr_value_first('metric')
         self._delete_gateway(ifaceobj, list(set(prev_gw) - set(gateways)),
                              vrf, metric)
+        if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+            return
         for add_gw in gateways:
             try:
                 self.iproute2.route_add_gateway(ifaceobj.name, add_gw, vrf, metric, onlink=self.l3_intf_default_gateway_set_onlink)
