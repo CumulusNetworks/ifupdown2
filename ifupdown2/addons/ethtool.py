@@ -364,6 +364,25 @@ class ethtool(Addon, moduleBase):
                 attr='link-autoneg'
         )
 
+        if config_speed:
+            fixed_speed = not utils.get_boolean_from_string(config_autoneg)
+        else:
+            effective_autoneg = (
+                config_autoneg
+                if config_autoneg is not None
+                else default_autoneg
+            )
+            fixed_speed = bool(default_speed) and not (
+                utils.get_boolean_from_string(effective_autoneg)
+            )
+
+        if (
+                fixed_speed
+                and not default_duplex
+                and not ifaceobj.name.startswith("swp")
+        ):
+            default_duplex = self.get_attr_default_value("link-duplex")
+
         if down:
             config_speed = default_speed
             config_duplex = default_duplex
