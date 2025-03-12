@@ -530,6 +530,32 @@ def test_bridge_existing_port_no_flap_l2(ssh, setup):
     assert ssh.run("ip link show dummy_existing")[3] != 0
 
 
+def test_vlan_bridge_binding_scope_l2(ssh, setup):
+    """Bridge binding applies to SVIs, not ordinary VLAN devices."""
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+
+    ordinary_vlan = ssh.run_assert_success(
+        "ip -d -o link show vlan100"
+    )
+    assert "BRIDGE_BINDING" not in ordinary_vlan
+
+    bridge_svi = ssh.run_assert_success(
+        "ip -d -o link show br_bind.200"
+    )
+    assert "BRIDGE_BINDING" in bridge_svi
+
+    ssh.ifdown("br_bind.200 br_bind vlan100 dummy_port dummy_raw")
+    for ifname in ("br_bind.200", "br_bind", "vlan100",
+                   "dummy_port", "dummy_raw"):
+        assert ssh.run(f"ip link show {ifname}")[3] != 0
+
+
 def test_bond_dummy_mac_l2(ssh, setup):
     """Missing slave state and dummy permanent-MAC data remain non-fatal."""
     ssh.ifup_a()
