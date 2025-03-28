@@ -29,6 +29,12 @@ class dhclient(utilsBase):
                 try:
                     if e.errno == errno.EACCES:
                         return os.path.exists("/proc/%s" % self.read_file_oneline(pidfilename))
+                    elif e.errno == errno.ENOENT:
+                        # There are scenarios where the PID file exists but the
+                        # corresponding dhclient process is terminated
+                        # We want to force the dhclient process to get cleaned up
+                        # and flush the existing IP on the interface
+                        return True
                 except Exception:
                     return False
             except Exception:
