@@ -51,7 +51,7 @@ class vxlan(Vxlan, moduleBase):
             },
             "vxlan-local-tunnelip": {
                 "help": "vxlan local tunnel ip",
-                "validvals": ["<ipv4>"],
+                "validvals": ["<ipv4>", "<ipv6>"],
                 "example": ["vxlan-local-tunnelip 172.16.20.103"]
             },
             "vxlan-svcnodeip": {
@@ -547,7 +547,7 @@ class vxlan(Vxlan, moduleBase):
 
         if local:
             try:
-                local = ipnetwork.IPv4Address(local)
+                local = ipnetwork.IPAddress(local)
 
                 if local.initialized_with_prefixlen:
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
@@ -1173,7 +1173,8 @@ class vxlan(Vxlan, moduleBase):
                         vxlan_physdev,
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         vxlan_vnifilter,
-                        vxlan_ttl
+                        vxlan_ttl,
+                        local.version
                     )
                 elif ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
                     self.iproute2.link_add_l3vxi(
@@ -1183,7 +1184,8 @@ class vxlan(Vxlan, moduleBase):
                         group.ip if group else None,
                         vxlan_physdev,
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
-                        vxlan_ttl
+                        vxlan_ttl,
+                        local.version
                     )
                 else:
                     try:
@@ -1235,7 +1237,7 @@ class vxlan(Vxlan, moduleBase):
         if remoteips:
             try:
                 for remoteip in remoteips:
-                    ipnetwork.IPv4Address(remoteip)
+                    ipnetwork.IPAddress(remoteip)
             except Exception as e:
                 self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
 
