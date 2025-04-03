@@ -2966,8 +2966,8 @@ class AttributeIFLA_LINKINFO(Attribute):
             "ip6ip6",
             "ipip6",
             "xfrm",
-            "openvswitch"
-
+            "openvswitch",
+            "wireguard"
         ):
             self.log.debug('Unsupported IFLA_INFO_KIND %s' % kind)
             return
