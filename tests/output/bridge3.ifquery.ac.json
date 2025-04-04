@@ -1,0 +1,74 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_AA_",
+    "auto": true,
+    "config": {
+      "bridge-access": "100"
+    },
+    "config_status": {
+      "bridge-access": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_BB_",
+    "auto": true,
+    "config": {
+      "bridge-vids": "200"
+    },
+    "config_status": {
+      "bridge-vids": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge",
+    "auto": true,
+    "config": {
+      "bridge-vlan-aware": "yes",
+      "bridge-ports": "swp_AA_ swp_BB_",
+      "bridge-pvid": "2",
+      "bridge-vids": "1-20"
+    },
+    "config_status": {
+      "bridge-vlan-aware": "pass",
+      "bridge-ports": "pass",
+      "bridge-pvid": "",
+      "bridge-vids": ""
+    },
+    "status": "pass"
+  }
+]

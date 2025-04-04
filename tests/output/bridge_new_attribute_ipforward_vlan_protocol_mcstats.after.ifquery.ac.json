@@ -1,0 +1,88 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_AA_",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "swp_BB_",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "br2",
+    "auto": true,
+    "config": {
+      "ip-forward": "on",
+      "bridge-ports": "swp_DD_ swp_EE_",
+      "address": "6.0.0.2/32"
+    },
+    "config_status": {
+      "ip-forward": "pass",
+      "bridge-ports": "pass",
+      "address": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vlan100",
+    "auto": true,
+    "config": {
+      "vlan-id": "100",
+      "vlan-raw-device": "swp_CC_"
+    },
+    "config_status": {
+      "vlan-id": "pass",
+      "vlan-raw-device": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br3",
+    "auto": true,
+    "config": {
+      "bridge-ports": "swp_FF_"
+    },
+    "config_status": {
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  }
+]

@@ -1,0 +1,106 @@
+[
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "swp_AA_",
+    "addr_method": "static",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "address": "172.30.1.3/24"
+    },
+    "config_status": {
+      "address": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_BB_.1005",
+    "auto": true,
+    "config": {
+      "address": "10.132.253.11/31"
+    },
+    "config_status": {
+      "address": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bond0",
+    "addr_method": "manual",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "bond-slaves": "None",
+      "bond-mode": "802.3ad",
+      "bond-min-links": "1",
+      "bond-xmit-hash-policy": "layer2+3"
+    },
+    "config_status": {
+      "bond-slaves": "fail",
+      "bond-mode": "pass",
+      "bond-min-links": "pass",
+      "bond-xmit-hash-policy": "pass"
+    },
+    "status": "fail"
+  },
+  {
+    "name": "vlan1007",
+    "auto": true,
+    "config": {
+      "vlan-raw-device": "bond0",
+      "vlan-id": "1007",
+      "address": "10.132.253.15/31"
+    },
+    "config_status": {
+      "vlan-raw-device": "pass",
+      "vlan-id": "pass",
+      "address": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "dummy0",
+    "auto": true,
+    "config": {
+      "link-type": "dummy",
+      "address": "fdca:ffee:ff12:fe06::1/64"
+    },
+    "config_status": {
+      "link-type": "pass",
+      "address": "pass"
+    },
+    "status": "pass"
+  }
+]

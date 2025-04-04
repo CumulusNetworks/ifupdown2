@@ -1,0 +1,15 @@
+auto swp_AA_
+iface swp_AA_
+    bridge-unicast-flood on
+    bridge-multicast-flood on
+
+auto br0
+iface br0
+    bridge-vlan-aware yes
+    bridge-ports swp_AA_
+
+auto br1
+iface br1
+    bridge-ports swp_BB_
+    bridge-unicast-flood swp_BB_=on
+    bridge-multicast-flood swp_BB_=on

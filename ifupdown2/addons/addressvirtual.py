@@ -8,11 +8,13 @@ import os
 import glob
 import ipaddress
 import subprocess
+import re
 
 from collections import deque
 
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList
+    from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
 
@@ -26,8 +28,9 @@ try:
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import AddonWithIpBlackList
+    from lib.iproute2 import IPRoute2
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
 
@@ -82,6 +85,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
     def __init__(self, *args, **kargs):
         AddonWithIpBlackList.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
+        self.iproute2 = IPRoute2()
         self._bridge_fdb_query_cache = {}
         self.addressvirtual_with_route_metric = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -90,7 +94,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             ),
             default=True
         )
-
+        self.mac_regex = re.compile(r"^([0-9A-Fa-f]{1,2}[:-]){5}([0-9A-Fa-f]{1,2})$")
         self.address_virtual_ipv6_addrgen_value_dict = {'on': 0, 'yes': 0, '0': 0, 'off': 1, 'no': 1, '1': 1}
 
         if addressvirtual.ADDR_METRIC_SUPPORT is None:
@@ -147,14 +151,12 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                         self.iproute2.bridge_fdb_del(bridgename, addr, vlan)
                     except Exception as e:
                         self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
-                        pass
         elif self.cache.link_is_bridge(ifaceobj.name):
             for addr in hwaddress:
                 try:
                     self.iproute2.bridge_fdb_del(ifaceobj.name, addr)
                 except Exception as e:
                     self.logger.debug("%s: %s" %(ifaceobj.name, str(e)))
-                    pass
 
     def _get_bridge_fdbs(self, bridgename, vlan):
         fdbs = self._bridge_fdb_query_cache.get(bridgename)
@@ -227,7 +229,6 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.logger.debug('%s: fixing route entry failed (%s)'
                               % (ifaceobj.name, str(e)))
-            pass
 
     def _get_macs_from_old_config(self, ifaceobj=None):
         """ This method returns a list of the mac addresses
@@ -328,14 +329,18 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
 
     def check_mac_address(self, ifaceobj, mac):
         if mac == 'none':
+            self.logger.info("%s: The virtual mac address is set as none" %ifaceobj.name)
             return True
         try:
             if int(mac.split(":")[0], 16) & 1 :
-                self.log_error("%s: Multicast bit is set in the virtual mac address '%s'"
-                               % (ifaceobj.name, mac), ifaceobj=ifaceobj)
-                return False
+                raise Exception("Multicast bit is set in the virtual mac address '%s'"
+                               % mac)
+            if not self.mac_regex.match(mac):
+               raise Exception("'%s'" % mac)
             return True
-        except ValueError:
+
+        except Exception as e:
+            self.logger.error("%s: Invalid virtual mac address: %s" % (ifaceobj.name, str(e)))
             return False
 
     def _fixup_vrf_enslavements(self, ifaceobj, ifaceobj_getfunc=None):
@@ -408,8 +413,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.logger.info("%s: syncing macvlan forwarding with lower device forwarding state failed: %s" % (ifname, str(e)))
 
-    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False):
-
+    def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False, ifaceobj_getfunc=None):
         """
         intf_config_list = [
             {
@@ -466,6 +470,24 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 self.iproute2.link_add_macvlan(ifname, macvlan_ifname, macvlan_mode)
                 self.sync_macvlan_forwarding_state(ifname, macvlan_ifname)
                 link_created = True
+
+            # Disable IPv6 duplicate address detection on VRR interfaces
+            sysctl_prefix = "net.ipv6.conf.%s" % macvlan_ifname
+
+            try:
+                syskey = "%s.%s" % (sysctl_prefix, "enhanced_dad")
+                if self.sysctl_get(syskey) != "0":
+                    self.sysctl_set(syskey, "0")
+            except Exception as e:
+                self.logger.info("sysctl failure: operation not supported: %s" % str(e))
+
+            for key, sysval in {
+                "accept_dad": "0",
+                "dad_transmits": "0"
+            }.items():
+                syskey = "%s.%s" % (sysctl_prefix, key)
+                if self.sysctl_get(syskey) != sysval:
+                    self.sysctl_set(syskey, sysval)
 
             # first thing we need to handle vrf enslavement
             if ifaceobj.link_privflags & ifaceLinkPrivFlags.VRF_SLAVE:
@@ -553,24 +575,6 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 except Exception as e:
                     self.logger.debug('fix_vrf_slave_ipv6_route_metric: failed: %s' % e)
 
-            # Disable IPv6 duplicate address detection on VRR interfaces
-            sysctl_prefix = "net.ipv6.conf.%s" % macvlan_ifname
-
-            try:
-                syskey = "%s.%s" % (sysctl_prefix, "enhanced_dad")
-                if self.sysctl_get(syskey) != "0":
-                    self.sysctl_set(syskey, "0")
-            except Exception as e:
-                self.logger.info("sysctl failure: operation not supported: %s" % str(e))
-
-            for key, sysval in {
-                "accept_dad": "0",
-                "dad_transmits": "0"
-            }.items():
-                syskey = "%s.%s" % (sysctl_prefix, key)
-                if self.sysctl_get(syskey) != sysval:
-                    self.sysctl_set(syskey, sysval)
-
         self.iproute2.batch_commit()
         return hw_address_list
 
@@ -601,7 +605,8 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
             self.translate_addrvirtual_user_config_to_list(
                 ifaceobj,
                 address_virtual_list
-            )
+            ),
+            ifaceobj_getfunc=ifaceobj_getfunc
         )
 
         vrr_macs = self.create_macvlan_and_apply_config(
@@ -610,7 +615,8 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 ifaceobj,
                 vrr_config_list
             ),
-            vrrp=True
+            vrrp=True,
+            ifaceobj_getfunc=ifaceobj_getfunc
         )
 
         hw_address_list = addr_virtual_macs + vrr_macs

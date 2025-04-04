@@ -236,10 +236,8 @@ class GvGen:
         """
         cl = []
         for e in self.__nodes:
-            if e['parent'] == parent:
-                if not e['lock']:
-                    cl.append(e)
-
+            if e['parent'] == parent and not e['lock']:
+                cl.append(e)
         return cl
 
     def lockNode(self, node):

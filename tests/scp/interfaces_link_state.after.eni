@@ -1,0 +1,32 @@
+# this link should be down
+auto swp_AA_
+iface swp_AA_ inet manual
+
+# link should be down
+auto swp_BB_
+iface swp_BB_
+    link-down yes
+
+# link should be up
+# interface
+auto bridge1
+iface bridge1
+    bridge-ports swp_CC_
+
+# link should be up, since it is a logical
+# interface. manual is ignored.
+auto bridge2
+iface bridge2 inet manual
+    bridge-ports swp_DD_
+
+# link should be up, since 'link-down no' is set.
+auto bridge3
+iface bridge3 inet manual
+    bridge-ports swp_EE_
+    link-down    no
+
+# link should be down, since 'link-down yes' is set.
+auto bridge4
+iface bridge4 inet manual
+    bridge-ports swp_FF_
+    link-down   yes

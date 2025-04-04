@@ -21,7 +21,7 @@ try:
 
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.addon import Addon
     from lib.log import LogManager
 
@@ -41,7 +41,7 @@ class dhcp(Addon, moduleBase):
     # by default we won't perform any dhcp retry
     # this can be changed by setting the module global
     # policy: dhclient_retry_on_failure
-    DHCLIENT_RETRY_ON_FAILURE = 0
+    DHCLIENT_DEFAULT_RETRY_ON_FAILURE = 0
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
@@ -62,12 +62,19 @@ class dhcp(Addon, moduleBase):
                 )
             )
         except Exception:
-            self.dhclient_retry_on_failure = self.DHCLIENT_RETRY_ON_FAILURE
+            self.dhclient_retry_on_failure = self.DHCLIENT_DEFAULT_RETRY_ON_FAILURE
 
         if self.dhclient_retry_on_failure < 0:
             self.dhclient_retry_on_failure = 0
 
         self.logger.debug("dhclient: dhclient_retry_on_failure set to %s" % self.dhclient_retry_on_failure)
+
+        self.dhclient_no_wait_on_reload = utils.get_boolean_from_string(
+            policymanager.policymanager_api.get_module_globals(
+                module_name=self.__class__.__name__,
+                attr="dhclient_no_wait_on_reload"
+            ),
+        )
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
@@ -143,7 +150,8 @@ class dhcp(Addon, moduleBase):
         self._down_stale_dhcp_config(ifaceobj, 'inet6', dhclient6_running)
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-            self.logger.info("%s: skipping dhcp configuration: link-down yes" % ifaceobj.name)
+            self.logger.info("%s: bringing dhcp configuration down due to: link-down yes" % ifaceobj.name)
+            self._dhcp_down(ifaceobj)
             return
 
         try:
@@ -157,7 +165,6 @@ class dhcp(Addon, moduleBase):
                 timeout = int(dhcp6_ll_wait)+1
             except Exception:
                 timeout = 10
-                pass
             dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                 ifname=ifaceobj.name, attr='dhcp6-duid')
             vrf = ifaceobj.get_attr_value_first('vrf')
@@ -167,6 +174,10 @@ class dhcp(Addon, moduleBase):
             elif self.mgmt_vrf_context:
                 dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, 'default')
                 self.logger.info('detected mgmt vrf context starting dhclient in default vrf context')
+
+            if not ifupdownflags.flags.PERFMODE and self.dhclient_no_wait_on_reload:
+                self.logger.info("%s: dhclient won't wait (-nw): policy dhclient_no_wait_on_reload=true" % (ifaceobj.name))
+                wait = False
 
             if 'inet' in ifaceobj.addr_family:
                 if dhclient4_running:
@@ -227,10 +238,10 @@ class dhcp(Addon, moduleBase):
             self.logger.error("%s: %s" % (ifaceobj.name, str(e)))
             ifaceobj.set_status(ifaceStatus.ERROR)
 
-    def _down_stale_dhcp_config(self, ifaceobj, family, dhclientX_running):
+    def _down_stale_dhcp_config(self, ifaceobj, family, dhclient_running):
         addr_family = ifaceobj.addr_family
         try:
-            if not family in ifaceobj.addr_family and dhclientX_running:
+            if family not in ifaceobj.addr_family and dhclient_running:
                 ifaceobj.addr_family = [family]
                 self._dhcp_down(ifaceobj)
         except Exception:

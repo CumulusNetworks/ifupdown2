@@ -1,0 +1,78 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vxlan1",
+    "auto": true,
+    "config": {
+      "vxlan-id": "1",
+      "bridge-access": "1",
+      "vxlan-local-tunnelip": "27.0.0.11"
+    },
+    "config_status": {
+      "vxlan-id": "pass",
+      "bridge-access": "pass",
+      "vxlan-local-tunnelip": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vxlan500",
+    "auto": true,
+    "config": {
+      "vxlan-id": "500",
+      "bridge-access": "500",
+      "vxlan-local-tunnelip": "27.0.0.11"
+    },
+    "config_status": {
+      "vxlan-id": "pass",
+      "bridge-access": "pass",
+      "vxlan-local-tunnelip": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br0",
+    "auto": true,
+    "config": {
+      "bridge-vlan-aware": "yes",
+      "bridge-ports": "vxlan1 vxlan500"
+    },
+    "config_status": {
+      "bridge-vlan-aware": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  }
+]

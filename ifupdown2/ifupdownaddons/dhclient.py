@@ -10,7 +10,7 @@ import errno
 try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdownaddons.utilsbase import *
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import utils
     from ifupdownaddons.utilsbase import *
 

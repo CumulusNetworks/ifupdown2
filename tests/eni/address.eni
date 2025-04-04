@@ -1,0 +1,20 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto swp_AA_
+iface swp_AA_
+      address 2001:db8::1/128
+      address 192.0.2.1/32
+      address 2001:db8::42/128
+      address 192.0.2.42/32
+      address 2042:db8::1/128
+      address 192.0.42.1/32
+      address 192.42.2.42/32

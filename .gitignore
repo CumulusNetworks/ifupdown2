@@ -115,3 +115,5 @@ ifupdown2/ifdown
 ifupdown2/ifquery
 ifupdown2/ifreload
 ifupdown2/ifup
+
+tests/results

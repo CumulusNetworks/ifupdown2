@@ -1,0 +1,38 @@
+[
+  {
+    "ifname": "vxlan1",
+    "vlans": [
+      {
+        "vlan": 1,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      }
+    ]
+  },
+  {
+    "ifname": "vxlan500",
+    "vlans": [
+      {
+        "vlan": 500,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      }
+    ]
+  },
+  {
+    "ifname": "br0",
+    "vlans": [
+      {
+        "vlan": 1,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      }
+    ]
+  }
+]

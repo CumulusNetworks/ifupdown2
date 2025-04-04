@@ -14,17 +14,22 @@ import logging
 import os
 import re
 
+from json import loads, JSONDecodeError
+
 try:
     from ifupdown2.ifupdown.iface import ifaceType, ifaceJsonDecoder, iface
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.template import templateEngine
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceType, ifaceJsonDecoder, iface
     from ifupdown.utils import utils
     from ifupdown.template import templateEngine
 
 
 whitespaces = '\n\t\r '
+
+class ENIException(Exception):
+    pass
 
 class networkInterfaces():
     """ debian ifupdown /etc/network/interfaces file parser """
@@ -490,16 +495,30 @@ class networkInterfaces():
 
     def read_file_json(self, filename, fileiobuf=None):
         if fileiobuf:
-            ifacedicts = json.loads(fileiobuf, encoding="utf-8")
+            ifacedicts = loads(fileiobuf, encoding="utf-8")
                               #object_hook=ifaceJsonDecoder.json_object_hook)
         elif filename:
-            self.logger.info('processing interfaces file %s' %filename)
-            with open(filename) as fp:
-                ifacedicts = json.load(fp)
-                            #object_hook=ifaceJsonDecoder.json_object_hook)
+            self.logger.info('processing JSON formatted interfaces file %s' % filename)
+
+            # Check we can open and read the file
+            try:
+                with open(filename) as f:
+                    filedata = f.read()
+            except Exception as e:
+                self.logger.warning('error processing file %s (%s)',
+                                    filename, str(e))
+                return
+
+            # Check we can decode JSON data from the file
+            try:
+                ifacedicts = loads(filedata)
+            except JSONDecodeError as e:
+                self.logger.warning('error loading JSON content from file %s (%s)',
+                                    filename, str(e))
+                return
 
         # we need to handle both lists and non lists formats (e.g. {{}})
-        if not isinstance(ifacedicts,list):
+        if not isinstance(ifacedicts, list):
             ifacedicts = [ifacedicts]
 
         errors = 0

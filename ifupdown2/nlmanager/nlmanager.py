@@ -823,7 +823,7 @@ class NetlinkManager(object):
         iface_vlans = self.vlan_get(filter_ifindex, filter_vlanid, compress_vlans)
         log.debug("iface_vlans:\n%s\n" % pformat(iface_vlans))
         range_begin_vlan_id = None
-        range_flag = None
+        range_flag = 0
 
         print("   Interface  VLAN  Flags")
         print("  ==========  ====  =====")
@@ -847,7 +847,7 @@ class NetlinkManager(object):
                         ifname = ''
 
                     range_begin_vlan_id = None
-                    range_flag = None
+                    range_flag = 0
 
                 else:
                     print("  %10s  %4d  %s" % (ifname, vlan_id, vlan_flag_to_string(vlan_flag)))
