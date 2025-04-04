@@ -224,9 +224,8 @@ class utils():
     @classmethod
     def lockFile(cls, lockfile):
         try:
-            fp = os.open(lockfile, os.O_CREAT | os.O_TRUNC | os.O_WRONLY)
-            fcntl.flock(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            fcntl.fcntl(fp, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+            fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.fcntl(lockfile, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
         except IOError:
             return False
         return True

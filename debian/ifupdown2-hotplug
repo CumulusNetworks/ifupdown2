@@ -1,0 +1,161 @@
+#!/bin/sh -e
+#
+# run /sbin/{ifup,ifdown} with the --allow=hotplug option.
+#
+
+PATH='/sbin:/bin:/usr/sbin:/usr/bin'
+
+if [ -x /usr/bin/logger ]; then
+	LOGGER=/usr/bin/logger
+elif [ -x /bin/logger ]; then
+	LOGGER=/bin/logger
+else
+	unset LOGGER
+fi
+
+LOCKFILE=/run/network/.lock
+
+# for diagnostics
+if [ -t 1 -a -z "$LOGGER" ] || [ ! -e '/dev/log' ]; then
+	mesg() {
+		echo "$@" >&2
+	}
+elif [ -t 1 ]; then
+	mesg() {
+		echo "$@"
+		$LOGGER -t "${0##*/}[$$]" "$@"
+	}
+else
+	mesg() {
+		$LOGGER -t "${0##*/}[$$]" "$@"
+	}
+fi
+
+if [ -z "$INTERFACE" ]; then
+    mesg "Bad ifupdown udev helper invocation: \$INTERFACE is not set"
+    exit 1
+fi
+
+wait_for_interface() {
+    local interface=$1
+    local state
+
+    while :; do
+	read state /sys/class/net/$interface/operstate 2>/dev/null || true
+	if [ "$state" != down ]; then
+		return 0
+	fi
+	sleep 1
+    done
+}
+
+process_exclusions() {
+    set -- $EXCLUDE_INTERFACES
+    exclusions=""
+    for d; do
+	exclusions="-X $d $exclusions"
+    done
+    echo $exclusions
+}
+
+net_ifup() {
+    . /etc/default/networking 2>/dev/null || true
+
+    exclusions=$(process_exclusions)
+
+    # exit if the interface is not configured as allow-hotplug or excluded (querying does not require a lock)
+    if ! $(/sbin/ifquery --allow=hotplug -l $exclusions 2>/dev/null | grep -w -q "^$INTERFACE$"); then
+	exit 0
+    fi
+
+    if [ -d /run/systemd/system ]; then
+	exec systemctl --no-block start $(systemd-escape --template ifup@.service $INTERFACE)
+    fi
+
+    EXTRA_ARGS=
+    [ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+    [ "$DEBUG"   = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+    [ "$SYSLOG"  = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
+
+    # Take the lock and wait for lo before exec ifup.
+    (
+	flock 9
+	wait_for_interface lo
+	exec ifup $EXTRA_ARGS $HOTPLUG_ARGS -L 9 $INTERFACE
+    ) 9>$LOCKFILE
+}
+
+net_ifdown() {
+
+    # systemd will automatically ifdown the interface on device
+    # removal by binding the instanced service to the network device
+    if [ -d /run/systemd/system ]; then
+	exit 0
+    fi
+
+    . /etc/default/networking 2>/dev/null || true
+
+    exclusions=$(process_exclusions)
+
+    # exit if the interface is not configured as allow-hotplug or excluded (querying does not require a lock)
+    if ! $(/sbin/ifquery --allow=hotplug -l $exclusions 2>/dev/null | grep -w -q "^$INTERFACE$"); then
+	exit 0
+    fi
+
+    EXTRA_ARGS=
+    [ "$VERBOSE" = yes ] && EXTRA_ARGS=-v
+    [ "$DEBUG"   = yes ] && EXTRA_ARGS="$EXTRA_ARGS -d"
+    [ "$SYSLOG"  = yes ] && EXTRA_ARGS="$EXTRA_ARGS --syslog"
+
+    # Take the lock and exec ifdown.
+    (
+	flock 9
+	exec ifdown $EXTRA_ARGS $INTERFACE -L 9
+    ) 9>$LOCKFILE
+}
+
+do_everything() {
+
+case "$ACTION" in
+    add)
+    # these interfaces generate hotplug events *after* they are brought up
+    case $INTERFACE in
+	ppp*|ippp*|isdn*|plip*|lo|irda*|ipsec*)
+	exit 0 ;;
+    esac
+
+    net_ifup
+    ;;
+
+    remove)
+    # the pppd persist option may have been used, so it should not be killed
+    case $INTERFACE in
+	ppp*)
+	exit 0 ;;
+    esac
+
+    net_ifdown
+    ;;
+
+    *)
+    mesg "NET $ACTION event not supported"
+    exit 1
+    ;;
+esac
+
+}
+
+# under systemd we don't do synchronous operations, so we can run in the
+# foreground; we also need to, as forked children get killed right away under
+# systemd
+if [ -d /run/systemd/system ]; then
+    do_everything
+else
+    # under sysvinit we need to fork as we start the long-running
+    # "ifup". but there, forked processes won't get killed.
+    # When udev_log="debug" stdout and stderr are pipes connected to udevd.
+    # They need to be closed or udevd will wait for this process which will
+    # deadlock with udevsettle until the timeout.
+    exec > /dev/null 2> /dev/null
+    do_everything &
+fi
