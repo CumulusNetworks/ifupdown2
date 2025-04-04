@@ -114,12 +114,6 @@ class LogManager:
                 sys.stderr.write("warning: syslog: %s\n" % str(e))
                 self.__syslog_handler = None
 
-        logging.addLevelName(logging.CRITICAL, "critical")
-        logging.addLevelName(logging.WARNING, "warning")
-        logging.addLevelName(logging.ERROR, "error")
-        logging.addLevelName(logging.DEBUG, "debug")
-        logging.addLevelName(logging.INFO, "info")
-
         try:
             self.__init_debug_logging()
         except Exception as e:
