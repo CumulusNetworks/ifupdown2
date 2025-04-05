@@ -157,7 +157,11 @@ class openvswitch(Addon, moduleBase):
 
         cmd = "--may-exist add-br %s"%(iface)
         if ovsparent is not None and ovsoptions:
-            cmd = cmd + " %s" %(ovsoptions)
+            if ovsoptions.startswith(ovsparent):
+                # for backwards compatibility to previous bug in parent configuration
+                cmd = cmd + " %s" %(ovsoptions)
+            else:
+                cmd = cmd + " %s %s" %(ovsparent, ovsoptions)
 
         cmd_list.append(cmd)
 
