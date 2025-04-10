@@ -320,7 +320,7 @@ class ifaceJsonEncoderWithStatus(json.JSONEncoder):
                         status_str = ifaceStatusUserStrs.UNKNOWN
                     vitem_status.append('%s' %status_str)
                     idx += 1
-                retconfig[k] = v[0] if len(v) == 1 else v
+                retconfig[k] = str(v[0] if len(v) == 1 else v)
                 retconfig_status[k] = vitem_status[0] if len(vitem_status) == 1 else vitem_status
 
         if (o.status == ifaceStatus.NOTFOUND or
