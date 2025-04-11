@@ -45,25 +45,23 @@ class auto(Addon, moduleBase):
     def _up(self, ifaceobj):
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-            self.logger.info("%s: skipping auto configuration: link-down yes" % ifaceobj.name)
+            self.logger.info(f'{ifaceobj.name}: skipping auto configuration: link-down yes')
             return
 
         try:
             if 'inet6' in ifaceobj.addr_family:
+                sysctl_ifname = '/'.join(ifaceobj.name.split("."))
+
                 running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
                 if running_accept_ra != '2':
                     accept_ra = '2'
-                    self.sysctl_set('net.ipv6.conf.%s.accept_ra'
-                                    %('/'.join(ifaceobj.name.split("."))),
-                                    accept_ra)
+                    self.sysctl_set(f'net.ipv6.conf.{sysctl_ifname}.accept_ra', accept_ra)
                     self.cache.update_link_inet6_accept_ra(ifaceobj.name, accept_ra)
 
                 running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
                 if running_autoconf != '1':
                     autoconf = '1'
-                    self.sysctl_set('net.ipv6.conf.%s.autoconf'
-                                    %('/'.join(ifaceobj.name.split("."))),
-                                    autoconf)
+                    self.sysctl_set(f'net.ipv6.conf.{sysctl_ifname}.autoconf', autoconf)
                     self.cache.update_link_inet6_autoconf(ifaceobj.name, autoconf)
 
         except Exception as e:
@@ -151,7 +149,7 @@ class auto(Addon, moduleBase):
             if syslog_log_level >= logging.INFO:
                 log_manager.set_level_syslog(logging.INFO)
 
-            self.logger.info("%s: enabling syslog for auto configuration" % ifaceobj.name)
+            self.logger.info(f'{ifaceobj.name}: enabling syslog for auto configuration')
 
         try:
             if operation == 'query-checkcurr':
