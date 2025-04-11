@@ -977,6 +977,43 @@ class address(AddonWithIpBlackList, moduleBase):
     def sysctl_write_forwarding_value_to_proc(self, ifname, family, value):
         self.write_file("/proc/sys/net/%s/conf/%s/forwarding" % (family, ifname), "%s\n" % value)
 
+    def _sysctl_slaac(self, ifaceobj):
+        addr_method = ifaceobj.addr_method
+        if addr_method not in ["auto"]:
+
+            try:
+                running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+                if running_accept_ra == '':
+                    running_accept_ra = self.default_accept_ra
+                accept_ra = ifaceobj.get_attr_value_first('accept-ra')
+                if accept_ra is None:
+                    accept_ra = self.default_accept_ra
+
+                if running_accept_ra != accept_ra:
+                    self.sysctl_set('net.ipv6.conf.%s.accept_ra'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    accept_ra)
+                    self.cache.update_link_inet6_accept_ra(ifaceobj.name, accept_ra)
+
+                running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+                if running_autoconf == '':
+                    running_autoconf = self.default_autoconf
+                autoconf = ifaceobj.get_attr_value_first('autoconf')
+                if autoconf is None:
+                    autoconf = self.default_autoconf
+
+                if running_autoconf != autoconf:
+                    self.sysctl_set('net.ipv6.conf.%s.autoconf'
+                                    %('/'.join(ifaceobj.name.split("."))),
+                                    autoconf)
+                    self.cache.update_link_inet6_autoconf(ifaceobj.name, autoconf)
+
+            except Exception as e:
+                if not setting_default_value:
+                    ifaceobj.status = ifaceStatus.ERROR
+                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+
+
     def _sysctl_config(self, ifaceobj):
         setting_default_value = False
         mpls_enable = ifaceobj.get_attr_value_first('mpls-enable');
@@ -1003,7 +1040,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
         if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
             self._set_bridge_forwarding(ifaceobj)
-
+            self._sysctl_slaac(ifaceobj)
         if not self.syntax_check_sysctls(ifaceobj):
             return
         if not self.syntax_check_l3_svi_ip_forward(ifaceobj):
@@ -1070,40 +1107,7 @@ class address(AddonWithIpBlackList, moduleBase):
                        ifaceobj.status = ifaceStatus.ERROR
                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
-        addr_method = ifaceobj.addr_method
-        if addr_method not in ["auto"]:
-
-            try:
-                running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
-                if running_accept_ra == '':
-                    running_accept_ra = self.default_accept_ra
-                accept_ra = ifaceobj.get_attr_value_first('accept-ra')
-                if accept_ra is None:
-                    accept_ra = self.default_accept_ra
-
-                if running_accept_ra != accept_ra:
-                    self.sysctl_set('net.ipv6.conf.%s.accept_ra'
-                                    %('/'.join(ifaceobj.name.split("."))),
-                                    accept_ra)
-                    self.cache.update_link_inet6_accept_ra(ifaceobj.name, accept_ra)
-
-                running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
-                if running_autoconf == '':
-                    running_autoconf = self.default_autoconf
-                autoconf = ifaceobj.get_attr_value_first('autoconf')
-                if autoconf is None:
-                    autoconf = self.default_autoconf
-
-                if running_autoconf != autoconf:
-                    self.sysctl_set('net.ipv6.conf.%s.autoconf'
-                                    %('/'.join(ifaceobj.name.split("."))),
-                                    autoconf)
-                    self.cache.update_link_inet6_autoconf(ifaceobj.name, autoconf)
-
-            except Exception as e:
-                if not setting_default_value:
-                    ifaceobj.status = ifaceStatus.ERROR
-                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+        self._sysctl_slaac(ifaceobj)
 
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
 
