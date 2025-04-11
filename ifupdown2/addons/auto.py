@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 #
 
-import re
-import time
 import socket
 
 try:
