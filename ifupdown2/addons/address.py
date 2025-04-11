@@ -195,13 +195,13 @@ class address(AddonWithIpBlackList, moduleBase):
                 "aliases": ["disable-ip6"]
             },
             'accept-ra': {
-                'help': 'accept ipv6 router advertisement',
+                'help': 'Accept IPv6 router advertisements',
                 'validvals': ['0', '1', '2'],
                 'default': '0',
                 'example': ['accept-ra 1']
             },
             'autoconf': {
-                'help': 'enable ipv6 slaac autoconfiguration',
+                'help': 'Enable IPv6 slaac autoconfiguration',
                 'validvals': ['0', '1'],
                 'default': '0',
                 'example': ['autoconf 1']
@@ -922,8 +922,7 @@ class address(AddonWithIpBlackList, moduleBase):
             self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=self.default_mtu, mtu_int=self.default_mtu_int)
 
     def _set_bridge_forwarding(self, ifaceobj):
-        """ set ip forwarding to 0 if bridge interface does not have a
-        ip nor svi """
+        """ Disable IP forwarding if bridge interface does not have a IP nor SVI. """
         ifname = ifaceobj.name
 
         netconf_ipv4_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET, ifname)
