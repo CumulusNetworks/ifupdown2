@@ -152,7 +152,7 @@ class _NetlinkCache:
         Address.IFA_ANYCAST,
         # Address.IFA_CACHEINFO,
         Address.IFA_MULTICAST,
-        # Address.IFA_FLAGS
+        Address.IFA_FLAGS
     )
 
     def __init__(self):
@@ -1179,6 +1179,52 @@ class _NetlinkCache:
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=0)
 
+    def get_link_inet6_conf(self, ifname):
+        try:
+            with self._cache_lock:
+                return self._link_cache[ifname].attributes[Link.IFLA_AF_SPEC].value[socket.AF_INET6][Link.IFLA_INET6_CONF]
+        except (KeyError, AttributeError):
+            return False
+        except TypeError as e:
+            return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=False)
+
+    def get_link_inet6_accept_ra(self, ifaceobj):
+        inet6conf = self.get_link_inet6_conf(ifaceobj.name)
+        if inet6conf and 'accept_ra' in inet6conf:
+            accept_ra = str(inet6conf['accept_ra'])
+        else:
+            accept_ra = ''
+        return accept_ra
+
+    def get_link_inet6_autoconf(self, ifaceobj):
+        inet6conf = self.get_link_inet6_conf(ifaceobj.name)
+        if inet6conf and 'autoconf' in inet6conf:
+            autoconf = str(inet6conf['autoconf'])
+        else:
+            autoconf = ''
+        return autoconf
+
+    def update_link_inet6_accept_ra(self, ifname, accept_ra):
+        try:
+            with self._cache_lock:
+                try:
+                    self._link_cache[ifname].attributes[Link.IFLA_AF_SPEC].value[socket.AF_INET6][Link.IFLA_INET6_CONF]['accept_ra'] = accept_ra
+                except Exception as e:
+                    pass
+        except Exception:
+            pass
+
+    def update_link_inet6_autoconf(self, ifname, autoconf):
+        try:
+            with self._cache_lock:
+                try:
+                    self._link_cache[ifname].attributes[Link.IFLA_AF_SPEC].value[socket.AF_INET6][Link.IFLA_INET6_CONF]['autoconf'] = autoconf
+                except Exception as e:
+                    pass
+        except Exception:
+            pass
+
+
     #####################################################
     #####################################################
     #####################################################
@@ -1740,6 +1786,21 @@ class _NetlinkCache:
 
                 for addr in intf_addresses.get(6, []):
                     addresses.append(addr.attributes[Address.IFA_ADDRESS].value)
+
+                return addresses
+        except (KeyError, AttributeError):
+            return addresses
+
+    def get_ip_addresses_flags(self, ifname: str) -> dict:
+        addresses = {}
+        try:
+            with self._cache_lock:
+                intf_addresses = self._addr_cache[ifname]
+                for addr in intf_addresses.get(4, []):
+                    addresses[addr.attributes[Address.IFA_ADDRESS].value] = addr.attributes[Address.IFA_FLAGS].value
+
+                for addr in intf_addresses.get(6, []):
+                    addresses[addr.attributes[Address.IFA_ADDRESS].value] = addr.attributes[Address.IFA_FLAGS].value
 
                 return addresses
         except (KeyError, AttributeError):

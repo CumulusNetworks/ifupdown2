@@ -26,6 +26,15 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.pybuild/
+man/
+
+# Debian packaging
+debian/files
+debian/.debhelper/
+debian/*.debhelper
+debian/*.substvars
+debian/ifupdown2
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
