@@ -28,7 +28,7 @@ except (ImportError, ModuleNotFoundError):
 
 
 class auto(Addon, moduleBase):
-    """ ifupdown2 addon module to configure slaac on inet6 interface """
+    """ ifupdown2 addon module to configure SLAAC on inet6 interfaces """
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
@@ -100,7 +100,7 @@ class auto(Addon, moduleBase):
         return list(self._run_ops.keys())
 
     def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
-        """ run dhcp configuration on the interface object passed as argument
+        """ Run DHCP configuration on the interface object passed as argument.
 
         Args:
             **ifaceobj** (object): iface object
@@ -109,12 +109,12 @@ class auto(Addon, moduleBase):
                                  'query-running'
 
         Kwargs:
-            **query_ifaceobj** (object): query check ifaceobject. This is only
+            **query_ifaceobj** (object): Query check ifaceobject. This is only
                 valid when op is 'query-checkcurr'. It is an object same as
-                ifaceobj, but contains running attribute values and its config
-                status. The modules can use it to return queried running state
-                of interfaces. status is success if the running state is same
-                as user required state in ifaceobj. error otherwise.
+                ifaceobj, but contains current attribute values and its config
+                status. The module can use it to return the queried running
+                state of interfaces. Returns 'SUCCESS' if the running state is
+                the same as user-required state in ifaceobj, 'ERROR' otherwise.
         """
         op_handler = self._run_ops.get(operation)
         if not op_handler:
