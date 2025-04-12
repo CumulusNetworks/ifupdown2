@@ -78,6 +78,11 @@ check_network_swap() {
     done < /proc/swaps
 }
 
+delete_dhclient_leases() {
+    echo ${NAME}':' "Removing dhclient service files (if any)"
+    find /var/lib/dhcp/ -name "dhclient*leases" -delete
+}
+
 ifup_hotplug () {
     if [ -d /sys/class/net ]
     then
@@ -125,19 +130,24 @@ start)
 	set -f
 	exclusions=$(process_exclusions)
 	perfoptions=$(perf_options)
+	delete_dhclient_leases
 	echo ${NAME}':' "Configuring network interfaces"
 	ifup_mgmt
 	ifup -a $EXTRA_ARGS $exclusions $perfoptions --systemd
 	ifup_hotplug $HOTPLUG_ARGS $EXTRA_ARGS $exclusions
+
+    if test -f /var/lib/ifupdown2/hooks.d/start-networking-post-init-hook.sh; then
+         /var/lib/ifupdown2/hooks.d/start-networking-post-init-hook.sh
+    fi
 	;;
+
 stop)
 	if [ "$SKIP_DOWN_AT_SYSRESET" = "yes" ]; then
         SYSRESET=0
         systemctl list-jobs | egrep -q '(shutdown|reboot|halt|poweroff)\.target'
         [ $? -eq 0 ] && SYSRESET=1
         if [ $SYSRESET -eq 1 ]; then
-            echo ${NAME}':' "Removing dhclient service files (if any)"
-            find /var/lib/dhcp/ -name "dhclient*leases" -delete
+            delete_dhclient_leases
             echo ${NAME}':' "Skipping deconfiguring the rest of the network interfaces"
             exit 0
         fi

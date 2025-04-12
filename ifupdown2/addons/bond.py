@@ -25,7 +25,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from nlmanager.ipnetwork import IPv4Address
     from lib.addon import Addon
     from nlmanager.nlmanager import Link
@@ -363,13 +363,22 @@ class bond(Addon, moduleBase):
         if self.current_bond_speed != slave_speed:
             self.log_error(
                 "%s: ignoring device due to device's speed (%s) mismatching bond (%s) speed (%s)"
-                % (slave_ifname, slave_speed, bond_ifaceobj.name, self.current_bond_speed),
-                ifaceobj=bond_ifaceobj
+                % (slave_ifname, slave_speed, bond_ifaceobj.name, self.current_bond_speed)
             )
 
-    def valid_slave_speed(self, ifaceobj, bond_slaves, slave):
+    def valid_slave_speed(self, ifaceobj, bond_slaves, slave, ifaceobj_getfunc):
         if not slave.startswith("swp"):
             # lazy optimization: only check "swp" interfaces
+            return True
+
+        try:
+            if ifaceobj_getfunc(slave)[0].link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
+                return True
+        except:
+            pass
+
+        if not self.sysfs.link_is_up(slave):
+            self.logger.debug(f"{slave}: bond-slave is down - skipping speed validation")
             return True
 
         if self.current_bond_speed < 0:
@@ -381,7 +390,7 @@ class bond(Addon, moduleBase):
 
         try:
             self.compare_bond_and_slave_speed(ifaceobj, slave, int(self.read_file_oneline(f"/sys/class/net/{slave}/speed")))
-        except:
+        except Exception:
             try:
                 match = self.speed_pattern.search(utils.exec_commandl(["/usr/sbin/ethtool", f"{slave}"]))
                 if match:
@@ -400,7 +409,7 @@ class bond(Addon, moduleBase):
                 continue
             try:
                 slave_speed = int(self.read_file_oneline(f"/sys/class/net/{slave}/speed"))
-            except:
+            except Exception:
                 slave_speed = -1
 
             if bond_speed < 0:
@@ -445,13 +454,6 @@ class bond(Addon, moduleBase):
                                      raise_error=False)
                     continue
 
-            try:
-                # making sure the slave-to-be has the right speed
-                if not self.valid_slave_speed(ifaceobj, runningslaves, slave):
-                    continue
-            except Exception as e:
-                self.logger.debug("%s: bond-slave (%s) speed validation failed: %s" % (ifaceobj.name, slave, str(e)))
-
             if not self.slave_has_no_subinterface(ifaceobj, slave, ifaceobj_getfunc):
                 continue
 
@@ -486,7 +488,6 @@ class bond(Addon, moduleBase):
                         self.netlink.link_up_force(slave)
                except Exception as e:
                     self.logger.debug('%s: %s' % (ifaceobj.name, str(e)))
-                    pass
 
         if runningslaves:
             removed_slave = []
@@ -899,50 +900,60 @@ class bond(Addon, moduleBase):
                 bond_slaves,
                 ifaceobj_getfunc,
             )
-
-            if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
-                return
-
-            # check if the bond mac address is correctly inherited from it's
-            # first slave. There's a case where that might not be happening:
-            # $ ip link show swp1 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show swp2 | grep ether
-            #    link/ether 08:00:27:04:d8:02 brd ff:ff:ff:ff:ff:ff
-            # $ ip link add dev bond0 type bond
-            # $ ip link set dev swp1 master bond0
-            # $ ip link set dev swp2 master bond0
-            # $ ip link show bond0 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link add dev bond1 type bond
-            # $ ip link set dev swp1 master bond1
-            # $ ip link show swp1 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show swp2 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show bond0 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $ ip link show bond1 | grep ether
-            #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
-            # $
-            # ifupdown2 will automatically correct and fix this unexpected behavior
-            bond_mac = self.cache.get_link_address(ifaceobj.name)
-
-            if bond_slaves:
-                first_slave_ifname = bond_slaves[0]
-                first_slave_mac = self.cache.get_link_info_slave_data_attribute(
-                    first_slave_ifname,
-                    Link.IFLA_BOND_SLAVE_PERM_HWADDR
-                )
-
-                if first_slave_mac and bond_mac != first_slave_mac:
-                    self.logger.info(
-                        "%s: invalid bond mac detected - resetting to %s's mac (%s)"
-                        % (ifaceobj.name, first_slave_ifname, first_slave_mac)
-                    )
-                    self.netlink.link_set_address(ifaceobj.name, first_slave_mac, utils.mac_str_to_int(first_slave_mac))
+            self.set_bond_mac(link_exists, ifaceobj, bond_slaves)
         except Exception as e:
             self.log_error(str(e), ifaceobj)
+
+    def set_bond_mac(self, link_exists, ifaceobj, bond_slaves):
+        if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
+            return
+
+        # check if the bond mac address is correctly inherited from it's
+        # first slave. There's a case where that might not be happening:
+        # $ ip link show swp1 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show swp2 | grep ether
+        #    link/ether 08:00:27:04:d8:02 brd ff:ff:ff:ff:ff:ff
+        # $ ip link add dev bond0 type bond
+        # $ ip link set dev swp1 master bond0
+        # $ ip link set dev swp2 master bond0
+        # $ ip link show bond0 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link add dev bond1 type bond
+        # $ ip link set dev swp1 master bond1
+        # $ ip link show swp1 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show swp2 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show bond0 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $ ip link show bond1 | grep ether
+        #    link/ether 08:00:27:04:d8:01 brd ff:ff:ff:ff:ff:ff
+        # $
+        # ifupdown2 will automatically correct and fix this unexpected behavior
+        # Although if the bond's mac belongs to any of its slave we won't update it
+        bond_mac = self.cache.get_link_address(ifaceobj.name)
+
+        # Get the list of slave macs
+        bond_slave_macs = list(map(
+            lambda slave_ifname: self.cache.get_link_info_slave_data_attribute(
+                slave_ifname,
+                Link.IFLA_BOND_SLAVE_PERM_HWADDR,
+                default=list()
+            ),
+            bond_slaves
+        ))
+
+        if bond_slaves and bond_slave_macs and bond_mac not in bond_slave_macs:
+            first_slave_ifname = bond_slaves[0]
+            first_slave_mac = bond_slave_macs[0]
+
+            if first_slave_mac and bond_mac != first_slave_mac:
+                self.logger.info(
+                    "%s: invalid bond mac detected - resetting to %s's mac (%s)"
+                    % (ifaceobj.name, first_slave_ifname, first_slave_mac)
+                )
+                self.netlink.link_set_address(ifaceobj.name, first_slave_mac, utils.mac_str_to_int(first_slave_mac))
 
     def _down(self, ifaceobj, ifaceobj_getfunc=None):
         bond_slaves = self.cache.get_slaves(ifaceobj.name)

@@ -32,7 +32,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
 
     from ifupdown2.nlmanager.nlpacket import Link
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.io import IO
     from lib.base_objects import Requirements
 

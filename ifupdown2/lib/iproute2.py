@@ -28,6 +28,7 @@ import signal
 import ipaddress
 import subprocess
 import json
+from functools import lru_cache
 
 try:
     from ifupdown2.lib.sysfs import Sysfs
@@ -38,7 +39,7 @@ try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags
     from ifupdown2.nlmanager.nlpacket import Link
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.sysfs import Sysfs
     from lib.base_objects import Cache, Requirements
 
@@ -57,6 +58,10 @@ try:                                                                           #
 except Exception:                                                                        #
     import nlmanager.nlpacket as nlpacket                                      #
 ################################################################################
+
+
+class IProute2Exception(Exception):
+    pass
 
 
 class IPRoute2(Cache, Requirements):
@@ -168,8 +173,6 @@ class IPRoute2(Cache, Requirements):
                     "%s -force -batch -" % prefix,
                     stdin="\n".join(commands)
                 )
-        except Exception:
-            raise
         finally:
             self.__batch_mode = False
             del self.__batch
@@ -281,15 +284,17 @@ class IPRoute2(Cache, Requirements):
     ###
 
     def link_add_single_vxlan(self, link_exists, ifname, ip, group, physdev, port, vnifilter="off", ttl=None):
-        self.logger.info("creating single vxlan device: %s" % ifname)
-
         if link_exists:
+            self.logger.info("updating single vxlan device: %s" % ifname)
+
             # When updating an SVD we need to use `ip link set` and we have to
             # drop the external keyword:
             # $ ip link set dev vxlan0 type vxlan external local 27.0.0.242 dev ipmr-lo
             # Error: vxlan: cannot change COLLECT_METADATA flag.
             cmd = ["link set dev %s type vxlan" % ifname]
         else:
+            self.logger.info("creating single vxlan device: %s" % ifname)
+
             cmd = ["link add dev %s type vxlan external" % ifname]
 
             # when changing local ip, if we specify vnifilter we get:
@@ -352,7 +357,7 @@ class IPRoute2(Cache, Requirements):
     def link_create_vxlan(self, name, vxlanid, localtunnelip=None, svcnodeip=None,
                           remoteips=None, learning='on', ageing=None, ttl=None, physdev=None, udp_csum='on', tos = None):
         if svcnodeip and remoteips:
-            raise Exception("svcnodeip and remoteip are mutually exclusive")
+            raise IProute2Exception("svcnodeip and remoteip are mutually exclusive")
 
         if self.cache.link_exists(name):
             cmd = [
@@ -807,14 +812,6 @@ class IPRoute2(Cache, Requirements):
                 "vlan add vid %s dev %s %s" % (v, ifname, target)
             )
 
-    def bridge_vlan_del_vid_list_self(self, ifname, vids, is_bridge=True):
-        target = "self" if is_bridge else ""
-        for v in vids:
-            self.__execute_or_batch(
-                utils.bridge_cmd,
-                "vlan del vid %s dev %s %s" % (v, ifname, target)
-            )
-
     def bridge_vlan_del_pvid(self, ifname, pvid):
         self.__execute_or_batch(
             utils.bridge_cmd,
@@ -834,7 +831,15 @@ class IPRoute2(Cache, Requirements):
             self.logger.info("%s: del mcqv4src vlan: invalid parameter %s: %s"
                              % (bridge, vlan, str(e)))
             return
+
         utils.exec_command("%s delmcqv4src %s %d" % (utils.brctl_cmd, bridge, vlan))
+
+        # Disable igmp snooping on specified vlan with {VID}
+        utils.exec_command("%s vlan global set vid %d dev %s mcast_snooping 0" % (utils.bridge_cmd, vlan,  bridge))
+
+        # Disable per vlan snooping
+        utils.exec_command( "%s link set %s type bridge mcast_vlan_snooping 0" % (utils.ip_cmd, bridge))
+
 
     def bridge_set_mcqv4src(self, bridge, vlan, mcquerier):
         try:
@@ -856,6 +861,13 @@ class IPRoute2(Cache, Requirements):
                 return
 
         utils.exec_command("%s setmcqv4src %s %d %s" % (utils.brctl_cmd, bridge, vlan, mcquerier))
+
+        # Enable per vlan snooping
+        utils.exec_command( "%s link set %s type bridge mcast_vlan_snooping 1" % (utils.ip_cmd, bridge))
+
+        # Enable igmp snooping on specified vlan with {VID}
+        utils.exec_command("%s vlan global set vid %d dev %s mcast_snooping 1 mcast_querier 1" % (utils.bridge_cmd, vlan,  bridge))
+
 
     ############################################################################
     # ROUTE
@@ -978,15 +990,15 @@ class IPRoute2(Cache, Requirements):
         )
 
     def bridge_vni_int_set_del(self, vxlan_device, vni):
-        # bridge vni del understands ranges:
-        # bridge vni del dev vx0 vni 10,11,20-30
+        # bridge vni delete understands ranges:
+        # bridge vni delete dev vx0 vni 10,11,20-30
         self.__execute_or_batch(
             utils.bridge_cmd,
-            "vni del dev %s vni %s" % (vxlan_device, ','.join([str(x) for x in vni]))
+            "vni delete dev %s vni %s" % (vxlan_device, ','.join([str(x) for x in vni]))
         )
 
     def bridge_vni_del_list(self, vxlandev, vnis):
-        cmd_args = "vni del dev %s vni %s" % (vxlandev, ','.join(vnis))
+        cmd_args = "vni delete dev %s vni %s" % (vxlandev, ','.join(vnis))
         self.__execute_or_batch(utils.bridge_cmd, cmd_args)
 
     def compress_vnifilter_into_ranges(self, vnis_ints, vnisd):
@@ -1006,8 +1018,8 @@ class IPRoute2(Cache, Requirements):
                 continue
             else:
                 if vend > vbegin:
-                    range = '%d-%d' %(vbegin, vend)
-                    vnisd_ranges[range] = lastg
+                    r = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[r] = lastg
                 else:
                     vnisd_ranges['%s' %vbegin] = lastg
             vbegin = v
@@ -1016,8 +1028,8 @@ class IPRoute2(Cache, Requirements):
 
         if vbegin:
                 if vend > vbegin:
-                    range = '%d-%d' %(vbegin, vend)
-                    vnisd_ranges[range] = lastg
+                    r = '%d-%d' %(vbegin, vend)
+                    vnisd_ranges[r] = lastg
                 else:
                     vnisd_ranges['%s' %vbegin] = lastg
         return vnisd_ranges
@@ -1085,3 +1097,102 @@ class IPRoute2(Cache, Requirements):
         except Exception as e:
             self.logger.error("bridge vni show failed .. %s" % str(e))
         return None
+
+    def add_clsact_qdisc(self, ifname):
+        existing_qdiscs_cmd = ['tc', 'qdisc', 'show', 'dev', ifname]
+        existing_qdiscs = subprocess.Popen(existing_qdiscs_cmd, stdout=subprocess.PIPE)
+        check_for_qdisc_cmd = ['grep', '--quiet', 'clsact']
+        qdisc_found = subprocess.call(check_for_qdisc_cmd, stdin=existing_qdiscs.stdout) == 0
+
+        if not qdisc_found:
+            add_qdisc_cmd = 'tc qdisc add dev %s clsact' % (ifname)
+            utils.exec_command(add_qdisc_cmd)
+
+    def _vxlan_hopping_tc_filter(self, ifname, add, vxlan_port):
+        if add:
+            action = 'add'
+            self.add_clsact_qdisc(ifname)
+        else:
+            action = 'del'
+
+        add_filter_ipv4 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_ethtype ipv4 ip_proto udp dst_port %s action drop' % (action, ifname, 10000 + 2 * int(vxlan_port), vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv4)
+        add_filter_ipv6 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_ethtype ipv6 ip_proto udp dst_port %s action drop' % (action, ifname, 10000 + 2 * int(vxlan_port) + 1, vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv6)
+
+    def add_vxlan_hopping_tc_filter(self, ifname, vxlan_port):
+        self._vxlan_hopping_tc_filter(ifname, True, vxlan_port)
+
+    def del_vxlan_hopping_tc_filter(self, ifname, vxlan_port):
+        self._vxlan_hopping_tc_filter(ifname, False, vxlan_port)
+
+    def _vxlan_hopping_tc_filter_bypass(self, ifname, add, vid, vxlan_port):
+        if add:
+            action = 'add'
+            self.add_clsact_qdisc(ifname)
+        else:
+            action = 'del'
+
+        add_filter_ipv4 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_id %s vlan_ethtype ipv4 ip_proto udp dst_port %s action pass' % (action, ifname, 2*int(vid), vid, vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv4)
+        add_filter_ipv6 = 'filter %s dev %s ingress prio %s proto 802.1q flower vlan_id %s vlan_ethtype ipv6 ip_proto udp dst_port %s action pass' % (action, ifname, 2*int(vid)+1, vid, vxlan_port)
+        self.__execute_or_batch('tc', add_filter_ipv6)
+
+    def add_vxlan_hopping_tc_filter_bypass(self, ifname, vid, vxlan_port):
+        self._vxlan_hopping_tc_filter_bypass(ifname, True, vid, vxlan_port)
+
+    def del_vxlan_hopping_tc_filter_bypass(self, ifname, vid, vxlan_port):
+        self._vxlan_hopping_tc_filter_bypass(ifname, False, vid, vxlan_port)
+
+    @lru_cache(maxsize=128)
+    def fetch_tc_filters(self, br_ifname):
+        cmd = 'tc -j filter show dev %s ingress' % br_ifname
+        try:
+            result = utils.exec_command(cmd)
+            return json.loads(result)
+        except subprocess.CalledProcessError as e:
+            self.logger.error("Error running command: %s" % cmd)
+            return []
+
+    def check_tc_filter_exists(self, br_ifname, dst_port, vlan_id=None, eth_type='ipv4', ip_proto='udp', action='drop'):
+        filters = self.fetch_tc_filters(br_ifname)
+
+        for filter_entry in filters:
+            options = filter_entry.get('options', {})
+            keys = options.get('keys', {})
+            actions = options.get('actions', [])
+
+            if (keys.get('eth_type') == eth_type
+                and keys.get('ip_proto') == ip_proto
+                and keys.get('dst_port') == dst_port
+                and keys.get('vlan_id') == vlan_id):
+                for act in actions:
+                    if act.get('kind') == 'gact' and act.get('control_action', {}).get('type') == action:
+                        return True
+        return False
+
+    def check_tc_filters(self, br_ifname, desired_filters):
+        filters_to_add = []
+        filters_to_delete = []
+
+        # Checking filters to add
+        for filter in desired_filters:
+            dst_port, vlan_id, action = filter
+            if not self.check_tc_filter_exists(br_ifname, dst_port, vlan_id, action=action):
+                filters_to_add.append(filter)
+
+        # Checking filters to delete
+        system_filters = self.fetch_tc_filters(br_ifname)
+        for filter_entry in system_filters:
+            options = filter_entry.get('options', {})
+            keys = options.get('keys', {})
+            actions = options.get('actions', [])
+            for act in actions:
+                port = keys.get('dst_port')
+                vlan = keys.get('vlan_id')
+                if act.get('kind') == 'gact':
+                    action = act.get('control_action', {}).get('type')
+                    if (port, vlan, action) not in desired_filters:
+                        filters_to_delete.append((port, vlan, action))
+
+        return set(filters_to_add), set(filters_to_delete)

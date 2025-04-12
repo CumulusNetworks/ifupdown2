@@ -10,13 +10,11 @@ import logging
 try:
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-    from ifupdown2.ifupdownaddons.cache import *
 
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import *
     from ifupdown.utils import utils
-    from ifupdownaddons.cache import *
 
     import ifupdown.ifupdownflags as ifupdownflags
 

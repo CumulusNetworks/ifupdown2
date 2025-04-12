@@ -26,10 +26,13 @@
 import os
 import sys
 
+sys.path.insert(0, "/root/ifupdown2/ifupdown2")
+#sys.path.append("/usr/share/ifupdown2/")
+
 try:
     from ifupdown2.lib.log import LogManager, root_logger
     from ifupdown2.lib.status import Status
-except Exception:
+except ModuleNotFoundError:
     from lib.log import LogManager, root_logger
     from lib.status import Status
 
@@ -47,7 +50,7 @@ try:
 
     from ifupdown2.ifupdown.client import Client
     from ifupdown2.ifupdown.exceptions import ArgvParseHelp, ArgvParseError
-except Exception:
+except ModuleNotFoundError:
     import ifupdown.config as config
 
     config.__version__ = __import__("__init__").__version__

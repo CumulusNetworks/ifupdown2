@@ -9,7 +9,7 @@ import os
 try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdownaddons.utilsbase import *
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import utils
     from ifupdownaddons.utilsbase import *
 
@@ -50,8 +50,8 @@ class systemUtils():
             return False
         return True
 
-    @classmethod
-    def is_process_running(self, processname):
+    @staticmethod
+    def is_process_running(processname):
         if not processname:
             return False
         try:

@@ -1,0 +1,125 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br0",
+    "auto": true,
+    "config": {
+      "bridge-mcqifaddr": "yes",
+      "bridge-vlan-protocol": "802.1ad",
+      "bridge-mcsqc": "42",
+      "bridge-stp": "no",
+      "bridge-mcsqi": "42",
+      "bridge-arp-nd-suppress": "vx42=on",
+      "bridge-mcmi": "42",
+      "bridge-ports": "vx42",
+      "bridge-l2protocol-tunnel": "all",
+      "bridge-unicast-flood": "vx42=off",
+      "bridge-mcsnoop": "no",
+      "bridge-vlan-aware": "yes",
+      "bridge-pathcosts": "vx42=42",
+      "bridge-portprios": "vx42=10",
+      "bridge-fd": "29",
+      "bridge-ageing": "42",
+      "bridge-multicast-flood": "vx42=off",
+      "bridge-hello": "10",
+      "bridge-mcquerier": "yes",
+      "bridge-mclmc": "42",
+      "bridge-mcrouter": "no",
+      "bridge-vlan-stats": "off",
+      "bridge-mclmi": "42",
+      "bridge-hashmax": "1024",
+      "bridge-mcqri": "42",
+      "bridge-mcqpi": "42",
+      "bridge-bridgeprio": "42",
+      "bridge-maxage": "10",
+      "bridge-igmp-version": "3",
+      "bridge-mld-version": "2",
+      "bridge-learning": "vx42=off",
+      "bridge-mcstats": "off",
+      "bridge-portmcfl": "vx42=yes",
+      "bridge-mcqi": "42"
+    },
+    "config_status": {
+      "bridge-mcqifaddr": "pass",
+      "bridge-vlan-protocol": "pass",
+      "bridge-mcsqc": "pass",
+      "bridge-stp": "pass",
+      "bridge-mcsqi": "pass",
+      "bridge-arp-nd-suppress": "pass",
+      "bridge-mcmi": "pass",
+      "bridge-ports": "pass",
+      "bridge-l2protocol-tunnel": "pass",
+      "bridge-unicast-flood": "pass",
+      "bridge-mcsnoop": "pass",
+      "bridge-vlan-aware": "pass",
+      "bridge-pathcosts": "pass",
+      "bridge-portprios": "pass",
+      "bridge-fd": "pass",
+      "bridge-ageing": "pass",
+      "bridge-multicast-flood": "pass",
+      "bridge-hello": "pass",
+      "bridge-mcquerier": "pass",
+      "bridge-mclmc": "pass",
+      "bridge-mcrouter": "pass",
+      "bridge-vlan-stats": "pass",
+      "bridge-mclmi": "pass",
+      "bridge-hashmax": "pass",
+      "bridge-mcqri": "pass",
+      "bridge-mcqpi": "pass",
+      "bridge-bridgeprio": "pass",
+      "bridge-maxage": "pass",
+      "bridge-igmp-version": "pass",
+      "bridge-mld-version": "pass",
+      "bridge-learning": "pass",
+      "bridge-mcstats": "pass",
+      "bridge-portmcfl": "pass",
+      "bridge-mcqi": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "vx42",
+    "auto": true,
+    "config": {
+      "vxlan-id": "42",
+      "bridge-access": "42"
+    },
+    "config_status": {
+      "vxlan-id": "pass",
+      "bridge-access": "pass"
+    },
+    "status": "pass"
+  }
+]

@@ -1,0 +1,109 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_AA_",
+    "addr_method": "manual",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "swp_BB_",
+    "auto": true,
+    "config": {
+      "link-down": "yes"
+    },
+    "config_status": {
+      "link-down": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge1",
+    "auto": true,
+    "config": {
+      "bridge-ports": "swp_CC_"
+    },
+    "config_status": {
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge2",
+    "addr_method": "manual",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "bridge-ports": "swp_DD_"
+    },
+    "config_status": {
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge3",
+    "addr_method": "manual",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "link-down": "no",
+      "bridge-ports": "swp_EE_"
+    },
+    "config_status": {
+      "link-down": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge4",
+    "addr_method": "manual",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "link-down": "yes",
+      "bridge-ports": "swp_FF_"
+    },
+    "config_status": {
+      "link-down": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  }
+]

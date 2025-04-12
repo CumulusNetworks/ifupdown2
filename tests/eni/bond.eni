@@ -1,0 +1,67 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto bond0
+iface bond0
+      bond-slaves swp_AA_
+      bond-use-carrier yes
+      bond-num-grat-arp 0
+      bond-num-unsol-na 0
+      bond-xmit-hash-policy layer2
+      bond-miimon 0
+      bond-min-links 0
+      bond-mode balance-rr
+      bond-updelay 0
+
+auto bond1
+iface bond1
+      bond-slaves swp_BB_
+      bond-use-carrier no
+      bond-num-grat-arp 255
+      bond-num-unsol-na 255
+      bond-xmit-hash-policy layer3+4
+      bond-miimon 255
+      bond-min-links 255
+      bond-mode active-backup
+      bond-updelay 65535
+
+auto bond2
+iface bond2
+      bond-slaves swp_CC_
+      bond-use-carrier 0
+      bond-num-grat-arp 1
+      bond-num-unsol-na 1
+      bond-xmit-hash-policy layer2+3
+      bond-miimon 1
+      bond-min-links 1
+      bond-mode balance-xor
+      bond-updelay 1
+
+auto bond3
+iface bond3
+      bond-slaves swp_DD_
+      bond-use-carrier 1
+      bond-num-grat-arp 42
+      bond-num-unsol-na 42
+      bond-miimon 42
+      bond-min-links 42
+      bond-mode broadcast
+      bond-updelay 42
+
+auto bond5
+iface bond5
+      bond-slaves swp_FF_
+      bond-mode balance-tlb
+
+auto bond6
+iface bond6
+      bond-slaves swp_GG_
+      bond-mode balance-alb

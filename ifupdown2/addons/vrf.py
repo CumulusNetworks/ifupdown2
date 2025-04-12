@@ -11,7 +11,7 @@ import atexit
 import signal
 
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Addon, AddonException
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
@@ -25,8 +25,8 @@ try:
     from ifupdown2.ifupdownaddons.dhclient import dhclient
     from ifupdown2.ifupdownaddons.utilsbase import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
-except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+except ImportError:
+    from lib.addon import Addon, AddonException
 
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
@@ -42,7 +42,7 @@ except (ImportError, ModuleNotFoundError):
     from ifupdownaddons.modulebase import moduleBase
 
 
-class vrfPrivFlags:
+class VrfPrivFlags:
     PROCESSED = 0x1
 
 
@@ -94,9 +94,12 @@ class vrf(Addon, moduleBase):
 
         self.user_reserved_vrf_table = []
 
-        if (ifupdownflags.flags.PERFMODE and
-            not (self.vrf_mgmt_devname and os.path.exists('/sys/class/net/%s'
-            %self.vrf_mgmt_devname))):
+        if (
+            ifupdownflags.flags.PERFMODE
+            and not self.vrf_mgmt_devname
+            and os.path.exists(self.iproute2_vrf_filename)
+            and os.path.exists("/sys/class/net/%s" % self.vrf_mgmt_devname)
+        ):
             # if perf mode is set (PERFMODE is set at boot), and this is the first
             # time we are calling ifup at boot (check for mgmt vrf existance at
             # boot, make sure this is really the first invocation at boot.
@@ -104,14 +107,11 @@ class vrf(Addon, moduleBase):
             # and the second time with all auto interfaces). We want to delete
             # the map file only the first time. This is to avoid accidently
             # deleting map file with a valid mgmt vrf entry
-            if os.path.exists(self.iproute2_vrf_filename):
-                try:
-                    self.logger.info('vrf: removing file %s'
-                                     %self.iproute2_vrf_filename)
-                    os.remove(self.iproute2_vrf_filename)
-                except Exception as e:
-                    self.logger.debug('vrf: removing file failed (%s)'
-                                      %str(e))
+            try:
+                self.logger.info("vrf: removing file %s" % self.iproute2_vrf_filename)
+                os.remove(self.iproute2_vrf_filename)
+            except Exception as e:
+                self.logger.debug("vrf: removing file failed (%s)" % str(e))
         try:
             ip_rules = utils.exec_command('%s rule show'
                                           %utils.ip_cmd).splitlines()
@@ -127,12 +127,6 @@ class vrf(Addon, moduleBase):
         except Exception as e:
             self.ip6_rule_cache = []
             self.logger.warning('vrf: cache v6: %s' % str(e))
-
-        #self.logger.debug("vrf: ip rule cache")
-        #self.logger.info(self.ip_rule_cache)
-
-        #self.logger.info("vrf: ip -6 rule cache")
-        #self.logger.info(self.ip6_rule_cache)
 
         self.l3mdev_checked = False
         self.l3mdev4_rule = False
@@ -227,7 +221,6 @@ class vrf(Addon, moduleBase):
                         self.iproute2_vrf_map[int(table)] = vrf_name
                     except Exception as e:
                         self.logger.info('vrf: iproute2_vrf_map: unable to parse %s (%s)' %(l, str(e)))
-                        pass
 
         running_vrf_map = self.cache.get_vrf_table_map()
 
@@ -287,7 +280,6 @@ class vrf(Addon, moduleBase):
                 f.flush()
         except Exception as e:
             self._iproute2_map_warn(str(e))
-            pass
 
     def _iproute2_vrf_map_open(self, sync_vrfs=False, append=False):
         self.logger.info('vrf: syncing table map to %s'
@@ -383,7 +375,6 @@ class vrf(Addon, moduleBase):
         except Exception as e:
             self.logger.info('vrf: iproute2 vrf map del failed for %s (%s)'
                              %(table_id, str(e)))
-            pass
 
     def _is_vrf_dev(self, ifacename):
         # Look at iproute2 map for now.
@@ -435,15 +426,11 @@ class vrf(Addon, moduleBase):
                                        %mobj.name, ifaceobj)
                     self.logger.info('%s: table id auto: selected table id %s'
                                      %(mobj.name, vrf_table))
-                try:
-                    self._up_vrf_dev(mobj, vrf_table, False)
-                except Exception:
-                    raise
+                self._up_vrf_dev(mobj, vrf_table, False)
                 break
         self._handle_existing_connections(ifaceobj, vrfname)
         self.enable_ipv6_if_prev_brport(ifacename)
         self.netlink.link_set_master(ifacename, vrfname)
-        return
 
     def enable_ipv6_if_prev_brport(self, ifname):
         """
@@ -598,7 +585,6 @@ class vrf(Addon, moduleBase):
                                        %utils.ip_cmd)
                 except Exception as e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
-                    pass
             if rule in self.ip6_rule_cache:
                 try:
                     utils.exec_command('%s -6 rule del pref 0'
@@ -607,7 +593,6 @@ class vrf(Addon, moduleBase):
                                        %utils.ip_cmd)
                 except Exception as e:
                     self.logger.info('%s: %s' % (vrf_dev_name, str(e)))
-                    pass
 
         if not self.l3mdev_checked:
             self._rule_cache_fill()
@@ -656,10 +641,7 @@ class vrf(Addon, moduleBase):
         #    format <vrf_slave>-v<int> created by the
         #    address virtual module
         vrfslave_lowers = self.sysfs.link_get_lowers(vrfslave)
-        if vrfslave_lowers:
-            if vrfslave_lowers[0] in config_vrfslaves:
-                return True
-        return False
+        return vrfslave_lowers and vrfslave_lowers[0] in config_vrfslaves
 
     def _add_vrf_slaves(self, ifaceobj, ifaceobj_getfunc=None):
         running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
@@ -706,19 +688,18 @@ class vrf(Addon, moduleBase):
                         if slave_ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN or self.check_link_down_on_vlan_lower_dev(
                             slave_ifaceobj, ifaceobj_getfunc
                         ):
-                            raise Exception("link-down yes: keeping VRF slave down")
+                            raise AddonException("link-down yes: keeping VRF slave down")
                     self.netlink.link_up(s)
                 except Exception as e:
                     self.logger.debug("%s: %s" % (s, str(e)))
-                    pass
 
     def _set_vrf_dev_processed_flag(self, ifaceobj):
         ifaceobj.module_flags[self.name] = \
                              ifaceobj.module_flags.setdefault(self.name, 0) | \
-                                        vrfPrivFlags.PROCESSED
+                                        VrfPrivFlags.PROCESSED
 
     def _check_vrf_dev_processed_flag(self, ifaceobj):
-        if (ifaceobj.module_flags.get(self.name, 0) & vrfPrivFlags.PROCESSED):
+        if (ifaceobj.module_flags.get(self.name, 0) & VrfPrivFlags.PROCESSED):
             return True
         return False
 
@@ -835,9 +816,8 @@ class vrf(Addon, moduleBase):
                     addr = citems[3].split(':')[0]
                 if not addr:
                     continue
-                if addr in iplist:
-                    if len(citems) == 6:
-                        proc.append(citems[5].split(',')[1].split('=')[1])
+                if addr in iplist and len(citems) == 6:
+                    proc.append(citems[5].split(',')[1].split('=')[1])
 
             if not proc:
                 return
@@ -885,12 +865,13 @@ class vrf(Addon, moduleBase):
                                      %(ifacename, str(proc)))
                     os.kill(int(pid), signal.SIGINT)
                     return
-                except OSError as e:
+                except OSError:
                     return
         except Exception as e:
             self.logger.info('%s: %s' %(ifacename, str(e)))
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):
+        ifname = ifaceobj.name
         try:
             vrf_table = ifaceobj.get_attr_value_first('vrf-table')
             if vrf_table:
@@ -916,8 +897,23 @@ class vrf(Addon, moduleBase):
                         if self._is_vrf_dev(master):
                             self._down_vrf_slave(ifaceobj.name, ifaceobj,
                                                  master)
+
+                            if ifaceobj.get_attr_value_first("address-virtual") or ifaceobj.get_attr_value_first("vrrp"):
+                                # macvlans were created on this interface - we also need to removed them from the vrf
+                                # (ifreload used to take care of that in the ifaceobj:vrf path, but we should in fact
+                                # do this here as ifreload-diff might not process the vrf ifaceobj
+                                [
+                                    self._down_vrf_slave(macvlan, vrfname=master)
+                                    for macvlan in self.sysfs.link_get_uppers(ifname) if self.has_macvlan_prefix(ifname, macvlan)
+                                ]
+
         except Exception as e:
             self.log_error(str(e), ifaceobj)
+
+    @staticmethod
+    def has_macvlan_prefix(ifname, dev):
+        # Look for any of the ifupdown2 macvlan prefixes
+        return any(dev.startswith(prefix) for prefix in (f"{ifname}-v", "vrrp4", "vrrp6"))
 
     def _down_vrf_helper(self, ifaceobj, vrf_table):
         mode = ""
@@ -949,7 +945,6 @@ class vrf(Addon, moduleBase):
         except Exception as e:
             self.logger.info('%s: closing socks using ss'
                              ' failed (%s)' %(ifacename, str(e)))
-            pass
 
     def _down_vrf_dev(self, ifaceobj, vrf_table, ifaceobj_getfunc=None):
 
@@ -970,25 +965,21 @@ class vrf(Addon, moduleBase):
                                                           ifaceobj.name)
                     except Exception as e:
                         self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-                        pass
                 try:
                     self.netlink.addr_flush(s)
                     self.netlink.link_down(s)
                 except Exception as e:
                     self.logger.info('%s: %s' %(s, str(e)))
-                    pass
 
         try:
             self._down_vrf_helper(ifaceobj, vrf_table)
         except Exception as e:
             self.logger.warning('%s: %s' %(ifaceobj.name, str(e)))
-            pass
 
         try:
             self._del_vrf_rules(ifaceobj.name, vrf_table)
         except Exception as e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
 
         self._close_sockets(ifaceobj.name)
 
@@ -996,13 +987,11 @@ class vrf(Addon, moduleBase):
             self.netlink.link_del(ifaceobj.name)
         except Exception as e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
 
         try:
             self._iproute2_vrf_table_entry_del(vrf_table)
         except Exception as e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
-            pass
 
 
     def _down_vrf_slave(self, ifacename, ifaceobj=None, vrfname=None):
@@ -1062,13 +1051,12 @@ class vrf(Addon, moduleBase):
                                                            %(self.vrf_helper,
                                                            ifaceobj.name,
                                                            config_table), 0)
-                except Exception as e:
+                except Exception:
                     ifaceobjcurr.update_config_with_status('vrf-helper',
                                                            '%s create %s %s'
                                                            %(self.vrf_helper,
                                                            ifaceobj.name,
                                                            config_table), 1)
-                    pass
         except Exception as e:
             self.log_warn(str(e))
 

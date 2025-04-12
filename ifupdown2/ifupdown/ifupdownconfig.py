@@ -11,6 +11,7 @@ class ifupdownConfig():
 		self.conf = {}
 
 config = ifupdownConfig()
+diff_mode = False
 
 def reset():
 	global config

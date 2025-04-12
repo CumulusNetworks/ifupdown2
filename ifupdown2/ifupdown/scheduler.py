@@ -22,7 +22,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.graph import *
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus, ifaceState
     from ifupdown.utils import utils
@@ -31,6 +31,9 @@ except (ImportError, ModuleNotFoundError):
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
 
+
+class SchedulerException(Exception):
+    pass
 
 class ifaceSchedulerFlags():
     """ Enumerates scheduler flags """
@@ -49,6 +52,9 @@ class ifaceScheduler():
     _STATE_CHECK = True
 
     _SCHED_STATUS = True
+
+    _DIFF_MODE = False
+    _RUN_QUEUE = []
 
     VRF_MGMT_DEVNAME = policymanager.policymanager_api.get_module_globals(
         module_name="vrf",
@@ -86,10 +92,17 @@ class ifaceScheduler():
                 query_ifaceobj.set_state_n_status(ifaceState.from_str(op),
                                                   ifaceStatus.NOTFOUND)
                 return
+
+        # Very ugly but necessary since we don't support global attributes
+        utils.is_pvrst_enabled(ifupdownobj.get_ifaceobjs, no_act="query" in op or "down" in op)
+
         for mname in ifupdownobj.module_ops.get(op):
             m = ifupdownobj.modules.get(mname)
             err = 0
             try:
+                if cls._DIFF_MODE and hasattr(m, "set_runqueue"):
+                    m.set_runqueue(list(cls._RUN_QUEUE))
+
                 if hasattr(m, 'run'):
                     msg = ('%s: %s : running module %s' %(ifacename, op, mname))
                     if op == 'query-checkcurr':
@@ -113,7 +126,6 @@ class ifaceScheduler():
 
                     ifupdownobj.logger.error(str(e))
                 # Continue with rest of the modules
-                pass
             finally:
                 if err or ifaceobj.status == ifaceStatus.ERROR:
                     ifaceobj.set_state_n_status(ifaceState.from_str(op),
@@ -183,7 +195,6 @@ class ifaceScheduler():
                     if not ifupdownobj.link_master_slave_ignore_error(str(e)):
                        ifupdownobj.logger.warning('%s: %s'
                                    %(ifaceobjs[0].name, str(e)))
-                    pass
             for ifaceobj in ifaceobjs:
                 cls.run_iface_op(ifupdownobj, ifaceobj, op,
                     cenv=ifupdownobj.generate_running_env(ifaceobj, op)
@@ -196,7 +207,6 @@ class ifaceScheduler():
                     for ifaceobj in ifaceobjs]
             except Exception as e:
                 ifupdownobj.logger.warning('%s' %str(e))
-                pass
 
     @classmethod
     def _check_upperifaces(cls, ifupdownobj, ifaceobj, ops, parent,
@@ -254,7 +264,7 @@ class ifaceScheduler():
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            raise Exception('%s: not found' %ifacename)
+            raise SchedulerException('%s: not found' %ifacename)
 
         # Check state of the dependent. If it is already brought up, return
         if (cls._STATE_CHECK and
@@ -304,9 +314,7 @@ class ifaceScheduler():
                                             followdependents,
                                             continueonfailure=False)
                 except Exception as e:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not ifupdownobj.ignore_error(str(e)):
                         # Dont bring the iface up if children did not come up
                         ifaceobj.set_state_n_status(ifaceState.NEW,
                                                 ifaceStatus.ERROR)
@@ -321,6 +329,11 @@ class ifaceScheduler():
         """ Runs interface list """
 
         for ifacename in ifacenames:
+
+            if cls._DIFF_MODE and ifacename not in cls._RUN_QUEUE:
+                ifupdownobj.logger.debug(f"diff mode: skipping interface {ifacename} - not present in run queue")
+                continue
+
             try:
               cls.run_iface_graph(ifupdownobj, ifacename, ops, parent,
                       order, followdependents)
@@ -329,12 +342,9 @@ class ifaceScheduler():
                     if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                         traceback.print_tb(sys.exc_info()[2])
                     ifupdownobj.logger.error('%s : %s' %(ifacename, str(e)))
-                    pass
                 else:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
-                        raise Exception('%s : (%s)' %(ifacename, str(e)))
+                    if not (ifupdownobj.ignore_error(str(e))):
+                        raise SchedulerException('%s : (%s)' %(ifacename, str(e)))
 
     @classmethod
     def run_iface_graph_upper(cls, ifupdownobj, ifacename, ops, parent=None,
@@ -344,7 +354,7 @@ class ifaceScheduler():
         # Each ifacename can have a list of iface objects
         ifaceobjs = ifupdownobj.get_ifaceobjs(ifacename)
         if not ifaceobjs:
-            raise Exception('%s: not found' %ifacename)
+            raise SchedulerException('%s: not found' %ifacename)
 
         if (cls._STATE_CHECK and
             (ifaceobjs[0].state == ifaceState.from_str(ops[-1]))):
@@ -366,9 +376,7 @@ class ifaceScheduler():
                                             followdependents,
                                             continueonfailure=True)
                 except Exception as e:
-                    if (ifupdownobj.ignore_error(str(e))):
-                        pass
-                    else:
+                    if not ifupdownobj.ignore_error(str(e)):
                         raise
 
     @classmethod
@@ -385,7 +393,6 @@ class ifaceScheduler():
                 if ifupdownobj.logger.isEnabledFor(logging.DEBUG):
                     traceback.print_tb(sys.exc_info()[2])
                 ifupdownobj.logger.warning('%s : %s' %(ifacename, str(e)))
-                pass
 
     @classmethod
     def _get_valid_upperifaces(cls, ifupdownobj, ifacenames,
@@ -429,7 +436,6 @@ class ifaceScheduler():
         if upperifacenames:
             cls._get_valid_upperifaces(ifupdownobj, upperifacenames,
                                        allupperifacenames)
-        return
 
     @classmethod
     def run_upperifaces(cls, ifupdownobj, ifacenames, ops,
@@ -443,6 +449,12 @@ class ifaceScheduler():
         # dump valid upperifaces
         ifupdownobj.logger.debug(upperifaces)
         for u in upperifaces:
+
+            if cls._DIFF_MODE and u not in cls._RUN_QUEUE:
+                ifupdownobj.logger.debug(f"diff mode: upperifaces: skipping interface {u} - not present in run queue")
+                continue
+
+
             try:
                 ifaceobjs = ifupdownobj.get_ifaceobjs(u)
                 if not ifaceobjs:
@@ -500,7 +512,7 @@ class ifaceScheduler():
     def sched_ifaces(cls, ifupdownobj, ifacenames, ops,
                 dependency_graph=None, indegrees=None,
                 order=ifaceSchedulerFlags.POSTORDER,
-                followdependents=True, skipupperifaces=False, sort=False):
+                followdependents=True, skipupperifaces=False, sort=False, diff_mode=False):
         """ runs interface configuration modules on interfaces passed as
             argument. Runs topological sort on interface dependency graph.
 
@@ -535,6 +547,12 @@ class ifaceScheduler():
         #
         # Run any upperifaces if available
         #
+
+        cls._DIFF_MODE = diff_mode
+        cls._RUN_QUEUE = list(ifacenames)
+
+        ifupdownobj.logger.debug(f"full run queue: {cls._RUN_QUEUE}")
+
         followupperifaces = False
         run_queue = []
         skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
@@ -561,6 +579,8 @@ class ifaceScheduler():
                                     ops, dependency_graph, indegrees)
                 if run_queue and 'up' in ops[0]:
                     run_queue.reverse()
+        elif cls._DIFF_MODE:
+            run_queue = cls._RUN_QUEUE
         else:
             # if -a is set, we pick the interfaces
             # that have no parents and use a sorted list of those
@@ -598,7 +618,7 @@ class ifaceScheduler():
         if not cls.get_sched_status():
             return
 
-        if (not skipupperifaces and
+        if (not cls._DIFF_MODE and not skipupperifaces and
                 ifupdownobj.config.get('skip_upperifaces', '0') == '0' and
                 ((not ifupdownflags.flags.ALL and followdependents) or
                  followupperifaces) and

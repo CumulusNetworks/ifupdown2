@@ -1,0 +1,101 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "peerlink",
+    "auto": true,
+    "config": {
+      "bond-slaves": "swp_AA_ swp_BB_"
+    },
+    "config_status": {
+      "bond-slaves": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "peerlink.4094",
+    "auto": true,
+    "config": {
+      "address": "169.254.1.1/30"
+    },
+    "config_status": {
+      "address": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "myvrf",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "fail"
+  },
+  {
+    "name": "bridge",
+    "auto": true,
+    "config": {
+      "bridge-vlan-aware": "yes",
+      "bridge-ports": "peerlink",
+      "bridge-stp": "yes"
+    },
+    "config_status": {
+      "bridge-vlan-aware": "pass",
+      "bridge-ports": "fail",
+      "bridge-stp": "pass"
+    },
+    "status": "fail"
+  },
+  {
+    "name": "bridge.901",
+    "auto": true,
+    "config": {
+      "address-virtual": "00:00:5e:00:01:81",
+      "vrf": "None",
+      "address": "10.1.63.2/28"
+    },
+    "config_status": {
+      "address-virtual": "fail",
+      "vrf": "fail",
+      "address": "fail"
+    },
+    "status": "fail"
+  },
+  {
+    "name": "bond0",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "fail"
+  }
+]

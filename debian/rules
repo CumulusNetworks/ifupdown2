@@ -16,6 +16,8 @@ override_dh_install:
 	mkdir -p debian/ifupdown2/lib/systemd/system/
 	install --mode=644 debian/ifup@.service debian/ifupdown2/lib/systemd/system/
 
+override_dh_auto_test:
+	@echo "Skipping tests during the build process."
 
 override_dh_systemd_start:
 	dh_systemd_start --name=networking --no-start

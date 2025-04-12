@@ -1,0 +1,37 @@
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto lo
+iface lo inet loopback
+
+auto swp_AA_
+iface swp_AA_ inet static
+      address 172.30.1.3
+      netmask 24
+
+auto swp_BB_.1005
+iface swp_BB_.1005
+      address 10.132.253.11/31
+
+auto bond0
+iface bond0 inet manual
+      bond-slaves swp_BB_ swp_CC_
+      bond-mode 802.3ad
+      bond-min-links 1
+      bond-xmit-hash-policy layer2+3
+
+auto vlan1007
+iface vlan1007
+      vlan-raw-device bond0
+      vlan-id 1007
+      address 10.132.253.15/31
+
+auto dummy0
+iface dummy0
+        link-type dummy
+	address fdca:ffee:ff12:fe06::1/64

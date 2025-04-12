@@ -1,0 +1,406 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge",
+    "auto": true,
+    "config": {
+      "bridge-vlan-aware": "yes",
+      "bridge-vids": "1-33",
+      "bridge-stp": "yes",
+      "bridge-pvid": "192",
+      "bridge-ports": "swp_AA_"
+    },
+    "config_status": {
+      "bridge-vlan-aware": "pass",
+      "bridge-vids": "",
+      "bridge-stp": "pass",
+      "bridge-pvid": "",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.1",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:FF:00:1 10.7.192.1/1"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.2",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:2 10.7.192.2/2"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.3",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:3 10.7.192.3/3"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.4",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:4 10.7.192.4/4"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.5",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:5 10.7.192.5/5"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.6",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:6 10.7.192.6/6"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.7",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:7 10.7.192.7/7"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.8",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:8 10.7.192.8/8"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.9",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:9 10.7.192.9/9"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.10",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:10 10.7.192.10/10"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.11",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:11 10.7.192.11/11"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.12",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:12 10.7.192.12/12"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.13",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:13 10.7.192.13/13"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.14",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:14 10.7.192.14/14"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.15",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:15 10.7.192.15/15"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.16",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:16 10.7.192.16/16"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.17",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:17 10.7.192.17/17"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.18",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:18 10.7.192.18/18"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.19",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:19 10.7.192.19/19"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.20",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:20 10.7.192.20/20"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.21",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:21 10.7.192.21/21"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.22",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:22 10.7.192.22/22"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.23",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:23 10.7.192.23/23"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.24",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:24 10.7.192.24/24"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.25",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:25 10.7.192.25/25"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.26",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:26 10.7.192.26/26"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.27",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:27 10.7.192.27/27"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.28",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:28 10.7.192.28/28"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.29",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:29 10.7.192.29/29"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.30",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:30 10.7.192.30/30"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.31",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:31 10.7.192.31/31"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "bridge.32",
+    "auto": true,
+    "config": {
+      "address-virtual": "42:38:39:ff:00:32 10.7.192.32/32"
+    },
+    "config_status": {
+      "address-virtual": "pass"
+    },
+    "status": "pass"
+  }
+]

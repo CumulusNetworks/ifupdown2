@@ -1,0 +1,83 @@
+[
+  {
+    "name": "lo",
+    "addr_method": "loopback",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {},
+    "config_status": {},
+    "status": "pass"
+  },
+  {
+    "name": "eth0",
+    "addr_method": "dhcp",
+    "addr_family": "inet",
+    "auto": true,
+    "config": {
+      "vrf": "mgmt"
+    },
+    "config_status": {
+      "vrf": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "mgmt",
+    "auto": true,
+    "config": {
+      "vrf-table": "1001"
+    },
+    "config_status": {
+      "vrf-table": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br_vlan_unaware",
+    "auto": true,
+    "config": {
+      "bridge-ports": "swp_AA_ swp_BB_ swp_CC_ swp_DD_ swp_EE_",
+      "bridge-l2protocol-tunnel": "swp_AA_=lacp,pvst swp_BB_=stp,cdp swp_CC_=all swp_DD_=lldp"
+    },
+    "config_status": {
+      "bridge-ports": "pass",
+      "bridge-l2protocol-tunnel": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "br_vlan_aware",
+    "auto": true,
+    "config": {
+      "bridge-vlan-aware": "yes",
+      "bridge-ports": "swp_FF_ swp_GG_"
+    },
+    "config_status": {
+      "bridge-vlan-aware": "pass",
+      "bridge-ports": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_GG_",
+    "auto": true,
+    "config": {
+      "bridge-l2protocol-tunnel": "all"
+    },
+    "config_status": {
+      "bridge-l2protocol-tunnel": "pass"
+    },
+    "status": "pass"
+  },
+  {
+    "name": "swp_FF_",
+    "auto": true,
+    "config": {
+      "bridge-l2protocol-tunnel": "stp lacp lldp,pvst cdp"
+    },
+    "config_status": {
+      "bridge-l2protocol-tunnel": "pass"
+    },
+    "status": "pass"
+  }
+]

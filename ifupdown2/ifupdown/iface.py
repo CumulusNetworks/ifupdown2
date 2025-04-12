@@ -454,6 +454,15 @@ class iface():
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
 
+    def __eq__(self, other):
+        return (
+                isinstance(other, iface) and
+                self.name == other.name and
+                self.config == other.config and
+                self.addr_family == other.addr_family and
+                self.addr_method == other.addr_method
+        )
+
     def _set_attrs_from_dict(self, attrdict):
         self.auto = attrdict.get('auto', False)
         self.name = attrdict.get('name')
@@ -700,7 +709,7 @@ class iface():
         self.blacklisted = False
         self.__dict__.update(dict)
 
-    def dump_raw(self, logger):
+    def dump_raw(self):
         indent = '  '
         if self.auto:
             print('auto %s' %self.name)
@@ -745,9 +754,8 @@ class iface():
 
         logger.info("%slink_privflags: %s" % (indent, ifaceLinkPrivFlags.get_str(self.link_privflags)))
 
-        if self.priv_flags:
-            if self.priv_flags.BUILTIN:
-                logger.info("%spriv_flags: BUILTIN" % indent)
+        if self.priv_flags and self.priv_flags.BUILTIN:
+            logger.info("%spriv_flags: BUILTIN" % indent)
 
         logger.info(indent + 'config: ')
         config = self.config

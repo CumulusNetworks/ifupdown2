@@ -4,13 +4,15 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import json
+
 from ipaddress import IPv4Network, IPv4Address, AddressValueError, ip_address
 try:
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 
-    from ifupdown2.lib.addon import Vxlan
+    from ifupdown2.lib.addon import Vxlan, AddonException
     from ifupdown2.lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from ifupdown2.nlmanager.nlmanager import Link
@@ -18,15 +20,14 @@ try:
     from ifupdown2.ifupdown.iface import ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
-    from ifupdown2.ifupdownaddons.cache import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     import nlmanager.ipnetwork as ipnetwork
     import ifupdown.policymanager as policymanager
     import ifupdown.ifupdownflags as ifupdownflags
 
-    from lib.addon import Vxlan
+    from lib.addon import Vxlan, AddonException
     from lib.nlcache import NetlinkCacheIfnameNotFoundError
 
     from nlmanager.nlmanager import Link
@@ -35,7 +36,6 @@ except (ImportError, ModuleNotFoundError):
     from ifupdown.utils import utils
     from ifupdown.statemanager import statemanager_api as statemanager
 
-    from ifupdownaddons.cache import *
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -460,9 +460,9 @@ class vxlan(Vxlan, moduleBase):
             if vxlan_tos != cached_ifla_vxlan_tos:
 
                 if cached_ifla_vxlan_tos is not None:
-                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos, cached_ifla_vxlan_tos))
+                    self.logger.info("%s: set vxlan-tos %s (cache %s)" % (ifname, vxlan_tos_str, cached_ifla_vxlan_tos))
                 else:
-                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str if vxlan_tos_str else vxlan_tos))
+                    self.logger.info("%s: set vxlan-tos %s" % (ifname, vxlan_tos_str))
 
                 user_request_vxlan_info_data[Link.IFLA_VXLAN_TOS] = vxlan_tos
         except Exception:
@@ -553,7 +553,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
+                raise AddonException("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
 
 
         if local:
@@ -634,8 +634,7 @@ class vxlan(Vxlan, moduleBase):
         parsed_maps = {}
         for m_line in maps:
             # Cover single-line multi-entry case
-            map = m_line.split()
-            for m in map:
+            for m in m_line.split():
                 m_parts = m.split('=')
                 if len(m_parts) != 2:
                     self.log_error('%s: vxlan-mcastgrp-map %s format is invalid' % (ifaceobj.name, m))
@@ -719,7 +718,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-svcnodeip %s: netmask ignored" % (ifname, group))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
+                raise AddonException("%s: invalid vxlan-svcnodeip %s: %s" % (ifname, group, str(e)))
 
             if group.ip.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip %s: invalid group address, "
@@ -738,7 +737,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-mcastgrp %s: netmask ignored" % (ifname, mcast_grp))
 
             except Exception as e:
-                raise Exception("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
+                raise AddonException("%s: invalid vxlan-mcastgrp %s: %s" % (ifname, mcast_grp, str(e)))
 
             if not mcast_grp.ip.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp %s: invalid group address, "
@@ -819,7 +818,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-svcnodeip6 %s: netmask ignored" % (ifname, group))
                     group = group_ip
                 except Exception:
-                    raise Exception("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
+                    raise AddonException("%s: invalid vxlan-svcnodeip6 %s: must be in ipv4 format" % (ifname, group))
 
             if group.is_multicast:
                 self.logger.warning("%s: vxlan-svcnodeip6 %s: invalid group address, "
@@ -839,7 +838,7 @@ class vxlan(Vxlan, moduleBase):
                     self.logger.warning("%s: vxlan-mcastgrp6 %s: netmask ignored" % (ifname, mcast_grp))
                     mcast_grp = group_ip
                 except Exception:
-                    raise Exception("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
+                    raise AddonException("%s: invalid vxlan-mcastgrp6 %s: must be in ipv4 format" % (ifname, mcast_grp))
 
             if not mcast_grp.is_multicast:
                 self.logger.warning("%s: vxlan-mcastgrp6 %s: invalid group address, "
@@ -997,8 +996,7 @@ class vxlan(Vxlan, moduleBase):
         parsed_maps = {}
         for m_line in maps:
             # Cover single-line multi-entry case
-            map = m_line.split()
-            for m in map:
+            for m in m_line.split():
                 m_parts = m.split('=')
                 if len(m_parts) != 2:
                     self.log_error('%s: %s %s format is invalid' % (ifaceobj.name, attr_name, m))
@@ -1165,11 +1163,22 @@ class vxlan(Vxlan, moduleBase):
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
             else:
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
+
+                    if Link.IFLA_VXLAN_LOCAL in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL]:
+                        local_str = "0"
+                    else:
+                        local_str = local.ip if local else None
+
+                    if Link.IFLA_VXLAN_GROUP in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP]:
+                        group_str = "0"
+                    else:
+                        group_str = group.ip if group else None
+
                     self.iproute2.link_add_single_vxlan(
                         link_exists,
                         ifname,
-                        local.ip if local else None,
-                        group.ip if group else None,
+                        local_str,
+                        group_str,
                         vxlan_physdev,
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         vxlan_vnifilter,
@@ -1228,6 +1237,7 @@ class vxlan(Vxlan, moduleBase):
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
             if vxlan_vnifilter and utils.get_boolean_from_string(vxlan_vnifilter):
                 self.single_vxlan_device_vni_filter(ifaceobj, vxlan_mcast_grp_map)
+            #self.single_vxlan_device_mcast_grp_map_fdb_vnifilter(ifaceobj, ifname, vxlan_mcast_grp_map)
 
         vxlan_purge_remotes = self.__get_vlxan_purge_remotes(ifaceobj)
 
@@ -1238,6 +1248,8 @@ class vxlan(Vxlan, moduleBase):
                     ipnetwork.IPv4Address(remoteip)
             except Exception as e:
                 self.log_error('%s: vxlan-remoteip: %s' % (ifaceobj.name, str(e)))
+        else:
+            remoteips = []
 
         # get old remote ips to compare with new user config value and
         # purge any removed remote ip
@@ -1350,7 +1362,7 @@ class vxlan(Vxlan, moduleBase):
 
         return current_fdb
 
-    def single_vxlan_device_mcast_grp_map_fdb(self, ifaceobj, ifname, vxlan_mcast_grp_map):
+    def single_vxlan_device_mcast_grp_map_fdb_vnifilter(self, ifaceobj, ifname, vxlan_mcast_grp_map):
         # in this piece of code we won't be checking the running state of the fdb table
         # dumping all fdb entries would cause scalability issues in certain cases.
 
@@ -1365,49 +1377,6 @@ class vxlan(Vxlan, moduleBase):
 
         # compare old and new config to know if we should remove any stale fdb entries.
         fdb_entries_to_remove = set(old_user_config_fdb) - set(user_config_fdb)
-
-        if fdb_entries_to_remove:
-            for mac, src_vni, dst_ip in fdb_entries_to_remove:
-                try:
-                    self.iproute2.bridge_fdb_del_src_vni(ifname, mac, src_vni)
-                except Exception as e:
-                    if "no such file or directory" not in str(e).lower():
-                        self.logger.warning("%s: removing stale fdb entries failed: %s" % (ifname, str(e)))
-
-        if not user_config_fdb:
-            # if vxlan-mcastgrp-map wasn't configure return
-            return
-
-        for mac, src_vni, dst_ip in user_config_fdb:
-            try:
-                self.iproute2.bridge_fdb_add_src_vni(ifname, src_vni, dst_ip)
-            except Exception as e:
-                if "file exists" not in str(e).lower():
-                    ifaceobj.set_status(ifaceStatus.ERROR)
-                    self.log_error(
-                        "%s: vxlan-mcastgrp-map: %s=%s: %s"
-                        % (ifname, src_vni, dst_ip, str(e)), raise_error=False
-                    )
-
-    def single_vxlan_device_mcast_grp_map_vnifilter(self, ifaceobj, ifname, vxlan_mcast_grp_map):
-        # in this piece of code we won't be checking the running state of the fdb table
-        # dumping all fdb entries would cause scalability issues in certain cases.
-
-        # pulling old mcastgrp-map configuration
-        old_user_config_fdb = []
-
-        for old_ifaceobj in statemanager.get_ifaceobjs(ifname) or []:
-            old_user_config_fdb += self.get_vxlan_fdb_src_vni(self.__get_vxlan_mcastgrp_map(old_ifaceobj))
-
-        # new user configuration
-        user_config_fdb = self.get_vxlan_fdb_src_vni(vxlan_mcast_grp_map)
-
-        # compare old and new config to know if we should remove any stale fdb entries.
-        fdb_entries_to_remove = set(old_user_config_fdb) - set(user_config_fdb)
-
-        self.logger.info(old_user_config_fdb)
-        self.logger.info(user_config_fdb)
-        self.logger.info(fdb_entries_to_remove)
 
         if fdb_entries_to_remove:
             for mac, src_vni, dst_ip in fdb_entries_to_remove:
@@ -1745,8 +1714,8 @@ class vxlan(Vxlan, moduleBase):
         if not self._is_vxlan_device(ifaceobj):
             return
 
-        if "query" not in operation:
-            if not self.vxlan_mcastgrp_ref \
+        if "query" not in operation and \
+                    not self.vxlan_mcastgrp_ref \
                     and self.vxlan_physdev_mcast \
                     and self.cache.link_exists(self.vxlan_physdev_mcast):
                 self.netlink.link_del(self.vxlan_physdev_mcast)
