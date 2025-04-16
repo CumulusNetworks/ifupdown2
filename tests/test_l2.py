@@ -482,6 +482,48 @@ def test_bridge_new_port_admin_l2(ssh, setup):
     assert ssh.run("ip link show dummy_new")[3] != 0
 
 
+def test_bridge_existing_port_no_flap_l2(ssh, setup):
+    """Changing VLANs on an existing bridge port does not flap its link."""
+    monitor_log = "/tmp/ifupdown2-bridge-existing-monitor.log"
+    monitor_pid = "/tmp/ifupdown2-bridge-existing-monitor.pid"
+    ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
+
+    ssh.ifup_a()
+    ssh.run_assert_success("ip link set dev dummy_existing up")
+    ssh.run_assert_success(
+        "ip -o link show dummy_existing | grep -w 'master br_existing'"
+    )
+
+    ssh.run_assert_success(
+        "nohup timeout 30 stdbuf -oL ip monitor link dev dummy_existing "
+        f"> {monitor_log} 2>&1 < /dev/null & echo $! > {monitor_pid}"
+    )
+    ssh.run_assert_success(
+        f"test -s {monitor_pid} && kill -0 $(cat {monitor_pid}) && sleep 1"
+    )
+
+    ssh.run_assert_success(
+        f"sed -i 's/bridge-access 100/bridge-access 200/' {ENI}"
+    )
+    ssh.ifup("dummy_existing")
+
+    ssh.run_assert_success(
+        f"kill $(cat {monitor_pid}) 2>/dev/null || true; sleep 1"
+    )
+    monitor_output = ssh.run_assert_success(f"cat {monitor_log}").lower()
+    assert not any(
+        "state down" in line for line in monitor_output.splitlines()
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_existing | grep -w UP"
+    )
+
+    ssh.ifdown("br_existing dummy_existing")
+    ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
+    assert ssh.run("ip link show br_existing")[3] != 0
+    assert ssh.run("ip link show dummy_existing")[3] != 0
+
+
 def test_bond_dummy_mac_l2(ssh, setup):
     """Missing slave state and dummy permanent-MAC data remain non-fatal."""
     ssh.ifup_a()

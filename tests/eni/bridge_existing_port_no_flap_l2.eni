@@ -1,0 +1,21 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto dummy_existing
+iface dummy_existing
+    link-type dummy
+    bridge-access 100
+
+auto br_existing
+iface br_existing
+    bridge-vlan-aware yes
+    bridge-ports dummy_existing
+    bridge-vids 100 200
