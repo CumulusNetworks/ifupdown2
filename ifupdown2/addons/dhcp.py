@@ -6,7 +6,6 @@
 
 import re
 import time
-import socket
 import logging
 
 try:
@@ -259,10 +258,10 @@ class dhcp(Addon, moduleBase):
                                                                        ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
             self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
-            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
+            self.cache.force_address_flush_family(ifaceobj.name, 6)
         if 'inet' in ifaceobj.addr_family:
             self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
-            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
+            self.cache.force_address_flush_family(ifaceobj.name, 4)
 
     def _down(self, ifaceobj):
         self._dhcp_down(ifaceobj)

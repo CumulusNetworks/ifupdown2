@@ -603,7 +603,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
         return True, user_config_ip_addrs_list
 
-    def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs):
+    def __add_ip_addresses_with_attributes(self, ifaceobj, ifname, user_config_ip_addrs, force_apply=False):
         ipv6_is_disabled = None
         nodad = False
         if self.ipv6_dad_handling_enabled:
@@ -630,10 +630,11 @@ class address(AddonWithIpBlackList, moduleBase):
                         peer=attributes.get("pointopoint"),
                         broadcast=attributes.get("broadcast"),
                         preferred_lifetime=attributes.get("preferred-lifetime"),
-                        nodad=nodad
+                        nodad=nodad,
+                        force=force_apply
                     )
                 else:
-                    self.netlink.addr_add(ifname, ip, nodad=nodad)
+                    self.netlink.addr_add(ifname, ip, nodad=nodad, force=force_apply)
             except Exception as e:
                 self.log_error(str(e), ifaceobj, raise_error=False)
 
@@ -699,7 +700,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
             if ordered_user_configured_ips == running_ip_addrs or self.compare_running_ips_and_user_config(user_ip4, user_ip6, running_ip_addrs):
                 if force_reapply:
-                    self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
+                    self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list, force_reapply)
                 return
             try:
                 # if primary address is not same, there is no need to keep any, reset all addresses.
@@ -721,7 +722,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 self.log_warn(str(e))
         if not user_config_ip_addrs_list:
             return
-        self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
+        self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list, force_reapply)
 
     def compare_running_ips_and_user_config(self, user_ip4, user_ip6, running_addrs):
         """
@@ -1201,12 +1202,12 @@ class address(AddonWithIpBlackList, moduleBase):
                 if dhclientcmd.is_running(ifaceobj.name):
                     # release any dhcp leases
                     dhclientcmd.release(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
-                    force_reapply = True
+                    self.cache.force_address_flush_family(ifaceobj.name, 4)
                 elif dhclientcmd.is_running6(ifaceobj.name):
                     dhclientcmd.release6(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
-                    force_reapply = True
+                    self.cache.force_address_flush_family(ifaceobj.name, 6)
+                # Always force re_apply irrespective of dhclient running or not
+                force_reapply = True
         except Exception:
             pass
 
