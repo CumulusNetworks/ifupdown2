@@ -468,14 +468,14 @@ def test_mac1(ssh, setup, get_json):
 
 
 def test_bridge_new_port_admin_l2(ssh, setup):
-    """A newly enslaved bridge port is held down during initial setup."""
+    """A new bridge port is restored up after protected enslavement."""
     ssh.ifup_a()
     ssh.run_assert_success(
         "ip -o link show dummy_new | grep -w 'master br_new'"
     )
-    assert ssh.run(
+    ssh.run_assert_success(
         "ip -o link show dummy_new | grep -w UP"
-    )[3] != 0
+    )
 
     ssh.ifdown("br_new dummy_new")
     assert ssh.run("ip link show br_new")[3] != 0

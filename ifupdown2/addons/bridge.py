@@ -1311,6 +1311,7 @@ class bridge(Bridge, moduleBase):
                 # can cause packets to get leaked in VLAN 1 if the port is up and sends
                 # traffic before being put in the correct VLAN (if different than 1).
                 # To prevent this we need to set the port admin down
+                self.logger.info(f"{ifaceobj.name}: setting port {bridgeport} admin down to prevent VLAN 1 packet leakage during bridge port addition")
                 self.netlink.link_down(bridgeport)
 
                 self.iproute2.link_set_master(bridgeport, ifaceobj.name)
@@ -2906,6 +2907,7 @@ class bridge(Bridge, moduleBase):
 
         self.up_apply_bridge_settings(ifaceobj, link_just_created, bridge_vlan_aware)
 
+        newly_enslaved_ports = []
         try:
             newly_enslaved_ports = self._add_ports(ifaceobj, ifaceobj_getfunc)
             self.up_apply_brports_attributes(ifaceobj, ifaceobj_getfunc, bridge_vlan_aware,
@@ -2947,6 +2949,14 @@ class bridge(Bridge, moduleBase):
             self._up_bridge_mac(ifaceobj, link_just_created, ifaceobj_getfunc)
         except Exception as e:
             self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
+
+        # Check if any enslaved ports are down and bring them up
+        for brport in newly_enslaved_ports:
+            ifaceobj_list = ifaceobj_getfunc(brport)
+            if ifaceobj_list and not any(obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN for obj in ifaceobj_list):
+                # No need to check if the link is down here as link_up will do it
+                self.logger.debug(f"{ifaceobj.name}: bridge port {brport} is enslaved to {ifaceobj.name} but link may be down")
+                self.netlink.link_up(brport)
 
     def _get_bridge_mac(self, ifaceobj, ifname, link_just_created, ifaceobj_getfunc):
         bridge_mac_iface = self.bridge_mac_iface.get(ifname)
