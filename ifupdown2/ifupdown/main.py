@@ -259,9 +259,7 @@ class Ifupdown2:
                                                                  interfacesfileiobuf=self.interfaces_file_iobuf,
                                                                  interfacesfileformat=args.interfacesfileformat,
                                                                  withdefaults=args.withdefaults)
-            # list implies all auto interfaces (this is how ifupdown behaves)
-            if args.list:
-                args.all = True
+
             ifupdown_handle.query([qop], args.all, args.list, args.CLASS, iflist,
                                   excludepats=args.excludepats,
                                   printdependency=args.printdependency,
@@ -282,7 +280,7 @@ class Ifupdown2:
                                                                  dryrun=args.noact)
             ifupdown_handle.reload(['pre-up', 'up', 'post-up'],
                                    ['pre-down', 'down', 'post-down'],
-                                   auto=args.all, allow=args.CLASS, ifacenames=None,
+                                   all_itf=args.all, allow_classes=args.CLASS, ifacenames=None,
                                    excludepats=args.excludepats,
                                    usecurrentconfig=args.usecurrentconfig,
                                    syntaxcheck=args.syntaxcheck,

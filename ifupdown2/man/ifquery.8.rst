@@ -46,12 +46,19 @@ OPTIONS
 
     -h, --help            show this help message and exit
 
-    -a, --all             process all interfaces marked "auto"
+    -a, --all             process all interfaces marked "auto" or filtered by --allow
+                          (already set by default if no interfaces list is provided)
+
+    --allow CLASS         ignore non-"allow-CLASS" interfaces
+
+    --allow-all           Disable --allow filter
+                          For compatibility with ifupdown, '--allow auto' is
+                          implicitely added by --all. --allow-all ensures to
+                          execute requests on all interfaces.
 
     -v, --verbose         verbose
 
     -d, --debug           output debug info
-    --allow CLASS         ignore non-"allow-CLASS" interfaces
 
     -w, --with-depends    run with all dependent interfaces. This option
                           is redundant when -a is specified. When '-a' is

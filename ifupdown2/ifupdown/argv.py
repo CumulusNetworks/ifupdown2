@@ -7,6 +7,7 @@
 #
 
 import sys
+from functools import reduce
 import argparse
 
 try:
@@ -90,20 +91,23 @@ class Parse:
             raise
 
     def validate(self):
-        if self.op == 'query' and (self.args.syntaxhelp or self.args.list):
-            return True
+        # Implicit -a/--all for all query operations
+        if self.op == 'query' and not self.args.iflist:
+            self.args.all = True
 
+        # Implicit -a/--all for reload currentlyup option
         if self.op == 'reload':
-            if not self.args.all and not self.args.currentlyup and not self.args.CLASS:
-                raise ArgvParseError("'-a' or '-c' or '-allow' option is required")
-        elif not self.args.iflist and not self.args.all and not self.args.CLASS:
-            raise ArgvParseError("'-a' option or interface list are required")
+            if self.args.iflist:
+                raise ArgvParseError("Unsupported IFLIST for reload operation")
+            elif not self.args.all and not self.args.currentlyup:
+                raise ArgvParseError("-a/--all or -c/--currently-up option is required")
+            # Early return to prevent interfaces_selection_post_validate to add [auto] in --allow
+            if self.args.currentlyup:
+                self.args.all = True
+                return True
 
-        if self.args.iflist and self.args.all:
-            raise ArgvParseError("'-a' option and interface list are mutually exclusive")
+        self.argparser_interfaces_selection_post_validate()
 
-        if self.op != 'reload' and self.args.CLASS and self.args.all:
-            raise ArgvParseError("'--allow' option is mutually exclusive with '-a'")
         return True
 
     def get_op(self):
@@ -118,17 +122,55 @@ class Parse:
     def get_args(self):
         return self.args
 
+    def argparser_interfaces_selection(self, argparser):
+        """
+        Manage interfaces selection like ifupdown1 does
+        * -a/--all and iflist options target a list of interfaces
+        * --allow filter this interfaces list with the specified scope
+        * --allow default value is [auto] when -a/--all option is used
+        Some commands have an implicit -a/--all (ifquery, ifreload)
+        """
+
+        class ExpandItfListAction(argparse.Action):
+            def __call__(self, _parser, namespace, values, option_string=None):
+                expanded = (utils.expand_iface_range(itf) or [itf] for itf in values)
+                flattened = reduce(lambda xs, x: xs + x, expanded, [])
+                uniq_itfs = reduce(lambda xs, x: xs if x in xs else xs + [x], flattened, [])
+                setattr(namespace, self.dest, uniq_itfs)
+
+        argparser.add_argument('iflist', metavar='IFACE', nargs='*', action=ExpandItfListAction,
+                help='interface list separated by spaces. ')
+        argparser.add_argument('-a', '--all', action='store_true',
+                help='process all interfaces (limited by  --allow= filter)')
+        allow_group = argparser.add_mutually_exclusive_group(required=False)
+        allow_group.add_argument('--allow', dest='CLASS', action='append',
+                help='ignore non-"allow-CLASS" interfaces (default is [auto] when -a/--all else [])')
+        # For ifupdown compatibility, '--all' implies '--allow auto'. '--allow-all' parameter offers
+        # a way to have all interfaces without implicit filter.
+        allow_group.add_argument('--allow-all', action='store_true',
+                help='ensure non-"allow-CLASS" is set to []')
+
+    def argparser_interfaces_selection_post_validate(self):
+        """ Set and validate interfaces selection options """
+
+        if self.args.allow_all:
+            self.args.CLASS = []
+        elif self.args.all and not self.args.CLASS:
+            # Default filter scope is auto/allow-auto when -a/--all option is set
+            self.args.CLASS = ['auto']
+
+        if self.args.iflist and self.args.all:
+            raise ArgvParseError("IFACE list is mutually exclusive with -a/--all option")
+        elif not self.args.iflist and not self.args.all:
+            raise ArgvParseError("no interface(s) specified. IFACE list or -a/--all option is required")
+
     def update_argparser(self, argparser):
         """ base parser, common to all commands """
-        argparser.add_argument('-a', '--all', action='store_true', required=False,
-                               help='process all interfaces marked "auto"')
-        argparser.add_argument('iflist', metavar='IFACE', nargs='*',
-                               help='interface list separated by spaces. '
-                                    'IFACE list is mutually exclusive with -a option.')
+        self.argparser_interfaces_selection(argparser)
+
         argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose')
         argparser.add_argument('-d', '--debug', dest='debug', action='store_true', help='output debug info')
         argparser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help=argparse.SUPPRESS)
-        argparser.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
         argparser.add_argument('-w', '--with-depends', dest='withdepends', action='store_true',
                                help="run with all dependent interfaces. "
                                     "This option is redundant when '-a' is specified. "
@@ -204,14 +246,12 @@ class Parse:
 
     def update_ifreload_argparser(self, argparser):
         """ parser for ifreload """
-        group = argparser.add_mutually_exclusive_group(required=True)
-        group.add_argument('-a', '--all', action='store_true', help='process all interfaces marked "auto"')
-        group.add_argument('-c', '--currently-up', dest='currentlyup', action='store_true',
+        self.argparser_interfaces_selection(argparser)
+
+        argparser.add_argument('-c', '--currently-up', dest='currentlyup', action='store_true',
                            help='Reload the configuration for all interfaces which are '
                                 'currently up regardless of whether an interface has '
                                 '"auto <interface>" configuration within the /etc/network/interfaces file.')
-        group.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
-        argparser.add_argument('iflist', metavar='IFACE', nargs='*', help=argparse.SUPPRESS)
         argparser.add_argument('-n', '--no-act', dest='noact', action='store_true',
                                help='print out what would happen, but don\'t do it')
         argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose')
