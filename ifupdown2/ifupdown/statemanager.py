@@ -107,9 +107,6 @@ class stateManager():
             except Exception as e:
                 raise Exception("statemanager: unable to create required directory: %s" % str(e))
 
-        if not os.path.exists(self.state_rundir):
-            os.makedirs(self.state_rundir)
-
         self.state_file = "%s/%s" % (self.state_dir, self.state_filename)
 
     def _init_makedirs_state_dir(self):

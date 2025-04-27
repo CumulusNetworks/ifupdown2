@@ -1,0 +1,5 @@
+# Manage ifupdown2 runtime directory
+
+#Type   Path              Mode  UID     GID     Age   Argument
+d       /run/network      0775  root    root    -     -
+L       /etc/network/run  -     -       -       -     /run/network
