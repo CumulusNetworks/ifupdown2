@@ -453,6 +453,11 @@ class iface():
         # types of dependencies
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
+        self.ethtool_effective_autoneg = None
+        self.ethtool_effective_speed = None
+        self.ethtool_effective_duplex = None
+        self.ethtool_effective_lanes = None
+        self.ethtool_pending_lane_clear = None
 
     def __eq__(self, other):
         return (
@@ -646,6 +651,38 @@ class iface():
                     if v != dstiface.config.get(k)): return False
         return True
 
+    def sync_runtime_state(self, srciface):
+        self.ethtool_effective_autoneg = getattr(
+            srciface,
+            "ethtool_effective_autoneg",
+            None,
+        )
+        self.ethtool_effective_speed = getattr(
+            srciface,
+            "ethtool_effective_speed",
+            None,
+        )
+        self.ethtool_effective_duplex = getattr(
+            srciface,
+            "ethtool_effective_duplex",
+            None,
+        )
+        self.ethtool_effective_lanes = getattr(
+            srciface,
+            "ethtool_effective_lanes",
+            None,
+        )
+        pending_lane_clear = getattr(
+            srciface,
+            "ethtool_pending_lane_clear",
+            None,
+        )
+        self.ethtool_pending_lane_clear = (
+            dict(pending_lane_clear)
+            if isinstance(pending_lane_clear, dict)
+            else None
+        )
+
     def squash(self, newifaceobj):
         """ This squashes the iface object """
         for attrname, attrlist in newifaceobj.config.items():
@@ -705,6 +742,11 @@ class iface():
         self.link_privflags = ifaceLinkPrivFlags.UNKNOWN
         self.dependency_type = ifaceDependencyType.UNKNOWN
         self.blacklisted = False
+        self.ethtool_effective_autoneg = None
+        self.ethtool_effective_speed = None
+        self.ethtool_effective_duplex = None
+        self.ethtool_effective_lanes = None
+        self.ethtool_pending_lane_clear = None
         self.__dict__.update(dict)
 
     def dump_raw(self):

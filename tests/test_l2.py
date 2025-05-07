@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 
 import pytest
 
@@ -765,3 +766,112 @@ def test_pvrst_phase_cache_l2(ssh, setup):
     assert ssh.run("ip link show br_pvrst")[3] != 0
     for ifname in ("swp_AA_", "swp_BB_", "swp_CC_"):
         ssh.run_assert_success(f"ip link show {ifname}")
+
+
+def test_ethtool_single_speed_an_l2(ssh):
+    """Single-speed AN applies one speed and restores the original port state."""
+    port = ssh.translate_swp_xx("swp_AA_")
+    if not re.fullmatch(r"swp\d+", port):
+        pytest.skip("requires a plain, non-breakout physical port")
+
+    policy_value = ssh.run_assert_success(
+        "python3 - <<'PY'\n"
+        "import glob, json\n"
+        "value = None\n"
+        "paths = (glob.glob('/var/lib/ifupdown2/policy.d/*.json') + "
+        "glob.glob('/etc/network/ifupdown2/policy.d/*.json'))\n"
+        "for path in paths:\n"
+        "    try:\n"
+        "        module = json.load(open(path)).get('ethtool', {})\n"
+        "    except Exception:\n"
+        "        continue\n"
+        "    value = module.get('module_globals', {}).get(\n"
+        "        'enable-single-speed-autoneg', value)\n"
+        "print(value)\n"
+        "PY"
+    ).strip().lower()
+    if policy_value not in ("1", "on", "true", "yes"):
+        pytest.skip("single-speed autoneg policy is not enabled")
+
+    def advertised_modes(output):
+        section = output.split("Advertised link modes:", 1)[1]
+        section = section.split("Auto-negotiation enabled", 1)[0]
+        return tuple(
+            section.split("Advertised pause frame use:", 1)[0].split()
+        )
+
+    def supported_modes(output):
+        section = output.split("Supported link modes:", 1)[1]
+        return tuple(
+            section.split("Supported pause frame use:", 1)[0].split()
+        )
+
+    baseline_state = ssh.run_assert_success(f"ethtool {port}")
+    baseline_modes = advertised_modes(baseline_state)
+    if not (
+            any("100000base" in mode for mode in baseline_modes)
+            and any("25000base" in mode for mode in baseline_modes)
+            and baseline_modes == supported_modes(baseline_state)
+            and "Auto-negotiation: on" in baseline_state
+    ):
+        pytest.skip("requires all-speed AN with both 25G and 100G")
+    baseline_admin_up = "UP" in json.loads(
+        ssh.run_assert_success(f"ip -j link show {port}")
+    )[0].get("flags", [])
+
+    backup_dir = ssh.run_assert_success(
+        "mktemp -d /tmp/ifupdown2-ethtool.XXXXXX"
+    ).strip()
+    ssh.run_assert_success(
+        f"mkdir -p {backup_dir}/interfaces.d && "
+        f"cp -a {ENI} {backup_dir}/interfaces && "
+        f"cp -a {ENI_D}/. {backup_dir}/interfaces.d/"
+    )
+
+    try:
+        ssh.ifdown_x_eth0_x_mgmt()
+        ssh.scp("tests/eni/ethtool_single_speed_an_l2.eni", ENI)
+        ssh.run_assert_success(
+            f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete"
+        )
+        ssh.ifup_a()
+        first_state = ssh.run_assert_success(f"ethtool {port}")
+        first_modes = advertised_modes(first_state)
+        assert any("100000base" in mode for mode in first_modes)
+        assert not any("25000base" in mode for mode in first_modes)
+        assert "Auto-negotiation: on" in first_state
+
+        ssh.ifup(port)
+        second_state = ssh.run_assert_success(f"ethtool {port}")
+        second_modes = advertised_modes(second_state)
+        assert any("100000base" in mode for mode in second_modes)
+        assert not any("25000base" in mode for mode in second_modes)
+        assert "Auto-negotiation: on" in second_state
+
+        ssh.ifdown(port)
+        reset_state = ssh.run_assert_success(f"ethtool {port}")
+        assert advertised_modes(reset_state) == baseline_modes
+    finally:
+        _, _, _, restore_status = ssh.run(
+            f"ifdown -a -X eth0 -X mgmt || true; "
+            f"cp -af {backup_dir}/interfaces {ENI} && "
+            f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete && "
+            f"cp -af {backup_dir}/interfaces.d/. {ENI_D}/ && "
+            "ifreload -a"
+        )
+        assert restore_status == 0
+        ssh.run_assert_success(
+            f"ethtool -s {port} autoneg on "
+            "advertise 0xFFFFFFFFFFFFFFFF"
+        )
+        ssh.run_assert_success(
+            f"ip link set dev {port} "
+            f"{'up' if baseline_admin_up else 'down'}"
+        )
+        restored_state = ssh.run_assert_success(f"ethtool {port}")
+        assert advertised_modes(restored_state) == baseline_modes
+        restored_admin_up = "UP" in json.loads(
+            ssh.run_assert_success(f"ip -j link show {port}")
+        )[0].get("flags", [])
+        assert restored_admin_up is baseline_admin_up
+        ssh.run_assert_success(f"rm -rf {backup_dir}")
