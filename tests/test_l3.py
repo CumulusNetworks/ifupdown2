@@ -154,6 +154,22 @@ def test_vxlandev_sanity(ssh, setup, get_json):
     ssh.ifquery_c("vx0")
 
 
+def test_boolean_aliases_l3(ssh):
+    """The deployed runtime accepts distutils-compatible boolean aliases."""
+    ssh.run_assert_success(
+        "python3 -c '"
+        "import sys; "
+        "sys.path.insert(0, \"/usr/share/ifupdown2\"); "
+        "from ifupdown.utils import utils; "
+        "expected={\"y\":True,\"true\":True,\"t\":True,"
+        "\"n\":False,\"false\":False,\"f\":False}; "
+        "assert all(utils.get_boolean_from_string(k, default=not v) is v "
+        "for k,v in expected.items()); "
+        "assert utils.get_int_from_boolean_and_string(\"true\") == 1; "
+        "assert utils.get_int_from_boolean_and_string(\"false\") == 0'"
+    )
+
+
 def test_dhcp6_release_link_down_l3(ssh, setup):
     """A failed DHCPv6 release on a kept-down link remains non-fatal."""
     pidfile = "/run/dhclient6.dum_d6.pid"

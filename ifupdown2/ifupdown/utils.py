@@ -52,12 +52,18 @@ class utils():
     _string_values = {
         "on": True,
         "yes": True,
+        "y": True,
         "1": True,
         "fast": True,
         "off": False,
         "no": False,
+        "n": False,
         "0": False,
         "slow": False,
+        "false": False,
+        "f": False,
+        "true": True,
+        "t": True,
         True: True,
         False: False
     }
