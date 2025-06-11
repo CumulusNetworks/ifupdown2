@@ -802,6 +802,12 @@ class address(AddonWithIpBlackList, moduleBase):
             except Exception as e:
                 self.log_error('%s: %s' % (ifaceobj.name, str(e)))
 
+    def _get_prev_addr_method(self, ifname):
+        prev_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifname)
+        if not prev_ifaceobjs:
+            return None
+        return prev_ifaceobjs[0].addr_method
+
     def _get_prev_gateway(self, ifaceobj, gateways):
         ipv = []
         saved_ifaceobjs = statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name)
@@ -1190,6 +1196,8 @@ class address(AddonWithIpBlackList, moduleBase):
         self._sysctl_config(ifaceobj)
 
         addr_method = ifaceobj.addr_method
+        prev_addr_method = self._get_prev_addr_method(ifaceobj.name)
+
         force_reapply = False
         try:
             # release any stale dhcp addresses if present
@@ -1206,8 +1214,9 @@ class address(AddonWithIpBlackList, moduleBase):
                 elif dhclientcmd.is_running6(ifaceobj.name):
                     dhclientcmd.release6(ifaceobj.name)
                     self.cache.force_address_flush_family(ifaceobj.name, 6)
-                # Always force re_apply irrespective of dhclient running or not
-                force_reapply = True
+                if prev_addr_method in ['dhcp', 'dhcp6']:
+                    # force re_apply only when previous method on ifaceobj is dhcp/dhcp6
+                    force_reapply = True
         except Exception:
             pass
 
