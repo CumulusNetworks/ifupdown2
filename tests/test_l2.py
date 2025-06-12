@@ -875,3 +875,37 @@ def test_ethtool_single_speed_an_l2(ssh):
         )[0].get("flags", [])
         assert restored_admin_up is baseline_admin_up
         ssh.run_assert_success(f"rm -rf {backup_dir}")
+
+
+def test_bond_slave_diff_recovery_l2(ssh, setup):
+    """Diff recovery of a down bond slave also schedules its bond master."""
+    recovery_port = ssh.translate_swp_xx("swp_AA_")
+    try:
+        ssh.ifup_a()
+        for ifname in ("swp_AA_", "swp_BB_"):
+            ssh.run_assert_success(
+                f"ip -o link show {ifname} | grep -w 'master bond_diff'"
+            )
+
+        ssh.run_assert_success("ip link set dev swp_AA_ nomaster")
+        ssh.run_assert_success("ip link set dev swp_AA_ down")
+        assert ssh.run(
+            "ip -o link show swp_AA_ | grep -w 'master bond_diff'"
+        )[3] != 0
+
+        reload_output = ssh.ifreload_av()
+        assert recovery_port in reload_output
+        assert "bond_diff" in reload_output
+        ssh.run_assert_success(
+            "ip -o link show swp_AA_ | grep -w 'master bond_diff'"
+        )
+
+        ssh.ifreload_a()
+        ssh.run_assert_success(
+            "ip -o link show swp_AA_ | grep -w 'master bond_diff'"
+        )
+    finally:
+        ssh.run(
+            "ifdown bond_diff swp_AA_ swp_BB_ "
+            "2>/dev/null; true"
+        )

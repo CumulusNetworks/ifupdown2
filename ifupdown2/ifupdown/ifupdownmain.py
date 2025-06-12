@@ -2478,6 +2478,7 @@ class ifupdownMain:
             )
         )
         clag_interfaces = []
+        forced_recovery_bond_slaves = []
 
         for ifname, ifaceobjs in ifaceobj_dict.items():
             current_clagd_interface = False
@@ -2500,6 +2501,15 @@ class ifupdownMain:
                 # We also do a quick check to see if the interface is right admin state
                 if not self.netlink.cache.link_exists(ifname) or self.interface_should_be_up(ifname, ifaceobjs):
                     self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
+                    if (
+                            any(
+                                ifaceobj.link_privflags
+                                & ifaceLinkPrivFlags.BOND_SLAVE
+                                for ifaceobj in ifaceobjs
+                            )
+                            and ifname not in forced_recovery_bond_slaves
+                    ):
+                        forced_recovery_bond_slaves.append(ifname)
                     continue
 
                 for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
@@ -2518,6 +2528,26 @@ class ifupdownMain:
                 for lower_ifname in down_dependency_graph.get(down_ifname, []):
                     if lower_ifname in ifaceobj_dict and lower_ifname not in diff_ifname:
                         diff_ifname.append(lower_ifname)
+
+        for slave_ifname in forced_recovery_bond_slaves:
+            for slave_ifaceobj in ifaceobj_dict.get(slave_ifname, []):
+                for upper_ifname in slave_ifaceobj.upperifaces or []:
+                    upper_ifaceobjs = ifaceobj_dict.get(upper_ifname)
+                    if not (
+                            upper_ifaceobjs
+                            and any(
+                                upper_ifaceobj.link_kind
+                                & ifaceLinkKind.BOND
+                                for upper_ifaceobj in upper_ifaceobjs
+                            )
+                    ):
+                        continue
+                    if upper_ifname not in diff_ifname:
+                        self.logger.info(
+                            "diff-mode: bond slave %s requires master %s"
+                            % (slave_ifname, upper_ifname)
+                        )
+                        diff_ifname.append(upper_ifname)
 
         return diff_ifname
 
