@@ -62,7 +62,7 @@ except Exception:                                                               
 class IPRoute2(Cache, Requirements):
 
     VXLAN_UDP_PORT = 4789
-    VXLAN_PEER_REGEX_PATTERN = re.compile("\s+dst\s+(\d+.\d+.\d+.\d+)\s+")
+    VXLAN_PEER_REGEX_PATTERN = re.compile(r"\s+dst\s+(\d+.\d+.\d+.\d+)\s+")
 
     def __init__(self):
         Cache.__init__(self)

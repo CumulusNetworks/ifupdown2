@@ -1575,7 +1575,7 @@ class ifupdownMain:
 
     def _render_ifacename(self, ifacename):
         new_ifacenames = []
-        vlan_match = re.match("^([\d]+)-([\d]+)", ifacename)
+        vlan_match = re.match(r"^([\d]+)-([\d]+)", ifacename)
         if vlan_match:
             vlan_groups = vlan_match.groups()
             if vlan_groups[0] and vlan_groups[1]:

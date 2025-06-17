@@ -236,7 +236,7 @@ class utils():
         # eg: swp1.[2-100]
         # return (prefix, range-start, range-end)
         # eg return ("swp1.", 1, 20, ".100")
-        range_match = re.match("^([\w]+)\[([\d]+)-([\d]+)\]([\.\w]+)", name)
+        range_match = re.match(r"^([\w]+)\[([\d]+)-([\d]+)\]([\.\w]+)", name)
         if range_match:
             range_groups = range_match.groups()
             if range_groups[1] and range_groups[2]:
@@ -246,7 +246,7 @@ class utils():
             # eg: swp[1-20].100
             # return (prefix, range-start, range-end, suffix)
             # eg return ("swp", 1, 20, ".100")
-            range_match = re.match("^([\w\.]+)\[([\d]+)-([\d]+)\]", name)
+            range_match = re.match(r"^([\w\.]+)\[([\d]+)-([\d]+)\]", name)
             if range_match:
                 range_groups = range_match.groups()
                 if range_groups[1] and range_groups[2]:

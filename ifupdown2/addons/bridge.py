@@ -3991,7 +3991,7 @@ class bridge(Bridge, moduleBase):
         cached_ifla_brport_group_maskhi = self.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASKHI)
         cached_ifla_brport_group_mask = self.cache.get_link_info_slave_data_attribute(brport_name, Link.IFLA_BRPORT_GROUP_FWD_MASK)
 
-        for protocol in re.split(',|\s*', user_config_l2protocol_tunnel):
+        for protocol in re.split(r',|\s*', user_config_l2protocol_tunnel):
             callback = self.query_check_l2protocol_tunnel_callback.get(protocol)
 
             if callable(callback):
