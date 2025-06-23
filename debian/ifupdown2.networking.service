@@ -12,6 +12,7 @@ After=systemd-udev-settle.service
 Type=oneshot
 RemainAfterExit=yes
 SyslogIdentifier=networking
+TimeoutStartSec=3600s
 TimeoutStopSec=30s
 EnvironmentFile=/etc/default/networking
 ExecStart=/usr/share/ifupdown2/sbin/start-networking start
