@@ -139,8 +139,8 @@ class dhcp(Addon, moduleBase):
 
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
-        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
-        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
+        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name, cleanup=True)
+        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name, cleanup=True)
 
         # today if we have an interface with both inet and inet6, if we
         # remove the inet or inet6 or both then execute ifreload, we need

@@ -19,7 +19,7 @@ class dhclient(utilsBase):
     """ This class contains helper methods to interact with the dhclient
     utility """
 
-    def _pid_exists(self, ifacename):
+    def _pid_exists(self, ifacename, cleanup=False):
         pidfilename = f'/run/dhclient.{ifacename}.pid'
         if os.path.exists(pidfilename):
             try:
@@ -35,7 +35,8 @@ class dhclient(utilsBase):
                         # corresponding dhclient process is terminated
                         # Cleanup the dhclient process and return False to indicate dhclient
                         # is not running
-                        self.release(ifacename)
+                        if cleanup:
+                            self.release(ifacename)
                         return False
                 except Exception:
                     return False
@@ -43,11 +44,11 @@ class dhclient(utilsBase):
                 return False
         return False
 
-    def is_running(self, ifacename):
-        return self._pid_exists(ifacename)
+    def is_running(self, ifacename, cleanup=False):
+        return self._pid_exists(ifacename, cleanup)
 
-    def is_running6(self, ifacename):
-        return self._pid_exists(ifacename)
+    def is_running6(self, ifacename, cleanup=False):
+        return self._pid_exists(ifacename, cleanup)
 
     def _run_dhclient_cmd(self, cmd, cmd_prefix=None):
         if not cmd_prefix:

@@ -1199,26 +1199,32 @@ class address(AddonWithIpBlackList, moduleBase):
         prev_addr_method = self._get_prev_addr_method(ifaceobj.name)
 
         force_reapply = False
-        try:
-            # release any stale dhcp addresses if present
-            if (addr_method not in ["dhcp", "ppp"]  and not ifupdownflags.flags.PERFMODE and
-                    not (ifaceobj.flags & iface.HAS_SIBLINGS)):
-                # if not running in perf mode and ifaceobj does not have
-                # any sibling iface objects, kill any stale dhclient
-                # processes
+        # Release stale DHCP state only for a non-DHCP, non-sibling apply. The
+        # force decision must not depend on release/flush success.
+        if (addr_method not in ["dhcp", "ppp"] and
+                not ifupdownflags.flags.PERFMODE and
+                not (ifaceobj.flags & iface.HAS_SIBLINGS)):
+            force_reapply = prev_addr_method in ["dhcp", "dhcp6"]
+
+            try:
                 dhclientcmd = dhclient()
-                if dhclientcmd.is_running(ifaceobj.name):
-                    # release any dhcp leases
-                    dhclientcmd.release(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, 4)
-                elif dhclientcmd.is_running6(ifaceobj.name):
-                    dhclientcmd.release6(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, 6)
-                if prev_addr_method in ['dhcp', 'dhcp6']:
-                    # force re_apply only when previous method on ifaceobj is dhcp/dhcp6
-                    force_reapply = True
-        except Exception:
-            pass
+            except Exception:
+                dhclientcmd = None
+
+            if dhclientcmd:
+                try:
+                    if dhclientcmd.is_running(ifaceobj.name, cleanup=True):
+                        dhclientcmd.release(ifaceobj.name)
+                        self.cache.force_address_flush_family(ifaceobj.name, 4)
+                except Exception:
+                    pass
+
+                try:
+                    if dhclientcmd.is_running6(ifaceobj.name, cleanup=True):
+                        dhclientcmd.release6(ifaceobj.name)
+                        self.cache.force_address_flush_family(ifaceobj.name, 6)
+                except Exception:
+                    pass
 
         mtu = self.process_mtu(ifaceobj, ifaceobj_getfunc)
         self.up_ipv6_addrgen(ifaceobj)
