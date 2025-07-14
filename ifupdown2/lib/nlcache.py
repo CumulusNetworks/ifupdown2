@@ -1219,6 +1219,13 @@ class _NetlinkCache:
         # dictionaries if the master has changed or was un-enslaved.
         old_ifla_master = None
 
+        try:
+            proplist = link.get_attribute_value(Link.IFLA_PROP_LIST)
+            ifaltnames = proplist[Link.IFLA_ALT_IFNAME]
+        except (AttributeError, TypeError):
+            # no altnames no this link
+            ifaltnames = []
+
         with self._cache_lock:
 
             # do we have a wait event registered for RTM_NEWLINK this ifname
@@ -1242,6 +1249,14 @@ class _NetlinkCache:
 
             self._link_cache[ifname] = link
 
+            # For each altname, also cache the reference to the `Link` object
+            # it under that name.
+            # _cache_lock already ensures no concurrent access to the same
+            # interface through different names.
+            for altname in ifaltnames:
+                log.debug(f'registering {altname} as altname for {ifname}')
+                self._link_cache[altname] = link
+
             ######################################################
             # update helper dictionaries and handle link renamed #
             ######################################################
@@ -1253,6 +1268,9 @@ class _NetlinkCache:
                 # in get_ifname/get_ifindex/get_master to do the work.
 
                 self._ifindex_by_ifname[ifname] = ifindex
+                # For mapping ifname -> ifindex, also consider altnames
+                for altname in ifaltnames:
+                    self._ifindex_by_ifname[altname] = ifindex
 
                 rename_detected                 = False
                 old_ifname_entry_for_ifindex    = self._ifname_by_ifindex.get(ifindex)
@@ -1263,6 +1281,7 @@ class _NetlinkCache:
                     # renamed. We need to update the cache accordingly.
                     rename_detected = True
 
+                # ifindex will just map to the primary ifname
                 self._ifname_by_ifindex[ifindex] = ifname
 
                 if rename_detected:
@@ -1501,9 +1520,17 @@ class _NetlinkCache:
                     self._ignore_rtm_newlinkq.remove(ifname)
             except ValueError:
                 pass
+
+            try:
+                proplist = link.get_attribute_value(Link.IFLA_PROP_LIST)
+                ifaltnames = proplist[Link.IFLA_ALT_IFNAME]
+            except (AttributeError, TypeError):
+                # no altnames no this link
+                ifaltnames = []
         else:
             ifname = link_ifname
             ifindex = link_ifindex
+            ifaltnames = []
 
         link_ifla_master = None
         # when an enslaved device is removed we receive the RTM_DELLINK
@@ -1532,6 +1559,17 @@ class _NetlinkCache:
                 # KeyError means that the link doesn't exists in the cache
                 log.debug('del _link_cache: KeyError ifname: %s' % ifname)
 
+            # also delete altnames
+            for altname in ifaltnames:
+                try:
+                    del self._link_cache[altname]
+                except KeyError:
+                    # link is not present under the altname in the cache
+                    log.debug(f'{altname} not present in _link_cache as altname for {ifname}?')
+                    pass
+
+            # for the rest of caches here, only the primary ifname is ever used
+
             try:
                 # like in __unslave_nolock() we need to make sure that all deleted link
                 # have their bridge-vlans and _slaves_master entries cleared.
@@ -1559,6 +1597,12 @@ class _NetlinkCache:
                 del self._ifindex_by_ifname[ifname]
             except KeyError:
                 log.debug('del _ifindex_by_ifname: KeyError ifname: %s' % ifname)
+
+            for altname in ifaltnames:
+                try:
+                    del self._ifindex_by_ifname[altname]
+                except KeyError:
+                    log.debug('del _ifindex_by_ifname: KeyError ifaltname: %s' % altname)
 
             try:
                 del self._addr_cache[ifname]
