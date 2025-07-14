@@ -498,14 +498,18 @@ class ifupdownMain:
                                increfcnt=False):
         """ creates a iface object and adds it to the iface dictionary """
         ifaceobj = iface()
-        ifaceobj.name = ifacename
+        ifaceobj.name = self.netlink.link_translate_altname(ifacename)
         ifaceobj.priv_flags = priv_flags
         ifaceobj.auto = True
         if not self._link_master_slave:
             ifaceobj.link_type = ifaceLinkType.LINK_NA
         if increfcnt:
             ifaceobj.inc_refcnt()
+
         self.ifaceobjdict[ifacename] = [ifaceobj]
+        for altname in self.netlink.link_get_altnames(ifacename):
+            self.ifaceobjdict[ifacename] = [ifaceobj]
+
         return ifaceobj
 
     def create_n_save_ifaceobjcurr(self, ifaceobj):
@@ -513,13 +517,17 @@ class ifupdownMain:
             dict containing current iface objects
         """
         ifaceobjcurr = iface()
-        ifaceobjcurr.name = ifaceobj.name
+        ifaceobjcurr.name = self.netlink.link_translate_altname(ifaceobj.name)
         ifaceobjcurr.type = ifaceobj.type
         ifaceobjcurr.lowerifaces = ifaceobj.lowerifaces
         ifaceobjcurr.priv_flags = copy.deepcopy(ifaceobj.priv_flags)
         ifaceobjcurr.auto = ifaceobj.auto
+
         self.ifaceobjcurrdict.setdefault(ifaceobj.name,
                                      []).append(ifaceobjcurr)
+        for altname in self.netlink.link_get_altnames(ifaceobj.name):
+            self.ifaceobjcurrdict.setdefault(altname, []).append(ifaceobjcurr)
+
         return ifaceobjcurr
 
     def get_ifaceobjcurr(self, ifacename, idx=0):
@@ -722,7 +730,7 @@ class ifupdownMain:
                 self.logger.warning("%s: %s: error getting dependent interfaces (%s)" % (ifaceobj.name, module, str(e)))
                 dlist = None
             if dlist: ret_dlist.extend(dlist)
-        return list(set(ret_dlist))
+        return self.netlink.link_translate_altnames(list(set(ret_dlist)))
 
     def query_upperifaces(self, ifaceobj, ops, ifacenames, type=None):
         """ Gets iface upperifaces by calling into respective modules """
@@ -746,7 +754,7 @@ class ifupdownMain:
                 ulist = None
                 pass
             if ulist: ret_ulist.extend(ulist)
-        return list(set(ret_ulist))
+        return self.netlink.link_translate_altnames(list(set(ret_ulist)))
 
     def _remove_circular_veth_dependencies(self, ifaceobj, dlist):
         # if ifaceobj isn't a veth link, ignore it.

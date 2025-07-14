@@ -584,6 +584,21 @@ class NetlinkManager(object):
             return iface.attributes[Link.IFLA_IFNAME].get_pretty_value(str)
         return None
 
+    def get_iface_altnames(self, ifindex):
+        """
+        Returns the list of altnames for the specified interface.
+        :param ifindex: Index of the network interface
+        :return: List of interface altnames
+        """
+        iface = self._get_iface_by_index(ifindex)
+
+        if iface and Link.IFLA_PROP_LIST in iface.attributes:
+            proplist = iface.get_attribute_value(Link.IFLA_PROP_LIST)
+            if Link.IFLA_ALT_IFNAME in proplist:
+                return proplist[Link.IFLA_ALT_IFNAME]
+
+        return []
+
     def link_dump(self, ifname=None):
         debug = RTM_GETLINK in self.debug
         msg = Link(RTM_GETLINK, debug, use_color=self.use_color)

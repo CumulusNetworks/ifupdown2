@@ -804,6 +804,44 @@ class _NetlinkCache:
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=default)
 
+    def link_get_altnames(self, ifname):
+        """
+        Returns the list of altnames for the given interface.
+        :param ifname:
+        :return: list[str]
+        """
+        proplist = self.get_link_attribute(ifname, Link.IFLA_PROP_LIST, default={})
+        if Link.IFLA_ALT_IFNAME in proplist:
+            return proplist[Link.IFLA_ALT_IFNAME]
+        return []
+
+    def link_translate_altname(self, ifname):
+        """
+        Translates a interface name into the respective primary interface name,
+        if needed. Effectively no-op if ifname is already the primary name.
+        :param ifname: interface name
+        :return: primary interface names
+        """
+        if ifname:
+            return self.get_link_attribute(ifname, Link.IFLA_IFNAME, default=ifname)
+        return None
+
+    def link_translate_altnames(self, ifnames):
+        """
+        Translates all interface altnames in the given list into their respective
+        primary ifnames.
+        :param ifnames: list of interface names
+        :return: list of interface names which only contains primary interface names
+        """
+        if ifnames is None:
+            return None
+
+        with self._cache_lock:
+            return list(map(
+                lambda ifname: self.get_link_attribute(ifname, Link.IFLA_IFNAME, default=ifname),
+                ifnames
+            ))
+
     ################
     # MASTER & SLAVE
     ################
@@ -1625,6 +1663,12 @@ class _NetlinkCache:
                     log.debug('_masters_and_slaves[if%s].remove(%s): KeyError' % (link_ifla_master, ifname))
 
     def _address_get_ifname_and_ifindex(self, addr):
+        """
+        Returns the primary ifname and ifindex of the interface the given address
+        belongs too.
+        :param addr: address to inspect
+        :return: ifname and ifindex the specified address belongs to
+        """
         ifindex = addr.ifindex
         label = addr.get_attribute_value(Address.IFA_LABEL)
 
@@ -3187,6 +3231,15 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     def link_exists(self, ifname):
         return self.cache.link_exists(ifname)
+
+    def link_get_altnames(self, ifname):
+        return self.cache.link_get_altnames(ifname)
+
+    def link_translate_altname(self, ifname):
+        return self.cache.link_translate_altname(ifname)
+
+    def link_translate_altnames(self, ifnames):
+        return self.cache.link_translate_altnames(ifnames)
 
     ############################################################################
     # ADDRESS
