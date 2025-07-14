@@ -3183,6 +3183,11 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
         self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s: bridge port attributes" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_slave_data)
 
+    ###
+
+    def link_exists(self, ifname):
+        return self.cache.link_exists(ifname)
+
     ############################################################################
     # ADDRESS
     ############################################################################

@@ -228,7 +228,7 @@ class ifupdownMain:
             pass
 
     def link_exists(self, ifacename):
-        return os.path.exists('/sys/class/net/%s' %ifacename)
+        return self.netlink.link_exists(ifacename)
 
     def __init__(self, config={}, args=None,
                  daemon=False, force=False, dryrun=False, nowait=False,
@@ -1879,7 +1879,10 @@ class ifupdownMain:
                     auto = False
                     break
 
-            if not ifupdownflags.flags.DRYRUN and auto and not os.path.exists("/sys/class/net/%s" % ifname) and not self._is_ifaceobj_bridge_vlan(ifaceobj_list):
+            if (not ifupdownflags.flags.DRYRUN
+                    and auto
+                    and not self.link_exists(ifname)
+                    and not self._is_ifaceobj_bridge_vlan(ifaceobj_list)):
                 self.logger.warning("%s: interface not recognized - please check interface configuration" % ifname)
 
     def _is_ifaceobj_bridge_vlan(self, ifaceobj_list):
