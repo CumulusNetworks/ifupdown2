@@ -103,6 +103,7 @@ class openvswitch(Addon, moduleBase):
             ovs_ports.extend(port.split())
 
         if ovs_ports:
+            ovs_ports = self.cache.link_translate_altnames(ovs_ports)
             return self.parse_port_list(ifaceobj.name, ' '.join(ovs_ports))
         else:
             return None
