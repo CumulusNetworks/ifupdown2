@@ -64,8 +64,17 @@ class vlan(Addon, moduleBase):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
 
+    def _get_vlan_raw_device_first(self, ifaceobj):
+        """
+        Returns the ifname of the `vlan-raw-device` property. Translates
+        altnames to the primary ifname if needed.
+        :param ifaceobj: interface config object
+        :return: `vlan-raw-device` ifname
+        """
+        return self.cache.link_translate_altname(ifaceobj.get_attr_value_first('vlan-raw-device'))
+
     def _is_vlan_device(self, ifaceobj):
-        vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
+        vlan_raw_device = self._get_vlan_raw_device_first(ifaceobj)
         if vlan_raw_device:
             return True
         elif '.' in ifaceobj.name:
@@ -176,7 +185,7 @@ class vlan(Addon, moduleBase):
             vlan_exists = self.cache.link_exists(ifaceobj.name)
 
             if vlan_exists:
-                user_vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
+                user_vlan_raw_device = self._get_vlan_raw_device_first(ifaceobj)
                 cached_vlan_raw_device = self.cache.get_lower_device_ifname(ifname)
 
                 if cached_vlan_raw_device and user_vlan_raw_device and cached_vlan_raw_device != user_vlan_raw_device:
@@ -239,7 +248,7 @@ class vlan(Addon, moduleBase):
             ifaceobjcurr.update_config_with_status(
                 'vlan-raw-device',
                 cached_vlan_raw_device,
-                cached_vlan_raw_device != ifaceobj.get_attr_value_first('vlan-raw-device')
+                cached_vlan_raw_device != self._get_vlan_raw_device_first(ifaceobj)
             )
 
             #
