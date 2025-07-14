@@ -166,13 +166,13 @@ class Bridge(Addon):
                 and len(self._get_ifaceobj_bridge_ports(ifaceobj, as_list=True)) == 1:
             ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_l3VNI
 
-    @staticmethod
-    def _get_ifaceobj_bridge_ports(ifaceobj, as_list=False):
+    def _get_ifaceobj_bridge_ports(self, ifaceobj, as_list=False):
         bridge_ports = []
 
         for brport in ifaceobj.get_attr_value('bridge-ports') or []:
             if brport != 'none':
                 bridge_ports.extend(brport.split())
+        bridge_ports = self.cache.link_translate_altnames(bridge_ports)
 
         if as_list:
             return bridge_ports
@@ -185,13 +185,14 @@ class Bridge(Addon):
         # of parsing port expr again
         port_list = ifaceobj.lowerifaces
         if port_list:
-            return port_list
+            return self.cache.link_translate_altnames(port_list)
+
         ports = self._get_ifaceobj_bridge_ports(ifaceobj)
         if ports:
+            # _get_ifaceobj_bridge_ports() already translates altnames
             return self.parse_port_list(ifaceobj.name, ports)
         else:
             return None
-
 
 class AddonWithIpBlackList(Addon):
     try:

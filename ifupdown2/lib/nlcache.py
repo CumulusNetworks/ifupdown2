@@ -804,6 +804,44 @@ class _NetlinkCache:
         except TypeError as e:
             return self.__handle_type_error(inspect.currentframe().f_code.co_name, ifname, str(e), return_value=default)
 
+    def link_get_altnames(self, ifname):
+        """
+        Returns the list of altnames for the given interface.
+        :param ifname:
+        :return: list[str]
+        """
+        proplist = self.get_link_attribute(ifname, Link.IFLA_PROP_LIST, default={})
+        if Link.IFLA_ALT_IFNAME in proplist:
+            return proplist[Link.IFLA_ALT_IFNAME]
+        return []
+
+    def link_translate_altname(self, ifname):
+        """
+        Translates a interface name into the respective primary interface name,
+        if needed. Effectively no-op if ifname is already the primary name.
+        :param ifname: interface name
+        :return: primary interface names
+        """
+        if ifname:
+            return self.get_link_attribute(ifname, Link.IFLA_IFNAME, default=ifname)
+        return None
+
+    def link_translate_altnames(self, ifnames):
+        """
+        Translates all interface altnames in the given list into their respective
+        primary ifnames.
+        :param ifnames: list of interface names
+        :return: list of interface names which only contains primary interface names
+        """
+        if ifnames is None:
+            return None
+
+        with self._cache_lock:
+            return list(map(
+                lambda ifname: self.get_link_attribute(ifname, Link.IFLA_IFNAME, default=ifname),
+                ifnames
+            ))
+
     ################
     # MASTER & SLAVE
     ################
@@ -1219,6 +1257,13 @@ class _NetlinkCache:
         # dictionaries if the master has changed or was un-enslaved.
         old_ifla_master = None
 
+        try:
+            proplist = link.get_attribute_value(Link.IFLA_PROP_LIST)
+            ifaltnames = proplist[Link.IFLA_ALT_IFNAME]
+        except (AttributeError, TypeError):
+            # no altnames no this link
+            ifaltnames = []
+
         with self._cache_lock:
 
             # do we have a wait event registered for RTM_NEWLINK this ifname
@@ -1242,6 +1287,14 @@ class _NetlinkCache:
 
             self._link_cache[ifname] = link
 
+            # For each altname, also cache the reference to the `Link` object
+            # it under that name.
+            # _cache_lock already ensures no concurrent access to the same
+            # interface through different names.
+            for altname in ifaltnames:
+                log.debug(f'registering {altname} as altname for {ifname}')
+                self._link_cache[altname] = link
+
             ######################################################
             # update helper dictionaries and handle link renamed #
             ######################################################
@@ -1253,6 +1306,9 @@ class _NetlinkCache:
                 # in get_ifname/get_ifindex/get_master to do the work.
 
                 self._ifindex_by_ifname[ifname] = ifindex
+                # For mapping ifname -> ifindex, also consider altnames
+                for altname in ifaltnames:
+                    self._ifindex_by_ifname[altname] = ifindex
 
                 rename_detected                 = False
                 old_ifname_entry_for_ifindex    = self._ifname_by_ifindex.get(ifindex)
@@ -1263,6 +1319,7 @@ class _NetlinkCache:
                     # renamed. We need to update the cache accordingly.
                     rename_detected = True
 
+                # ifindex will just map to the primary ifname
                 self._ifname_by_ifindex[ifindex] = ifname
 
                 if rename_detected:
@@ -1501,9 +1558,17 @@ class _NetlinkCache:
                     self._ignore_rtm_newlinkq.remove(ifname)
             except ValueError:
                 pass
+
+            try:
+                proplist = link.get_attribute_value(Link.IFLA_PROP_LIST)
+                ifaltnames = proplist[Link.IFLA_ALT_IFNAME]
+            except (AttributeError, TypeError):
+                # no altnames no this link
+                ifaltnames = []
         else:
             ifname = link_ifname
             ifindex = link_ifindex
+            ifaltnames = []
 
         link_ifla_master = None
         # when an enslaved device is removed we receive the RTM_DELLINK
@@ -1531,6 +1596,17 @@ class _NetlinkCache:
             except KeyError:
                 # KeyError means that the link doesn't exists in the cache
                 log.debug('del _link_cache: KeyError ifname: %s' % ifname)
+
+            # also delete altnames
+            for altname in ifaltnames:
+                try:
+                    del self._link_cache[altname]
+                except KeyError:
+                    # link is not present under the altname in the cache
+                    log.debug(f'{altname} not present in _link_cache as altname for {ifname}?')
+                    pass
+
+            # for the rest of caches here, only the primary ifname is ever used
 
             try:
                 # like in __unslave_nolock() we need to make sure that all deleted link
@@ -1560,6 +1636,12 @@ class _NetlinkCache:
             except KeyError:
                 log.debug('del _ifindex_by_ifname: KeyError ifname: %s' % ifname)
 
+            for altname in ifaltnames:
+                try:
+                    del self._ifindex_by_ifname[altname]
+                except KeyError:
+                    log.debug('del _ifindex_by_ifname: KeyError ifaltname: %s' % altname)
+
             try:
                 del self._addr_cache[ifname]
             except KeyError:
@@ -1581,6 +1663,12 @@ class _NetlinkCache:
                     log.debug('_masters_and_slaves[if%s].remove(%s): KeyError' % (link_ifla_master, ifname))
 
     def _address_get_ifname_and_ifindex(self, addr):
+        """
+        Returns the primary ifname and ifindex of the interface the given address
+        belongs too.
+        :param addr: address to inspect
+        :return: ifname and ifindex the specified address belongs to
+        """
         ifindex = addr.ifindex
         label = addr.get_attribute_value(Address.IFA_LABEL)
 
@@ -3138,6 +3226,20 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_set_brport_with_info_slave_data_dry_run(self, ifname, kind, ifla_info_data, ifla_info_slave_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s: bridge port attributes" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_slave_data)
+
+    ###
+
+    def link_exists(self, ifname):
+        return self.cache.link_exists(ifname)
+
+    def link_get_altnames(self, ifname):
+        return self.cache.link_get_altnames(ifname)
+
+    def link_translate_altname(self, ifname):
+        return self.cache.link_translate_altname(ifname)
+
+    def link_translate_altnames(self, ifnames):
+        return self.cache.link_translate_altnames(ifnames)
 
     ############################################################################
     # ADDRESS

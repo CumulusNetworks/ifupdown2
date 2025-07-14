@@ -94,15 +94,28 @@ class openvswitch_port(Addon, moduleBase):
 
     def _is_ovs_port (self, ifaceobj):
         ovstype = ifaceobj.get_attr_value_first ('ovs-type')
-        ovsbridge = ifaceobj.get_attr_value_first ('ovs-bridge')
+        ovsbridge = self._get_ovs_bridge(ifaceobj)
         if ovstype and ovsbridge:
             return True
         return False
 
+    def _get_ovs_bridge(self, ifaceobj):
+        """
+        Returns the ifname of the `ovs-bridge` property. Translates altnames
+        to the primary ifname if needed.
+        :param ifaceobj: interface config object
+        :return: `ovs-bridge` ifname
+        """
+        ifname = ifaceobj.get_attr_value_first('ovs-bridge')
+        if ifname:
+            return self.cache.link_translate_altname(ifname)
+        return None
+
     def _get_bond_ifaces (self, ifaceobj):
         ovs_bonds = ifaceobj.get_attr_value_first ('ovs-bonds')
         if ovs_bonds:
-            return sorted (ovs_bonds.split ())
+            ovs_bonds = self.cache.link_translate_altnames(ovs_bonds.split())
+            return sorted(ovs_bonds)
         return None
 
     def _ovs_vsctl(self, ifaceobj, cmdlist):
@@ -129,10 +142,13 @@ class openvswitch_port(Addon, moduleBase):
 
     def _addport (self, ifaceobj):
         iface = ifaceobj.name
-        ovsbridge = ifaceobj.get_attr_value_first ('ovs-bridge')
+        ovsbridge = self._get_ovs_bridge(ifaceobj)
         ovsoptions = ifaceobj.get_attr_value_first ('ovs-options')
         ovstype = ifaceobj.get_attr_value_first ('ovs-type')
-        ovsbonds = ifaceobj.get_attr_value_first ('ovs-bonds')
+
+        ovsbonds_list = self._get_bond_ifaces(ifaceobj)
+        ovsbonds = ' '.join(ovsbonds_list) if ovsbonds_list else None
+
         ovsextra = ifaceobj.get_attr_value('ovs-extra')
 
         cmd_list = []
@@ -183,11 +199,10 @@ class openvswitch_port(Addon, moduleBase):
 
         #mtu
         ovsmtu = ifaceobj.get_attr_value_first ('ovs-mtu')
-        ovsbonds_list = self._get_bond_ifaces(ifaceobj)
         if ovsmtu is not None:
             #we can't set mtu on bond fake interface, we apply it on slaves interfaces
             if ovstype == 'OVSBond' and ovsbonds_list is not None:
-                for slave in ovsbonds_list: 
+                for slave in ovsbonds_list:
                     cmd = "set Interface %s mtu_request=%s"%(slave,ovsmtu)
                     cmd_list.append(cmd)
 
@@ -207,7 +222,7 @@ class openvswitch_port(Addon, moduleBase):
 
     def _delport (self, ifaceobj):
         iface = ifaceobj.name
-        ovsbridge = ifaceobj.get_attr_value_first ('ovs-bridge')
+        ovsbridge = self._get_ovs_bridge(ifaceobj)
         cmd = "--if-exists del-port %s %s"%(ovsbridge, iface)
 
         self._ovs_vsctl(ifaceobj, [cmd])
@@ -219,7 +234,7 @@ class openvswitch_port(Addon, moduleBase):
 
         ifaceobj.link_privflags |= ifaceLinkPrivFlags.OPENVSWITCH
 
-        ovsbridge = ifaceobj.get_attr_value_first ('ovs-bridge')
+        ovsbridge = self._get_ovs_bridge(ifaceobj)
         return [ovsbridge]
 
     def _up (self, ifaceobj):

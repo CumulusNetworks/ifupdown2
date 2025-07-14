@@ -3464,6 +3464,49 @@ class AttributeIFLA_PROTINFO(Attribute):
         return value_pretty
 
 
+class AttributeLinkPropList(Attribute):
+    """
+    IFLA_PROP_LIST - list of (additional) interface properties.
+    """
+    def __init__(self, atype, string, family, logger):
+        Attribute.__init__(self, atype, string, logger)
+        self.family = family
+
+    def decode(self, parent_msg, data):
+        self.decode_length_type(data)
+        self.value = {}
+
+        data = self.data[4:]
+
+        while data:
+            (sub_attr_length, sub_attr_type) = unpack('=HH', data[:4])
+            sub_attr_end = padded_length(sub_attr_length)
+
+            if not sub_attr_length:
+                self.log.error('parsed a zero length sub-attr')
+                continue
+
+            (attr_name, AttrClass) = Link.attribute_to_class[sub_attr_type]
+            attr = AttrClass(sub_attr_type, attr_name, self.family, self.log)
+            attr.decode(self, data[:sub_attr_end])
+
+            if sub_attr_type in self.value:
+                self.value[sub_attr_type].append(attr.value)
+            else:
+                self.value[sub_attr_type] = [attr.value]
+
+            data = data[sub_attr_end:]
+
+    def get_pretty_value(self, obj=None):
+        if obj and callable(obj):
+            return obj(self.value)
+
+        value_pretty = {}
+        for (sub_key, sub_value) in self.value.items():
+            sub_key_pretty = "(%2d) %s" % (sub_key, Link.attribute_to_class[sub_key][0])
+            value_pretty[sub_key_pretty] = sub_value
+
+        return value_pretty
 
 class NetlinkPacket(object):
     """
@@ -4163,6 +4206,16 @@ class Link(NetlinkPacket, NetlinkPacket_IFLA_LINKINFO_Attributes):
     IFLA_NEW_IFINDEX        = 49
     IFLA_MIN_MTU            = 50
     IFLA_MAX_MTU            = 51
+    IFLA_PROP_LIST           = 52
+    IFLA_ALT_IFNAME          = 53
+    IFLA_PERM_ADDRESS        = 54
+    IFLA_PROTO_DOWN_REASON   = 55
+    IFLA_PARENT_DEV_NAME     = 56
+    IFLA_PARENT_DEV_BUS_NAME = 57
+    IFLA_GRO_MAX_SIZE        = 58
+    IFLA_TSO_MAX_SIZE        = 59
+    IFLA_TSO_MAX_SEGS        = 60
+    IFLA_ALLMULTI            = 61
 
     attribute_to_class = {
         IFLA_UNSPEC          : ('IFLA_UNSPEC', AttributeGeneric),
@@ -4217,6 +4270,16 @@ class Link(NetlinkPacket, NetlinkPacket_IFLA_LINKINFO_Attributes):
         IFLA_NEW_IFINDEX        : ('IFLA_NEW_IFINDEX', AttributeFourByteValue),
         IFLA_MIN_MTU            : ('IFLA_MIN_MTU', AttributeFourByteValue),
         IFLA_MAX_MTU            : ('IFLA_MAX_MTU', AttributeFourByteValue),
+        IFLA_PROP_LIST           : ('IFLA_PROP_LIST', AttributeLinkPropList),
+        IFLA_ALT_IFNAME          : ('IFLA_ALT_IFNAME', AttributeString),
+        IFLA_PERM_ADDRESS        : ('IFLA_PERM_ADDRESS', AttributeMACAddress),
+        IFLA_PROTO_DOWN_REASON   : ('IFLA_PROTO_DOWN_REASON', AttributeFourByteValue),
+        IFLA_PARENT_DEV_NAME     : ('IFLA_PARENT_DEV_NAME', AttributeString),
+        IFLA_PARENT_DEV_BUS_NAME : ('IFLA_PARENT_DEV_BUS_NAME', AttributeString),
+        IFLA_GRO_MAX_SIZE        : ('IFLA_GRO_MAX_SIZE', AttributeFourByteValue),
+        IFLA_TSO_MAX_SIZE        : ('IFLA_TSO_MAX_SIZE', AttributeFourByteValue),
+        IFLA_TSO_MAX_SEGS        : ('IFLA_TSO_MAX_SEGS', AttributeFourByteValue),
+        IFLA_ALLMULTI            : ('IFLA_ALLMULTI', AttributeFourByteValue),
     }
 
     # Link flags
