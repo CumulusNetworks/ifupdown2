@@ -277,6 +277,7 @@ class bond(Addon, moduleBase):
             except Exception as e:
                 self.logger.info("bond: error while loading bonding module: %s" % str(e))
 
+        # get_ifindex() always returns the primary ifname, so no need for translating
         self._bond_attr_ifquery_check_translate_func[Link.IFLA_BOND_PRIMARY] = self.cache.get_ifindex
         self._bond_attr_set_list = self._bond_attr_set_list + (('bond-primary', Link.IFLA_BOND_PRIMARY, self.cache.get_ifindex),)
 
@@ -292,7 +293,7 @@ class bond(Addon, moduleBase):
 
     def get_bond_slaves(self, ifaceobj):
         # bond-ports aliases should be translated to bond-slaves
-        return ifaceobj.get_attr_value_first('bond-slaves')
+        return self.cache.link_translate_altname(ifaceobj.get_attr_value_first('bond-slaves'))
 
     def _is_bond(self, ifaceobj):
         # at first link_kind is not set but once ifupdownmain
