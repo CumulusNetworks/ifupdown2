@@ -1133,20 +1133,6 @@ class bridge(Bridge, moduleBase):
             return None
         return self.cache.get_slaves(ifaceobj.name)
 
-    def _get_bridge_port_list(self, ifaceobj):
-
-        # port list is also available in the previously
-        # parsed dependent list. Use that if available, instead
-        # of parsing port expr again
-        port_list = ifaceobj.lowerifaces
-        if port_list:
-            return port_list
-        ports = self._get_ifaceobj_bridge_ports(ifaceobj)
-        if ports:
-            return self.parse_port_list(ifaceobj.name, ports)
-        else:
-            return None
-
     def _get_bridge_port_list_user_ordered(self, ifaceobj):
         # When enslaving bridge-ports we need to return the exact user
         # configured bridge ports list (bridge will inherit the mac of the
