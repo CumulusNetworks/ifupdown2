@@ -1165,14 +1165,19 @@ class address(AddonWithIpBlackList, moduleBase):
             for old_ifaceobj in statemanager.statemanager_api.get_ifaceobjs(ifaceobj.name) or []:
                 old_value = old_ifaceobj.get_attr_value_first("disable-ipv6")
 
-                if old_value:
-                    default_bool = utils.get_boolean_from_string(
-                        self.get_mod_subattr("disable-ipv6", "default")
-                    )
+                default_bool = utils.get_boolean_from_string(
+                    self.get_mod_subattr("disable-ipv6", "default")
+                )
 
+                if old_value:
                     if default_bool != utils.get_boolean_from_string(old_value):
                         self.sysfs.write_to_file(sysfs_path, "1" if default_bool else "0")
                         return
+                # check if old ifaceobj was bridge port and new ifaceobj is not bridge port
+                if (old_ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT) and \
+                        not (ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT):
+                    self.sysfs.write_to_file(sysfs_path, "1" if default_bool else "0")
+                    return
         else:
             user_config_bool = utils.get_boolean_from_string(user_config)
 

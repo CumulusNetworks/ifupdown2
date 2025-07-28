@@ -457,10 +457,7 @@ class iface():
     def __eq__(self, other):
         return (
                 isinstance(other, iface) and
-                self.name == other.name and
-                self.config == other.config and
-                self.addr_family == other.addr_family and
-                self.addr_method == other.addr_method
+                self.compare(other)
         )
 
     def _set_attrs_from_dict(self, attrdict):
@@ -640,6 +637,7 @@ class iface():
         if self.addr_method != dstiface.addr_method: return False
         if self.auto != dstiface.auto: return False
         if self.classes != dstiface.classes: return False
+        if self.link_privflags != dstiface.link_privflags: return False
         if len(self.config) != len(dstiface.config):
             return False
         if any(True for k in self.config if k not in dstiface.config):
