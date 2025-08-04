@@ -11,22 +11,30 @@ def test_address(ssh, setup, get_json):
     assert_identical_json(ssh.ifquery_ac_json(), get_json("address.ifquery.ac.json"))
 
 
-def test_address_gateway(ssh, setup, get_json):
-    assert ssh.translate_swp_xx(
-        "error: swp_AA_: cmd '/bin/ip route replace default via 10.1.14.3 proto kernel dev swp_AA_' failed: "
-        "returned 2 (Error: Nexthop has invalid gateway.\n)\nwarning: br1: untagged bridge not found. "
-        "Please configure a bridge with untagged bridge ports to avoid Spanning Tree Interoperability issue.\n"
-    ) == ssh.ifup_a(return_stderr=True, expected_status=1)
+def test_address_gateway(ssh, setup):
+    """A 'gateway' configured on an interface that is also 'link-down yes'.
 
-    assert_identical_json(ssh.ifquery_ac_json(), get_json("address_gateway.ifquery.ac.json"))
+    The kernel refuses to install a default route while the gateway's link is
+    down, so ifupdown2 skips the gateway on a kept-down interface through the
+    KEEP_LINK_DOWN guard in address._add_delete_gateway. ifup then
+    succeeds (no 'Nexthop ... is not up' error) and installs no default route
+    via that interface, while the interface's address is still configured.
 
-    ssh.run(f"sed -i 's/address .*//' {ENI}")
+    The former behavior errored while adding the unreachable gateway.
+    """
+    # ifup now succeeds; br1 emits an unrelated STP warning.
+    ssh.ifup_a(ignore_stderr=True)
 
-    assert ssh.translate_swp_xx(
-        "info: executing /bin/ip route replace default via 10.1.14.3 proto kernel dev swp_AA_"
-    ) in ssh.ifreload_av(expected_status=1)
+    # The interface address is still configured (only the gateway is skipped).
+    ssh.run_assert_success("ip -o addr show swp_AA_ | grep '10.0.14.3/14'")
 
-    assert_identical_json(ssh.ifquery_ac_json(), get_json("address_gateway.empty_addrs.ifquery.ac.json"))
+    # The configured link-down state is actually in effect.
+    assert ssh.run("ip -o link show swp_AA_ | grep -w UP")[3] != 0
+
+    # No default route was installed via the kept-down interface.
+    _, stdout, _, _ = ssh.run("ip route show default dev swp_AA_")
+    assert stdout.read().decode().strip() == "", \
+        "no default route should be installed via a link-down interface"
 
 
 def test_evpn_vab_clag_riot_flood_sup_off_config_tors2(ssh, setup, get_json):
