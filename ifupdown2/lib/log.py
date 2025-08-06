@@ -156,6 +156,11 @@ class LogManager:
         # check if enable_persistent_debug_logging is enabled
         user_config_limit = self.__get_enable_persistent_debug_logging()
 
+        # disable debug logging for ifquery
+        for s in sys.argv:
+            if "ifquery" in s:
+                return
+
         if not user_config_limit:
             # user has disabled the feature
             return
@@ -194,6 +199,7 @@ class LogManager:
         self.__root_logger.setLevel(logging.DEBUG)
 
         self.__root_logger.debug("persistent debugging is initialized")
+        self.__root_logger.debug("argv: %s" % sys.argv)
 
         # cp ENI and ENI.d in the log directory
         shutil.copy2("/etc/network/interfaces", self.new_dir_path)

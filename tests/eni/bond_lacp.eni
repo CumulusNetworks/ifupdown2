@@ -1,0 +1,38 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto bond4
+iface bond4
+      bond-slaves swp_EE_
+      bond-mode 802.3ad
+      bond-lacp-rate slow
+      bond-lacp-bypass-allow yes
+
+auto bond7
+iface bond7
+      bond-slaves swp_HH_
+      bond-mode 802.3ad
+      bond-lacp-rate fast
+      bond-lacp-bypass-allow no
+
+auto bond8
+iface bond8
+      bond-slaves swp_II_
+      bond-mode 802.3ad
+      bond-lacp-rate 0
+      bond-lacp-bypass-allow 0
+
+auto bond9
+iface bond9
+      bond-slaves swp_JJ_
+      bond-mode 802.3ad
+      bond-lacp-rate 1
+      bond-lacp-bypass-allow 1

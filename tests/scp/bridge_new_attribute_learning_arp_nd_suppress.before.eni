@@ -1,0 +1,26 @@
+auto vxlan10101
+iface vxlan10101
+    vxlan-id 10101
+    vxlan-local-tunnelip 6.0.0.17
+    bridge-learning off
+    bridge-arp-nd-suppress on
+    bridge-access 101
+
+auto br1
+iface br1
+    bridge-ports vxlan10101
+    bridge-vlan-aware yes
+    bridge-vids 101
+
+auto vxlan10102
+iface vxlan10102
+    vxlan-id 10102
+    vxlan-local-tunnelip 6.0.0.17
+    bridge-access 102
+
+auto br2
+iface br2
+    bridge-ports vxlan10102
+    bridge-vids 101
+    bridge-learning vxlan10102=off
+    bridge-arp-nd-suppress vxlan10102=on

@@ -44,7 +44,7 @@ try:
     from ifupdown2.lib.exceptions import ExitWithStatus, ExitWithStatusAndError
 
     from ifupdown2.ifupdown.argv import Parse
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.status import Status
     from lib.io import SocketIO
     from lib.log import LogManager, root_logger
@@ -95,6 +95,10 @@ class LogRecordSocketReceiver(socketserver.TCPServer):
             port=LogManager.DEFAULT_TCP_LOGGING_PORT
     ):
         socketserver.TCPServer.__init__(self, (host, port), handler)
+
+
+class ClientException(Exception):
+    pass
 
 
 class Client(SocketIO):
@@ -163,7 +167,7 @@ class Client(SocketIO):
             self.uds.setsockopt(socket.SOL_SOCKET, self.SO_PASSCRED, 1)
         except Exception as e:
             self.__shutdown()
-            raise Exception("setsockopt: %s" % str(e))
+            raise ClientException("setsockopt: %s" % str(e))
 
         self.daemon_pid, _, _ = self.get_socket_peer_cred(self.uds)
 

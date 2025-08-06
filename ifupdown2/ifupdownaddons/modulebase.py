@@ -17,7 +17,7 @@ try:
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceStatus
     from ifupdown.utils import utils
 
@@ -28,6 +28,11 @@ except (ImportError, ModuleNotFoundError):
 
 class NotSupported(Exception):
     pass
+
+
+class ModuleBaseException(Exception):
+    pass
+
 
 class moduleBase(object):
     """ Base class for ifupdown addon modules
@@ -69,7 +74,7 @@ class moduleBase(object):
 
         # first check module_defaults
         for key, value in list(policymanager.policymanager_api.get_module_defaults(self.modulename).items()):
-            if not key in attrs:
+            if key not in attrs:
                 self.logger.warning('%s: %s: %s' % (self.modulename, key, error_msg))
                 continue
             attrs[key]['default'] = value
@@ -101,10 +106,10 @@ class moduleBase(object):
             # the root logger has level NOTSET, and each logging handler logs
             # at different level.
             stack = traceback.format_stack()
-            format = traceback.format_exc()
+            f = traceback.format_exc()
 
             self.logger.debug("%s" % " ".join(stack)[:-1])
-            self.logger.debug("%s" % format[:-1])
+            self.logger.debug("%s" % f[:-1])
 
             self.logger.warning(str)
 
@@ -119,17 +124,15 @@ class moduleBase(object):
             # we have the root logger has level NOTSET, and each logging handler
             # logs at different level.
             stack = traceback.format_stack()
-            format = traceback.format_exc()
+            f = traceback.format_exc()
 
             self.logger.debug("%s" % " ".join(stack)[:-1])
-            self.logger.debug("%s" % format[:-1])
+            self.logger.debug("%s" % f[:-1])
 
             if raise_error:
-                raise Exception(msg)
+                raise ModuleBaseException(msg)
             else:
                 self.logger.error(msg)
-        else:
-            pass
 
     def is_process_running(self, procName):
         try:
@@ -143,12 +146,9 @@ class moduleBase(object):
     def get_ifaces_from_proc(self):
         ifacenames = []
         with open('/proc/net/dev') as f:
-            try:
                 lines = f.readlines()
                 for line in lines[2:]:
                     ifacenames.append(line.split()[0].strip(': '))
-            except Exception:
-                raise
         return ifacenames
 
     def parse_regex(self, ifacename, expr, ifacenames=None):
@@ -162,7 +162,7 @@ class moduleBase(object):
                 if re.search(expr + '$', proc_ifacename):
                     yield proc_ifacename
             except Exception as e:
-                raise Exception('%s: error searching regex \'%s\' in %s (%s)'
+                raise ModuleBaseException('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, proc_ifacename, str(e)))
         if not ifacenames:
             return
@@ -171,7 +171,7 @@ class moduleBase(object):
                 if re.search(expr + '$', ifacename):
                     yield ifacename
             except Exception as e:
-                raise Exception('%s: error searching regex \'%s\' in %s (%s)'
+                raise ModuleBaseException('%s: error searching regex \'%s\' in %s (%s)'
                                 %(ifacename, expr, ifacename, str(e)))
 
     def ifname_is_glob(self, ifname):
@@ -203,7 +203,7 @@ class moduleBase(object):
             mlist = m.groups()
             if len(mlist) < 7:
                 # we have problems and should not continue
-                raise Exception('%s: error: unhandled glob expression %s\n%s' % (ifacename, expr,errmsg))
+                raise ModuleBaseException('%s: error: unhandled glob expression %s\n%s' % (ifacename, expr,errmsg))
 
             prefix = mlist[0]
             suffix = mlist[6]
@@ -227,7 +227,7 @@ class moduleBase(object):
                 m = regexs[2].match(expr)
             mlist = m.groups()
             if len(mlist) != 4:
-                raise Exception('%s: ' %ifacename + errmsg + '(unexpected len)')
+                raise ModuleBaseException('%s: ' %ifacename + errmsg + '(unexpected len)')
             prefix = mlist[0]
             suffix = mlist[3]
             start_index = int(mlist[1])
@@ -441,7 +441,6 @@ class moduleBase(object):
         except Exception as e:
             self.logger.debug('%s failed (%s)' %(get_resvvlan, str(e)))
             # ignore errors
-            pass
         return (start, end)
 
     def _get_vrf_context(self):
@@ -452,7 +451,6 @@ class moduleBase(object):
             self.logger.debug('failed to get vrf id (%s)' %str(e))
             # ignore errors
             vrfid = None
-            pass
         return vrfid
 
     def _handle_reserved_vlan(self, vlanid, logprefix='', end=-1):

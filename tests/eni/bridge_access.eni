@@ -1,0 +1,34 @@
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*.intf
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto vxlan1
+iface vxlan1
+	vxlan-id 1
+	bridge-access 1
+	vxlan-local-tunnelip 27.0.0.11
+
+auto vxlan500
+iface vxlan500
+	vxlan-id 500
+	bridge-access 500
+	vxlan-local-tunnelip 27.0.0.11
+
+auto br0
+iface br0
+	bridge-vlan-aware yes
+	bridge-ports vxlan1 vxlan500

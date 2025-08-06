@@ -1,3 +1,35 @@
+ifupdown2 (3.9.0) unstable; urgency=medium
+
+  * New: ifreload: new --diff cli argument: only reload delta between /e/n/i
+  * New: Support for Per-VLAN Rapid Spanning Tree attributes:
+    mstpctl-pvrst-mode (on/off): Enable/disable PVRST mode
+    mstpctl-vlan-priority (range 4096-32768)
+    mstpctl-vlan-hello (range 1-10)
+    mstpctl-vlan-fdelay (range 4-30)
+    mstpctl-vlan-maxage (range 6-40)
+    mstpctl-port-vlan-path-cost (range 1-200000000)
+    mstpctl-port-vlan-priority  (range 0-240)
+  * New: Get default mac address from policy file as 'address' iface_default
+  * New: Enable per vlan snooping when config mcqv4src
+  * New: Add vxlan hopping filter
+  * New: Add support for setting mac addresses via iface_defaults policy
+  * New: Reset mac address on switch port when 'hwaddress' is removed from eni
+  * New: Policy "dhclient_no_wait_on_reload": dhclient won't wait (default off)
+  * Fix: Bring DHCP config down if link-down yes is set
+  * Fix: Various code cleanups (SonarQube)
+  * Fix: Macvlan/VRR: set accept_dad=0 before link up
+  * Fix: Flush DHCP lease on boot up
+  * Fix: Disable persistent debug log for ifquery
+  * Fix:
+  * Fix: Vxlan clear last fdb entry when remoteip is removed from user config
+  * Fix: Vxlan reset local and group ip when removed from user config
+  * Fix: Re-applying link-speed to reset link-lanes to default when removed
+  * Fix: Missing json import in networkinterfaces.py and vxlan.py
+  * Fix: Nlmanager Invalid operation on null-like value range_flag
+  * Deprecated: remove bridge-hashel default value
+
+ -- Julien Fortin <jfortin@nvidia.com>  Wed, 04 Dec 2024 23:42:00 -0800
+
 ifupdown2 (3.3.0) unstable; urgency=medium
 
   * New: performance improvement: replace glob.glob with os.listdir

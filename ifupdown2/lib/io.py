@@ -29,8 +29,12 @@ import select
 
 try:
     from ifupdown2.lib.base_objects import BaseObject
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.base_objects import BaseObject
+
+
+class IOException(Exception):
+    pass
 
 
 class IO(BaseObject):
@@ -107,9 +111,9 @@ class SocketIO(object):
             header_data = _socket.recv(4)
 
             if not header_data:
-                raise Exception("rx_json_packet: socket closed")
+                raise IOException("rx_json_packet: socket closed")
             if len(header_data) < 4:
-                raise Exception("rx_json_packet: invalid data received")
+                raise IOException("rx_json_packet: invalid data received")
 
             data_len = struct.unpack("=I", header_data)[0]
             data = _socket.recv(data_len)

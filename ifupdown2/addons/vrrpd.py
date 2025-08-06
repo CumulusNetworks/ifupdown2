@@ -16,7 +16,7 @@ try:
 
     from ifupdown2.ifupdown.iface import *
     from ifupdown2.ifupdown.utils import utils
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
 
     from ifupdownaddons.modulebase import moduleBase
@@ -130,7 +130,6 @@ class vrrpd(moduleBase):
         except Exception as e:
             self.logger.debug('%s: ifplugd down error (%s)'
                               %(ifaceobj.name, str(e)))
-            pass
 
         for pidfile in glob.glob('/var/run/vrrpd_%s_*.pid' %ifaceobj.name):
             try:
@@ -138,7 +137,6 @@ class vrrpd(moduleBase):
             except Exception as e:
                 self.logger.debug('%s: vrrpd down error (%s)'
                                   %(ifaceobj.name, str(e)))
-                pass
 
     def _query_check(self, ifaceobj, ifaceobjcurr):
         # XXX

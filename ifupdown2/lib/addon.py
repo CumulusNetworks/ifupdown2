@@ -35,7 +35,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.io import IO
     from lib.sysfs import Sysfs
     from lib.iproute2 import IPRoute2
@@ -45,6 +45,10 @@ except (ImportError, ModuleNotFoundError):
 
     import ifupdown.policymanager as policymanager
     import nlmanager.ipnetwork as ipnetwork
+
+
+class AddonException(Exception):
+    pass
 
 
 class Addon(Netlink, Cache):
@@ -69,6 +73,13 @@ class Addon(Netlink, Cache):
         for attribute_name, attribute_object in self.__get_modinfo().get("attrs", {}).items():
             for alias in attribute_object.get("aliases", []):
                 self.__alias_to_attribute[alias] = attribute_name
+
+        self._runqueue = []
+        self._diff_mode = False
+
+    def set_runqueue(self, runqueue):
+        self._runqueue = runqueue
+        self._diff_mode = True
 
     def __get_modinfo(self) -> dict:
         try:
@@ -143,7 +154,7 @@ class Bridge(Addon):
 
         if ifaceobj.link_kind & ifaceLinkKind.BRIDGE and not ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_VXLAN:
             for port in self._get_bridge_port_list(ifaceobj) or []:
-                for brport_ifaceobj in ifaceobj_getfunc(port):
+                for brport_ifaceobj in ifaceobj_getfunc(port) or []:
                     if brport_ifaceobj.link_kind & ifaceLinkKind.VXLAN:
                         ifaceobj.link_privflags |= ifaceLinkPrivFlags.BRIDGE_VXLAN
                         self.__check_l3vni_bridge(ifaceobj)
@@ -188,9 +199,8 @@ class Bridge(Addon):
             return port_list
         ports = self._get_ifaceobj_bridge_ports(ifaceobj)
         if ports:
-            return self.parse_port_list(ifaceobj.name, ports)
-        else:
-            return None
+            ports = self.parse_port_list(ifaceobj.name, ports)
+        return ports or []
 
 
 class AddonWithIpBlackList(Addon):
@@ -224,4 +234,4 @@ class AddonWithIpBlackList(Addon):
         :return:
         """
         if ip.ip in AddonWithIpBlackList.ip_blacklist:
-            raise Exception("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))
+            raise AddonException("%s: blacklisted ip address in use: %s" % (ifname, ip.ip))

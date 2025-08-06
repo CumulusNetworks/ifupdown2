@@ -1,0 +1,12 @@
+auto br0
+iface br0
+    bridge-vlan-aware yes
+    bridge-ports swp_AA_
+    bridge-igmp-version 3
+    bridge-mld-version 2
+
+auto br1
+iface br1
+    bridge-ports swp_BB_
+    bridge-igmp-version 3
+    bridge-mld-version 2

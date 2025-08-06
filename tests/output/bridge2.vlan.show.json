@@ -1,0 +1,152 @@
+[
+  {
+    "ifname": "swp_AA_",
+    "vlans": [
+      {
+        "vlan": 1
+      },
+      {
+        "vlan": 2,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      },
+      {
+        "vlan": 3
+      },
+      {
+        "vlan": 4
+      },
+      {
+        "vlan": 5
+      },
+      {
+        "vlan": 6
+      },
+      {
+        "vlan": 7
+      },
+      {
+        "vlan": 8
+      },
+      {
+        "vlan": 9
+      },
+      {
+        "vlan": 10
+      },
+      {
+        "vlan": 11
+      },
+      {
+        "vlan": 12
+      },
+      {
+        "vlan": 13
+      },
+      {
+        "vlan": 14
+      },
+      {
+        "vlan": 15
+      },
+      {
+        "vlan": 16
+      },
+      {
+        "vlan": 17
+      },
+      {
+        "vlan": 18
+      },
+      {
+        "vlan": 19
+      },
+      {
+        "vlan": 20
+      }
+    ]
+  },
+  {
+    "ifname": "swp_BB_",
+    "vlans": [
+      {
+        "vlan": 1
+      },
+      {
+        "vlan": 2,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      },
+      {
+        "vlan": 3
+      },
+      {
+        "vlan": 4
+      },
+      {
+        "vlan": 5
+      },
+      {
+        "vlan": 6
+      },
+      {
+        "vlan": 7
+      },
+      {
+        "vlan": 8
+      },
+      {
+        "vlan": 9
+      },
+      {
+        "vlan": 10
+      },
+      {
+        "vlan": 11
+      },
+      {
+        "vlan": 12
+      },
+      {
+        "vlan": 13
+      },
+      {
+        "vlan": 14
+      },
+      {
+        "vlan": 15
+      },
+      {
+        "vlan": 16
+      },
+      {
+        "vlan": 17
+      },
+      {
+        "vlan": 18
+      },
+      {
+        "vlan": 19
+      },
+      {
+        "vlan": 20
+      }
+    ]
+  },
+  {
+    "ifname": "bridge",
+    "vlans": [
+      {
+        "vlan": 1,
+        "flags": [
+          "PVID",
+          "Egress Untagged"
+        ]
+      }
+    ]
+  }
+]

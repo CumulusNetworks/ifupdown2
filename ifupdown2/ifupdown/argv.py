@@ -12,9 +12,13 @@ import argparse
 try:
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.ifupdown.exceptions import ArgvParseError, ArgvParseHelp
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.utils import utils
     from ifupdown.exceptions import ArgvParseError, ArgvParseHelp
+
+
+class ArgvException(Exception):
+    pass
 
 
 class VersionAction(argparse.Action):
@@ -24,12 +28,12 @@ class VersionAction(argparse.Action):
             dpkg = utils.exec_commandl([utils.dpkg_cmd, '-l', 'ifupdown2'])
 
             if not dpkg:
-                raise Exception('dpkg -l ifupdown2 returns without output')
+                raise ArgvException('dpkg -l ifupdown2 returns without output')
 
             dpkg = dpkg.split('\n')
 
             if not dpkg:
-                raise Exception('dpkg -l ifupdown2 returns without output')
+                raise ArgvException('dpkg -l ifupdown2 returns without output')
 
             for line in dpkg:
                 if 'ifupdown2' in line:
@@ -38,7 +42,7 @@ class VersionAction(argparse.Action):
                     sys.stdout.write('ifupdown2:%s\n' % (info[2]))
                     sys.exit(0)
 
-            raise Exception('ifupdown2 package not found using dpkg -l')
+            raise ArgvException('ifupdown2 package not found using dpkg -l')
 
         except Exception as e:
             sys.stderr.write('error: cannot get current version using dpkg: %s\n' % str(e))
@@ -79,7 +83,7 @@ class Parse:
 
         try:
             self.args = argparser.parse_args(self.argv)
-        except SystemExit as e:
+        except SystemExit:
             # on "--help" parse_args will raise SystemExit.
             # We need to catch this behavior and raise a custom
             # exception to return 0 properly
@@ -211,6 +215,7 @@ class Parse:
                                 'currently up regardless of whether an interface has '
                                 '"auto <interface>" configuration within the /etc/network/interfaces file.')
         group.add_argument('--allow', dest='CLASS', action='append', help='ignore non-"allow-CLASS" interfaces')
+        argparser.add_argument("--diff", action="store_true", help="diff based approach - only up/down what is really necessary")
         argparser.add_argument('iflist', metavar='IFACE', nargs='*', help=argparse.SUPPRESS)
         argparser.add_argument('-n', '--no-act', dest='noact', action='store_true',
                                help='print out what would happen, but don\'t do it')

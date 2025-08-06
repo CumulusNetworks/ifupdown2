@@ -24,7 +24,7 @@ try:
 
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags
 
     import ifupdown.policymanager as policymanager
@@ -36,6 +36,11 @@ def signal_handler_f(ps, sig, frame):
         ps.send_signal(sig)
     if sig == signal.SIGINT:
         raise KeyboardInterrupt
+
+
+class UtilsException(Exception):
+    pass
+
 
 class utils():
     logger = logging.getLogger('ifupdown')
@@ -142,11 +147,36 @@ class utils():
     def mac_str_to_int(cls, hw_address):
         mac = 0
         if hw_address:
-            pass
             for i in hw_address.translate(cls.mac_translate_tab).split():
                 mac = mac << 8
                 mac += int(i, 16)
         return mac
+
+
+    PVRST_MODE = None
+    @classmethod
+    def is_pvrst_enabled(cls, ifaceobj_getfunc=None, no_act=False):
+        if cls.PVRST_MODE != None:
+            return cls.PVRST_MODE
+
+        for obj_list in (ifaceobj_getfunc(None, all=True) or {}).values():
+            for obj in obj_list:
+                if cls.get_boolean_from_string(obj.get_attr_value_first("mstpctl-pvrst-mode")):
+                    cls.PVRST_MODE = True
+                    if not no_act:
+                        try:
+                            cls.exec_command("mstpctl setmodepvrst")
+                        except Exception as e:
+                            cls.logger.debug("mstpctl setmodepvrst failed: %s" % str(e))
+                    return cls.PVRST_MODE
+
+        cls.PVRST_MODE = False
+        if not no_act:
+            try:
+                cls.exec_command("mstpctl clearmodepvrst")
+            except Exception as e:
+                cls.logger.debug("mstpctl clearmodepvrst failed: %s" % str(e))
+        return cls.PVRST_MODE
 
     @staticmethod
     def get_onff_from_onezero(value):
@@ -189,8 +219,7 @@ class utils():
                 value = ifaceobj.get_attr_value_first(attr)
                 if value and not utils.is_binary_bool(value):
                     if attr in attrsdict:
-                        bool = utils.get_boolean_from_string(attrsdict[attr])
-                        attrsdict[attr] = utils.get_yesno_boolean(bool)
+                        attrsdict[attr] = utils.get_yesno_boolean(utils.get_boolean_from_string(attrsdict[attr]))
         else:
             for attr in attrslist:
                 if attr in attrsdict:
@@ -376,14 +405,14 @@ class utils():
                 cmd_output = ch.communicate(input=stdin.encode() if stdin else stdin)[0]
             cmd_returncode = ch.wait()
         except Exception as e:
-            raise Exception('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
+            raise UtilsException('cmd \'%s\' failed (%s)' % (' '.join(cmd), str(e)))
         finally:
             utils.disable_subprocess_signal_forwarding(signal.SIGINT)
 
         cmd_output_string = cmd_output.decode() if cmd_output is not None else cmd_output
 
         if cmd_returncode != 0:
-            raise Exception(cls._format_error(cmd,
+            raise UtilsException(cls._format_error(cmd,
                                               cmd_returncode,
                                               cmd_output_string,
                                               stdin))
@@ -446,7 +475,6 @@ class utils():
                     result.append(a)
         except Exception:
             cls.logger.warning('unable to parse vids \'%s\'' %''.join(rangelist))
-            pass
         return result
 
     @classmethod
@@ -505,7 +533,7 @@ class utils():
                     vni = vni.split('+', 1)[1]
                     vint = int(vni)
                     if vint < 0:
-                        raise Exception("invalid auto vni suffix %d" % (vint))
+                        raise UtilsException("invalid auto vni suffix %d" % (vint))
                     if '-' in vlan:
                         (vstart, vend) = vlan.split('-', 1)
                         vnistart = int(vstart) + vint
@@ -516,7 +544,7 @@ class utils():
                     vni = vni.split('-', 1)[1]
                     vint = int(vni)
                     if vint < 0:
-                        raise Exception("invalid auto vni suffix %d" % (vint))
+                        raise UtilsException("invalid auto vni suffix %d" % (vint))
                     if '-' in vlan:
                         (vstart, vend) = vlan.split('-', 1)
                         vnistart = int(vstart) - vint
@@ -525,14 +553,13 @@ class utils():
                         vnistart = int(vlan) - vint
                 if (vnistart <= 0 or (vniend > 0 and (vniend < vnistart)) or
                     (vnistart > cls.vni_max) or (vniend > cls.vni_max)):
-                        raise Exception("invalid vni - unable to derive auto vni %s" % (vni))
+                        raise UtilsException("invalid vni - unable to derive auto vni %s" % (vni))
                 if vniend > 0:
                     vni = '%d-%d' % (vnistart, vniend)
                 else:
                     vni = '%d' % (vnistart)
         except Exception as e:
-            raise Exception(str(e))
-            return
+            raise UtilsException(str(e))
         return (vlan, vni)
 
     @classmethod
@@ -555,6 +582,37 @@ class utils():
             vnis.extend([vni])
         return (vlans, vnis)
 
+    @staticmethod
+    def group_keys_as_range(input_dict):
+        output_dict = {}
+
+        if not input_dict:
+            return output_dict
+
+        sorted_items = sorted(input_dict.items())
+
+        current_group_key_start = sorted_items[0][0]
+        current_group_key_end = sorted_items[0][0]
+        current_group_value = sorted_items[0][1]
+
+        for key, value in sorted_items[1:]:
+            if value == current_group_value and key == current_group_key_end + 1:
+                current_group_key_end = key
+            else:
+                group_key = f"{current_group_key_start}-{current_group_key_end}" \
+                    if current_group_key_start != current_group_key_end else str(current_group_key_start)
+                output_dict[group_key] = current_group_value
+
+                current_group_key_start = key
+                current_group_key_end = key
+                current_group_value = value
+
+        group_key = f"{current_group_key_start}-{current_group_key_end}" \
+            if current_group_key_start != current_group_key_end else str(current_group_key_start)
+        output_dict[group_key] = current_group_value
+
+        return output_dict
+
     @classmethod
     def get_vni_mcastgrp_in_map(cls, vni_mcastgrp_map):
         vnid = {}
@@ -568,5 +626,58 @@ class utils():
                 cls.logger.error("invalid vlan mcast grp map entry - %s (%s)" % (ventry, str(e)))
                 raise
         return vnid
+
+    @classmethod
+    def _get_ifaceobj_bridge_ports(cls, ifaceobj, as_list=False):
+        bridge_ports = []
+
+        for brport in ifaceobj.get_attr_value('bridge-ports') or []:
+            if brport != 'none':
+                bridge_ports.extend(brport.split())
+
+        if as_list:
+            return bridge_ports
+
+        return ' '.join(bridge_ports)
+
+    @classmethod
+    def parse_port_list(cls, ifacename, port_expr, ifacenames=None):
+        """ parse port list containing glob and regex
+
+        Args:
+            port_expr (str): expression
+            ifacenames (list): list of interface names. This needs to be specified if the expression has a regular expression
+        """
+        regex = 0
+        glob = 0
+        portlist = []
+
+        if not port_expr:
+            return None
+        exprs = re.split(r'[\s\t]\s*', port_expr)
+        for expr in exprs:
+            if expr == 'noregex':
+                regex = 0
+            elif expr == 'noglob':
+                glob = 0
+            elif expr == 'regex':
+                regex = 1
+            elif expr == 'glob':
+                glob = 1
+            elif regex:
+                for port in self.parse_regex(ifacename, expr, ifacenames):
+                    if port not in portlist:
+                        portlist.append(port)
+                regex = 0
+            elif glob:
+                for port in self.parse_glob(ifacename, expr):
+                    portlist.append(port)
+                glob = 0
+            else:
+                portlist.append(expr)
+        if not portlist:
+            return None
+        return portlist
+
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)

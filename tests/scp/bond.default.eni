@@ -1,0 +1,38 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto bond0
+iface bond0
+      bond-slaves swp_AA_
+
+auto bond1
+iface bond1
+      bond-slaves swp_BB_
+
+auto bond2
+iface bond2
+      bond-slaves swp_CC_
+
+auto bond3
+iface bond3
+      bond-slaves swp_DD_
+
+auto bond4
+iface bond4
+      bond-slaves swp_EE_
+
+auto bond5
+iface bond5
+      bond-slaves swp_FF_
+
+auto bond6
+iface bond6
+      bond-slaves swp_GG_

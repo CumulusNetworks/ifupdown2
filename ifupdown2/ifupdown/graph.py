@@ -15,8 +15,12 @@ from collections import deque
 
 try:
     from ifupdown2.lib.gvgen import GvGen
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from lib.gvgen import GvGen
+
+
+class GraphException(Exception):
+    pass
 
 
 class graph():
@@ -58,7 +62,6 @@ class graph():
                 except Exception:
                     cls.logger.debug('topological_sort_graphs_all: did not find %s' %y)
                     indegrees[y] = 0
-                    pass
                 if indegrees.get(y) == 0:
                     Q.append(y)
 
@@ -66,7 +69,7 @@ class graph():
 
         for ifname,indegree in list(indegrees.items()):
             if indegree != 0:
-                raise Exception('cycle found involving iface %s' %ifname +
+                raise GraphException('cycle found involving iface %s' %ifname +
                                 ' (indegree %d)' %indegree)
 
         return S

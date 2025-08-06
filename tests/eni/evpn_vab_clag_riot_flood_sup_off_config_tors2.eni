@@ -1,0 +1,72 @@
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto lo
+iface lo
+    address 27.0.0.16/32
+    alias BGP un-numbered Use for Vxlan Src Tunnel
+
+auto uplink
+iface uplink
+        bond-slaves swp_AA_ swp_BB_
+        bond-mode 802.3ad
+        bond-min-links 1
+        bond-lacp-rate 1
+        mtu  9202
+
+auto hostbond3
+iface hostbond3
+        bond-slaves swp_CC_ swp_DD_
+        bond-mode 802.3ad
+        bond-min-links 1
+        bond-lacp-rate 1
+        mtu  9152
+        bridge-pvid 1000
+
+
+auto vx-1000
+iface vx-1000
+    vxlan-id 1000
+    bridge-access 1000
+    vxlan-local-tunnelip 27.0.0.16
+    bridge-learning off
+         mstpctl-portbpdufilter yes
+         mstpctl-bpduguard  yes
+         mtu 9152
+
+auto vx-1001
+iface vx-1001
+    vxlan-id 1001
+    bridge-access 1001
+    vxlan-local-tunnelip 27.0.0.16
+    bridge-learning off
+         mstpctl-portbpdufilter yes
+         mstpctl-bpduguard  yes
+         mtu 9152
+
+auto bridge
+iface bridge
+    bridge-vlan-aware yes
+    bridge-ports vx-1000 vx-1001 hostbond3
+    bridge-stp on
+    bridge-vids 1000-1004
+    bridge-pvid 1
+
+auto vlan1000
+iface vlan1000
+    address 45.0.0.2/24
+    vlan-id 1000
+    vlan-raw-device bridge
+    address-virtual 00:00:5e:00:01:01 45.0.0.1/24 2001:fee1::1/64
+
+auto vlan1001
+iface vlan1001
+    address 45.0.1.2/24
+    vlan-id 1001
+    vlan-raw-device bridge
+    address-virtual 00:00:5e:00:01:01 45.0.1.1/24 2001:fee1:0:1::1/64

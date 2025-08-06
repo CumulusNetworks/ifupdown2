@@ -16,11 +16,15 @@ try:
 
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from ifupdown.iface import *
 
     import ifupdown.exceptions as exceptions
     import ifupdown.ifupdownconfig as ifupdownConfig
+
+
+class StateManagerException(Exception):
+    pass
 
 
 class pickling():
@@ -29,20 +33,14 @@ class pickling():
     @classmethod
     def save(cls, filename, list_of_objects):
         """ pickle a list of iface objects """
-        try:
-            with open(filename, 'wb') as f:
-                for obj in list_of_objects:
-                    pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-        except Exception:
-            raise
+        with open(filename, 'wb') as f:
+            for obj in list_of_objects:
+                pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
     @classmethod
     def save_obj(cls, f, obj):
         """ pickle iface object """
-        try:
-            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-        except Exception:
-            raise
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
     @classmethod
     def load(cls, filename):
@@ -51,7 +49,6 @@ class pickling():
             while True:
                 try: yield pickle.load(f)
                 except EOFError: break
-                except Exception: raise
 
 class stateManager():
     """ state manager for managing ifupdown iface obj state
@@ -105,16 +102,16 @@ class stateManager():
             try:
                 self._init_makedirs_state_dir()
             except Exception as e:
-                raise Exception("statemanager: unable to create required directory: %s" % str(e))
+                raise StateManagerException("statemanager: unable to create required directory: %s" % str(e))
 
         if not os.path.exists(self.state_rundir):
-            os.makedirs(self.state_rundir)
+            os.makedirs(self.state_rundir, exist_ok=True)
 
         self.state_file = "%s/%s" % (self.state_dir, self.state_filename)
 
     def _init_makedirs_state_dir(self):
         if not os.path.exists(self.state_dir):
-            os.makedirs(self.state_dir)
+            os.makedirs(self.state_dir, exist_ok=True)
 
 
     def save_ifaceobj(self, ifaceobj):
@@ -189,18 +186,14 @@ class stateManager():
 
     def save_state(self):
         """ saves state (ifaceobjects) to persistent state file """
-
-        try:
-            with open(self.state_file, 'wb') as f:
-                if not len(self.ifaceobjdict):
-                    f.truncate(0)
-                    return
-                self.logger.debug('saving state ..')
-                for ifaceobjs in list(self.ifaceobjdict.values()):
-                    [pickling.save_obj(f, i) for i in ifaceobjs]
-            open('%s/%s' %(self.state_rundir, self.state_runlockfile), 'w').close()
-        except Exception:
-            raise
+        with open(self.state_file, 'wb') as f:
+            if not len(self.ifaceobjdict):
+                f.truncate(0)
+                return
+            self.logger.debug('saving state ..')
+            for ifaceobjs in list(self.ifaceobjdict.values()):
+                [pickling.save_obj(f, i) for i in ifaceobjs]
+        open('%s/%s' % (self.state_rundir, self.state_runlockfile), 'w').close()
 
     def dump_pretty(self, ifacenames, format='native'):
         if not ifacenames:

@@ -4,24 +4,33 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
+import subprocess
+import re
+
 try:
-    from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.addon import Addon, AddonException
+    from ifupdown2.lib.iproute2 import IPRoute2
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
+    from ifupdown2.ifupdown.statemanager import statemanager_api as statemanager
     from ifupdown2.nlmanager.nlmanager import Link
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
     from ifupdown2.ifupdown.utils import utils
     from ifupdown2.lib.exceptions import RetryCMD
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.policymanager as policymanager
-except (ImportError, ModuleNotFoundError):
-    from lib.addon import Addon
+    import ifupdown2.ifupdown.ifupdownconfig as ifupdownconfig
+except ImportError:
+    from lib.addon import Addon, AddonException
+    from lib.iproute2 import IPRoute2
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceStatus
+    from ifupdown.statemanager import statemanager_api as statemanager
     from nlmanager.nlmanager import Link
     from ifupdownaddons.modulebase import moduleBase
     from ifupdown.utils import utils
     from lib.exceptions import RetryCMD
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.policymanager as policymanager
+    import ifupdown.ifupdownconfig as ifupdownconfig
 
 
 class vlan(Addon, moduleBase):
@@ -63,6 +72,7 @@ class vlan(Addon, moduleBase):
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
+        self.iproute2 = IPRoute2()
 
     def _is_vlan_device(self, ifaceobj):
         vlan_raw_device = ifaceobj.get_attr_value_first('vlan-raw-device')
@@ -127,13 +137,60 @@ class vlan(Addon, moduleBase):
             ifaceobjcurr.status = ifaceStatus.ERROR
             ifaceobjcurr.status_str = 'bridge vid error'
 
-    def _up(self, ifaceobj):
+    def _is_peerlink(self, ifaceobj):
+        return ifaceobj.get_attr_value_first('clagd-backup-ip')
+
+    def vxlan_hopping_filter_bypass(self, ifaceobj, vlanrawdevice, vid, ifaceobj_getfunc):
+        vlan_is_peerlink = self._is_peerlink(ifaceobj)
+        old_ifaceobjs = statemanager.get_ifaceobjs(ifaceobj.name) or []
+        vlan_was_peerlink = any(map(self._is_peerlink, old_ifaceobjs))
+
+        if not vlan_is_peerlink and not vlan_was_peerlink:
+            return
+
+        bridge_ifaceobjs = ifaceobj_getfunc(vlanrawdevice)
+        if any(map(lambda b: b.link_kind == ifaceLinkKind.BRIDGE, bridge_ifaceobjs)):
+            bridge_ports = [ port for b in bridge_ifaceobjs for ports in (self._get_bridge_port_list(b) or []) for port in (ifaceobj_getfunc(ports) or []) ]
+            bridge_is_vxlan = any(map(lambda p: p.link_kind == ifaceLinkKind.VXLAN, bridge_ports))
+        else:
+            bridge_is_vxlan = False
+
+        vxlan_port = self.netlink.VXLAN_UDP_PORT
+        if bridge_is_vxlan:
+            vxlan_dev = next(p for p in bridge_ports if p.link_kind == ifaceLinkKind.VXLAN)
+            vxlan_port_str = vxlan_dev.get_attr_value_first("vxlan-port")
+            if vxlan_port_str:
+                vxlan_port = vxlan_port_str
+
+        if vlan_is_peerlink:
+            desired_filters = [(vxlan_port, vid, 'pass')]
+        else:
+            desired_filters = []
+        filters_to_add, filters_to_delete = self.iproute2.check_tc_filters(bridge_ifaceobjs[0].name, desired_filters)
+
+        try:
+            self.iproute2.batch_start()
+
+            for (vxlan_port, vlan_id, _) in filters_to_delete:
+                if vlan_id == vid:
+                    self.iproute2.del_vxlan_hopping_tc_filter_bypass(bridge_ifaceobjs[0].name, vlan_id, vxlan_port)
+
+            for (vxlan_port, vid, _) in filters_to_add:
+                self.iproute2.add_vxlan_hopping_tc_filter_bypass(bridge_ifaceobjs[0].name, vid, vxlan_port)
+
+            self.iproute2.batch_commit()
+        except Exception as e:
+            if "Unterminated quoted string" not in str(e):
+                raise
+            self.logger.debug(f"tc quote failure: {str(e)}")
+
+    def _up(self, ifaceobj, ifaceobj_getfunc=None):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
-            raise Exception('could not determine vlanid')
+            raise AddonException('could not determine vlanid')
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
-            raise Exception('could not determine vlan raw device')
+            raise AddonException('could not determine vlan raw device')
 
         ifname = ifaceobj.name
 
@@ -159,14 +216,14 @@ class vlan(Addon, moduleBase):
             vlan_protocol = self.get_attr_default_value('vlan-protocol')
 
         if cached_vlan_protocol and vlan_protocol.lower() != cached_vlan_protocol.lower():
-            raise Exception('%s: cannot change vlan-protocol to %s: operation not supported. '
+            raise AddonException('%s: cannot change vlan-protocol to %s: operation not supported. '
                             'Please delete the device with \'ifdown %s\' and recreate it to '
                             'apply the change.'
                             % (ifaceobj.name, vlan_protocol, ifaceobj.name))
 
         cached_vlan_id = cached_vlan_ifla_info_data.get(Link.IFLA_VLAN_ID)
         if cached_vlan_id is not None and vlanid != cached_vlan_id:
-            raise Exception('%s: cannot change vlan-id to %s: operation not supported. '
+            raise AddonException('%s: cannot change vlan-id to %s: operation not supported. '
                             'Please delete the device with \'ifdown %s\' and recreate it to '
                             'apply the change.'
                             % (ifaceobj.name, vlanid, ifaceobj.name))
@@ -180,7 +237,7 @@ class vlan(Addon, moduleBase):
                 cached_vlan_raw_device = self.cache.get_lower_device_ifname(ifname)
 
                 if cached_vlan_raw_device and user_vlan_raw_device and cached_vlan_raw_device != user_vlan_raw_device:
-                    raise Exception('%s: cannot change vlan-raw-device from %s to %s: operation not supported. '
+                    raise AddonException('%s: cannot change vlan-raw-device from %s to %s: operation not supported. '
                                     'Please delete the device with \'ifdown %s\' and recreate it to apply the change.'
                                     % (ifaceobj.name, cached_vlan_raw_device, user_vlan_raw_device, ifaceobj.name))
 
@@ -188,7 +245,7 @@ class vlan(Addon, moduleBase):
                 if ifupdownflags.flags.DRYRUN:
                     return
                 else:
-                    raise Exception('rawdevice %s not present' % vlanrawdevice)
+                    raise AddonException('rawdevice %s not present' % vlanrawdevice)
             if vlan_exists:
 
                 # vlan-bridge-binding has changed we need to update it
@@ -197,22 +254,24 @@ class vlan(Addon, moduleBase):
                     self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol, bool_vlan_bridge_binding)
 
                 self._bridge_vid_add_del(vlanrawdevice, vlanid)
+                self.vxlan_hopping_filter_bypass(ifaceobj, vlanrawdevice, vlanid, ifaceobj_getfunc)
                 return
 
         try:
             self.netlink.link_add_vlan(vlanrawdevice, ifaceobj.name, vlanid, vlan_protocol, bool_vlan_bridge_binding if vlan_bridge_binding is not None else None)
+            self.vxlan_hopping_filter_bypass(ifaceobj, vlanrawdevice, vlanid, ifaceobj_getfunc)
         except RetryCMD as e:
             self.logger.info("%s: attempting to create vlan without bridge_binding (capability not detected on the system)" % ifaceobj.name)
             utils.exec_command(e.cmd)
         self._bridge_vid_add_del(vlanrawdevice, vlanid)
 
-    def _down(self, ifaceobj):
+    def _down(self, ifaceobj, ifaceobj_getfunc=None):
         vlanid = self._get_vlan_id(ifaceobj)
         if vlanid == -1:
-            raise Exception('could not determine vlanid')
+            raise AddonException('could not determine vlanid')
         vlanrawdevice = self._get_vlan_raw_device(ifaceobj)
         if not vlanrawdevice:
-            raise Exception('could not determine vlan raw device')
+            raise AddonException('could not determine vlan raw device')
         if not ifupdownflags.flags.PERFMODE and not self.cache.link_exists(ifaceobj.name):
             return
         try:
@@ -221,7 +280,7 @@ class vlan(Addon, moduleBase):
         except Exception as e:
             self.log_warn(str(e))
 
-    def _query_check(self, ifaceobj, ifaceobjcurr):
+    def _query_check(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc=None):
         if not self.cache.link_exists(ifaceobj.name):
             return
 
@@ -291,7 +350,7 @@ class vlan(Addon, moduleBase):
 
             self._bridge_vid_check(ifaceobjcurr, cached_vlan_raw_device, cached_vlan_id)
 
-    def _query_running(self, ifaceobjrunning):
+    def _query_running(self, ifaceobjrunning, ifaceobj_getfunc=None):
         ifname = ifaceobjrunning.name
 
         if not self.cache.link_exists(ifname):
@@ -329,7 +388,7 @@ class vlan(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return list(self._run_ops.keys())
 
-    def run(self, ifaceobj, operation, query_ifaceobj=None, **extra_args):
+    def run(self, ifaceobj, operation, query_ifaceobj=None, ifaceobj_getfunc=None):
         """ run vlan configuration on the interface object passed as argument
 
         Args:
@@ -354,6 +413,6 @@ class vlan(Addon, moduleBase):
                 not self._is_vlan_device(ifaceobj)):
             return
         if operation == 'query-checkcurr':
-            op_handler(self, ifaceobj, query_ifaceobj)
+            op_handler(self, ifaceobj, query_ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)
         else:
-            op_handler(self, ifaceobj)
+            op_handler(self, ifaceobj, ifaceobj_getfunc=ifaceobj_getfunc)

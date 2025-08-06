@@ -1,0 +1,52 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto br0
+iface br0
+      bridge-ports vx42
+      bridge-vlan-aware yes
+      bridge-stp off
+      bridge-bridgeprio 42
+      bridge-ageing 42
+      bridge-fd 29
+      bridge-hello 10
+      bridge-maxage 10
+      bridge-pathcosts vx42=42
+      bridge-portprios vx42=10
+      bridge-mclmc 42
+      bridge-mcrouter no
+      bridge-mcsnoop no
+      bridge-mcsqc 42
+      bridge-mcqifaddr yes
+      bridge-mcquerier yes
+      bridge-hashmax 1024
+      bridge-mclmi 42
+      bridge-mcmi 42
+      bridge-mcqpi 42
+      bridge-mcqi 42
+      bridge-mcqri 42
+      bridge-mcsqi 42
+      bridge-portmcfl vx42=yes
+      bridge-learning vx42=off
+      bridge-igmp-version 3
+      bridge-mld-version 2
+      bridge-unicast-flood vx42=off
+      bridge-multicast-flood vx42=off
+      bridge-vlan-protocol 802.1ad
+      bridge-vlan-stats off
+      bridge-arp-nd-suppress vx42=on
+      bridge-mcstats off
+      bridge-l2protocol-tunnel all
+
+auto vx42
+iface vx42
+      vxlan-id 42
+      bridge-access 42
