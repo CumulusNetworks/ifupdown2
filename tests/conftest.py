@@ -143,6 +143,18 @@ class SSH(paramiko.SSHClient):
 
         return stdout.read().decode("utf-8")
 
+    def assert_interface_admin_up(self, ifname: str):
+        flags = json.loads(
+            self.run_assert_success(f"ip -j link show {ifname}")
+        )[0].get("flags", [])
+        assert "UP" in flags, f"{ifname} is administratively down: {flags}"
+
+    def assert_interface_admin_down(self, ifname: str):
+        flags = json.loads(
+            self.run_assert_success(f"ip -j link show {ifname}")
+        )[0].get("flags", [])
+        assert "UP" not in flags, f"{ifname} is administratively up: {flags}"
+
     def __ifupdown2(
             self,
             op: str,

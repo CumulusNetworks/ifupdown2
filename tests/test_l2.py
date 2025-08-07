@@ -440,18 +440,22 @@ def test_cm_11485_vlan_device_name_vlan(ssh, setup, get_json):
 
 
 def test_interfaces_link_state(ssh, setup, get_json):
+    """Link state checks use the kernel's administrative UP flag."""
     ssh.scp("tests/scp/interfaces_link_state.before.eni", ENI_D)
     ssh.ifreload_a()
     assert_identical_json(
         ssh.ifquery_ac_json(),
         get_json("interfaces_link_state.before.ifquery.ac.json")
     )
-    ssh.run_assert_success("ip -br link show dev swp_AA_ | grep DOWN")
-    ssh.run_assert_success("ip -br link show dev swp_BB_ | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge1 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge2 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge3 | grep DOWN")
-    ssh.run_assert_success("ip -br link show dev bridge4 | grep UP")
+
+    ssh.assert_interface_admin_down("bridge3")
+
+    ssh.assert_interface_admin_down("swp_AA_")
+    ssh.assert_interface_admin_up("swp_BB_")
+    ssh.assert_interface_admin_up("bridge1")
+    ssh.assert_interface_admin_up("bridge2")
+    ssh.assert_interface_admin_up("bridge4")
+
     ssh.run_assert_success("rm /etc/network/interfaces.d/interfaces_link_state.before.eni")
 
     ssh.scp("tests/scp/interfaces_link_state.after.eni", ENI_D)
@@ -460,11 +464,14 @@ def test_interfaces_link_state(ssh, setup, get_json):
         ssh.ifquery_ac_json(),
         get_json("interfaces_link_state.after.ifquery.ac.json")
     )
-    ssh.run_assert_success("ip -br link show dev swp_BB_ | grep DOWN")
-    ssh.run_assert_success("ip -br link show dev bridge1 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge2 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge3 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge4 | grep DOWN")
+
+    ssh.assert_interface_admin_down("swp_BB_")
+    ssh.assert_interface_admin_down("bridge4")
+
+    ssh.assert_interface_admin_up("bridge1")
+    ssh.assert_interface_admin_up("bridge2")
+    ssh.assert_interface_admin_up("bridge3")
+
     ssh.run_assert_success("rm /etc/network/interfaces.d/interfaces_link_state.after.eni")
 
 
