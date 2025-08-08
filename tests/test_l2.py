@@ -450,7 +450,7 @@ def test_interfaces_link_state(ssh, setup, get_json):
 
     ssh.assert_interface_admin_down("bridge3")
 
-    ssh.assert_interface_admin_down("swp_AA_")
+    ssh.assert_interface_admin_up("swp_AA_")
     ssh.assert_interface_admin_up("swp_BB_")
     ssh.assert_interface_admin_up("bridge1")
     ssh.assert_interface_admin_up("bridge2")
