@@ -192,9 +192,9 @@ def test_bridge9_multiple_vlan_aware_bridge(ssh, get_json):
     assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_BB_1.json"))
 
     # Replace "bridge-ports swp_AA_" with "bridge-ports swp_BB_" and vice-versa
-    ssh.run_assert_success(f"sed -i 's/\<bridge-ports swp_AA_\>/bridge-ports swp_CC_/g' {ENI}")
-    ssh.run_assert_success(f"sed -i 's/\<bridge-ports swp_BB_\>/bridge-ports swp_AA_/g' {ENI}")
-    ssh.run_assert_success(f"sed -i 's/\<bridge-ports swp_CC_\>/bridge-ports swp_BB_/g' {ENI}")
+    ssh.run_assert_success(f"sed -i 's/\\<bridge-ports swp_AA_\\>/bridge-ports swp_CC_/g' {ENI}")
+    ssh.run_assert_success(f"sed -i 's/\\<bridge-ports swp_BB_\\>/bridge-ports swp_AA_/g' {ENI}")
+    ssh.run_assert_success(f"sed -i 's/\\<bridge-ports swp_CC_\\>/bridge-ports swp_BB_/g' {ENI}")
     ssh.ifreload_diff = False
     ssh.ifreload_a()
     _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_AA_")
@@ -203,6 +203,7 @@ def test_bridge9_multiple_vlan_aware_bridge(ssh, get_json):
     _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_BB_")
     stdout_str: str = stdout.read().decode("utf-8")
     assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_BB_2.json"))
+    ssh.ifreload_diff = True
 
 
 def test_bridge_access(ssh, setup, get_json):
