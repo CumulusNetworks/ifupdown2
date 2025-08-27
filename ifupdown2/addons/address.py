@@ -1152,7 +1152,7 @@ class address(AddonWithIpBlackList, moduleBase):
         #
         # alias
         #
-        self.sysfs.link_set_alias(ifaceobj.name, ifaceobj.get_attr_value_first("alias"))
+        self.netlink.link_set_alias(ifaceobj.name, ifaceobj.get_attr_value_first("alias"))
 
         self._sysctl_config(ifaceobj)
 
@@ -1385,7 +1385,7 @@ class address(AddonWithIpBlackList, moduleBase):
             if not ifaceobj.link_kind:
                 alias = ifaceobj.get_attr_value_first("alias")
                 if alias:
-                    self.sysfs.link_set_alias(ifaceobj.name, None)  # None to reset alias.
+                    self.netlink.link_set_alias(ifaceobj.name, None)  # None to reset alias.
 
             hwaddress = self.process_hwaddress_reset_to_default(ifaceobj)
             if hwaddress != None and not ifaceobj.link_kind:
