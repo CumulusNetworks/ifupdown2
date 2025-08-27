@@ -521,10 +521,7 @@ class IPRoute2(Cache, Requirements):
             self.logger.info("%s: cannot set addrgen: ipv6 is disabled on this device" % ifname)
             return False
 
-        if link_created:
-            link_mtu = self.sysfs.link_get_mtu(ifname)
-        else:
-            link_mtu = self.cache.get_link_mtu(ifname)
+        link_mtu = self.cache.get_link_mtu(ifname)
 
         if link_mtu < 1280:
             self.logger.info("%s: ipv6 addrgen is disabled on device with MTU "

@@ -107,22 +107,6 @@ class __Sysfs(IO, Requirements):
         return self.read_file_oneline("/sys/class/net/%s/address" % ifname)
 
     #
-    # MTU
-    #
-
-    def link_get_mtu(self, ifname):
-        return int(self.read_file_oneline("/sys/class/net/%s/mtu" % ifname) or 0)
-
-    def link_set_mtu(self, ifname, mtu_str, mtu_int):
-        if self.cache.get_link_mtu(ifname) != mtu_int:
-            if self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str):
-                self.cache.override_link_mtu(ifname, mtu_int)
-
-    def link_set_mtu_dry_run(self, ifname, mtu_str, mtu_int):
-        # we can remove the cache check in DRYRUN mode
-        self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str)
-
-    #
     # ALIAS
     #
 
