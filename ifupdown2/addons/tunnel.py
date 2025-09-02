@@ -37,7 +37,7 @@ class tunnel(Addon, moduleBase):
         'attrs': {
             'tunnel-mode': {
                 'help': 'type of tunnel as in \'ip link\' command.',
-                'validvals': ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6'],
+                'validvals': ['gre', 'gretap', 'ipip', 'sit', 'vti', 'ip6gre', 'ipip6', 'ip6ip6', 'vti6', 'any'],
                 'required': True,
                 'example': ['tunnel-mode gre'],
                 "aliases": ["mode"]
@@ -152,6 +152,7 @@ class tunnel(Addon, moduleBase):
             "ip6tnl": self.__get_info_data_iptun_tunnel,
             "vti": self.__get_info_data_vti_tunnel,
             "vti6": self.__get_info_data_vti_tunnel,
+            "any": self.__get_info_data_iptun_tunnel,
         }.get(link_kind, lambda x: {})(self.cache.get_link_info_data(ifname))
 
     def _up(self, ifaceobj):
