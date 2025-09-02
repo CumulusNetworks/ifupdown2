@@ -455,6 +455,10 @@ class IPRoute2(Cache, Requirements):
         else:
             op = "add"
 
+        # Determine the kind
+        # "any" mode creates an ip6tnl tunnel
+        kind = "ip6tnl" if mode == "any" else mode
+
         cmd = []
         if "6" in mode:
             cmd.append("-6")
@@ -471,7 +475,7 @@ class IPRoute2(Cache, Requirements):
                     cmd.append(v)
 
         utils.exec_command("%s %s" % (utils.ip_cmd, " ".join(cmd)))
-        self.__update_cache_after_link_creation(tunnelname, mode)
+        self.__update_cache_after_link_creation(tunnelname, kind)
 
     def tunnel_change(self, tunnelname, attrs=None):
         """ tunnel change function """
