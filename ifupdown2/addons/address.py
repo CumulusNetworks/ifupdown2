@@ -194,7 +194,19 @@ class address(AddonWithIpBlackList, moduleBase):
                 "validvals": ['on', 'off', 'yes', 'no', '0', '1'],
                 "default": "no",
                 "aliases": ["disable-ip6"]
-            }
+            },
+            'accept-ra': {
+                'help': 'Accept IPv6 router advertisements',
+                'validvals': ['0', '1', '2'],
+                'default': '0',
+                'example': ['accept-ra 1']
+            },
+            'autoconf': {
+                'help': 'Enable IPv6 slaac autoconfiguration',
+                'validvals': ['0', '1'],
+                'default': '0',
+                'example': ['autoconf 1']
+            },
         }
     }
 
@@ -272,6 +284,15 @@ class address(AddonWithIpBlackList, moduleBase):
 
         self.mac_regex = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 
+        try:
+            self.default_accept_ra = str(self.sysctl_get('net.ipv6.conf.all.accept_ra'))
+        except Exception:
+            self.default_accept_ra = 1
+
+        try:
+            self.default_autoconf = str(self.sysctl_get('net.ipv6.conf.all.autoconf'))
+        except Exception:
+            self.default_autoconf = 1
 
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
@@ -682,20 +703,30 @@ class address(AddonWithIpBlackList, moduleBase):
                 if force_reapply:
                     self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list)
                 return
+
+            purge_dynamic_v6_addresses = True
+            running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+            if running_autoconf == '1' and not squash_addr_config:
+                purge_dynamic_v6_addresses = False
+
             try:
-                # if primary address is not same, there is no need to keep any, reset all addresses.
-                if ordered_user_configured_ips and running_ip_addrs and ordered_user_configured_ips[0] != running_ip_addrs[0]:
-                    self.logger.info("%s: primary ip changed (from %s to %s) we need to purge all ip addresses and re-add them"
-                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs[0]))
-                    skip_addrs = []
+                # if primary ipv4 address is not same, there is no need to keep any, reset all ipv4 addresses.
+                if user_ip4 and running_ip_addrs and running_ip_addrs[0].version == 4 and user_ip4[0] != running_ip_addrs[0]:
+                    self.logger.info("%s: primary ipv4 changed (from %s to %s) we need to purge all ipv4 addresses and re-add them"
+                                     % (ifname, user_ip4[0], running_ip_addrs[0]))
+                    skip_addrs = user_ip6
                 else:
                     skip_addrs = ordered_user_configured_ips
 
                 if anycast_ip:
                     skip_addrs.append(anycast_ip)
 
+                ip_flags = self.cache.get_ip_addresses_flags(ifname)
                 for addr in running_ip_addrs:
                     if addr in skip_addrs:
+                        continue
+                    # don't purge dynamic ipv6 ip if autoconf is enabled
+                    if addr.version == 6 and not purge_dynamic_v6_addresses and addr in ip_flags and not ip_flags[addr] & 0x80:
                         continue
                     self.netlink.addr_del(ifname, addr)
             except Exception as e:
@@ -923,14 +954,15 @@ class address(AddonWithIpBlackList, moduleBase):
                 self._propagate_mtu_to_upper_devs(ifaceobj, self.default_mtu, self.default_mtu_int, ifaceobj_getfunc)
 
     def _set_bridge_forwarding(self, ifaceobj):
-        """ set ip forwarding to 0 if bridge interface does not have a
-        ip nor svi """
+        """ Disable IP forwarding if bridge interface does not have a IP nor SVI. """
         ifname = ifaceobj.name
 
         netconf_ipv4_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET, ifname)
         netconf_ipv6_forwarding = self.cache.get_netconf_forwarding(socket.AF_INET6, ifname)
 
-        if not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address') and (ifaceobj.addr_method and "dhcp" not in ifaceobj.addr_method):
+        if ( not ifaceobj.upperifaces and not ifaceobj.get_attr_value('address') and
+             ifaceobj.addr_method and "dhcp" not in ifaceobj.addr_method and "auto" not in ifaceobj.addr_method):
+
             if netconf_ipv4_forwarding:
                 self.sysctl_write_forwarding_value_to_proc(ifname, "ipv4", 0)
             if netconf_ipv6_forwarding:
@@ -943,6 +975,41 @@ class address(AddonWithIpBlackList, moduleBase):
 
     def sysctl_write_forwarding_value_to_proc(self, ifname, family, value):
         self.write_file("/proc/sys/net/%s/conf/%s/forwarding" % (family, ifname), "%s\n" % value)
+
+    def _sysctl_slaac(self, ifaceobj):
+        addr_method = ifaceobj.addr_method
+        if addr_method not in ["auto"]:
+
+            try:
+                sysctl_ifname = '/'.join(ifaceobj.name.split("."))
+
+                running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+                if running_accept_ra == '':
+                    running_accept_ra = self.default_accept_ra
+                accept_ra = ifaceobj.get_attr_value_first('accept-ra')
+                if accept_ra is None:
+                    accept_ra = self.default_accept_ra
+
+                if running_accept_ra != accept_ra:
+                    self.sysctl_set(f'net.ipv6.conf.{sysctl_ifname}.accept_ra', accept_ra)
+                    self.cache.update_link_inet6_accept_ra(ifaceobj.name, accept_ra)
+
+                running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+                if running_autoconf == '':
+                    running_autoconf = self.default_autoconf
+                autoconf = ifaceobj.get_attr_value_first('autoconf')
+                if autoconf is None:
+                    autoconf = self.default_autoconf
+
+                if running_autoconf != autoconf:
+                    self.sysctl_set(f'net.ipv6.conf.{sysctl_ifname}.autoconf', autoconf)
+                    self.cache.update_link_inet6_autoconf(ifaceobj.name, autoconf)
+
+            except Exception as e:
+                if not setting_default_value:
+                    ifaceobj.status = ifaceStatus.ERROR
+                    self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
+
 
     def _sysctl_config(self, ifaceobj):
         setting_default_value = False
@@ -970,7 +1037,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
         if (ifaceobj.link_kind & ifaceLinkKind.BRIDGE):
             self._set_bridge_forwarding(ifaceobj)
-
+            self._sysctl_slaac(ifaceobj)
         if not self.syntax_check_sysctls(ifaceobj):
             return
         if not self.syntax_check_l3_svi_ip_forward(ifaceobj):
@@ -1037,6 +1104,8 @@ class address(AddonWithIpBlackList, moduleBase):
                        ifaceobj.status = ifaceStatus.ERROR
                        self.logger.error('%s: %s' %(ifaceobj.name, str(e)))
 
+        self._sysctl_slaac(ifaceobj)
+
     def process_mtu(self, ifaceobj, ifaceobj_getfunc):
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.OPENVSWITCH:
@@ -1074,7 +1143,7 @@ class address(AddonWithIpBlackList, moduleBase):
             # no need to go further during perfmode (boot)
             return
 
-        if not user_configured_ipv6_addrgen and ifaceobj.addr_method in ["dhcp", "ppp"]:
+        if not user_configured_ipv6_addrgen and ifaceobj.addr_method in ["dhcp", "ppp", "auto"]:
             return
 
         if not user_configured_ipv6_addrgen:
@@ -1330,7 +1399,7 @@ class address(AddonWithIpBlackList, moduleBase):
             if not self.cache.link_exists(ifaceobj.name):
                 return
             addr_method = ifaceobj.addr_method
-            if addr_method not in ["dhcp", "ppp"]:
+            if addr_method not in ["dhcp", "ppp", "auto"]:
                 if ifaceobj.get_attr_value_first('address-purge')=='no':
                     addrlist = ifaceobj.get_attr_value('address')
                     for addr in addrlist or []:
@@ -1451,6 +1520,22 @@ class address(AddonWithIpBlackList, moduleBase):
                                                    running_mpls_enable,
                                             mpls_enable != running_mpls_enable)
 
+        accept_ra = ifaceobj.get_attr_value_first('accept-ra')
+        if accept_ra:
+            running_accept_ra = self.cache.get_link_inet6_accept_ra(ifaceobj)
+
+            ifaceobjcurr.update_config_with_status('accept_ra',
+                                                   running_accept_ra,
+                                            accept_ra != running_accept_ra)
+
+        autoconf = ifaceobj.get_attr_value_first('autoconf')
+        if autoconf:
+            running_autoconf = self.cache.get_link_inet6_autoconf(ifaceobj)
+
+            ifaceobjcurr.update_config_with_status('autoconf',
+                                                   running_autoconf,
+                                            autoconf != running_autoconf)
+
     def query_check_ipv6_addrgen(self, ifaceobj, ifaceobjcurr):
         ipv6_addrgen = ifaceobj.get_attr_value_first('ipv6-addrgen')
 
@@ -1517,7 +1602,7 @@ class address(AddonWithIpBlackList, moduleBase):
 
     def _query_check_address(self, ifaceobj, ifaceobjcurr, ifaceobj_getfunc):
         """ ifquery-check: attribute: "address" """
-        if ifaceobj.addr_method in ["dhcp", "ppp"]:
+        if ifaceobj.addr_method in ["dhcp", "ppp", "auto"]:
             return
 
         if ifaceobj_getfunc:
