@@ -106,44 +106,6 @@ class __Sysfs(IO, Requirements):
         """
         return self.read_file_oneline("/sys/class/net/%s/address" % ifname)
 
-    #
-    # MTU
-    #
-
-    def link_get_mtu(self, ifname):
-        return int(self.read_file_oneline("/sys/class/net/%s/mtu" % ifname) or 0)
-
-    def link_set_mtu(self, ifname, mtu_str, mtu_int):
-        if self.cache.get_link_mtu(ifname) != mtu_int:
-            if self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str):
-                self.cache.override_link_mtu(ifname, mtu_int)
-
-    def link_set_mtu_dry_run(self, ifname, mtu_str, mtu_int):
-        # we can remove the cache check in DRYRUN mode
-        self.write_to_file('/sys/class/net/%s/mtu' % ifname, mtu_str)
-
-    #
-    # ALIAS
-    #
-
-    def link_set_alias(self, ifname, alias):
-        cached_alias = self.cache.get_link_alias(ifname)
-
-        if cached_alias == alias:
-            return
-
-        if not alias:
-            alias = "\n"
-
-        if self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias):
-            pass # self.cache.override_link_mtu(ifname, mtu_int)
-
-    def link_set_alias_dry_run(self, ifname, alias):
-        # we can remove the cache check in DRYRUN mode
-        if not alias:
-            alias = ""
-        self.write_to_file("/sys/class/net/%s/ifalias" % ifname, alias)
-
     ############################################################################
     # BRIDGE
     ############################################################################
