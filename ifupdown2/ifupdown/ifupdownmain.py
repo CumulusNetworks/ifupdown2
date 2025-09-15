@@ -1532,7 +1532,9 @@ class ifupdownMain:
             try:
                 module_list = os.listdir(msubdir)
                 for module in module_list:
-                    if self.modules.get(module) or module in self.overridden_ifupdown_scripts:
+                    if (self.modules.get(module)
+                        or module in self.overridden_ifupdown_scripts
+                        or utils.is_dpkg_file(module)):
                         continue
                     self.script_ops[op].append(msubdir + '/' + module)
             except Exception:
