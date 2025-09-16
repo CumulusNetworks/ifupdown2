@@ -283,7 +283,12 @@ class IPRoute2(Cache, Requirements):
 
     ###
 
-    def link_add_single_vxlan(self, link_exists, ifname, ip, group, physdev, port, ageing, vnifilter="off", ttl=None):
+    def link_add_single_vxlan(self, link_exists, ifname, ip, group, physdev, port, ageing, vnifilter="off", ttl=None, ipversion=4):
+        cmd = []
+
+        if ipversion == 6:
+            cmd.append("-6")
+
         if link_exists:
             self.logger.info("updating single vxlan device: %s" % ifname)
 
@@ -291,11 +296,11 @@ class IPRoute2(Cache, Requirements):
             # drop the external keyword:
             # $ ip link set dev vxlan0 type vxlan external local 27.0.0.242 dev ipmr-lo
             # Error: vxlan: cannot change COLLECT_METADATA flag.
-            cmd = ["link set dev %s type vxlan" % ifname]
+            cmd.append(f"link set dev {ifname} type vxlan")
         else:
             self.logger.info("creating single vxlan device: %s" % ifname)
 
-            cmd = ["link add dev %s type vxlan external" % ifname]
+            cmd.append(f"link add dev {ifname} type vxlan external")
 
             # when changing local ip, if we specify vnifilter we get:
             # Error: vxlan: cannot change flag.
@@ -324,7 +329,13 @@ class IPRoute2(Cache, Requirements):
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
         self.__update_cache_after_link_creation(ifname, "vxlan")
 
-    def link_add_l3vxi(self, link_exists, ifname, ip, group, physdev, port, ageing, ttl=None):
+    def link_add_l3vxi(self, link_exists, ifname, ip, group, physdev, port, ageing, ttl=None, ipversion=4):
+
+        cmd = []
+
+        if ipversion == 6:
+            cmd.append("-6")
+
         self.logger.info("creating l3vxi device: %s" % ifname)
 
         if link_exists:
@@ -332,9 +343,9 @@ class IPRoute2(Cache, Requirements):
             # drop the external keyword:
             # $ ip link set dev vxlan0 type vxlan external local 27.0.0.242 dev ipmr-lo
             # Error: vxlan: cannot change COLLECT_METADATA flag.
-            cmd = ["link set dev %s type vxlan" % ifname]
+            cmd.append(f"link set dev {ifname} type vxlan")
         else:
-            cmd = ["link add dev %s type vxlan external vnifilter" % ifname]
+            cmd.append(f"link add dev {ifname} type vxlan external vnifilter")
             # when changing local ip, if we specify vnifilter we get:
             # Error: vxlan: cannot change flag.
             # So we are only setting this attribute on vxlan creation

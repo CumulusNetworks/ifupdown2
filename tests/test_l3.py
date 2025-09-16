@@ -209,6 +209,40 @@ def test_addressvirtual_fdb_cleanup_l3(ssh, setup):
         assert ssh.run(f"ip link show {ifname}")[3] != 0
 
 
+def test_vxlan_ipv6_local_tunnelip_l3(ssh, setup):
+    """An IPv6 local tunnel address is applied and reported in queries."""
+    local = "2001:db8:6000::1"
+
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+
+    ssh.run_assert_success(
+        f"ip -d -o link show vxlan6 | grep 'vxlan id 6000' | "
+        f"grep 'local {local}'"
+    )
+    ssh.ifquery_c("vxlan6")
+
+    running = ssh.ifquery(
+        "--running vxlan6",
+        return_stdout=True,
+    )
+    assert f"vxlan-local-tunnelip {local}" in running
+
+    ssh.ifreload_a()
+    ssh.run_assert_success(
+        f"ip -d -o link show vxlan6 | grep 'local {local}'"
+    )
+
+    ssh.ifdown("vxlan6 dummy_vx6")
+    assert ssh.run("ip link show vxlan6")[3] != 0
+    assert ssh.run("ip link show dummy_vx6")[3] != 0
+
+
 def test_dhcp6_release_link_down_l3(ssh, setup):
     """A failed DHCPv6 release on a kept-down link remains non-fatal."""
     pidfile = "/run/dhclient6.dum_d6.pid"

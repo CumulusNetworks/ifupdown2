@@ -1,0 +1,23 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto dummy_vx6
+iface dummy_vx6
+    link-type dummy
+    address 2001:db8:6000::1/64
+
+auto vxlan6
+iface vxlan6
+    vxlan-id 6000
+    vxlan-local-tunnelip 2001:db8:6000::1
+    vxlan-physdev dummy_vx6
+    vxlan-learning no
+    mtu 1450

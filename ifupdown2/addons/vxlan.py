@@ -50,9 +50,14 @@ class vxlan(Vxlan, moduleBase):
                 "example": ["vxlan-id 100"]
             },
             "vxlan-local-tunnelip": {
-                "help": "vxlan local tunnel ip",
-                "validvals": ["<ipv4>"],
-                "example": ["vxlan-local-tunnelip 172.16.20.103"]
+                "help": "VXLAN local tunnel ip (ipv4 or ipv6). "
+                        "VXLAN underlay can be IPv4 or IPv6, but a given VXLAN "
+                        "interface supports only one local address family at a time (not both).",
+                "validvals": ["<ipv4>", "<ipv6>"],
+                "example": [
+                    "vxlan-local-tunnelip 192.0.2.1",
+                    "vxlan-local-tunnelip 2001:db8::1"
+                ]
             },
             "vxlan-svcnodeip": {
                 "help": "vxlan svc node id",
@@ -521,10 +526,9 @@ class vxlan(Vxlan, moduleBase):
             local = self._vxlan_local_tunnelip
 
         if link_exists:
-            cached_ifla_vxlan_local = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
+            cached_ifla_vxlan_local = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL) or cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6)
 
-            # on ifreload do not overwrite anycast_ip to individual ip
-            # if clagd has modified
+            # Do not overwrite the anycast ip to individual ip if clagd has modified it.
             if self._clagd_vxlan_anycast_ip and cached_ifla_vxlan_local:
                 anycastip = ipnetwork.IPNetwork(self._clagd_vxlan_anycast_ip)
 
@@ -547,7 +551,7 @@ class vxlan(Vxlan, moduleBase):
 
         if local:
             try:
-                local = ipnetwork.IPv4Address(local)
+                local = ipnetwork.IPNetwork(local)
 
                 if local.initialized_with_prefixlen:
                     self.logger.warning("%s: vxlan-local-tunnelip %s: netmask ignored" % (ifname, local))
@@ -555,17 +559,21 @@ class vxlan(Vxlan, moduleBase):
             except Exception as e:
                 raise AddonException("%s: invalid vxlan-local-tunnelip %s: %s" % (ifname, local, str(e)))
 
-
-        if local:
             if local != cached_ifla_vxlan_local:
                 self.logger.info("%s: set vxlan-local-tunnelip %s" % (ifname, local))
-                user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = local
+                user_request_vxlan_info_data[{
+                    4: Link.IFLA_VXLAN_LOCAL,
+                    6: Link.IFLA_VXLAN_LOCAL6
+                }.get(local.version)] = local
 
                 # if both local-ip and anycast-ip are identical the function prints a warning
                 self.syntax_check_localip_anycastip_equal(ifname, local, self._clagd_vxlan_anycast_ip)
         elif cached_ifla_vxlan_local:
             self.logger.info("%s: removing vxlan-local-tunnelip (cache %s)" % (ifname, cached_ifla_vxlan_local))
-            user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL] = None
+            user_request_vxlan_info_data[{
+                4: Link.IFLA_VXLAN_LOCAL,
+                6: Link.IFLA_VXLAN_LOCAL6
+            }.get(ipnetwork.IPAddress(cached_ifla_vxlan_local).version)] = None
 
         return local
 
@@ -1164,6 +1172,7 @@ class vxlan(Vxlan, moduleBase):
             else:
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
 
+                    # This piece of code is never triggered, resetting local ip is broken at the moment due to _set_global_local_ip
                     if Link.IFLA_VXLAN_LOCAL in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL]:
                         local_str = "0"
                     else:
@@ -1183,7 +1192,8 @@ class vxlan(Vxlan, moduleBase):
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_AGEING),
                         vxlan_vnifilter,
-                        vxlan_ttl
+                        vxlan_ttl,
+                        local.version
                     )
                 elif ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
                     self.iproute2.link_add_l3vxi(
@@ -1194,7 +1204,8 @@ class vxlan(Vxlan, moduleBase):
                         vxlan_physdev,
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_AGEING),
-                        vxlan_ttl
+                        vxlan_ttl,
+                        local.version
                     )
                 else:
                     try:
@@ -1430,6 +1441,28 @@ class vxlan(Vxlan, moduleBase):
                                                     set(addresses))
         [ifaceobjcurr.update_config_with_status(attrname, a, 1) for a in running_addresses]
 
+    def ifquery_check_vxlan_local_tunnelip(self, ifaceobj, ifaceobjcurr, cached_vxlan_ifla_info_data):
+        user_local_tunnelip = ifaceobj.get_attr_value_first("vxlan-local-tunnelip")
+
+        # Both IFLA_VXLAN_LOCAL and IFLA_VXLAN_LOCAL6 cant be filled at the same time
+        cached_value = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL) or cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6)
+
+        if not user_local_tunnelip:
+            user_local_tunnelip = self._vxlan_local_tunnelip
+            ifaceobj.update_config("vxlan-local-tunnelip", user_local_tunnelip)
+
+        if self._clagd_vxlan_anycast_ip == str(cached_value):
+            # if local ip is anycast_ip, then let query_check to go through
+            user_local_tunnelip = self._clagd_vxlan_anycast_ip
+
+        self._query_check_n_update(
+            ifaceobj,
+            ifaceobjcurr,
+            "vxlan-local-tunnelip",
+            str(user_local_tunnelip),
+            str(cached_value.ip) if cached_value else None
+        )
+
     def _query_check(self, ifaceobj, ifaceobjcurr):
         ifname = ifaceobj.name
 
@@ -1478,24 +1511,7 @@ class vxlan(Vxlan, moduleBase):
         #
         # vxlan-local-tunnelip
         #
-        running_attrval = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL)
-        attrval = ifaceobj.get_attr_value_first('vxlan-local-tunnelip')
-        if not attrval:
-            attrval = self._vxlan_local_tunnelip
-            # TODO: vxlan._vxlan_local_tunnelip should be a ipnetwork.IPNetwork obj
-            ifaceobj.update_config('vxlan-local-tunnelip', attrval)
-
-        if str(running_attrval) == self._clagd_vxlan_anycast_ip:
-            # if local ip is anycast_ip, then let query_check to go through
-            attrval = self._clagd_vxlan_anycast_ip
-
-        self._query_check_n_update(
-            ifaceobj,
-            ifaceobjcurr,
-            'vxlan-local-tunnelip',
-            str(attrval),
-            str(running_attrval.ip) if running_attrval else None
-        )
+        self.ifquery_check_vxlan_local_tunnelip(ifaceobj, ifaceobjcurr, cached_vxlan_ifla_info_data)
 
         #
         # vxlan-remoteip
@@ -1631,12 +1647,8 @@ class vxlan(Vxlan, moduleBase):
         # vxlan-id
         #
         vxlan_id = cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_ID)
-
-        if not vxlan_id:
-            # no vxlan id, meaning this not a vxlan
-            return
-
-        ifaceobjrunning.update_config('vxlan-id', str(vxlan_id))
+        if vxlan_id:
+            ifaceobjrunning.update_config("vxlan-id", str(vxlan_id))
 
         #
         # vxlan-port
@@ -1678,6 +1690,7 @@ class vxlan(Vxlan, moduleBase):
                 ('vxlan-learning', Link.IFLA_VXLAN_LEARNING, lambda value: 'on' if value else 'off'),
                 ('vxlan-udp-csum', Link.IFLA_VXLAN_UDP_CSUM, lambda value: 'on' if value else 'off'),
                 ('vxlan-local-tunnelip', Link.IFLA_VXLAN_LOCAL, str),
+                ("vxlan-local-tunnelip", Link.IFLA_VXLAN_LOCAL6, str),
         ):
             vxlan_attr_value = cached_vxlan_ifla_info_data.get(vxlan_attr_nl)
 
@@ -1713,7 +1726,7 @@ class vxlan(Vxlan, moduleBase):
         if not op_handler:
             return
 
-        if not self._is_vxlan_device(ifaceobj):
+        if not self._is_vxlan_device(ifaceobj) and operation != "query-running":
             return
 
         if "query" not in operation and \
