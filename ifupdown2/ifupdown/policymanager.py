@@ -28,9 +28,11 @@ Provides: an API to retrieve link attributes based on addon module name,
             )
 '''
 
+import os
 import json
 import glob
 import logging
+from contextlib import suppress
 
 
 class policymanager():
@@ -117,37 +119,68 @@ class policymanager():
         # make sure we have an index
         if (not ifname or not attr or not module_name):
             return None
+        driname = self._get_driver_name(ifname)
 
-        val = None
         # users can specify defaults to override the systemwide settings
         # look for user specific interface attribute iface_defaults first
-        try:
-            # looks for user specified value
-            val = self.user_policy_array[module_name]['iface_defaults'][ifname][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
-        try:
+        with suppress(TypeError, KeyError, IndexError):
+            # looks for user interface name specified value
+            return self.user_policy_array[module_name]['iface_defaults'][ifname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
+            # failing that, there may be a user driver default specified value
+            return self.user_policy_array[module_name]['driver_defaults'][driname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
             # failing that, there may be a user default for all intefaces
-            val = self.user_policy_array[module_name]['defaults'][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
-        try:
+            return self.user_policy_array[module_name]['defaults'][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
             # failing that, look for  system setting for the interface
-            val = self.system_policy_array[module_name]['iface_defaults'][ifname][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
-        try:
+            return self.system_policy_array[module_name]['iface_defaults'][ifname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
+            # failing that, look for system setting for the driver
+            return self.system_policy_array[module_name]['driver_defaults'][driname][attr]
+
+        with suppress(TypeError, KeyError, IndexError):
             # failing that, look for  system setting for all interfaces
-            val = self.system_policy_array[module_name]['defaults'][attr]
-            return val
-        except (TypeError, KeyError, IndexError):
-            pass
+            return self.system_policy_array[module_name]['defaults'][attr]
 
         # could not find any system or user default so return Non
-        return val
+        return None
+
+    def _get_driver_name(self, ifname):
+        ''' get_driver_name: get the driver name from an interface name '''
+        with suppress(FileNotFoundError):
+            symlink = os.readlink(f'/sys/class/net/{ifname}/device/driver/module')
+            return os.path.basename(symlink)
+        return None
+
+    def get_driver_default(self, module_name=None, ifname=None, attr=None):
+        '''
+        get_driver_default: Addon modules must use one types of access methods to
+        the default configs.   In this method, we expect the default to be in
+
+        [module]['driver_defaults'][driver_name][attr]
+
+        We first check the user_policy_array and return that value. But if
+        the user did not specify an override, we use the system_policy_array.
+        '''
+        driname = self._get_driver_name(ifname)
+        # make sure we have an index
+        if None in (attr, module_name, driname):
+            return None
+
+        # users can specify defaults to override the systemwide settings
+        # look for user specific driver attribute driver_defaults first
+        with suppress(TypeError, KeyError, IndexError):
+            # looks for user specified value
+            return self.user_policy_array[module_name]['driver_defaults'][driname][attr]
+        with suppress(TypeError, KeyError, IndexError):
+            # failing that, look for system setting
+            return self.system_policy_array[module_name]['driver_defaults'][driname][attr]
+        return None
 
     def get_attr_default(self,module_name=None,attr=None):
         '''
