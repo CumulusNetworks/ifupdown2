@@ -170,6 +170,45 @@ def test_boolean_aliases_l3(ssh):
     )
 
 
+def test_addressvirtual_fdb_cleanup_l3(ssh, setup):
+    """Changing a virtual MAC removes its old bridge FDB entry."""
+    old_mac = "00:00:5e:00:01:01"
+    new_mac = "00:00:5e:00:01:02"
+
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+    ssh.run_assert_success(
+        f"bridge fdb show br br_av | grep -i '{old_mac}' | grep 'vlan 100'"
+    )
+    ssh.run_assert_success(
+        "ip -o addr show br_av-100-v0 | grep '192.0.2.1/24'"
+    )
+
+    ssh.run_assert_success(
+        f"sed -i 's/{old_mac}/{new_mac}/' {ENI}"
+    )
+    ssh.ifup("br_av.100")
+
+    assert ssh.run(
+        f"bridge fdb show br br_av | grep -i '{old_mac}' | grep 'vlan 100'"
+    )[3] != 0
+    ssh.run_assert_success(
+        f"bridge fdb show br br_av | grep -i '{new_mac}' | grep 'vlan 100'"
+    )
+    ssh.run_assert_success(
+        "ip -o addr show br_av-100-v0 | grep '192.0.2.1/24'"
+    )
+
+    ssh.ifdown("br_av.100 br_av dummy_av")
+    for ifname in ("br_av.100", "br_av", "br_av-100-v0", "dummy_av"):
+        assert ssh.run(f"ip link show {ifname}")[3] != 0
+
+
 def test_dhcp6_release_link_down_l3(ssh, setup):
     """A failed DHCPv6 release on a kept-down link remains non-fatal."""
     pidfile = "/run/dhclient6.dum_d6.pid"

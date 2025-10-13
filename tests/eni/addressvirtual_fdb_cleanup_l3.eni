@@ -1,0 +1,25 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto dummy_av
+iface dummy_av
+    link-type dummy
+
+auto br_av
+iface br_av
+    bridge-vlan-aware yes
+    bridge-ports dummy_av
+    bridge-vids 100
+
+auto br_av.100
+iface br_av.100
+    address 192.0.2.2/24
+    address-virtual 00:00:5e:00:01:01 192.0.2.1/24
