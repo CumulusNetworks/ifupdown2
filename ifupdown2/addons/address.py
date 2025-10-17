@@ -10,8 +10,6 @@ import json
 import time
 import subprocess
 
-from setuptools.dist import strtobool
-
 try:
     from ifupdown2.lib.addon import AddonWithIpBlackList, AddonException
     from ifupdown2.nlmanager.nlmanager import Link
@@ -243,10 +241,7 @@ class address(AddonWithIpBlackList, moduleBase):
                 module_name=self.__class__.__name__,
                 attr="l3_intf_arp_accept"
             )
-            try:
-                self.l3_intf_arp_accept = int(l3_intf_arp_accept_str)
-            except ValueError:
-                self.l3_intf_arp_accept = int(strtobool(l3_intf_arp_accept_str))
+            self.l3_intf_arp_accept = utils.get_int_from_boolean_and_string(l3_intf_arp_accept_str)
         except Exception:
             self.l3_intf_arp_accept = 0
 
