@@ -19,6 +19,9 @@ override_dh_install:
 override_dh_auto_test:
 	@echo "Skipping tests during the build process."
 
+execute_after_dh_auto_install:
+	rm -rf debian/ifupdown2/usr/share/tests
+
 override_dh_installsystemd:
 	# should only ever be reloaded, not restarted
 	dh_installsystemd --no-stop-on-upgrade --no-restart-after-upgrade --no-start --name networking
