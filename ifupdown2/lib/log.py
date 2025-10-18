@@ -23,6 +23,7 @@
 import os
 import sys
 import shutil
+import re
 import traceback
 
 import logging
@@ -126,31 +127,34 @@ class LogManager:
             self.__root_logger.debug("couldn't initialize persistent debug logging: %s" % str(e))
 
     def __get_enable_persistent_debug_logging(self):
-        # ifupdownconfig.config is not yet initialized so we need to cat and grep ifupdown2.conf
+        # ifupdownconfig.config is not yet initialized so we need to evaluate ifupdown2.conf
         # by default we limit logging to LOGGING_DIRECTORY_LIMIT number of files
         # the user can specify a different amount in /etc/network/ifupdown2/ifupdown2.conf
         # or just yes/no to enable/disable the feature.
+
+        # ensure a safe default return value
+        result = self.LOGGING_DIRECTORY_LIMIT
+
+        cfg_valid_values = r"^(yes|no|\d+)$"
         try:
-            user_config_limit_str = (
-                utils.exec_user_command(
-                    "cat /etc/network/ifupdown2/ifupdown2.conf | grep enable_persistent_debug_logging") or ""
-            ).strip().split("=", 1)[1]
-
-            try:
-                # get the integer amount
-                return int(user_config_limit_str)
-            except ValueError:
-                # the user didn't specify an integer but a boolean
-                # if the input is not recognized we are disabling the feature
-                user_config_limit = {
-                    True: self.LOGGING_DIRECTORY_LIMIT,
-                    False: 0,
-                }.get(utils.get_boolean_from_string(user_config_limit_str))
-
+            with open('/etc/network/ifupdown2/ifupdown2.conf', 'r') as conffile:
+                for line in conffile.readlines():
+                    if line.startswith('enable_persistent_debug_logging='):
+                        val = line.split("=")[-1].strip()
+                        if re.match(cfg_valid_values, val):
+                            try:
+                                val = int(val)
+                                result = max(0, val)
+                            except ValueError:
+                                result = {
+                                    True: self.LOGGING_DIRECTORY_LIMIT,
+                                    False: 0,
+                                }.get(utils.get_boolean_from_string(user_config_limit_str))
         except Exception:
-            user_config_limit = self.LOGGING_DIRECTORY_LIMIT
+            pass
 
-        return user_config_limit
+        return result
+
 
     def __init_debug_logging(self):
         # check if enable_persistent_debug_logging is enabled
