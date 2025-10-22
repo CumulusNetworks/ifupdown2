@@ -23,10 +23,9 @@ Depends: iproute2,
          python3-systemd,
          ${misc:Depends},
          ${python3:Depends}
-Suggests: bridge-utils,
+Recommends: bridge-utils,
           ethtool,
           isc-dhcp-client,
-          python3-gvgen,
           python3-mako
 Description: Network Interface Management tool similar to ifupdown
  ifupdown2 is ifupdown re-written in Python. It replaces ifupdown and provides
