@@ -26,5 +26,10 @@ override_dh_installsystemd:
 	# should only ever be reloaded, not restarted
 	dh_installsystemd --no-stop-on-upgrade --no-restart-after-upgrade --no-start --name networking
 
+override_dh_installinit:
+	cp etc/init.d/networking debian/ifupdown2.networking.init
+	# should only ever be reloaded, not restarted
+	dh_installinit --no-stop-on-upgrade --no-restart-after-upgrade --no-start --name networking
+
 override_dh_compress:
 	dh_compress -X.py
