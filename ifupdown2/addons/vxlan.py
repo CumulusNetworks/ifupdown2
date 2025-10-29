@@ -1073,6 +1073,22 @@ class vxlan(Vxlan, moduleBase):
 
         return None
 
+    @staticmethod
+    def __vxlan_local_tunnelip_family_changed(user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+        """
+        Determine whether the requested local tunnel IP family differs from the currently
+        configured link attributes.
+
+        :param user_request_vxlan_info_data: Netlink attributes we plan to apply for the link.
+        :param cached_vxlan_ifla_info_data: Netlink attributes retrieved from the running link.
+        :return: True when the IPv4/IPv6 family changes, False otherwise.
+        """
+        return (
+                (user_request_vxlan_info_data.get(Link.IFLA_VXLAN_LOCAL6) and cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL))
+                or
+                (user_request_vxlan_info_data.get(Link.IFLA_VXLAN_LOCAL) and cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_LOCAL6))
+        )
+
     def _up(self, ifaceobj):
         self.check_and_raise_svd_tvd_errors(ifaceobj)
 
@@ -1084,6 +1100,13 @@ class vxlan(Vxlan, moduleBase):
 
         ifname = ifaceobj.name
         link_exists = self.cache.link_exists(ifname)
+
+        user_request_vxlan_info_data = {}
+
+        # get vxlan running attributes
+        cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname) if link_exists else {}
+
+        local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
 
         if link_exists:
             # if link already exists make sure this is a vxlan
@@ -1097,12 +1120,13 @@ class vxlan(Vxlan, moduleBase):
                 ifaceobj.set_status(ifaceStatus.ERROR)
                 return
 
-            # get vxlan running attributes
-            cached_vxlan_ifla_info_data = self.cache.get_link_info_data(ifname)
-        else:
-            cached_vxlan_ifla_info_data = {}
+            if local and self.__vxlan_local_tunnelip_family_changed(user_request_vxlan_info_data, cached_vxlan_ifla_info_data):
+                # VxLAN cannot switch address families in-place; recreate the device so the kernel applies the new family.
+                link_exists = False
+                cached_vxlan_ifla_info_data = {}
 
-        user_request_vxlan_info_data = {}
+                self.logger.info(f"{ifname}: vxlan-local-tunnelip address family changed to IPv{local.version} - VxLAN needs to be recreated")
+                self._down(ifaceobj)
 
         if vxlan_id_str:
             # for single vxlan device we don't have a vxlan-id
@@ -1114,7 +1138,6 @@ class vxlan(Vxlan, moduleBase):
         vxlan_ttl = self.__config_vxlan_ttl(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_tos(ifname, ifaceobj, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
         self.__config_vxlan_udp_csum(ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
-        local = self.__config_vxlan_local_tunnelip(ifname, ifaceobj, link_exists, user_request_vxlan_info_data, cached_vxlan_ifla_info_data)
 
         vxlan_vni = self.__get_vxlan_vni_list(ifaceobj)
 

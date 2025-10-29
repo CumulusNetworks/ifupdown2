@@ -12,6 +12,7 @@ iface mgmt
 auto dummy_vx6
 iface dummy_vx6
     link-type dummy
+    address 192.0.2.60/24
     address 2001:db8:6000::1/64
 
 auto vxlan6

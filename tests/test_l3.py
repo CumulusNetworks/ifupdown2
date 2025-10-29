@@ -238,6 +238,37 @@ def test_vxlan_ipv6_local_tunnelip_l3(ssh, setup):
         f"ip -d -o link show vxlan6 | grep 'local {local}'"
     )
 
+    ipv6_ifindex = ssh.run_assert_success(
+        "cat /sys/class/net/vxlan6/ifindex"
+    ).strip()
+    ipv4_local = "192.0.2.60"
+    ssh.run_assert_success(
+        f"sed -i 's/vxlan-local-tunnelip {local}/"
+        f"vxlan-local-tunnelip {ipv4_local}/' {ENI}"
+    )
+    reload_output = ssh.ifreload_av()
+    assert "address family changed to IPv4" in reload_output
+    ssh.run_assert_success(
+        f"ip -d -o link show vxlan6 | grep 'local {ipv4_local}'"
+    )
+    ipv4_ifindex = ssh.run_assert_success(
+        "cat /sys/class/net/vxlan6/ifindex"
+    ).strip()
+    assert ipv4_ifindex != ipv6_ifindex
+
+    ssh.run_assert_success(
+        f"sed -i 's/vxlan-local-tunnelip {ipv4_local}/"
+        f"vxlan-local-tunnelip {local}/' {ENI}"
+    )
+    reload_output = ssh.ifreload_av()
+    assert "address family changed to IPv6" in reload_output
+    ssh.run_assert_success(
+        f"ip -d -o link show vxlan6 | grep 'local {local}'"
+    )
+    assert ssh.run_assert_success(
+        "cat /sys/class/net/vxlan6/ifindex"
+    ).strip() != ipv4_ifindex
+
     ssh.ifdown("vxlan6 dummy_vx6")
     assert ssh.run("ip link show vxlan6")[3] != 0
     assert ssh.run("ip link show dummy_vx6")[3] != 0
