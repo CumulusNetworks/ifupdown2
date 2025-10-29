@@ -26,9 +26,6 @@
 import os
 import sys
 
-sys.path.insert(0, "/root/ifupdown2/ifupdown2")
-#sys.path.append("/usr/share/ifupdown2/")
-
 try:
     from ifupdown2.lib.log import LogManager, root_logger
     from ifupdown2.lib.status import Status
