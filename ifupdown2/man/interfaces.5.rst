@@ -106,6 +106,12 @@ METHODS
     The dhcp Method
            This method may be used to obtain an address via DHCP.
 
+    **inet6** address family interfaces can use the following method:
+
+    The auto Method
+           This method may be used to obtain an address via SLAAC.
+
+
 BUILTIN INTERFACES
 ==================
     **iface** sections for some interfaces like physical interfaces or vlan
@@ -130,6 +136,9 @@ EXAMPLES
         iface eth1 inet manual
             address 192.168.2.0/24
             address 2001:dee:eeee:1::4/128
+
+        auto eth3
+        iface eth3 inet auto
 
         # source files from a directory /etc/network/interfaces.d
         source /etc/network/interfaces.d/*

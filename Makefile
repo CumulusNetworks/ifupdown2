@@ -35,8 +35,12 @@ clean-build: ## remove build artifacts
 	rm -fr build/
 	rm -fr dist/
 	rm -fr .eggs/
+	rm -fr .pybuild/
+	rm -fr man/
 	find . -name '*.egg-info' -exec rm -fr {} +
 	find . -name '*.egg' -exec rm -f {} +
+	rm -fr debian/files debian/.debhelper debian/ifupdown2 debian/ifupdown2.substvars
+	find debian -name '*.debhelper' -exec rm -f {} +
 
 clean-pyc: ## remove Python file artifacts
 	find . -name '*.pyc' -exec rm -f {} +

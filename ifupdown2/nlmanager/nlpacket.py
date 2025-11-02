@@ -1691,6 +1691,71 @@ class AttributeIFLA_AF_SPEC(Attribute):
         Link.IFLA_BRIDGE_VLAN_INFO: (vflags, vlanid)
     }
     """
+
+    # from /usr/include/linux/ipv6.h
+    # index values for entries in Link.IFLA_INET6_CONF values
+    IPV6_DEVCONF_FORWARDING                        = 0
+    IPV6_DEVCONF_HOPLIMIT                          = 1
+    IPV6_DEVCONF_MTU6                              = 2
+    IPV6_DEVCONF_ACCEPT_RA                         = 3
+    IPV6_DEVCONF_ACCEPT_REDIRECTS                  = 4
+    IPV6_DEVCONF_AUTOCONF                          = 5
+    IPV6_DEVCONF_DAD_TRANSMITS                     = 6
+    IPV6_DEVCONF_RTR_SOLICITS                      = 7
+    IPV6_DEVCONF_RTR_SOLICIT_INTERVAL              = 8
+    IPV6_DEVCONF_RTR_SOLICIT_DELAY                 = 9
+    IPV6_DEVCONF_USE_TEMPADDR                      = 10
+    IPV6_DEVCONF_TEMP_VALID_LFT                    = 11
+    IPV6_DEVCONF_TEMP_PREFERED_LFT                 = 12
+    IPV6_DEVCONF_REGEN_MAX_RETRY                   = 13
+    IPV6_DEVCONF_MAX_DESYNC_FACTOR                 = 14
+    IPV6_DEVCONF_MAX_ADDRESSES                     = 15
+    IPV6_DEVCONF_FORCE_MLD_VERSION                 = 16
+    IPV6_DEVCONF_ACCEPT_RA_DEFRTR                  = 17
+    IPV6_DEVCONF_ACCEPT_RA_PINFO                   = 18
+    IPV6_DEVCONF_ACCEPT_RA_RTR_PREF                = 19
+    IPV6_DEVCONF_RTR_PROBE_INTERVAL                = 20
+    IPV6_DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN        = 21
+    IPV6_DEVCONF_PROXY_NDP                         = 22
+    IPV6_DEVCONF_OPTIMISTIC_DAD                    = 23
+    IPV6_DEVCONF_ACCEPT_SOURCE_ROUTE               = 24
+    IPV6_DEVCONF_MC_FORWARDING                     = 25
+    IPV6_DEVCONF_DISABLE_IPV6                      = 26
+    IPV6_DEVCONF_ACCEPT_DAD                        = 27
+    IPV6_DEVCONF_FORCE_TLLAO                       = 28
+    IPV6_DEVCONF_NDISC_NOTIFY                      = 29
+    IPV6_DEVCONF_MLDV1_UNSOLICITED_REPORT_INTERVAL = 30
+    IPV6_DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL = 31
+    IPV6_DEVCONF_SUPPRESS_FRAG_NDISC               = 32
+    IPV6_DEVCONF_ACCEPT_RA_FROM_LOCAL              = 33
+    IPV6_DEVCONF_USE_OPTIMISTIC                    = 34
+    IPV6_DEVCONF_ACCEPT_RA_MTU                     = 35
+    IPV6_DEVCONF_STABLE_SECRET                     = 36
+    IPV6_DEVCONF_USE_OIF_ADDRS_ONLY                = 37
+    IPV6_DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT           = 38
+    IPV6_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN       = 39
+    IPV6_DEVCONF_DROP_UNICAST_IN_L2_MULTICAST      = 40
+    IPV6_DEVCONF_DROP_UNSOLICITED_NA               = 41
+    IPV6_DEVCONF_KEEP_ADDR_ON_DOWN                 = 42
+    IPV6_DEVCONF_RTR_SOLICIT_MAX_INTERVAL          = 43
+    IPV6_DEVCONF_SEG6_ENABLED                      = 44
+    IPV6_DEVCONF_SEG6_REQUIRE_HMAC                 = 45
+    IPV6_DEVCONF_ENHANCED_DAD                      = 46
+    IPV6_DEVCONF_ADDR_GEN_MODE                     = 47
+    IPV6_DEVCONF_DISABLE_POLICY                    = 48
+    IPV6_DEVCONF_ACCEPT_RA_RT_INFO_MIN_PLEN        = 49
+    IPV6_DEVCONF_NDISC_TCLASS                      = 50
+    IPV6_DEVCONF_RPL_SEG_ENABLED                   = 51
+    IPV6_DEVCONF_RA_DEFRTR_METRIC                  = 52
+    IPV6_DEVCONF_IOAM6_ENABLED                     = 53
+    IPV6_DEVCONF_IOAM6_ID                          = 54
+    IPV6_DEVCONF_IOAM6_ID_WIDE                     = 55
+    IPV6_DEVCONF_NDISC_EVICT_NOCARRIER             = 56
+    IPV6_DEVCONF_ACCEPT_UNTRACKED_NA               = 57
+    IPV6_DEVCONF_ACCEPT_RA_MIN_LFT                 = 58
+    IPV6_DEVCONF_FORCE_FORWARDING                  = 59
+
+
     def __init__(self, atype, string, family, logger):
         Attribute.__init__(self, atype, string, logger)
         self.family = family
@@ -1818,6 +1883,18 @@ class AttributeIFLA_AF_SPEC(Attribute):
          */
 
         """
+
+        # maps IFLA_INET6_CONF index to key name in result
+        ipv6_devconf_map = {
+            self.IPV6_DEVCONF_FORWARDING: 'forwarding',
+            self.IPV6_DEVCONF_HOPLIMIT: 'hop_limit',
+            self.IPV6_DEVCONF_MTU6: 'mtu6',
+            self.IPV6_DEVCONF_ACCEPT_RA: 'accept_ra',
+            self.IPV6_DEVCONF_ACCEPT_REDIRECTS: 'accept_redirects',
+            self.IPV6_DEVCONF_AUTOCONF: 'autoconf',
+            self.IPV6_DEVCONF_DISABLE_IPV6: 'disable_ipv6',
+        }
+
         self.decode_length_type(data)
         self.value = {}
 
@@ -1896,8 +1973,19 @@ class AttributeIFLA_AF_SPEC(Attribute):
                         (inet6_attr_length, inet6_attr_type) = unpack('=HH', sub_attr_data[:4])
                         inet6_attr_end = padded_length(inet6_attr_length)
 
+                        if inet6_attr_type == Link.IFLA_INET6_CONF:
+                            inet6conf_data = sub_attr_data[4:inet6_attr_end]
+                            result = {}
+
+                            for index in ipv6_devconf_map:
+                                offset = index * 4
+                                (value, undef) = unpack('=HH', inet6conf_data[offset:offset + 4])
+                                result[ipv6_devconf_map[index]] = value
+
+                            inet6_attr[inet6_attr_type] = result
+
                         # 1 byte attr
-                        if inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
+                        elif inet6_attr_type == Link.IFLA_INET6_ADDR_GEN_MODE:
                             inet6_attr[inet6_attr_type] = self.decode_one_byte_attribute(sub_attr_data)
 
                             # nlmanager doesn't support multiple kernel version
