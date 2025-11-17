@@ -155,16 +155,6 @@ class openvswitch(Addon, moduleBase):
 
         cmd_list = []
 
-        cmd = "--may-exist add-br %s"%(iface)
-        if ovsparent is not None and ovsoptions:
-            cmd = cmd + " %s" %(ovsoptions)
-
-        cmd_list.append(cmd)
-
-        if ovsparent is None and ovsoptions:
-            cmd = "set bridge %s %s" %(iface, ovsoptions)
-            cmd_list.append(cmd)
-
         #update
         if self.cache.link_exists (iface):
             # on update, delete active ports not in the new port list
@@ -190,6 +180,16 @@ class openvswitch(Addon, moduleBase):
 
             #clear old interface options
             cmd = "--if-exists clear interface %s mtu_request external-ids other_config options"%(iface)
+            cmd_list.append(cmd)
+
+        cmd = "--may-exist add-br %s"%(iface)
+        if ovsparent is not None and ovsoptions:
+            cmd = cmd + " %s" %(ovsoptions)
+
+        cmd_list.append(cmd)
+
+        if ovsparent is None and ovsoptions:
+            cmd = "set bridge %s %s" %(iface, ovsoptions)
             cmd_list.append(cmd)
 
         if ovsextra is not None:
