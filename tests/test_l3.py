@@ -274,6 +274,43 @@ def test_vxlan_ipv6_local_tunnelip_l3(ssh, setup):
     assert ssh.run("ip link show dummy_vx6")[3] != 0
 
 
+def test_vxlan_missing_local_l3(ssh, setup):
+    """An L3VXI can be created without a local tunnel address."""
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+
+    ssh.run_assert_success(
+        "ip -d -o link show vxmeta | grep 'vxlan external' | "
+        "grep 'vnifilter' | grep 'nolearning'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show vxmeta | grep 'master vrf_meta'"
+    )
+    ssh.run_assert_success(
+        "bridge -j vni show dev vxmeta | grep '100'"
+    )
+    ssh.ifquery_c("vxmeta")
+    running = ssh.ifquery(
+        "--running vxmeta",
+        return_stdout=True,
+    )
+    assert "vxlan-local-tunnelip" not in running
+
+    ssh.ifreload_a()
+    ssh.run_assert_success(
+        "ip -d -o link show vxmeta | grep 'vxlan external' | grep 'vnifilter'"
+    )
+
+    ssh.ifdown("vxmeta vrf_meta")
+    assert ssh.run("ip link show vxmeta")[3] != 0
+    assert ssh.run("ip link show vrf_meta")[3] != 0
+
+
 def test_dhcp6_release_link_down_l3(ssh, setup):
     """A failed DHCPv6 release on a kept-down link remains non-fatal."""
     pidfile = "/run/dhclient6.dum_d6.pid"

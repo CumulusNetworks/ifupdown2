@@ -1216,7 +1216,7 @@ class vxlan(Vxlan, moduleBase):
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_AGEING),
                         vxlan_vnifilter,
                         vxlan_ttl,
-                        local.version
+                        local.version if local else None
                     )
                 elif ifaceobj.link_privflags & ifaceLinkPrivFlags.L3VXI:
                     self.iproute2.link_add_l3vxi(
@@ -1228,7 +1228,7 @@ class vxlan(Vxlan, moduleBase):
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_PORT),
                         user_request_vxlan_info_data.get(Link.IFLA_VXLAN_AGEING),
                         vxlan_ttl,
-                        local.version
+                        local.version if local else None
                     )
                 else:
                     try:

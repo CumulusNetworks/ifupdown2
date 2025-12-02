@@ -1,0 +1,20 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto vrf_meta
+iface vrf_meta
+    vrf-table 4244
+
+auto vxmeta
+iface vxmeta
+    vxlan-vni 100
+    vrf vrf_meta
+    vxlan-learning no
