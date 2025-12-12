@@ -18,8 +18,9 @@ try:
 
     from ifupdown2.ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.exceptions import NoDhcpClientAvailable
 
-    from ifupdown2.ifupdownaddons.dhclient import dhclient
+    from ifupdown2.ifupdownaddons.dhcp_client import DhcpClient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 
     import ifupdown2.nlmanager.ipnetwork as ipnetwork
@@ -34,8 +35,9 @@ except ImportError:
 
     from ifupdown.iface import ifaceType, ifaceLinkKind, ifaceLinkPrivFlags, ifaceStatus, iface
     from ifupdown.utils import utils
+    from ifupdown.exceptions import NoDhcpClientAvailable
 
-    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.dhcp_client import DhcpClient
     from ifupdownaddons.modulebase import moduleBase
 
     import nlmanager.ipnetwork as ipnetwork
@@ -200,6 +202,8 @@ class address(AddonWithIpBlackList, moduleBase):
 
     DEFAULT_MTU_STRING = "1500"
 
+    dhcpcmd: DhcpClient | None
+
     def __init__(self, *args, **kargs):
         AddonWithIpBlackList.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
@@ -272,6 +276,10 @@ class address(AddonWithIpBlackList, moduleBase):
 
         self.mac_regex = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 
+        try:
+            self.dhcpcmd = DhcpClient()
+        except NoDhcpClientAvailable as e:
+            self.dhcpcmd = None
 
     def __policy_get_default_mtu(self):
         default_mtu = policymanager.policymanager_api.get_attr_default(
@@ -1144,18 +1152,17 @@ class address(AddonWithIpBlackList, moduleBase):
             if (addr_method not in ["dhcp", "ppp"]  and not ifupdownflags.flags.PERFMODE and
                     not (ifaceobj.flags & iface.HAS_SIBLINGS)):
                 # if not running in perf mode and ifaceobj does not have
-                # any sibling iface objects, kill any stale dhclient
-                # processes
-                dhclientcmd = dhclient()
-                if dhclientcmd.is_running(ifaceobj.name):
-                    # release any dhcp leases
-                    dhclientcmd.release(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
-                    force_reapply = True
-                elif dhclientcmd.is_running6(ifaceobj.name):
-                    dhclientcmd.release6(ifaceobj.name)
-                    self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
-                    force_reapply = True
+                # any sibling iface objects, kill any stale dhcp client processes
+                if self.dhcpcmd:
+                    if self.dhcpcmd.is_running(ifaceobj.name):
+                        # release any dhcp leases
+                        self.dhcpcmd.release(ifaceobj.name)
+                        self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
+                        force_reapply = True
+                    elif self.dhcpcmd.is_running6(ifaceobj.name):
+                        self.dhcpcmd.release6(ifaceobj.name)
+                        self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
+                        force_reapply = True
         except Exception:
             pass
 
@@ -1579,9 +1586,8 @@ class address(AddonWithIpBlackList, moduleBase):
 
         self.query_running_ipv6_addrgen(ifaceobjrunning)
 
-        dhclientcmd = dhclient()
-        if (dhclientcmd.is_running(ifaceobjrunning.name) or
-                dhclientcmd.is_running6(ifaceobjrunning.name)):
+        if self.dhcpcmd and (self.dhcpcmd.is_running(ifaceobjrunning.name) or
+                self.dhcpcmd.is_running6(ifaceobjrunning.name)):
             # If dhcp is configured on the interface, we skip it
             return
 
