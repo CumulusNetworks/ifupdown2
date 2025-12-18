@@ -909,3 +909,46 @@ def test_bond_slave_diff_recovery_l2(ssh, setup):
             "ifdown bond_diff swp_AA_ swp_BB_ "
             "2>/dev/null; true"
         )
+
+
+def test_bridge_mac_svi_diff_l2(ssh, setup):
+    """Bridge MAC changes reprocess inherited and explicit-MAC SVIs."""
+    inherited_svi = "br_mac.100"
+    explicit_svi = "br_mac.200"
+    explicit_mac = "02:00:00:00:20:01"
+    try:
+        ssh.ifup_a()
+        assert ssh.run_assert_success(
+            "cat /sys/class/net/br_mac/address"
+        ).strip() == "02:00:00:00:10:01"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{inherited_svi}/address"
+        ).strip() == "02:00:00:00:10:01"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{explicit_svi}/address"
+        ).strip() == explicit_mac
+
+        ssh.scp("tests/eni/bridge_mac_svi_diff_l2.after.eni", ENI)
+        reload_output = ssh.ifreload_av()
+        for ifname in ("br_mac", inherited_svi, explicit_svi):
+            assert ifname in reload_output
+
+        assert ssh.run_assert_success(
+            "cat /sys/class/net/br_mac/address"
+        ).strip() == "02:00:00:00:10:02"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{inherited_svi}/address"
+        ).strip() == "02:00:00:00:10:02"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{explicit_svi}/address"
+        ).strip() == explicit_mac
+
+        ssh.ifreload_a()
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{inherited_svi}/address"
+        ).strip() == "02:00:00:00:10:02"
+    finally:
+        ssh.run(
+            "ifdown br_mac.100 br_mac.200 br_mac swp_AA_ "
+            "2>/dev/null; true"
+        )

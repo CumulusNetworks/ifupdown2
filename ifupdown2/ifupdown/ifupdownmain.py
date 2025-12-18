@@ -34,6 +34,7 @@ try:
     from ifupdown2.ifupdown.exceptions import *
     from ifupdown2.ifupdown.networkinterfaces import *
     from ifupdown2.ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
+    from ifupdown2.ifupdown.utils import utils
 except ImportError:
     import lib.nlcache as nlcache
 
@@ -53,6 +54,7 @@ except ImportError:
     from ifupdown.exceptions import *
     from ifupdown.networkinterfaces import *
     from ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
+    from ifupdown.utils import utils
 
 
 """
@@ -2453,6 +2455,32 @@ class ifupdownMain:
             values.extend(ifaceobj.get_attr_value(attribute) or [])
         return tuple(sorted(values))
 
+    @staticmethod
+    def normalize_configured_hwaddress(hwaddress):
+        if not hwaddress:
+            return None
+        value = utils.strip_hwaddress(str(hwaddress)).replace("-", ":")
+        try:
+            octets = value.split(":")
+            if len(octets) != 6:
+                return value
+            octet_values = [int(octet, 16) for octet in octets]
+            if any(octet > 255 for octet in octet_values):
+                return value
+            return ":".join("%02x" % octet for octet in octet_values)
+        except (TypeError, ValueError):
+            return value
+
+    @classmethod
+    def get_ifaceobjs_hwaddress_values(cls, ifaceobjs):
+        values = []
+        for ifaceobj in ifaceobjs or []:
+            for value in ifaceobj.get_attr_value("hwaddress") or []:
+                normalized = cls.normalize_configured_hwaddress(value)
+                if normalized is not None:
+                    values.append(normalized)
+        return tuple(values)
+
     def add_diff_interface_with_clag_check(self, diff_list: list, ifname: str, current_clag_interface: bool):
         diff_list.append(ifname)
         if current_clag_interface:
@@ -2548,6 +2576,48 @@ class ifupdownMain:
                             % (slave_ifname, upper_ifname)
                         )
                         diff_ifname.append(upper_ifname)
+
+        queued_ifnames = set(diff_ifname)
+        for bridge_ifname in tuple(diff_ifname):
+            bridge_ifaceobjs = ifaceobj_dict.get(bridge_ifname, [])
+            if not any(
+                    ifaceobj.link_kind & ifaceLinkKind.BRIDGE
+                    for ifaceobj in bridge_ifaceobjs):
+                continue
+            if self.get_ifaceobjs_hwaddress_values(
+                    bridge_ifaceobjs) == self.get_ifaceobjs_hwaddress_values(
+                        statemanager_api.ifaceobjdict.get(bridge_ifname)
+                    ):
+                continue
+
+            appended_svis = []
+            for bridge_ifaceobj in bridge_ifaceobjs:
+                for upper_ifname in bridge_ifaceobj.upperifaces or []:
+                    upper_ifaceobjs = ifaceobj_dict.get(upper_ifname)
+                    if not (
+                            upper_ifaceobjs
+                            and any(
+                                upper_ifaceobj.link_kind
+                                & ifaceLinkKind.VLAN
+                                for upper_ifaceobj in upper_ifaceobjs
+                            )
+                            and any(
+                                bridge_ifname
+                                in (upper_ifaceobj.lowerifaces or [])
+                                for upper_ifaceobj in upper_ifaceobjs
+                            )
+                    ):
+                        continue
+                    if upper_ifname not in queued_ifnames:
+                        diff_ifname.append(upper_ifname)
+                        queued_ifnames.add(upper_ifname)
+                        appended_svis.append(upper_ifname)
+
+            if appended_svis:
+                self.logger.info(
+                    "diff-mode: bridge %s MAC change requires SVIs %s"
+                    % (bridge_ifname, appended_svis)
+                )
 
         return diff_ifname
 
