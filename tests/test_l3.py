@@ -274,6 +274,53 @@ def test_vxlan_ipv6_local_tunnelip_l3(ssh, setup):
     assert ssh.run("ip link show dummy_vx6")[3] != 0
 
 
+def test_vxlan_cached_local_reset_runtime_l3(ssh):
+    """Cached IPv4/IPv6 local removal uses the deployed object's family."""
+    ssh.run_assert_success(
+        """PYTHONPATH=/usr/share/ifupdown2 python3 - <<'PY'
+from addons.vxlan import vxlan
+import addons.vxlan as vxlan_module
+import nlmanager.ipnetwork as ipnetwork
+from nlmanager.nlpacket import Link
+
+class Iface:
+    name = "vxreset"
+
+    @staticmethod
+    def get_attr_value_first(name):
+        return None
+
+class Logger:
+    @staticmethod
+    def info(*args):
+        pass
+
+addon = object.__new__(vxlan)
+addon._vxlan_local_tunnelip = None
+addon._clagd_vxlan_anycast_ip = ""
+addon.logger = Logger()
+vxlan_module.policymanager.policymanager_api.get_attr_default = (
+    lambda **kwargs: None
+)
+
+for attribute, address in (
+    (Link.IFLA_VXLAN_LOCAL, "192.0.2.10"),
+    (Link.IFLA_VXLAN_LOCAL6, "2001:db8::10"),
+):
+    request = {}
+    local = addon._vxlan__config_vxlan_local_tunnelip(
+        "vxreset",
+        Iface(),
+        True,
+        request,
+        {attribute: ipnetwork.IPNetwork(address)},
+    )
+    assert local is None
+    assert request == {attribute: None}
+PY"""
+    )
+
+
 def test_vxlan_missing_local_l3(ssh, setup):
     """An L3VXI can be created without a local tunnel address."""
     stderr = ssh.ifup_a(return_stderr=True)

@@ -573,7 +573,7 @@ class vxlan(Vxlan, moduleBase):
             user_request_vxlan_info_data[{
                 4: Link.IFLA_VXLAN_LOCAL,
                 6: Link.IFLA_VXLAN_LOCAL6
-            }.get(ipnetwork.IPAddress(cached_ifla_vxlan_local).version)] = None
+            }.get(cached_ifla_vxlan_local.version)] = None
 
         return local
 
@@ -1193,19 +1193,22 @@ class vxlan(Vxlan, moduleBase):
                 # element: vxlan-id
                 self.logger.info('%s: vxlan already exists - no change detected' % ifname)
             else:
+                # This piece of code is never triggered, resetting local ip is broken at the moment due to _set_global_local_ip
+                if Link.IFLA_VXLAN_LOCAL in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL]:
+                    local_str = "0"
+                elif Link.IFLA_VXLAN_LOCAL6 in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL6]:
+                    local_str = "::"
+                else:
+                    local_str = local.ip if local else None
+
+                if Link.IFLA_VXLAN_GROUP in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP]:
+                    group_str = "0"
+                elif Link.IFLA_VXLAN_GROUP6 in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP6]:
+                    group_str = "::"
+                else:
+                    group_str = group.ip if group else None
+
                 if ifaceobj.link_privflags & ifaceLinkPrivFlags.SINGLE_VXLAN:
-
-                    # This piece of code is never triggered, resetting local ip is broken at the moment due to _set_global_local_ip
-                    if Link.IFLA_VXLAN_LOCAL in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_LOCAL]:
-                        local_str = "0"
-                    else:
-                        local_str = local.ip if local else None
-
-                    if Link.IFLA_VXLAN_GROUP in user_request_vxlan_info_data and not user_request_vxlan_info_data[Link.IFLA_VXLAN_GROUP]:
-                        group_str = "0"
-                    else:
-                        group_str = group.ip if group else None
-
                     self.iproute2.link_add_single_vxlan(
                         link_exists,
                         ifname,
