@@ -162,6 +162,7 @@ RT_SCOPES = {
 }
 
 AF_MPLS = 28
+AF_MCTP = 45
 
 BOND_MAX_ARP_TARGETS = 16
 
@@ -172,6 +173,7 @@ for family in [attr for attr in dir(socket) if attr.startswith('AF_')]:
     AF_FAMILY[getattr(socket, family)] = family
 
 AF_FAMILY[AF_MPLS] = 'AF_MPLS'
+AF_FAMILY[AF_MCTP] = 'AF_MCTP'
 
 
 def get_family_str(family):
@@ -3735,6 +3737,13 @@ class NetlinkPacket(object):
                 attr_string = 'RTA_DST'
                 attr_class = AttributeMplsLabel
 
+            # Handle MCTP routes - use AttributeGeneric for all attributes
+            if self.msgtype == RTM_NEWROUTE and self.family == AF_MCTP:
+                attr_string = "UNKNOWN_ATTRIBUTE_%d" % attr_type
+                attr_class = AttributeGeneric
+                self.log.debug("Attribute %d is not defined in %s.attribute_to_class for AF_MCTP, assuming AttributeGeneric" %
+                               (attr_type, self.__class__.__name__))
+
         else:
             attr_string = "UNKNOWN_ATTRIBUTE_%d" % attr_type
             attr_class = AttributeGeneric
@@ -5517,12 +5526,19 @@ class Route(NetlinkPacket):
         dst = self.get_attribute_value(self.RTA_DST)
 
         if dst:
+            if self.family == AF_MCTP:
+                # MCTP destination is an 8-bit EID
+                if isinstance(dst, bytes):
+                    return "mctp:%d/%d" % (dst[0], self.dst_len) if dst else "mctp:0/0"
+                return "mctp:%s/%d" % (dst, self.dst_len)
             return "%s" % dst
         else:
             if self.family == AF_INET:
                 return "0.0.0.0/0"
             elif self.family == AF_INET6:
                 return "::/0"
+            elif self.family == AF_MCTP:
+                return "mctp:0/0"
 
     def get_protocol_string(self, index=None):
         if index is None:
@@ -5556,6 +5572,10 @@ class Route(NetlinkPacket):
         return ifname
 
     def get_nexthops(self, ifname_by_index={}):
+        # Skip nexthop processing for MCTP routes (attributes not fully parsed)
+        if self.family == AF_MCTP:
+            return []
+
         nexthop = self.get_attribute_value(self.RTA_GATEWAY)
         multipath = self.get_attribute_value(self.RTA_MULTIPATH)
         nexthops = []

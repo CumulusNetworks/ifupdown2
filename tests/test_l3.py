@@ -321,6 +321,32 @@ PY"""
     )
 
 
+def test_mctp_route_runtime_l3(ssh):
+    """The deployed parser treats MCTP route attributes as opaque data."""
+    ssh.run_assert_success(
+        """PYTHONPATH=/usr/share/ifupdown2 python3 - <<'PY'
+from nlmanager.nlpacket import (
+    AF_MCTP,
+    AF_FAMILY,
+    AttributeGeneric,
+    Route,
+    RTM_NEWROUTE,
+)
+
+route = Route(RTM_NEWROUTE, False, use_color=False)
+route.family = AF_MCTP
+route.dst_len = 8
+attribute = route.add_attribute(Route.RTA_DST, bytes([8]))
+
+assert AF_MCTP == 45
+assert AF_FAMILY[AF_MCTP] == "AF_MCTP"
+assert isinstance(attribute, AttributeGeneric)
+assert route.get_prefix_string() == "mctp:8/8"
+assert route.get_nexthops() == []
+PY"""
+    )
+
+
 def test_vxlan_missing_local_l3(ssh, setup):
     """An L3VXI can be created without a local tunnel address."""
     stderr = ssh.ifup_a(return_stderr=True)
