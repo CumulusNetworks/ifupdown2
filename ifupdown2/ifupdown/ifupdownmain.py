@@ -28,6 +28,7 @@ try:
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
     import ifupdown2.ifupdown.ifupdownconfig as ifupdownConfig
 
+    from ifupdown2.ifupdown.policymanager import policymanager_api as pma
     from ifupdown2.ifupdown.graph import *
     from ifupdown2.ifupdown.iface import ifaceStatusUserStrs, ifaceType, ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown2.ifupdown.scheduler import *
@@ -47,6 +48,7 @@ except ImportError:
     import ifupdown.ifupdownflags as ifupdownflags
     import ifupdown.ifupdownconfig as ifupdownConfig
 
+    from ifupdown.policymanager import policymanager_api as pma
     from ifupdown.graph import *
     from ifupdown.iface import ifaceStatusUserStrs, ifaceType, ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus, iface
     from ifupdown.scheduler import *
@@ -433,22 +435,10 @@ class ifupdownMain:
         self.clagd_change_detected = False
 
     def _get_mgmt_iface_default_prefix(self):
-        mgmt_iface_default_prefix = None
-        try:
-            mgmt_iface_default_prefix = ifupdown2.ifupdown.policymanager.policymanager_api.get_module_globals(
-                module_name='main', attr='mgmt_intf_prefix'
-            )
-        except Exception:
-            try:
-                mgmt_iface_default_prefix = ifupdown.policymanager.policymanager_api.get_module_globals(
-                    module_name='main', attr='mgmt_intf_prefix'
-                )
-            except Exception:
-                pass
-        if not mgmt_iface_default_prefix:
-            mgmt_iface_default_prefix = "eth"
+        attr = 'mgmt_intf_prefix'
+        ret = pma.get_module_globals(module_name='main', attr=attr)
+        return ret or ''
 
-        return mgmt_iface_default_prefix
 
     def link_master_slave_ignore_error(self, errorstr):
         # If link master slave flag is set,
@@ -820,19 +810,17 @@ class ifupdownMain:
             #if not self.dependency_graph.get(i):
             #    self.dependency_graph[i] = dlist
 
-        for i in list(self.ifaceobjdict.keys()):
-            iobj = self.get_ifaceobj_first(i)
-            if (not iobj.link_kind and
-               not (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK) and
-               iobj.name == 'lo'):
-               iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
-            if iobj.name.startswith(self.mgmt_iface_default_prefix):
-               self.logger.debug('%s: marking interface with mgmt flag' %iobj.name)
-               iobj.link_privflags |= ifaceLinkPrivFlags.MGMT_INTF
-            if iobj.lowerifaces:
-                self.dependency_graph[i] = iobj.lowerifaces
-            else:
-                self.dependency_graph[i] = []
+        for ifname in self.ifaceobjdict:
+            iobj = self.get_ifaceobj_first(ifname)
+            if iobj.name == 'lo' and not \
+                    (iobj.link_kind or (iobj.link_privflags & ifaceLinkPrivFlags.LOOPBACK)):
+                iobj.link_privflags |= ifaceLinkPrivFlags.LOOPBACK
+
+            if self.mgmt_iface_default_prefix and iobj.name.startswith(self.mgmt_iface_default_prefix):
+                self.logger.debug('%s: marking interface with mgmt flag', iobj.name)
+                iobj.link_privflags |= ifaceLinkPrivFlags.MGMT_INTF
+
+            self.dependency_graph[ifname] = iobj.lowerifaces or []
 
         if not self.blacklisted_ifaces_present:
             return
