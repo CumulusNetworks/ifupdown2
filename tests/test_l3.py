@@ -138,3 +138,30 @@ def test_vxlandev_sanity(ssh, setup, get_json):
     ssh.run_assert_success(f"sed -i 's/vxlan-remoteip 172.16.22.128/vxlan-remoteip 172.16.22.43/' {ENI}")
     ssh.ifup("vx0")
     ssh.ifquery_c("vx0")
+
+
+def test_dhcp6_release_link_down_l3(ssh, setup):
+    """A failed DHCPv6 release on a kept-down link remains non-fatal."""
+    pidfile = "/run/dhclient6.dum_d6.pid"
+    leasefile = "/var/lib/dhcp/dhclient6.dum_d6.leases"
+    ssh.run_assert_success(f"rm -f {pidfile} {leasefile}")
+
+    # The dhcp addon runs after the link has been forced down. Its release
+    # command therefore has no IPv6 link-local source address, but ifup must
+    # continue and leave the configured interface down.
+    ssh.ifup_a()
+    assert ssh.run("ip link show dum_d6")[3] == 0
+    assert ssh.run("ip -o link show dum_d6 | grep -w UP")[3] != 0
+    assert ssh.run(f"test -e {pidfile}")[3] != 0
+
+    # Prove the underlying command really fails in this state; the successful
+    # ifup above depends on _dhcp_down isolating that exception.
+    _, _, _, release_status = ssh.run(
+        f"/sbin/dhclient -6 -r -pf {pidfile} "
+        f"-lf {leasefile} dum_d6"
+    )
+    assert release_status != 0
+
+    ssh.ifdown("dum_d6")
+    assert ssh.run("ip link show dum_d6")[3] != 0
+    ssh.run_assert_success(f"rm -f {pidfile} {leasefile}")

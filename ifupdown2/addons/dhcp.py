@@ -257,10 +257,18 @@ class dhcp(Addon, moduleBase):
         dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                                                                        ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
-            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
+            try:
+                self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
+            except Exception:
+                # Ignore any dhclient release errors
+                pass
             self.cache.force_address_flush_family(ifaceobj.name, 6)
         if 'inet' in ifaceobj.addr_family:
-            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            try:
+                self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            except Exception:
+                # Ignore any dhclient release errors
+                pass
             self.cache.force_address_flush_family(ifaceobj.name, 4)
 
     def _down(self, ifaceobj):
