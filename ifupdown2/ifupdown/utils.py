@@ -241,6 +241,12 @@ class utils():
         # what we have in the cache (data retrieved via a netlink dump by
         # nlmanager). nlmanager return all macs in lower-case
 
+    _dpkg_suffixes = (".dpkg-old", ".dpkg-dist", ".dpkg-new", ".dpkg-tmp")
+
+    @staticmethod
+    def is_dpkg_file(name):
+        return any(name.endswith(suffix) for suffix in utils._dpkg_suffixes)
+
     @classmethod
     def importName(cls, modulename, name):
         """ Import a named object """
