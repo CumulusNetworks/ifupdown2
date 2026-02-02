@@ -1778,7 +1778,15 @@ class bridge(Bridge, moduleBase):
                     utils.diff_ids(vids_to_add, running_vids)
 
             if running_pvid and running_pvid != pvid_int and running_pvid != 0:
-                pvid_to_del = running_pvid
+                # remaining_pvid can only be [running_pvid] or []
+                remaining_pvid = (
+                    self.remove_bridge_vlans_mapped_to_vnis_from_vids_list(
+                        None,
+                        bportifaceobj,
+                        [running_pvid],
+                    )
+                )
+                pvid_to_del = remaining_pvid[-1] if remaining_pvid else None
 
             if (pvid_to_del and (pvid_to_del in vids_int) and
                 (pvid_to_del not in vids_to_add)):
