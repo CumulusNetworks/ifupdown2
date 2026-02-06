@@ -347,6 +347,44 @@ PY"""
     )
 
 
+def test_multipath_route_runtime_l3(ssh):
+    """The deployed parser handles mixed and truncated multipath nexthops."""
+    ssh.run_assert_success(
+        """PYTHONPATH=/usr/share/ifupdown2 python3 - <<'PY'
+import socket
+from struct import pack
+from nlmanager.nlpacket import AttributeRTA_MULTIPATH, Route
+
+def device(ifindex):
+    return pack("=HBBL", 8, 0, 0, ifindex)
+
+def gateway(ifindex, address):
+    return (
+        pack("=HBBL", 16, 0, 0, ifindex)
+        + pack("=HH", 8, Route.RTA_GATEWAY)
+        + socket.inet_pton(socket.AF_INET, address)
+    )
+
+def decode(payload):
+    raw = pack("=HH", 4 + len(payload), Route.RTA_MULTIPATH) + payload
+    attribute = AttributeRTA_MULTIPATH(
+        Route.RTA_MULTIPATH,
+        "RTA_MULTIPATH",
+        socket.AF_INET,
+        None,
+    )
+    attribute.decode(None, raw)
+    return attribute.value
+
+value = decode(device(5) + gateway(7, "192.0.2.2"))
+assert value[0] == (None, 5, 0, 0)
+assert str(value[1][0]) == "192.0.2.2"
+assert value[1][1:] == (7, 0, 0)
+assert decode(bytes([8, 0])) == ()
+PY"""
+    )
+
+
 def test_vxlan_missing_local_l3(ssh, setup):
     """An L3VXI can be created without a local tunnel address."""
     stderr = ssh.ifup_a(return_stderr=True)

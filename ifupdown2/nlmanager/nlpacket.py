@@ -2109,26 +2109,57 @@ struct rtnexthop {
         data = self.data[4:]
 
         while data:
+            # Check if there's enough data for the rtnexthop header
+            if len(data) < self.RTNH_LEN:
+                break
+
             (rtnh_len, rtnh_flags, rtnh_hops, rtnh_ifindex) = unpack(self.RTNH_PACK, data[:self.RTNH_LEN])
+
+            # Ensure rtnh_len is reasonable, at least as large as the header
+            if rtnh_len < self.RTNH_LEN:
+                break
+
             data = data[self.RTNH_LEN:]
 
-            (attr_type, attr_length) = unpack(self.HEADER_PACK, self.data[:self.HEADER_LEN])
-            data = data[self.HEADER_LEN:]
+            if rtnh_len == self.RTNH_LEN:
+                # Device-based multipath: just the rtnexthop header, no IP address
+                self.value.append((None, rtnh_ifindex, rtnh_flags, rtnh_hops))
+            elif rtnh_len > self.RTNH_LEN:
+                # Gateway-based multipath: has attribute header + IP address
 
-            if self.family == AF_INET:
-                if len(data) < self.IPV4_LEN:
+                # Check if there's enough data for the attribute header
+                if len(data) < self.HEADER_LEN:
                     break
-                nexthop = ipnetwork.IPv4Address(unpack('>L', data[:self.IPV4_LEN])[0])
-                self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
 
-            elif self.family == AF_INET6:
-                if len(data) < self.IPV6_LEN:
-                    break
-                (data1, data2) = unpack('>QQ', data[:self.IPV6_LEN])
-                nexthop = ipnetwork.IPv6Address(data1 << 64 | data2)
-                self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
+                (attr_type, attr_length) = unpack(self.HEADER_PACK, data[:self.HEADER_LEN])
+                data = data[self.HEADER_LEN:]
 
-            data = data[(rtnh_len-self.RTNH_LEN-self.HEADER_LEN):]
+                if self.family == AF_INET:
+                    if len(data) < self.IPV4_LEN:
+                        break
+                    nexthop = ipnetwork.IPv4Address(unpack('>L', data[:self.IPV4_LEN])[0])
+                    self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
+                    data = data[self.IPV4_LEN:]
+
+                elif self.family == AF_INET6:
+                    if len(data) < self.IPV6_LEN:
+                        break
+                    (data1, data2) = unpack('>QQ', data[:self.IPV6_LEN])
+                    nexthop = ipnetwork.IPv6Address(data1 << 64 | data2)
+                    self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
+                    data = data[self.IPV6_LEN:]
+
+                # We've consumed: RTNH_LEN (header) + HEADER_LEN (attr header) + IP_LEN (address)
+                consumed = self.RTNH_LEN + self.HEADER_LEN + (self.IPV4_LEN if self.family == AF_INET else self.IPV6_LEN)
+
+                # If rtnh_len indicates more data than we consumed, skip the remainder
+                if rtnh_len > consumed:
+                    skip_len = rtnh_len - consumed
+
+                    if skip_len <= len(data):
+                        data = data[skip_len:]
+                    else:
+                        break
 
         self.value = tuple(self.value)
 
