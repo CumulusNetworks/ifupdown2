@@ -385,6 +385,24 @@ PY"""
     )
 
 
+def test_source_directory_missing_path_runtime_l3(ssh):
+    """The deployed parser reports missing source-directory paths."""
+    _, stdout, stderr, status = ssh.run(
+        """PYTHONPATH=/usr/share/ifupdown2 python3 - <<'PY'
+from ifupdown.networkinterfaces import networkInterfaces
+
+for line in ("source-directory", "source-directory ", "source-directory\\t"):
+    parser = networkInterfaces(interfacesfile="/tmp/interfaces")
+    assert parser.process_source_directory([line], 0, 7) == 0
+    assert parser.errors == 1
+PY"""
+    )
+    assert status == 0
+    assert stdout.read().decode("utf-8") == ""
+    expected = "/tmp/interfaces: line7: unable to read source-directory line\n"
+    assert stderr.read().decode("utf-8") == expected * 3
+
+
 def test_vxlan_missing_local_l3(ssh, setup):
     """An L3VXI can be created without a local tunnel address."""
     stderr = ssh.ifup_a(return_stderr=True)

@@ -199,7 +199,8 @@ class networkInterfaces():
 
     def process_source_directory(self, lines, cur_idx, lineno):
         self.logger.debug('processing source-directory line ..\'%s\'' % lines[cur_idx])
-        sourced_directory = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
+        parts = re.split(self._ws_split_regex, lines[cur_idx], 2)
+        sourced_directory = parts[1].strip() if len(parts) > 1 else ''
 
         if sourced_directory:
             if not os.path.isabs(sourced_directory):
