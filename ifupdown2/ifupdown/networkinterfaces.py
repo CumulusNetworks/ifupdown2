@@ -491,8 +491,10 @@ class networkInterfaces():
             self.logger.warning('error processing file %s (%s)',
                              filename, str(e))
             return
-        self.read_filedata(filedata)
-        self._filestack.pop()
+        else:
+            self.read_filedata(filedata)
+        finally:
+            self._filestack.pop()
 
     def read_file_json(self, filename, fileiobuf=None):
         if fileiobuf:

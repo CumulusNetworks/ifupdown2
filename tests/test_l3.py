@@ -403,6 +403,43 @@ PY"""
     assert stderr.read().decode("utf-8") == expected * 3
 
 
+def test_networkinterfaces_filestack_runtime_l3(ssh):
+    """Failed includes unwind the deployed parser's current-file stack."""
+    ssh.run_assert_success(
+        """PYTHONPATH=/usr/share/ifupdown2 python3 - <<'PY'
+import os
+import tempfile
+from ifupdown.networkinterfaces import networkInterfaces
+
+parser = networkInterfaces(interfacesfile="/etc/network/interfaces")
+parser.logger.setLevel(100)
+initial = list(parser._filestack)
+
+parser.read_file("/tmp/ifupdown2-file-that-does-not-exist")
+assert parser._filestack == initial
+assert parser._currentfile == "/etc/network/interfaces"
+
+fd, path = tempfile.mkstemp(prefix="ifupdown2-filestack-")
+os.write(fd, b"# minimal config\\n")
+os.close(fd)
+parser.read_filedata = lambda data: (_ for _ in ()).throw(
+    RuntimeError("parse failed")
+)
+try:
+    parser.read_file(path)
+except RuntimeError:
+    pass
+else:
+    raise AssertionError("parse exception was not propagated")
+finally:
+    os.unlink(path)
+
+assert parser._filestack == initial
+assert parser._currentfile == "/etc/network/interfaces"
+PY"""
+    )
+
+
 def test_vxlan_missing_local_l3(ssh, setup):
     """An L3VXI can be created without a local tunnel address."""
     stderr = ssh.ifup_a(return_stderr=True)
