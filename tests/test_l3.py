@@ -44,7 +44,13 @@ def test_address_gateway(ssh, setup):
 
 
 def test_evpn_vab_clag_riot_flood_sup_off_config_tors2(ssh, setup, get_json):
-    ssh.ifup_a()
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
 
     assert_identical_json(ssh.ifquery_ac_json(), get_json("EvpnVabClagRiotFloodSupOffConfig.ifquery.ac.json"))
 

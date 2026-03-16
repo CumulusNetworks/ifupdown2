@@ -117,6 +117,22 @@ class ifupdownMain:
         # is already with its link master (hence the master check).
         if ifaceobj.link_type == ifaceLinkType.LINK_SLAVE:
             if self.diff_based:
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+                    # Check if port is already enslaved to bridge or being newly enslaved to bridge
+                    bridge_name = self.netlink.cache.get_bridge_name_from_port(ifaceobj.name)
+
+                    if not bridge_name:
+                        # Port not yet enslaved - bridge will handle enslaving and link-up
+                        self.logger.info(
+                            f"{ifaceobj.name}: skipping link-up for bridge port (bridge module will manage)"
+                        )
+                        return
+                    else:
+                        # Port already enslaved - allow link-up for recovery
+                        self.logger.info(
+                            f"{ifaceobj.name}: bridge port already enslaved to {bridge_name}, allowing link-up"
+                        )
+
                 self.logger.debug(
                     f"{ifaceobj.name}: diff based approach will try to link-up this slave device"
                 )

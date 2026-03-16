@@ -482,6 +482,9 @@ def test_bridge_new_port_admin_l2(ssh, setup):
             "dev mgmt: operation failed with "
             "'Cannot assign requested address' (99)\n"
         )
+    ssh.scp("tests/eni/bridge_new_port_admin_l2.after.eni", ENI)
+    reload_output = ssh.ifreload_av()
+    assert "skipping link-up for bridge port" in reload_output
     ssh.run_assert_success(
         "ip -o link show dummy_new | grep -w 'master br_new'"
     )
