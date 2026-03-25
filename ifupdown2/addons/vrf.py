@@ -555,6 +555,9 @@ class vrf(Addon, moduleBase):
                 if obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
                     self.logger.info("%s: keeping vlan down (lower device %s has link-down flag set)" % (ifaceobj.name, obj.name))
                     return True
+                if not self.cache.link_is_up(obj.name):
+                    self.logger.info("%s: keeping vlan down (lower device %s is not admin up)" % (ifaceobj.name, obj.name))
+                    return True
         return False
 
     def _del_vrf_rules(self, vrf_dev_name, vrf_table):

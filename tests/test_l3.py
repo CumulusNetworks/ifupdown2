@@ -483,6 +483,32 @@ def test_vxlan_missing_local_l3(ssh, setup):
     assert ssh.run("ip link show vrf_meta")[3] != 0
 
 
+def test_vrf_vlan_lower_down_l3(ssh, setup):
+    """A VLAN VRF slave stays down when its lower is running admin-down."""
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+    ssh.run_assert_success("ip link set dev swp_AA_ down")
+
+    ssh.scp("tests/eni/vrf_vlan_lower_down_l3.after.eni", ENI)
+    assert ssh.ifup("vlan200", return_stderr=True) == ""
+
+    ssh.run_assert_success(
+        "ip -o link show vlan200 | grep -w 'master vrf_lower'"
+    )
+    assert ssh.run("ip -o link show vlan200 | grep -w UP")[3] != 0
+    assert ssh.run("ip -o link show swp_AA_ | grep -w UP")[3] != 0
+
+    ssh.ifdown("vlan200 swp_AA_ vrf_lower")
+    for ifname in ("vlan200", "vrf_lower"):
+        assert ssh.run(f"ip link show {ifname}")[3] != 0
+    ssh.run_assert_success("ip link show swp_AA_")
+
+
 def test_dhcp6_release_link_down_l3(ssh, setup):
     """A failed DHCPv6 release on a kept-down link remains non-fatal."""
     pidfile = "/run/dhclient6.dum_d6.pid"
