@@ -703,13 +703,13 @@ class address(AddonWithIpBlackList, moduleBase):
                     self.__add_ip_addresses_with_attributes(ifaceobj, ifname, user_config_ip_addrs_list, force_reapply)
                 return
             try:
-                # if primary address is not same, there is no need to keep any, reset all addresses.
-                if ordered_user_configured_ips and running_ip_addrs and ordered_user_configured_ips[0] != running_ip_addrs[0]:
-                    self.logger.info("%s: primary ip changed (from %s to %s) we need to purge all ip addresses and re-add them"
-                                     % (ifname, ordered_user_configured_ips[0], running_ip_addrs[0]))
-                    skip_addrs = []
-                else:
-                    skip_addrs = ordered_user_configured_ips
+                # When IPv4 primary changes, we need to purge IPv4 addresses for re-ordering,
+                # but IPv6 addresses should never be purged due to IPv4 primary changes.
+                skip_addrs = list(ordered_user_configured_ips)
+                running_ip4 = [ip for ip in running_ip_addrs if ip.version == 4]
+                if user_ip4 and running_ip4 and user_ip4[0] != running_ip4[0]:
+                    self.logger.info(f"{ifname}: IPv4 primary changed from {running_ip4[0]} to {user_ip4[0]}, ips will be purged and re-added to set new primary")
+                    skip_addrs = list(user_ip6)
 
                 if anycast_ip:
                     skip_addrs.append(anycast_ip)

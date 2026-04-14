@@ -165,3 +165,67 @@ def test_dhcp6_release_link_down_l3(ssh, setup):
     ssh.ifdown("dum_d6")
     assert ssh.run("ip link show dum_d6")[3] != 0
     ssh.run_assert_success(f"rm -f {pidfile} {leasefile}")
+
+
+def test_ipv6_primary_purge_l3(ssh, setup):
+    """An IPv4 primary change never transiently deletes retained IPv6."""
+    monitor_log = "/tmp/ifupdown2-ipv6-primary-monitor.log"
+    monitor_pid = "/tmp/ifupdown2-ipv6-primary-monitor.pid"
+    ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
+
+    ssh.ifup_a()
+    ssh.run_assert_success(
+        "ip -o address show dev dum_purge | grep '192.0.2.1/24'"
+    )
+    ssh.run_assert_success(
+        "ip -6 -o address show dev dum_purge | grep '2001:db8:43::1/64'"
+    )
+    ssh.run_assert_success(
+        "ip -6 -o address show dev dum_purge | grep '2001:db8:43::2/64'"
+    )
+
+    ssh.run_assert_success(
+        "nohup timeout 30 stdbuf -oL ip monitor address dev dum_purge "
+        f"> {monitor_log} 2>&1 < /dev/null & echo $! > {monitor_pid}"
+    )
+    ssh.run_assert_success(
+        f"test -s {monitor_pid} && kill -0 $(cat {monitor_pid}) && sleep 1"
+    )
+
+    # Promote the secondary IPv4 address and explicitly remove only IPv6 ::2.
+    ssh.run_assert_success(
+        f"sed -i -e '/address 192\\.0\\.2\\.1\\/24/d' "
+        f"-e '/address 2001:db8:43::2\\/64/d' {ENI}"
+    )
+    ssh.ifup("dum_purge")
+
+    ssh.run_assert_success(
+        f"kill $(cat {monitor_pid}) 2>/dev/null || true; sleep 1"
+    )
+    monitor_output = ssh.run_assert_success(f"cat {monitor_log}").lower()
+
+    # Explicitly removed IPv6 is deleted, while retained IPv6 never flaps.
+    assert any(
+        "deleted" in line and "2001:db8:43::2/64" in line
+        for line in monitor_output.splitlines()
+    )
+    assert not any(
+        "deleted" in line and "2001:db8:43::1/64" in line
+        for line in monitor_output.splitlines()
+    )
+
+    assert ssh.run(
+        "ip -o address show dev dum_purge | grep '192.0.2.1/24'"
+    )[3] != 0
+    ssh.run_assert_success(
+        "ip -o address show dev dum_purge | grep '192.0.2.2/24'"
+    )
+    ssh.run_assert_success(
+        "ip -6 -o address show dev dum_purge | grep '2001:db8:43::1/64'"
+    )
+    assert ssh.run(
+        "ip -6 -o address show dev dum_purge | grep '2001:db8:43::2/64'"
+    )[3] != 0
+
+    ssh.ifdown("dum_purge")
+    ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
