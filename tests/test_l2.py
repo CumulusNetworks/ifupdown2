@@ -465,3 +465,29 @@ def test_interfaces_link_state(ssh, setup, get_json):
 def test_mac1(ssh, setup, get_json):
     ssh.ifreload_a()
     assert_identical_json(ssh.ifquery_ac_json(), get_json("mac1.ifquery.ac.json"))
+
+
+def test_bond_dummy_mac_l2(ssh, setup):
+    """Missing slave state and dummy permanent-MAC data remain non-fatal."""
+    ssh.ifup_a()
+    ssh.run_assert_success(
+        "ip -d -o link show bond_dummy | grep -w 'bond'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy0 | grep -w 'master bond_dummy'"
+    )
+
+    # Re-apply an existing bond after removing its configured member list.
+    # The running-slave cache can be absent here; MAC synchronization must not
+    # iterate None or require permanent hardware-address data from dummy0.
+    ssh.run_assert_success(
+        f"sed -i '/bond-slaves dummy0/d' {ENI}"
+    )
+    ssh.ifup("bond_dummy")
+    ssh.run_assert_success(
+        "ip -d -o link show bond_dummy | grep -w 'bond'"
+    )
+
+    ssh.ifdown("bond_dummy dummy0")
+    assert ssh.run("ip link show bond_dummy")[3] != 0
+    assert ssh.run("ip link show dummy0")[3] != 0

@@ -433,11 +433,12 @@ class bond(Addon, moduleBase):
     def _add_slaves(self, ifaceobj, runningslaves, ifaceobj_getfunc=None):
         # reset the current_bond_speed
         self.current_bond_speed = -1
+        runningslaves = runningslaves or []
 
         slaves = self._get_slave_list(ifaceobj)
         if not slaves:
             self.logger.debug('%s: no slaves found' %ifaceobj.name)
-            return
+            return runningslaves
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
@@ -916,6 +917,8 @@ class bond(Addon, moduleBase):
 
     def set_bond_mac(self, link_exists, ifaceobj, bond_slaves):
         if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
+            return
+        if not bond_slaves:
             return
 
         # check if the bond mac address is correctly inherited from it's
