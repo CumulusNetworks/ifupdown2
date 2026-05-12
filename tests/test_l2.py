@@ -693,3 +693,64 @@ def test_pvid_vni_protection_l2(ssh, setup):
 
     assert ssh.run("ip link show br_pvid")[3] != 0
     assert ssh.run("ip link show vxlan_pvid")[3] != 0
+
+
+def test_pvrst_phase_cache_l2(ssh, setup):
+    """Diff reload reevaluates global PVRST mode between scheduler phases."""
+    _, stdout, stderr, _ = ssh.run("mstpctl --help")
+    help_output = (
+        stdout.read().decode("utf-8") +
+        stderr.read().decode("utf-8")
+    )
+    if "setmodepvrst" not in help_output:
+        pytest.skip("mstpctl does not support PVRST mode")
+
+    cleanup_succeeded = False
+    cleanup_output = ""
+    cleanup_protocol = None
+    try:
+        ssh.ifreload_diff = False
+        ssh.ifreload_a()
+        initial_state = json.loads(
+            ssh.run_assert_success(
+                "mstpctl showstpbridge json br_pvrst"
+            )
+        )
+        assert initial_state.get("protocol") == "rstp"
+
+        ssh.scp("tests/eni/pvrst_phase_cache_l2.after.eni", ENI)
+        ssh.ifreload_diff = True
+        apply_output = ssh.ifreload_av(ignore_stdout=True)
+
+        assert "mstpctl setmodepvrst" in apply_output
+        bridge_state = json.loads(
+            ssh.run_assert_success(
+                "mstpctl showstpbridge json br_pvrst"
+            )
+        )
+        assert bridge_state.get("protocol") == "rapid-pvst"
+    finally:
+        try:
+            ssh.scp("tests/eni/pvrst_phase_cache_l2.eni", ENI)
+            ssh.ifreload_diff = True
+            cleanup_output = ssh.ifreload_av(ignore_stdout=True)
+            cleanup_state = json.loads(
+                ssh.run_assert_success(
+                    "mstpctl showstpbridge json br_pvrst"
+                )
+            )
+            cleanup_protocol = cleanup_state.get("protocol")
+            cleanup_succeeded = True
+        finally:
+            if not cleanup_succeeded:
+                ssh.run("mstpctl clearmodepvrst 2>/dev/null; true")
+            ssh.run(
+                "ifdown br_pvrst swp_AA_ swp_BB_ swp_CC_ "
+                "2>/dev/null; true"
+            )
+
+    assert "mstpctl clearmodepvrst" in cleanup_output
+    assert cleanup_protocol == "rstp"
+    assert ssh.run("ip link show br_pvrst")[3] != 0
+    for ifname in ("swp_AA_", "swp_BB_", "swp_CC_"):
+        ssh.run_assert_success(f"ip link show {ifname}")

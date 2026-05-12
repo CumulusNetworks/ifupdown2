@@ -553,6 +553,10 @@ class ifaceScheduler():
 
         ifupdownobj.logger.debug(f"full run queue: {cls._RUN_QUEUE}")
 
+        # Reset PVRST_MODE cache once per op (down or up) so that
+        # is_pvrst_enabled does a fresh scan in this op.
+        utils.PVRST_MODE = None
+
         followupperifaces = False
         run_queue = []
         skip_ifacesort = int(ifupdownobj.config.get('skip_ifacesort', '0'))
