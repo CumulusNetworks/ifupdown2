@@ -491,3 +491,64 @@ def test_bond_dummy_mac_l2(ssh, setup):
     ssh.ifdown("bond_dummy dummy0")
     assert ssh.run("ip link show bond_dummy")[3] != 0
     assert ssh.run("ip link show dummy0")[3] != 0
+
+
+def test_master_conflict_l2(ssh, setup):
+    """Conflicting masters cannot steal members; valid moves remain allowed."""
+    ssh.ifup_a()
+    ssh.run_assert_success(
+        "ip -o link show dummy_bond | grep -w 'master bond_guard'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_vrf | grep -w 'master vrf_guard'"
+    )
+
+    # Misconfigure both existing members as bridge ports as well.
+    ssh.run_assert_success(
+        f"sed -i '/iface br_guard/a\\    "
+        f"bridge-ports dummy_bond dummy_vrf' {ENI}"
+    )
+    _, stdout, stderr, _ = ssh.run("ifup br_guard")
+    output = stdout.read().decode("utf-8") + stderr.read().decode("utf-8")
+    assert "skipping bridge enslavement" in output
+
+    # Neither existing master may lose its member.
+    ssh.run_assert_success(
+        "ip -o link show dummy_bond | grep -w 'master bond_guard'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_vrf | grep -w 'master vrf_guard'"
+    )
+    assert ssh.run(
+        "ls /sys/class/net/br_guard/brif | grep -w dummy_bond"
+    )[3] != 0
+    assert ssh.run(
+        "ls /sys/class/net/br_guard/brif | grep -w dummy_vrf"
+    )[3] != 0
+
+    # Remove the old VRF ownership from configuration. The now-valid move of
+    # dummy_vrf into the bridge must not be blocked by the conflict guard.
+    ssh.run_assert_success(
+        f"sed -i "
+        f"-e 's/bridge-ports dummy_bond dummy_vrf/bridge-ports dummy_vrf/' "
+        f"-e '/^    vrf vrf_guard$/d' {ENI}"
+    )
+    ssh.ifup("br_guard", ignore_stderr=True)
+    ssh.run_assert_success(
+        "ip -o link show dummy_vrf | grep -w 'master br_guard'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_bond | grep -w 'master bond_guard'"
+    )
+
+    ssh.run_assert_success(
+        f"sed -i '/bridge-ports dummy_vrf/d' {ENI}"
+    )
+    ssh.ifdown(
+        "br_guard bond_guard vrf_guard dummy_bond dummy_vrf",
+        ignore_stderr=True,
+    )
+    for ifname in (
+            "br_guard", "bond_guard", "vrf_guard",
+            "dummy_bond", "dummy_vrf"):
+        assert ssh.run(f"ip link show {ifname}")[3] != 0

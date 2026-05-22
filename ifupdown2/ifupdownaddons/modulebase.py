@@ -11,14 +11,14 @@ import traceback
 from functools import reduce
 
 try:
-    from ifupdown2.ifupdown.iface import ifaceStatus
+    from ifupdown2.ifupdown.iface import ifaceStatus, ifaceLinkPrivFlags
     from ifupdown2.ifupdown.utils import utils
 
     import ifupdown2.ifupdown.exceptions as exceptions
     import ifupdown2.ifupdown.policymanager as policymanager
     import ifupdown2.ifupdown.ifupdownflags as ifupdownflags
 except ImportError:
-    from ifupdown.iface import ifaceStatus
+    from ifupdown.iface import ifaceStatus, ifaceLinkPrivFlags
     from ifupdown.utils import utils
 
     import ifupdown.exceptions as exceptions
@@ -56,6 +56,20 @@ class moduleBase(object):
         self._bridge_stp_user_space = None
 
         self.merge_modinfo_with_policy_files()
+
+    def has_master_conflict(self, ifaceobj, intended_flag):
+        """Return True if ifaceobj is already enslaved to a different master type.
+
+        intended_flag is the slave flag this addon intends to set (e.g.
+        BRIDGE_PORT, BOND_SLAVE, VRF_SLAVE).  If any *other* slave flag is
+        already set on the object the port is already owned by a different
+        master and enslaving it again would be a misconfig.
+        """
+        slave_flags = (ifaceLinkPrivFlags.BOND_SLAVE
+                       | ifaceLinkPrivFlags.VRF_SLAVE
+                       | ifaceLinkPrivFlags.BRIDGE_PORT)
+        other_flags = slave_flags & ~intended_flag
+        return bool(ifaceobj.link_privflags & other_flags)
 
     def merge_modinfo_with_policy_files(self):
         """

@@ -395,6 +395,24 @@ class vrf(Addon, moduleBase):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
+        if (
+                ifaceobj
+                and self.has_master_conflict(
+                    ifaceobj, ifaceLinkPrivFlags.VRF_SLAVE
+                )
+        ):
+            self.logger.warning(
+                '%s: skipping VRF enslavement to %s: '
+                'already enslaved to %s (%s)'
+                % (
+                    ifacename,
+                    vrfname,
+                    self.cache.get_master(ifacename),
+                    ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags),
+                )
+            )
+            return
+
         vrf_master = None
         if len(ifaceobj.upperifaces) > 1 and ifaceobj_getfunc:
             for upper_iface in ifaceobj.upperifaces:
@@ -469,6 +487,26 @@ class vrf(Addon, moduleBase):
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
         try:
+            if (
+                    ifaceobj
+                    and self.has_master_conflict(
+                        ifaceobj, ifaceLinkPrivFlags.VRF_SLAVE
+                    )
+            ):
+                self.logger.warning(
+                    '%s: skipping VRF enslavement to %s: '
+                    'already enslaved to %s (%s)'
+                    % (
+                        ifacename,
+                        vrfname,
+                        self.cache.get_master(ifacename),
+                        ifaceLinkPrivFlags.get_str(
+                            ifaceobj.link_privflags
+                        ),
+                    )
+                )
+                return
+
             master_exists = True
             if vrf_exists or self.cache.link_exists(vrfname):
                 uppers = self.sysfs.link_get_uppers(ifacename)

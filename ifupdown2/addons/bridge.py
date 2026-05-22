@@ -1299,6 +1299,14 @@ class bridge(Bridge, moduleBase):
                                   bridgeport) + 'invalid ether addr %s'
                                   %hwaddress)
                     continue
+                bport_objs = ifaceobj_getfunc(bridgeport) if ifaceobj_getfunc else None
+                if bport_objs and self.has_master_conflict(bport_objs[0], ifaceLinkPrivFlags.BRIDGE_PORT):
+                    self.logger.warning('%s: skipping bridge enslavement to %s: already enslaved to %s (%s)'
+                                        % (bridgeport, ifaceobj.name,
+                                           self.cache.get_master(bridgeport),
+                                           ifaceLinkPrivFlags.get_str(bport_objs[0].link_privflags)))
+                    continue
+
                 self.iproute2.link_set_master(bridgeport, ifaceobj.name)
                 newly_enslaved_ports.append(bridgeport)
 
@@ -2021,6 +2029,12 @@ class bridge(Bridge, moduleBase):
 
     def up_bridge_port_vlan_aware_bridge(self, ifaceobj, ifaceobj_getfunc, bridge_name, should_enslave_port):
         if should_enslave_port:
+            if self.has_master_conflict(ifaceobj, ifaceLinkPrivFlags.BRIDGE_PORT):
+                self.logger.warning('%s: skipping bridge enslavement to %s: already enslaved to %s (%s)'
+                                    % (ifaceobj.name, bridge_name,
+                                       self.cache.get_master(ifaceobj.name),
+                                       ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags)))
+                return
             self.netlink.link_set_master(ifaceobj.name, bridge_name)
 
             if ifaceobj.name not in self.svd_list:

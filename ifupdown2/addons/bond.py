@@ -462,6 +462,27 @@ class bond(Addon, moduleBase):
                                      raise_error=False)
                     continue
 
+            slave_objs = ifaceobj_getfunc(slave) if ifaceobj_getfunc else None
+            if (
+                    slave_objs
+                    and self.has_master_conflict(
+                        slave_objs[0], ifaceLinkPrivFlags.BOND_SLAVE
+                    )
+            ):
+                self.logger.warning(
+                    '%s: skipping bond enslavement to %s: '
+                    'already enslaved to %s (%s)'
+                    % (
+                        slave,
+                        ifaceobj.name,
+                        self.cache.get_master(slave),
+                        ifaceLinkPrivFlags.get_str(
+                            slave_objs[0].link_privflags
+                        ),
+                    )
+                )
+                continue
+
             if not self.valid_slave_speed(ifaceobj, common_slaves, slave, ifaceobj_getfunc):
                 continue
 
