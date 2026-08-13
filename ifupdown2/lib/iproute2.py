@@ -318,7 +318,7 @@ class IPRoute2(Cache, Requirements):
         if ttl:
             cmd.append("ttl %s" % ttl)
 
-        if ageing:
+        if ageing is not None:
             cmd.append("ageing %s" % ageing)
 
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
@@ -354,7 +354,7 @@ class IPRoute2(Cache, Requirements):
         if ttl:
             cmd.append("ttl %s" % ttl)
 
-        if ageing:
+        if ageing is not None:
             cmd.append("ageing %s" % ageing)
 
         self.__execute_or_batch(utils.ip_cmd, " ".join(cmd))
@@ -382,7 +382,7 @@ class IPRoute2(Cache, Requirements):
             else:
                 cmd.append("remote %s" % svcnodeip)
 
-        if ageing:
+        if ageing is not None:
             cmd.append("ageing %s" % ageing)
 
         if learning == 'off':

@@ -356,7 +356,7 @@ class vxlan(Vxlan, moduleBase):
         """
         vxlan_ageing_str = ifaceobj.get_attr_value_first("vxlan-ageing")
         try:
-            if vxlan_ageing_str:
+            if vxlan_ageing_str not in (None, ""):
                 return int(vxlan_ageing_str)
 
             vxlan_ageing_str = policymanager.policymanager_api.get_attr_default(
@@ -364,11 +364,11 @@ class vxlan(Vxlan, moduleBase):
                 attr="vxlan-ageing"
             )
 
-            if not vxlan_ageing_str and link_exists:
+            if vxlan_ageing_str in (None, "") and link_exists:
                 # if link doesn't exist we let the kernel define ageing
                 vxlan_ageing_str = self.get_attr_default_value("vxlan-ageing")
 
-            if vxlan_ageing_str:
+            if vxlan_ageing_str not in (None, ""):
                 return int(vxlan_ageing_str)
         except Exception:
             self.log_error("%s: invalid vxlan-ageing '%s'" % (ifname, vxlan_ageing_str), ifaceobj)
@@ -379,7 +379,7 @@ class vxlan(Vxlan, moduleBase):
         """
         vxlan_ageing = self.__get_vxlan_ageing_int(ifname, ifaceobj, link_exists)
 
-        if not vxlan_ageing or (link_exists and vxlan_ageing == cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_AGEING)):
+        if vxlan_ageing is None or (link_exists and vxlan_ageing == cached_vxlan_ifla_info_data.get(Link.IFLA_VXLAN_AGEING)):
             return
 
         self.logger.info("%s: set vxlan-ageing %s" % (ifname, vxlan_ageing))
