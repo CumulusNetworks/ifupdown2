@@ -205,7 +205,13 @@ def test_ipv6_primary_purge_l3(ssh, setup):
         f"sed -i -e '/address 192\\.0\\.2\\.1\\/24/d' "
         f"-e '/address 2001:db8:43::2\\/64/d' {ENI}"
     )
-    ssh.ifup("dum_purge")
+    reconcile_stderr = ssh.ifup(
+        "dum_purge",
+        return_stderr=True,
+    )
+    if reconcile_stderr:
+        assert "cannot delete address 192.0.2.2/24" in reconcile_stderr
+        assert "2001:db8:43::" not in reconcile_stderr
 
     ssh.run_assert_success(
         f"kill $(cat {monitor_pid}) 2>/dev/null || true; sleep 1"
