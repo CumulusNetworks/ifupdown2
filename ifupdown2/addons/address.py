@@ -905,18 +905,18 @@ class address(AddonWithIpBlackList, moduleBase):
             for addr in ifaceobj.get_attr_value("address") or []:
                 if ipnetwork.IPNetwork(addr).version == 6:
                     self.log_error(f"{ifaceobj.name}: the minimum allowed MTU is {self.v6_min_mtu} for ipv6 configuration", ifaceobj)
+                    return False
         return True
 
     def _process_mtu_config_mtu_valid(self, ifaceobj, ifaceobj_getfunc, mtu_str, mtu_int):
         if not self._check_mtu_config(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc):
             return self.INVALID_MTU
 
+        # ipv6 minimum MTU check
+        if not self._process_mtu_ipv6_config_valid(ifaceobj, mtu_int):
+            return self.INVALID_MTU
+
         if mtu_int != self.cache.get_link_mtu(ifaceobj.name):
-
-            # ipv6 minimum MTU check
-            if not self._process_mtu_ipv6_config_valid(ifaceobj, mtu_int):
-                return self.INVALID_MTU
-
             self.sysfs.link_set_mtu(ifaceobj.name, mtu_str=mtu_str, mtu_int=mtu_int)
             self._propagate_mtu_to_upper_devs(ifaceobj, mtu_str, mtu_int, ifaceobj_getfunc)
 
