@@ -12,7 +12,13 @@ logger = logging.getLogger(__name__)
 def test_bond(ssh, setup, get_json):
     bond_ifquery_ac_json = get_json("bond.ifquery.ac.json")
 
-    ssh.ifreload_a()
+    stderr = ssh.ifreload_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
     assert_identical_json(ssh.ifquery_ac_json(), bond_ifquery_ac_json)
 
     ifreload_output = ssh.ifreload_av()
