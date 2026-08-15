@@ -9,24 +9,22 @@ auto mgmt
 iface mgmt
     vrf-table auto
 
-auto dummy_raw
-iface dummy_raw
-    link-type dummy
+auto swp_AA_
+iface swp_AA_
 
 auto vlan100
 iface vlan100
-    vlan-raw-device dummy_raw
+    vlan-raw-device swp_AA_
     vlan-id 100
     vlan-bridge-binding on
 
-auto dummy_port
-iface dummy_port
-    link-type dummy
+auto swp_BB_
+iface swp_BB_
 
 auto br_bind
 iface br_bind
     bridge-vlan-aware yes
-    bridge-ports dummy_port
+    bridge-ports swp_BB_
     bridge-vids 200
 
 auto br_bind.200

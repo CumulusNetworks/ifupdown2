@@ -475,7 +475,13 @@ def test_mac1(ssh, setup, get_json):
 
 def test_bridge_new_port_admin_l2(ssh, setup):
     """A new bridge port is restored up after protected enslavement."""
-    ssh.ifup_a()
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
     ssh.run_assert_success(
         "ip -o link show dummy_new | grep -w 'master br_new'"
     )
@@ -550,10 +556,11 @@ def test_vlan_bridge_binding_scope_l2(ssh, setup):
     )
     assert "BRIDGE_BINDING" in bridge_svi
 
-    ssh.ifdown("br_bind.200 br_bind vlan100 dummy_port dummy_raw")
-    for ifname in ("br_bind.200", "br_bind", "vlan100",
-                   "dummy_port", "dummy_raw"):
+    ssh.ifdown("br_bind.200 br_bind vlan100 swp_AA_ swp_BB_")
+    for ifname in ("br_bind.200", "br_bind", "vlan100"):
         assert ssh.run(f"ip link show {ifname}")[3] != 0
+    for ifname in ("swp_AA_", "swp_BB_"):
+        ssh.run_assert_success(f"ip link show {ifname}")
 
 
 def test_bond_dummy_mac_l2(ssh, setup):
