@@ -350,7 +350,8 @@ def preserve_device_config(ssh):
         "cp -af %s/interfaces.d/. %s/ && "
         "ifreload -a && "
         "cmp -s %s/interfaces %s && "
-        "diff -qr %s/interfaces.d %s"
+        "diff -qr %s/interfaces.d %s && "
+        "rm -rf %s"
         % (
             backup_dir,
             ENI,
@@ -361,6 +362,7 @@ def preserve_device_config(ssh):
             ENI,
             backup_dir,
             ENI_D,
+            backup_dir,
         )
     )
     if restore_status:
