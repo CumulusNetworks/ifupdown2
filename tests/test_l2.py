@@ -859,15 +859,17 @@ def test_ethtool_single_speed_an_l2(ssh):
             f"cp -af {backup_dir}/interfaces.d/. {ENI_D}/ && "
             "ifreload -a"
         )
-        assert restore_status == 0
-        ssh.run_assert_success(
+        _, _, _, mode_restore_status = ssh.run(
             f"ethtool -s {port} autoneg on "
             "advertise 0xFFFFFFFFFFFFFFFF"
         )
-        ssh.run_assert_success(
+        _, _, _, admin_restore_status = ssh.run(
             f"ip link set dev {port} "
             f"{'up' if baseline_admin_up else 'down'}"
         )
+        assert restore_status == 0
+        assert mode_restore_status == 0
+        assert admin_restore_status == 0
         restored_state = ssh.run_assert_success(f"ethtool {port}")
         assert advertised_modes(restored_state) == baseline_modes
         restored_admin_up = "UP" in json.loads(

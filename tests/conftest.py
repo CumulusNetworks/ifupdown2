@@ -265,17 +265,37 @@ class SSH(paramiko.SSHClient):
         with SCPClient(self.get_transport()) as session:
             session.get(remote_path=remote_path, local_path=local_path)
 
-    def load_swps(self):
+    def load_swps(self, requested_ports):
         if self.swp_available:
             return
         _, stdout, _, _ = self.run(
-            'python -c "import os;'
+            'python -c "import os, re;'
             'print(\',\'.join(sorted([dev for dev in os.listdir(\'/sys/class/net/\') '
-            'if dev.startswith(\'swp\') and \'.\' not in dev])));"'
+            'if re.fullmatch(\'swp[0-9]+\', dev)])));"'
         )
         for swp in stdout.read().decode("utf-8").strip("\r\n").split(","):
             if swp:
                 self.swp_available.append(swp)
+
+        requested = [
+            port.strip()
+            for port in requested_ports.split(",")
+            if port.strip()
+        ]
+        invalid = [
+            port for port in requested
+            if not re.fullmatch(r"swp[0-9]+", port)
+        ]
+        missing = [
+            port for port in requested
+            if port not in self.swp_available
+        ]
+        if invalid or missing:
+            raise NotEnoughPhysDevException(
+                "invalid=%s missing=%s available=%s"
+                % (invalid, missing, self.swp_available)
+            )
+        self.swp_available = requested
 
 
 @pytest.fixture(scope="session")
@@ -283,6 +303,7 @@ def ssh():
     remote_host = os.environ.get("PYTEST_REMOTE_HOST")
     remote_user = os.environ.get("PYTEST_REMOTE_USER")
     remote_pw = os.environ.get("PYTEST_REMOTE_PASSWORD")
+    requested_swp_ports = os.environ.get("PYTEST_SWP_PORTS")
 
     if not remote_host:
         pytest.fail("Missing required PYTEST_REMOTE_HOST in env")
@@ -292,24 +313,83 @@ def ssh():
 
     if not remote_pw:
         pytest.fail("Missing required PYTEST_REMOTE_PASSWORD in env")
+    if not requested_swp_ports:
+        pytest.fail(
+            "Missing required PYTEST_SWP_PORTS allowlist "
+            "(comma-separated plain physical ports)"
+        )
 
     # Setup SSH client using paramiko
     client = SSH()
     client.load_system_host_keys()
     client.connect(remote_host, username=remote_user, password=remote_pw)
-    client.load_swps()
+    client.load_swps(requested_swp_ports)
     client.mkdir_coverage()
     # todo: install necessary packages (i.e. coverage)
     yield client
     client.close()
 
 
+@pytest.fixture(scope="session")
+def preserve_device_config(ssh):
+    """Restore ENI and drop-ins exactly after the integration session."""
+    backup_dir = "/tmp/.ifupdown2_eni_backup_%d" % int(time.time())
+    ssh.run_assert_success(
+        "mkdir -p %s/interfaces.d && "
+        "cp -a %s %s/interfaces && "
+        "cp -a %s/. %s/interfaces.d/"
+        % (backup_dir, ENI, backup_dir, ENI_D, backup_dir)
+    )
+
+    yield backup_dir
+
+    _, _, _, restore_status = ssh.run(
+        "ifdown -a -X eth0 -X mgmt || true; "
+        "cp -af %s/interfaces %s && "
+        "find %s -mindepth 1 -maxdepth 1 -delete && "
+        "cp -af %s/interfaces.d/. %s/ && "
+        "ifreload -a && "
+        "cmp -s %s/interfaces %s && "
+        "diff -qr %s/interfaces.d %s"
+        % (
+            backup_dir,
+            ENI,
+            ENI_D,
+            backup_dir,
+            ENI_D,
+            backup_dir,
+            ENI,
+            backup_dir,
+            ENI_D,
+        )
+    )
+    if restore_status:
+        pytest.fail(
+            "failed to restore integration ENI from %s (rc=%s)"
+            % (backup_dir, restore_status)
+        )
+
+
 @pytest.fixture(scope="function")
-def setup(request, ssh):
+def setup(request, ssh, preserve_device_config):
     ssh.ifdown_x_eth0_x_mgmt()
     file_name = request.node.name.replace("test_", "")
     ssh.scp(os.path.join("tests/eni", f"{file_name}.eni"), ENI)
-    ssh.run(f"rm -f {ENI_D}/*")
+    ssh.run_assert_success(
+        f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete"
+    )
+    try:
+        yield
+    finally:
+        ssh.ifreload_diff = True
+        _, _, _, cleanup_status = ssh.run(
+            "ifdown -a -X eth0 -X mgmt"
+        )
+        if cleanup_status:
+            pytest.fail(
+                "function cleanup failed for %s (rc=%s)"
+                % (request.node.name, cleanup_status)
+            )
 
 
 @pytest.fixture
