@@ -1,3 +1,14 @@
+ifupdown2 (3.10.0-1) unstable; urgency=medium
+
+  * New: support IPv6 VXLAN local tunnel addresses and address-family changes.
+  * New: add policy-gated single-speed auto-negotiation for switch ports.
+  * Fix: preserve VXLAN, bridge, bond, VRF, and SVI state during reload.
+  * Fix: harden DHCP transitions, gateway handling, and IPv6 address purging.
+  * Fix: handle malformed interface input and additional netlink route formats.
+  * Fix: bound networking service startup and correct shutdown ordering.
+
+ -- Julien Fortin <jfortin@nvidia.com>  Mon, 17 Aug 2026 09:15:00 +0200
+
 ifupdown2 (3.9.0) unstable; urgency=medium
 
   * New: ifreload: new --diff cli argument: only reload delta between /e/n/i
