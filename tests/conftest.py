@@ -397,7 +397,7 @@ def preserve_device_config(ssh):
         )[0].get("flags", [])
         reserved_admin_up[port] = "UP" in flags
     restore_reserved_ports = "".join(
-        "ip link set dev %s %s && "
+        "ip link set dev %s %s || port_rc=$?; "
         % (port, "up" if admin_up else "down")
         for port, admin_up in reserved_admin_up.items()
     )
@@ -410,30 +410,31 @@ def preserve_device_config(ssh):
 
     yield backup_dir
 
-    _, _, _, restore_status = ssh.run(
+    restore_command = (
+        "restore_rc=0; "
         "ifdown -a -X eth0 -X mgmt || true; "
-        "cp -af %s/interfaces %s && "
-        "find %s -mindepth 1 -maxdepth 1 -delete && "
-        "cp -af %s/interfaces.d/. %s/ && "
-        "ifreload -a && "
-        "%s"
-        "cmp -s %s/interfaces %s && "
-        "diff -qr %s/interfaces.d %s && "
-        "rm -rf %s"
-        % (
-            backup_dir,
-            ENI,
-            ENI_D,
-            backup_dir,
-            ENI_D,
-            restore_reserved_ports,
-            backup_dir,
-            ENI,
-            backup_dir,
-            ENI_D,
-            backup_dir,
-        )
+        f"(cp -af {backup_dir}/interfaces {ENI} && "
+        f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete && "
+        f"cp -af {backup_dir}/interfaces.d/. {ENI_D}/ && "
+        "ifreload -a) || restore_rc=$?; "
+        "port_rc=0; "
+        f"{restore_reserved_ports}"
+        "verify_rc=0; "
+        "if [ \"$restore_rc\" -eq 0 ]; then "
+        f"(cmp -s {backup_dir}/interfaces {ENI} && "
+        f"diff -qr {backup_dir}/interfaces.d {ENI_D}) "
+        "|| verify_rc=$?; "
+        "fi; "
+        "status=$restore_rc; "
+        "if [ \"$status\" -eq 0 ] && [ \"$port_rc\" -ne 0 ]; then "
+        "status=$port_rc; fi; "
+        "if [ \"$status\" -eq 0 ] && [ \"$verify_rc\" -ne 0 ]; then "
+        "status=$verify_rc; fi; "
+        f"if [ \"$status\" -eq 0 ]; then rm -rf {backup_dir} "
+        "|| status=$?; fi; "
+        "exit \"$status\""
     )
+    _, _, _, restore_status = ssh.run(restore_command)
     if restore_status:
         pytest.fail(
             "failed to restore integration ENI from %s (rc=%s)"
