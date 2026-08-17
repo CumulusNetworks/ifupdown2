@@ -70,6 +70,7 @@ class SSH(paramiko.SSHClient):
         super().__init__(*args, **kwargs)
         self.swp_translated_dict = {}
         self.swp_available = []
+        self.swp_reserved = []
         self.coverage_enabled = False
         self.ifreload_diff = True
 
@@ -319,11 +320,11 @@ class SSH(paramiko.SSHClient):
         unsafe_ports = []
         for port in requested:
             _, _, _, status = self.run(
-                "test \"$(cat /sys/class/net/%s/carrier)\" = 0 && "
                 "test ! -L /sys/class/net/%s/master && "
-                "flags=$(cat /sys/class/net/%s/flags) && "
-                "test $((flags & 1)) -eq 0"
-                % (port, port, port)
+                "link_state=$(ethtool %s 2>/dev/null) && "
+                "! printf '%%s\\n' \"$link_state\" "
+                "| grep -q 'Link detected: yes'"
+                % (port, port)
             )
             if status:
                 unsafe_ports.append(port)
@@ -332,7 +333,8 @@ class SSH(paramiko.SSHClient):
                 "configured=%s active_or_enslaved=%s"
                 % (configured_ports, unsafe_ports)
             )
-        self.swp_available = requested
+        self.swp_available = list(requested)
+        self.swp_reserved = list(requested)
 
 
 @pytest.fixture(scope="session")
@@ -375,6 +377,17 @@ def ssh():
 def preserve_device_config(ssh):
     """Restore ENI and drop-ins exactly after the integration session."""
     backup_dir = "/tmp/.ifupdown2_eni_backup_%d" % int(time.time())
+    reserved_admin_up = {}
+    for port in ssh.swp_reserved:
+        flags = json.loads(
+            ssh.run_assert_success(f"ip -j link show dev {port}")
+        )[0].get("flags", [])
+        reserved_admin_up[port] = "UP" in flags
+    restore_reserved_ports = "".join(
+        "ip link set dev %s %s && "
+        % (port, "up" if admin_up else "down")
+        for port, admin_up in reserved_admin_up.items()
+    )
     ssh.run_assert_success(
         "mkdir -p %s/interfaces.d && "
         "cp -a %s %s/interfaces && "
@@ -390,6 +403,7 @@ def preserve_device_config(ssh):
         "find %s -mindepth 1 -maxdepth 1 -delete && "
         "cp -af %s/interfaces.d/. %s/ && "
         "ifreload -a && "
+        "%s"
         "cmp -s %s/interfaces %s && "
         "diff -qr %s/interfaces.d %s && "
         "rm -rf %s"
@@ -399,6 +413,7 @@ def preserve_device_config(ssh):
             ENI_D,
             backup_dir,
             ENI_D,
+            restore_reserved_ports,
             backup_dir,
             ENI,
             backup_dir,
