@@ -204,7 +204,8 @@ class utils():
 
     @staticmethod
     def get_boolean_from_string(value, default=False):
-        return utils._string_values.get(value, default)
+        normalized = value.lower() if isinstance(value, str) else value
+        return utils._string_values.get(normalized, default)
 
     @staticmethod
     def get_yesno_boolean(bool):
