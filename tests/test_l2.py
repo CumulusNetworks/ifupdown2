@@ -651,3 +651,45 @@ def test_master_conflict_l2(ssh, setup):
             "br_guard", "bond_guard", "vrf_guard",
             "dummy_bond", "dummy_vrf"):
         assert ssh.run(f"ip link show {ifname}")[3] != 0
+
+
+def test_pvid_vni_protection_l2(ssh, setup):
+    """Repeated SVD recreation keeps the VLAN 1 tunnel mapping intact.
+
+    A collect-metadata VXLAN receives an implicit VLAN 1 PVID when it joins the
+    bridge. Reload must not treat that kernel-created PVID as stale because
+    deleting it also removes the VLAN-to-VNI tunnel mapping.
+    """
+    iterations = 20
+
+    try:
+        for iteration in range(iterations):
+            for ifname in ("br_pvid", "vxlan_pvid"):
+                ssh.run(f"ip link del {ifname} 2>/dev/null; true")
+                assert ssh.run(f"ip link show {ifname}")[3] != 0
+
+            verbose_output = ssh.ifreload_av(ignore_stdout=True)
+            tunnel_output = ssh.run_assert_success(
+                "bridge vlan tunnelshow dev vxlan_pvid"
+            )
+            mapping_present = any(
+                line.split()[-2:] == ["1", "5001"]
+                for line in tunnel_output.splitlines()
+            )
+
+            assert mapping_present, (
+                f"iteration {iteration + 1}/{iterations}: "
+                f"VLAN 1 to VNI 5001 mapping is missing: {tunnel_output!r}"
+            )
+            assert (
+                "vlan del vid 1 untagged pvid dev vxlan_pvid"
+                not in verbose_output
+            ), (
+                f"iteration {iteration + 1}/{iterations}: "
+                "reload deleted the VNI-mapped PVID"
+            )
+    finally:
+        ssh.run("ifdown br_pvid vxlan_pvid 2>/dev/null; true")
+
+    assert ssh.run("ip link show br_pvid")[3] != 0
+    assert ssh.run("ip link show vxlan_pvid")[3] != 0
