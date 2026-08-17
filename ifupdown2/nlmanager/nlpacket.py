@@ -2108,58 +2108,79 @@ struct rtnexthop {
 
         data = self.data[4:]
 
-        while data:
-            # Check if there's enough data for the rtnexthop header
-            if len(data) < self.RTNH_LEN:
+        while len(data) >= self.RTNH_LEN:
+            (
+                rtnh_len,
+                rtnh_flags,
+                rtnh_hops,
+                rtnh_ifindex,
+            ) = unpack(self.RTNH_PACK, data[:self.RTNH_LEN])
+            if rtnh_len < self.RTNH_LEN or rtnh_len > len(data):
                 break
 
-            (rtnh_len, rtnh_flags, rtnh_hops, rtnh_ifindex) = unpack(self.RTNH_PACK, data[:self.RTNH_LEN])
-
-            # Ensure rtnh_len is reasonable, at least as large as the header
-            if rtnh_len < self.RTNH_LEN:
+            aligned_rtnh_len = padded_length(rtnh_len)
+            if aligned_rtnh_len > len(data) and rtnh_len != len(data):
                 break
 
-            data = data[self.RTNH_LEN:]
+            entry = data[:rtnh_len]
+            data = data[min(aligned_rtnh_len, len(data)):]
+            nested = entry[self.RTNH_LEN:]
+            if not nested:
+                self.value.append(
+                    (None, rtnh_ifindex, rtnh_flags, rtnh_hops)
+                )
+                continue
 
-            if rtnh_len == self.RTNH_LEN:
-                # Device-based multipath: just the rtnexthop header, no IP address
-                self.value.append((None, rtnh_ifindex, rtnh_flags, rtnh_hops))
-            elif rtnh_len > self.RTNH_LEN:
-                # Gateway-based multipath: has attribute header + IP address
-
-                # Check if there's enough data for the attribute header
-                if len(data) < self.HEADER_LEN:
+            nexthop = None
+            valid = True
+            while nested:
+                if len(nested) < self.HEADER_LEN:
+                    valid = False
+                    break
+                attr_length, attr_type = unpack(
+                    self.HEADER_PACK,
+                    nested[:self.HEADER_LEN],
+                )
+                if (
+                        attr_length < self.HEADER_LEN
+                        or attr_length > len(nested)
+                ):
+                    valid = False
                     break
 
-                (attr_type, attr_length) = unpack(self.HEADER_PACK, data[:self.HEADER_LEN])
-                data = data[self.HEADER_LEN:]
-
-                if self.family == AF_INET:
-                    if len(data) < self.IPV4_LEN:
-                        break
-                    nexthop = ipnetwork.IPv4Address(unpack('>L', data[:self.IPV4_LEN])[0])
-                    self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
-                    data = data[self.IPV4_LEN:]
-
-                elif self.family == AF_INET6:
-                    if len(data) < self.IPV6_LEN:
-                        break
-                    (data1, data2) = unpack('>QQ', data[:self.IPV6_LEN])
-                    nexthop = ipnetwork.IPv6Address(data1 << 64 | data2)
-                    self.value.append((nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops))
-                    data = data[self.IPV6_LEN:]
-
-                # We've consumed: RTNH_LEN (header) + HEADER_LEN (attr header) + IP_LEN (address)
-                consumed = self.RTNH_LEN + self.HEADER_LEN + (self.IPV4_LEN if self.family == AF_INET else self.IPV6_LEN)
-
-                # If rtnh_len indicates more data than we consumed, skip the remainder
-                if rtnh_len > consumed:
-                    skip_len = rtnh_len - consumed
-
-                    if skip_len <= len(data):
-                        data = data[skip_len:]
+                attr_data = nested[self.HEADER_LEN:attr_length]
+                if (attr_type & 0x3FFF) == Route.RTA_GATEWAY:
+                    if (
+                            self.family == AF_INET
+                            and len(attr_data) == self.IPV4_LEN
+                    ):
+                        nexthop = ipnetwork.IPv4Address(
+                            unpack(">L", attr_data)[0]
+                        )
+                    elif (
+                            self.family == AF_INET6
+                            and len(attr_data) == self.IPV6_LEN
+                    ):
+                        data1, data2 = unpack(">QQ", attr_data)
+                        nexthop = ipnetwork.IPv6Address(
+                            data1 << 64 | data2
+                        )
                     else:
+                        valid = False
                         break
+
+                aligned_attr_length = padded_length(attr_length)
+                if aligned_attr_length > len(nested):
+                    if attr_length != len(nested):
+                        valid = False
+                    nested = b""
+                else:
+                    nested = nested[aligned_attr_length:]
+
+            if valid and nexthop is not None:
+                self.value.append(
+                    (nexthop, rtnh_ifindex, rtnh_flags, rtnh_hops)
+                )
 
         self.value = tuple(self.value)
 
