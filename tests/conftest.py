@@ -282,6 +282,10 @@ class SSH(paramiko.SSHClient):
             for port in requested_ports.split(",")
             if port.strip()
         ]
+        duplicates = sorted(
+            port for port in set(requested)
+            if requested.count(port) > 1
+        )
         invalid = [
             port for port in requested
             if not re.fullmatch(r"swp[0-9]+", port)
@@ -290,10 +294,43 @@ class SSH(paramiko.SSHClient):
             port for port in requested
             if port not in self.swp_available
         ]
-        if invalid or missing:
+        if not requested or duplicates or invalid or missing:
             raise NotEnoughPhysDevException(
-                "invalid=%s missing=%s available=%s"
-                % (invalid, missing, self.swp_available)
+                "empty=%s duplicates=%s invalid=%s missing=%s available=%s"
+                % (
+                    not requested,
+                    duplicates,
+                    invalid,
+                    missing,
+                    self.swp_available,
+                )
+            )
+
+        _, stdout, stderr, status = self.run("ifquery -l")
+        if status:
+            raise NotEnoughPhysDevException(
+                "cannot verify configured interfaces: %s"
+                % stderr.read().decode("utf-8")
+            )
+        configured = set(
+            stdout.read().decode("utf-8").split()
+        )
+        configured_ports = sorted(configured.intersection(requested))
+        unsafe_ports = []
+        for port in requested:
+            _, _, _, status = self.run(
+                "test \"$(cat /sys/class/net/%s/carrier)\" = 0 && "
+                "test ! -L /sys/class/net/%s/master && "
+                "flags=$(cat /sys/class/net/%s/flags) && "
+                "test $((flags & 1)) -eq 0"
+                % (port, port, port)
+            )
+            if status:
+                unsafe_ports.append(port)
+        if configured_ports or unsafe_ports:
+            raise NotEnoughPhysDevException(
+                "configured=%s active_or_enslaved=%s"
+                % (configured_ports, unsafe_ports)
             )
         self.swp_available = requested
 
@@ -311,8 +348,6 @@ def ssh():
     if not remote_user:
         pytest.fail("Missing required PYTEST_REMOTE_USER in env")
 
-    if not remote_pw:
-        pytest.fail("Missing required PYTEST_REMOTE_PASSWORD in env")
     if not requested_swp_ports:
         pytest.fail(
             "Missing required PYTEST_SWP_PORTS allowlist "
@@ -322,7 +357,13 @@ def ssh():
     # Setup SSH client using paramiko
     client = SSH()
     client.load_system_host_keys()
-    client.connect(remote_host, username=remote_user, password=remote_pw)
+    connect_args = {
+        "hostname": remote_host,
+        "username": remote_user,
+    }
+    if remote_pw:
+        connect_args["password"] = remote_pw
+    client.connect(**connect_args)
     client.load_swps(requested_swp_ports)
     client.mkdir_coverage()
     # todo: install necessary packages (i.e. coverage)

@@ -165,7 +165,8 @@ def test_bridge8_reserved_vlans(ssh, setup, get_file):
     assert "reserved vlan 3725 being used (reserved vlan range 3725-3999)" in ssh.ifreload_a(return_stderr=True, expected_status=1)
 
 
-def test_bridge9_multiple_vlan_aware_bridge(ssh, get_json):
+def test_bridge9_multiple_vlan_aware_bridge(
+        ssh, get_json, preserve_device_config):
     multiple_bridge_support = ssh.run_assert_success(
         "sed -n "
         "'s/^multiple_vlan_aware_bridge_support=//p' "
@@ -181,7 +182,9 @@ def test_bridge9_multiple_vlan_aware_bridge(ssh, get_json):
     # setup fixture would otherwise copy an unsupported config before skip.
     ssh.ifdown_x_eth0_x_mgmt()
     ssh.scp("tests/eni/bridge9_multiple_vlan_aware_bridge.eni", ENI)
-    ssh.run(f"rm -f {ENI_D}/*")
+    ssh.run_assert_success(
+        f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete"
+    )
 
     previous_ifreload_diff = ssh.ifreload_diff
     try:
