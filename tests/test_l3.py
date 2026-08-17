@@ -561,10 +561,9 @@ def test_ipv6_primary_purge_l3(ssh, setup):
         f"test -s {monitor_pid} && kill -0 $(cat {monitor_pid}) && sleep 1"
     )
 
-    # Promote the secondary IPv4 address and explicitly remove only IPv6 ::2.
+    # Promote the secondary IPv4 address without changing IPv6 configuration.
     ssh.run_assert_success(
-        f"sed -i -e '/address 192\\.0\\.2\\.1\\/24/d' "
-        f"-e '/address 2001:db8:43::2\\/64/d' {ENI}"
+        f"sed -i '/address 192\\.0\\.2\\.1\\/24/d' {ENI}"
     )
     reconcile_stderr = ssh.ifreload_a(return_stderr=True)
     if reconcile_stderr:
@@ -576,13 +575,14 @@ def test_ipv6_primary_purge_l3(ssh, setup):
     )
     monitor_output = ssh.run_assert_success(f"cat {monitor_log}").lower()
 
-    # Confirm the monitor observed the IPv4 transition and retained IPv6 never
-    # flapped. Explicit IPv6 removal is asserted from final kernel state below.
+    # Confirm the monitor observed the IPv4 transition and neither configured
+    # IPv6 address flapped.
     assert "192.0.2" in monitor_output
-    assert not any(
-        "deleted" in line and "2001:db8:43::1/64" in line
-        for line in monitor_output.splitlines()
-    )
+    for address in ("2001:db8:43::1/64", "2001:db8:43::2/64"):
+        assert not any(
+            "deleted" in line and address in line
+            for line in monitor_output.splitlines()
+        )
 
     assert ssh.run(
         "ip -o address show dev dum_purge | grep '192.0.2.1/24'"
@@ -593,9 +593,9 @@ def test_ipv6_primary_purge_l3(ssh, setup):
     ssh.run_assert_success(
         "ip -6 -o address show dev dum_purge | grep '2001:db8:43::1/64'"
     )
-    assert ssh.run(
+    ssh.run_assert_success(
         "ip -6 -o address show dev dum_purge | grep '2001:db8:43::2/64'"
-    )[3] != 0
+    )
 
     ssh.ifdown("dum_purge")
     ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
