@@ -369,8 +369,21 @@ def ssh():
     client.load_swps(requested_swp_ports)
     client.mkdir_coverage()
     # todo: install necessary packages (i.e. coverage)
-    yield client
-    client.close()
+    try:
+        yield client
+    finally:
+        coverage_root = os.path.dirname(
+            client.REMOTE_COVERAGE_DATA_DIR.rstrip("/")
+        )
+        _, _, _, cleanup_status = client.run(
+            "rm -rf %s" % coverage_root
+        )
+        client.close()
+        if cleanup_status:
+            pytest.fail(
+                "failed to remove remote coverage workspace %s"
+                % coverage_root
+            )
 
 
 @pytest.fixture(scope="session")
