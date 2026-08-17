@@ -599,3 +599,29 @@ def test_ipv6_primary_purge_l3(ssh, setup):
 
     ssh.ifdown("dum_purge")
     ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
+
+
+def test_l3vxi_local_reset_l3(ssh, setup):
+    """Removing an L3VXI local endpoint clears the cached kernel value."""
+    try:
+        ssh.ifup_a()
+        initial = ssh.run_assert_success(
+            "ip -d -o link show vx_l3_reset"
+        )
+        assert "local 192.0.2.60" in initial
+
+        ssh.scp("tests/eni/l3vxi_local_reset_l3.after.eni", ENI)
+        ssh.ifreload_diff = False
+        reload_output = ssh.ifreload_av()
+        assert (
+            "recreate L3VXI to remove local tunnel IP" in reload_output
+        ), reload_output
+        updated = ssh.run_assert_success(
+            "ip -d -o link show vx_l3_reset"
+        )
+        assert "local 192.0.2.60" not in updated
+        assert "vxlan external" in updated
+    finally:
+        ssh.run(
+            "ifdown vx_l3_reset vrf_l3_reset 2>/dev/null; true"
+        )

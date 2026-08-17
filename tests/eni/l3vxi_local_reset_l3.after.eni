@@ -1,0 +1,26 @@
+auto lo
+iface lo inet loopback
+    address 192.0.2.60/32
+
+auto eth0
+iface eth0 inet dhcp
+    ip-forward off
+    ip6-forward off
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    address 127.0.0.1/8
+    address 127.0.1.1/8
+    address ::1/128
+    vrf-table auto
+
+auto vrf_l3_reset
+iface vrf_l3_reset
+    vrf-table 4260
+
+auto vx_l3_reset
+iface vx_l3_reset
+    vxlan-vni 6001
+    vxlan-learning no
+    vrf vrf_l3_reset
