@@ -682,8 +682,20 @@ class address(AddonWithIpBlackList, moduleBase):
             return
 
         #V6 mtu check
-        if not self._process_ipv6_mtu_config_valid(user_config_ip_addrs_list, mtu):
-            self.logger.error(f"{ifname}: ipv6 configuration is not allowed with MTU lower than {self.v6_min_mtu}")
+        if not self._process_ipv6_mtu_config_valid(
+                user_config_ip_addrs_list, mtu, ifaceobj_list):
+            error_message = (
+                f"{ifname}: ipv6 configuration is not allowed with "
+                f"MTU lower than {self.v6_min_mtu}"
+            )
+            if (
+                    ifupdownflags.flags.FORCE
+                    or ifupdownflags.flags.IGNORE_ERRORS
+            ):
+                ifaceobj.set_status(ifaceStatus.ERROR)
+                self.logger.error(error_message)
+            else:
+                self.log_error(error_message, ifaceobj)
             return
 
         if not ifupdownflags.flags.PERFMODE and purge_addresses:
@@ -894,18 +906,46 @@ class address(AddonWithIpBlackList, moduleBase):
                 if not running_mtu or running_mtu != mtu_int:
                     self.sysfs.link_set_mtu(u, mtu_str=mtu_str, mtu_int=mtu_int)
 
-    def _process_ipv6_mtu_config_valid(self, user_config_ip_addrs_list: list, mtu: int) -> bool:
+    @staticmethod
+    def _ifaceobjs_use_ipv6(ifaceobjs):
+        for ifaceobj in ifaceobjs or []:
+            if (
+                    "inet6" in (ifaceobj.addr_family or [])
+                    or ifaceobj.addr_method == "dhcp6"
+            ):
+                return True
+            for address in ifaceobj.get_attr_value("address") or []:
+                try:
+                    if ipnetwork.IPNetwork(address).version == 6:
+                        return True
+                except Exception:
+                    continue
+        return False
+
+    def _process_ipv6_mtu_config_valid(
+            self, user_config_ip_addrs_list: list, mtu: int,
+            ifaceobjs=None) -> bool:
         for ip, _ in user_config_ip_addrs_list or []:
             if ip.version == 6 and mtu < self.v6_min_mtu:
                 return False
+        if (
+                mtu < self.v6_min_mtu
+                and self._ifaceobjs_use_ipv6(ifaceobjs)
+        ):
+            return False
         return True
 
     def _process_mtu_ipv6_config_valid(self, ifaceobj, mtu: int) -> bool:
-        if mtu < self.v6_min_mtu:
-            for addr in ifaceobj.get_attr_value("address") or []:
-                if ipnetwork.IPNetwork(addr).version == 6:
-                    self.log_error(f"{ifaceobj.name}: the minimum allowed MTU is {self.v6_min_mtu} for ipv6 configuration", ifaceobj)
-                    return False
+        if (
+                mtu < self.v6_min_mtu
+                and self._ifaceobjs_use_ipv6([ifaceobj])
+        ):
+            self.log_error(
+                f"{ifaceobj.name}: the minimum allowed MTU is "
+                f"{self.v6_min_mtu} for ipv6 configuration",
+                ifaceobj,
+            )
+            return False
         return True
 
     def _process_mtu_config_mtu_valid(self, ifaceobj, ifaceobj_getfunc, mtu_str, mtu_int):
