@@ -1,10 +1,16 @@
 import logging
 import json
 import re
+from pathlib import Path
 
 import pytest
 
-from .conftest import assert_identical_json, ENI, ENI_D
+from .conftest import (
+    assert_identical_json,
+    registered_files,
+    ENI,
+    ENI_D,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -167,6 +173,21 @@ def test_bridge8_reserved_vlans(ssh, setup, get_file):
 
 def test_bridge9_multiple_vlan_aware_bridge(
         ssh, get_json, preserve_device_config):
+    fixture_files = [
+        "tests/eni/bridge9_multiple_vlan_aware_bridge.eni",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_AA_1.json",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_AA_2.json",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_BB_1.json",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_BB_2.json",
+    ]
+    for path in fixture_files:
+        assert Path(path).is_file()
+        registered_files.add(path)
+
     multiple_bridge_support = ssh.run_assert_success(
         "sed -n "
         "'s/^multiple_vlan_aware_bridge_support=//p' "
