@@ -46,7 +46,8 @@ def assert_identical_json(json1, json2):
     :param json2: Second JSON object to compare.
     :return: True if JSON objects are identical, False otherwise.
     """
-    if diff := DeepDiff(json1, json2, ignore_order=True):
+    diff = DeepDiff(json1, json2, ignore_order=True)
+    if diff:
         try:
             logger.error(f"JSON objects are not identical - deepdiff: {json.dumps(diff, indent=4)}")
         except:
@@ -69,6 +70,7 @@ class SSH(paramiko.SSHClient):
         super().__init__(*args, **kwargs)
         self.swp_translated_dict = {}
         self.swp_available = []
+        self.swp_reserved = []
         self.coverage_enabled = False
         self.ifreload_diff = True
 
@@ -76,7 +78,8 @@ class SSH(paramiko.SSHClient):
         update = False
 
         for match in self.SWP_REGEX.findall(content):
-            if not (swp := self.swp_translated_dict.get(match)):
+            swp = self.swp_translated_dict.get(match)
+            if not swp:
                 if not self.swp_available:
                     raise NotEnoughPhysDevException(
                         f"Device does not have enough physical ports (swp) for this test - {self.swp_translated_dict}"
@@ -140,6 +143,18 @@ class SSH(paramiko.SSHClient):
         assert not stderr.read().decode("utf-8"), f"{cmd} has stderr"
 
         return stdout.read().decode("utf-8")
+
+    def assert_interface_admin_up(self, ifname: str):
+        flags = json.loads(
+            self.run_assert_success(f"ip -j link show {ifname}")
+        )[0].get("flags", [])
+        assert "UP" in flags, f"{ifname} is administratively down: {flags}"
+
+    def assert_interface_admin_down(self, ifname: str):
+        flags = json.loads(
+            self.run_assert_success(f"ip -j link show {ifname}")
+        )[0].get("flags", [])
+        assert "UP" not in flags, f"{ifname} is administratively up: {flags}"
 
     def __ifupdown2(
             self,
@@ -251,17 +266,75 @@ class SSH(paramiko.SSHClient):
         with SCPClient(self.get_transport()) as session:
             session.get(remote_path=remote_path, local_path=local_path)
 
-    def load_swps(self):
+    def load_swps(self, requested_ports):
         if self.swp_available:
             return
         _, stdout, _, _ = self.run(
-            'python -c "import os;'
+            'python -c "import os, re;'
             'print(\',\'.join(sorted([dev for dev in os.listdir(\'/sys/class/net/\') '
-            'if dev.startswith(\'swp\') and \'.\' not in dev])));"'
+            'if re.fullmatch(\'swp[0-9]+\', dev)])));"'
         )
         for swp in stdout.read().decode("utf-8").strip("\r\n").split(","):
             if swp:
                 self.swp_available.append(swp)
+
+        requested = [
+            port.strip()
+            for port in requested_ports.split(",")
+            if port.strip()
+        ]
+        duplicates = sorted(
+            port for port in set(requested)
+            if requested.count(port) > 1
+        )
+        invalid = [
+            port for port in requested
+            if not re.fullmatch(r"swp[0-9]+", port)
+        ]
+        missing = [
+            port for port in requested
+            if port not in self.swp_available
+        ]
+        if not requested or duplicates or invalid or missing:
+            raise NotEnoughPhysDevException(
+                "empty=%s duplicates=%s invalid=%s missing=%s available=%s"
+                % (
+                    not requested,
+                    duplicates,
+                    invalid,
+                    missing,
+                    self.swp_available,
+                )
+            )
+
+        _, stdout, stderr, status = self.run("ifquery -l")
+        if status:
+            raise NotEnoughPhysDevException(
+                "cannot verify configured interfaces: %s"
+                % stderr.read().decode("utf-8")
+            )
+        configured = set(
+            stdout.read().decode("utf-8").split()
+        )
+        configured_ports = sorted(configured.intersection(requested))
+        unsafe_ports = []
+        for port in requested:
+            _, _, _, status = self.run(
+                "test ! -L /sys/class/net/%s/master && "
+                "link_state=$(ethtool %s 2>/dev/null) && "
+                "! printf '%%s\\n' \"$link_state\" "
+                "| grep -q 'Link detected: yes'"
+                % (port, port)
+            )
+            if status:
+                unsafe_ports.append(port)
+        if configured_ports or unsafe_ports:
+            raise NotEnoughPhysDevException(
+                "configured=%s active_or_enslaved=%s"
+                % (configured_ports, unsafe_ports)
+            )
+        self.swp_available = list(requested)
+        self.swp_reserved = list(requested)
 
 
 @pytest.fixture(scope="session")
@@ -269,6 +342,7 @@ def ssh():
     remote_host = os.environ.get("PYTEST_REMOTE_HOST")
     remote_user = os.environ.get("PYTEST_REMOTE_USER")
     remote_pw = os.environ.get("PYTEST_REMOTE_PASSWORD")
+    requested_swp_ports = os.environ.get("PYTEST_SWP_PORTS")
 
     if not remote_host:
         pytest.fail("Missing required PYTEST_REMOTE_HOST in env")
@@ -276,26 +350,118 @@ def ssh():
     if not remote_user:
         pytest.fail("Missing required PYTEST_REMOTE_USER in env")
 
-    if not remote_pw:
-        pytest.fail("Missing required PYTEST_REMOTE_PASSWORD in env")
+    if not requested_swp_ports:
+        pytest.fail(
+            "Missing required PYTEST_SWP_PORTS allowlist "
+            "(comma-separated plain physical ports)"
+        )
 
     # Setup SSH client using paramiko
     client = SSH()
     client.load_system_host_keys()
-    client.connect(remote_host, username=remote_user, password=remote_pw)
-    client.load_swps()
+    connect_args = {
+        "hostname": remote_host,
+        "username": remote_user,
+    }
+    if remote_pw:
+        connect_args["password"] = remote_pw
+    client.connect(**connect_args)
+    client.load_swps(requested_swp_ports)
     client.mkdir_coverage()
     # todo: install necessary packages (i.e. coverage)
-    yield client
-    client.close()
+    try:
+        yield client
+    finally:
+        coverage_root = os.path.dirname(
+            client.REMOTE_COVERAGE_DATA_DIR.rstrip("/")
+        )
+        _, _, _, cleanup_status = client.run(
+            "rm -rf %s" % coverage_root
+        )
+        client.close()
+        if cleanup_status:
+            pytest.fail(
+                "failed to remove remote coverage workspace %s"
+                % coverage_root
+            )
+
+
+@pytest.fixture(scope="session")
+def preserve_device_config(ssh):
+    """Restore ENI and drop-ins exactly after the integration session."""
+    backup_dir = "/tmp/.ifupdown2_eni_backup_%d" % int(time.time())
+    reserved_admin_up = {}
+    for port in ssh.swp_reserved:
+        flags = json.loads(
+            ssh.run_assert_success(f"ip -j link show dev {port}")
+        )[0].get("flags", [])
+        reserved_admin_up[port] = "UP" in flags
+    restore_reserved_ports = "".join(
+        "ip link set dev %s %s || port_rc=$?; "
+        % (port, "up" if admin_up else "down")
+        for port, admin_up in reserved_admin_up.items()
+    )
+    ssh.run_assert_success(
+        "mkdir -p %s/interfaces.d && "
+        "cp -a %s %s/interfaces && "
+        "cp -a %s/. %s/interfaces.d/"
+        % (backup_dir, ENI, backup_dir, ENI_D, backup_dir)
+    )
+
+    yield backup_dir
+
+    restore_command = (
+        "restore_rc=0; "
+        "ifdown -a -X eth0 -X mgmt || true; "
+        f"(cp -af {backup_dir}/interfaces {ENI} && "
+        f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete && "
+        f"cp -af {backup_dir}/interfaces.d/. {ENI_D}/ && "
+        "ifreload -a) || restore_rc=$?; "
+        "port_rc=0; "
+        f"{restore_reserved_ports}"
+        "verify_rc=0; "
+        "if [ \"$restore_rc\" -eq 0 ]; then "
+        f"(cmp -s {backup_dir}/interfaces {ENI} && "
+        f"diff -qr {backup_dir}/interfaces.d {ENI_D}) "
+        "|| verify_rc=$?; "
+        "fi; "
+        "status=$restore_rc; "
+        "if [ \"$status\" -eq 0 ] && [ \"$port_rc\" -ne 0 ]; then "
+        "status=$port_rc; fi; "
+        "if [ \"$status\" -eq 0 ] && [ \"$verify_rc\" -ne 0 ]; then "
+        "status=$verify_rc; fi; "
+        f"if [ \"$status\" -eq 0 ]; then rm -rf {backup_dir} "
+        "|| status=$?; fi; "
+        "exit \"$status\""
+    )
+    _, _, _, restore_status = ssh.run(restore_command)
+    if restore_status:
+        pytest.fail(
+            "failed to restore integration ENI from %s (rc=%s)"
+            % (backup_dir, restore_status)
+        )
 
 
 @pytest.fixture(scope="function")
-def setup(request, ssh):
+def setup(request, ssh, preserve_device_config):
     ssh.ifdown_x_eth0_x_mgmt()
     file_name = request.node.name.replace("test_", "")
     ssh.scp(os.path.join("tests/eni", f"{file_name}.eni"), ENI)
-    ssh.run(f"rm -f {ENI_D}/*")
+    ssh.run_assert_success(
+        f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete"
+    )
+    try:
+        yield
+    finally:
+        ssh.ifreload_diff = True
+        _, _, _, cleanup_status = ssh.run(
+            "ifdown -a -X eth0 -X mgmt"
+        )
+        if cleanup_status:
+            pytest.fail(
+                "function cleanup failed for %s (rc=%s)"
+                % (request.node.name, cleanup_status)
+            )
 
 
 @pytest.fixture

@@ -19,7 +19,11 @@ class dhclient(utilsBase):
     """ This class contains helper methods to interact with the dhclient
     utility """
 
-    def _pid_exists(self, pidfilename):
+    def _pid_exists(self, ifacename, is_v4, cleanup=False):
+        if is_v4:
+            pidfilename = f'/run/dhclient.{ifacename}.pid'
+        else:
+            pidfilename = f'/run/dhclient6.{ifacename}.pid'
         if os.path.exists(pidfilename):
             try:
                 return os.readlink(
@@ -29,17 +33,28 @@ class dhclient(utilsBase):
                 try:
                     if e.errno == errno.EACCES:
                         return os.path.exists("/proc/%s" % self.read_file_oneline(pidfilename))
+                    elif e.errno == errno.ENOENT:
+                        # There are scenarios where the PID file exists but the
+                        # corresponding dhclient process is terminated
+                        # Cleanup the dhclient process and return False to indicate dhclient
+                        # is not running
+                        if cleanup:
+                            if is_v4:
+                                self.release(ifacename)
+                            else:
+                                self.release6(ifacename)
+                        return False
                 except Exception:
                     return False
             except Exception:
                 return False
         return False
 
-    def is_running(self, ifacename):
-        return self._pid_exists('/run/dhclient.%s.pid' %ifacename)
+    def is_running(self, ifacename, cleanup=False):
+        return self._pid_exists(ifacename, True, cleanup)
 
-    def is_running6(self, ifacename):
-        return self._pid_exists('/run/dhclient6.%s.pid' %ifacename)
+    def is_running6(self, ifacename, cleanup=False):
+        return self._pid_exists(ifacename, False, cleanup)
 
     def _run_dhclient_cmd(self, cmd, cmd_prefix=None):
         if not cmd_prefix:

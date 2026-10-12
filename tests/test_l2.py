@@ -1,6 +1,16 @@
 import logging
+import json
+import re
+from pathlib import Path
 
-from .conftest import assert_identical_json, ENI, ENI_D
+import pytest
+
+from .conftest import (
+    assert_identical_json,
+    registered_files,
+    ENI,
+    ENI_D,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -9,7 +19,13 @@ logger = logging.getLogger(__name__)
 def test_bond(ssh, setup, get_json):
     bond_ifquery_ac_json = get_json("bond.ifquery.ac.json")
 
-    ssh.ifreload_a()
+    stderr = ssh.ifreload_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
     assert_identical_json(ssh.ifquery_ac_json(), bond_ifquery_ac_json)
 
     ifreload_output = ssh.ifreload_av()
@@ -153,6 +169,68 @@ def test_bridge7_macvlans(ssh, setup, get_json):
 
 def test_bridge8_reserved_vlans(ssh, setup, get_file):
     assert "reserved vlan 3725 being used (reserved vlan range 3725-3999)" in ssh.ifreload_a(return_stderr=True, expected_status=1)
+
+
+def test_bridge9_multiple_vlan_aware_bridge(
+        ssh, get_json, preserve_device_config):
+    fixture_files = [
+        "tests/eni/bridge9_multiple_vlan_aware_bridge.eni",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_AA_1.json",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_AA_2.json",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_BB_1.json",
+        "tests/output/bridge9_multiple_vlan_aware_bridge."
+        "bridge_vlan_swp_BB_2.json",
+    ]
+    for path in fixture_files:
+        assert Path(path).is_file()
+        registered_files.add(path)
+
+    multiple_bridge_support = ssh.run_assert_success(
+        "sed -n "
+        "'s/^multiple_vlan_aware_bridge_support=//p' "
+        "/etc/network/ifupdown2/ifupdown2.conf"
+    ).strip()
+    if multiple_bridge_support != "1":
+        pytest.skip(
+            "requires multiple_vlan_aware_bridge_support=1; "
+            "the public Debian default remains 0"
+        )
+
+    # Apply the fixture only after the host capability check. The generic
+    # setup fixture would otherwise copy an unsupported config before skip.
+    ssh.ifdown_x_eth0_x_mgmt()
+    ssh.scp("tests/eni/bridge9_multiple_vlan_aware_bridge.eni", ENI)
+    ssh.run_assert_success(
+        f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete"
+    )
+
+    previous_ifreload_diff = ssh.ifreload_diff
+    try:
+        ssh.ifreload_diff = False
+        ssh.ifreload_a()
+        _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_AA_")
+        stdout_str: str = stdout.read().decode("utf-8")
+        assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_AA_1.json"))
+        _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_BB_")
+        stdout_str: str = stdout.read().decode("utf-8")
+        assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_BB_1.json"))
+
+        # Replace "bridge-ports swp_AA_" with "bridge-ports swp_BB_" and vice-versa
+        ssh.run_assert_success(f"sed -i 's/\\<bridge-ports swp_AA_\\>/bridge-ports swp_CC_/g' {ENI}")
+        ssh.run_assert_success(f"sed -i 's/\\<bridge-ports swp_BB_\\>/bridge-ports swp_AA_/g' {ENI}")
+        ssh.run_assert_success(f"sed -i 's/\\<bridge-ports swp_CC_\\>/bridge-ports swp_BB_/g' {ENI}")
+        ssh.ifreload_a()
+        _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_AA_")
+        stdout_str: str = stdout.read().decode("utf-8")
+        assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_AA_2.json"))
+        _, stdout, stderr, exit_status = ssh.run(f"bridge -j vlan show dev swp_BB_")
+        stdout_str: str = stdout.read().decode("utf-8")
+        assert_identical_json(json.loads(stdout_str), get_json("bridge9_multiple_vlan_aware_bridge.bridge_vlan_swp_BB_2.json"))
+    finally:
+        ssh.ifreload_diff = previous_ifreload_diff
 
 
 def test_bridge_access(ssh, setup, get_json):
@@ -390,18 +468,22 @@ def test_cm_11485_vlan_device_name_vlan(ssh, setup, get_json):
 
 
 def test_interfaces_link_state(ssh, setup, get_json):
+    """Link state checks use the kernel's administrative UP flag."""
     ssh.scp("tests/scp/interfaces_link_state.before.eni", ENI_D)
     ssh.ifreload_a()
     assert_identical_json(
         ssh.ifquery_ac_json(),
         get_json("interfaces_link_state.before.ifquery.ac.json")
     )
-    ssh.run_assert_success("ip -br link show dev swp_AA_ | grep DOWN")
-    ssh.run_assert_success("ip -br link show dev swp_BB_ | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge1 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge2 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge3 | grep DOWN")
-    ssh.run_assert_success("ip -br link show dev bridge4 | grep UP")
+
+    ssh.assert_interface_admin_down("bridge3")
+
+    ssh.assert_interface_admin_up("swp_AA_")
+    ssh.assert_interface_admin_up("swp_BB_")
+    ssh.assert_interface_admin_up("bridge1")
+    ssh.assert_interface_admin_up("bridge2")
+    ssh.assert_interface_admin_up("bridge4")
+
     ssh.run_assert_success("rm /etc/network/interfaces.d/interfaces_link_state.before.eni")
 
     ssh.scp("tests/scp/interfaces_link_state.after.eni", ENI_D)
@@ -410,14 +492,489 @@ def test_interfaces_link_state(ssh, setup, get_json):
         ssh.ifquery_ac_json(),
         get_json("interfaces_link_state.after.ifquery.ac.json")
     )
-    ssh.run_assert_success("ip -br link show dev swp_BB_ | grep DOWN")
-    ssh.run_assert_success("ip -br link show dev bridge1 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge2 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge3 | grep UP")
-    ssh.run_assert_success("ip -br link show dev bridge4 | grep DOWN")
+
+    ssh.assert_interface_admin_down("swp_BB_")
+    ssh.assert_interface_admin_down("bridge4")
+
+    ssh.assert_interface_admin_up("swp_AA_")
+    ssh.assert_interface_admin_up("bridge1")
+    ssh.assert_interface_admin_up("bridge2")
+    ssh.assert_interface_admin_up("bridge3")
+
     ssh.run_assert_success("rm /etc/network/interfaces.d/interfaces_link_state.after.eni")
 
 
 def test_mac1(ssh, setup, get_json):
     ssh.ifreload_a()
     assert_identical_json(ssh.ifquery_ac_json(), get_json("mac1.ifquery.ac.json"))
+
+
+def test_bridge_new_port_admin_l2(ssh, setup):
+    """A new bridge port is restored up after protected enslavement."""
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+    ssh.scp("tests/eni/bridge_new_port_admin_l2.after.eni", ENI)
+    reload_output = ssh.ifreload_av()
+    assert "skipping link-up for bridge port" in reload_output
+    ssh.run_assert_success(
+        "ip -o link show dummy_new | grep -w 'master br_new'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_new | grep -w UP"
+    )
+
+    ssh.ifdown("br_new dummy_new")
+    assert ssh.run("ip link show br_new")[3] != 0
+    assert ssh.run("ip link show dummy_new")[3] != 0
+
+
+def test_bridge_existing_port_no_flap_l2(ssh, setup):
+    """Changing VLANs on an existing bridge port does not flap its link."""
+    monitor_log = "/tmp/ifupdown2-bridge-existing-monitor.log"
+    monitor_pid = "/tmp/ifupdown2-bridge-existing-monitor.pid"
+    ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
+
+    ssh.ifup_a()
+    ssh.run_assert_success("ip link set dev dummy_existing up")
+    ssh.run_assert_success(
+        "ip -o link show dummy_existing | grep -w 'master br_existing'"
+    )
+
+    ssh.run_assert_success(
+        "nohup timeout 30 stdbuf -oL ip monitor link dev dummy_existing "
+        f"> {monitor_log} 2>&1 < /dev/null & echo $! > {monitor_pid}"
+    )
+    ssh.run_assert_success(
+        f"test -s {monitor_pid} && kill -0 $(cat {monitor_pid}) && sleep 1"
+    )
+
+    ssh.run_assert_success(
+        f"sed -i 's/bridge-access 100/bridge-access 200/' {ENI}"
+    )
+    ssh.ifup("dummy_existing")
+
+    ssh.run_assert_success(
+        f"kill $(cat {monitor_pid}) 2>/dev/null || true; sleep 1"
+    )
+    monitor_output = ssh.run_assert_success(f"cat {monitor_log}").lower()
+    assert not any(
+        "state down" in line for line in monitor_output.splitlines()
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_existing | grep -w UP"
+    )
+
+    ssh.ifdown("br_existing dummy_existing")
+    ssh.run_assert_success(f"rm -f {monitor_log} {monitor_pid}")
+    assert ssh.run("ip link show br_existing")[3] != 0
+    assert ssh.run("ip link show dummy_existing")[3] != 0
+
+
+def test_vlan_bridge_binding_scope_l2(ssh, setup):
+    """Bridge binding applies to SVIs, not ordinary VLAN devices."""
+    stderr = ssh.ifup_a(return_stderr=True)
+    if stderr:
+        assert stderr == (
+            "warning: netlink: mgmt: cannot delete address 127.0.1.1/8 "
+            "dev mgmt: operation failed with "
+            "'Cannot assign requested address' (99)\n"
+        )
+
+    ordinary_vlan = ssh.run_assert_success(
+        "ip -d -o link show vlan100"
+    )
+    assert "BRIDGE_BINDING" not in ordinary_vlan
+
+    bridge_svi = ssh.run_assert_success(
+        "ip -d -o link show br_bind.200"
+    )
+    assert "BRIDGE_BINDING" in bridge_svi
+
+    ssh.ifdown("br_bind.200 br_bind vlan100 swp_AA_ swp_BB_")
+    for ifname in ("br_bind.200", "br_bind", "vlan100"):
+        assert ssh.run(f"ip link show {ifname}")[3] != 0
+    for ifname in ("swp_AA_", "swp_BB_"):
+        ssh.run_assert_success(f"ip link show {ifname}")
+
+
+def test_bond_dummy_mac_l2(ssh, setup):
+    """Missing slave state and dummy permanent-MAC data remain non-fatal."""
+    ssh.ifup_a()
+    ssh.run_assert_success(
+        "ip -d -o link show bond_dummy | grep -w 'bond'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy0 | grep -w 'master bond_dummy'"
+    )
+
+    # Re-apply an existing bond after removing its configured member list.
+    # The running-slave cache can be absent here; MAC synchronization must not
+    # iterate None or require permanent hardware-address data from dummy0.
+    ssh.run_assert_success(
+        f"sed -i '/bond-slaves dummy0/d' {ENI}"
+    )
+    ssh.ifup("bond_dummy")
+    ssh.run_assert_success(
+        "ip -d -o link show bond_dummy | grep -w 'bond'"
+    )
+
+    ssh.ifdown("bond_dummy dummy0")
+    assert ssh.run("ip link show bond_dummy")[3] != 0
+    assert ssh.run("ip link show dummy0")[3] != 0
+
+
+def test_master_conflict_l2(ssh, setup):
+    """Conflicting masters cannot steal members; valid moves remain allowed."""
+    ssh.ifup_a()
+    ssh.run_assert_success(
+        "ip -o link show dummy_bond | grep -w 'master bond_guard'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_vrf | grep -w 'master vrf_guard'"
+    )
+
+    # Misconfigure both existing members as bridge ports as well.
+    ssh.run_assert_success(
+        f"sed -i '/iface br_guard/a\\    "
+        f"bridge-ports dummy_bond dummy_vrf' {ENI}"
+    )
+    _, stdout, stderr, _ = ssh.run("ifup br_guard")
+    output = stdout.read().decode("utf-8") + stderr.read().decode("utf-8")
+    assert "skipping bridge enslavement" in output
+
+    # Neither existing master may lose its member.
+    ssh.run_assert_success(
+        "ip -o link show dummy_bond | grep -w 'master bond_guard'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_vrf | grep -w 'master vrf_guard'"
+    )
+    assert ssh.run(
+        "ls /sys/class/net/br_guard/brif | grep -w dummy_bond"
+    )[3] != 0
+    assert ssh.run(
+        "ls /sys/class/net/br_guard/brif | grep -w dummy_vrf"
+    )[3] != 0
+
+    # Remove the old VRF ownership from configuration. The now-valid move of
+    # dummy_vrf into the bridge must not be blocked by the conflict guard.
+    ssh.run_assert_success(
+        f"sed -i "
+        f"-e 's/bridge-ports dummy_bond dummy_vrf/bridge-ports dummy_vrf/' "
+        f"-e '/^    vrf vrf_guard$/d' {ENI}"
+    )
+    ssh.ifup("br_guard", ignore_stderr=True)
+    ssh.run_assert_success(
+        "ip -o link show dummy_vrf | grep -w 'master br_guard'"
+    )
+    ssh.run_assert_success(
+        "ip -o link show dummy_bond | grep -w 'master bond_guard'"
+    )
+
+    ssh.run_assert_success(
+        f"sed -i '/bridge-ports dummy_vrf/d' {ENI}"
+    )
+    ssh.ifdown(
+        "br_guard bond_guard vrf_guard dummy_bond dummy_vrf",
+        ignore_stderr=True,
+    )
+    for ifname in (
+            "br_guard", "bond_guard", "vrf_guard",
+            "dummy_bond", "dummy_vrf"):
+        assert ssh.run(f"ip link show {ifname}")[3] != 0
+
+
+def test_pvid_vni_protection_l2(ssh, setup):
+    """Repeated SVD recreation keeps the VLAN 1 tunnel mapping intact.
+
+    A collect-metadata VXLAN receives an implicit VLAN 1 PVID when it joins the
+    bridge. Reload must not treat that kernel-created PVID as stale because
+    deleting it also removes the VLAN-to-VNI tunnel mapping.
+    """
+    iterations = 20
+
+    try:
+        for iteration in range(iterations):
+            for ifname in ("br_pvid", "vxlan_pvid"):
+                ssh.run(f"ip link del {ifname} 2>/dev/null; true")
+                assert ssh.run(f"ip link show {ifname}")[3] != 0
+
+            verbose_output = ssh.ifreload_av(ignore_stdout=True)
+            tunnel_output = ssh.run_assert_success(
+                "bridge vlan tunnelshow dev vxlan_pvid"
+            )
+            mapping_present = any(
+                line.split()[-2:] == ["1", "5001"]
+                for line in tunnel_output.splitlines()
+            )
+
+            assert mapping_present, (
+                f"iteration {iteration + 1}/{iterations}: "
+                f"VLAN 1 to VNI 5001 mapping is missing: {tunnel_output!r}"
+            )
+            assert (
+                "vlan del vid 1 untagged pvid dev vxlan_pvid"
+                not in verbose_output
+            ), (
+                f"iteration {iteration + 1}/{iterations}: "
+                "reload deleted the VNI-mapped PVID"
+            )
+    finally:
+        ssh.run("ifdown br_pvid vxlan_pvid 2>/dev/null; true")
+
+    assert ssh.run("ip link show br_pvid")[3] != 0
+    assert ssh.run("ip link show vxlan_pvid")[3] != 0
+
+
+def test_pvrst_phase_cache_l2(ssh, setup):
+    """Diff reload reevaluates global PVRST mode between scheduler phases."""
+    _, stdout, stderr, _ = ssh.run("mstpctl --help")
+    help_output = (
+        stdout.read().decode("utf-8") +
+        stderr.read().decode("utf-8")
+    )
+    if "setmodepvrst" not in help_output:
+        pytest.skip("mstpctl does not support PVRST mode")
+
+    cleanup_succeeded = False
+    cleanup_output = ""
+    cleanup_protocol = None
+    try:
+        ssh.ifreload_diff = False
+        ssh.ifreload_a()
+        initial_state = json.loads(
+            ssh.run_assert_success(
+                "mstpctl showstpbridge json br_pvrst"
+            )
+        )
+        assert initial_state.get("protocol") == "rstp"
+
+        ssh.scp("tests/eni/pvrst_phase_cache_l2.after.eni", ENI)
+        ssh.ifreload_diff = True
+        apply_output = ssh.ifreload_av(ignore_stdout=True)
+
+        assert "mstpctl setmodepvrst" in apply_output
+        bridge_state = json.loads(
+            ssh.run_assert_success(
+                "mstpctl showstpbridge json br_pvrst"
+            )
+        )
+        assert bridge_state.get("protocol") == "rapid-pvst"
+    finally:
+        try:
+            ssh.scp("tests/eni/pvrst_phase_cache_l2.eni", ENI)
+            ssh.ifreload_diff = True
+            cleanup_output = ssh.ifreload_av(ignore_stdout=True)
+            cleanup_state = json.loads(
+                ssh.run_assert_success(
+                    "mstpctl showstpbridge json br_pvrst"
+                )
+            )
+            cleanup_protocol = cleanup_state.get("protocol")
+            cleanup_succeeded = True
+        finally:
+            if not cleanup_succeeded:
+                ssh.run("mstpctl clearmodepvrst 2>/dev/null; true")
+            ssh.run(
+                "ifdown br_pvrst swp_AA_ swp_BB_ swp_CC_ "
+                "2>/dev/null; true"
+            )
+
+    assert "mstpctl clearmodepvrst" in cleanup_output
+    assert cleanup_protocol == "rstp"
+    assert ssh.run("ip link show br_pvrst")[3] != 0
+    for ifname in ("swp_AA_", "swp_BB_", "swp_CC_"):
+        ssh.run_assert_success(f"ip link show {ifname}")
+
+
+def test_ethtool_single_speed_an_l2(ssh):
+    """Single-speed AN applies one speed and restores the original port state."""
+    port = ssh.translate_swp_xx("swp_AA_")
+    if not re.fullmatch(r"swp\d+", port):
+        pytest.skip("requires a plain, non-breakout physical port")
+
+    policy_value = ssh.run_assert_success(
+        "python3 - <<'PY'\n"
+        "import glob, json\n"
+        "value = None\n"
+        "paths = (glob.glob('/var/lib/ifupdown2/policy.d/*.json') + "
+        "glob.glob('/etc/network/ifupdown2/policy.d/*.json'))\n"
+        "for path in paths:\n"
+        "    try:\n"
+        "        module = json.load(open(path)).get('ethtool', {})\n"
+        "    except Exception:\n"
+        "        continue\n"
+        "    value = module.get('module_globals', {}).get(\n"
+        "        'enable-single-speed-autoneg', value)\n"
+        "print(value)\n"
+        "PY"
+    ).strip().lower()
+    if policy_value not in ("1", "on", "true", "yes"):
+        pytest.skip("single-speed autoneg policy is not enabled")
+
+    def advertised_modes(output):
+        section = output.split("Advertised link modes:", 1)[1]
+        section = section.split("Auto-negotiation enabled", 1)[0]
+        return tuple(
+            section.split("Advertised pause frame use:", 1)[0].split()
+        )
+
+    def supported_modes(output):
+        section = output.split("Supported link modes:", 1)[1]
+        return tuple(
+            section.split("Supported pause frame use:", 1)[0].split()
+        )
+
+    baseline_state = ssh.run_assert_success(f"ethtool {port}")
+    baseline_modes = advertised_modes(baseline_state)
+    if not (
+            any("100000base" in mode for mode in baseline_modes)
+            and any("25000base" in mode for mode in baseline_modes)
+            and baseline_modes == supported_modes(baseline_state)
+            and "Auto-negotiation: on" in baseline_state
+    ):
+        pytest.skip("requires all-speed AN with both 25G and 100G")
+    baseline_admin_up = "UP" in json.loads(
+        ssh.run_assert_success(f"ip -j link show {port}")
+    )[0].get("flags", [])
+
+    backup_dir = ssh.run_assert_success(
+        "mktemp -d /tmp/ifupdown2-ethtool.XXXXXX"
+    ).strip()
+    ssh.run_assert_success(
+        f"mkdir -p {backup_dir}/interfaces.d && "
+        f"cp -a {ENI} {backup_dir}/interfaces && "
+        f"cp -a {ENI_D}/. {backup_dir}/interfaces.d/"
+    )
+
+    try:
+        ssh.ifdown_x_eth0_x_mgmt()
+        ssh.scp("tests/eni/ethtool_single_speed_an_l2.eni", ENI)
+        ssh.run_assert_success(
+            f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete"
+        )
+        ssh.ifup_a()
+        first_state = ssh.run_assert_success(f"ethtool {port}")
+        first_modes = advertised_modes(first_state)
+        assert any("100000base" in mode for mode in first_modes)
+        assert not any("25000base" in mode for mode in first_modes)
+        assert "Auto-negotiation: on" in first_state
+
+        ssh.ifup(port)
+        second_state = ssh.run_assert_success(f"ethtool {port}")
+        second_modes = advertised_modes(second_state)
+        assert any("100000base" in mode for mode in second_modes)
+        assert not any("25000base" in mode for mode in second_modes)
+        assert "Auto-negotiation: on" in second_state
+
+        ssh.ifdown(port)
+        reset_state = ssh.run_assert_success(f"ethtool {port}")
+        assert advertised_modes(reset_state) == baseline_modes
+    finally:
+        _, _, _, restore_status = ssh.run(
+            f"ifdown -a -X eth0 -X mgmt || true; "
+            f"cp -af {backup_dir}/interfaces {ENI} && "
+            f"find {ENI_D} -mindepth 1 -maxdepth 1 -delete && "
+            f"cp -af {backup_dir}/interfaces.d/. {ENI_D}/ && "
+            "ifreload -a"
+        )
+        _, _, _, mode_restore_status = ssh.run(
+            f"ethtool -s {port} autoneg on "
+            "advertise 0xFFFFFFFFFFFFFFFF"
+        )
+        _, _, _, admin_restore_status = ssh.run(
+            f"ip link set dev {port} "
+            f"{'up' if baseline_admin_up else 'down'}"
+        )
+        assert restore_status == 0
+        assert mode_restore_status == 0
+        assert admin_restore_status == 0
+        restored_state = ssh.run_assert_success(f"ethtool {port}")
+        assert advertised_modes(restored_state) == baseline_modes
+        restored_admin_up = "UP" in json.loads(
+            ssh.run_assert_success(f"ip -j link show {port}")
+        )[0].get("flags", [])
+        assert restored_admin_up is baseline_admin_up
+        ssh.run_assert_success(f"rm -rf {backup_dir}")
+
+
+def test_bond_slave_diff_recovery_l2(ssh, setup):
+    """Diff recovery of a down bond slave also schedules its bond master."""
+    recovery_port = ssh.translate_swp_xx("swp_AA_")
+    try:
+        ssh.ifup_a()
+        for ifname in ("swp_AA_", "swp_BB_"):
+            ssh.run_assert_success(
+                f"ip -o link show {ifname} | grep -w 'master bond_diff'"
+            )
+
+        ssh.run_assert_success("ip link set dev swp_AA_ nomaster")
+        ssh.run_assert_success("ip link set dev swp_AA_ down")
+        assert ssh.run(
+            "ip -o link show swp_AA_ | grep -w 'master bond_diff'"
+        )[3] != 0
+
+        reload_output = ssh.ifreload_av()
+        assert recovery_port in reload_output
+        assert "bond_diff" in reload_output
+        ssh.run_assert_success(
+            "ip -o link show swp_AA_ | grep -w 'master bond_diff'"
+        )
+
+        ssh.ifreload_a()
+        ssh.run_assert_success(
+            "ip -o link show swp_AA_ | grep -w 'master bond_diff'"
+        )
+    finally:
+        ssh.run(
+            "ifdown bond_diff swp_AA_ swp_BB_ "
+            "2>/dev/null; true"
+        )
+
+
+def test_bridge_mac_svi_diff_l2(ssh, setup):
+    """Bridge MAC changes reprocess inherited and explicit-MAC SVIs."""
+    inherited_svi = "br_mac.100"
+    explicit_svi = "br_mac.200"
+    explicit_mac = "02:00:00:00:20:01"
+    try:
+        ssh.ifup_a()
+        assert ssh.run_assert_success(
+            "cat /sys/class/net/br_mac/address"
+        ).strip() == "02:00:00:00:10:01"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{inherited_svi}/address"
+        ).strip() == "02:00:00:00:10:01"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{explicit_svi}/address"
+        ).strip() == explicit_mac
+
+        ssh.scp("tests/eni/bridge_mac_svi_diff_l2.after.eni", ENI)
+        reload_output = ssh.ifreload_av()
+        for ifname in ("br_mac", inherited_svi, explicit_svi):
+            assert ifname in reload_output
+
+        assert ssh.run_assert_success(
+            "cat /sys/class/net/br_mac/address"
+        ).strip() == "02:00:00:00:10:02"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{inherited_svi}/address"
+        ).strip() == "02:00:00:00:10:02"
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{explicit_svi}/address"
+        ).strip() == explicit_mac
+
+        ssh.ifreload_a()
+        assert ssh.run_assert_success(
+            f"cat /sys/class/net/{inherited_svi}/address"
+        ).strip() == "02:00:00:00:10:02"
+    finally:
+        ssh.run(
+            "ifdown br_mac.100 br_mac.200 br_mac swp_AA_ "
+            "2>/dev/null; true"
+        )

@@ -199,7 +199,8 @@ class networkInterfaces():
 
     def process_source_directory(self, lines, cur_idx, lineno):
         self.logger.debug('processing source-directory line ..\'%s\'' % lines[cur_idx])
-        sourced_directory = re.split(self._ws_split_regex, lines[cur_idx], 2)[1]
+        parts = re.split(self._ws_split_regex, lines[cur_idx], 2)
+        sourced_directory = parts[1].strip() if len(parts) > 1 else ''
 
         if sourced_directory:
             if not os.path.isabs(sourced_directory):
@@ -490,13 +491,22 @@ class networkInterfaces():
             self.logger.warning('error processing file %s (%s)',
                              filename, str(e))
             return
-        self.read_filedata(filedata)
-        self._filestack.pop()
+        else:
+            self.read_filedata(filedata)
+        finally:
+            self._filestack.pop()
 
     def read_file_json(self, filename, fileiobuf=None):
         if fileiobuf:
-            ifacedicts = loads(fileiobuf, encoding="utf-8")
-                              #object_hook=ifaceJsonDecoder.json_object_hook)
+            # json.loads() accepts str/bytes directly; malformed buffers should
+            # be handled like malformed JSON read from a file.
+            try:
+                ifacedicts = loads(fileiobuf)
+            except JSONDecodeError as e:
+                self.logger.warning(
+                    'error loading JSON content from buffer (%s)', str(e)
+                )
+                return
         elif filename:
             self.logger.info('processing JSON formatted interfaces file %s' % filename)
 

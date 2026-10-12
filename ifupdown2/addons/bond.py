@@ -377,10 +377,6 @@ class bond(Addon, moduleBase):
         except:
             pass
 
-        if not self.sysfs.link_is_up(slave):
-            self.logger.debug(f"{slave}: bond-slave is down - skipping speed validation")
-            return True
-
         if self.current_bond_speed < 0:
             self.current_bond_speed = self.get_bond_speed(bond_slaves)
 
@@ -414,6 +410,11 @@ class bond(Addon, moduleBase):
 
             if bond_speed < 0:
                 bond_speed = slave_speed
+
+            # Got speed bond, so break here.
+            if bond_speed > 0:
+                break
+
         return bond_speed
 
     def get_bond_slave_upper_dev_ifaceobj(self, ifname, ifaceobj_getfunc):
@@ -432,11 +433,12 @@ class bond(Addon, moduleBase):
     def _add_slaves(self, ifaceobj, runningslaves, ifaceobj_getfunc=None):
         # reset the current_bond_speed
         self.current_bond_speed = -1
+        runningslaves = runningslaves or []
 
         slaves = self._get_slave_list(ifaceobj)
         if not slaves:
             self.logger.debug('%s: no slaves found' %ifaceobj.name)
-            return
+            return runningslaves
 
         clag_bond = self._is_clag_bond(ifaceobj)
 
@@ -446,6 +448,12 @@ class bond(Addon, moduleBase):
             if s not in runningslaves and s not in devices_to_enslave:
                 devices_to_enslave.append(s)
 
+        # Get a list of common running slave interfaces from both the previous and current
+        # configuration to get their bond speed
+        common_slaves = list(set(runningslaves) & set(slaves))
+        if not common_slaves:
+            common_slaves = list(set(slaves))
+
         for slave in devices_to_enslave:
             if (not ifupdownflags.flags.PERFMODE and
                 not self.cache.link_exists(slave)):
@@ -453,6 +461,30 @@ class bond(Addon, moduleBase):
                                    %(ifaceobj.name, slave), ifaceobj,
                                      raise_error=False)
                     continue
+
+            slave_objs = ifaceobj_getfunc(slave) if ifaceobj_getfunc else None
+            if (
+                    slave_objs
+                    and self.has_master_conflict(
+                        slave_objs[0], ifaceLinkPrivFlags.BOND_SLAVE
+                    )
+            ):
+                self.logger.warning(
+                    '%s: skipping bond enslavement to %s: '
+                    'already enslaved to %s (%s)'
+                    % (
+                        slave,
+                        ifaceobj.name,
+                        self.cache.get_master(slave),
+                        ifaceLinkPrivFlags.get_str(
+                            slave_objs[0].link_privflags
+                        ),
+                    )
+                )
+                continue
+
+            if not self.valid_slave_speed(ifaceobj, common_slaves, slave, ifaceobj_getfunc):
+                continue
 
             if not self.slave_has_no_subinterface(ifaceobj, slave, ifaceobj_getfunc):
                 continue
@@ -906,6 +938,8 @@ class bond(Addon, moduleBase):
 
     def set_bond_mac(self, link_exists, ifaceobj, bond_slaves):
         if not self.bond_mac_mgmt or not link_exists or ifaceobj.get_attr_value_first("hwaddress"):
+            return
+        if not bond_slaves:
             return
 
         # check if the bond mac address is correctly inherited from it's
