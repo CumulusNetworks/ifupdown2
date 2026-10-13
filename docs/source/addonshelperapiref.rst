@@ -22,3 +22,21 @@ Helper module to interact with dhclient tools.
 .. automodule:: dhclient
 
 .. autoclass:: dhclient
+
+dhcpcd
+======
+
+Helper module to interact with the dhcpcd(8) DHCP client.
+
+.. automodule:: dhcpcd
+
+.. autoclass:: dhcpcd
+
+DhcpClient
+==========
+
+Helper module to interact with the dhcpcd(8) DHCP client.
+
+.. automodule:: dhcp_client
+
+.. autoclass:: DhcpClient

@@ -19,10 +19,11 @@ try:
 
     from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.exceptions import NoDhcpClientAvailable
 
     from ifupdown2.nlmanager.nlmanager import Link
 
-    from ifupdown2.ifupdownaddons.dhclient import dhclient
+    from ifupdown2.ifupdownaddons.dhcp_client import DhcpClient
     from ifupdown2.ifupdownaddons.utilsbase import *
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
@@ -34,10 +35,11 @@ except ImportError:
 
     from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType
     from ifupdown.utils import utils
+    from ifupdown.exceptions import NoDhcpClientAvailable
 
     from nlmanager.nlmanager import Link
 
-    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.dhcp_client import DhcpClient
     from ifupdownaddons.utilsbase import *
     from ifupdownaddons.modulebase import moduleBase
 
@@ -80,10 +82,11 @@ class vrf(Addon, moduleBase):
         "0": "unspec"
     }
 
+    dhcpcmd: DhcpClient | None
+
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.dhclientcmd = None
         self.name = self.__class__.__name__
         self.vrf_mgmt_devname = policymanager.policymanager_api.get_module_globals(
             module_name=self.__class__.__name__,
@@ -127,6 +130,11 @@ class vrf(Addon, moduleBase):
         except Exception as e:
             self.ip6_rule_cache = []
             self.logger.warning('vrf: cache v6: %s' % str(e))
+
+        try:
+            self.dhcpcmd = DhcpClient()
+        except NoDhcpClientAvailable as e:
+            self.dhcpcmd = None
 
         self.l3mdev_checked = False
         self.l3mdev4_rule = False
@@ -394,7 +402,7 @@ class vrf(Addon, moduleBase):
     def _up_vrf_slave_without_master(self, ifacename, vrfname, ifaceobj, vrf_master_objs, ifaceobj_getfunc=None):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
-            in dhclient hook which requires the vrf master to be present """
+            in dhcp hook which requires the vrf master to be present """
         vrf_master = None
         if len(ifaceobj.upperifaces) > 1 and ifaceobj_getfunc:
             for upper_iface in ifaceobj.upperifaces:
@@ -446,14 +454,14 @@ class vrf(Addon, moduleBase):
 
     def _down_dhcp_slave(self, ifaceobj, vrfname):
         try:
-            dhclient_cmd_prefix = None
+            dhcp_cmd_prefix = None
             if (vrfname and self.vrf_exec_cmd_prefix and
                 self.cache.link_exists(vrfname)):
-                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix,
-                                                vrfname)
-            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+                dhcp_cmd_prefix = self.vrf_exec_cmd_prefix.split() + [vrfname]
+
+            self.dhcpcmd.release(ifaceobj.name, dhcp_cmd_prefix)
         except Exception:
-            # ignore any dhclient release errors
+            # ignore any dhcp client release errors
             pass
 
     def _handle_existing_connections(self, ifaceobj, vrfname):
@@ -1111,10 +1119,6 @@ class vrf(Addon, moduleBase):
         """ returns list of ops supported by this module """
         return list(self._run_ops.keys())
 
-    def _init_command_handlers(self):
-        if not self.dhclientcmd:
-            self.dhclientcmd = dhclient()
-
     def run(self, ifaceobj, operation, query_ifaceobj=None,
             ifaceobj_getfunc=None, **extra_args):
         """ run bond configuration on the interface object passed as argument
@@ -1136,7 +1140,7 @@ class vrf(Addon, moduleBase):
         op_handler = self._run_ops.get(operation)
         if not op_handler:
             return
-        self._init_command_handlers()
+
         if operation == 'query-checkcurr':
             op_handler(self, ifaceobj, query_ifaceobj)
         else:

@@ -112,6 +112,7 @@ class utils():
     ethtool_cmd     = '/sbin/ethtool'
     systemctl_cmd   = '/bin/systemctl'
     dpkg_cmd        = '/usr/bin/dpkg'
+    dhcpcd_cmd      = '/usr/sbin/dhcpcd'
 
     logger.info("utils init command paths")
     for cmd in ['bridge',
@@ -128,7 +129,8 @@ class utils():
                 'mstpctl',
                 'ethtool',
                 'systemctl',
-                'dpkg'
+                'dpkg',
+                'dhcpcd',
                 ]:
         if os.path.exists(vars()[cmd + '_cmd']):
             continue
@@ -679,5 +681,18 @@ class utils():
             return None
         return portlist
 
+    @staticmethod
+    def pid_exists(pid: int) -> bool:
+        """
+        Check whether there is a process with the given PID.
+        """
+        try:
+            # > If sig is 0, then no signal is sent, but existence and permission checks are still
+            # > performed; this can be used to check for the existence of a process ID or process
+            # > group ID that the caller is permitted to signal.
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        return True
 
 fcntl.fcntl(utils.DEVNULL, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
