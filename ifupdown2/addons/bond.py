@@ -447,35 +447,43 @@ class bond(Addon, moduleBase):
                 devices_to_enslave.append(s)
 
         for slave in devices_to_enslave:
-            if (not ifupdownflags.flags.PERFMODE and
-                not self.cache.link_exists(slave)):
-                    self.log_error('%s: skipping slave %s, does not exist'
-                                   %(ifaceobj.name, slave), ifaceobj,
-                                     raise_error=False)
-                    continue
+            # Missing slaves must not prevent the remaining slaves from
+            # joining the bond, including during boot in performance mode.
+            if not self.cache.link_exists(slave):
+                self.log_error('%s: skipping slave %s, does not exist'
+                               % (ifaceobj.name, slave), ifaceobj,
+                               raise_error=False)
+                continue
 
             if not self.slave_has_no_subinterface(ifaceobj, slave, ifaceobj_getfunc):
                 continue
 
-            link_up = False
-            if self.cache.link_is_up(slave):
-                self.netlink.link_down_force(slave)
-                link_up = True
+            try:
+                link_up = False
+                if self.cache.link_is_up(slave):
+                    self.netlink.link_down_force(slave)
+                    link_up = True
 
-            # if clag or ES bond: place the slave in a protodown state;
-            # (clagd will proto-up it when it is ready)
-            if clag_bond or ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND:
-                try:
-                    self.netlink.link_set_protodown_on(slave)
-                    if clag_bond:
-                        self.iproute2.link_set_protodown_reason_clag_on(slave)
-                    else:
-                        self.iproute2.link_set_protodown_reason_frr_on(slave)
-                except Exception as e:
-                    self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
+                # if clag or ES bond: place the slave in a protodown state;
+                # (clagd will proto-up it when it is ready)
+                if clag_bond or ifaceobj.link_privflags & ifaceLinkPrivFlags.ES_BOND:
+                    try:
+                        self.netlink.link_set_protodown_on(slave)
+                        if clag_bond:
+                            self.iproute2.link_set_protodown_reason_clag_on(slave)
+                        else:
+                            self.iproute2.link_set_protodown_reason_frr_on(slave)
+                    except Exception as e:
+                        self.logger.error('%s: %s' % (ifaceobj.name, str(e)))
 
-            self.enable_ipv6_if_prev_brport(slave)
-            self.netlink.link_set_master(slave, ifaceobj.name)
+                self.enable_ipv6_if_prev_brport(slave)
+                self.netlink.link_set_master(slave, ifaceobj.name)
+            except Exception as e:
+                # A slave can disappear after the cache check above.
+                self.log_error('%s: failed to enslave %s: %s'
+                               % (ifaceobj.name, slave, str(e)), ifaceobj,
+                               raise_error=False)
+                continue
             runningslaves.append(slave)
             # TODO: if this fail we should switch to iproute2
             # start a batch: down - set master - up
