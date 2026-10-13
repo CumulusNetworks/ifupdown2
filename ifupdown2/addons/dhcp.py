@@ -161,10 +161,16 @@ class dhcp(Addon, moduleBase):
             wait = str(dhcp_wait).lower() != "no"
             dhcp6_ll_wait = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                 ifname=ifaceobj.name, attr='dhcp6-ll-wait')
-            try:
-                timeout = int(dhcp6_ll_wait)+1
-            except Exception:
-                timeout = 10
+            timeout = 10
+            start_dhcp6 = False
+            if str(dhcp6_ll_wait).lower() == "no":
+                timeout = 0
+                start_dhcp6 = True
+            else:
+                try:
+                    timeout = int(dhcp6_ll_wait)+1
+                except Exception:
+                    pass
             dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                 ifname=ifaceobj.name, attr='dhcp6-duid')
             vrf = ifaceobj.get_attr_value_first('vrf')
@@ -218,22 +224,19 @@ class dhcp(Addon, moduleBase):
                             self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
                         except Exception:
                             pass
-                    #add delay before starting IPv6 dhclient to
-                    #make sure the configured interface/link is up.
-                    if timeout > 1:
-                        time.sleep(1)
                     while timeout:
                         addr_output = utils.exec_command('%s -6 addr show %s'
                                                          %(utils.ip_cmd, ifaceobj.name))
                         r = re.search('inet6 .* scope link', addr_output)
                         if r:
-                            self.dhclientcmd.start6(ifaceobj.name,
-                                                    wait=wait,
-                                                    cmd_prefix=dhclient_cmd_prefix, duid=dhcp6_duid)
-                            return
+                            start_dhcp6 = True
+                            break
+                        time.sleep(1)
                         timeout -= 1
-                        if timeout:
-                            time.sleep(1)
+                    if start_dhcp6:
+                        self.dhclientcmd.start6(ifaceobj.name,
+                                                wait=wait,
+                                                cmd_prefix=dhclient_cmd_prefix, duid=dhcp6_duid)
         except Exception as e:
             self.logger.error("%s: %s" % (ifaceobj.name, str(e)))
             ifaceobj.set_status(ifaceStatus.ERROR)
