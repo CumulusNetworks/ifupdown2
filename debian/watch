@@ -1,1 +1,7 @@
-version=3
+version=4
+  opts=\
+  filenamemangle=s%.*/@ANY_VERSION@%@PACKAGE@-$1.tar.gz%,\
+  downloadurlmangle=s%(api.github.com/repos/[^/]+/[^/]+)/git/refs/%$1/tarball/refs/%g,\
+  searchmode=plain \
+   https://api.github.com/repos/CumulusNetworks/ifupdown2/git/matching-refs/tags/ \
+   https://api.github.com/repos/[^/]+/[^/]+/git/refs/tags/@ANY_VERSION@
