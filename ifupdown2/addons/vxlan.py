@@ -191,10 +191,6 @@ class vxlan(Vxlan, moduleBase):
 
     def syntax_check(self, ifaceobj, ifaceobj_getfunc):
         if self._is_vxlan_device(ifaceobj):
-            if not ifaceobj.get_attr_value_first('vxlan-local-tunnelip') and not self._vxlan_local_tunnelip:
-                self.logger.warning('%s: missing vxlan-local-tunnelip' % ifaceobj.name)
-                return False
-
             self.check_and_raise_svd_tvd_errors(ifaceobj)
 
             return self.syntax_check_localip_anycastip_equal(
