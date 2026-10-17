@@ -90,7 +90,7 @@ class vxlan(Vxlan, moduleBase):
             "vxlan-port": {
                 "help": "vxlan UDP port (transmitted to vxlan driver)",
                 "example": ["vxlan-port 4789"],
-                "validrange": ["1", "65536"],
+                "validrange": ["1", "65535"],
                 "default": "4789",
             },
             "vxlan-physdev": {
