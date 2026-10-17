@@ -4,6 +4,7 @@ Documentation=man:interfaces(5) man:ifup(8) man:ifdown(8)
 DefaultDependencies=no
 After=local-fs.target network-pre.target
 Before=shutdown.target network.target network-online.target
+Wants=network.target
 Conflicts=shutdown.target
 Wants=systemd-udev-settle.service
 After=systemd-udev-settle.service

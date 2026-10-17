@@ -5,7 +5,7 @@ export PYBUILD_NAME=ifupdown2
 export PYBUILD_INSTALL_ARGS=--install-lib=/usr/share/ --install-scripts=/usr/share/
 
 %:
-	dh $@ --with=python3 --with systemd --buildsystem=pybuild
+	dh $@ --with=python3 --buildsystem=pybuild
 
 override_dh_installman:
 	./ifupdown2/man/genmanpages.sh ./ifupdown2/man ./man
@@ -19,11 +19,17 @@ override_dh_install:
 override_dh_auto_test:
 	@echo "Skipping tests during the build process."
 
-override_dh_systemd_start:
-	dh_systemd_start --name=networking --no-start
+execute_after_dh_auto_install:
+	rm -rf debian/ifupdown2/usr/share/tests
 
-override_dh_systemd_enable:
-	dh_systemd_enable --name=networking
+override_dh_installsystemd:
+	# should only ever be reloaded, not restarted
+	dh_installsystemd --no-stop-on-upgrade --no-restart-after-upgrade --no-start --name networking
+
+override_dh_installinit:
+	cp etc/init.d/networking debian/ifupdown2.networking.init
+	# should only ever be reloaded, not restarted
+	dh_installinit --no-stop-on-upgrade --no-restart-after-upgrade --no-start --name networking
 
 override_dh_compress:
 	dh_compress -X.py
