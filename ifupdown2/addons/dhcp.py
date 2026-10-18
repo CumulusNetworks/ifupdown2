@@ -4,7 +4,6 @@
 # Author: Roopa Prabhu, roopa@cumulusnetworks.com
 #
 
-import re
 import time
 import socket
 import logging
@@ -223,10 +222,9 @@ class dhcp(Addon, moduleBase):
                     if timeout > 1:
                         time.sleep(1)
                     while timeout:
-                        addr_output = utils.exec_command('%s -6 addr show %s'
-                                                         %(utils.ip_cmd, ifaceobj.name))
-                        r = re.search('inet6 .* scope link', addr_output)
-                        if r:
+                        lladdress = utils.exec_command('%s -6 -o a s dev %s scope link -tentative'
+                                                       %(utils.ip_cmd, ifaceobj.name))
+                        if lladdress:
                             self.dhclientcmd.start6(ifaceobj.name,
                                                     wait=wait,
                                                     cmd_prefix=dhclient_cmd_prefix, duid=dhcp6_duid)
