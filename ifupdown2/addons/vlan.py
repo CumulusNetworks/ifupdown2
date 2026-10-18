@@ -207,6 +207,22 @@ class vlan(Addon, moduleBase):
                 "vlan-bridge-binding"
             ) or self.get_attr_default_value("vlan-bridge-binding")
 
+        # vlan-bridge-binding only applies when the VLAN's lower interface is
+        # a bridge. Do not send the flag for ordinary VLAN devices.
+        is_lower_ifaceobj_bridge = False
+        if ifaceobj_getfunc and ifaceobj.lowerifaces:
+            for lower_ifname in ifaceobj.lowerifaces:
+                lower_ifaceobjs = ifaceobj_getfunc(lower_ifname) or []
+                if any(obj.link_kind & ifaceLinkKind.BRIDGE
+                       for obj in lower_ifaceobjs):
+                    is_lower_ifaceobj_bridge = True
+                    break
+        if not is_lower_ifaceobj_bridge:
+            self.logger.info(
+                f"{ifaceobj.name}: resetting vlan-bridge-binding to None"
+            )
+            vlan_bridge_binding = None
+
         bool_vlan_bridge_binding = utils.get_boolean_from_string(vlan_bridge_binding)
 
         vlan_protocol = ifaceobj.get_attr_value_first('vlan-protocol')

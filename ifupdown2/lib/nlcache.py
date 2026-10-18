@@ -1639,10 +1639,10 @@ class _NetlinkCache:
                     ip_version: [addr]
                 }
 
-    def force_address_flush_family(self, ifname, family):
+    def force_address_flush_family(self, ifname, version):
         try:
             with self._cache_lock:
-                self._addr_cache[ifname][family] = []
+                self._addr_cache[ifname][version] = []
         except Exception:
             pass
 
@@ -3141,7 +3141,10 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     # ADDRESS
     ############################################################################
 
-    def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None, nodad=False):
+    def addr_add_dry_run(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None, nodad=False, force=False):
+        if force:
+            self.addr_del_dry_run(ifname, addr, force=True)
+
         log_msg = ["netlink: ip addr add %s dev %s" % (addr, ifname)]
 
         if scope:
@@ -3161,14 +3164,24 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
         self.log_info_ifname_dry_run(ifname, " ".join(log_msg))
 
-    def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None, nodad=False):
+    def addr_add(self, ifname, addr, broadcast=None, peer=None, scope=None, preferred_lifetime=None, metric=None, nodad=False, force=False):
+        if force:
+            # Force delete the existing address before trying to add it again.
+            # This is required when changing from dhcp to static and dhcp ip is not deleted
+            try:
+                self.addr_del(ifname, addr, force)
+            except Exception:
+                # Trying to delete already deleted address will raise exception that we do not
+                # bother in force case.
+                pass
+
         log_msg = ["%s: netlink: ip addr add %s dev %s" % (ifname, addr, ifname)]
         log_msg_displayed = False
         try:
             # We might need to check if metric/peer and other attribute are also
             # correctly cached.
             # We might also need to add a "force" attribute to skip the cache check
-            if self.cache.addr_is_cached(ifname, addr):
+            if not force and self.cache.addr_is_cached(ifname, addr):
                 return
 
             if scope:
@@ -3236,11 +3249,11 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
 
     ###
 
-    def addr_del_dry_run(self, ifname, addr):
+    def addr_del_dry_run(self, ifname, addr, force=False):
         self.log_info_ifname_dry_run(ifname, "netlink: ip addr del %s dev %s" % (addr, ifname))
 
-    def addr_del(self, ifname, addr):
-        if not self.cache.addr_is_cached(ifname, addr):
+    def addr_del(self, ifname, addr, force=False):
+        if not force and not self.cache.addr_is_cached(ifname, addr):
             return
         self.logger.info("%s: netlink: ip addr del %s dev %s" % (ifname, addr, ifname))
         try:

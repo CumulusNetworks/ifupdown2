@@ -1,0 +1,20 @@
+[
+   {
+      "ifname" : "swp_AA_",
+      "vlans" : [
+         {
+            "flags" : [
+               "PVID",
+               "Egress Untagged"
+            ],
+            "vlan" : 1
+         },
+         {
+            "vlan" : 10
+         },
+         {
+            "vlan" : 20
+         }
+      ]
+   }
+]

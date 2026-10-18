@@ -43,7 +43,7 @@ EXAMPLES
 
         **required**: False
 
-        **default**: half
+        **default**: full
 
         **validvals**: half,full
 

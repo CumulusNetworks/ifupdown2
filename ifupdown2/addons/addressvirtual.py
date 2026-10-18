@@ -413,6 +413,24 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         except Exception as e:
             self.logger.info("%s: syncing macvlan forwarding with lower device forwarding state failed: %s" % (ifname, str(e)))
 
+    @staticmethod
+    def _batch_errors_are_file_exists_only(error):
+        error_str = str(error)
+        total_errors = error_str.count("RTNETLINK answers:")
+        file_exists_errors = error_str.count(
+            "RTNETLINK answers: File exists"
+        )
+        return total_errors > 0 and file_exists_errors == total_errors
+
+    def _commit_address_config_batch(self):
+        try:
+            self.iproute2.batch_commit()
+        except Exception as error:
+            if self._batch_errors_are_file_exists_only(error):
+                return
+            self.logger.error(f"Batch commit failed: {error}")
+            raise
+
     def create_macvlan_and_apply_config(self, ifaceobj, intf_config_list, vrrp=False, ifaceobj_getfunc=None):
         """
         intf_config_list = [
@@ -575,7 +593,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                 except Exception as e:
                     self.logger.debug('fix_vrf_slave_ipv6_route_metric: failed: %s' % e)
 
-        self.iproute2.batch_commit()
+        self._commit_address_config_batch()
         return hw_address_list
 
     def _up(self, ifaceobj, ifaceobj_getfunc=None):

@@ -38,7 +38,8 @@ def test_orphan_files(skip_if_any_test_failed):
     ]
     files = set(str(path) for path in Path("tests/").rglob("*") if path.is_file() and __doesnt_start_with(path, exclude_list))
 
-    if orphan_files := files - registered_files:
+    orphan_files = files - registered_files
+    if orphan_files:
         pytest.fail(f"Found orphan files: {orphan_files}")
 
 

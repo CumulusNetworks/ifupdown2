@@ -34,6 +34,7 @@ try:
     from ifupdown2.ifupdown.exceptions import *
     from ifupdown2.ifupdown.networkinterfaces import *
     from ifupdown2.ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
+    from ifupdown2.ifupdown.utils import utils
 except ImportError:
     import lib.nlcache as nlcache
 
@@ -53,6 +54,7 @@ except ImportError:
     from ifupdown.exceptions import *
     from ifupdown.networkinterfaces import *
     from ifupdown.config import ADDON_MODULES_DIR, ADDONS_CONF_PATH, IFUPDOWN2_ADDON_DROPIN_FOLDER
+    from ifupdown.utils import utils
 
 
 """
@@ -117,6 +119,22 @@ class ifupdownMain:
         # is already with its link master (hence the master check).
         if ifaceobj.link_type == ifaceLinkType.LINK_SLAVE:
             if self.diff_based:
+                if ifaceobj.link_privflags & ifaceLinkPrivFlags.BRIDGE_PORT:
+                    # Check if port is already enslaved to bridge or being newly enslaved to bridge
+                    bridge_name = self.netlink.cache.get_bridge_name_from_port(ifaceobj.name)
+
+                    if not bridge_name:
+                        # Port not yet enslaved - bridge will handle enslaving and link-up
+                        self.logger.info(
+                            f"{ifaceobj.name}: skipping link-up for bridge port (bridge module will manage)"
+                        )
+                        return
+                    else:
+                        # Port already enslaved - allow link-up for recovery
+                        self.logger.info(
+                            f"{ifaceobj.name}: bridge port already enslaved to {bridge_name}, allowing link-up"
+                        )
+
                 self.logger.debug(
                     f"{ifaceobj.name}: diff based approach will try to link-up this slave device"
                 )
@@ -2430,6 +2448,39 @@ class ifupdownMain:
                     return True
         return False
 
+    @staticmethod
+    def get_ifaceobjs_attribute_values(ifaceobjs, attribute):
+        values = []
+        for ifaceobj in ifaceobjs or []:
+            values.extend(ifaceobj.get_attr_value(attribute) or [])
+        return tuple(sorted(values))
+
+    @staticmethod
+    def normalize_configured_hwaddress(hwaddress):
+        if not hwaddress:
+            return None
+        value = utils.strip_hwaddress(str(hwaddress)).replace("-", ":")
+        try:
+            octets = value.split(":")
+            if len(octets) != 6:
+                return value
+            octet_values = [int(octet, 16) for octet in octets]
+            if any(octet > 255 for octet in octet_values):
+                return value
+            return ":".join("%02x" % octet for octet in octet_values)
+        except (TypeError, ValueError):
+            return value
+
+    @classmethod
+    def get_ifaceobjs_hwaddress_values(cls, ifaceobjs):
+        values = []
+        for ifaceobj in ifaceobjs or []:
+            for value in ifaceobj.get_attr_value("hwaddress") or []:
+                normalized = cls.normalize_configured_hwaddress(value)
+                if normalized is not None:
+                    values.append(normalized)
+        return tuple(values)
+
     def add_diff_interface_with_clag_check(self, diff_list: list, ifname: str, current_clag_interface: bool):
         diff_list.append(ifname)
         if current_clag_interface:
@@ -2444,8 +2495,18 @@ class ifupdownMain:
 
         # any changes in clagd attributes will result in all clagd interfaces
         # to be added to the run queue
-        self.clagd_change_detected = False
+        self.clagd_change_detected = (
+            self.get_ifaceobjs_attribute_values(
+                ifaceobj_dict.get("lo"),
+                "clagd-vxlan-anycast-ip",
+            )
+            != self.get_ifaceobjs_attribute_values(
+                statemanager_api.ifaceobjdict.get("lo"),
+                "clagd-vxlan-anycast-ip",
+            )
+        )
         clag_interfaces = []
+        forced_recovery_bond_slaves = []
 
         for ifname, ifaceobjs in ifaceobj_dict.items():
             current_clagd_interface = False
@@ -2468,6 +2529,15 @@ class ifupdownMain:
                 # We also do a quick check to see if the interface is right admin state
                 if not self.netlink.cache.link_exists(ifname) or self.interface_should_be_up(ifname, ifaceobjs):
                     self.add_diff_interface_with_clag_check(diff_ifname, ifname, current_clagd_interface)
+                    if (
+                            any(
+                                ifaceobj.link_privflags
+                                & ifaceLinkPrivFlags.BOND_SLAVE
+                                for ifaceobj in ifaceobjs
+                            )
+                            and ifname not in forced_recovery_bond_slaves
+                    ):
+                        forced_recovery_bond_slaves.append(ifname)
                     continue
 
                 for new, old in itertools.zip_longest(ifaceobjs, old_ifaceobjs):
@@ -2486,6 +2556,68 @@ class ifupdownMain:
                 for lower_ifname in down_dependency_graph.get(down_ifname, []):
                     if lower_ifname in ifaceobj_dict and lower_ifname not in diff_ifname:
                         diff_ifname.append(lower_ifname)
+
+        for slave_ifname in forced_recovery_bond_slaves:
+            for slave_ifaceobj in ifaceobj_dict.get(slave_ifname, []):
+                for upper_ifname in slave_ifaceobj.upperifaces or []:
+                    upper_ifaceobjs = ifaceobj_dict.get(upper_ifname)
+                    if not (
+                            upper_ifaceobjs
+                            and any(
+                                upper_ifaceobj.link_kind
+                                & ifaceLinkKind.BOND
+                                for upper_ifaceobj in upper_ifaceobjs
+                            )
+                    ):
+                        continue
+                    if upper_ifname not in diff_ifname:
+                        self.logger.info(
+                            "diff-mode: bond slave %s requires master %s"
+                            % (slave_ifname, upper_ifname)
+                        )
+                        diff_ifname.append(upper_ifname)
+
+        queued_ifnames = set(diff_ifname)
+        for bridge_ifname in tuple(diff_ifname):
+            bridge_ifaceobjs = ifaceobj_dict.get(bridge_ifname, [])
+            if not any(
+                    ifaceobj.link_kind & ifaceLinkKind.BRIDGE
+                    for ifaceobj in bridge_ifaceobjs):
+                continue
+            if self.get_ifaceobjs_hwaddress_values(
+                    bridge_ifaceobjs) == self.get_ifaceobjs_hwaddress_values(
+                        statemanager_api.ifaceobjdict.get(bridge_ifname)
+                    ):
+                continue
+
+            appended_svis = []
+            for bridge_ifaceobj in bridge_ifaceobjs:
+                for upper_ifname in bridge_ifaceobj.upperifaces or []:
+                    upper_ifaceobjs = ifaceobj_dict.get(upper_ifname)
+                    if not (
+                            upper_ifaceobjs
+                            and any(
+                                upper_ifaceobj.link_kind
+                                & ifaceLinkKind.VLAN
+                                for upper_ifaceobj in upper_ifaceobjs
+                            )
+                            and any(
+                                bridge_ifname
+                                in (upper_ifaceobj.lowerifaces or [])
+                                for upper_ifaceobj in upper_ifaceobjs
+                            )
+                    ):
+                        continue
+                    if upper_ifname not in queued_ifnames:
+                        diff_ifname.append(upper_ifname)
+                        queued_ifnames.add(upper_ifname)
+                        appended_svis.append(upper_ifname)
+
+            if appended_svis:
+                self.logger.info(
+                    "diff-mode: bridge %s MAC change requires SVIs %s"
+                    % (bridge_ifname, appended_svis)
+                )
 
         return diff_ifname
 

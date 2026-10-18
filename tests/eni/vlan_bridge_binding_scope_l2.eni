@@ -1,0 +1,32 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+
+auto swp_AA_
+iface swp_AA_
+
+auto vlan100
+iface vlan100
+    vlan-raw-device swp_AA_
+    vlan-id 100
+    vlan-bridge-binding on
+
+auto swp_BB_
+iface swp_BB_
+
+auto br_bind
+iface br_bind
+    bridge-vlan-aware yes
+    bridge-ports swp_BB_
+    bridge-vids 200
+
+auto br_bind.200
+iface br_bind.200
+    vlan-bridge-binding on

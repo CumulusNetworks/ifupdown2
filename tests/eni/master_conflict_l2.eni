@@ -1,0 +1,37 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    ip-forward off
+    ip6-forward off
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    address 127.0.0.1/8
+    address 127.0.1.1/8
+    address ::1/128
+    vrf-table auto
+
+auto dummy_bond
+iface dummy_bond
+    link-type dummy
+
+auto bond_guard
+iface bond_guard
+    bond-mode active-backup
+    bond-slaves dummy_bond
+
+auto dummy_vrf
+iface dummy_vrf
+    link-type dummy
+    vrf vrf_guard
+
+auto vrf_guard
+iface vrf_guard
+    vrf-table 4242
+
+auto br_guard
+iface br_guard
+    bridge-vlan-aware yes

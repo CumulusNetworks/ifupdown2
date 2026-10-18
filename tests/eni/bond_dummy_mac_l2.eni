@@ -1,0 +1,24 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    ip-forward off
+    ip6-forward off
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    address 127.0.0.1/8
+    address 127.0.1.1/8
+    address ::1/128
+    vrf-table auto
+
+auto dummy0
+iface dummy0
+    link-type dummy
+
+auto bond_dummy
+iface bond_dummy
+    bond-mode balance-rr
+    bond-slaves dummy0

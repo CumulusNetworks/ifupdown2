@@ -470,7 +470,7 @@ class mstpctl(Addon, moduleBase):
             except Exception as e:
                 self.logger.info(str(e))
 
-    def _add_ports(self, ifaceobj):
+    def _add_ports(self, ifaceobj, ifaceobj_getfunc=None):
         bridgeports = self._get_bridge_port_list(ifaceobj)
 
         runningbridgeports = []
@@ -493,6 +493,13 @@ class mstpctl(Addon, moduleBase):
                     self.log_warn('%s: bridge port %s does not exist'
                             %(ifaceobj.name, bridgeport))
                     err += 1
+                    continue
+                bport_objs = ifaceobj_getfunc(bridgeport) if ifaceobj_getfunc else None
+                if bport_objs and self.has_master_conflict(bport_objs[0], ifaceLinkPrivFlags.BRIDGE_PORT):
+                    self.logger.warning('%s: skipping bridge enslavement to %s: already enslaved to %s (%s)'
+                                        % (bridgeport, ifaceobj.name,
+                                           self.cache.get_master(bridgeport),
+                                           ifaceLinkPrivFlags.get_str(bport_objs[0].link_privflags)))
                     continue
                 self.netlink.link_set_master(bridgeport, ifaceobj.name)
                 self.netlink.addr_flush(bridgeport)
@@ -820,7 +827,7 @@ class mstpctl(Addon, moduleBase):
                     self.netlink.link_add_bridge(ifaceobj.name)
 
                 try:
-                    self._add_ports(ifaceobj)
+                    self._add_ports(ifaceobj, ifaceobj_getfunc)
                 except Exception as e:
                     porterr = True
                     porterrstr = str(e)

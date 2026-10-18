@@ -6,7 +6,6 @@
 
 import re
 import time
-import socket
 import logging
 
 try:
@@ -140,8 +139,8 @@ class dhcp(Addon, moduleBase):
 
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
-        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
-        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
+        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name, cleanup=True)
+        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name, cleanup=True)
 
         # today if we have an interface with both inet and inet6, if we
         # remove the inet or inet6 or both then execute ifreload, we need
@@ -258,11 +257,19 @@ class dhcp(Addon, moduleBase):
         dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                                                                        ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
-            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
-            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
+            try:
+                self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
+            except Exception:
+                # Ignore any dhclient release errors
+                pass
+            self.cache.force_address_flush_family(ifaceobj.name, 6)
         if 'inet' in ifaceobj.addr_family:
-            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
-            self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
+            try:
+                self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            except Exception:
+                # Ignore any dhclient release errors
+                pass
+            self.cache.force_address_flush_family(ifaceobj.name, 4)
 
     def _down(self, ifaceobj):
         self._dhcp_down(ifaceobj)

@@ -1,0 +1,23 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    ip-forward off
+    ip6-forward off
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    address 127.0.0.1/8
+    address 127.0.1.1/8
+    address ::1/128
+    vrf-table auto
+
+auto dum_purge
+iface dum_purge
+    link-type dummy
+    address 192.0.2.1/24
+    address 192.0.2.2/24
+    address 2001:db8:43::1/64
+    address 2001:db8:43::2/64

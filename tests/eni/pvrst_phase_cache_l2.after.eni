@@ -1,0 +1,31 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    ip-forward off
+    ip6-forward off
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    address 127.0.0.1/8
+    address 127.0.1.1/8
+    address ::1/128
+    vrf-table auto
+
+auto swp_AA_
+iface swp_AA_
+
+auto swp_BB_
+iface swp_BB_
+
+auto br_pvrst
+iface br_pvrst
+    bridge-ports swp_AA_ swp_BB_
+    bridge-vlan-aware yes
+    bridge-vids 10 20
+    bridge-pvid 1
+    bridge-stp yes
+    bridge-mcsnoop no
+    mstpctl-pvrst-mode yes

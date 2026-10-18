@@ -86,6 +86,20 @@ postinst_remove_diverts()
     _postinst_remove_diverts "/usr/share/man/man5/interfaces.5.gz"
 }
 
+remove_obsolete_shutdown_wants()
+{
+    link=/etc/systemd/system/shutdown.target.wants/networking.service
+    if [ -L "$link" ]; then
+        target=$(readlink -f "$link" 2>/dev/null || true)
+        case "$target" in
+            /lib/systemd/system/networking.service|\
+            /usr/lib/systemd/system/networking.service)
+                rm -f "$link"
+            ;;
+        esac
+    fi
+}
+
 case "$1" in
     configure)
         fix_dhclient_file_with_space
@@ -93,6 +107,7 @@ case "$1" in
         process_udev
         chmod +x /usr/share/ifupdown2/__main__.py
         postinst_remove_diverts
+        remove_obsolete_shutdown_wants
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

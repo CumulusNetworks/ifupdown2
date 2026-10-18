@@ -1299,6 +1299,22 @@ class bridge(Bridge, moduleBase):
                                   bridgeport) + 'invalid ether addr %s'
                                   %hwaddress)
                     continue
+                bport_objs = ifaceobj_getfunc(bridgeport) if ifaceobj_getfunc else None
+                if bport_objs and self.has_master_conflict(bport_objs[0], ifaceLinkPrivFlags.BRIDGE_PORT):
+                    self.logger.warning('%s: skipping bridge enslavement to %s: already enslaved to %s (%s)'
+                                        % (bridgeport, ifaceobj.name,
+                                           self.cache.get_master(bridgeport),
+                                           ifaceLinkPrivFlags.get_str(bport_objs[0].link_privflags)))
+                    continue
+
+                # When adding a port to a bridge - the port gets put into VLAN 1 this
+                # can cause packets to get leaked in VLAN 1 if the port is up and sends
+                # traffic before being put in the correct VLAN (if different than 1).
+                # To prevent this we need to set the port admin down
+                if ifaceobj.link_type != ifaceLinkType.LINK_NA:
+                    self.logger.info(f"{ifaceobj.name}: setting port {bridgeport} admin down to prevent VLAN 1 packet leakage during bridge port addition")
+                    self.netlink.link_down(bridgeport)
+
                 self.iproute2.link_set_master(bridgeport, ifaceobj.name)
                 newly_enslaved_ports.append(bridgeport)
 
@@ -1762,7 +1778,15 @@ class bridge(Bridge, moduleBase):
                     utils.diff_ids(vids_to_add, running_vids)
 
             if running_pvid and running_pvid != pvid_int and running_pvid != 0:
-                pvid_to_del = running_pvid
+                # remaining_pvid can only be [running_pvid] or []
+                remaining_pvid = (
+                    self.remove_bridge_vlans_mapped_to_vnis_from_vids_list(
+                        None,
+                        bportifaceobj,
+                        [running_pvid],
+                    )
+                )
+                pvid_to_del = remaining_pvid[-1] if remaining_pvid else None
 
             if (pvid_to_del and (pvid_to_del in vids_int) and
                 (pvid_to_del not in vids_to_add)):
@@ -1787,6 +1811,7 @@ class bridge(Bridge, moduleBase):
                            %bportifaceobj.name + ' vids = %s' %str(vids) +
                            'pvid = %s ' %pvid + '(%s)' %str(e),
                            bportifaceobj, raise_error=False)
+
         try:
             if vids_to_del:
                if pvid_to_add in vids_to_del:
@@ -2003,6 +2028,12 @@ class bridge(Bridge, moduleBase):
 
     def bridge_port_get_bridge_name(self, ifaceobj):
         bridgename = self.cache.get_bridge_name_from_port(ifaceobj.name)
+        # When the bridge port is moved from one bridge to another
+        # the order of bridge configuration will determine if the cache gives correct bridge name
+        # Fetch the bridge name from the ifaceobj.upperfaces if nlcache returns incorrect bridge
+        if bridgename and bridgename not in ifaceobj.upperifaces:
+            bridgename = None
+
         if not bridgename:
             # bridge port is not enslaved to a bridge we need to find
             # the bridge in it's upper ifaces then enslave it
@@ -2015,6 +2046,12 @@ class bridge(Bridge, moduleBase):
 
     def up_bridge_port_vlan_aware_bridge(self, ifaceobj, ifaceobj_getfunc, bridge_name, should_enslave_port):
         if should_enslave_port:
+            if self.has_master_conflict(ifaceobj, ifaceLinkPrivFlags.BRIDGE_PORT):
+                self.logger.warning('%s: skipping bridge enslavement to %s: already enslaved to %s (%s)'
+                                    % (ifaceobj.name, bridge_name,
+                                       self.cache.get_master(ifaceobj.name),
+                                       ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags)))
+                return
             self.netlink.link_set_master(ifaceobj.name, bridge_name)
 
             if ifaceobj.name not in self.svd_list:
@@ -2879,6 +2916,7 @@ class bridge(Bridge, moduleBase):
 
         self.up_apply_bridge_settings(ifaceobj, link_just_created, bridge_vlan_aware)
 
+        newly_enslaved_ports = []
         try:
             newly_enslaved_ports = self._add_ports(ifaceobj, ifaceobj_getfunc)
             self.up_apply_brports_attributes(ifaceobj, ifaceobj_getfunc, bridge_vlan_aware,
@@ -2888,7 +2926,7 @@ class bridge(Bridge, moduleBase):
         except Exception as e:
             self.logger.warning('%s: apply bridge ports settings: %s' % (ifname, str(e)))
 
-        running_ports = ''
+        running_ports = []
         try:
             running_ports = self.cache.get_slaves(ifaceobj.name)
             if not running_ports:
@@ -2906,7 +2944,7 @@ class bridge(Bridge, moduleBase):
                 self.iproute2.batch_start()
                 for p in running_ports:
                     ifaceobj_list = ifaceobj_getfunc(p)
-                    if (ifaceobj_list and ifaceobj_list[0].link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN):
+                    if (ifaceobj_list and any(obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN for obj in ifaceobj_list)):
                         self.iproute2.link_down(p)
                         continue
                     self.iproute2.link_up(p)
@@ -2920,6 +2958,22 @@ class bridge(Bridge, moduleBase):
             self._up_bridge_mac(ifaceobj, link_just_created, ifaceobj_getfunc)
         except Exception as e:
             self.logger.warning('%s: setting bridge mac address: %s' % (ifaceobj.name, str(e)))
+
+        # Check if any enslaved ports are down and bring them up
+        for brport in newly_enslaved_ports:
+            # If the bridge port in running ports, it is already been brought up
+            if brport in running_ports:
+                continue
+
+            ifaceobj_list = ifaceobj_getfunc(brport)
+            if ifaceobj_list and not any(obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN for obj in ifaceobj_list):
+                # No need to check if the link is down here as link_up will do it
+                self.logger.debug(f"{ifaceobj.name}: bridge port {brport} is enslaved to {ifaceobj.name} but link may be down")
+                try:
+                    self.netlink.link_up(brport)
+                except Exception as e:
+                    # link set up on bridge ports failed - ignore and log debug
+                    self.logger.debug("%s: %s" % (ifname, str(e)))
 
     def _get_bridge_mac(self, ifaceobj, ifname, link_just_created, ifaceobj_getfunc):
         bridge_mac_iface = self.bridge_mac_iface.get(ifname)

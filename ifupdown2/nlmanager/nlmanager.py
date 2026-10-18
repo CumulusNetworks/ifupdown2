@@ -1033,7 +1033,7 @@ class NetlinkManager(object):
         info_data[Link.IFLA_VXLAN_LEARNING] = int(learning)
         info_data[Link.IFLA_VXLAN_TTL] = ttl
 
-        if ageing:
+        if ageing is not None:
             info_data[Link.IFLA_VXLAN_AGEING] = int(ageing)
 
         if physdev:

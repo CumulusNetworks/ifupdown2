@@ -395,6 +395,24 @@ class vrf(Addon, moduleBase):
         """ If we have a vrf slave that has dhcp configured, bring up the
             vrf master now. This is needed because vrf has special handling
             in dhclient hook which requires the vrf master to be present """
+        if (
+                ifaceobj
+                and self.has_master_conflict(
+                    ifaceobj, ifaceLinkPrivFlags.VRF_SLAVE
+                )
+        ):
+            self.logger.warning(
+                '%s: skipping VRF enslavement to %s: '
+                'already enslaved to %s (%s)'
+                % (
+                    ifacename,
+                    vrfname,
+                    self.cache.get_master(ifacename),
+                    ifaceLinkPrivFlags.get_str(ifaceobj.link_privflags),
+                )
+            )
+            return
+
         vrf_master = None
         if len(ifaceobj.upperifaces) > 1 and ifaceobj_getfunc:
             for upper_iface in ifaceobj.upperifaces:
@@ -469,6 +487,26 @@ class vrf(Addon, moduleBase):
     def _up_vrf_slave(self, ifacename, vrfname, ifaceobj=None,
                       ifaceobj_getfunc=None, vrf_exists=False):
         try:
+            if (
+                    ifaceobj
+                    and self.has_master_conflict(
+                        ifaceobj, ifaceLinkPrivFlags.VRF_SLAVE
+                    )
+            ):
+                self.logger.warning(
+                    '%s: skipping VRF enslavement to %s: '
+                    'already enslaved to %s (%s)'
+                    % (
+                        ifacename,
+                        vrfname,
+                        self.cache.get_master(ifacename),
+                        ifaceLinkPrivFlags.get_str(
+                            ifaceobj.link_privflags
+                        ),
+                    )
+                )
+                return
+
             master_exists = True
             if vrf_exists or self.cache.link_exists(vrfname):
                 uppers = self.sysfs.link_get_uppers(ifacename)
@@ -516,6 +554,9 @@ class vrf(Addon, moduleBase):
             for obj in ifaceobj_getfunc(ifaceobj.lowerifaces[0]):
                 if obj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
                     self.logger.info("%s: keeping vlan down (lower device %s has link-down flag set)" % (ifaceobj.name, obj.name))
+                    return True
+                if not self.cache.link_is_up(obj.name):
+                    self.logger.info("%s: keeping vlan down (lower device %s is not admin up)" % (ifaceobj.name, obj.name))
                     return True
         return False
 
@@ -954,6 +995,10 @@ class vrf(Addon, moduleBase):
         if vrf_table == 'auto':
             vrf_table = self._get_iproute2_vrf_table(ifaceobj.name)
 
+        # Closing sockets on main VRF device before VRF slaves go down
+        # Slaves going down can prevent correct TCP termination exchanges
+        self._close_sockets(ifaceobj.name)
+
         running_slaves = self.sysfs.link_get_lowers(ifaceobj.name)
         if running_slaves:
             for s in running_slaves:
@@ -981,6 +1026,8 @@ class vrf(Addon, moduleBase):
         except Exception as e:
             self.logger.info('%s: %s' %(ifaceobj.name, str(e)))
 
+        # Closing sockets on main VRF device again in case any TCP
+        # connection re-opened since last close
         self._close_sockets(ifaceobj.name)
 
         try:

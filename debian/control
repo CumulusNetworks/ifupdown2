@@ -10,7 +10,7 @@ Build-Depends: debhelper (>= 10),
                python3-docutils
 Standards-Version: 4.5.0.2
 Homepage: https://github.com/cumulusnetworks/ifupdown2
-X-Python-Version: >= 3.7
+X-Python3-Version: >= 3.7
 
 Package: ifupdown2
 Architecture: all

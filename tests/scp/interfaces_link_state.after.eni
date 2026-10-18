@@ -1,4 +1,4 @@
-# this link should be down
+# this link should be up; inet manual does not imply link-down
 auto swp_AA_
 iface swp_AA_ inet manual
 

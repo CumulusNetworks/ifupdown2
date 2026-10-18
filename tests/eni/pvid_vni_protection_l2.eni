@@ -1,0 +1,29 @@
+auto lo
+iface lo inet loopback
+    address 192.0.2.5/32
+    vxlan-local-tunnelip 192.0.2.5
+
+auto eth0
+iface eth0 inet dhcp
+    ip-forward off
+    ip6-forward off
+    vrf mgmt
+
+auto mgmt
+iface mgmt
+    address 127.0.0.1/8
+    address 127.0.1.1/8
+    address ::1/128
+    vrf-table auto
+
+auto vxlan_pvid
+iface vxlan_pvid
+    bridge-vlan-vni-map 1=5001 3=5003
+    bridge-learning off
+    mtu 1450
+
+auto br_pvid
+iface br_pvid
+    bridge-ports vxlan_pvid
+    bridge-vlan-aware yes
+    bridge-vids 1 3
