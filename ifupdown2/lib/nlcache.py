@@ -60,6 +60,7 @@ try:
         NLM_F_REQUEST, \
         NLM_F_CREATE, \
         NLM_F_ACK, \
+        NLM_F_REPLACE, \
         RT_SCOPES, \
         INFINITY_LIFE_TIME
 
@@ -91,6 +92,7 @@ except ImportError:
         NLM_F_REQUEST, \
         NLM_F_CREATE, \
         NLM_F_ACK, \
+        NLM_F_REPLACE, \
         RT_SCOPES, \
         INFINITY_LIFE_TIME
 
@@ -406,6 +408,19 @@ class _NetlinkCache:
                 self._link_cache[ifname].attributes[Link.IFLA_MTU].value = mtu
         except Exception:
             pass
+
+    def override_link_alias(self, ifname, alias):
+        """
+        Manually override link alias in the cache and ignore any failures
+        :param ifname: Name of the interface to update
+        :param alias: New interface alias
+        """
+        try:
+            with self._cache_lock:
+                self._link_cache[ifname].attributes[Link.IFLA_IFALIAS].value = alias
+        except Exception:
+            pass
+
 
     def override_cache_unslave_link(self, slave, master):
         """
@@ -3136,6 +3151,69 @@ class NetlinkListenerWithCache(nllistener.NetlinkManagerWithListener, BaseObject
     def link_set_brport_with_info_slave_data_dry_run(self, ifname, kind, ifla_info_data, ifla_info_slave_data):
         self.log_info_ifname_dry_run(ifname, "netlink: ip link set dev %s: bridge port attributes" % ifname)
         self.logger.debug("attributes: %s" % ifla_info_slave_data)
+
+    ###
+
+    def link_set_mtu(self, ifname, mtu):
+        """
+        Sets the MTU of the given link, updating the cache on success.
+
+        :param ifname: str - Name of the interface to update
+        :param mtu: int - New MTU to set for the interface.
+        :return: True if the operation was successful
+        """
+
+        if self.cache.get_link_mtu(ifname) == mtu:
+            # no need to update
+            return
+
+        self.logger.info(f'{ifname}: netlink: ip link set dev {ifname} mtu {mtu}')
+
+        debug = RTM_SETLINK in self.debug
+        try:
+            link = Link(RTM_SETLINK, debug, use_color=self.use_color)
+            link.flags = NLM_F_REPLACE | NLM_F_REQUEST | NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+            link.add_attribute(Link.IFLA_IFNAME, ifname)
+            link.add_attribute(Link.IFLA_MTU, mtu)
+            link.build_message(next(self.sequence), self.pid)
+            result = self.tx_nlpacket_get_response_with_error(link)
+            self.cache.override_link_mtu(ifname, mtu)
+
+            return result
+        except Exception as e:
+            raise Exception(f'{ifname}: netlink: failed to set mtu to {mtu}: {str(e)}')
+
+    def link_set_alias(self, ifname, alias):
+        """
+        Sets the alias of the given link, updating the cache on success.
+
+        :param ifname: Name of the interface to update
+        :param alias: New alias to set for the interface.
+        :return: True if the operation was successful
+        """
+
+        if self.cache.get_link_alias(ifname) == alias:
+            # no need to update
+            return
+
+        self.logger.info(f'{ifname}: netlink: ip link set dev {ifname} alias {alias}')
+
+        debug = RTM_SETLINK in self.debug
+        try:
+            link = Link(RTM_SETLINK, debug, use_color=self.use_color)
+            link.flags = NLM_F_REPLACE | NLM_F_REQUEST | NLM_F_ACK
+            link.body = struct.pack('Bxxxiii', socket.AF_UNSPEC, 0, 0, 0)
+            link.add_attribute(Link.IFLA_IFNAME, ifname)
+            link.add_attribute(Link.IFLA_IFALIAS, alias or '') # empty string removes alias
+            link.build_message(next(self.sequence), self.pid)
+            result = self.tx_nlpacket_get_response_with_error(link)
+            self.cache.override_link_alias(ifname, alias)
+
+            return result
+        except Exception as e:
+            raise Exception(f'{ifname}: netlink: failed to set alias to {alias}: {str(e)}')
+
 
     ############################################################################
     # ADDRESS

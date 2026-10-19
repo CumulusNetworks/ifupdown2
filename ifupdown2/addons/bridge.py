@@ -2861,7 +2861,7 @@ class bridge(Bridge, moduleBase):
 
             bridge_mtu = self.get_bridge_mtu(ifaceobj)
             if bridge_mtu:
-                self.sysfs.link_set_mtu(ifname, bridge_mtu, int(bridge_mtu))
+                self.netlink.link_set_mtu(ifname, int(bridge_mtu))
         else:
             link_just_created = False
             self.logger.info('%s: bridge already exists' % ifname)

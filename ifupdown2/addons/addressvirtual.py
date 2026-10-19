@@ -432,13 +432,12 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
         purge_existing = False if ifupdownflags.flags.PERFMODE else True
         ifname = ifaceobj.name
 
-        update_mtu = lower_iface_mtu = lower_iface_mtu_str = None
+        update_mtu = lower_iface_mtu = None
         if ifupdownconfig.config.get("adjust_logical_dev_mtu", "1") != "0" and ifaceobj.lowerifaces and intf_config_list:
             update_mtu = True
 
         if update_mtu:
             lower_iface_mtu = self.cache.get_link_mtu(ifaceobj.name)
-            lower_iface_mtu_str = str(lower_iface_mtu)
 
         self.iproute2.batch_start()  # TODO: make sure we only do 1 ip link set down and set up (only one flap in the batch)
 
@@ -556,7 +555,7 @@ class addressvirtual(AddonWithIpBlackList, moduleBase):
                     update_mtu = False
 
                     try:
-                        self.sysfs.link_set_mtu(macvlan_ifname, mtu_str=lower_iface_mtu_str, mtu_int=lower_iface_mtu)
+                        self.netlink.link_set_mtu(macvlan_ifname, lower_iface_mtu)
                     except Exception as e:
                         self.logger.info('%s: failed to set mtu %s: %s' % (macvlan_ifname, lower_iface_mtu, e))
 
