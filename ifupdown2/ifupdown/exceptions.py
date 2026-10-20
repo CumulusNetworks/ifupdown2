@@ -61,3 +61,7 @@ class moduleNotSupported(Error):
 
 class ReservedVlanException(Error):
     pass
+
+
+class NoDhcpClientAvailable(Exception):
+    pass

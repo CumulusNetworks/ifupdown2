@@ -18,8 +18,9 @@ try:
 
     from ifupdown2.ifupdown.iface import ifaceLinkPrivFlags, ifaceStatus
     from ifupdown2.ifupdown.utils import utils
+    from ifupdown2.ifupdown.exceptions import moduleNotSupported, NoDhcpClientAvailable
 
-    from ifupdown2.ifupdownaddons.dhclient import dhclient
+    from ifupdown2.ifupdownaddons.dhcp_client import DhcpClient
     from ifupdown2.ifupdownaddons.modulebase import moduleBase
 except ImportError:
     from lib.addon import Addon
@@ -30,8 +31,9 @@ except ImportError:
 
     from ifupdown.iface import ifaceLinkPrivFlags, ifaceStatus
     from ifupdown.utils import utils
+    from ifupdown.exceptions import moduleNotSupported, NoDhcpClientAvailable
 
-    from ifupdownaddons.dhclient import dhclient
+    from ifupdownaddons.dhcp_client import DhcpClient
     from ifupdownaddons.modulebase import moduleBase
 
 
@@ -40,13 +42,14 @@ class dhcp(Addon, moduleBase):
 
     # by default we won't perform any dhcp retry
     # this can be changed by setting the module global
-    # policy: dhclient_retry_on_failure
-    DHCLIENT_DEFAULT_RETRY_ON_FAILURE = 0
+    # policy: dhcp_retry_on_failure
+    DHCP_RETRY_ON_FAILURE = 0
+
+    dhcpcmd: DhcpClient
 
     def __init__(self, *args, **kargs):
         Addon.__init__(self)
         moduleBase.__init__(self, *args, **kargs)
-        self.dhclientcmd = dhclient(**kargs)
         vrf_id = self._get_vrf_context()
         if vrf_id and vrf_id == 'mgmt':
             self.mgmt_vrf_context = True
@@ -55,19 +58,33 @@ class dhcp(Addon, moduleBase):
         self.logger.info('mgmt vrf_context = %s' %self.mgmt_vrf_context)
 
         try:
-            self.dhclient_retry_on_failure = int(
-                policymanager.policymanager_api.get_module_globals(
-                    module_name=self.__class__.__name__,
-                    attr="dhclient_retry_on_failure"
+            try:
+                self.dhcp_retry_on_failure = int(
+                    policymanager.policymanager_api.get_module_globals(
+                        module_name=self.__class__.__name__,
+                        attr="dhcp_retry_on_failure"
+                    )
                 )
-            )
+            except:
+                self.dhcp_retry_on_failure = int(
+                    policymanager.policymanager_api.get_module_globals(
+                        module_name=self.__class__.__name__,
+                        attr="dhclient_retry_on_failure"
+                    )
+                )
         except Exception:
-            self.dhclient_retry_on_failure = self.DHCLIENT_DEFAULT_RETRY_ON_FAILURE
+            self.dhcp_retry_on_failure = self.DHCP_RETRY_ON_FAILURE
 
-        if self.dhclient_retry_on_failure < 0:
-            self.dhclient_retry_on_failure = 0
+        if self.dhcp_retry_on_failure < 0:
+            self.dhcp_retry_on_failure = 0
 
-        self.logger.debug("dhclient: dhclient_retry_on_failure set to %s" % self.dhclient_retry_on_failure)
+        try:
+            self.dhcpcmd = DhcpClient()
+        except NoDhcpClientAvailable as e:
+            self.logger.warn('no dhcp client available')
+            raise moduleNotSupported(e.message)
+
+        self.logger.debug("dhcp: dhcp_retry_on_failure set to %s" % self.dhcp_retry_on_failure)
 
         self.dhclient_no_wait_on_reload = utils.get_boolean_from_string(
             policymanager.policymanager_api.get_module_globals(
@@ -80,6 +97,9 @@ class dhcp(Addon, moduleBase):
         return self.is_dhcp_allowed_on(ifaceobj, syntax_check=True)
 
     def is_dhcp_allowed_on(self, ifaceobj, syntax_check):
+        if not self.dhcpcmd:
+            return False
+
         if ifaceobj.addr_method and 'dhcp' in ifaceobj.addr_method:
             return utils.is_addr_ip_allowed_on(ifaceobj, syntax_check=True)
         return True
@@ -104,9 +124,9 @@ class dhcp(Addon, moduleBase):
             pass
         return ips
 
-    def dhclient_start_and_check(self, ifname, family, handler, wait=True, **handler_kwargs):
+    def dhcp_client_start_and_check(self, ifname, family, handler, wait=True, **handler_kwargs):
         ip_config_before = self.get_current_ip_configured(ifname, family)
-        retry = self.dhclient_retry_on_failure
+        retry = self.dhcp_retry_on_failure
 
         while retry >= 0:
             handler(ifname, wait=wait, **handler_kwargs)
@@ -114,48 +134,50 @@ class dhcp(Addon, moduleBase):
                 # In most case, the client won't have the time to find anything
                 # with the wait=False param.
                 return
-            retry = self.dhclient_check(ifname, family, ip_config_before, retry, handler_kwargs.get("cmd_prefix"))
+            retry = self.dhcp_client_check(ifname, family, ip_config_before, retry, handler_kwargs.get("cmd_prefix"))
 
-    def dhclient_check(self, ifname, family, ip_config_before, retry, dhclient_cmd_prefix):
+    def dhcp_client_check(self, ifname, family, ip_config_before, retry, dhcp_cmd_prefix: list[str]):
         diff = self.get_current_ip_configured(ifname, family).difference(ip_config_before)
 
         if diff:
             self.logger.info(
-                "%s: dhclient: new address%s detected: %s"
+                "%s: dhcp: new address%s detected: %s"
                 % (ifname, "es" if len(diff) > 1 else "", ", ".join(diff))
             )
             return -1
         else:
                 if retry > 0:
                     self.logger.error(
-                        "%s: dhclient: couldn't detect new ip address, retrying %s more times..."
+                        "%s: dhcp: couldn't detect new ip address, retrying %s more times..."
                         % (ifname, retry)
                     )
-                    self.dhclientcmd.stop(ifname)
+                    self.dhcpcmd.stop(ifname)
                 else:
-                    self.logger.error("%s: dhclient: timeout failed to detect new ip addresses" % ifname)
+                    self.logger.error("%s: dhcp: timeout failed to detect new ip addresses" % ifname)
                     return -1
         retry -= 1
         return retry
 
     def _up(self, ifaceobj):
         # if dhclient is already running do not stop and start it
-        dhclient4_running = self.dhclientcmd.is_running(ifaceobj.name)
-        dhclient6_running = self.dhclientcmd.is_running6(ifaceobj.name)
+        dhcp4_running = self.dhcpcmd.is_running(ifaceobj.name)
+        dhcp6_running = self.dhcpcmd.is_running6(ifaceobj.name)
+
+        self.logger.debug(f'dhcp v4 client running: {dhcp4_running}')
+        self.logger.debug(f'dhcp v6 client running: {dhcp6_running}')
 
         # today if we have an interface with both inet and inet6, if we
         # remove the inet or inet6 or both then execute ifreload, we need
         # to release/kill the appropriate dhclient(4/6) if they are running
-        self._down_stale_dhcp_config(ifaceobj, 'inet', dhclient4_running)
-        self._down_stale_dhcp_config(ifaceobj, 'inet6', dhclient6_running)
+        self._down_stale_dhcp_config(ifaceobj, 'inet', dhcp4_running)
+        self._down_stale_dhcp_config(ifaceobj, 'inet6', dhcp6_running)
 
         if ifaceobj.link_privflags & ifaceLinkPrivFlags.KEEP_LINK_DOWN:
-            self.logger.info("%s: bringing dhcp configuration down due to: link-down yes" % ifaceobj.name)
-            self._dhcp_down(ifaceobj)
+            self.logger.info("%s: skipping dhcp configuration: link-down yes" % ifaceobj.name)
             return
 
         try:
-            dhclient_cmd_prefix = None
+            dhcp_cmd_prefix = []
             dhcp_wait = policymanager.policymanager_api.get_attr_default(
                 module_name=self.__class__.__name__, attr='dhcp-wait')
             wait = str(dhcp_wait).lower() != "no"
@@ -170,9 +192,9 @@ class dhcp(Addon, moduleBase):
             vrf = ifaceobj.get_attr_value_first('vrf')
             if (vrf and self.vrf_exec_cmd_prefix and
                 self.cache.link_exists(vrf)):
-                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+                dhcp_cmd_prefix = self.vrf_exec_cmd_prefix.split() + [vrf]
             elif self.mgmt_vrf_context:
-                dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, 'default')
+                dhcp_cmd_prefix = self.vrf_exec_cmd_prefix.split() + ['default']
                 self.logger.info('detected mgmt vrf context starting dhclient in default vrf context')
 
             if not ifupdownflags.flags.PERFMODE and self.dhclient_no_wait_on_reload:
@@ -180,60 +202,59 @@ class dhcp(Addon, moduleBase):
                 wait = False
 
             if 'inet' in ifaceobj.addr_family:
-                if dhclient4_running:
-                    self.logger.info('dhclient4 already running on %s. '
+                if dhcp4_running:
+                    self.logger.info('dhcp4 client already running on %s. '
                                      'Not restarting.' % ifaceobj.name)
                 else:
-                    # First release any existing dhclient processes
+                    # First release any existing dhcp processes
                     try:
                         if not ifupdownflags.flags.PERFMODE:
-                            self.dhclientcmd.stop(ifaceobj.name)
+                            self.dhcpcmd.stop(ifaceobj.name)
                     except Exception:
                         pass
 
-                    self.dhclient_start_and_check(
+                    self.dhcp_client_start_and_check(
                         ifaceobj.name,
                         "inet",
-                        self.dhclientcmd.start,
+                        self.dhcpcmd.start,
                         wait=wait,
-                        cmd_prefix=dhclient_cmd_prefix
+                        cmd_prefix=dhcp_cmd_prefix
                     )
+            elif dhcp4_running:
+                # release and stop the running dhcp client if the ipv4 dhcp config vanished
+                self.logger.debug('dhcp4 running but config vanished, stopping')
+                self.dhcpcmd.release(ifaceobj.name)
+                self.dhcpcmd.stop(ifaceobj.name)
 
             if 'inet6' in ifaceobj.addr_family:
-                if dhclient6_running:
-                    self.logger.info('dhclient6 already running on %s. '
+                if dhcp6_running:
+                    self.logger.info('dhcp6 client already running on %s. '
                                      'Not restarting.' % ifaceobj.name)
                 else:
-                    accept_ra = ifaceobj.get_attr_value_first('accept_ra')
-                    if accept_ra:
-                        # XXX: Validate value
-                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                                '.accept_ra', accept_ra)
-                    autoconf = ifaceobj.get_attr_value_first('autoconf')
-                    if autoconf:
-                        # XXX: Validate value
-                        self.sysctl_set('net.ipv6.conf.%s' %ifaceobj.name +
-                                '.autoconf', autoconf)
-                        try:
-                            self.dhclientcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
-                        except Exception:
-                            pass
+                    try:
+                        self.dhcpcmd.stop6(ifaceobj.name, duid=dhcp6_duid)
+                    except Exception:
+                        pass
                     #add delay before starting IPv6 dhclient to
                     #make sure the configured interface/link is up.
                     if timeout > 1:
                         time.sleep(1)
                     while timeout:
-                        addr_output = utils.exec_command('%s -6 addr show %s'
-                                                         %(utils.ip_cmd, ifaceobj.name))
-                        r = re.search('inet6 .* scope link', addr_output)
-                        if r:
-                            self.dhclientcmd.start6(ifaceobj.name,
-                                                    wait=wait,
-                                                    cmd_prefix=dhclient_cmd_prefix, duid=dhcp6_duid)
-                            return
+                        if self.cache.link_is_up(ifaceobj.name):
+                            break
                         timeout -= 1
                         if timeout:
                             time.sleep(1)
+
+                    self.dhcpcmd.start6(ifaceobj.name,
+                                            wait=wait,
+                                            cmd_prefix=dhcp_cmd_prefix, duid=dhcp6_duid)
+            elif dhcp6_running:
+                # release and stop the running dhcp client if the ipv6 dhcp config vanished
+                self.logger.debug('dhcp6 running but config vanished, stopping')
+                self.dhcpcmd.release6(ifaceobj.name)
+                self.dhcpcmd.stop6(ifaceobj.name)
+
         except Exception as e:
             self.logger.error("%s: %s" % (ifaceobj.name, str(e)))
             ifaceobj.set_status(ifaceStatus.ERROR)
@@ -241,7 +262,7 @@ class dhcp(Addon, moduleBase):
     def _down_stale_dhcp_config(self, ifaceobj, family, dhclient_running):
         addr_family = ifaceobj.addr_family
         try:
-            if family not in ifaceobj.addr_family and dhclient_running:
+            if not family in ifaceobj.addr_family and dhclient_running:
                 ifaceobj.addr_family = [family]
                 self._dhcp_down(ifaceobj)
         except Exception:
@@ -250,18 +271,19 @@ class dhcp(Addon, moduleBase):
             ifaceobj.addr_family = addr_family
 
     def _dhcp_down(self, ifaceobj):
-        dhclient_cmd_prefix = None
+        dhcp_cmd_prefix = []
+
         vrf = ifaceobj.get_attr_value_first('vrf')
         if (vrf and self.vrf_exec_cmd_prefix and
             self.cache.link_exists(vrf)):
-            dhclient_cmd_prefix = '%s %s' %(self.vrf_exec_cmd_prefix, vrf)
+            dhcp_cmd_prefix = self.vrf_exec_cmd_prefix.split() + [vrf]
         dhcp6_duid = policymanager.policymanager_api.get_iface_default(module_name=self.__class__.__name__, \
                                                                        ifname=ifaceobj.name, attr='dhcp6-duid')
         if 'inet6' in ifaceobj.addr_family:
-            self.dhclientcmd.release6(ifaceobj.name, dhclient_cmd_prefix, duid=dhcp6_duid)
+            self.dhcpcmd.release6(ifaceobj.name, dhcp_cmd_prefix, duid=dhcp6_duid)
             self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET6)
         if 'inet' in ifaceobj.addr_family:
-            self.dhclientcmd.release(ifaceobj.name, dhclient_cmd_prefix)
+            self.dhcpcmd.release(ifaceobj.name, dhcp_cmd_prefix)
             self.cache.force_address_flush_family(ifaceobj.name, socket.AF_INET)
 
     def _down(self, ifaceobj):
@@ -272,8 +294,8 @@ class dhcp(Addon, moduleBase):
         status = ifaceStatus.SUCCESS
         dhcp_running = False
 
-        dhcp_v4 = self.dhclientcmd.is_running(ifaceobjcurr.name)
-        dhcp_v6 = self.dhclientcmd.is_running6(ifaceobjcurr.name)
+        dhcp_v4 = self.dhcpcmd.is_running(ifaceobjcurr.name)
+        dhcp_v6 = self.dhcpcmd.is_running6(ifaceobjcurr.name)
 
         if dhcp_v4:
             dhcp_running = True
@@ -294,10 +316,10 @@ class dhcp(Addon, moduleBase):
     def _query_running(self, ifaceobjrunning):
         if not self.cache.link_exists(ifaceobjrunning.name):
             return
-        if self.dhclientcmd.is_running(ifaceobjrunning.name):
+        if self.dhcpcmd.is_running(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet')
             ifaceobjrunning.addr_method = 'dhcp'
-        if self.dhclientcmd.is_running6(ifaceobjrunning.name):
+        if self.dhcpcmd.is_running6(ifaceobjrunning.name):
             ifaceobjrunning.addr_family.append('inet6')
             ifaceobjrunning.addr_method = 'dhcp6'
 

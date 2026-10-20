@@ -100,6 +100,13 @@ class __Sysfs(IO, Requirements):
         """
         return "up" == self.read_file_oneline("/sys/class/net/%s/operstate" % ifname)
 
+    def link_has_carrier(self, name: str) -> bool:
+        """
+        Checks whether the given interface has CARRIER set
+        """
+        out = self.read_file_oneline(f'/sys/class/net/{name}/carrier')
+        return out is not None and '1' in out
+
     def get_link_address(self, ifname):
         """
         Read MAC hardware address from sysfs
