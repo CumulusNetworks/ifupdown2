@@ -3798,11 +3798,17 @@ class bridge(Bridge, moduleBase):
                 pvid = int(self._get_bridge_pvid(bridge_name, ifaceobj_getfunc))
             except (TypeError, ValueError):
                 pvid = 0
-            if pvid:
-                if not running_pvid or running_pvid != pvid:
-                    ifaceobjcurr.status = ifaceStatus.ERROR
-                    ifaceobjcurr.status_str = 'bridge pvid error'
-            elif not running_pvid or running_pvid != 1:
+
+            allow_untagged = ifaceobj.get_attr_value_first('bridge-allow-untagged') or 'yes'
+
+            if allow_untagged != 'yes':
+                expected_pvid = None
+            elif pvid:
+                expected_pvid = pvid
+            else:
+                expected_pvid = 1
+
+            if running_pvid != expected_pvid:
                 ifaceobjcurr.status = ifaceStatus.ERROR
                 ifaceobjcurr.status_str = 'bridge pvid error'
 
