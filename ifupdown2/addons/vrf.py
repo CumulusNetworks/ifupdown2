@@ -265,6 +265,13 @@ class vrf(Addon, moduleBase):
                                  'map (%s)' %errstr)
             self.warn_on_vrf_map_write_err = False
 
+    def _ensure_iproute2_vrf_dir(self):
+        """Ensure the iproute2 VRF map directory exists"""
+        vrf_dir = os.path.dirname(self.iproute2_vrf_filename)
+        if not os.path.exists(vrf_dir):
+            os.makedirs(vrf_dir, exist_ok=True)
+            self.logger.info('vrf: created directory %s' % vrf_dir)
+
     def _iproute2_vrf_map_sync_to_disk(self):
         if (ifupdownflags.flags.DRYRUN or
             not self.iproute2_vrf_map_sync_to_disk):
@@ -272,6 +279,7 @@ class vrf(Addon, moduleBase):
         self.logger.info('vrf: syncing table map to %s'
                          %self.iproute2_vrf_filename)
         try:
+            self._ensure_iproute2_vrf_dir()
             with open(self.iproute2_vrf_filename, 'w') as f:
                 f.write(self.iproute2_vrf_filehdr %(self.vrf_table_id_start,
                         self.vrf_table_id_end))
@@ -286,6 +294,7 @@ class vrf(Addon, moduleBase):
                          %self.iproute2_vrf_filename)
         if ifupdownflags.flags.DRYRUN:
             return
+        self._ensure_iproute2_vrf_dir()
         fmode = 'a+' if append else 'w'
         if not append:
             # write file header
@@ -357,6 +366,7 @@ class vrf(Addon, moduleBase):
         old_vrf_name = self.iproute2_vrf_map.get(int(table_id))
         if not old_vrf_name:
             self.iproute2_vrf_map[int(table_id)] = vrfifaceobj.name
+            self._ensure_iproute2_vrf_dir()
             with open(self.iproute2_vrf_filename, "a+") as vrf_map_fd:
                 vrf_map_fd.write('%s %s\n'
                                  % (table_id, vrfifaceobj.name))
