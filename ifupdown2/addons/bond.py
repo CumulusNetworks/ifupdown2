@@ -15,6 +15,7 @@ from contextlib import suppress
 try:
     from ifupdown2.nlmanager.ipnetwork import IPv4Address
     from ifupdown2.lib.addon import Addon
+    from ifupdown2.lib.nlcache import NetlinkCacheIfnameNotFoundError
     from ifupdown2.nlmanager.nlmanager import Link
 
     from ifupdown2.ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus
@@ -28,6 +29,7 @@ try:
 except ImportError:
     from nlmanager.ipnetwork import IPv4Address
     from lib.addon import Addon
+    from lib.nlcache import NetlinkCacheIfnameNotFoundError
     from nlmanager.nlmanager import Link
 
     from ifupdown.iface import ifaceRole, ifaceLinkKind, ifaceLinkPrivFlags, ifaceLinkType, ifaceDependencyType, ifaceStatus
@@ -722,6 +724,13 @@ class bond(Addon, moduleBase):
 
                 except KeyError:
                     self.logger.warning('%s: invalid %s value %s' % (ifname, attr_name, user_config))
+
+                except NetlinkCacheIfnameNotFoundError:
+                    # bond-primary names a device that does not exist (e.g. an
+                    # unplugged or failed USB NIC). Set up the bond without a
+                    # primary instead of failing it and every interface above it.
+                    self.log_warn('%s: ignoring %s %s: device does not exist'
+                                  % (ifname, attr_name, user_config), ifaceobj)
 
         self._check_bond_mode_user_config(ifname, link_exists, ifla_info_data)
         return ifla_info_data
