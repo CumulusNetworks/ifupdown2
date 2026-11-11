@@ -368,8 +368,8 @@ class vxlan(Vxlan, moduleBase):
                 # if link doesn't exist we let the kernel define ageing
                 vxlan_ageing_str = self.get_attr_default_value("vxlan-ageing")
 
-                if vxlan_ageing_str:
-                    return int(vxlan_ageing_str)
+            if vxlan_ageing_str:
+                return int(vxlan_ageing_str)
         except Exception:
             self.log_error("%s: invalid vxlan-ageing '%s'" % (ifname, vxlan_ageing_str), ifaceobj)
 
